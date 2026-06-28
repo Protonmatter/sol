@@ -4,13 +4,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=9">
+    <link rel="stylesheet" href="styles.css?v=10">
   </head>
   <body>
     <main class="app-shell">
       <section class="stage-band" aria-label="Solar maximum engine">
         <div class="viewport">
-          <div id="sceneBadge" class="scene-badge">Cycle Lab</div>
+          <div id="stageRail" class="stage-rail" role="group" aria-label="Solar cycle stage">
+            <span class="stage-step" data-stage="minimum">Minimum</span>
+            <span class="stage-step" data-stage="rising">Rising</span>
+            <span class="stage-step" data-stage="maximum">Maximum</span>
+            <span class="stage-step" data-stage="declining">Declining</span>
+          </div>
+          <div id="baseLabel" class="base-label" aria-live="polite">Base: loading</div>
           <canvas id="solarCanvas" width="900" height="900" aria-label="Solar disk rendering"></canvas>
           <div class="status-strip" aria-live="polite">
             <div>
@@ -31,7 +37,7 @@
         <aside class="control-panel" aria-label="Model controls and status">
           <header>
             <p class="eyebrow">Solar Maximum Engine</p>
-            <h1>Research lab for learning the Sun</h1>
+            <h1>See the Sun — then see what the model knows</h1>
             <p id="plainInsight" class="insight">Loading snapshot.</p>
           </header>
 
@@ -145,6 +151,6 @@
         </div>
       </section>
     </main>
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
   </body>
 </html>

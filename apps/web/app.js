@@ -96,6 +96,55 @@ let activeMode = "cycle";
 let selectedRegionId = null;
 let projectedRegions = [];
 let projectedButterflyRegions = [];
+let activeBaseKind = "synthetic";
+let activeBaseLabel = "synthetic photosphere";
+
+// Real, recognizable Sun imagery (NASA SDO latest browse frames). These are the
+// observed photosphere base the model layers are composited onto. The disk
+// geometry below was measured from the 1024px source: the Sun is centered with
+// radius = 0.4565 * width. Loaded without crossOrigin (display-only draw; the
+// disk canvas is never read back, so a tainted canvas is fine).
+const BASE_IMAGES = {
+  continuum: {
+    url: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg",
+    label: "SDO/HMI continuum",
+    centerFrac: 0.5,
+    radiusFrac: 0.4565
+  },
+  magnetogram: {
+    url: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIB.jpg",
+    label: "SDO/HMI magnetogram",
+    centerFrac: 0.5,
+    radiusFrac: 0.4565
+  }
+};
+const baseImageCache = {};
+
+function loadBaseImage(key) {
+  if (baseImageCache[key]) return baseImageCache[key];
+  const cfg = BASE_IMAGES[key];
+  if (!cfg) return null;
+  const img = new Image();
+  img.decoding = "async";
+  img.onload = () => renderAll();
+  img.onerror = () => { baseImageCache[key].failed = true; };
+  img.src = cfg.url;
+  const entry = { img, cfg, failed: false };
+  baseImageCache[key] = entry;
+  return entry;
+}
+
+function currentBaseImage() {
+  // Prefer the white-light continuum photosphere as the observed base when the
+  // Continuum layer is on; fall back to the magnetogram if only it is selected.
+  let key = null;
+  if (controls.continuum.checked) key = "continuum";
+  else if (controls.magnetogram.checked) key = "magnetogram";
+  if (!key) return null;
+  const entry = loadBaseImage(key);
+  if (entry && !entry.failed && entry.img.complete && entry.img.naturalWidth > 0) return entry;
+  return null;
+}
 
 const controls = {
   continuum: document.getElementById("layerContinuum"),
@@ -167,6 +216,7 @@ function updateText() {
   updateLayerLegend();
   updateApplicationPanel();
   updateSelectionText();
+  updateStageRail();
 
   if (!fields.br_normalized || !fields.continuum_proxy) {
     text("plainInsight", "Snapshot is missing expected fields; degraded fallback rendering is active.");
@@ -174,7 +224,7 @@ function updateText() {
 }
 
 function modeInsight() {
-  if (activeMode === "cycle") return state.learning?.plain_language_insight || "Snapshot loaded.";
+  if (activeMode === "cycle") return beginnerCycleInsight();
   if (activeMode === "regions") return "Markers are clickable. Selecting a region changes the highlight and region summary.";
   if (activeMode === "weather") return weatherInsight();
   if (activeMode === "geometry") return "The grid overlay shows how a spherical surface is projected into the disk view.";
@@ -185,6 +235,34 @@ function modeInsight() {
 function weatherInsight() {
   const signals = state.observed_context?.space_weather_signals || {};
   return `SWPC context: Kp ${numberOrNa(signals.latest_kp, 1)}, F10.7 ${numberOrNa(signals.latest_f107, 1)}, GOES/X-ray ${compactNumberOrNa(signals.latest_goes_xray_flux)}, wind ${numberOrNa(signals.latest_solar_wind_speed_km_s, 0)} km/s. Learning view only.`;
+}
+
+// Plain-language, no-jargon first impression for the default (Cycle) view.
+// The dense SWPC-provenance string still lives in the Research panel (L3).
+const STAGE_PLAIN = {
+  "solar minimum": "its quietest point in the 11-year sunspot cycle",
+  "rising or declining phase": "ramping between quiet and active years",
+  "solar maximum": "its 11-year peak, when sunspots are most common"
+};
+
+function beginnerCycleInsight() {
+  const stage = state.learning?.cycle_stage || stageFromActivity(state.run?.activity_index || 0);
+  const count = (state.active_regions || []).length;
+  const plain = STAGE_PLAIN[String(stage).toLowerCase()] || "an active part of its cycle";
+  const are = count === 1 ? "is" : "are";
+  return `The Sun is near ${stage} — ${plain}. Right now there ${are} ${count} active ${plural(count, "region")} (sunspot groups) on the side facing us; each marker on the disk is one of them.`;
+}
+
+function updateStageRail() {
+  const stage = String(state.learning?.cycle_stage || stageFromActivity(state.run?.activity_index || 0)).toLowerCase();
+  let current = "maximum";
+  if (stage.includes("min")) current = "minimum";
+  else if (stage.includes("declin")) current = "declining";
+  else if (stage.includes("rising")) current = "rising";
+  else if (stage.includes("max")) current = "maximum";
+  document.querySelectorAll("#stageRail .stage-step").forEach((el) => {
+    el.classList.toggle("active", el.dataset.stage === current);
+  });
 }
 
 function updateSnapshotSummary(brMax, confidenceMean) {
@@ -293,8 +371,17 @@ function drawSolarDisk() {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, width, height);
 
-  drawSunBase(ctx, cx, cy, radius);
-  drawSurfaceTexture(ctx, cx, cy, radius);
+  const base = currentBaseImage();
+  if (base) {
+    drawObservedBase(ctx, base, cx, cy, radius);
+    activeBaseKind = "observed";
+    activeBaseLabel = base.cfg.label;
+  } else {
+    drawSunBase(ctx, cx, cy, radius);
+    drawSurfaceTexture(ctx, cx, cy, radius);
+    activeBaseKind = "synthetic";
+    activeBaseLabel = "synthetic photosphere";
+  }
   drawMagneticPatches(ctx, cx, cy, radius);
 
   drawModeOverlay(ctx, cx, cy, radius);
@@ -308,6 +395,33 @@ function drawSolarDisk() {
   if (controls.regions.checked) {
     drawActiveRegions(ctx, cx, cy, radius);
   }
+
+  const observed = activeBaseKind === "observed";
+  text("baseLabel", `Base: ${activeBaseLabel} (${observed ? "observed" : "synthetic"})`);
+  const baseNode = document.getElementById("baseLabel");
+  if (baseNode) baseNode.className = `base-label ${observed ? "observed" : "synthetic"}`;
+}
+
+function drawObservedBase(ctx, entry, cx, cy, radius) {
+  const { img, cfg } = entry;
+  const srcSize = img.naturalWidth;
+  const scale = radius / (srcSize * cfg.radiusFrac);
+  const srcCenter = srcSize * cfg.centerFrac;
+  const destSize = srcSize * scale;
+  const destX = cx - srcCenter * scale;
+  const destY = cy - srcCenter * scale;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(img, destX, destY, destSize, destSize);
+  // Soften the clipped limb so the real disk blends into the dark sky.
+  const limb = ctx.createRadialGradient(cx, cy, radius * 0.74, cx, cy, radius);
+  limb.addColorStop(0, "rgba(0,0,0,0)");
+  limb.addColorStop(1, "rgba(0,0,0,0.4)");
+  ctx.fillStyle = limb;
+  ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+  ctx.restore();
 }
 
 function drawSunBase(ctx, cx, cy, radius) {
@@ -365,6 +479,8 @@ function drawMagneticPatches(ctx, cx, cy, radius) {
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.clip();
+  // Let the real photosphere read through the synthetic model overlay.
+  if (activeBaseKind === "observed") ctx.globalAlpha = 0.55;
 
   for (const region of state.active_regions || []) {
     const point = projectRegion(region, cx, cy, radius);
@@ -375,7 +491,7 @@ function drawMagneticPatches(ctx, cx, cy, radius) {
     const dy = -Math.sin(tilt) * baseSize * 0.38;
     const flux = clamp(region.flux_norm || 0.5, 0.2, 1.5);
 
-    if (controls.continuum.checked) {
+    if (controls.continuum.checked && activeBaseKind !== "observed") {
       drawSpot(ctx, point.x, point.y, baseSize * 0.42 * flux, "rgba(55,18,8,0.48)", "rgba(55,18,8,0)");
     }
     if (controls.magnetogram.checked) {

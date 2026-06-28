@@ -39,7 +39,12 @@ input {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(19rem, 27rem);
   gap: 1.25rem;
-  min-height: 78vh;
+  /* The Sun is the hero: the first section fills the screen so the disk is
+     above the fold. The text column scrolls inside its own cell instead of
+     stretching the visual column into a void. */
+  height: 100vh;
+  min-height: 40rem;
+  align-items: stretch;
   padding: 1rem;
 }
 
@@ -47,7 +52,8 @@ input {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: clamp(28rem, 72vh, 48rem);
+  height: 100%;
+  min-height: 0;
   border: 1px solid #1f232c;
   background: #050507;
   overflow: hidden;
@@ -75,6 +81,61 @@ input {
   backdrop-filter: blur(8px);
 }
 
+.stage-rail {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  gap: 0.3rem;
+  max-width: calc(100% - 2rem);
+  padding: 0.35rem 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(7, 8, 10, 0.74);
+  backdrop-filter: blur(8px);
+}
+
+.stage-step {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.stage-step.active {
+  color: #1a1206;
+  background: var(--gold);
+  border-color: var(--gold);
+  font-weight: 800;
+}
+
+.base-label {
+  position: absolute;
+  top: 3.9rem;
+  left: 1rem;
+  z-index: 2;
+  max-width: calc(100% - 2rem);
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(7, 8, 10, 0.74);
+  color: #dce2e6;
+  font-size: 0.74rem;
+  backdrop-filter: blur(8px);
+  overflow-wrap: anywhere;
+}
+
+.base-label.observed {
+  border-color: rgba(64, 214, 200, 0.6);
+  color: #dffaf7;
+}
+
+.base-label.synthetic {
+  border-color: rgba(247, 183, 51, 0.6);
+  color: #f7e4b2;
+}
+
 .status-strip {
   position: absolute;
   left: 1rem;
@@ -96,6 +157,8 @@ input {
   padding: 1rem;
   background: var(--panel);
   border: 1px solid #2b303b;
+  height: 100%;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -490,8 +553,23 @@ h2 {
   }
 
   .stage-band {
+    height: auto;
     min-height: auto;
     gap: 0.8rem;
+  }
+
+  .stage-rail,
+  .base-label {
+    position: static;
+    transform: none;
+    align-self: stretch;
+    max-width: none;
+    margin-bottom: 0.55rem;
+  }
+
+  .stage-rail {
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   .control-panel {
