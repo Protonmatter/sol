@@ -13,7 +13,9 @@ LOGGER = logging.getLogger("validate_web_static")
 
 REQUIRED_IDS = {
     "solarCanvas",
-    "sceneBadge",
+    "stageRail",
+    "baseLabel",
+    "termTip",
     "plainInsight",
     "summaryPrimary",
     "summaryDetail",

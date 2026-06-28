@@ -546,6 +546,73 @@ h2 {
   cursor: crosshair;
 }
 
+/* Glossary term affordance + tooltip (plain-language help on hover/focus/tap). */
+.term {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-left: 0.15rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #090b0f;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  vertical-align: middle;
+}
+
+.term:hover,
+.term:focus-visible {
+  border-color: var(--gold);
+  color: var(--gold);
+  outline: none;
+}
+
+.legend-chip[data-term] {
+  cursor: help;
+}
+
+.legend-chip[data-term]:hover,
+.legend-chip[data-term]:focus-visible {
+  border-color: var(--gold);
+  outline: none;
+}
+
+.term-tip {
+  position: fixed;
+  z-index: 50;
+  max-width: 18rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--gold);
+  background: rgba(10, 11, 15, 0.97);
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.term-tip strong {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--gold);
+}
+
+.term-tip[hidden] {
+  display: none;
+}
+
+/* Progressive disclosure: panels hidden on a given surface get this class in JS.
+   "Today" is the beginner glance; depth is revealed on Explore/Weather/Research. */
+.surface-hide {
+  display: none !important;
+}
+
 @media (max-width: 880px) {
   .stage-band,
   .timeline-inner {

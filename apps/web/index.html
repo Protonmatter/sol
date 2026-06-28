@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="styles.css?v=11">
   </head>
   <body>
     <main class="app-shell">
@@ -53,13 +53,11 @@
             </div>
           </section>
 
-          <div class="mode-grid" role="tablist" aria-label="Application modes">
-            <button class="mode-button active" type="button" data-mode="cycle">Cycle Lab</button>
-            <button class="mode-button" type="button" data-mode="regions">Regions</button>
-            <button class="mode-button" type="button" data-mode="weather">Weather</button>
-            <button class="mode-button" type="button" data-mode="geometry">Geometry</button>
-            <button class="mode-button" type="button" data-mode="schema">Schema</button>
-            <button class="mode-button" type="button" data-mode="classroom">Classroom</button>
+          <div class="mode-grid" role="tablist" aria-label="What do you want to do?">
+            <button class="mode-button active" type="button" data-mode="today">Today</button>
+            <button class="mode-button" type="button" data-mode="explore">Explore</button>
+            <button class="mode-button" type="button" data-mode="weather">Space Weather</button>
+            <button class="mode-button" type="button" data-mode="research">Research</button>
           </div>
 
           <section class="layer-controls" aria-label="Layer controls">
@@ -76,15 +74,15 @@
 
           <section class="metric-grid" aria-label="Snapshot metrics">
             <div>
-              <span class="label">Active regions</span>
+              <span class="label">Active regions <button class="term" type="button" data-term="active-region" aria-label="What is an active region?">?</button></span>
               <strong id="regionCount">0</strong>
             </div>
             <div>
-              <span class="label">Max |Br|</span>
+              <span class="label">Max |Br| <button class="term" type="button" data-term="br" aria-label="What is Br?">?</button></span>
               <strong id="brMax">0.000</strong>
             </div>
             <div>
-              <span class="label">Confidence</span>
+              <span class="label">Confidence <button class="term" type="button" data-term="confidence" aria-label="What is confidence?">?</button></span>
               <strong id="confidenceMean">0.000</strong>
             </div>
             <div>
@@ -151,6 +149,7 @@
         </div>
       </section>
     </main>
-    <script src="app.js?v=10"></script>
+    <div id="termTip" class="term-tip" role="tooltip" hidden></div>
+    <script src="app.js?v=11"></script>
   </body>
 </html>

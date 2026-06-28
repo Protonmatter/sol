@@ -49,50 +49,63 @@ const FALLBACK_STATE = {
 };
 
 const MODE_COPY = {
-  cycle: ["Solar Cycle Lab", "Compare minimum, rising phase, maximum, and declining phase through active-region density and confidence."],
-  regions: ["Active Region Explorer", "Click a marker on the Sun. The selected active region is highlighted and summarized below."],
-  weather: ["Space Weather Impact Explorer", "Maps public SWPC context to satellite, GNSS, HF radio, aurora, and grid-risk learning panels without issuing warnings."],
-  geometry: ["Mission Geometry Viewer", "Adds observer geometry, latitude, longitude, and limb references so the rendered disk is easier to orient."],
-  schema: ["SWPC Schema Regression Harness", "Overlays adapter-health nodes for SWPC, Helioviewer, and JPL/Horizons-style geometry contracts."],
-  classroom: ["Classroom Guided Journey", "Steps through observe, infer, validate, and caveat with a quieter learning overlay."]
+  today: ["Today on the Sun", "A plain-language snapshot of where the Sun is in its cycle and what is happening on the side facing us right now."],
+  explore: ["Explore the Sun", "Toggle layers, then click any marker to inspect a sunspot group's location, size, magnetic complexity, and how confident the model is."],
+  weather: ["Space Weather", "How today's solar activity maps to things people feel on Earth — aurora, GPS, radio, and satellites. A learning view, not an alert service."],
+  research: ["Research", "The model behind the picture: the equations it runs, where its data comes from, source-adapter health, and the gates that still block operational forecasting."]
 };
 
 const APPLICATION_COPY = {
-  cycle: {
-    title: "Solar-cycle learning lab",
-    text: "Interactive minimum, rising, maximum, and declining stages with active-region growth, rotation, uncertainty, and explainable equations.",
+  today: {
+    title: "Where the Sun is now",
+    text: "The Sun runs an ~11-year cycle from quiet (minimum) to active (maximum). More sunspot groups means more flares and more aurora.",
     signals: ["stage", "regions", "confidence"]
   },
-  regions: {
-    title: "Active-region explorer",
-    text: "Clickable regions expose flux, area, tilt, complexity, and confidence while the authoritative state remains the snapshot.",
+  explore: {
+    title: "Inspect active regions",
+    text: "Each marker is a sunspot group. Click one to see its location, magnetic complexity, area, and the model's confidence.",
     signals: ["selected AR", "complexity", "confidence"]
   },
   weather: {
-    title: "Space-weather impact explorer",
-    text: "SWPC-backed Kp, F10.7, GOES/X-ray, and real-time solar-wind context drive learning panels for impact categories, not operational alerts.",
-    signals: ["Kp", "F10.7", "GOES/X-ray", "solar wind", "satellite/GNSS/HF/aurora/grid"]
+    title: "Space-weather impact",
+    text: "Public SWPC indices map to impact categories you may have heard of. Shown for learning only — this app issues no warnings.",
+    signals: ["Kp", "F10.7", "GOES/X-ray", "solar wind"]
   },
-  geometry: {
-    title: "Mission geometry viewer",
-    text: "Observer geometry is framed as JPL/NAIF SPICE-style context for orientation and replay, not a solar magnetic-field model.",
-    signals: ["observer", "latitude", "longitude"]
-  },
-  schema: {
-    title: "Research-grade model bench",
+  research: {
+    title: "Model bench & provenance",
     text: "Seeded simulations, immutable snapshots, provenance labels, adapter health, and golden checks make algorithm changes auditable.",
     signals: ["schema", "provenance", "golden tests"]
-  },
-  classroom: {
-    title: "Incident replay / classroom kiosk",
-    text: "Recent public event context can be replayed from a visual story into raw data, equations, and caveats through progressive disclosure.",
-    signals: ["observe", "infer", "validate", "caveat"]
   }
+};
+
+// Plain-language definitions surfaced via the ? affordances and legend/signal chips.
+const GLOSSARY = {
+  "active-region": ["Active region", "A magnetically intense area on the Sun, usually marked by a sunspot group. Active regions are where flares and coronal mass ejections come from."],
+  "br": ["Br — radial magnetic field", "How strongly the magnetic field points out of or into the surface at a spot. Shown here in normalized units, not calibrated Gauss."],
+  "confidence": ["Confidence", "How much the model trusts the value at a spot, from 0 (low) to 1 (high). It drops where data is sparse or the field changes quickly."],
+  "continuum": ["Continuum", "Ordinary visible (white) light from the Sun's surface. Sunspots look dark in continuum because they are cooler than their surroundings."],
+  "magnetogram": ["Magnetogram", "A map of the surface magnetic field. Opposite magnetic polarities (north/south) are drawn as opposite colors."],
+  "kp": ["Kp index", "A 0–9 scale of global geomagnetic activity. Higher Kp means stronger geomagnetic storms and aurora visible farther from the poles."],
+  "f107": ["F10.7", "The Sun's radio brightness at 10.7 cm wavelength — a long-running, reliable proxy for overall solar activity."],
+  "goes-xray": ["GOES X-ray flux", "Solar X-ray brightness measured by the GOES satellites. Spikes mark solar flares, graded C, M, and X by strength."],
+  "solar-wind": ["Solar wind", "The constant stream of charged particles flowing off the Sun. Faster, denser wind can drive geomagnetic storms at Earth."]
+};
+
+const SIGNAL_TERMS = { "Kp": "kp", "F10.7": "f107", "GOES/X-ray": "goes-xray", "solar wind": "solar-wind" };
+const LEGEND_TERMS = { continuum_proxy: "continuum", br_normalized: "magnetogram", confidence: "confidence", active_regions: "active-region" };
+
+// Which panels each surface reveals. "today" is the beginner glance (none of these).
+const MANAGED_PANELS = [".layer-controls", ".layer-legend", ".metric-grid", ".mode-copy", ".selection-panel", ".application-panel", ".research-panel"];
+const SURFACE_PANELS = {
+  today: [],
+  explore: [".layer-controls", ".layer-legend", ".metric-grid", ".mode-copy", ".selection-panel"],
+  weather: [".metric-grid", ".mode-copy", ".application-panel"],
+  research: [".layer-controls", ".layer-legend", ".metric-grid", ".mode-copy", ".selection-panel", ".application-panel", ".research-panel"]
 };
 
 let state = FALLBACK_STATE;
 let feedStatus = null;
-let activeMode = "cycle";
+let activeMode = "today";
 let selectedRegionId = null;
 let projectedRegions = [];
 let projectedButterflyRegions = [];
@@ -178,9 +191,22 @@ async function loadFeedStatus() {
 }
 
 function renderAll() {
+  applySurfaceVisibility();
   updateText();
   drawSolarDisk();
   drawButterfly();
+}
+
+function applySurfaceVisibility() {
+  const panel = document.querySelector(".control-panel");
+  if (panel) panel.setAttribute("data-surface", activeMode);
+  const show = new Set(SURFACE_PANELS[activeMode] || []);
+  for (const selector of MANAGED_PANELS) {
+    const node = document.querySelector(selector);
+    if (node) node.classList.toggle("surface-hide", !show.has(selector));
+  }
+  const research = document.querySelector(".research-panel");
+  if (research) research.open = activeMode === "research";
 }
 
 function updateText() {
@@ -202,7 +228,6 @@ function updateText() {
   text("schemaVersion", state.schema_version || "unknown");
   text("modeTitle", mode[0]);
   text("modeText", mode[1]);
-  text("sceneBadge", mode[0]);
   text("journeyTitle", state.learning?.cycle_stage || "Solar journey");
   text("journeyText", mode[1]);
   text("calibrationState", state.calibration_state || "not reported");
@@ -224,12 +249,11 @@ function updateText() {
 }
 
 function modeInsight() {
-  if (activeMode === "cycle") return beginnerCycleInsight();
-  if (activeMode === "regions") return "Markers are clickable. Selecting a region changes the highlight and region summary.";
+  if (activeMode === "today") return beginnerCycleInsight();
+  if (activeMode === "explore") return "Click any marker on the Sun to inspect that sunspot group. Use the layer toggles to add or remove the magnetic-field and confidence overlays.";
   if (activeMode === "weather") return weatherInsight();
-  if (activeMode === "geometry") return "The grid overlay shows how a spherical surface is projected into the disk view.";
-  if (activeMode === "schema") return "Adapter nodes show which public-data contracts feed the snapshot and cache workflow.";
-  return "The classroom overlay reveals the model in stages without hiding uncertainty.";
+  if (activeMode === "research") return "This view shows what the model is and is not: the equations it runs, where its data comes from, and what still blocks operational forecasting.";
+  return beginnerCycleInsight();
 }
 
 function weatherInsight() {
@@ -300,6 +324,12 @@ function updateLayerLegend() {
     const chip = document.createElement("span");
     chip.className = `legend-chip ${layer.kind || "degraded"}`;
     chip.textContent = `${layer.label || layer.id}: ${layer.kind || "unknown"}`;
+    const term = LEGEND_TERMS[layer.id];
+    if (term) {
+      chip.setAttribute("data-term", term);
+      chip.setAttribute("tabindex", "0");
+      chip.setAttribute("role", "button");
+    }
     legend.appendChild(chip);
   }
 }
@@ -312,12 +342,19 @@ function updateApplicationPanel() {
   if (!target) return;
   target.textContent = "";
   const signalValues = signalLabels(app.signals);
-  for (const item of signalValues) {
+  app.signals.forEach((signal, index) => {
     const chip = document.createElement("span");
     chip.className = "signal-chip";
-    chip.textContent = item;
+    chip.textContent = signalValues[index];
+    const term = SIGNAL_TERMS[signal];
+    if (term) {
+      chip.setAttribute("data-term", term);
+      chip.setAttribute("tabindex", "0");
+      chip.setAttribute("role", "button");
+      chip.style.cursor = "help";
+    }
     target.appendChild(chip);
-  }
+  });
 }
 
 function signalLabels(signals) {
@@ -523,7 +560,7 @@ function drawActiveRegions(ctx, cx, cy, radius) {
     if (!point || point.z < -0.15) continue;
     projectedRegions.push({ ...point, region });
     const isSelected = selected && selected.id === region.id;
-    const size = (activeMode === "regions" ? 6 : 4) + 12 * clamp(region.complexity || 0.3, 0, 1);
+    const size = (activeMode === "explore" ? 6 : 4) + 12 * clamp(region.complexity || 0.3, 0, 1);
     ctx.beginPath();
     ctx.arc(point.x, point.y, size + (isSelected ? 5 : 0), 0, Math.PI * 2);
     ctx.fillStyle = isSelected ? "rgba(247,183,51,0.25)" : "rgba(64,214,200,0.18)";
@@ -532,7 +569,7 @@ function drawActiveRegions(ctx, cx, cy, radius) {
     ctx.strokeStyle = isSelected ? "#f7b733" : region.flux_norm >= 0.7 ? "#d958a7" : "#40d6c8";
     ctx.stroke();
 
-    if (activeMode === "regions" && (isSelected || region.complexity > 0.78)) {
+    if (activeMode === "explore" && (isSelected || region.complexity > 0.78)) {
       ctx.fillStyle = "rgba(246,243,232,0.92)";
       ctx.font = `${Math.max(11, radius * 0.032)}px Segoe UI, sans-serif`;
       ctx.fillText(`AR ${region.id}`, point.x + size + 5, point.y - size - 4);
@@ -541,16 +578,15 @@ function drawActiveRegions(ctx, cx, cy, radius) {
 }
 
 function drawModeOverlay(ctx, cx, cy, radius) {
-  if (activeMode === "cycle") {
+  if (activeMode === "today") {
     drawLatitudeBands(ctx, cx, cy, radius, "rgba(247,183,51,0.12)");
+  } else if (activeMode === "explore") {
+    drawLatitudeBands(ctx, cx, cy, radius, "rgba(247,183,51,0.12)");
+    drawGeometryOverlay(ctx, cx, cy, radius);
   } else if (activeMode === "weather") {
     drawWeatherOverlay(ctx, cx, cy, radius);
-  } else if (activeMode === "geometry") {
-    drawGeometryOverlay(ctx, cx, cy, radius);
-  } else if (activeMode === "schema") {
+  } else if (activeMode === "research") {
     drawSchemaOverlay(ctx, cx, cy, radius);
-  } else if (activeMode === "classroom") {
-    drawClassroomOverlay(ctx, cx, cy, radius);
   }
 }
 
@@ -765,7 +801,7 @@ function selectedRegion() {
   if (selectedRegionId != null) {
     return regions.find((region) => region.id === selectedRegionId) || null;
   }
-  if (activeMode !== "regions" || !regions.length) return null;
+  if (activeMode !== "explore" || !regions.length) return null;
   return [...regions].sort((a, b) => (b.complexity || 0) - (a.complexity || 0))[0];
 }
 
@@ -1142,7 +1178,7 @@ for (const input of Object.values(controls)) {
 document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => {
     activeMode = button.dataset.mode;
-    if (activeMode === "regions" && selectedRegionId == null) {
+    if (activeMode === "explore" && selectedRegionId == null) {
       const region = selectedRegion();
       selectedRegionId = region ? region.id : null;
     }
@@ -1173,7 +1209,7 @@ document.getElementById("solarCanvas").addEventListener("click", (event) => {
   }
   if (best) {
     selectedRegionId = best.item.region.id;
-    activeMode = "regions";
+    activeMode = "explore";
     updateModeButtons();
     renderAll();
   }
@@ -1193,7 +1229,7 @@ document.getElementById("butterflyCanvas").addEventListener("click", (event) => 
   }
   if (best) {
     selectedRegionId = best.item.region.id;
-    activeMode = "regions";
+    activeMode = "explore";
     updateModeButtons();
     renderAll();
   }
@@ -1205,4 +1241,66 @@ let resizeTimer = 0;
 window.addEventListener("resize", () => {
   window.clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(renderAll, 120);
+});
+
+// --- Glossary tooltips: plain-language help on hover, keyboard focus, and tap. ---
+const termTip = document.getElementById("termTip");
+let tipPinned = false;
+
+function showTip(target) {
+  if (!termTip) return;
+  const entry = GLOSSARY[target.getAttribute("data-term")];
+  if (!entry) return;
+  termTip.textContent = "";
+  const title = document.createElement("strong");
+  title.textContent = entry[0];
+  termTip.appendChild(title);
+  termTip.appendChild(document.createTextNode(entry[1]));
+  termTip.hidden = false;
+  const rect = target.getBoundingClientRect();
+  const tip = termTip.getBoundingClientRect();
+  let left = Math.min(rect.left, window.innerWidth - tip.width - 8);
+  let top = rect.bottom + 8;
+  if (top + tip.height > window.innerHeight - 8) top = rect.top - tip.height - 8;
+  termTip.style.left = `${Math.max(8, left)}px`;
+  termTip.style.top = `${Math.max(8, top)}px`;
+}
+
+function hideTip() {
+  if (termTip) termTip.hidden = true;
+  tipPinned = false;
+}
+
+document.addEventListener("mouseover", (event) => {
+  const target = event.target.closest ? event.target.closest("[data-term]") : null;
+  if (target && !tipPinned) showTip(target);
+});
+document.addEventListener("mouseout", (event) => {
+  const target = event.target.closest ? event.target.closest("[data-term]") : null;
+  if (target && !tipPinned) hideTip();
+});
+document.addEventListener("focusin", (event) => {
+  const target = event.target.closest ? event.target.closest("[data-term]") : null;
+  if (target) showTip(target);
+});
+document.addEventListener("focusout", (event) => {
+  const target = event.target.closest ? event.target.closest("[data-term]") : null;
+  if (target && !tipPinned) hideTip();
+});
+document.addEventListener("click", (event) => {
+  const target = event.target.closest ? event.target.closest("[data-term]") : null;
+  if (target) {
+    event.preventDefault();
+    if (tipPinned && !termTip.hidden) {
+      hideTip();
+    } else {
+      showTip(target);
+      tipPinned = true;
+    }
+  } else if (tipPinned) {
+    hideTip();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideTip();
 });
