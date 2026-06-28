@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Solar Maximum Engine</title>
+    <link rel="stylesheet" href="styles.css?v=9">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="stage-band" aria-label="Solar maximum engine">
+        <div class="viewport">
+          <div id="sceneBadge" class="scene-badge">Cycle Lab</div>
+          <canvas id="solarCanvas" width="900" height="900" aria-label="Solar disk rendering"></canvas>
+          <div class="status-strip" aria-live="polite">
+            <div>
+              <span class="label">Stage</span>
+              <strong id="cycleStage">Loading</strong>
+            </div>
+            <div>
+              <span class="label">Source</span>
+              <strong id="sourceMode">unknown</strong>
+            </div>
+            <div>
+              <span class="label">Run time</span>
+              <strong id="runTime">0.00 days</strong>
+            </div>
+          </div>
+        </div>
+
+        <aside class="control-panel" aria-label="Model controls and status">
+          <header>
+            <p class="eyebrow">Solar Maximum Engine</p>
+            <h1>Research lab for learning the Sun</h1>
+            <p id="plainInsight" class="insight">Loading snapshot.</p>
+          </header>
+
+          <section class="summary-panel" aria-label="Snapshot summary">
+            <span class="label">What you are seeing</span>
+            <strong id="summaryPrimary">Loading snapshot.</strong>
+            <p id="summaryDetail">The web app renders the current immutable state snapshot.</p>
+            <div class="state-row" aria-label="Runtime state">
+              <span id="dataState" class="state-pill">data: loading</span>
+              <span id="ingestState" class="state-pill">feed: loading</span>
+              <span id="readinessState" class="state-pill">readiness: loading</span>
+              <a class="timeline-link" href="#timeline">Timeline</a>
+            </div>
+          </section>
+
+          <div class="mode-grid" role="tablist" aria-label="Application modes">
+            <button class="mode-button active" type="button" data-mode="cycle">Cycle Lab</button>
+            <button class="mode-button" type="button" data-mode="regions">Regions</button>
+            <button class="mode-button" type="button" data-mode="weather">Weather</button>
+            <button class="mode-button" type="button" data-mode="geometry">Geometry</button>
+            <button class="mode-button" type="button" data-mode="schema">Schema</button>
+            <button class="mode-button" type="button" data-mode="classroom">Classroom</button>
+          </div>
+
+          <section class="layer-controls" aria-label="Layer controls">
+            <label><input id="layerContinuum" type="checkbox" checked> Continuum</label>
+            <label><input id="layerMagnetogram" type="checkbox" checked> Magnetogram</label>
+            <label><input id="layerConfidence" type="checkbox"> Confidence</label>
+            <label><input id="layerRegions" type="checkbox" checked> Active regions</label>
+          </section>
+
+          <section class="layer-legend" aria-label="Visible layer labels">
+            <span class="label">Visible layers</span>
+            <div id="layerLegend" class="legend-row"></div>
+          </section>
+
+          <section class="metric-grid" aria-label="Snapshot metrics">
+            <div>
+              <span class="label">Active regions</span>
+              <strong id="regionCount">0</strong>
+            </div>
+            <div>
+              <span class="label">Max |Br|</span>
+              <strong id="brMax">0.000</strong>
+            </div>
+            <div>
+              <span class="label">Confidence</span>
+              <strong id="confidenceMean">0.000</strong>
+            </div>
+            <div>
+              <span class="label">Schema</span>
+              <strong id="schemaVersion">unknown</strong>
+            </div>
+          </section>
+
+          <section class="mode-copy" aria-label="Mode details">
+            <h2 id="modeTitle">Solar Cycle Lab</h2>
+            <p id="modeText"></p>
+          </section>
+
+          <section class="selection-panel" aria-label="Selected active region summary" aria-live="polite">
+            <span class="label">Selected region</span>
+            <strong id="selectionTitle">Click an active region</strong>
+            <p id="selectionText">Choose Regions mode or click a marker on the solar disk to inspect magnetic complexity and confidence.</p>
+          </section>
+
+          <section class="application-panel" aria-label="High-value application">
+            <span class="label">V1 application</span>
+            <strong id="applicationTitle">Solar-cycle learning lab</strong>
+            <p id="applicationText">Interactive cycle stages with uncertainty and explainable equations.</p>
+            <div id="applicationSignals" class="signal-grid" aria-label="Application signals"></div>
+          </section>
+
+          <details class="research-panel">
+            <summary>Research panel</summary>
+            <div class="equation-block">
+              <code>dBr/dt = -Omega(theta)dBr/dphi + eta Laplace_s Br + S - Br/tau</code>
+              <code>K = P_f / (P_f + R), x_a = x_f + freshness K (y - x_f)</code>
+            </div>
+            <dl class="research-list">
+              <div><dt>Calibration</dt><dd id="calibrationState">unknown</dd></div>
+              <div><dt>Rendered layers</dt><dd id="layerLabels">none</dd></div>
+              <div><dt>Observation data</dt><dd id="observationState">none</dd></div>
+              <div><dt>Source adapters</dt><dd id="adapterHealth">not loaded</dd></div>
+              <div><dt>Daily feed health</dt><dd id="feedHealth">not loaded</dd></div>
+              <div>
+                <dt>Public method anchors</dt>
+                <dd id="sourceAnchors">
+                  <a href="https://www.nngroup.com/articles/progressive-disclosure/">NN/g progressive disclosure</a>;
+                  <a href="https://www.swpc.noaa.gov/products-and-data">NOAA SWPC data/products</a>;
+                  <a href="https://api.helioviewer.org/docs/v2/">Helioviewer API</a>;
+                  <a href="https://naif.jpl.nasa.gov/naif/">JPL/NAIF SPICE</a>;
+                  <a href="https://www.swpc.noaa.gov/products/wsa-enlil-solar-wind-prediction">NOAA WSA-Enlil</a>.
+                  No SpaceX equivalence is claimed.
+                </dd>
+              </div>
+              <div><dt>Operational status</dt><dd id="operationalReadiness">not evaluated</dd></div>
+              <div><dt>Caveats</dt><dd id="warningList">none</dd></div>
+            </dl>
+          </details>
+        </aside>
+      </section>
+
+      <section id="timeline" class="timeline-band" aria-label="Solar cycle timeline">
+        <div class="timeline-inner">
+          <div class="timeline-copy">
+            <h2 id="journeyTitle">Solar maximum</h2>
+            <p id="journeyText">Snapshot-driven view of magnetic activity, uncertainty, and observation provenance.</p>
+          </div>
+          <canvas id="butterflyCanvas" width="980" height="220" aria-label="Butterfly diagram"></canvas>
+        </div>
+      </section>
+    </main>
+    <script src="app.js?v=9"></script>
+  </body>
+</html>

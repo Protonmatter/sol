@@ -1,0 +1,224 @@
+{
+  "adapter_health": [
+    {
+      "id": "swpc-rtsw-mag-1m",
+      "local_path": "tests\\swpc_scn26_21\\rtsw_mag_1m_new.json",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 215,
+      "state": "fixture"
+    },
+    {
+      "id": "swpc-rtsw-wind-1m",
+      "local_path": "tests\\swpc_scn26_21\\rtsw_wind_1m_new.json",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 185,
+      "state": "fixture"
+    },
+    {
+      "id": "swpc-rtsw-ephemerides-1h",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "swpc-observed-cycle-indices",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "swpc-predicted-cycle",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "swpc-solar-regions",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "swpc-sunspot-report",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "swpc-goes-xrays-1-day",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "swpc-goes-xray-flares-7-day",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "helioviewer-datasources",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "jpl-horizons-observer-geometry",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    }
+  ],
+  "adapters": [
+    {
+      "default_quality": "public real-time solar wind context; preserve source and active flags",
+      "id": "swpc-rtsw-mag-1m",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC RTSW magnetometer",
+      "url": "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
+    },
+    {
+      "default_quality": "public real-time plasma context; preserve source and active flags",
+      "id": "swpc-rtsw-wind-1m",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC RTSW wind",
+      "url": "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
+    },
+    {
+      "default_quality": "satellite/observer context for RTSW measurements",
+      "id": "swpc-rtsw-ephemerides-1h",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC RTSW ephemerides",
+      "url": "https://services.swpc.noaa.gov/json/rtsw/rtsw_ephemerides_1h.json"
+    },
+    {
+      "default_quality": "monthly cycle context for research display and activity proxy",
+      "id": "swpc-observed-cycle-indices",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC observed solar-cycle indices",
+      "url": "https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json"
+    },
+    {
+      "default_quality": "public NOAA cycle progression context; not an internal forecast model",
+      "id": "swpc-predicted-cycle",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC predicted solar-cycle progression",
+      "url": "https://services.swpc.noaa.gov/json/solar-cycle/predicted-solar-cycle.json"
+    },
+    {
+      "default_quality": "daily active-region context for research model input",
+      "id": "swpc-solar-regions",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC solar regions",
+      "url": "https://services.swpc.noaa.gov/json/solar_regions.json"
+    },
+    {
+      "default_quality": "daily sunspot context for cycle-stage teaching display",
+      "id": "swpc-sunspot-report",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC sunspot report",
+      "url": "https://services.swpc.noaa.gov/json/sunspot_report.json"
+    },
+    {
+      "default_quality": "recent XRS context for flare activity research display",
+      "id": "swpc-goes-xrays-1-day",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC GOES primary X-ray flux",
+      "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
+    },
+    {
+      "default_quality": "recent flare-event context; not used for warnings",
+      "id": "swpc-goes-xray-flares-7-day",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC GOES X-ray flare events",
+      "url": "https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json"
+    },
+    {
+      "default_quality": "quicklook metadata for future overlays; not calibrated FITS",
+      "id": "helioviewer-datasources",
+      "layer_kind": "observed",
+      "name": "Helioviewer API data-source metadata",
+      "url": "https://api.helioviewer.org/v2/getDataSources/"
+    },
+    {
+      "default_quality": "observer geometry context; not a solar magnetic model",
+      "id": "jpl-horizons-observer-geometry",
+      "layer_kind": "inferred",
+      "name": "JPL Horizons Sun/Earth observer geometry",
+      "url": "https://ssd.jpl.nasa.gov/api/horizons.api"
+    }
+  ],
+  "frames": [
+    {
+      "id": "swpc-rtsw-mag-1m",
+      "layer_kind": "observed",
+      "local_path": "tests\\swpc_scn26_21\\rtsw_mag_1m_new.json",
+      "provenance": {
+        "active": true,
+        "raw_source_metadata": {
+          "active": true,
+          "source": "DSCOVR"
+        },
+        "source": "DSCOVR",
+        "time_tag": "2026-04-30T00:00:00Z"
+      },
+      "quality_flags": [
+        "source metadata retained",
+        "schema-era numeric normalization supported",
+        "not promoted to operational truth"
+      ],
+      "raw_bytes": 215,
+      "schema_version": "observation-frame.v1",
+      "source_mode": "fixture"
+    },
+    {
+      "id": "swpc-rtsw-wind-1m",
+      "layer_kind": "observed",
+      "local_path": "tests\\swpc_scn26_21\\rtsw_wind_1m_new.json",
+      "provenance": {
+        "active": true,
+        "raw_source_metadata": {
+          "active": true,
+          "source": "DSCOVR"
+        },
+        "source": "DSCOVR",
+        "time_tag": "2026-04-30T00:00:00Z"
+      },
+      "quality_flags": [
+        "source metadata retained",
+        "schema-era numeric normalization supported",
+        "not promoted to operational truth"
+      ],
+      "raw_bytes": 185,
+      "schema_version": "observation-frame.v1",
+      "source_mode": "fixture"
+    }
+  ],
+  "generated_by": "tools/generate_fixture_snapshot.py",
+  "observed_context": {
+    "activity_index": 0.9,
+    "activity_proxy_sources": {
+      "goes_xray_flares_7_day_rows": 0,
+      "latest_f107": null,
+      "solar_region_rows": 0,
+      "sunspot_rows": 0
+    },
+    "note": "Observed public context tunes research fixture density only; magnetic fields remain normalized and not operationally calibrated.",
+    "schema_version": "observed-context.v1",
+    "synthetic_region_count": 34
+  },
+  "schema_version": "observation-frame.v1",
+  "source_mode": "fixture",
+  "warnings": [
+    "SWPC records are deterministic fixtures unless a live cache is explicitly generated."
+  ]
+}

@@ -1,0 +1,12 @@
+[workspace]
+members = [
+  "crates/solar-core",
+  "crates/solar-ingest",
+  "crates/solar-cli"
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.1"
+license = "MIT OR Apache-2.0"

@@ -1,0 +1,13 @@
+[
+  {
+    "time_tag": "2026-04-30T00:00:00Z",
+    "bx_gsm": -1.2,
+    "by_gsm": 0.4,
+    "bz_gsm": -3.8,
+    "bt": 4.1,
+    "phi_gsm": 165.2,
+    "theta_bsm": -12.4,
+    "source": "DSCOVR",
+    "active": true
+  }
+]

@@ -1,0 +1,9 @@
+[package]
+name = "solar-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+solar-core = { path = "../solar-core" }
+solar-ingest = { path = "../solar-ingest" }
