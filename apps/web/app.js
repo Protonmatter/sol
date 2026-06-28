@@ -88,7 +88,11 @@ const GLOSSARY = {
   "kp": ["Kp index", "A 0–9 scale of global geomagnetic activity. Higher Kp means stronger geomagnetic storms and aurora visible farther from the poles."],
   "f107": ["F10.7", "The Sun's radio brightness at 10.7 cm wavelength — a long-running, reliable proxy for overall solar activity."],
   "goes-xray": ["GOES X-ray flux", "Solar X-ray brightness measured by the GOES satellites. Spikes mark solar flares, graded C, M, and X by strength."],
-  "solar-wind": ["Solar wind", "The constant stream of charged particles flowing off the Sun. Faster, denser wind can drive geomagnetic storms at Earth."]
+  "solar-wind": ["Solar wind", "The constant stream of charged particles flowing off the Sun. Faster, denser wind can drive geomagnetic storms at Earth."],
+  "stage-minimum": ["Solar minimum", "The calm low point of the ~11-year cycle. Few or no sunspots, few flares, and aurora are rare and stay near the poles."],
+  "stage-rising": ["Rising phase", "Activity climbs out of minimum: sunspots grow more frequent and appear at mid-latitudes. Flares and aurora become more common."],
+  "stage-maximum": ["Solar maximum", "The busy peak of the cycle. The most sunspots, the most flares and coronal mass ejections, and the best chance of aurora far from the poles."],
+  "stage-declining": ["Declining phase", "Activity winds down toward the next minimum. Sunspots become less frequent and drift toward the Sun's equator."]
 };
 
 const SIGNAL_TERMS = { "Kp": "kp", "F10.7": "f107", "GOES/X-ray": "goes-xray", "solar wind": "solar-wind" };
@@ -178,6 +182,7 @@ async function loadState() {
   }
   feedStatus = await loadFeedStatus();
   renderAll();
+  maybeAutoStartTour();
 }
 
 async function loadFeedStatus() {
@@ -1240,7 +1245,10 @@ loadState();
 let resizeTimer = 0;
 window.addEventListener("resize", () => {
   window.clearTimeout(resizeTimer);
-  resizeTimer = window.setTimeout(renderAll, 120);
+  resizeTimer = window.setTimeout(() => {
+    renderAll();
+    if (tourIndex >= 0) showTourStep();
+  }, 120);
 });
 
 // --- Glossary tooltips: plain-language help on hover, keyboard focus, and tap. ---
@@ -1302,5 +1310,101 @@ document.addEventListener("click", (event) => {
   }
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") hideTip();
+  if (event.key === "Escape") {
+    hideTip();
+    if (tourIndex >= 0) endTour();
+  }
+});
+
+// --- Onboarding tour: a short, skippable orientation for first-time visitors. ---
+const TOUR_STEPS = [
+  { target: null, title: "Meet the Sun", body: "This is the real Sun as seen today by NASA's SDO satellite — not a drawing. Take a few seconds and I'll show you around." },
+  { target: "#solarCanvas", title: "Real sunspots", body: "Those dark specks are sunspots: cooler, magnetically intense patches. The more sunspots there are, the more active the Sun is." },
+  { target: "#stageRail", title: "Where we are in the cycle", body: "The Sun runs an ~11-year cycle from quiet (Minimum) to busy (Maximum). The highlighted step is where it is right now — click any step to learn about it." },
+  { target: ".mode-grid", title: "Go as deep as you like", body: "Today is the simple view. Explore lets you click sunspot groups and toggle layers. Space Weather and Research go deeper." },
+  { target: null, title: "You're set", body: "Tap any '?' to learn a term, and click a marker on the Sun to inspect it. Enjoy exploring." }
+];
+
+const tourLayer = document.getElementById("tourLayer");
+const tourSpot = document.getElementById("tourSpot");
+const tourCard = document.getElementById("tourCard");
+let tourIndex = -1;
+
+function startTour() {
+  if (!tourLayer) return;
+  activeMode = "today";
+  updateModeButtons();
+  renderAll();
+  window.scrollTo(0, 0);
+  const panel = document.querySelector(".control-panel");
+  if (panel) panel.scrollTop = 0;
+  tourIndex = 0;
+  tourLayer.hidden = false;
+  showTourStep();
+}
+
+function endTour() {
+  if (tourLayer) tourLayer.hidden = true;
+  tourIndex = -1;
+  try { localStorage.setItem("sol-tour-seen", "1"); } catch (error) { /* storage may be blocked */ }
+}
+
+function showTourStep() {
+  const step = TOUR_STEPS[tourIndex];
+  if (!step) { endTour(); return; }
+  text("tourStepCount", `Step ${tourIndex + 1} of ${TOUR_STEPS.length}`);
+  text("tourTitle", step.title);
+  text("tourBody", step.body);
+  const back = document.getElementById("tourBack");
+  const next = document.getElementById("tourNext");
+  if (back) back.disabled = tourIndex === 0;
+  if (next) next.textContent = tourIndex === TOUR_STEPS.length - 1 ? "Done" : "Next";
+
+  const targetEl = step.target ? document.querySelector(step.target) : null;
+  if (targetEl) {
+    const rect = targetEl.getBoundingClientRect();
+    const pad = 6;
+    tourSpot.classList.remove("hidden");
+    tourSpot.style.left = `${rect.left - pad}px`;
+    tourSpot.style.top = `${rect.top - pad}px`;
+    tourSpot.style.width = `${rect.width + pad * 2}px`;
+    tourSpot.style.height = `${rect.height + pad * 2}px`;
+    positionTourCard(rect);
+  } else {
+    tourSpot.classList.add("hidden");
+    centerTourCard();
+  }
+}
+
+function positionTourCard(rect) {
+  const card = tourCard.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 12;
+  if (top + card.height > window.innerHeight - 8) top = rect.top - card.height - 12;
+  if (left + card.width > window.innerWidth - 8) left = window.innerWidth - card.width - 8;
+  tourCard.style.left = `${Math.max(8, left)}px`;
+  tourCard.style.top = `${Math.max(8, top)}px`;
+}
+
+function centerTourCard() {
+  const card = tourCard.getBoundingClientRect();
+  tourCard.style.left = `${Math.max(8, (window.innerWidth - card.width) / 2)}px`;
+  tourCard.style.top = `${Math.max(8, (window.innerHeight - card.height) / 2)}px`;
+}
+
+function maybeAutoStartTour() {
+  let seen = null;
+  try { seen = localStorage.getItem("sol-tour-seen"); } catch (error) { seen = "1"; }
+  if (!seen) startTour();
+}
+
+document.getElementById("tourStart")?.addEventListener("click", startTour);
+document.getElementById("tourSkip")?.addEventListener("click", endTour);
+document.getElementById("tourBack")?.addEventListener("click", () => {
+  if (tourIndex > 0) { tourIndex -= 1; showTourStep(); }
+});
+document.getElementById("tourNext")?.addEventListener("click", () => {
+  if (tourIndex >= TOUR_STEPS.length - 1) { endTour(); return; }
+  tourIndex += 1;
+  showTourStep();
 });

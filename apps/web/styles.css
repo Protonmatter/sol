@@ -613,6 +613,120 @@ h2 {
   display: none !important;
 }
 
+.stage-step[data-term] {
+  cursor: help;
+}
+
+/* Onboarding tour CTA + guided overlay. */
+.tour-cta {
+  align-self: start;
+  margin-top: 0.2rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--gold);
+  background: #2b1f10;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tour-cta:hover,
+.tour-cta:focus-visible {
+  background: #3a2912;
+  outline: none;
+}
+
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.tour-layer[hidden] {
+  display: none;
+}
+
+.tour-spot {
+  position: fixed;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(4, 5, 8, 0.72);
+  transition: all 0.18s ease;
+  pointer-events: none;
+}
+
+.tour-spot.hidden {
+  display: none;
+}
+
+.tour-card {
+  position: fixed;
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--gold);
+  background: rgba(12, 13, 17, 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+}
+
+.tour-card strong {
+  display: block;
+  margin: 0.1rem 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.tour-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.tour-step-count {
+  margin: 0 0 0.2rem;
+  color: var(--gold);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.tour-spacer {
+  flex: 1;
+}
+
+.tour-btn {
+  min-height: 2.1rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tour-btn.primary {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: #1a1206;
+  font-weight: 700;
+}
+
+.tour-btn.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tour-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 @media (max-width: 880px) {
   .stage-band,
   .timeline-inner {
