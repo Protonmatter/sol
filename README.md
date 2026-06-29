@@ -1,166 +1,137 @@
-# Solar Maximum Engine
+# Solar Maximum Engine ("Sol")
 
-A deterministic, math-first solar maximum simulator and learning app with two operating modes:
+A deterministic, math-first **solar-cycle / space-weather** simulation engine and a
+**layered learning + research web app** built on top of it. *Sol* is Latin for the Sun —
+this is not a file explorer.
 
-- **Synthetic mode**: reduced solar-surface physics plus seeded active-region emergence.
-- **Assimilation mode**: the same forecast model corrected by observations from public solar/space-weather sources.
+The design goal is a **state-estimation engine, not a shader**: a reduced solar-surface
+physics model produces immutable, versioned `SolarState` snapshots, and the renderer only
+ever *consumes* those snapshots. The UI never invents physical values.
 
-The design goal is a state-estimation engine, not a shader-only visualization. The renderer consumes immutable `SolarState` snapshots; it does not define the physics.
+> **Product north star:** *See the real Sun → understand what's happening on it → then see
+> exactly what the model knows, how it knows it, and what it still can't claim.*
 
-## Current build contents
+---
 
-This repository contains a v1 research + learning application:
+## Two layers
 
-- Rust workspace with a CPU-reference solar surface model.
-- Deterministic synthetic active-region generator.
-- Surface magnetic-field update with rotation, diffusion, source injection, and decay.
-- Diagonal Kalman-style assimilation primitive.
-- Versioned JSON contracts for `solar-state-snapshot.v1`, `observation-frame.v1`, and `model-run-manifest.v1`.
-- `solar-cli` commands for simulation, SWPC fixture/cache normalization, and web replay data.
-- Static web app in `apps/web` with progressive disclosure from learning view to research panel.
-- Tutorial and experiment notebooks in `notebooks/`.
-- Public-data cache helper for NOAA/SWPC, Helioviewer, and optional JPL Horizons context.
-- Daily public-data ingest runner that updates the web snapshot and feed-health status from bounded public sources.
-- Python runnable prototype that writes a synthetic solar maximum image as a PPM file.
-- Data-source and backend design docs.
+1. **Engine + data pipeline** (Rust + Python)
+   - Rust workspace: `solar-core` (reduced flux-transport model + diagonal Kalman-style
+     assimilation primitive), `solar-ingest`, `solar-cli`.
+   - Python tooling for deterministic fixtures, public-data ingest (NOAA/SWPC,
+     Helioviewer, JPL Horizons), snapshot-series generation, and validation.
+   - Versioned JSON contracts: `solar-state-snapshot.v1`, `observation-frame.v1`,
+     `model-run-manifest.v1`, `operational-readiness.v1`, plus `series-manifest.v1`.
 
-## Fast start
+2. **Web app** (`apps/web/`) — a dependency-free, no-build static app that renders the
+   snapshots, currently under a **v0.2 redesign** (branch `redesign/web-v0.2`):
+   - **Real NASA SDO/HMI imagery** as the observed photosphere, with the model's
+     active-regions / magnetic field / confidence composited on top (observed-vs-model
+     always labelled).
+   - **Layered progressive disclosure** — four intent surfaces (**Today · Explore · Space
+     Weather · Research**); a beginner "glance" by default, research depth on request.
+   - **Onboarding tour**, a glossary of every science term, an interactive cycle **stage
+     rail**, a **time scrubber / playback** of an idealized 11-year cycle, and a **real
+     butterfly diagram** (sunspot latitude vs. time).
 
-### Static learning app
+See **[docs/STATUS.md](docs/STATUS.md)** for exactly what's done and what's left, and
+**[docs/WEB_REDESIGN_SPEC.md](docs/WEB_REDESIGN_SPEC.md)** for the full redesign plan.
 
-Open `apps/web/index.html` directly, or serve the folder if you want the browser to fetch `data/latest-state.json`:
+---
+
+## Quick start
+
+### Run the web app
 
 ```bash
+# Option A: open the file directly (works offline; uses the checked-in fallback state)
+#   apps/web/index.html
+
+# Option B: serve it so the browser can fetch data/*.json (recommended)
 python -m http.server 8000 --directory apps/web
+# then open http://localhost:8000
 ```
 
-Then open `http://localhost:8000`.
-
-### Deterministic fixture generation
+### Regenerate the data the app reads (Python stdlib only)
 
 ```bash
-python tools/generate_fixture_snapshot.py --out apps/web/data/latest-state.json --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
+# The live "today" snapshot
+python tools/generate_fixture_snapshot.py \
+  --out apps/web/data/latest-state.json \
+  --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
+
+# The solar-cycle series for timeline playback + the butterfly diagram
+python tools/generate_series.py
+
+# Validate everything
 python tools/validate_snapshot.py apps/web/data/latest-state.json
 python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 python tools/validate_web_static.py --root apps/web
 ```
 
-The fixture generator uses only the Python standard library.
-
-### Rust CLI
+### Rust engine (requires a local Rust toolchain)
 
 ```bash
 cargo test --workspace
-cargo run -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 --out apps/web/data/latest-state.json
-cargo run -p solar-cli -- ingest swpc --cache .cache/solar-data --out tests/fixtures/live-swpc-normalized.json --fallback-fixtures tests/swpc_scn26_21
-cargo run -p solar-cli -- replay --snapshot apps/web/data/latest-state.json --out apps/web/data
+cargo run -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 \
+  --out apps/web/data/latest-state.json
 ```
 
-The old summary mode is still available:
+Full developer instructions: **[docs/INSTRUCTIONS.md](docs/INSTRUCTIONS.md)**.
 
-```bash
-cargo run -p solar-cli -- --steps 48 --dt-hours 1 --seed 42
+---
+
+## Repository layout
+
+```
+apps/web/            Static web app (index.html, app.js, styles.css)
+apps/web/data/       Snapshots the app reads: latest-state.json, feed-status.json,
+                     latest-observations.json, series/ (cycle frames + manifest)
+crates/              Rust workspace (solar-core, solar-ingest, solar-cli, …)
+python/              Runnable prototype (synthetic solar maximum image)
+tools/               Python: fixture + series generators, ingest, validators
+docs/                Spec, status, handoff, instructions, data-source + ops notes
+tests/               Fixtures and golden snapshots
 ```
 
-### Optional live public-data cache
+---
 
-```bash
-python tools/fetch_public_data.py --cache .cache/solar-data
-python tools/generate_fixture_snapshot.py --cache .cache/solar-data --out apps/web/data/latest-state.json --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
-```
-
-This only fills a local cache. Tests and notebooks should use fixtures unless a live-data check is explicitly intended.
-
-### Daily research feed
-
-```bash
-python tools/run_daily_ingest.py --include-jpl
-```
-
-This fetches bounded public sources, archives that day's cache, regenerates `apps/web/data/latest-state.json`, writes `apps/web/data/latest-observations.json`, and writes `apps/web/data/feed-status.json` for the web UI. On Windows, install the optional daily task with:
-
-```powershell
-.\tools\install_daily_ingest_task.ps1 -Time 06:15 -IncludeJpl
-```
-
-See `docs/DAILY_INGEST.md`.
-
-## Public methods and source anchors
-
-Claims in this project are anchored to public, inspectable methods and products:
-
-- [NN/g progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/) for revealing advanced controls only after user intent.
-- [NOAA SWPC products and data](https://www.swpc.noaa.gov/products-and-data) for public Kp, F10.7, GOES/X-ray, solar-wind, region, and cycle context.
-- [Helioviewer API](https://api.helioviewer.org/docs/v2/) for quicklook imagery and data-source metadata.
-- [JPL/NAIF SPICE](https://naif.jpl.nasa.gov/naif/) for the public geometry/toolkit family used to frame observer-geometry goals.
-- [NOAA WSA-Enlil](https://www.swpc.noaa.gov/products/wsa-enlil-solar-wind-prediction) as a public operational product family for education and future comparison context, not as a reproduced model.
-
-No SpaceX equivalence or proprietary internal JPL/SpaceX algorithm claim is made.
-
-## Operational readiness boundary
-
-The current app is operational for deterministic research and learning workflows when the snapshot, readiness, static web, notebook, and browser smoke checks pass. It is not operational space-weather forecasting.
-
-`operational_readiness.space_weather_operational` must stay `false` until calibrated physical units, historical validation, comparison against operational SWPC products, adapter freshness monitoring, alerting, rollback, and approval evidence exist. The stricter future gate is:
-
-```bash
-python tools/validate_operational_readiness.py apps/web/data/latest-state.json --require-space-weather-operational
-```
-
-That stricter command is expected to fail for this v1 research build.
-
-## Modes
+## Modes (engine)
 
 ### Synthetic mode
-
-Synthetic mode creates a reproducible solar maximum state from:
-
-- Solar-cycle activity index.
-- Bipolar active-region birth model.
-- Differential rotation.
-- Surface flux transport.
-- Probabilistic flare/CME hazard fields.
+A reproducible solar-maximum state from a solar-cycle activity index, a bipolar
+active-region birth model, differential rotation, surface flux transport, and
+probabilistic flare/CME hazard fields.
 
 ### Assimilation mode
-
-Assimilation mode uses the same forecast model, then corrects state using observation frames:
+The same forecast model, corrected by observation frames with a diagonal Kalman-style update:
 
 ```text
-forecast x_f = M(x_t)
-residual r = y - H(x_f)
-gain K = P_f / (P_f + R)
-analysis x_a = x_f + K r
-variance P_a = (1 - K) P_f
+forecast  x_f = M(x_t)
+residual  r   = y - H(x_f)
+gain      K   = P_f / (P_f + R)
+analysis  x_a = x_f + freshness_gain * K * r
+variance  P_a = (1 - K) * P_f
 ```
 
-## Web app modes
+---
 
-- Solar Cycle Lab
-- Active Region Explorer
-- Space Weather Impact Explorer
-- Mission Geometry Viewer
-- SWPC Schema Regression Harness
-- Classroom Guided Journey
+## Operational boundary (read this)
 
-The first screen shows the solar disk, cycle stage, run state, and one plain-language insight. Advanced equations, layer labels, provenance, and adapter health are in the research panel.
+This app is operational for **deterministic research and learning** workflows only. It is
+**not** operational space-weather forecasting. `operational_readiness.space_weather_operational`
+stays `false` until calibrated physical units, historical validation, comparison against
+operational SWPC products, adapter-freshness monitoring, alerting, and approval evidence
+exist. Normalized magnetic values are labelled normalized — never asserted as Gauss/Mx.
 
-## High-value v1 applications
+## Public-method anchors
 
-- Solar-cycle learning lab: interactive minimum/rising/maximum/declining cycle stages with active-region growth, rotation, uncertainty, and explainable equations.
-- Research-grade model bench: deterministic seeded simulations, immutable state snapshots, provenance labels, exportable scenario state, and golden tests for algorithm changes.
-- Space-weather impact explorer: SWPC-backed Kp, F10.7, GOES/X-ray, and real-time solar-wind context mapped to satellite, GNSS, HF radio, aurora, and grid-risk learning panels.
-- Incident replay / classroom kiosk: replay public solar-event context against the reduced model, moving from visual story to raw data, equations, and caveats.
+Claims are anchored to public, inspectable products: [NOAA SWPC](https://www.swpc.noaa.gov/products-and-data),
+[Helioviewer](https://api.helioviewer.org/docs/v2/), NASA [SDO](https://sdo.gsfc.nasa.gov/)
+browse imagery, [JPL/NAIF SPICE](https://naif.jpl.nasa.gov/naif/), and
+[NN/g progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/).
+No SpaceX equivalence or proprietary internal JPL/SpaceX algorithm is claimed.
 
-## Hardware plan
+## License
 
-- CPU reference is mandatory and authoritative for tests.
-- GPU acceleration should use `wgpu` first for Metal, Vulkan, D3D12, and WebGPU portability.
-- NPU/ML acceleration should be optional and restricted to ONNX/CoreML/DirectML/OpenVINO inference tasks such as active-region detection and flare/CME surrogate scoring.
-
-## Scientific caveat
-
-This is a reduced surface model. It is not full 3D radiative magnetohydrodynamics and should not be used for operational space-weather forecasting without validation against operational systems.
-
-## v0.1.1 note: SWPC schema changes
-
-This package includes a schema-hardening note for NOAA/SWPC SCN 26-21. The key implementation impact is that old RTSW `/products/solar-wind/` endpoints should not be used. Use `/json/rtsw/rtsw_mag_1m.json`, `/json/rtsw/rtsw_wind_1m.json`, and `/json/rtsw/rtsw_ephemerides_1h.json` instead, preserve `source`/`active` metadata, and locally retain 1-day files to materialize old 3-day/7-day windows.
+MIT OR Apache-2.0.
