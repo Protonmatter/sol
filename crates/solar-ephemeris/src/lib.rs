@@ -8,6 +8,8 @@ pub mod bodies;
 pub mod coords;
 pub mod planets;
 pub mod time;
+pub mod vsop2013;
+mod vsop2013_data;
 
 use coords::AU_KM;
 use std::cell::RefCell;
@@ -64,15 +66,15 @@ impl Body {
             Body::Neptune => 24622.0,
         }
     }
-    fn elements(self) -> Option<&'static planets::Elements> {
+    fn elements(self) -> Option<&'static vsop2013::Planet> {
         match self {
-            Body::Mercury => Some(&planets::MERCURY),
-            Body::Venus => Some(&planets::VENUS),
-            Body::Mars => Some(&planets::MARS),
-            Body::Jupiter => Some(&planets::JUPITER),
-            Body::Saturn => Some(&planets::SATURN),
-            Body::Uranus => Some(&planets::URANUS),
-            Body::Neptune => Some(&planets::NEPTUNE),
+            Body::Mercury => Some(&vsop2013_data::MER),
+            Body::Venus => Some(&vsop2013_data::VEN),
+            Body::Mars => Some(&vsop2013_data::MAR),
+            Body::Jupiter => Some(&vsop2013_data::JUP),
+            Body::Saturn => Some(&vsop2013_data::SAT),
+            Body::Uranus => Some(&vsop2013_data::URA),
+            Body::Neptune => Some(&vsop2013_data::NEP),
             _ => None,
         }
     }
@@ -87,13 +89,13 @@ fn geocentric(body: Body, jd_utc: f64) -> (f64, f64, f64) {
     let eps_true = time::mean_obliquity_deg(t) + deps;
     let (lambda, beta, dist_km) = match body {
         Body::Sun => {
-            let (l, b, r_au) = bodies::sun_apparent(t);
-            (l, b, r_au * AU_KM)
+            let (l, b, dist_au) = planets::sun_apparent_ecliptic(jd_tt, dpsi);
+            (l, b, dist_au * AU_KM)
         }
         Body::Moon => bodies::moon_apparent(t, dpsi),
         _ => {
             let el = body.elements().expect("planet elements");
-            let (l, b, dist_au) = planets::planet_apparent_ecliptic(el, t, dpsi);
+            let (l, b, dist_au) = planets::planet_apparent_ecliptic(el, jd_tt, dpsi);
             (l, b, dist_au * AU_KM)
         }
     };

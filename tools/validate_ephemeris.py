@@ -32,11 +32,9 @@ BODIES = {
     "Sun": "10", "Moon": "301", "Mercury": "199", "Venus": "299", "Mars": "499",
     "Jupiter": "599", "Saturn": "699", "Uranus": "799", "Neptune": "899",
 }
-TOL_ALT_DEG = 0.05   # ~3' default
-TOL_AZ_DEG = 0.12
-# Jupiter & Saturn are the largest-error bodies in Standish's 1800-2050 Keplerian
-# table (the great inequality); arcsecond accuracy needs VSOP87 (P4).
-LOOSE = {"Jupiter": (0.12, 0.2), "Saturn": (0.2, 0.35)}
+TOL_ALT_DEG = 0.02   # 72" — Sun+planets are VSOP2013 (arcsec-class); Moon is Meeus-47.
+TOL_AZ_DEG = 0.025   # 90" (azimuth amplifies near the zenith)
+LOOSE = {}
 
 
 def find_binary(explicit: str | None) -> Path:
