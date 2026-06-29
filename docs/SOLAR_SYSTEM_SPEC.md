@@ -233,7 +233,13 @@ occultation / navigation accuracy.
   (VSOP2013 already nails the giants). Physics (`physics.rs`): phase angle, illuminated fraction,
   apparent magnitude (Meeus Ch.41), vis-viva orbital speed, black-body equilibrium temperature —
   surfaced in a **per-object detail panel** in the Solar System view.
-- **P5 — WebGPU 3D (the "match NASA" stretch).** `wgpu` 3D solar system; reuse the same snapshots.
+- **P5 — WebGPU 3-D. ✅ DONE.** A dependency-free 3-D solar system (`js/orrery.js`, new "3-D View"
+  surface) reusing the VSOP2013 `system_snapshot`. Built on the **browser's native WebGPU API in
+  JS** — *not* `wgpu`, which needs `wasm-bindgen` and can't build on this ARM64 toolchain. Sun +
+  planets are camera-facing billboards in real heliocentric 3-D space; orbits are their true
+  inclined ellipses; perspective camera (drag-orbit, wheel-zoom), depth buffer, alpha blending,
+  time scrubber, and a graceful fallback where WebGPU is unavailable. Renders on-demand (no
+  perpetual rAF loop). Verified in-browser.
 - **P6 — Polish.** ZIP table, opt-in address geocoding, a11y (WCAG AA), mobile, performance, and a
   device-orientation "point your phone" mode where supported.
 - **P7 — Backend high-precision provider (hybrid, §2.1).** An optional server that serves full
