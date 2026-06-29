@@ -6,6 +6,7 @@
 
 pub mod bodies;
 pub mod coords;
+pub mod planets;
 pub mod time;
 
 use coords::AU_KM;
@@ -15,19 +16,64 @@ use std::cell::RefCell;
 pub enum Body {
     Sun,
     Moon,
+    Mercury,
+    Venus,
+    Mars,
+    Jupiter,
+    Saturn,
+    Uranus,
+    Neptune,
 }
+
+const ALL_BODIES: [Body; 9] = [
+    Body::Sun, Body::Moon, Body::Mercury, Body::Venus, Body::Mars,
+    Body::Jupiter, Body::Saturn, Body::Uranus, Body::Neptune,
+];
 
 impl Body {
     fn name(self) -> &'static str {
         match self {
             Body::Sun => "Sun",
             Body::Moon => "Moon",
+            Body::Mercury => "Mercury",
+            Body::Venus => "Venus",
+            Body::Mars => "Mars",
+            Body::Jupiter => "Jupiter",
+            Body::Saturn => "Saturn",
+            Body::Uranus => "Uranus",
+            Body::Neptune => "Neptune",
+        }
+    }
+    fn kind(self) -> &'static str {
+        match self {
+            Body::Sun => "star",
+            Body::Moon => "moon",
+            _ => "planet",
         }
     }
     fn radius_km(self) -> f64 {
         match self {
             Body::Sun => 695700.0,
             Body::Moon => 1737.4,
+            Body::Mercury => 2439.7,
+            Body::Venus => 6051.8,
+            Body::Mars => 3389.5,
+            Body::Jupiter => 69911.0,
+            Body::Saturn => 58232.0,
+            Body::Uranus => 25362.0,
+            Body::Neptune => 24622.0,
+        }
+    }
+    fn elements(self) -> Option<&'static planets::Elements> {
+        match self {
+            Body::Mercury => Some(&planets::MERCURY),
+            Body::Venus => Some(&planets::VENUS),
+            Body::Mars => Some(&planets::MARS),
+            Body::Jupiter => Some(&planets::JUPITER),
+            Body::Saturn => Some(&planets::SATURN),
+            Body::Uranus => Some(&planets::URANUS),
+            Body::Neptune => Some(&planets::NEPTUNE),
+            _ => None,
         }
     }
 }
@@ -45,6 +91,11 @@ fn geocentric(body: Body, jd_utc: f64) -> (f64, f64, f64) {
             (l, b, r_au * AU_KM)
         }
         Body::Moon => bodies::moon_apparent(t, dpsi),
+        _ => {
+            let el = body.elements().expect("planet elements");
+            let (l, b, dist_au) = planets::planet_apparent_ecliptic(el, t, dpsi);
+            (l, b, dist_au * AU_KM)
+        }
     };
     let (ra, dec) = coords::ecl_to_equ(lambda, beta, eps_true);
     (ra, dec, dist_km)
@@ -139,7 +190,7 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     out.push_str("},\n");
     out.push_str("  \"accuracy\": {\"class\":\"analytic apparent place (Meeus); validated vs JPL Horizons\",\"theory\":\"Sun Meeus-25, Moon Meeus-47 (principal terms)\",\"validated_against\":\"JPL Horizons DE441\",\"non_goal\":\"navigation / occultation timing\"},\n");
     out.push_str("  \"bodies\": [\n");
-    for (i, body) in [Body::Sun, Body::Moon].iter().enumerate() {
+    for (i, body) in ALL_BODIES.iter().enumerate() {
         let s = topocentric_sky(*body, jd_utc, lat, lon_east, elev);
         let (rise, transit, set, transit_alt) = events(*body, jd_utc, lat, lon_east, elev);
         let ang_size = 2.0 * (body.radius_km() / s.dist_km).asin() * (180.0 / std::f64::consts::PI) * 3600.0;
@@ -147,7 +198,7 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             out.push_str(",\n");
         }
         out.push_str("    {");
-        out.push_str(&format!("\"name\":\"{}\",\"kind\":\"{}\",", body.name(), if *body == Body::Sun { "star" } else { "moon" }));
+        out.push_str(&format!("\"name\":\"{}\",\"kind\":\"{}\",", body.name(), body.kind()));
         out.push_str(&format!("\"ra_deg\":{:.6},\"dec_deg\":{:.6},\"distance_km\":{:.1},", s.ra, s.dec, s.dist_km));
         out.push_str(&format!("\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},", s.alt, s.az, s.alt_refracted, s.alt_refracted > 0.0));
         out.push_str(&format!("\"compass\":\"{}\",", compass(s.az)));

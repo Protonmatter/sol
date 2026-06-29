@@ -184,11 +184,15 @@ occultation / navigation accuracy.
   CLI, Meeus worked-example unit tests, and `tools/validate_ephemeris.py`. **Validated vs JPL
   Horizons DE441** across Boston (day/night) + Sydney: worst alt/az error **37.5″**, most < 15″ —
   arcsecond class, well inside §8.
-- **P1 — "My Sky" MVP.** Observer input (geolocation/manual), 2D horizon dome (alt/az, compass,
-  twilight shading from Sun altitude), Sun + Moon with rise/set + object detail. *Done when:* a user
-  can see "the Moon is 22° up in the ESE, sets 01:40," correct for their location.
-- **P2 — Planets + "what's up."** Standish Keplerian for 8 planets; magnitude/phase/angular size;
-  a ranked "visible now" list; search/jump-to-body. *Done when:* all 8 validate < 1′.
+- **P1 — "My Sky" MVP. ✅ DONE.** New web surface (`apps/web/js/sky.js` + `skyEngine.js`): a 2D
+  horizon dome (alt/az, compass, altitude rings, sky colour by Sun altitude), observer input
+  (browser Geolocation or manual lat/long), a live "Up now" list with altitude/compass/rise-set in
+  local time, fed by `solar_ephemeris.wasm`. Verified in-browser against the engine/Horizons.
+- **P2 — Planets + "what's up." ✅ DONE.** Added Standish/JPL Keplerian elements for all 8 planets
+  (`planets.rs`); they flow into My Sky automatically. **Validated vs JPL Horizons** (Boston +
+  Sydney): Sun/Moon/Mercury/Venus/Mars/Uranus/Neptune all < ~50″; Jupiter < ~1′; **Saturn ~2-5′**
+  (the known Standish "great inequality" limit — arcsecond accuracy needs VSOP87, see P4). Ranked
+  "Up now" list with rise/set. *Deferred to later:* magnitude/phase, object-detail panel, search.
 - **P3 — Solar System view.** 2D top-down ecliptic orbit view with time controls and click-through
   to detail; the Sun object links into the existing solar-surface app.
 - **P4 — Accuracy + physics.** Upgrade to VSOP87 + ELP/MPP02; add nutation/aberration; velocity

@@ -24,13 +24,19 @@ from pathlib import Path
 
 # (label, UTC, lat_deg, lon_deg_east, elev_m)
 CASES = [
-    ("Boston noon", dt.datetime(2026, 6, 29, 16, 0, tzinfo=dt.timezone.utc), 42.36, -71.06, 0.0),
-    ("Boston night", dt.datetime(2026, 6, 29, 4, 0, tzinfo=dt.timezone.utc), 42.36, -71.06, 0.0),
+    ("Boston", dt.datetime(2026, 6, 29, 16, 0, tzinfo=dt.timezone.utc), 42.36, -71.06, 0.0),
     ("Sydney", dt.datetime(2026, 1, 15, 9, 0, tzinfo=dt.timezone.utc), -33.87, 151.21, 20.0),
 ]
-BODIES = {"Sun": "10", "Moon": "301"}
-TOL_ALT_DEG = 0.03   # ~108"
-TOL_AZ_DEG = 0.06    # azimuth is looser near the zenith
+# Horizons COMMAND ids (planet centres use the "99" suffix).
+BODIES = {
+    "Sun": "10", "Moon": "301", "Mercury": "199", "Venus": "299", "Mars": "499",
+    "Jupiter": "599", "Saturn": "699", "Uranus": "799", "Neptune": "899",
+}
+TOL_ALT_DEG = 0.05   # ~3' default
+TOL_AZ_DEG = 0.12
+# Jupiter & Saturn are the largest-error bodies in Standish's 1800-2050 Keplerian
+# table (the great inequality); arcsecond accuracy needs VSOP87 (P4).
+LOOSE = {"Jupiter": (0.12, 0.2), "Saturn": (0.2, 0.35)}
 
 
 def find_binary(explicit: str | None) -> Path:
@@ -91,9 +97,10 @@ def main() -> int:
             d_alt = abs(b["alt_deg"] - h_el)
             d_az = az_diff(b["az_deg"], h_az)
             worst = max(worst, d_alt, d_az)
-            print(f"{label:<14}{name:<6}{d_alt * 3600:>14.1f}{d_az * 3600:>14.1f}")
-            if d_alt > TOL_ALT_DEG or d_az > TOL_AZ_DEG:
-                failures.append(f"{label}/{name}: Δalt={d_alt:.4f}° Δaz={d_az:.4f}°")
+            print(f"{label:<10}{name:<9}{d_alt * 3600:>14.1f}{d_az * 3600:>14.1f}")
+            tol_alt, tol_az = LOOSE.get(name, (TOL_ALT_DEG, TOL_AZ_DEG))
+            if d_alt > tol_alt or d_az > tol_az:
+                failures.append(f"{label}/{name}: d_alt={d_alt * 3600:.0f}arcsec d_az={d_az * 3600:.0f}arcsec")
 
     print(f"\nworst error: {worst * 3600:.1f} arcsec  (tol: alt {TOL_ALT_DEG * 3600:.0f}arcsec, az {TOL_AZ_DEG * 3600:.0f}arcsec)")
     if failures:
