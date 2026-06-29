@@ -1,0 +1,15 @@
+[package]
+name = "solar-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# Raw cdylib for wasm32-unknown-unknown. No wasm-bindgen / wasm-pack: a tiny
+# extern "C" ABI marshals the JSON snapshot through linear memory, so the only
+# toolchain needed is cargo + the wasm32 target. Keeps the zero-dependency ethos.
+[lib]
+name = "solar_wasm"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+solar-core = { path = "../solar-core" }

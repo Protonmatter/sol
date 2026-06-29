@@ -589,6 +589,16 @@ h2 {
   font-size: 0.85rem;
 }
 
+.live-engine {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.live-engine .time-frame-label {
+  color: var(--teal);
+}
+
 /* Glossary term affordance + tooltip (plain-language help on hover/focus/tap). */
 .term {
   display: inline-flex;

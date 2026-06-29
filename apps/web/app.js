@@ -1,5 +1,7 @@
 "use strict";
 
+import { loadEngine, simulateSnapshot } from "./engine.js";
+
 const FALLBACK_STATE = {
   schema_version: "solar-state-snapshot.v1",
   model_version: "0.1.1",
@@ -120,6 +122,7 @@ let seriesFrames = [];
 let seriesManifest = null;
 let timelineIndex = -1; // -1 = live "now"; otherwise an index into seriesFrames
 let playTimer = 0;
+let liveEngineRun = false; // true while showing an in-browser WASM engine run
 
 // Real, recognizable Sun imagery (NASA SDO latest browse frames). These are the
 // observed photosphere base the model layers are composited onto. The disk
@@ -157,8 +160,8 @@ function loadBaseImage(key) {
 }
 
 function currentBaseImage() {
-  // Cycle playback is a synthetic model, not today's Sun — render it synthetically.
-  if (timelineIndex >= 0) return null;
+  // Cycle playback and live WASM runs are synthetic models, not today's Sun.
+  if (timelineIndex >= 0 || liveEngineRun) return null;
   // Prefer the white-light continuum photosphere as the observed base when the
   // Continuum layer is on; fall back to the magnetogram if only it is selected.
   let key = null;
@@ -215,6 +218,7 @@ async function loadSeries() {
 
 function setTimelineFrame(index) {
   if (!seriesFrames.length) return;
+  liveEngineRun = false;
   timelineIndex = Math.max(0, Math.min(seriesFrames.length - 1, index));
   state = seriesFrames[timelineIndex];
   selectedRegionId = null;
@@ -226,11 +230,36 @@ function setTimelineFrame(index) {
 
 function goLive() {
   stopPlay();
+  liveEngineRun = false;
   timelineIndex = -1;
   state = liveState;
   selectedRegionId = null;
   renderAll();
   updateTimeFrameLabel();
+}
+
+// Run the real solar-core engine, compiled to WebAssembly, in the browser.
+async function runLiveEngine() {
+  const status = document.getElementById("liveStatus");
+  const activity = Number(document.getElementById("liveActivity")?.value || 0.9);
+  try {
+    await loadEngine();
+    const start = performance.now();
+    const snapshot = simulateSnapshot({ seed: 42, steps: 24, dtHours: 1, activity, lon: 72, lat: 36 });
+    const ms = (performance.now() - start).toFixed(1);
+    stopPlay();
+    timelineIndex = -1;
+    liveEngineRun = true;
+    state = snapshot;
+    selectedRegionId = null;
+    renderAll();
+    if (status) {
+      const count = (snapshot.active_regions || []).length;
+      status.textContent = `Computed in your browser by solar-core (WebAssembly): activity ${activity.toFixed(2)} → ${snapshot.learning?.cycle_stage || "?"}, ${count} active regions, in ${ms} ms. Press Now for today's real Sun.`;
+    }
+  } catch (error) {
+    if (status) status.textContent = "Live engine unavailable (the WebAssembly module failed to load).";
+  }
 }
 
 function playStep() {
@@ -1501,3 +1530,5 @@ document.getElementById("timeScrubber")?.addEventListener("input", (event) => {
 });
 document.getElementById("playToggle")?.addEventListener("click", togglePlay);
 document.getElementById("nowBtn")?.addEventListener("click", goLive);
+document.getElementById("liveRun")?.addEventListener("click", runLiveEngine);
+document.getElementById("liveActivity")?.addEventListener("change", runLiveEngine);
