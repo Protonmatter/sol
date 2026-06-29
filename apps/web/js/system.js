@@ -1,7 +1,7 @@
 // "Solar System": a top-down heliocentric orbit view built from the ephemeris WASM engine.
 // Looks straight down on the ecliptic plane; planets sit at their real VSOP2013 positions.
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=18";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=20";
 
 const BODY_STYLE = {
   Mercury: { color: "#b3a487", size: 3.0 },
@@ -158,21 +158,38 @@ function updateInfo(snap) {
   if (!body) {
     const row = document.createElement("div");
     row.className = "sky-row";
-    row.textContent = "Click a planet to inspect its heliocentric distance and ecliptic position.";
+    row.textContent = "Click a planet to inspect its distance, speed, phase, brightness, and temperature.";
     info.appendChild(row);
     return;
   }
-  const lonDeg = ((Math.atan2(body.y_au, body.x_au) * 180) / Math.PI + 360) % 360;
-  const row = document.createElement("div");
-  row.className = "sky-row";
+  const card = document.createElement("div");
+  card.className = "sky-row system-detail";
   const title = document.createElement("strong");
-  title.textContent = `${body.name} — ${body.dist_au.toFixed(3)} AU from the Sun`;
-  const detail = document.createElement("span");
-  detail.className = "muted";
-  detail.textContent = `light-time ${(body.dist_au * 499.005 / 60).toFixed(1)} min · ecliptic longitude ${lonDeg.toFixed(1)}°`;
-  row.appendChild(title);
-  row.appendChild(detail);
-  info.appendChild(row);
+  title.textContent = body.name;
+  card.appendChild(title);
+
+  const dl = document.createElement("dl");
+  dl.className = "detail-grid";
+  const add = (label, value) => {
+    if (value == null) return;
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+  };
+  const lightMin = body.geo_dist_au * 8.3168;
+  add("From the Sun", `${body.dist_au.toFixed(3)} AU`);
+  add("From Earth", `${body.geo_dist_au.toFixed(3)} AU · light ${lightMin.toFixed(1)} min`);
+  add("Orbital speed", `${body.speed_kms.toFixed(2)} km/s`);
+  if (body.illuminated_fraction != null) {
+    add("Illuminated", `${(body.illuminated_fraction * 100).toFixed(1)}% · phase ${body.phase_angle_deg.toFixed(1)}°`);
+  }
+  if (body.magnitude != null) add("Apparent magnitude", body.magnitude.toFixed(1));
+  if (body.equilibrium_temp_k != null) add("Equilibrium temp", `${body.equilibrium_temp_k.toFixed(0)} K`);
+  card.appendChild(dl);
+  info.appendChild(card);
 }
 
 // --- Controls ---

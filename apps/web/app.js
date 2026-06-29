@@ -1,19 +1,19 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js?v=18";
-import { TOUR_STEPS } from "./js/config.js?v=18";
-import { controls } from "./js/dom.js?v=18";
-import { clamp } from "./js/format.js?v=18";
-import { selectedRegion } from "./js/selectors.js?v=18";
-import { renderAll } from "./js/view.js?v=18";
-import { updateModeButtons } from "./js/panels.js?v=18";
-import { loadState } from "./js/data.js?v=18";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=18";
-import { startTour, endTour, showTourStep } from "./js/tour.js?v=18";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=18";
-import { enterSky, leaveSky } from "./js/sky.js?v=18";
-import { enterSystem, leaveSystem } from "./js/system.js?v=19";
+import { store } from "./js/store.js?v=20";
+import { TOUR_STEPS } from "./js/config.js?v=20";
+import { controls } from "./js/dom.js?v=20";
+import { clamp } from "./js/format.js?v=20";
+import { selectedRegion } from "./js/selectors.js?v=20";
+import { renderAll } from "./js/view.js?v=20";
+import { updateModeButtons } from "./js/panels.js?v=20";
+import { loadState } from "./js/data.js?v=20";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=20";
+import { startTour, endTour, showTourStep } from "./js/tour.js?v=20";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=20";
+import { enterSky, leaveSky } from "./js/sky.js?v=20";
+import { enterSystem, leaveSystem } from "./js/system.js?v=20";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {

@@ -8,6 +8,7 @@ pub mod bodies;
 pub mod coords;
 pub mod elpmpp02;
 mod elpmpp02_data;
+pub mod physics;
 pub mod planets;
 pub mod time;
 pub mod vsop2013;
@@ -192,7 +193,7 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     out.push_str("  \"observer\": {");
     out.push_str(&format!("\"lat_deg\":{:.6},\"lon_deg\":{:.6},\"elev_m\":{:.1}", lat, lon_east, elev));
     out.push_str("},\n");
-    out.push_str("  \"accuracy\": {\"class\":\"analytic apparent place (Meeus); validated vs JPL Horizons\",\"theory\":\"Sun Meeus-25, Moon Meeus-47 (principal terms)\",\"validated_against\":\"JPL Horizons DE441\",\"non_goal\":\"navigation / occultation timing\"},\n");
+    out.push_str("  \"accuracy\": {\"class\":\"analytic apparent place; validated vs JPL Horizons to ~arcsecond\",\"theory\":\"Sun+planets VSOP2013, Moon ELP-MPP02, Meeus Ch.21 ecliptic precession\",\"validated_against\":\"JPL Horizons DE441\",\"non_goal\":\"navigation / occultation timing\"},\n");
     out.push_str("  \"bodies\": [\n");
     for (i, body) in ALL_BODIES.iter().enumerate() {
         let s = topocentric_sky(*body, jd_utc, lat, lon_east, elev);
@@ -244,22 +245,54 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
         ("Uranus", &vsop2013_data::URA),
         ("Neptune", &vsop2013_data::NEP),
     ];
-    let mut out = String::with_capacity(1024);
+    const AU_PER_YEAR_KMS: f64 = 4.740_57; // 1 AU/yr in km/s
+    let earth = vsop2013::helio_xyz(&vsop2013_data::EMB, jy2k);
+    let sun_earth = (earth[0] * earth[0] + earth[1] * earth[1] + earth[2] * earth[2]).sqrt();
+    let dt = 0.001; // years, for the velocity finite difference
+
+    let mut out = String::with_capacity(2048);
     out.push_str("{\n  \"schema_version\": \"system-snapshot.v1\",\n");
     out.push_str(&format!("  \"jd_utc\": {:.6},\n  \"bodies\": [\n", jd_utc));
     for (i, (name, planet)) in bodies.iter().enumerate() {
         let xyz = vsop2013::helio_xyz(planet, jy2k);
-        let dist = (xyz[0] * xyz[0] + xyz[1] * xyz[1] + xyz[2] * xyz[2]).sqrt();
+        let r = (xyz[0] * xyz[0] + xyz[1] * xyz[1] + xyz[2] * xyz[2]).sqrt();
+        let delta = {
+            let d = [xyz[0] - earth[0], xyz[1] - earth[1], xyz[2] - earth[2]];
+            (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
+        };
+        let ahead = vsop2013::helio_xyz(planet, jy2k + dt);
+        let speed = {
+            let d = [ahead[0] - xyz[0], ahead[1] - xyz[1], ahead[2] - xyz[2]];
+            (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() / dt * AU_PER_YEAR_KMS
+        };
+        // Phase / illumination / magnitude only make sense for a body seen from Earth.
+        let (phase, illum, mag) = if *name != "Earth" && delta > 1e-9 {
+            let a = physics::phase_angle_deg(r, delta, sun_earth);
+            (Some(a), Some(physics::illuminated_fraction(a)), physics::magnitude(name, r, delta, a))
+        } else {
+            (None, None, None)
+        };
         if i > 0 {
             out.push_str(",\n");
         }
         out.push_str(&format!(
-            "    {{\"name\":\"{}\",\"x_au\":{:.8},\"y_au\":{:.8},\"z_au\":{:.8},\"dist_au\":{:.8}}}",
-            name, xyz[0], xyz[1], xyz[2], dist
+            "    {{\"name\":\"{}\",\"x_au\":{:.8},\"y_au\":{:.8},\"z_au\":{:.8},\"dist_au\":{:.8},\
+             \"geo_dist_au\":{:.8},\"speed_kms\":{:.3},\"phase_angle_deg\":{},\
+             \"illuminated_fraction\":{},\"magnitude\":{},\"equilibrium_temp_k\":{}}}",
+            name, xyz[0], xyz[1], xyz[2], r, delta, speed,
+            opt(phase, 2), opt(illum, 4), opt(mag, 2), opt(physics::equilibrium_temp_k(name, r), 1)
         ));
     }
     out.push_str("\n  ]\n}\n");
     out
+}
+
+/// Format an optional float as a JSON number (or `null`).
+fn opt(v: Option<f64>, prec: usize) -> String {
+    match v {
+        Some(x) if x.is_finite() => format!("{:.*}", prec, x),
+        _ => "null".to_string(),
+    }
 }
 
 // --- WASM ABI (raw, no wasm-bindgen) ---
