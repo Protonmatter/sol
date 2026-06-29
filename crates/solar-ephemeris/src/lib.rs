@@ -272,15 +272,18 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
         } else {
             (None, None, None)
         };
+        let (a, ecc, inc, node, argp) = vsop2013::elements(planet, jy2k);
         if i > 0 {
             out.push_str(",\n");
         }
         out.push_str(&format!(
             "    {{\"name\":\"{}\",\"x_au\":{:.8},\"y_au\":{:.8},\"z_au\":{:.8},\"dist_au\":{:.8},\
              \"geo_dist_au\":{:.8},\"speed_kms\":{:.3},\"phase_angle_deg\":{},\
-             \"illuminated_fraction\":{},\"magnitude\":{},\"equilibrium_temp_k\":{}}}",
+             \"illuminated_fraction\":{},\"magnitude\":{},\"equilibrium_temp_k\":{},\
+             \"a_au\":{:.8},\"ecc\":{:.8},\"inc_deg\":{:.6},\"node_deg\":{:.6},\"argp_deg\":{:.6}}}",
             name, xyz[0], xyz[1], xyz[2], r, delta, speed,
-            opt(phase, 2), opt(illum, 4), opt(mag, 2), opt(physics::equilibrium_temp_k(name, r), 1)
+            opt(phase, 2), opt(illum, 4), opt(mag, 2), opt(physics::equilibrium_temp_k(name, r), 1),
+            a, ecc, inc.to_degrees(), node.to_degrees(), argp.to_degrees()
         ));
     }
     out.push_str("\n  ]\n}\n");

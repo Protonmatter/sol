@@ -13,7 +13,7 @@ import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from ".
 import { startTour, endTour, showTourStep } from "./js/tour.js?v=20";
 import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=20";
 import { enterSky, leaveSky } from "./js/sky.js?v=20";
-import { enterSystem, leaveSystem } from "./js/system.js?v=20";
+import { enterSystem, leaveSystem } from "./js/system.js?v=21";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {

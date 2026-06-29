@@ -77,6 +77,26 @@ pub fn helio_xyz(p: &Planet, jy2k: f64) -> [f64; 3] {
     equinoctial_to_xyz(a, l, k, h, q, pp)
 }
 
+/// Heliocentric orbital elements at `jy2k`: (a AU, eccentricity, inclination rad,
+/// ascending node Ω rad, argument of perihelion ω rad) — for drawing the orbit ellipse.
+pub fn elements(p: &Planet, jy2k: f64) -> (f64, f64, f64, f64, f64) {
+    let jm2k = jy2k / 1000.0;
+    let mut f = [0.0f64; 17];
+    for i in 0..17 {
+        f[i] = FREQ[i].0 + FREQ[i].1 * jm2k;
+    }
+    let a = eval(p.a, jm2k, &f);
+    let k = eval(p.k, jm2k, &f);
+    let h = eval(p.h, jm2k, &f);
+    let q = eval(p.q, jm2k, &f);
+    let pp = eval(p.p, jm2k, &f);
+    let e = (k * k + h * h).sqrt();
+    let varpi = h.atan2(k);
+    let inc = 2.0 * (q * q + pp * pp).sqrt().min(1.0).asin();
+    let node = pp.atan2(q);
+    (a, e, inc, node, varpi - node)
+}
+
 /// Equinoctial elements (a, mean longitude L, k=e·cosϖ, h=e·sinϖ,
 /// q=sin(i/2)·cosΩ, p=sin(i/2)·sinΩ) → heliocentric ecliptic Cartesian (AU).
 fn equinoctial_to_xyz(a: f64, l: f64, k: f64, h: f64, q: f64, p: f64) -> [f64; 3] {

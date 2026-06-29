@@ -14,13 +14,30 @@ const BODY_STYLE = {
   Neptune: { color: "#7da7ff", size: 5.0 }
 };
 
-// Mean orbital semi-major axes (AU) — drawn as stable guide rings.
-const SEMI_MAJOR_AU = {
-  Mercury: 0.387, Venus: 0.723, Earth: 1.0, Mars: 1.524,
-  Jupiter: 5.203, Saturn: 9.537, Uranus: 19.191, Neptune: 30.07
-};
-
 const state = { offsetYears: 0, viewAu: 32, selected: null, active: false, hits: [] };
+
+// Project a planet's true orbit ellipse (from its osculating elements) to screen points.
+function orbitEllipse(b, scale, cx, cy) {
+  const a = b.a_au;
+  const e = b.ecc;
+  const inc = (b.inc_deg * Math.PI) / 180;
+  const node = (b.node_deg * Math.PI) / 180;
+  const argp = (b.argp_deg * Math.PI) / 180;
+  const co = Math.cos(argp), so = Math.sin(argp);
+  const cn = Math.cos(node), sn = Math.sin(node), ci = Math.cos(inc);
+  const semiMinor = a * Math.sqrt(1 - e * e);
+  const pts = [];
+  const n = 160;
+  for (let k = 0; k <= n; k++) {
+    const ea = (k / n) * 2 * Math.PI;
+    const xp = a * (Math.cos(ea) - e);
+    const yp = semiMinor * Math.sin(ea);
+    const x = (co * cn - so * sn * ci) * xp + (-so * cn - co * sn * ci) * yp;
+    const y = (co * sn + so * cn * ci) * xp + (-so * sn + co * cn * ci) * yp;
+    pts.push([cx + x * scale, cy - y * scale]);
+  }
+  return pts;
+}
 
 export function enterSystem() {
   state.active = true;
@@ -80,14 +97,17 @@ function draw(snap) {
   ctx.fillStyle = "#05070d";
   ctx.fillRect(0, 0, w, h);
 
-  // Guide orbit rings at each planet's mean distance.
+  // True orbit ellipses from each planet's osculating elements.
   ctx.lineWidth = 1;
-  for (const [name, a] of Object.entries(SEMI_MAJOR_AU)) {
-    const rr = a * scale;
-    if (rr > r * 1.02 || rr < 2) continue;
-    ctx.strokeStyle = name === state.selected ? "rgba(247,183,51,0.55)" : "rgba(255,255,255,0.12)";
+  for (const b of snap.bodies || []) {
+    if (b.a_au == null) continue;
+    const pts = orbitEllipse(b, scale, cx, cy);
+    ctx.strokeStyle = b.name === state.selected ? "rgba(247,183,51,0.6)" : "rgba(255,255,255,0.13)";
     ctx.beginPath();
-    ctx.arc(cx, cy, rr, 0, Math.PI * 2);
+    for (let k = 0; k < pts.length; k++) {
+      if (k === 0) ctx.moveTo(pts[k][0], pts[k][1]);
+      else ctx.lineTo(pts[k][0], pts[k][1]);
+    }
     ctx.stroke();
   }
 
@@ -158,7 +178,7 @@ function updateInfo(snap) {
   if (!body) {
     const row = document.createElement("div");
     row.className = "sky-row";
-    row.textContent = "Click a planet to inspect its distance, speed, phase, brightness, and temperature.";
+    row.textContent = "Click a planet to inspect its distance, speed, phase, brightness, and temperature — or click the Sun to open the solar surface.";
     info.appendChild(row);
     return;
   }
@@ -212,6 +232,11 @@ document.getElementById("systemCanvas")?.addEventListener("click", (event) => {
   const rect = canvas.getBoundingClientRect();
   const x = (event.clientX - rect.left) * (canvas.width / rect.width);
   const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+  // Clicking the central Sun opens the solar-surface app.
+  if (Math.hypot(x - canvas.width / 2, y - canvas.height / 2) < Math.min(canvas.width, canvas.height) * 0.045) {
+    document.querySelector('button[data-mode="today"]')?.click();
+    return;
+  }
   let best = null;
   for (const hit of state.hits) {
     const d = Math.hypot(hit.sx - x, hit.sy - y);
