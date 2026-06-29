@@ -33,6 +33,9 @@ ever *consumes* those snapshots. The UI never invents physical values.
    - **Onboarding tour**, a glossary of every science term, an interactive cycle **stage
      rail**, a **time scrubber / playback** of an idealized 11-year cycle, and a **real
      butterfly diagram** (sunspot latitude vs. time).
+   - **The real engine in the browser**: `solar-core` is compiled to **WebAssembly**
+     (`crates/solar-wasm`) and loaded as an ES module, so a "Run the engine live" control
+     re-solves the actual model in ~2 ms — same validated snapshot contract, no Node/bundler.
 
 See **[docs/STATUS.md](docs/STATUS.md)** for exactly what's done and what's left, and
 **[docs/WEB_REDESIGN_SPEC.md](docs/WEB_REDESIGN_SPEC.md)** for the full redesign plan.

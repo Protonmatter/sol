@@ -61,6 +61,21 @@ for f in apps/web/data/series/frame-*.json; do python tools/validate_snapshot.py
 responsive breakpoint is present, and that the research panel is closed by default. **If you
 add/rename a required DOM id, update `REQUIRED_IDS` in that file.**
 
+## Build the in-browser engine (WebAssembly)
+
+The web app can run the real `solar-core` engine client-side. The compiled module
+`apps/web/pkg/solar_wasm.wasm` is committed, so you only rebuild it after changing
+`solar-core` or `solar-wasm`:
+
+```powershell
+rustup target add wasm32-unknown-unknown   # one-time
+./tools/build_wasm.ps1                       # builds + stages apps/web/pkg/solar_wasm.wasm
+```
+
+No wasm-bindgen / wasm-pack / Node is needed — `solar-wasm` is a raw `cdylib` and the app
+marshals the JSON snapshot through linear memory itself. In the app: scroll to the timeline
+and use **"Run the engine live"** to re-solve the model in-browser at a chosen activity.
+
 ## Rust engine (only with a local toolchain)
 
 ```bash

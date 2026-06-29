@@ -48,6 +48,22 @@ The Rust engine and Python pipeline are unchanged except for the additive
 - Replaced the fake latitude-vs-index scatter with a **real butterfly diagram**: latitude vs
   cycle time, two migrating wings, current frame highlighted, click-to-scrub.
 
+### Migration — Rust → WebAssembly + ES modules ✅ (the "low-level" path)
+Chosen over a Vite/TS rewrite: the real performance/capability lever is the engine itself,
+and the Rust toolchain is installed.
+- `crates/solar-wasm`: a raw `cdylib` (no wasm-bindgen / wasm-pack — just `cargo` + the
+  `wasm32-unknown-unknown` target) exposing `simulate()` / `result_len()` over a tiny
+  `extern "C"` ABI. It reuses solar-core's model + the same `solar_state_snapshot_json`
+  serializer, so the browser emits **byte-compatible `solar-state-snapshot.v1`** — the
+  contract and validators are unchanged. `tools/build_wasm.ps1` stages
+  `apps/web/pkg/solar_wasm.wasm` (~91 KB).
+- `apps/web/engine.js` (ES module) loads the wasm and marshals the JSON via linear memory;
+  `app.js` is now a module. A **"Run the engine live"** activity slider re-solves the real
+  model in-browser (~2 ms) and renders it synthetically (labelled), separate from the live
+  SDO image.
+- Verified: `cargo test --workspace` green (incl. solar-wasm); activity 0.20 → solar
+  minimum / 0 regions and 0.90 → solar maximum, live, no console errors.
+
 ---
 
 ## Review — bill of health (2026-06-28)
@@ -85,11 +101,16 @@ findings below already addressed.
 
 ## What's left
 
-### Next: structural migration (pre-Phase-4)
-`app.js` should be split into modules with type-checking before Phase 4 adds more surface.
-**Approach is an open decision — see [HANDOFF.md](HANDOFF.md) §"Migration decision".**
-Recommendation there: native ES modules + `// @ts-check` JSDoc typing (keeps the
-zero-dependency, no-build property) rather than a Vite bundler.
+### Finish the ES-module split (in progress)
+The WASM milestone started the migration: `app.js` is now a module importing `engine.js`.
+Next, split the still-monolithic `app.js` into `data/` `render/` `ui/` `state/` modules and
+add `// @ts-check` + a JSDoc `@typedef` for the snapshot contract (optional
+`npx tsc --noEmit` gate). No bundler — keep the no-build, zero-dependency property.
+
+### Engine-in-browser follow-ups (now unlocked)
+- Live **what-if** beyond activity: seed/steps and assimilation runs from the wasm engine.
+- Replace the pre-baked `series/` frames with a live wasm-generated cycle (optional).
+- WebGPU (`wgpu`) rendering per the roadmap, layered on the wasm engine.
 
 ### Phase 4 — Research back room
 - Per-layer provenance detail; observed-vs-model comparison view; run/scenario **export**.

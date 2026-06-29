@@ -72,11 +72,23 @@ in sync when you add/rename ids.
 - **Local dev server** is currently running on `http://localhost:8765` (a `python -m
   http.server`), not the 8000 in the docs — either works.
 - Line-ending warnings on commit (LF→CRLF) are harmless on Windows.
+- **WASM**: `apps/web/pkg/solar_wasm.wasm` is a committed build artifact. After changing
+  `solar-core` or `solar-wasm`, rerun `tools/build_wasm.ps1` (needs `cargo` +
+  `rustup target add wasm32-unknown-unknown`). The wasm ABI returns a pointer + length into
+  linear memory; `engine.js` must read the bytes immediately, before any other wasm call.
+- `cargo` is on the PATH in PowerShell (`~/.cargo/bin`), not in the Bash tool's PATH.
 
-## 6. Migration decision (do this before Phase 4)
+## 6. Migration decision — RESOLVED: Rust → WASM + ES modules
 
-`app.js` is ~1,357 lines of single-file vanilla JS with global state. It should be split and
-type-checked before more features land. **Two viable paths — pick one:**
+**Outcome:** we took the low-level path — compile the real Rust engine to WebAssembly and
+run it client-side (see "Migration" in [STATUS.md](STATUS.md)). `crates/solar-wasm` is a raw
+`cdylib` (no wasm-bindgen) built with `tools/build_wasm.ps1` to `apps/web/pkg/solar_wasm.wasm`;
+`apps/web/engine.js` loads it and `app.js` is now an ES module. Rebuild the wasm whenever
+`solar-core` or `solar-wasm` changes. The next step is splitting the rest of `app.js` into
+modules + `// @ts-check`. **Vite was not adopted** — it needs Node (not installed) and is
+orthogonal to the low-level win. The original trade-off analysis is kept below for context.
+
+`app.js` was ~1,357 lines of single-file vanilla JS with global state. **Two paths were weighed:**
 
 | | **A. ES modules + `// @ts-check`** (recommended) | **B. Vite + TypeScript** |
 |---|---|---|
