@@ -1,0 +1,170 @@
+// Derived reads over the current snapshot in `store`. No DOM writes.
+
+import { store } from "./store.js";
+import { controls } from "./dom.js";
+import {
+  number, numberOrNa, compactNumberOrNa, plural, countBy, formatCounts,
+  readableMode, humanizeId, complexityLabel
+} from "./format.js";
+
+export function fieldValues(id) {
+  return store.state.fields?.[id]?.values || [];
+}
+
+export function meanField(id) {
+  const values = fieldValues(id);
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+export function selectedRegion() {
+  const regions = store.state.active_regions || [];
+  if (store.selectedRegionId != null) {
+    return regions.find((region) => region.id === store.selectedRegionId) || null;
+  }
+  if (store.activeMode !== "explore" || !regions.length) return null;
+  return [...regions].sort((a, b) => (b.complexity || 0) - (a.complexity || 0))[0];
+}
+
+export function visibleLayers() {
+  const layerMap = new Map((store.state.layers || []).map((layer) => [layer.id, layer]));
+  const requested = [];
+  if (controls.continuum.checked) requested.push("continuum_proxy");
+  if (controls.magnetogram.checked) requested.push("br_normalized");
+  if (controls.confidence.checked) requested.push("confidence");
+  if (controls.regions.checked) requested.push("active_regions");
+  return requested.map((id) => layerMap.get(id) || { id, label: id, kind: "degraded" });
+}
+
+export function visibleLayerSummary() {
+  const layers = visibleLayers();
+  if (!layers.length) return "none";
+  return layers.map((layer) => `${layer.label || layer.id} (${layer.kind || "unknown"})`).join(", ");
+}
+
+export function observationFrames() {
+  const frames = [];
+  for (const report of store.state.observations || []) {
+    if (Array.isArray(report.frames)) frames.push(...report.frames);
+  }
+  return frames;
+}
+
+export function dataStateLabel() {
+  const mode = String(store.state.source_mode || "").toLowerCase();
+  const frameModes = observationFrames().map((frame) => String(frame.source_mode || "").toLowerCase());
+  const readinessState = store.state.operational_readiness?.data_state || {};
+  if (mode.includes("degraded") || readinessState.cache_state === "missing") return "degraded";
+  if (mode.includes("live") || frameModes.includes("live")) return "live";
+  if (mode.includes("cached") || frameModes.includes("cached")) return "cached";
+  if (mode.includes("fixture") || frameModes.includes("fixture")) return "fixture";
+  if (mode.includes("synthetic")) return "synthetic";
+  return "unknown";
+}
+
+export function dataStateClass() {
+  const label = dataStateLabel();
+  if (label === "live") return "live";
+  if (label === "cached") return "cached";
+  if (label === "fixture" || label === "synthetic") return "fixture";
+  return "degraded";
+}
+
+export function readinessLabel() {
+  const readiness = store.state.operational_readiness || {};
+  if (readiness.space_weather_operational === true) return "operational";
+  if (readiness.research_learning_ready === true) return "research ready";
+  if (String(readiness.status || "").includes("research")) return "research only";
+  return "blocked";
+}
+
+export function readinessClass() {
+  const label = readinessLabel();
+  if (label === "operational" || label === "research ready") return "research-ready";
+  if (label === "research only") return "research-only";
+  return "blocked";
+}
+
+export function feedStateLabel() {
+  if (!store.feedStatus) return "not run";
+  if (store.feedStatus.status === "ok") return "daily ok";
+  if (store.feedStatus.status === "degraded") return "degraded";
+  if (store.feedStatus.status === "failed") return "failed";
+  return "unknown";
+}
+
+export function feedStateClass() {
+  const label = feedStateLabel();
+  if (label === "daily ok") return "live";
+  if (label === "degraded") return "fixture";
+  if (label === "failed") return "degraded";
+  return "blocked";
+}
+
+export function regionLocation(region) {
+  return `lat ${number(region.lat_deg, 1)} deg, lon ${number(region.lon_deg, 1)} deg`;
+}
+
+export function selectedRegionSummary(region) {
+  return `AR ${region.id} is at ${regionLocation(region)} with normalized flux ${number(region.flux_norm, 2)}, complexity ${complexityLabel(region.complexity)}, area ${number(region.area_msh, 0)} MSH, tilt ${number(region.tilt_deg, 1)} deg, and confidence ${number(region.confidence, 2)}.`;
+}
+
+export function selectedRegionSentence() {
+  const region = selectedRegion();
+  if (!region) return "";
+  return `Selected ${selectedRegionSummary(region)} `;
+}
+
+export function observedSignalSummary() {
+  const signals = store.state.observed_context?.space_weather_signals || {};
+  const parts = [];
+  if (signals.latest_kp != null) parts.push(`Kp ${numberOrNa(signals.latest_kp, 1)}`);
+  if (signals.latest_f107 != null) parts.push(`F10.7 ${numberOrNa(signals.latest_f107, 1)}`);
+  if (signals.latest_goes_xray_flux != null) parts.push(`GOES/X-ray ${compactNumberOrNa(signals.latest_goes_xray_flux)}`);
+  if (signals.latest_solar_wind_speed_km_s != null) parts.push(`solar wind ${numberOrNa(signals.latest_solar_wind_speed_km_s, 0)} km/s`);
+  if (!parts.length) return "No public space-weather signal values are summarized in this snapshot.";
+  return `Latest public signals: ${parts.join(", ")}.`;
+}
+
+function criticalAdapterText(health) {
+  const mag = health.find((item) => item.id === "swpc-rtsw-mag-1m");
+  const wind = health.find((item) => item.id === "swpc-rtsw-wind-1m");
+  const parts = [];
+  if (mag) parts.push(`SWPC magnetometer is ${readableMode(mag.state)}`);
+  if (wind) parts.push(`SWPC solar wind is ${readableMode(wind.state)}`);
+  return parts.length ? `${parts.join("; ")}. ` : "";
+}
+
+export function observationSummary() {
+  const frames = observationFrames();
+  if (!frames.length) return "No observation frames are loaded; the app is rendering synthetic state only.";
+  const counts = countBy(frames.map((frame) => readableMode(frame.source_mode)));
+  const observedContext = store.state.observed_context?.activity_proxy_sources || {};
+  const contextParts = [];
+  if (observedContext.solar_region_rows) contextParts.push(`${observedContext.solar_region_rows} SWPC region rows`);
+  if (observedContext.goes_xray_flares_7_day_rows) contextParts.push(`${observedContext.goes_xray_flares_7_day_rows} GOES flare rows`);
+  if (observedContext.planetary_k_index_rows) contextParts.push(`${observedContext.planetary_k_index_rows} Kp rows`);
+  if (observedContext.f107_cm_flux_rows) contextParts.push(`${observedContext.f107_cm_flux_rows} F10.7 rows`);
+  const sourceText = contextParts.length ? ` Context includes ${contextParts.join(", ")}.` : "";
+  return `${frames.length} observation ${plural(frames.length, "frame")} loaded (${formatCounts(counts)}). ${observedSignalSummary()}${sourceText} These are public context layers, not operational truth.`;
+}
+
+export function adapterSummary() {
+  const health = [];
+  for (const observation of store.state.observations || []) {
+    if (Array.isArray(observation.adapter_health)) health.push(...observation.adapter_health);
+  }
+  if (!health.length) return "No external adapters are attached; synthetic snapshot only.";
+  const counts = countBy(health.map((item) => readableMode(item.state)));
+  const unavailable = health.filter((item) => !["cached", "fixture", "live"].includes(readableMode(item.state)));
+  const missingText = unavailable.length ? ` Missing or degraded: ${unavailable.map((item) => humanizeId(item.id)).join(", ")}.` : " No adapter failures are reported.";
+  return `${health.length} source ${plural(health.length, "adapter")} tracked (${formatCounts(counts)}). ${criticalAdapterText(health)}${missingText}`;
+}
+
+export function layerSummary() {
+  const layers = store.state.layers || [];
+  if (!layers.length) return "No layer metadata is present in this snapshot.";
+  const counts = countBy(layers.map((layer) => readableMode(layer.kind)));
+  const visible = visibleLayers().map((layer) => `${layer.label || humanizeId(layer.id)} (${readableMode(layer.kind)})`);
+  return `${layers.length} declared ${plural(layers.length, "layer")} (${formatCounts(counts)}). Currently visible: ${visible.join(", ") || "none"}. Synthetic and inferred layers come from the model; observed layers are retained as provenance context.`;
+}
