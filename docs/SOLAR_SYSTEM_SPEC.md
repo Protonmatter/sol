@@ -216,11 +216,15 @@ occultation / navigation accuracy.
   "Up now" list with rise/set. *Deferred to later:* magnitude/phase, object-detail panel, search.
 - **P3 — Solar System view.** 2D top-down ecliptic orbit view with time controls and click-through
   to detail; the Sun object links into the existing solar-surface app.
-- **P4 — Accuracy upgrade (IN PROGRESS).** Replace Standish-Keplerian with **VSOP2013** (inner) +
-  **TOP2013** (outer giants) + **ELP-MPP02** (Moon), extracted from ephem.js's truncated tiers via
-  a one-time Node data-gen step and embedded in the Rust→WASM engine. Target mas-class over
-  ±6000 yr; fixes Jupiter/Saturn to arcseconds. Plus velocity (vis-viva), equilibrium temperature,
-  illumination/phase; provenance/error-budget panels. Validated vs Horizons; tighten §8 tolerances.
+- **P4 — Accuracy upgrade. ✅ MOSTLY DONE.** Replaced Standish-Keplerian with **VSOP2013** for the
+  Sun + all 8 planets (IMCCE, via ephem.js's 06-normal tier → `vsop2013_data.rs`; evaluator in
+  `vsop2013.rs`; planets.rs adds light-time, **annual aberration**, precession, nutation).
+  **Validated vs JPL Horizons** (Boston + Sydney) to **arcsecond class**: Saturn 0.3″ (was 250″
+  under Standish), Neptune 0.1″, Mercury 0.2″, Jupiter ~5-8″, all <~20″; valid span widened to
+  roughly ±6000 yr. **TOP2013 dropped** — VSOP2013 already gets the giants to arcseconds.
+  *Remaining:* the **Moon** is still Meeus-47 (~10-30″, sub-arcminute) — ELP-MPP02 upgrade is the
+  one open refinement (its ephem.js evaluator needs more core porting). Physics extras
+  (vis-viva velocity, equilibrium temp, phase/magnitude, object-detail panel) also still to come.
 - **P5 — WebGPU 3D (the "match NASA" stretch).** `wgpu` 3D solar system; reuse the same snapshots.
 - **P6 — Polish.** ZIP table, opt-in address geocoding, a11y (WCAG AA), mobile, performance, and a
   device-orientation "point your phone" mode where supported.
