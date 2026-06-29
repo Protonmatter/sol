@@ -1,7 +1,7 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot } from "./skyEngine.js?v=22";
+import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=28";
 
 const BODY_STYLE = {
   Sun: { color: "#ffd24a", size: 0.030 },
@@ -18,6 +18,12 @@ const BODY_STYLE = {
 const observer = { lat: 40.71, lon: -74.01, elev: 0, label: "New York (default)" };
 let timer = 0;
 let active = false;
+let provider = "local"; // "local" = on-device WASM (default), "server" = DE441 high-precision tier
+
+function setProvenance(text) {
+  const node = document.getElementById("skyProvenance");
+  if (node) node.textContent = text;
+}
 
 function setLocLabel() {
   const node = document.getElementById("skyLocLabel");
@@ -40,6 +46,28 @@ export function leaveSky() {
 }
 
 export function renderSky() {
+  const unix = Date.now() / 1000;
+  if (provider === "server") {
+    setProvenance("Fetching high-precision positions (DE441)…");
+    fetchServerSky(unix, observer.lat, observer.lon, observer.elev)
+      .then((snap) => {
+        if (!active || provider !== "server") return;
+        drawDome(snap);
+        updateList(snap);
+        setProvenance("Source: JPL Horizons / DE441 (server tier). Rise/set come from the on-device engine.");
+      })
+      .catch((error) => {
+        // Graceful fall back to the on-device engine when the optional server is down.
+        renderLocal();
+        setProvenance(`High-precision server unavailable (${error.message}) — showing the on-device engine.`);
+      });
+    return;
+  }
+  renderLocal();
+  setProvenance("Source: on-device engine — VSOP2013 + ELP-MPP02, validated vs JPL Horizons.");
+}
+
+function renderLocal() {
   let snap;
   try {
     snap = skySnapshot(Date.now() / 1000, observer.lat, observer.lon, observer.elev);
@@ -201,3 +229,13 @@ document.getElementById("skySet")?.addEventListener("click", () => {
     renderSky();
   }
 });
+
+// --- Data-source toggle (on-device engine vs optional DE441 server tier) ---
+function setProvider(p) {
+  provider = p;
+  document.getElementById("skyProviderLocal")?.classList.toggle("active", p === "local");
+  document.getElementById("skyProviderServer")?.classList.toggle("active", p === "server");
+  if (active) renderSky();
+}
+document.getElementById("skyProviderLocal")?.addEventListener("click", () => setProvider("local"));
+document.getElementById("skyProviderServer")?.addEventListener("click", () => setProvider("server"));

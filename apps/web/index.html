@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=22">
+    <link rel="stylesheet" href="styles.css?v=28">
   </head>
   <body>
     <main class="app-shell">
@@ -82,6 +82,14 @@
                 <button id="skySet" class="time-btn ghost" type="button">Set</button>
               </div>
               <p id="skyLocLabel" class="time-frame-label">Using a default location — set yours above.</p>
+            </div>
+            <div class="sky-source">
+              <span class="label">Data source</span>
+              <div class="sky-loc-row">
+                <button id="skyProviderLocal" class="time-btn active" type="button">On-device</button>
+                <button id="skyProviderServer" class="time-btn ghost" type="button">High-precision (DE441)</button>
+              </div>
+              <p id="skyProvenance" class="time-frame-label">Source: on-device engine — VSOP2013 + ELP-MPP02, validated vs JPL Horizons.</p>
             </div>
             <div class="sky-whatsup">
               <span class="label">Up now</span>
@@ -247,6 +255,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=27"></script>
+    <script type="module" src="app.js?v=28"></script>
   </body>
 </html>

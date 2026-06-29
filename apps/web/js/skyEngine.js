@@ -34,3 +34,18 @@ export function systemSnapshot(unixSeconds) {
   const view = new Uint8Array(wasmExports.memory.buffer, ptr, len);
   return JSON.parse(new TextDecoder("utf-8").decode(view));
 }
+
+// Optional high-precision tier (docs/SOLAR_SYSTEM_SPEC.md §2.1, P7): the same
+// ephemeris-snapshot.v1 contract, served from the DE441 backend instead of the WASM engine.
+// The base URL is overridable via window.SOL_EPHEMERIS_SERVER for non-localhost deployments.
+export const SERVER_BASE =
+  (typeof window !== "undefined" && window.SOL_EPHEMERIS_SERVER) || "http://localhost:8787";
+
+export async function fetchServerSky(unixSeconds, lat, lonEast, elev, base = SERVER_BASE) {
+  const url = `${base}/v1/sky?unix=${unixSeconds}&lat=${lat}&lon=${lonEast}&elev=${elev}`;
+  const resp = await fetch(url, { mode: "cors" });
+  if (!resp.ok) throw new Error(`ephemeris server HTTP ${resp.status}`);
+  const snap = await resp.json();
+  if (snap.error) throw new Error(snap.error);
+  return snap;
+}
