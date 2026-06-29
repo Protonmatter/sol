@@ -10,6 +10,7 @@ pub mod elpmpp02;
 mod elpmpp02_data;
 pub mod physics;
 pub mod planets;
+pub mod stars;
 pub mod time;
 pub mod vsop2013;
 mod vsop2013_data;
@@ -129,9 +130,34 @@ fn topocentric_sky(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) 
     Topo { ra, dec, dist_km, alt, az, alt_refracted: alt + coords::refraction_deg(alt) }
 }
 
+/// Apparent topocentric alt/az of a catalogue star, through the same reduction as the planets
+/// (J2000 equatorial → J2000 ecliptic → Meeus-21 precession → nutation → equatorial of date →
+/// alt/az). Stars are at infinite distance: no parallax, no light-time.
+fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _elev: f64) -> Topo {
+    let year = time::year_from_jd(jd_utc);
+    let jd_tt = jd_utc + time::delta_t_seconds(year) / 86400.0;
+    let t = time::centuries(jd_tt);
+    let (dpsi, deps) = time::nutation_deg(t);
+    let eps_true = time::mean_obliquity_deg(t) + deps;
+    let eps0 = time::mean_obliquity_deg(0.0); // J2000 obliquity for the catalogue frame
+    let (lon0, lat0) = coords::equ_to_ecl(star.ra_deg, star.dec_deg, eps0);
+    let (lon_d, lat_d) = coords::precess_ecliptic_from_j2000(lon0, lat0, t);
+    let (ra, dec) = coords::ecl_to_equ(lon_d + dpsi, lat_d, eps_true);
+    let lst = (time::gast_deg(jd_utc, dpsi, eps_true) + lon_east).rem_euclid(360.0);
+    let (alt, az) = coords::alt_az(ra, dec, lst, lat);
+    Topo { ra, dec, dist_km: f64::INFINITY, alt, az, alt_refracted: alt + coords::refraction_deg(alt) }
+}
+
 /// Rise / transit / set as JD(UTC) within ±0.5 day of `jd_utc`. NaN where none.
 fn events(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> (f64, f64, f64, f64) {
-    let alt_at = |jd: f64| topocentric_sky(body, jd, lat, lon_east, elev).alt_refracted;
+    events_core(&|jd| topocentric_sky(body, jd, lat, lon_east, elev).alt_refracted, jd_utc)
+}
+
+fn star_events(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> (f64, f64, f64, f64) {
+    events_core(&|jd| star_topocentric(star, jd, lat, lon_east, elev).alt_refracted, jd_utc)
+}
+
+fn events_core(alt_at: &dyn Fn(f64) -> f64, jd_utc: f64) -> (f64, f64, f64, f64) {
     let steps = 144; // 10-minute sampling over 24h
     let mut prev_jd = jd_utc - 0.5;
     let mut prev_alt = alt_at(prev_jd);
@@ -147,10 +173,10 @@ fn events(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> (f64, 
             transit = jd;
         }
         if prev_alt < 0.0 && alt >= 0.0 && rise.is_nan() {
-            rise = bisect_cross(&alt_at, prev_jd, jd);
+            rise = bisect_cross(alt_at, prev_jd, jd);
         }
         if prev_alt >= 0.0 && alt < 0.0 && set.is_nan() {
-            set = bisect_cross(&alt_at, prev_jd, jd);
+            set = bisect_cross(alt_at, prev_jd, jd);
         }
         prev_jd = jd;
         prev_alt = alt;
@@ -213,6 +239,19 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
         out.push_str(&format!("\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},", s.alt, s.az, s.alt_refracted, s.alt_refracted > 0.0));
         out.push_str(&format!("\"compass\":\"{}\",", compass(s.az)));
         out.push_str(&format!("\"angular_size_arcsec\":{:.2},\"horizontal_parallax_deg\":{:.6},", ang_size, coords::horizontal_parallax_deg(s.dist_km)));
+        out.push_str(&format!("\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.3}", jnum(rise), jnum(transit), jnum(set), transit_alt));
+        out.push('}');
+    }
+    // Bright-star catalogue — same topocentric reduction; no distance/parallax (infinite range).
+    for star in stars::STARS.iter() {
+        let s = star_topocentric(star, jd_utc, lat, lon_east, elev);
+        let (rise, transit, set, transit_alt) = star_events(star, jd_utc, lat, lon_east, elev);
+        out.push_str(",\n    {");
+        out.push_str(&format!("\"name\":\"{}\",\"kind\":\"star\",", star.name));
+        out.push_str(&format!("\"ra_deg\":{:.6},\"dec_deg\":{:.6},\"distance_km\":null,", s.ra, s.dec));
+        out.push_str(&format!("\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},", s.alt, s.az, s.alt_refracted, s.alt_refracted > 0.0));
+        out.push_str(&format!("\"compass\":\"{}\",", compass(s.az)));
+        out.push_str(&format!("\"angular_size_arcsec\":0,\"horizontal_parallax_deg\":0,\"magnitude\":{:.2},", star.mag));
         out.push_str(&format!("\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.3}", jnum(rise), jnum(transit), jnum(set), transit_alt));
         out.push('}');
     }

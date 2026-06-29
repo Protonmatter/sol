@@ -1,7 +1,7 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=b43147786c";
+import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=6322cab170";
 
 const BODY_STYLE = {
   Sun: { color: "#ffd24a", size: 0.030 },
@@ -186,10 +186,33 @@ function drawDome(snap) {
   ctx.fillText("E", cx + r + pad * 0.6, cy);
   ctx.fillText("W", cx - r - pad * 0.6, cy);
 
-  // Bodies above the horizon.
+  // Catalogue stars first (so Sun/Moon/planets draw on top).
+  ctx.fillStyle = "rgba(220,228,255,0.92)";
+  for (const b of snap.bodies || []) {
+    if (!b.above_horizon || BODY_STYLE[b.name]) continue; // BODY_STYLE = Sun/Moon/planets
+    const rr = (1 - b.alt_deg / 90) * r;
+    const az = b.az_deg * Math.PI / 180;
+    const x = cx + rr * Math.sin(az);
+    const y = cy - rr * Math.cos(az);
+    const mag = b.magnitude == null ? 2 : b.magnitude;
+    const size = Math.max(1.2, (2.5 - mag) * r * 0.005);
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+    if (mag < 1.5) { // label only the brightest, to avoid clutter
+      ctx.font = `${Math.max(9, r * 0.025)}px Segoe UI, sans-serif`;
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(200,210,235,0.7)";
+      ctx.fillText(b.name, x + size + 3, y);
+      ctx.fillStyle = "rgba(220,228,255,0.92)";
+    }
+  }
+
+  // Sun / Moon / planets above the horizon.
   for (const b of snap.bodies || []) {
     if (!b.above_horizon) continue;
-    const style = BODY_STYLE[b.name] || { color: "#ffffff", size: 0.012 };
+    const style = BODY_STYLE[b.name];
+    if (!style) continue;
     const rr = (1 - b.alt_deg / 90) * r;
     const az = b.az_deg * Math.PI / 180;
     const x = cx + rr * Math.sin(az);
@@ -230,7 +253,8 @@ function updateList(snap) {
     title.textContent = `${b.name} - ${Math.round(b.alt_deg)} deg up in the ${b.compass}`;
     const detail = document.createElement("span");
     detail.className = "muted";
-    detail.textContent = `azimuth ${Math.round(b.az_deg)} deg, rises ${jdToLocal(b.rise_jd)}, sets ${jdToLocal(b.set_jd)}`;
+    const magText = (!BODY_STYLE[b.name] && b.magnitude != null) ? `mag ${b.magnitude.toFixed(1)}, ` : "";
+    detail.textContent = `${magText}azimuth ${Math.round(b.az_deg)} deg, rises ${jdToLocal(b.rise_jd)}, sets ${jdToLocal(b.set_jd)}`;
     row.appendChild(title);
     row.appendChild(detail);
     list.appendChild(row);

@@ -11,7 +11,7 @@
 // from GPU device loss (driver reset / TDR / sleep-wake), defensive getCurrentTexture,
 // resize via ResizeObserver, and on-demand rendering (no perpetual rAF loop).
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=b43147786c";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=6322cab170";
 
 const COLORS = {
   Sun: [1.0, 0.82, 0.29],

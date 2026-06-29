@@ -35,6 +35,14 @@ pub fn ecl_to_equ(lon_deg: f64, lat_deg: f64, eps_deg: f64) -> (f64, f64) {
     (ra.rem_euclid(2.0 * PI) * R2D, dec * R2D)
 }
 
+/// Equatorial (RA, Dec) → ecliptic (λ, β), degrees. Inverse of `ecl_to_equ` (Meeus 13.1–13.2).
+pub fn equ_to_ecl(ra_deg: f64, dec_deg: f64, eps_deg: f64) -> (f64, f64) {
+    let (a, d, e) = (ra_deg * D2R, dec_deg * D2R, eps_deg * D2R);
+    let lon = (a.sin() * e.cos() + d.tan() * e.sin()).atan2(a.cos());
+    let lat = (d.sin() * e.cos() - d.cos() * e.sin() * a.sin()).asin();
+    (lon.rem_euclid(2.0 * PI) * R2D, lat * R2D)
+}
+
 /// Observer geocentric quantities ρ·sinφ′, ρ·cosφ′ on the WGS84 ellipsoid (Meeus 11).
 pub fn observer_rho(lat_deg: f64, elev_m: f64) -> (f64, f64) {
     let phi = lat_deg * D2R;
