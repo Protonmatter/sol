@@ -6,6 +6,27 @@ const R2D: f64 = 180.0 / PI;
 pub const AU_KM: f64 = 149_597_870.7;
 const EARTH_R_KM: f64 = 6378.14;
 
+/// Precess ecliptic coordinates (degrees) from J2000 to the date `t` centuries from J2000.
+/// Meeus, "Astronomical Algorithms", Ch. 21 (initial epoch J2000). Unlike a longitude-only
+/// shift this also moves the latitude as the ecliptic plane tilts (planetary precession),
+/// which matters at the ~12″/26 yr level.
+pub fn precess_ecliptic_from_j2000(lon_deg: f64, lat_deg: f64, t: f64) -> (f64, f64) {
+    let t2 = t * t;
+    let t3 = t2 * t;
+    let eta = (47.0029 * t - 0.03302 * t2 + 0.000060 * t3) / 3600.0 * D2R;
+    let pi_deg = 174.876384 - (869.8089 * t + 0.03536 * t2) / 3600.0;
+    let pi_rad = pi_deg * D2R;
+    let p_deg = (5029.0966 * t + 1.11113 * t2 - 0.000006 * t3) / 3600.0;
+    let (lon, lat) = (lon_deg * D2R, lat_deg * D2R);
+    let sin_pml = (pi_rad - lon).sin();
+    let cos_pml = (pi_rad - lon).cos();
+    let a = eta.cos() * lat.cos() * sin_pml - eta.sin() * lat.sin();
+    let b = lat.cos() * cos_pml;
+    let c = eta.cos() * lat.sin() + eta.sin() * lat.cos() * sin_pml;
+    let lon_new = p_deg + pi_deg - a.atan2(b) * R2D;
+    (lon_new.rem_euclid(360.0), c.asin() * R2D)
+}
+
 /// Ecliptic (λ, β) → equatorial (RA, Dec), degrees. `eps` is true obliquity (Meeus 13.3–13.4).
 pub fn ecl_to_equ(lon_deg: f64, lat_deg: f64, eps_deg: f64) -> (f64, f64) {
     let (l, b, e) = (lon_deg * D2R, lat_deg * D2R, eps_deg * D2R);

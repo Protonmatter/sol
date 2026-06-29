@@ -32,8 +32,8 @@ BODIES = {
     "Sun": "10", "Moon": "301", "Mercury": "199", "Venus": "299", "Mars": "499",
     "Jupiter": "599", "Saturn": "699", "Uranus": "799", "Neptune": "899",
 }
-TOL_ALT_DEG = 0.02   # 72" — Sun+planets are VSOP2013 (arcsec-class); Moon is Meeus-47.
-TOL_AZ_DEG = 0.025   # 90" (azimuth amplifies near the zenith)
+TOL_ALT_DEG = 0.006  # ~22" — Sun+planets VSOP2013, Moon ELP-MPP02, proper ecliptic precession.
+TOL_AZ_DEG = 0.009   # ~32" (azimuth amplifies near the zenith / for the close Moon)
 LOOSE = {}
 
 

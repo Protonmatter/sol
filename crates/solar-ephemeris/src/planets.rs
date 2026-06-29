@@ -33,11 +33,11 @@ pub fn planet_apparent_ecliptic(planet: &Planet, jd_tt: f64, dpsi_deg: f64) -> (
     }
 
     let lon_j2000 = g[1].atan2(g[0]).to_degrees();
-    let lat = g[2].atan2((g[0] * g[0] + g[1] * g[1]).sqrt()).to_degrees();
-    // General precession of the ecliptic longitude from J2000 to date, plus nutation.
-    let t_cent = jy2k / 100.0;
-    let lon = lon_j2000 + 1.396971 * t_cent + dpsi_deg;
-    (lon.rem_euclid(360.0), lat, dist)
+    let lat_j2000 = g[2].atan2((g[0] * g[0] + g[1] * g[1]).sqrt()).to_degrees();
+    // Precess J2000 ecliptic → ecliptic of date (longitude and latitude), then add nutation.
+    let (lon_date, lat_date) = crate::coords::precess_ecliptic_from_j2000(lon_j2000, lat_j2000, jy2k / 100.0);
+    let lon = lon_date + dpsi_deg;
+    (lon.rem_euclid(360.0), lat_date, dist)
 }
 
 /// Apparent geocentric ecliptic-of-date position of the Sun from VSOP2013 (Earth = EMB).
@@ -54,9 +54,10 @@ pub fn sun_apparent_ecliptic(jd_tt: f64, dpsi_deg: f64) -> (f64, f64, f64) {
         g[i] += dist * v / C_AU_PER_YEAR;
     }
     let lon_j2000 = g[1].atan2(g[0]).to_degrees();
-    let lat = g[2].atan2((g[0] * g[0] + g[1] * g[1]).sqrt()).to_degrees();
-    let lon = lon_j2000 + 1.396971 * (jy2k / 100.0) + dpsi_deg;
-    (lon.rem_euclid(360.0), lat, dist)
+    let lat_j2000 = g[2].atan2((g[0] * g[0] + g[1] * g[1]).sqrt()).to_degrees();
+    let (lon_date, lat_date) = crate::coords::precess_ecliptic_from_j2000(lon_j2000, lat_j2000, jy2k / 100.0);
+    let lon = lon_date + dpsi_deg;
+    (lon.rem_euclid(360.0), lat_date, dist)
 }
 
 fn geo_distance(planet: &[f64; 3], earth: &[f64; 3]) -> f64 {

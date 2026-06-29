@@ -6,6 +6,8 @@
 
 pub mod bodies;
 pub mod coords;
+pub mod elpmpp02;
+mod elpmpp02_data;
 pub mod planets;
 pub mod time;
 pub mod vsop2013;
@@ -92,7 +94,7 @@ fn geocentric(body: Body, jd_utc: f64) -> (f64, f64, f64) {
             let (l, b, dist_au) = planets::sun_apparent_ecliptic(jd_tt, dpsi);
             (l, b, dist_au * AU_KM)
         }
-        Body::Moon => bodies::moon_apparent(t, dpsi),
+        Body::Moon => elpmpp02::moon_apparent_ecliptic(jd_tt, dpsi),
         _ => {
             let el = body.elements().expect("planet elements");
             let (l, b, dist_au) = planets::planet_apparent_ecliptic(el, jd_tt, dpsi);
