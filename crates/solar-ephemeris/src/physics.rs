@@ -47,9 +47,28 @@ fn bond_albedo(name: &str) -> Option<f64> {
 }
 
 /// Black-body equilibrium temperature (K) for a fast rotator at heliocentric distance `r_au`:
-/// T = 278.5·(1−A)^¼ / √r.
+/// T = 278.5·(1−A)^¼ / √r. This is the *airless* radiative-balance temperature — it ignores
+/// atmospheres/greenhouse and internal heat, so it can differ wildly from the real temperature
+/// (Venus: ~227 K here vs 737 K actual). Pair it with `mean_temp_k` for an honest display.
 pub fn equilibrium_temp_k(name: &str, r_au: f64) -> Option<f64> {
     bond_albedo(name).map(|a| 278.5 * (1.0 - a).powf(0.25) / r_au.sqrt())
+}
+
+/// Observed mean temperature (K) — surface for the terrestrial planets, ~1-bar level for the
+/// giants (NASA planetary fact sheets). Shown next to the black-body value so the greenhouse /
+/// internal-heat gap is explicit rather than misleading.
+pub fn mean_temp_k(name: &str) -> Option<f64> {
+    Some(match name {
+        "Mercury" => 440.0,
+        "Venus" => 737.0,
+        "Earth" => 288.0,
+        "Mars" => 210.0,
+        "Jupiter" => 165.0,
+        "Saturn" => 134.0,
+        "Uranus" => 76.0,
+        "Neptune" => 72.0,
+        _ => return None,
+    })
 }
 
 #[cfg(test)]

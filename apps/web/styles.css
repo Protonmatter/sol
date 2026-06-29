@@ -260,6 +260,21 @@ h2 {
   border-color: rgba(246, 243, 232, 0.22);
 }
 
+.mode-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.mode-group-label {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
 .mode-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

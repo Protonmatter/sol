@@ -108,8 +108,12 @@ fn equinoctial_to_xyz(a: f64, l: f64, k: f64, h: f64, q: f64, p: f64) -> [f64; 3
     let omega = varpi - node;
     let m = l - varpi;
     let mut ecc = m;
-    for _ in 0..12 {
-        ecc -= (ecc - e * ecc.sin() - m) / (1.0 - e * ecc.cos());
+    for _ in 0..20 {
+        let delta = (ecc - e * ecc.sin() - m) / (1.0 - e * ecc.cos());
+        ecc -= delta;
+        if delta.abs() < 1e-13 {
+            break;
+        }
     }
     let xp = a * (ecc.cos() - e);
     let yp = a * (1.0 - e * e).sqrt() * ecc.sin();

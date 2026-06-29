@@ -182,19 +182,30 @@ EphemerisSnapshotV1 {
 - Host-side Rust unit tests for each transform against worked examples (Meeus), so failures localize
   to a stage (time / theory / transform / topocentric).
 
-## 8. Accuracy budget (target error vs JPL Horizons apparent place)
+## 8. Accuracy budget — **measured** vs JPL Horizons (DE441) apparent place
 
-| Body | MVP (Keplerian/ELP-trunc) | Upgraded (VSOP87/MPP02) | Notes |
-|---|---|---|---|
-| Sun | ≲ 30″ | ≲ 1″ | drives twilight |
-| Moon | ≲ 2′ | ≲ 15″ | parallax mandatory; biggest topocentric term |
-| Mercury | ≲ 1′ | ≲ 5″ | Keplerian weakest here |
-| Venus…Mars | ≲ 1′ | ≲ 2″ | |
-| Jupiter…Neptune | ≲ 30″ | ≲ 2″ | slow movers |
-| Alt/az (after refraction) | ≲ 2′ typical | ≲ 0.5′ | refraction model dominates near horizon |
+Measured by `tools/validate_ephemeris.py` over **4 cases** spanning both hemispheres, two
+seasons, and equatorial → sub-arctic latitude (Boston, Sydney, **Reykjavík 64°N**, **Nairobi**),
+36 body-instances. The headline metric is the **great-circle pointing error** (`sep`), which —
+unlike raw azimuth difference — does not blow up near the zenith/nadir.
 
-These are *visualization/observing-planning* tolerances. Explicit non-goal: sub-arcsecond /
-occultation / navigation accuracy.
+| Quantity | Achieved (this envelope) | Theory |
+|---|---|---|
+| Sun + planets — pointing | **≤ ~4″** (most ≤ 2″, several < 1″) | VSOP2013 + Earth-centre observer |
+| Moon — pointing | **≤ ~5″** | ELP-MPP02; parallax-sensitive |
+| Geocentric RA/Dec (any body) | **~3″** | — |
+| Inertial heliocentric position | mas-class | VSOP2013/ELP truncation |
+
+**Gate:** `sep ≤ 6″` and `d_alt ≤ 6″` for every body in every case (current worst **5.2″**).
+
+**Epoch caveat (the claim is about *now*, not all of ±6000 yr).** The VSOP2013/ELP *series* are
+mas-class over ~±6000 yr, and that bounds the **inertial** position. But **apparent** quantities
+(alt/az, rise/set) also depend on Earth orientation, i.e. **ΔT**, whose extrapolation reaches
+**hours** at ±6000 yr (Morrison–Stephenson) — enough to put the Moon **degrees** off. So:
+arcsecond *apparent* place holds near the present epoch; deep-time use is for the inertial /
+heliocentric geometry, not topocentric pointing. Other near-present limiters: **abridged
+nutation (~0.5″)**, no UT1−UTC / polar motion. Explicit non-goal: sub-arcsecond / occultation /
+navigation accuracy.
 
 ## 9. Phased delivery (each phase shippable + Horizons-validated)
 
@@ -226,13 +237,15 @@ occultation / navigation accuracy.
   (`vsop2013.rs` + generated `vsop2013_data.rs`; light-time, **annual aberration**, nutation) and
   **ELP-MPP02** for the Moon (`elpmpp02.rs` + `elpmpp02_data.rs`; light-time planetary aberration —
   the Moon shares Earth's velocity so annual aberration does not apply). The of-date reduction uses
-  the full **Meeus Ch. 21 ecliptic precession** (longitude *and* latitude); the earlier
-  longitude-only shift had cost every body ~12″ in declination. **Validated vs JPL Horizons**
-  (Boston + Sydney) to **arcsecond class**: Saturn 0.3″ (was 250″ under Standish), Neptune 0.1″,
-  Moon geocentric RA/Dec ~3″, worst topocentric alt/az 11.3″; span ≈ ±6000 yr. **TOP2013 dropped**
+  the full **Meeus Ch. 21 ecliptic precession** (longitude *and* latitude — the earlier
+  longitude-only shift had cost every body ~12″ in declination), and the observer is **Earth's
+  centre** (EMB − Moon-mass-fraction · ELP-Moon), which removed the ~6″ that the bare barycentre
+  cost the Sun and inner planets. **Validated vs JPL Horizons DE441** over the §8 4-case envelope:
+  great-circle pointing **≤ ~4″ Sun+planets, ≤ ~5″ Moon** (worst 5.2″), geocentric RA/Dec ~3″.
+  *Accuracy is near-present;* deep-time apparent place is ΔT-limited (see §8). **TOP2013 dropped**
   (VSOP2013 already nails the giants). Physics (`physics.rs`): phase angle, illuminated fraction,
-  apparent magnitude (Meeus Ch.41), vis-viva orbital speed, black-body equilibrium temperature —
-  surfaced in a **per-object detail panel** in the Solar System view.
+  apparent magnitude (Meeus Ch.41), vis-viva orbital speed, **black-body** equilibrium temperature
+  (labeled as such — *not* surface temperature) — in a **per-object detail panel**.
 - **P5 — WebGPU 3-D. ✅ DONE.** A dependency-free 3-D solar system (`js/orrery.js`, new "3-D View"
   surface) reusing the VSOP2013 `system_snapshot`. Built on the **browser's native WebGPU API in
   JS** — *not* `wgpu`, which needs `wasm-bindgen` and can't build on this ARM64 toolchain. Sun +

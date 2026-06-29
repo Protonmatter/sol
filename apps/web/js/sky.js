@@ -1,7 +1,7 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=28";
+import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=29";
 
 const BODY_STYLE = {
   Sun: { color: "#ffd24a", size: 0.030 },
@@ -64,7 +64,7 @@ export function renderSky() {
     return;
   }
   renderLocal();
-  setProvenance("Source: on-device engine — VSOP2013 + ELP-MPP02, validated vs JPL Horizons.");
+  setProvenance("Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~5″ vs JPL Horizons near today.");
 }
 
 function renderLocal() {

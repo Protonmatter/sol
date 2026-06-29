@@ -193,7 +193,12 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     out.push_str("  \"observer\": {");
     out.push_str(&format!("\"lat_deg\":{:.6},\"lon_deg\":{:.6},\"elev_m\":{:.1}", lat, lon_east, elev));
     out.push_str("},\n");
-    out.push_str("  \"accuracy\": {\"class\":\"analytic apparent place; validated vs JPL Horizons to ~arcsecond\",\"theory\":\"Sun+planets VSOP2013, Moon ELP-MPP02, Meeus Ch.21 ecliptic precession\",\"validated_against\":\"JPL Horizons DE441\",\"non_goal\":\"navigation / occultation timing\"},\n");
+    out.push_str("  \"accuracy\": {\
+\"class\":\"apparent topocentric place, validated vs JPL Horizons DE441\",\
+\"theory\":\"Sun+planets VSOP2013, Moon ELP-MPP02; Earth-centre observer; Meeus-21 precession; abridged nutation (~0.5 arcsec)\",\
+\"pointing_error\":\"<=~5 arcsec (Moon), <=~4 arcsec (Sun+planets) across 4 sites equator-64N both hemispheres 2 seasons; geocentric RA/Dec ~3 arcsec\",\
+\"valid_epoch\":\"near present; deep-time apparent place is delta-T limited (not arcsecond): delta-T reaches hours at +-6000 yr, so the Moon can be off by degrees\",\
+\"non_goal\":\"navigation / occultation timing\"},\n");
     out.push_str("  \"bodies\": [\n");
     for (i, body) in ALL_BODIES.iter().enumerate() {
         let s = topocentric_sky(*body, jd_utc, lat, lon_east, elev);
@@ -261,9 +266,11 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
             (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
         };
         let ahead = vsop2013::helio_xyz(planet, jy2k + dt);
+        let behind = vsop2013::helio_xyz(planet, jy2k - dt);
         let speed = {
-            let d = [ahead[0] - xyz[0], ahead[1] - xyz[1], ahead[2] - xyz[2]];
-            (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() / dt * AU_PER_YEAR_KMS
+            // Central difference — O(dt²) accurate vs the forward difference's O(dt).
+            let d = [ahead[0] - behind[0], ahead[1] - behind[1], ahead[2] - behind[2]];
+            (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() / (2.0 * dt) * AU_PER_YEAR_KMS
         };
         // Phase / illumination / magnitude only make sense for a body seen from Earth.
         let (phase, illum, mag) = if *name != "Earth" && delta > 1e-9 {
@@ -279,10 +286,11 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
         out.push_str(&format!(
             "    {{\"name\":\"{}\",\"x_au\":{:.8},\"y_au\":{:.8},\"z_au\":{:.8},\"dist_au\":{:.8},\
              \"geo_dist_au\":{:.8},\"speed_kms\":{:.3},\"phase_angle_deg\":{},\
-             \"illuminated_fraction\":{},\"magnitude\":{},\"equilibrium_temp_k\":{},\
+             \"illuminated_fraction\":{},\"magnitude\":{},\"equilibrium_temp_k\":{},\"mean_temp_k\":{},\
              \"a_au\":{:.8},\"ecc\":{:.8},\"inc_deg\":{:.6},\"node_deg\":{:.6},\"argp_deg\":{:.6}}}",
             name, xyz[0], xyz[1], xyz[2], r, delta, speed,
             opt(phase, 2), opt(illum, 4), opt(mag, 2), opt(physics::equilibrium_temp_k(name, r), 1),
+            opt(physics::mean_temp_k(name), 0),
             a, ecc, inc.to_degrees(), node.to_degrees(), argp.to_degrees()
         ));
     }

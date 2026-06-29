@@ -22,19 +22,23 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-# (label, UTC, lat_deg, lon_deg_east, elev_m)
+# (label, UTC, lat_deg, lon_deg_east, elev_m) — spread over season, hemisphere, and latitude
+# (equatorial → sub-arctic) so the gate characterises an envelope, not one geometry.
 CASES = [
     ("Boston", dt.datetime(2026, 6, 29, 16, 0, tzinfo=dt.timezone.utc), 42.36, -71.06, 0.0),
     ("Sydney", dt.datetime(2026, 1, 15, 9, 0, tzinfo=dt.timezone.utc), -33.87, 151.21, 20.0),
+    ("Reykjavik", dt.datetime(2026, 12, 21, 12, 0, tzinfo=dt.timezone.utc), 64.13, -21.90, 0.0),
+    ("Nairobi", dt.datetime(2026, 3, 20, 18, 0, tzinfo=dt.timezone.utc), -1.29, 36.82, 1660.0),
 ]
 # Horizons COMMAND ids (planet centres use the "99" suffix).
 BODIES = {
     "Sun": "10", "Moon": "301", "Mercury": "199", "Venus": "299", "Mars": "499",
     "Jupiter": "599", "Saturn": "699", "Uranus": "799", "Neptune": "899",
 }
-TOL_ALT_DEG = 0.006  # ~22" — Sun+planets VSOP2013, Moon ELP-MPP02, proper ecliptic precession.
-TOL_AZ_DEG = 0.009   # ~32" (azimuth amplifies near the zenith / for the close Moon)
-LOOSE = {}
+# The headline gate is the great-circle POINTING error (`sep`), which — unlike raw d_az —
+# does not blow up near the zenith/nadir. d_alt is also gated; d_az is reported for context.
+TOL_SEP_DEG = 0.0017  # ~6" pointing error (Sun+planets VSOP2013, Moon ELP-MPP02, Earth-centre observer)
+TOL_ALT_DEG = 0.0017  # ~6"
 
 
 def find_binary(explicit: str | None) -> Path:
@@ -78,15 +82,26 @@ def az_diff(a: float, b: float) -> float:
     return min(d, 360.0 - d)
 
 
+def angular_sep(alt1: float, az1: float, alt2: float, az2: float) -> float:
+    """Great-circle separation (deg) between two horizontal directions — the true pointing
+    error, which (unlike raw d_az) stays finite near the zenith/nadir."""
+    import math
+    a1, a2 = math.radians(alt1), math.radians(alt2)
+    daz = math.radians(az_diff(az1, az2))
+    c = math.sin(a1) * math.sin(a2) + math.cos(a1) * math.cos(a2) * math.cos(daz)
+    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", help="path to the sky CLI")
     args = parser.parse_args()
     binary = find_binary(args.binary)
 
-    worst = 0.0
+    worst_sep = 0.0
+    worst_alt = 0.0
     failures = []
-    print(f"{'case':<14}{'body':<6}{'d_alt(arcsec)':>14}{'d_az(arcsec)':>14}")
+    print(f"{'case':<11}{'body':<9}{'sep(arcsec)':>12}{'d_alt(arcsec)':>14}{'d_az(arcsec)':>14}")
     for label, when, lat, lon, elev in CASES:
         eng = engine_altaz(binary, when, lat, lon, elev)
         for name, cmd in BODIES.items():
@@ -94,13 +109,15 @@ def main() -> int:
             b = eng[name]
             d_alt = abs(b["alt_deg"] - h_el)
             d_az = az_diff(b["az_deg"], h_az)
-            worst = max(worst, d_alt, d_az)
-            print(f"{label:<10}{name:<9}{d_alt * 3600:>14.1f}{d_az * 3600:>14.1f}")
-            tol_alt, tol_az = LOOSE.get(name, (TOL_ALT_DEG, TOL_AZ_DEG))
-            if d_alt > tol_alt or d_az > tol_az:
-                failures.append(f"{label}/{name}: d_alt={d_alt * 3600:.0f}arcsec d_az={d_az * 3600:.0f}arcsec")
+            sep = angular_sep(b["alt_deg"], b["az_deg"], h_el, h_az)
+            worst_sep = max(worst_sep, sep)
+            worst_alt = max(worst_alt, d_alt)
+            print(f"{label:<11}{name:<9}{sep * 3600:>12.1f}{d_alt * 3600:>14.1f}{d_az * 3600:>14.1f}")
+            if sep > TOL_SEP_DEG or d_alt > TOL_ALT_DEG:
+                failures.append(f"{label}/{name}: sep={sep * 3600:.1f}arcsec d_alt={d_alt * 3600:.1f}arcsec")
 
-    print(f"\nworst error: {worst * 3600:.1f} arcsec  (tol: alt {TOL_ALT_DEG * 3600:.0f}arcsec, az {TOL_AZ_DEG * 3600:.0f}arcsec)")
+    print(f"\nworst pointing error: {worst_sep * 3600:.1f} arcsec | worst d_alt: {worst_alt * 3600:.1f} arcsec"
+          f"  (tol: sep {TOL_SEP_DEG * 3600:.0f}arcsec, alt {TOL_ALT_DEG * 3600:.0f}arcsec)")
     if failures:
         for f in failures:
             print("FAIL:", f, file=sys.stderr)

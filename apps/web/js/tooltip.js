@@ -1,7 +1,7 @@
 // Glossary tooltips: plain-language help on hover, keyboard focus, and tap.
 
-import { store } from "./store.js?v=28";
-import { GLOSSARY } from "./config.js?v=28";
+import { store } from "./store.js?v=29";
+import { GLOSSARY } from "./config.js?v=29";
 
 const termTip = document.getElementById("termTip");
 

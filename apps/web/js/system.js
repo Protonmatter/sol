@@ -1,7 +1,7 @@
 // "Solar System": a top-down heliocentric orbit view built from the ephemeris WASM engine.
 // Looks straight down on the ecliptic plane; planets sit at their real VSOP2013 positions.
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=28";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=29";
 
 const BODY_STYLE = {
   Mercury: { color: "#b3a487", size: 3.0 },
@@ -207,7 +207,10 @@ function updateInfo(snap) {
     add("Illuminated", `${(body.illuminated_fraction * 100).toFixed(1)}% · phase ${body.phase_angle_deg.toFixed(1)}°`);
   }
   if (body.magnitude != null) add("Apparent magnitude", body.magnitude.toFixed(1));
-  if (body.equilibrium_temp_k != null) add("Equilibrium temp", `${body.equilibrium_temp_k.toFixed(0)} K`);
+  if (body.equilibrium_temp_k != null) {
+    const measured = body.mean_temp_k != null ? ` · measured ~${body.mean_temp_k.toFixed(0)} K` : "";
+    add("Black-body temp", `${body.equilibrium_temp_k.toFixed(0)} K${measured}`);
+  }
   card.appendChild(dl);
   info.appendChild(card);
 }

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=28">
+    <link rel="stylesheet" href="styles.css?v=29">
   </head>
   <body>
     <main class="app-shell">
@@ -57,15 +57,25 @@
             </div>
           </section>
 
-          <div class="mode-grid" role="tablist" aria-label="What do you want to do?">
-            <button class="mode-button active" type="button" data-mode="today">Today</button>
-            <button class="mode-button" type="button" data-mode="explore">Explore</button>
-            <button class="mode-button" type="button" data-mode="weather">Space Weather</button>
-            <button class="mode-button" type="button" data-mode="research">Research</button>
-            <button class="mode-button" type="button" data-mode="sky">My Sky</button>
-            <button class="mode-button" type="button" data-mode="system">Solar System</button>
-            <button class="mode-button" type="button" data-mode="orrery">3-D View</button>
-          </div>
+          <nav class="mode-nav" aria-label="What do you want to do?">
+            <div class="mode-group" role="group" aria-label="The Sun">
+              <span class="mode-group-label">☀ The Sun</span>
+              <div class="mode-grid">
+                <button class="mode-button active" type="button" data-mode="today">Today</button>
+                <button class="mode-button" type="button" data-mode="explore">Explore</button>
+                <button class="mode-button" type="button" data-mode="weather">Space Weather</button>
+                <button class="mode-button" type="button" data-mode="research">Research</button>
+              </div>
+            </div>
+            <div class="mode-group" role="group" aria-label="Sky and Solar System">
+              <span class="mode-group-label">🌌 Sky &amp; Solar System</span>
+              <div class="mode-grid">
+                <button class="mode-button" type="button" data-mode="sky">My Sky</button>
+                <button class="mode-button" type="button" data-mode="system">Solar System</button>
+                <button class="mode-button" type="button" data-mode="orrery">3-D View</button>
+              </div>
+            </div>
+          </nav>
 
           <section class="sky-panel" aria-label="My Sky">
             <header class="sky-header">
@@ -89,7 +99,7 @@
                 <button id="skyProviderLocal" class="time-btn active" type="button">On-device</button>
                 <button id="skyProviderServer" class="time-btn ghost" type="button">High-precision (DE441)</button>
               </div>
-              <p id="skyProvenance" class="time-frame-label">Source: on-device engine — VSOP2013 + ELP-MPP02, validated vs JPL Horizons.</p>
+              <p id="skyProvenance" class="time-frame-label">Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~5″ vs JPL Horizons near today.</p>
             </div>
             <div class="sky-whatsup">
               <span class="label">Up now</span>
@@ -255,6 +265,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=28"></script>
+    <script type="module" src="app.js?v=29"></script>
   </body>
 </html>
