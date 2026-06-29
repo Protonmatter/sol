@@ -239,7 +239,12 @@ occultation / navigation accuracy.
   planets are camera-facing billboards in real heliocentric 3-D space; orbits are their true
   inclined ellipses; perspective camera (drag-orbit, wheel-zoom), depth buffer, alpha blending,
   time scrubber, and a graceful fallback where WebGPU is unavailable. Renders on-demand (no
-  perpetual rAF loop). Verified in-browser.
+  perpetual rAF loop). **Hardened + cross-platform:** a backend abstraction runs WebGPU first
+  (→ D3D12 on Windows arm64/x86_64, Metal on Apple-silicon + Intel Macs, Vulkan on Linux
+  arm64/x86_64) and falls back to **WebGL2** (ANGLE → D3D/GL/Metal/Vulkan) anywhere WebGPU is
+  off. High-performance adapter selection, validation error-scoping, uncaptured-error logging,
+  **device-loss recovery** (driver reset / TDR / sleep-wake), `ResizeObserver` repaint, and the
+  active GPU/backend shown in the panel. Verified in-browser on both backends.
 - **P6 — Polish.** ZIP table, opt-in address geocoding, a11y (WCAG AA), mobile, performance, and a
   device-orientation "point your phone" mode where supported.
 - **P7 — Backend high-precision provider (hybrid, §2.1).** An optional server that serves full

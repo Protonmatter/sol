@@ -87,9 +87,13 @@ and validated against **JPL Horizons (DE441)**.
 - **P5 (WebGPU 3-D) ✅** — **3-D View** surface (`js/orrery.js`): a dependency-free orrery on the
   browser's native **WebGPU** API (not `wgpu` — wasm-bindgen won't build on this ARM64 toolchain),
   reusing `system_snapshot`. Billboarded Sun+planets in real 3-D, true inclined orbit ellipses,
-  drag/zoom perspective camera, depth + blending, time scrubber, WebGPU-absent fallback; renders
-  on-demand. Review (2026-06-29): green — all 7 surfaces switch cleanly, no console errors,
-  web-static passes.
+  drag/zoom perspective camera, depth + blending, time scrubber; renders on-demand.
+  **Hardened + cross-platform** (`3dccf17`): backend abstraction runs WebGPU first (D3D12 /
+  Metal / Vulkan across arm64 + x86_64) with a **WebGL2 (ANGLE)** fallback; high-performance
+  adapter, validation error-scoping, uncaptured-error logging, **GPU device-loss recovery**,
+  ResizeObserver repaint, and the live GPU/backend shown in the panel. Verified on both backends
+  (WebGPU → Adreno-7xx/D3D12; WebGL2 → ANGLE/D3D11). Review (2026-06-29): green — all 7 surfaces
+  switch cleanly, no console errors, web-static passes.
 - **Decided:** a **hybrid** provider model — the WASM engine is the offline default; an optional
   DE440/DE441 (or SPICE) backend behind `ephemeris-snapshot.v1` is the future deep-time tier (P7,
   not yet started).
