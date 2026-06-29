@@ -103,6 +103,17 @@ and validated against **JPL Horizons (DE441)**.
   when the optional server is down. Server vs on-device agree to ≤ 11.3″. Verified in-browser
   (escalation + fallback).
 
+### Full end-to-end review — P0–P7 (2026-06-29): **green**
+- **Rust:** 26 workspace tests pass; no compiler warnings; both WASM crates build; the committed
+  `apps/web/pkg/*.wasm` reproduce byte-for-byte from source.
+- **Ephemeris gate:** matches JPL Horizons DE441 within tolerance (worst 11.3″ vs 22″/32″).
+- **Web:** `validate_web_static` passes; all 7 surfaces (Today/Explore/Space Weather/Research/My
+  Sky/Solar System/3-D View) switch cleanly with no console errors; orrery renders on WebGPU and
+  the WebGL2 fallback; My Sky escalates to the DE441 server and falls back gracefully.
+- **No regression to the original app:** `latest-state.json` is valid `solar-state-snapshot.v1`,
+  all 11 cycle series frames validate, and the operational-readiness gate is unchanged (still
+  correctly blocked).
+
 ---
 
 ## Review — bill of health (2026-06-28)
