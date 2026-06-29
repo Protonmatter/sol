@@ -126,7 +126,10 @@ After a multi-lens review (JPL / NN-g / physics / math / end-user), the findings
   + Solar System "Positions" text list); plain-language provider labels.
 - **P3:** Saturn magnitude includes the ring term; orrery billboards near-opaque (depth-correct) +
   pinch-zoom; central-difference velocity; Kepler iterate-to-tolerance.
-- **Deferred (a feature, not a fix):** a bright-star catalog in My Sky.
+- **Bright-star catalogue ✅** (`crates/solar-ephemeris/src/stars.rs`): 26 brightest stars (J2000)
+  flow through the same topocentric reduction (new `coords::equ_to_ecl`) and appear in the My Sky
+  dome (magnitude-sized dots, brightest labelled) and the "Up now" list. Polaris altitude tracks
+  observer latitude; 9-body Horizons gate unchanged.
 
 ---
 
