@@ -15,6 +15,10 @@ name = "solar-core"
 version = "0.1.1"
 
 [[package]]
+name = "solar-ephemeris"
+version = "0.1.1"
+
+[[package]]
 name = "solar-ingest"
 version = "0.1.1"
 

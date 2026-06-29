@@ -177,10 +177,13 @@ occultation / navigation accuracy.
 
 ## 9. Phased delivery (each phase shippable + Horizons-validated)
 
-- **P0 — Ephemeris foundation.** `solar-ephemeris` crate: time systems (JD, ΔT, GMST/LST,
-  obliquity), Sun + Moon geocentric, equatorial→topocentric alt/az, rise/set/transit. WASM
-  exports + `ephemeris-snapshot.v1`. Horizons validation harness + golden tests. *Done when:* Sun &
-  Moon alt/az match Horizons within §8 for several dates/sites.
+- **P0 — Ephemeris foundation. ✅ DONE (2026-06-29).** `solar-ephemeris` crate: time systems
+  (JD, ΔT, nutation, obliquity, GMST/GAST/LST), Sun (Meeus 25) + Moon (Meeus 47 principal terms),
+  full apparent-place + topocentric chain (parallax via WGS84, refraction), rise/transit/set,
+  `ephemeris-snapshot.v1` JSON, raw-ABI WASM (`apps/web/pkg/solar_ephemeris.wasm`, ~80 KB), a `sky`
+  CLI, Meeus worked-example unit tests, and `tools/validate_ephemeris.py`. **Validated vs JPL
+  Horizons DE441** across Boston (day/night) + Sydney: worst alt/az error **37.5″**, most < 15″ —
+  arcsecond class, well inside §8.
 - **P1 — "My Sky" MVP.** Observer input (geolocation/manual), 2D horizon dome (alt/az, compass,
   twilight shading from Sun altitude), Sun + Moon with rise/set + object detail. *Done when:* a user
   can see "the Moon is 22° up in the ESE, sets 01:40," correct for their location.
