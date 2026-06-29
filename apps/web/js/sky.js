@@ -1,7 +1,7 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=6322cab170";
+import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=cce09c95c5";
 
 const BODY_STYLE = {
   Sun: { color: "#ffd24a", size: 0.030 },

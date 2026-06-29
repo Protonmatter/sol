@@ -11,7 +11,7 @@
 // from GPU device loss (driver reset / TDR / sleep-wake), defensive getCurrentTexture,
 // resize via ResizeObserver, and on-demand rendering (no perpetual rAF loop).
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=6322cab170";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=cce09c95c5";
 
 const COLORS = {
   Sun: [1.0, 0.82, 0.29],
@@ -19,15 +19,17 @@ const COLORS = {
   Mars: [1.0, 0.42, 0.30], Jupiter: [0.88, 0.78, 0.61], Saturn: [0.94, 0.85, 0.54],
   Uranus: [0.66, 0.88, 0.90], Neptune: [0.49, 0.65, 1.0]
 };
-// Visual (not physical) billboard radii in AU, so everything is visible.
-const BODY_RADIUS = {
-  Sun: 0.5, Mercury: 0.10, Venus: 0.14, Earth: 0.15, Mars: 0.12,
-  Jupiter: 0.30, Saturn: 0.26, Uranus: 0.20, Neptune: 0.20
+// On-screen marker DIAMETER in CSS px (constant size, ranked by real body size so the gas giants
+// read bigger than the terrestrials). Physical sizes are invisible at AU scale, so these are
+// perceptual — but always visible regardless of zoom (unlike the old world-space AU billboards).
+const BODY_SIZE_PX = {
+  Sun: 24, Mercury: 9, Venus: 11, Earth: 11, Mars: 9,
+  Jupiter: 18, Saturn: 16, Uranus: 13, Neptune: 13
 };
 const ORDER = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"];
 const FOVY = (45 * Math.PI) / 180;
 
-const state = { az: 0.7, el: 0.5, radius: 12, offsetYears: 0, active: false, backend: "", initing: false };
+const state = { az: 0.7, el: 0.5, radius: 26, offsetYears: 0, active: false, backend: "", initing: false };
 
 // ---- minimal column-major mat4 helpers ----
 function perspective(fovy, aspect, near, far) {
@@ -88,12 +90,17 @@ function buildGeometry(snap) {
     ranges.push({ first: orbit.length / 6, count: pts.length });
     for (const p of pts) orbit.push(p[0], p[1], p[2], col[0] * 0.7, col[1] * 0.7, col[2] * 0.7);
   }
-  const body = [0, 0, 0, BODY_RADIUS.Sun, ...COLORS.Sun];
+  // Marker size is constant on screen (CSS px → backing-store px via dpr); the size attribute
+  // holds the on-screen diameter, used directly by both backends.
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const body = [0, 0, 0, BODY_SIZE_PX.Sun * dpr, ...COLORS.Sun];
+  const labels = [{ name: "Sun", x: 0, y: 0, z: 0 }];
   for (const b of snap.bodies || []) {
     const col = COLORS[b.name] || [1, 1, 1];
-    body.push(b.x_au, b.y_au, b.z_au, BODY_RADIUS[b.name] || 0.12, col[0], col[1], col[2]);
+    body.push(b.x_au, b.y_au, b.z_au, (BODY_SIZE_PX[b.name] || 9) * dpr, col[0], col[1], col[2]);
+    labels.push({ name: b.name, x: b.x_au, y: b.y_au, z: b.z_au });
   }
-  geom = { orbit: new Float32Array(orbit), ranges, body: new Float32Array(body), bodyCount: body.length / 7 };
+  geom = { orbit: new Float32Array(orbit), ranges, body: new Float32Array(body), bodyCount: body.length / 7, labels };
 }
 
 function currentUnix() {
@@ -108,18 +115,14 @@ function camera(w, h) {
   ];
   const view = lookAt(eye, [0, 0, 0], [0, 0, 1]);
   const proj = perspective(FOVY, w / h, 0.05, 400);
-  const vp = mul(proj, view);
-  const fwd = norm(sub([0, 0, 0], eye));
-  const right = norm(cross(fwd, [0, 0, 1]));
-  const up = cross(right, fwd);
-  return { vp, right, up };
+  return { vp: mul(proj, view) };
 }
 
 // =====================================================================
 //  WebGPU backend (native D3D12 / Metal / Vulkan via the browser)
 // =====================================================================
 const ORBIT_WGSL = `
-struct Cam { vp: mat4x4<f32>, right: vec4<f32>, up: vec4<f32> };
+struct Cam { vp: mat4x4<f32>, viewport: vec4<f32> };
 @group(0) @binding(0) var<uniform> cam: Cam;
 struct VO { @builtin(position) pos: vec4<f32>, @location(0) col: vec3<f32> };
 @vertex fn vs(@location(0) p: vec3<f32>, @location(1) c: vec3<f32>) -> VO {
@@ -128,13 +131,16 @@ struct VO { @builtin(position) pos: vec4<f32>, @location(0) col: vec3<f32> };
 @fragment fn fs(@location(0) c: vec3<f32>) -> @location(0) vec4<f32> { return vec4<f32>(c, 0.5); }
 `;
 const BODY_WGSL = `
-struct Cam { vp: mat4x4<f32>, right: vec4<f32>, up: vec4<f32> };
+struct Cam { vp: mat4x4<f32>, viewport: vec4<f32> };
 @group(0) @binding(0) var<uniform> cam: Cam;
 struct VO { @builtin(position) pos: vec4<f32>, @location(0) corner: vec2<f32>, @location(1) col: vec3<f32> };
 @vertex fn vs(@location(0) corner: vec2<f32>, @location(1) center: vec3<f32>,
-              @location(2) radius: f32, @location(3) col: vec3<f32>) -> VO {
-  let world = center + (cam.right.xyz * corner.x + cam.up.xyz * corner.y) * radius;
-  var o: VO; o.pos = cam.vp * vec4<f32>(world, 1.0); o.corner = corner; o.col = col; return o;
+              @location(2) diam: f32, @location(3) col: vec3<f32>) -> VO {
+  // Constant on-screen size: offset the quad corner in clip space by a pixel diameter.
+  var clip = cam.vp * vec4<f32>(center, 1.0);
+  clip.x = clip.x + corner.x * (diam / cam.viewport.x) * clip.w;
+  clip.y = clip.y + corner.y * (diam / cam.viewport.y) * clip.w;
+  var o: VO; o.pos = clip; o.corner = corner; o.col = col; return o;
 }
 @fragment fn fs(@location(0) corner: vec2<f32>, @location(1) col: vec3<f32>) -> @location(0) vec4<f32> {
   let d = length(corner);
@@ -239,7 +245,8 @@ function makeWebGPU(onLost) {
       dw = w; dh = h;
     }
     const u = new Float32Array(24);
-    u.set(cam.vp, 0); u.set([cam.right[0], cam.right[1], cam.right[2], 0], 16); u.set([cam.up[0], cam.up[1], cam.up[2], 0], 20);
+    u.set(cam.vp, 0);
+    u.set([w, h, 0, 0], 16); // viewport (backing-store px) for constant-size markers
     device.queue.writeBuffer(uni, 0, u);
     let tex;
     try { tex = ctx.getCurrentTexture(); } catch (_) { return; }
@@ -272,12 +279,11 @@ const GL_ORBIT_FS = `#version 300 es
 precision highp float; in vec3 v_col; out vec4 o;
 void main(){ o = vec4(v_col, 0.5); }`;
 const GL_BODY_VS = `#version 300 es
-layout(location=0) in vec3 a_center; layout(location=1) in float a_radius; layout(location=2) in vec3 a_col;
-uniform mat4 u_vp; uniform float u_pointScale; out vec3 v_col;
+layout(location=0) in vec3 a_center; layout(location=1) in float a_diam; layout(location=2) in vec3 a_col;
+uniform mat4 u_vp; out vec3 v_col;
 void main(){
-  vec4 clip = u_vp * vec4(a_center,1.0);
-  gl_Position = clip;
-  gl_PointSize = clamp(a_radius * u_pointScale / max(clip.w, 0.001), 2.0, 256.0);
+  gl_Position = u_vp * vec4(a_center,1.0);
+  gl_PointSize = clamp(a_diam, 2.0, 256.0); // constant on-screen size (already in px)
   v_col = a_col;
 }`;
 const GL_BODY_FS = `#version 300 es
@@ -287,7 +293,7 @@ void main(){ vec2 d = gl_PointCoord - vec2(0.5); float r = length(d)*2.0; if(r>1
 function makeWebGL2() {
   let gl, orbitProg, bodyProg, orbitVbo, bodyVbo, orbitVao, bodyVao;
   let ranges = [], bodyCount = 0;
-  let uOrbitVp, uBodyVp, uBodyScale;
+  let uOrbitVp, uBodyVp;
 
   function compile(type, src) {
     const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -312,7 +318,6 @@ function makeWebGL2() {
     } catch (e) { console.error("WebGL2 shader error:", e.message); return null; }
     uOrbitVp = gl.getUniformLocation(orbitProg, "u_vp");
     uBodyVp = gl.getUniformLocation(bodyProg, "u_vp");
-    uBodyScale = gl.getUniformLocation(bodyProg, "u_pointScale");
     orbitVbo = gl.createBuffer(); bodyVbo = gl.createBuffer();
     orbitVao = gl.createVertexArray(); bodyVao = gl.createVertexArray();
 
@@ -358,7 +363,6 @@ function makeWebGL2() {
 
     gl.useProgram(bodyProg);
     gl.uniformMatrix4fv(uBodyVp, false, vp);
-    gl.uniform1f(uBodyScale, (h / 2) / Math.tan(FOVY / 2));
     gl.bindVertexArray(bodyVao);
     gl.drawArrays(gl.POINTS, 0, bodyCount);
     gl.bindVertexArray(null);
@@ -391,7 +395,46 @@ function paint() {
   const canvas = document.getElementById("orreryCanvas");
   if (!canvas || canvas.clientWidth === 0) return;
   const [w, h] = ensureSized(canvas);
-  backend.draw(w, h, camera(w, h));
+  const cam = camera(w, h);
+  backend.draw(w, h, cam);
+  updateLabels(canvas, cam.vp);
+}
+
+const labelEls = [];
+// Project each body's world position through the view-projection and place a DOM label there.
+function updateLabels(canvas, vp) {
+  const host = document.getElementById("orreryLabels");
+  if (!host || !geom) return;
+  const cw = canvas.clientWidth;
+  const ch = canvas.clientHeight;
+  // Track the centred canvas box within the (relative) viewport.
+  host.style.left = canvas.offsetLeft + "px";
+  host.style.top = canvas.offsetTop + "px";
+  host.style.width = cw + "px";
+  host.style.height = ch + "px";
+  const items = geom.labels;
+  while (labelEls.length < items.length) {
+    const s = document.createElement("span");
+    s.className = "orrery-label";
+    host.appendChild(s);
+    labelEls.push(s);
+  }
+  for (let i = 0; i < labelEls.length; i++) {
+    const el = labelEls[i];
+    if (i >= items.length) { el.style.display = "none"; continue; }
+    const it = items[i];
+    const x = vp[0] * it.x + vp[4] * it.y + vp[8] * it.z + vp[12];
+    const y = vp[1] * it.x + vp[5] * it.y + vp[9] * it.z + vp[13];
+    const wv = vp[3] * it.x + vp[7] * it.y + vp[11] * it.z + vp[15];
+    if (wv <= 0.0001) { el.style.display = "none"; continue; } // behind the camera
+    const sx = (x / wv * 0.5 + 0.5) * cw;
+    const sy = (1 - (y / wv * 0.5 + 0.5)) * ch;
+    if (sx < 0 || sx > cw || sy < 0 || sy > ch) { el.style.display = "none"; continue; } // off-screen
+    el.style.display = "block";
+    el.style.left = sx + "px";
+    el.style.top = sy + "px";
+    if (el.textContent !== it.name) el.textContent = it.name;
+  }
 }
 
 function onDeviceLost(info) {

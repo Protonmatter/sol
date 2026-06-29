@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=6322cab170">
+    <link rel="stylesheet" href="styles.css?v=cce09c95c5">
   </head>
   <body>
     <main class="app-shell">
@@ -21,6 +21,7 @@
           <canvas id="skyCanvas" width="900" height="900" aria-label="Local sky: a horizon dome showing where each body is"></canvas>
           <canvas id="systemCanvas" width="900" height="900" aria-label="Solar System: a top-down orbit view of the planets"></canvas>
           <canvas id="orreryCanvas" aria-label="3-D solar system rendered with WebGPU"></canvas>
+          <div id="orreryLabels" class="orrery-labels" aria-hidden="true"></div>
           <div class="status-strip" aria-live="polite">
             <div>
               <span class="label">Stage</span>
@@ -281,6 +282,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=6322cab170"></script>
+    <script type="module" src="app.js?v=cce09c95c5"></script>
   </body>
 </html>

@@ -712,6 +712,27 @@ body[data-surface="system"] .timeline-band {
   display: none;
 }
 
+/* Projected planet name labels overlaid on the WebGPU/WebGL2 canvas. */
+.orrery-labels {
+  position: absolute;
+  pointer-events: none;
+  display: none;
+  z-index: 2;
+}
+
+body[data-surface="orrery"] .orrery-labels {
+  display: block;
+}
+
+.orrery-label {
+  position: absolute;
+  transform: translate(0.5rem, -50%);
+  color: rgba(232, 238, 255, 0.88);
+  font: 600 0.72rem "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px #000, 0 0 2px #000;
+}
+
 body[data-surface="orrery"] #orreryCanvas {
   display: block;
 }
