@@ -3,3 +3,4 @@ __pycache__/
 *.py[cod]
 tmp-solar-web-server.*.log
 tmp-solar-web-server.pid
+/target/
