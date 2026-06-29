@@ -14,7 +14,7 @@ import { startTour, endTour, showTourStep } from "./js/tour.js?v=22";
 import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=22";
 import { enterSky, leaveSky } from "./js/sky.js?v=22";
 import { enterSystem, leaveSystem } from "./js/system.js?v=22";
-import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=25";
+import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=27";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {

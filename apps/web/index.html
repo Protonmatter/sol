@@ -116,7 +116,7 @@
             <header class="sky-header">
               <p class="eyebrow">3-D View</p>
               <h1>Orrery</h1>
-              <p id="orreryInsight" class="insight">A real 3-D solar system rendered with WebGPU from the same VSOP2013 positions — drag to orbit the camera, scroll to zoom.</p>
+              <p id="orreryInsight" class="insight">A real 3-D solar system from the same VSOP2013 positions — rendered on your GPU via WebGPU (Direct3D 12 / Metal / Vulkan), with a WebGL2 fallback. Drag to orbit the camera, scroll to zoom.</p>
             </header>
             <div class="sky-observer">
               <span class="label">Date</span>
@@ -125,6 +125,7 @@
                 <input id="orreryTime" class="sys-range" type="range" min="-100" max="100" step="0.1" value="0" aria-label="years from now">
               </div>
               <p class="time-frame-label">Orbits drawn at their true inclinations; body sizes are exaggerated for visibility.</p>
+              <p id="orreryBackend" class="time-frame-label"></p>
             </div>
           </section>
 
@@ -246,6 +247,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=25"></script>
+    <script type="module" src="app.js?v=27"></script>
   </body>
 </html>
