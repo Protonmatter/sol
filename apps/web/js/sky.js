@@ -1,7 +1,7 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=29";
+import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=b43147786c";
 
 const BODY_STYLE = {
   Sun: { color: "#ffd24a", size: 0.030 },
@@ -19,6 +19,10 @@ const observer = { lat: 40.71, lon: -74.01, elev: 0, label: "New York (default)"
 let timer = 0;
 let active = false;
 let provider = "local"; // "local" = on-device WASM (default), "server" = DE441 high-precision tier
+let chosenUnix = null;  // null = live "now"; otherwise a frozen instant (seconds)
+let lastSnap = null;    // most recent snapshot, for Export
+
+const currentUnix = () => (chosenUnix != null ? chosenUnix : Date.now() / 1000);
 
 function setProvenance(text) {
   const node = document.getElementById("skyProvenance");
@@ -27,17 +31,49 @@ function setProvenance(text) {
 
 function setLocLabel() {
   const node = document.getElementById("skyLocLabel");
-  if (node) node.textContent = `${observer.label}: ${observer.lat.toFixed(2)} deg, ${observer.lon.toFixed(2)} deg - local time, updated live.`;
+  if (node) node.textContent = `${observer.label}: ${observer.lat.toFixed(2)} deg, ${observer.lon.toFixed(2)} deg.`;
+}
+
+function setTimeLabel() {
+  const node = document.getElementById("skyTimeLabel");
+  if (node) node.textContent = chosenUnix == null
+    ? "Live — updating every minute."
+    : "Frozen at the chosen time. Press Now to return to live.";
+}
+
+function toLocalInput(unix) {
+  const d = new Date(unix * 1000);
+  const p = (x) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function syncTimeInput() {
+  const input = /** @type {HTMLInputElement|null} */ (document.getElementById("skyTime"));
+  if (input) input.value = toLocalInput(currentUnix());
+}
+
+// Deep link: #sky=lat,lon[,unix] restores a shared location/time.
+function applyDeepLink() {
+  const m = /sky=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,(\d+))?/.exec(location.hash);
+  if (!m) return;
+  observer.lat = Math.max(-90, Math.min(90, parseFloat(m[1])));
+  observer.lon = parseFloat(m[2]);
+  observer.label = "Shared location";
+  if (m[3]) chosenUnix = parseInt(m[3], 10);
 }
 
 export function enterSky() {
   active = true;
+  applyDeepLink();
   setLocLabel();
+  setTimeLabel();
+  syncTimeInput();
   loadSkyEngine().then(renderSky).catch(() => {
     const node = document.getElementById("skyInsight");
     if (node) node.textContent = "Sky engine unavailable (the ephemeris WebAssembly module failed to load).";
   });
-  if (!timer) timer = window.setInterval(() => { if (active) renderSky(); }, 60000);
+  // Auto-tick only while live; a frozen time stays put.
+  if (!timer) timer = window.setInterval(() => { if (active && chosenUnix == null) { renderSky(); syncTimeInput(); } }, 60000);
 }
 
 export function leaveSky() {
@@ -46,12 +82,13 @@ export function leaveSky() {
 }
 
 export function renderSky() {
-  const unix = Date.now() / 1000;
+  const unix = currentUnix();
   if (provider === "server") {
     setProvenance("Fetching high-precision positions (DE441)…");
     fetchServerSky(unix, observer.lat, observer.lon, observer.elev)
       .then((snap) => {
         if (!active || provider !== "server") return;
+        lastSnap = snap;
         drawDome(snap);
         updateList(snap);
         setProvenance("Source: JPL Horizons / DE441 (server tier). Rise/set come from the on-device engine.");
@@ -70,10 +107,11 @@ export function renderSky() {
 function renderLocal() {
   let snap;
   try {
-    snap = skySnapshot(Date.now() / 1000, observer.lat, observer.lon, observer.elev);
+    snap = skySnapshot(currentUnix(), observer.lat, observer.lon, observer.elev);
   } catch (error) {
     return;
   }
+  lastSnap = snap;
   drawDome(snap);
   updateList(snap);
 }
@@ -239,3 +277,42 @@ function setProvider(p) {
 }
 document.getElementById("skyProviderLocal")?.addEventListener("click", () => setProvider("local"));
 document.getElementById("skyProviderServer")?.addEventListener("click", () => setProvider("server"));
+
+// --- Time controls (plan for any date/time, not just "now") ---
+document.getElementById("skyTime")?.addEventListener("change", (event) => {
+  const v = /** @type {HTMLInputElement} */ (event.target).value;
+  const t = v ? new Date(v).getTime() : NaN;
+  if (Number.isFinite(t)) {
+    chosenUnix = t / 1000;
+    setTimeLabel();
+    if (active) renderSky();
+  }
+});
+document.getElementById("skyNow")?.addEventListener("click", () => {
+  chosenUnix = null;
+  syncTimeInput();
+  setTimeLabel();
+  if (active) renderSky();
+});
+
+// --- Share link + export (deep-link the location/time; download the snapshot) ---
+document.getElementById("skyShare")?.addEventListener("click", () => {
+  const u = Math.round(currentUnix());
+  location.hash = `sky=${observer.lat.toFixed(4)},${observer.lon.toFixed(4)},${u}`;
+  const label = document.getElementById("skyTimeLabel");
+  const msg = "Shareable link copied to the address bar.";
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(location.href).then(() => { if (label) label.textContent = msg; }, () => {});
+  } else if (label) {
+    label.textContent = "Link is in the address bar — copy it to share.";
+  }
+});
+document.getElementById("skyExport")?.addEventListener("click", () => {
+  if (!lastSnap) return;
+  const blob = new Blob([JSON.stringify(lastSnap, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `sky-${Math.round(currentUnix())}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});

@@ -31,6 +31,18 @@ pub fn magnitude(name: &str, r: f64, delta: f64, a: f64) -> Option<f64> {
     Some(m)
 }
 
+/// Saturn's ring brightening term (Meeus Ch. 41): −2.60·|sin B| + 1.25·sin²B, where B is the
+/// Saturnicentric latitude of Earth, from Saturn's geocentric equatorial position (degrees).
+/// Ranges ~0 (rings edge-on) to ≈−0.9 mag (rings wide open).
+pub fn saturn_ring_mag(ra_deg: f64, dec_deg: f64) -> f64 {
+    const A0: f64 = 40.589; // IAU Saturn north-pole RA (J2000)
+    const D0: f64 = 83.537; // IAU Saturn north-pole Dec (J2000)
+    let (ra, dec) = (ra_deg.to_radians(), dec_deg.to_radians());
+    let (a0, d0) = (A0.to_radians(), D0.to_radians());
+    let sin_b = -d0.sin() * dec.sin() - d0.cos() * dec.cos() * (a0 - ra).cos();
+    -2.60 * sin_b.abs() + 1.25 * sin_b * sin_b
+}
+
 /// Bond albedo used for the equilibrium-temperature estimate.
 fn bond_albedo(name: &str) -> Option<f64> {
     Some(match name {

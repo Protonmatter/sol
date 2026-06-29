@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=29">
+    <link rel="stylesheet" href="styles.css?v=b43147786c">
   </head>
   <body>
     <main class="app-shell">
@@ -93,13 +93,25 @@
               </div>
               <p id="skyLocLabel" class="time-frame-label">Using a default location — set yours above.</p>
             </div>
+            <div class="sky-time">
+              <span class="label">Time</span>
+              <div class="sky-loc-row">
+                <input id="skyTime" class="sky-input sky-input-wide" type="datetime-local" aria-label="observation date and time (your local time)">
+                <button id="skyNow" class="time-btn" type="button">Now</button>
+              </div>
+              <p id="skyTimeLabel" class="time-frame-label">Live — updating every minute.</p>
+            </div>
             <div class="sky-source">
               <span class="label">Data source</span>
               <div class="sky-loc-row">
-                <button id="skyProviderLocal" class="time-btn active" type="button">On-device</button>
-                <button id="skyProviderServer" class="time-btn ghost" type="button">High-precision (DE441)</button>
+                <button id="skyProviderLocal" class="time-btn active" type="button">On your device</button>
+                <button id="skyProviderServer" class="time-btn ghost" type="button">NASA JPL (live)</button>
               </div>
               <p id="skyProvenance" class="time-frame-label">Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~5″ vs JPL Horizons near today.</p>
+              <div class="sky-loc-row" style="margin-top: 0.5rem">
+                <button id="skyShare" class="time-btn ghost" type="button">Copy share link</button>
+                <button id="skyExport" class="time-btn ghost" type="button">Export JSON</button>
+              </div>
             </div>
             <div class="sky-whatsup">
               <span class="label">Up now</span>
@@ -127,6 +139,10 @@
             <div class="sky-whatsup">
               <span class="label">Selected</span>
               <div id="systemInfo" class="sky-list"><div class="sky-row">Click a planet to inspect it.</div></div>
+            </div>
+            <div class="sky-whatsup">
+              <span class="label">Positions</span>
+              <div id="systemPositions" class="sky-list"></div>
             </div>
           </section>
 
@@ -265,6 +281,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=29"></script>
+    <script type="module" src="app.js?v=b43147786c"></script>
   </body>
 </html>

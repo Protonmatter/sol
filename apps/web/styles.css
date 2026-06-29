@@ -755,11 +755,18 @@ body[data-surface="orrery"] .timeline-band {
 }
 
 .sky-observer,
-.sky-source {
+.sky-source,
+.sky-time {
   padding: 0.85rem;
   border: 1px solid var(--line);
   border-left: 3px solid var(--teal);
   background: #10161a;
+}
+
+.sky-input-wide {
+  width: auto;
+  flex: 1 1 11rem;
+  min-width: 9rem;
 }
 
 .sky-source {

@@ -11,7 +11,7 @@
 // from GPU device loss (driver reset / TDR / sleep-wake), defensive getCurrentTexture,
 // resize via ResizeObserver, and on-demand rendering (no perpetual rAF loop).
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=29";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=b43147786c";
 
 const COLORS = {
   Sun: [1.0, 0.82, 0.29],
@@ -139,7 +139,9 @@ struct VO { @builtin(position) pos: vec4<f32>, @location(0) corner: vec2<f32>, @
 @fragment fn fs(@location(0) corner: vec2<f32>, @location(1) col: vec3<f32>) -> @location(0) vec4<f32> {
   let d = length(corner);
   if (d > 1.0) { discard; }
-  return vec4<f32>(col, smoothstep(1.0, 0.55, d));
+  // Near-opaque disc (AA only at the rim) so the depth buffer resolves overlapping bodies
+  // correctly without back-to-front sorting.
+  return vec4<f32>(col, smoothstep(1.0, 0.9, d));
 }
 `;
 
@@ -280,7 +282,7 @@ void main(){
 }`;
 const GL_BODY_FS = `#version 300 es
 precision highp float; in vec3 v_col; out vec4 o;
-void main(){ vec2 d = gl_PointCoord - vec2(0.5); float r = length(d)*2.0; if(r>1.0) discard; o = vec4(v_col, smoothstep(1.0,0.55,r)); }`;
+void main(){ vec2 d = gl_PointCoord - vec2(0.5); float r = length(d)*2.0; if(r>1.0) discard; o = vec4(v_col, smoothstep(1.0,0.9,r)); }`;
 
 function makeWebGL2() {
   let gl, orbitProg, bodyProg, orbitVbo, bodyVbo, orbitVao, bodyVao;
@@ -470,11 +472,32 @@ export function leaveOrrery() {
 (function attach() {
   const canvas = document.getElementById("orreryCanvas");
   if (!canvas) return;
-  let dragging = false, lx = 0, ly = 0;
-  canvas.addEventListener("pointerdown", (e) => { dragging = true; lx = e.clientX; ly = e.clientY; canvas.setPointerCapture(e.pointerId); });
-  canvas.addEventListener("pointerup", (e) => { dragging = false; try { canvas.releasePointerCapture(e.pointerId); } catch (_) {} });
+  canvas.tabIndex = 0; // keyboard-focusable for accessibility
+  const clampRadius = (r) => Math.max(1.2, Math.min(120, r));
+  const pointers = new Map();
+  let lx = 0, ly = 0, pinchDist = 0;
+  const spread = () => {
+    const p = [...pointers.values()];
+    return p.length >= 2 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0;
+  };
+
+  canvas.addEventListener("pointerdown", (e) => {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    lx = e.clientX; ly = e.clientY;
+    if (pointers.size === 2) pinchDist = spread();
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  const drop = (e) => { pointers.delete(e.pointerId); try { canvas.releasePointerCapture(e.pointerId); } catch (_) {} };
+  canvas.addEventListener("pointerup", drop);
+  canvas.addEventListener("pointercancel", drop);
   canvas.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size >= 2) { // pinch-zoom (touch)
+      const d = spread();
+      if (pinchDist > 0 && d > 0) { state.radius = clampRadius(state.radius * (pinchDist / d)); pinchDist = d; paint(); }
+      return;
+    }
     state.az -= (e.clientX - lx) * 0.008;
     state.el = Math.max(-1.45, Math.min(1.45, state.el + (e.clientY - ly) * 0.008));
     lx = e.clientX; ly = e.clientY;
@@ -482,9 +505,22 @@ export function leaveOrrery() {
   });
   canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
-    state.radius = Math.max(1.2, Math.min(120, state.radius * (1 + Math.sign(e.deltaY) * 0.12)));
+    state.radius = clampRadius(state.radius * (1 + Math.sign(e.deltaY) * 0.12));
     paint();
   }, { passive: false });
+
+  // Keyboard camera (accessibility): arrows orbit, +/− or [ ] zoom.
+  canvas.addEventListener("keydown", (e) => {
+    let used = true;
+    if (e.key === "ArrowLeft") state.az -= 0.1;
+    else if (e.key === "ArrowRight") state.az += 0.1;
+    else if (e.key === "ArrowUp") state.el = Math.min(1.45, state.el + 0.1);
+    else if (e.key === "ArrowDown") state.el = Math.max(-1.45, state.el - 0.1);
+    else if (e.key === "+" || e.key === "=" || e.key === "]") state.radius = clampRadius(state.radius * 0.88);
+    else if (e.key === "-" || e.key === "_" || e.key === "[") state.radius = clampRadius(state.radius * 1.13);
+    else used = false;
+    if (used) { e.preventDefault(); paint(); }
+  });
 
   document.getElementById("orreryTime")?.addEventListener("input", (e) => { state.offsetYears = Number(e.target.value); refreshData(); });
   document.getElementById("orreryNow")?.addEventListener("click", () => {

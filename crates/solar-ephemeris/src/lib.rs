@@ -273,12 +273,23 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
             (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() / (2.0 * dt) * AU_PER_YEAR_KMS
         };
         // Phase / illumination / magnitude only make sense for a body seen from Earth.
-        let (phase, illum, mag) = if *name != "Earth" && delta > 1e-9 {
+        let (phase, illum, mut mag) = if *name != "Earth" && delta > 1e-9 {
             let a = physics::phase_angle_deg(r, delta, sun_earth);
             (Some(a), Some(physics::illuminated_fraction(a)), physics::magnitude(name, r, delta, a))
         } else {
             (None, None, None)
         };
+        // Saturn: add the ring brightening term, which needs the geocentric equatorial direction.
+        if *name == "Saturn" {
+            if let Some(m) = mag {
+                let g = [xyz[0] - earth[0], xyz[1] - earth[1], xyz[2] - earth[2]];
+                let eps = 23.43928_f64.to_radians(); // J2000 obliquity (ecliptic→equatorial)
+                let (ex, ey, ez) = (g[0], g[1] * eps.cos() - g[2] * eps.sin(), g[1] * eps.sin() + g[2] * eps.cos());
+                let ra = ey.atan2(ex).to_degrees();
+                let dec = (ez / (ex * ex + ey * ey + ez * ez).sqrt()).asin().to_degrees();
+                mag = Some(m + physics::saturn_ring_mag(ra, dec));
+            }
+        }
         let (a, ecc, inc, node, argp) = vsop2013::elements(planet, jy2k);
         if i > 0 {
             out.push_str(",\n");
