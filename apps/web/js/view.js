@@ -1,9 +1,9 @@
 // The render orchestrator + per-surface progressive disclosure.
 
-import { store } from "./store.js";
-import { MANAGED_PANELS, SURFACE_PANELS } from "./config.js";
-import { updateText } from "./panels.js";
-import { drawSolarDisk, drawButterfly } from "./render.js";
+import { store } from "./store.js?v=16";
+import { MANAGED_PANELS, SURFACE_PANELS } from "./config.js?v=16";
+import { updateText } from "./panels.js?v=16";
+import { drawSolarDisk, drawButterfly } from "./render.js?v=16";
 
 export function renderAll() {
   applySurfaceVisibility();
@@ -15,6 +15,7 @@ export function renderAll() {
 export function applySurfaceVisibility() {
   const panel = document.querySelector(".control-panel");
   if (panel) panel.setAttribute("data-surface", store.activeMode);
+  document.body.setAttribute("data-surface", store.activeMode);
   const show = new Set(SURFACE_PANELS[store.activeMode] || []);
   for (const selector of MANAGED_PANELS) {
     const node = document.querySelector(selector);

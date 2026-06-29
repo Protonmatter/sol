@@ -599,6 +599,90 @@ h2 {
   color: var(--teal);
 }
 
+/* ---- My Sky surface ---- */
+#skyCanvas {
+  width: min(78vh, 100%);
+  max-width: 58rem;
+  aspect-ratio: 1 / 1;
+  display: none;
+  cursor: default;
+}
+
+.sky-panel {
+  display: none;
+}
+
+body[data-surface="sky"] #skyCanvas {
+  display: block;
+}
+
+body[data-surface="sky"] .sky-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Hide the Sun-centric chrome when the sky view is active. */
+body[data-surface="sky"] #solarCanvas,
+body[data-surface="sky"] #stageRail,
+body[data-surface="sky"] #baseLabel,
+body[data-surface="sky"] .status-strip,
+body[data-surface="sky"] .control-panel > header,
+body[data-surface="sky"] .summary-panel,
+body[data-surface="sky"] .timeline-band {
+  display: none !important;
+}
+
+.sky-header h1 {
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  margin-bottom: 0.5rem;
+}
+
+.sky-observer {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal);
+  background: #10161a;
+}
+
+.sky-loc-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+.sky-input {
+  width: 5.5rem;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--line);
+  background: #090b0f;
+  color: var(--text);
+}
+
+.sky-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.sky-row {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  background: #0e1217;
+}
+
+.sky-row strong {
+  display: block;
+}
+
+.sky-row .muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 /* Glossary term affordance + tooltip (plain-language help on hover/focus/tap). */
 .term {
   display: inline-flex;

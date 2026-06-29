@@ -1,8 +1,8 @@
 // Timeline scrubber / cycle playback + the in-browser (WASM) live engine run.
 
-import { store } from "./store.js";
-import { renderAll } from "./view.js";
-import { loadEngine, simulateSnapshot } from "../engine.js";
+import { store } from "./store.js?v=16";
+import { renderAll } from "./view.js?v=16";
+import { loadEngine, simulateSnapshot } from "../engine.js?v=16";
 
 export function setTimelineFrame(index) {
   if (!store.seriesFrames.length) return;

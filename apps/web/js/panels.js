@@ -1,15 +1,15 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js";
-import { text, textWithTitle, setPill } from "./dom.js";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js";
+import { store } from "./store.js?v=16";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=16";
+import { text, textWithTitle, setPill } from "./dom.js?v=16";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=16";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
   dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js";
+} from "./selectors.js?v=16";
 
 export function updateText() {
   const run = store.state.run || {};
@@ -18,7 +18,7 @@ export function updateText() {
   const confidenceValues = fieldValues("confidence");
   const brMax = brValues.reduce((max, value) => Math.max(max, Math.abs(value)), 0);
   const confidenceMean = confidenceValues.length ? confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length : 0;
-  const mode = MODE_COPY[store.activeMode];
+  const mode = MODE_COPY[store.activeMode] || MODE_COPY.today;
 
   text("cycleStage", store.state.learning?.cycle_stage || stageFromActivity(run.activity_index || 0));
   textWithTitle("sourceMode", dataStateLabel(), store.state.source_mode || "unknown");

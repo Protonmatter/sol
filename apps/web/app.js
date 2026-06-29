@@ -1,17 +1,18 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js";
-import { TOUR_STEPS } from "./js/config.js";
-import { controls } from "./js/dom.js";
-import { clamp } from "./js/format.js";
-import { selectedRegion } from "./js/selectors.js";
-import { renderAll } from "./js/view.js";
-import { updateModeButtons } from "./js/panels.js";
-import { loadState } from "./js/data.js";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js";
-import { startTour, endTour, showTourStep } from "./js/tour.js";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js";
+import { store } from "./js/store.js?v=16";
+import { TOUR_STEPS } from "./js/config.js?v=16";
+import { controls } from "./js/dom.js?v=16";
+import { clamp } from "./js/format.js?v=16";
+import { selectedRegion } from "./js/selectors.js?v=16";
+import { renderAll } from "./js/view.js?v=16";
+import { updateModeButtons } from "./js/panels.js?v=16";
+import { loadState } from "./js/data.js?v=16";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=16";
+import { startTour, endTour, showTourStep } from "./js/tour.js?v=16";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=16";
+import { enterSky, leaveSky } from "./js/sky.js?v=16";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {
@@ -28,6 +29,8 @@ document.querySelectorAll(".mode-button").forEach((button) => {
     }
     updateModeButtons();
     renderAll();
+    if (store.activeMode === "sky") enterSky();
+    else leaveSky();
   });
 });
 
