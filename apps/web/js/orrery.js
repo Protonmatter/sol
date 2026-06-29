@@ -11,7 +11,7 @@
 // from GPU device loss (driver reset / TDR / sleep-wake), defensive getCurrentTexture,
 // resize via ResizeObserver, and on-demand rendering (no perpetual rAF loop).
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=cce09c95c5";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=ce663a8e7f";
 
 const COLORS = {
   Sun: [1.0, 0.82, 0.29],
@@ -90,6 +90,35 @@ function buildGeometry(snap) {
     ranges.push({ first: orbit.length / 6, count: pts.length });
     for (const p of pts) orbit.push(p[0], p[1], p[2], col[0] * 0.7, col[1] * 0.7, col[2] * 0.7);
   }
+  // Ecliptic reference plane (z = 0): faint concentric rings + radial spokes give a flat datum
+  // so each orbit's TRUE inclination is visible as it rises above / dips below the plane.
+  const GRID = [0.20, 0.24, 0.32];
+  for (const rad of [1, 5, 10, 20, 30]) {
+    const first = orbit.length / 6;
+    const seg = 96;
+    for (let k = 0; k <= seg; k++) {
+      const a = (k / seg) * 2 * Math.PI;
+      orbit.push(Math.cos(a) * rad, Math.sin(a) * rad, 0, GRID[0], GRID[1], GRID[2]);
+    }
+    ranges.push({ first, count: seg + 1 });
+  }
+  for (let s = 0; s < 8; s++) {
+    const a = (s / 8) * 2 * Math.PI;
+    const first = orbit.length / 6;
+    orbit.push(0, 0, 0, GRID[0], GRID[1], GRID[2]);
+    orbit.push(Math.cos(a) * 31, Math.sin(a) * 31, 0, GRID[0], GRID[1], GRID[2]);
+    ranges.push({ first, count: 2 });
+  }
+  // Drop-lines: each planet to its projection on the ecliptic — shows height above/below the plane.
+  const DROP = [0.45, 0.50, 0.60];
+  for (const b of snap.bodies || []) {
+    if (b.x_au == null) continue;
+    const first = orbit.length / 6;
+    orbit.push(b.x_au, b.y_au, b.z_au, DROP[0], DROP[1], DROP[2]);
+    orbit.push(b.x_au, b.y_au, 0, DROP[0], DROP[1], DROP[2]);
+    ranges.push({ first, count: 2 });
+  }
+
   // Marker size is constant on screen (CSS px → backing-store px via dpr); the size attribute
   // holds the on-screen diameter, used directly by both backends.
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
