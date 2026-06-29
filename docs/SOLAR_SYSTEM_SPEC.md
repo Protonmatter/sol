@@ -247,10 +247,14 @@ occultation / navigation accuracy.
   active GPU/backend shown in the panel. Verified in-browser on both backends.
 - **P6 — Polish.** ZIP table, opt-in address geocoding, a11y (WCAG AA), mobile, performance, and a
   device-orientation "point your phone" mode where supported.
-- **P7 — Backend high-precision provider (hybrid, §2.1).** An optional server that serves full
-  **DE440/DE441** (or SPICE/cached Horizons) behind `ephemeris-snapshot.v1`, for definitive
-  accuracy and deep-time spans. The client engine stays the default; the frontend escalates to the
-  server only when precision/span demand exceeds it.
+- **P7 — Backend high-precision provider (hybrid, §2.1). ✅ DONE.** `services/ephemeris-server/`
+  is a stdlib-only Python server that serves the same `ephemeris-snapshot.v1` from **JPL Horizons
+  (DE441)** — the definitive ephemeris (`definitive_positions()` is the provider seam for a future
+  SPICE/DE440 kernel reader). Throttled parallel per-body queries with 429/503 retry, on-disk cache
+  (first call ~3 s, repeats ~50 ms), open CORS, `/health` + `/v1/sky`. The web app's **My Sky**
+  gains an *On-device / High-precision (DE441)* toggle: the WASM engine stays the offline default,
+  escalation renders the server snapshot through the same dome/list, and it falls back to on-device
+  with a clear message when the (optional) server is down. Server vs on-device agree to ≤ 11.3″.
 
 ## 10. UX surfaces (NN/g progressive disclosure, reused)
 

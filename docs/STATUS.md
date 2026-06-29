@@ -94,9 +94,14 @@ and validated against **JPL Horizons (DE441)**.
   ResizeObserver repaint, and the live GPU/backend shown in the panel. Verified on both backends
   (WebGPU → Adreno-7xx/D3D12; WebGL2 → ANGLE/D3D11). Review (2026-06-29): green — all 7 surfaces
   switch cleanly, no console errors, web-static passes.
-- **Decided:** a **hybrid** provider model — the WASM engine is the offline default; an optional
-  DE440/DE441 (or SPICE) backend behind `ephemeris-snapshot.v1` is the future deep-time tier (P7,
-  not yet started).
+- **P7 (DE441 backend, hybrid) ✅** (`3b6f395`) — `services/ephemeris-server/` (stdlib Python)
+  serves the same `ephemeris-snapshot.v1` from **JPL Horizons (DE441)**: throttled parallel
+  per-body queries with 429/503 retry, on-disk cache (~3 s cold, ~50 ms warm), open CORS,
+  `/health` + `/v1/sky`; `definitive_positions()` is the seam for a future SPICE/DE440 reader.
+  Frontend **My Sky** gains an *On-device / High-precision (DE441)* toggle — WASM stays the
+  default, escalation renders the server snapshot through the same dome/list, graceful fallback
+  when the optional server is down. Server vs on-device agree to ≤ 11.3″. Verified in-browser
+  (escalation + fallback).
 
 ---
 
