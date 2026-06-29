@@ -227,6 +227,39 @@ fn compass(az_deg: f64) -> &'static str {
     PTS[(((az_deg + 11.25).rem_euclid(360.0)) / 22.5) as usize % 16]
 }
 
+/// Heliocentric ecliptic-J2000 positions (AU) of the planets for the top-down orbit view.
+pub fn system_snapshot_json(jd_utc: f64) -> String {
+    let year = time::year_from_jd(jd_utc);
+    let jd_tt = jd_utc + time::delta_t_seconds(year) / 86400.0;
+    let jy2k = (jd_tt - time::J2000) / 365.25;
+    let bodies: [(&str, &vsop2013::Planet); 8] = [
+        ("Mercury", &vsop2013_data::MER),
+        ("Venus", &vsop2013_data::VEN),
+        ("Earth", &vsop2013_data::EMB),
+        ("Mars", &vsop2013_data::MAR),
+        ("Jupiter", &vsop2013_data::JUP),
+        ("Saturn", &vsop2013_data::SAT),
+        ("Uranus", &vsop2013_data::URA),
+        ("Neptune", &vsop2013_data::NEP),
+    ];
+    let mut out = String::with_capacity(1024);
+    out.push_str("{\n  \"schema_version\": \"system-snapshot.v1\",\n");
+    out.push_str(&format!("  \"jd_utc\": {:.6},\n  \"bodies\": [\n", jd_utc));
+    for (i, (name, planet)) in bodies.iter().enumerate() {
+        let xyz = vsop2013::helio_xyz(planet, jy2k);
+        let dist = (xyz[0] * xyz[0] + xyz[1] * xyz[1] + xyz[2] * xyz[2]).sqrt();
+        if i > 0 {
+            out.push_str(",\n");
+        }
+        out.push_str(&format!(
+            "    {{\"name\":\"{}\",\"x_au\":{:.8},\"y_au\":{:.8},\"z_au\":{:.8},\"dist_au\":{:.8}}}",
+            name, xyz[0], xyz[1], xyz[2], dist
+        ));
+    }
+    out.push_str("\n  ]\n}\n");
+    out
+}
+
 // --- WASM ABI (raw, no wasm-bindgen) ---
 thread_local! {
     static RESULT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
@@ -237,6 +270,17 @@ thread_local! {
 pub extern "C" fn sky_snapshot(unix_seconds: f64, lat_deg: f64, lon_deg_east: f64, elev_m: f64) -> *const u8 {
     let jd_utc = time::jd_from_unix(unix_seconds);
     let json = sky_snapshot_json(jd_utc, lat_deg, lon_deg_east, elev_m);
+    RESULT.with(|cell| {
+        *cell.borrow_mut() = json.into_bytes();
+        cell.borrow().as_ptr()
+    })
+}
+
+/// Heliocentric positions of the planets for the orbit view; pointer to UTF-8 JSON.
+#[no_mangle]
+pub extern "C" fn system_snapshot(unix_seconds: f64) -> *const u8 {
+    let jd_utc = time::jd_from_unix(unix_seconds);
+    let json = system_snapshot_json(jd_utc);
     RESULT.with(|cell| {
         *cell.borrow_mut() = json.into_bytes();
         cell.borrow().as_ptr()

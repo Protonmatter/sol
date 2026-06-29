@@ -25,3 +25,12 @@ export function skySnapshot(unixSeconds, lat, lonEast, elev) {
   const view = new Uint8Array(wasmExports.memory.buffer, ptr, len);
   return JSON.parse(new TextDecoder("utf-8").decode(view));
 }
+
+// Returns a parsed system-snapshot.v1: heliocentric ecliptic positions (AU) of the planets.
+export function systemSnapshot(unixSeconds) {
+  if (!wasmExports) throw new Error("sky engine not loaded");
+  const ptr = wasmExports.system_snapshot(unixSeconds);
+  const len = wasmExports.result_len();
+  const view = new Uint8Array(wasmExports.memory.buffer, ptr, len);
+  return JSON.parse(new TextDecoder("utf-8").decode(view));
+}
