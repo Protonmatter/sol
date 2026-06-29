@@ -114,6 +114,20 @@ and validated against **JPL Horizons (DE441)**.
   all 11 cycle series frames validate, and the operational-readiness gate is unchanged (still
   correctly blocked).
 
+### Review follow-ups — P1 / P2 / P3 fixes (2026-06-29)
+After a multi-lens review (JPL / NN-g / physics / math / end-user), the findings were actioned:
+- **P1 (accuracy + honesty):** observer moved to Earth's **centre** (EMB − Moon offset), removing
+  ~6″ on the Sun/inner planets; validator now reports **great-circle pointing error** over a
+  **4-case** envelope (worst **5.2″**); claims reworded to match (near-present caveat; deep-time is
+  ΔT-limited). Equilibrium temp shown as black-body **with the measured value** (Venus 227 K vs
+  737 K). Nav grouped into ☀ The Sun / 🌌 Sky & Solar System.
+- **P2:** `tools/build_web.py` replaces hand-bumped `?v=N` with one content hash; **My Sky time
+  control** (datetime picker / Now, share-link deep-link, Export JSON); **a11y** (orrery keyboard
+  + Solar System "Positions" text list); plain-language provider labels.
+- **P3:** Saturn magnitude includes the ring term; orrery billboards near-opaque (depth-correct) +
+  pinch-zoom; central-difference velocity; Kepler iterate-to-tolerance.
+- **Deferred (a feature, not a fix):** a bright-star catalog in My Sky.
+
 ---
 
 ## Review — bill of health (2026-06-28)

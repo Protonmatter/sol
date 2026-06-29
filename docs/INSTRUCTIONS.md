@@ -24,8 +24,9 @@ You can also open `apps/web/index.html` directly from disk; it falls back to a b
 state if it can't fetch `data/`.
 
 Notes:
-- `index.html` cache-busts CSS/JS with `?v=NN`. **Bump that number** when you change
-  `styles.css` or `app.js` so browsers reload them.
+- `index.html` cache-busts CSS/JS with `?v=<hash>`. **Run `python tools/build_web.py`** after any
+  `apps/web/` edit — it stamps a single content hash across all HTML/JS references (don't hand-edit
+  `?v=`).
 - The app needs **no build step** — edit `apps/web/{index.html,app.js,styles.css}` and reload.
 
 ## Regenerate the data the app reads

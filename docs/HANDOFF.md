@@ -69,10 +69,10 @@ scans `js/*.js` for required JS bindings — keep both in sync when you add/rena
 
 ## 5. Gotchas
 
-- **Cache-bust**: bump `?v=NN` on the CSS/JS `<link>`/`<script>` in `index.html` when you
-  edit them, or browsers serve stale files. The `js/*.js` modules and `engine.js` have no
-  version query, so during dev bump `app.js?v=NN` and hard-reload (Ctrl+Shift+R) after
-  editing a module.
+- **Cache-bust**: after editing anything under `apps/web/`, run **`python tools/build_web.py`**.
+  It stamps a single content-hash `?v=<hash>` across every HTML/JS reference, so the token changes
+  only when content changes and all references move together — no more hand-bumping `?v=N` per file
+  (which risked a stale-module mismatch if one was missed).
 - **No Node/Cargo on this machine.** Data is generated with Python; `node --check` can't run
   here. The web app deliberately needs no build.
 - **SDO images** load without `crossOrigin` (display-only draw; canvas is never read back).
