@@ -433,7 +433,7 @@ function updateLayerLegend() {
 }
 
 function updateApplicationPanel() {
-  const app = APPLICATION_COPY[activeMode] || APPLICATION_COPY.cycle;
+  const app = APPLICATION_COPY[activeMode] || APPLICATION_COPY.today;
   text("applicationTitle", app.title);
   text("applicationText", app.text);
   const target = document.getElementById("applicationSignals");
@@ -479,7 +479,7 @@ function updateSelectionText() {
   if (!region) {
     panel?.classList.remove("selected");
     text("selectionTitle", "Click an active region");
-    text("selectionText", "No active region is selected yet. Click a marker on the solar disk or switch to Regions mode to inspect one.");
+    text("selectionText", "No active region is selected yet. Click a marker on the solar disk or open Explore to inspect one.");
     return;
   }
   panel?.classList.add("selected");
@@ -760,21 +760,6 @@ function drawSchemaOverlay(ctx, cx, cy, radius) {
   }
 }
 
-function drawClassroomOverlay(ctx, cx, cy, radius) {
-  const steps = ["Observe", "Infer", "Validate", "Caveat"];
-  steps.forEach((step, index) => {
-    const x = cx - radius * 0.74 + index * radius * 0.5;
-    const y = cy + radius * 0.86;
-    ctx.fillStyle = "rgba(8,9,12,0.72)";
-    ctx.fillRect(x - 6, y - 18, radius * 0.36, 28);
-    ctx.strokeStyle = index === 0 ? "#f7b733" : "rgba(246,243,232,0.24)";
-    ctx.strokeRect(x - 6, y - 18, radius * 0.36, 28);
-    ctx.fillStyle = "#f6f3e8";
-    ctx.font = `${Math.max(10, radius * 0.03)}px Segoe UI, sans-serif`;
-    ctx.fillText(step, x, y);
-  });
-}
-
 function drawCanvasLabel(ctx, x, y, label) {
   ctx.font = "13px Segoe UI, sans-serif";
   const metrics = ctx.measureText(label);
@@ -897,55 +882,6 @@ function resizeCanvasToDisplaySize(canvas, maxSize) {
   }
 }
 
-function solarColor(intensity, br, confidence) {
-  const base = clamp(intensity, 0.05, 1.35);
-  let r = 206 * base + 34;
-  let g = 90 * base + 28;
-  let b = 22 * base + 7;
-  const absBr = Math.abs(br);
-  if (br > 0) {
-    b += 150 * clamp(br, 0, 1);
-    g += 50 * clamp(br, 0, 1);
-  } else if (br < 0) {
-    r += 90 * clamp(-br, 0, 1);
-    b += 85 * clamp(-br, 0, 1);
-  }
-  if (absBr > 0.42) {
-    r *= 0.82;
-    g *= 0.78;
-    b *= 0.82;
-  }
-  if (confidence > 0) {
-    g = g * (1 - confidence * 0.32) + 210 * confidence * 0.32;
-  }
-  return `rgb(${clamp(Math.round(r), 0, 255)}, ${clamp(Math.round(g), 0, 255)}, ${clamp(Math.round(b), 0, 255)})`;
-}
-
-function solarTexture(lon, lat, dx, dy, z, br) {
-  const granules = Math.sin(37 * lon + 8 * Math.sin(5 * lat)) * Math.sin(41 * lat + 5 * Math.cos(4 * lon));
-  const superGranules = Math.sin(10 * lon + 1.7) * Math.cos(12 * lat - 0.9);
-  const fine = Math.sin((dx + dy) * 91 + Math.sin(lon * 17) * 4) * 0.5 + Math.cos((dx - dy) * 73) * 0.5;
-  const faculaBoost = 0.08 * clamp(Math.abs(br) * 1.8, 0, 1) * Math.pow(z, 0.35);
-  return clamp(1 + granules * 0.045 + superGranules * 0.035 + fine * 0.018 + faculaBoost, 0.82, 1.22);
-}
-
-function sampleField(values, lonF, latF, lonCount, latCount, fallback) {
-  if (!values.length) return fallback;
-  const y0 = clamp(Math.floor(latF), 0, latCount - 1);
-  const y1 = clamp(y0 + 1, 0, latCount - 1);
-  const x0 = wrapIndex(Math.floor(lonF), lonCount);
-  const x1 = wrapIndex(x0 + 1, lonCount);
-  const tx = lonF - Math.floor(lonF);
-  const ty = clamp(latF - Math.floor(latF), 0, 1);
-  const a = valueAt(values, y0 * lonCount + x0, fallback);
-  const b = valueAt(values, y0 * lonCount + x1, fallback);
-  const c = valueAt(values, y1 * lonCount + x0, fallback);
-  const d = valueAt(values, y1 * lonCount + x1, fallback);
-  const top = a * (1 - tx) + b * tx;
-  const bottom = c * (1 - tx) + d * tx;
-  return top * (1 - ty) + bottom * ty;
-}
-
 function projectRegion(region, cx, cy, radius) {
   const lon = (((region.lon_deg || 0) / 360) * Math.PI * 2) - Math.PI;
   const lat = ((region.lat_deg || 0) / 180) * Math.PI;
@@ -1039,20 +975,6 @@ function readinessClass() {
   if (label === "operational" || label === "research ready") return "research-ready";
   if (label === "research only") return "research-only";
   return "blocked";
-}
-
-function readinessSummary() {
-  const readiness = state.operational_readiness || {};
-  const gates = Array.isArray(readiness.gates) ? readiness.gates : [];
-  const failed = gates.filter((gate) => gate.passed === false).map((gate) => gate.label || gate.id);
-  const blockers = readiness.blockers || [];
-  const status = readiness.research_learning_ready === true ? "Research and learning workflows are ready" : "Research and learning workflows are not ready";
-  const operational = readiness.space_weather_operational === true
-    ? "Space-weather operational use is enabled."
-    : "Space-weather operational use is blocked.";
-  const gateText = failed.length ? ` Blocked operational gates: ${failed.slice(0, 4).join(", ")}.` : " All declared gates passed.";
-  const blockerText = blockers.length ? ` Main blockers: ${blockers.slice(0, 3).join(" ")}` : "";
-  return `${status}. ${operational}${gateText}${blockerText}`;
 }
 
 function renderOperationalReadinessChecklist() {
