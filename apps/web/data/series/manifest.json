@@ -1,0 +1,106 @@
+{
+  "schema_version": "series-manifest.v1",
+  "frames": [
+    {
+      "index": 0,
+      "file": "frame-00.json",
+      "phase": 0.0,
+      "stage": "solar minimum",
+      "activity_index": 0.2,
+      "months": 0.0,
+      "region_count": 10
+    },
+    {
+      "index": 1,
+      "file": "frame-01.json",
+      "phase": 0.1,
+      "stage": "solar minimum",
+      "activity_index": 0.431763,
+      "months": 13.2,
+      "region_count": 18
+    },
+    {
+      "index": 2,
+      "file": "frame-02.json",
+      "phase": 0.2,
+      "stage": "rising phase",
+      "activity_index": 0.640839,
+      "months": 26.4,
+      "region_count": 25
+    },
+    {
+      "index": 3,
+      "file": "frame-03.json",
+      "phase": 0.3,
+      "stage": "rising phase",
+      "activity_index": 0.806763,
+      "months": 39.6,
+      "region_count": 30
+    },
+    {
+      "index": 4,
+      "file": "frame-04.json",
+      "phase": 0.4,
+      "stage": "rising phase",
+      "activity_index": 0.913292,
+      "months": 52.8,
+      "region_count": 33
+    },
+    {
+      "index": 5,
+      "file": "frame-05.json",
+      "phase": 0.5,
+      "stage": "solar maximum",
+      "activity_index": 0.95,
+      "months": 66.0,
+      "region_count": 34
+    },
+    {
+      "index": 6,
+      "file": "frame-06.json",
+      "phase": 0.6,
+      "stage": "declining phase",
+      "activity_index": 0.913292,
+      "months": 79.2,
+      "region_count": 33
+    },
+    {
+      "index": 7,
+      "file": "frame-07.json",
+      "phase": 0.7,
+      "stage": "declining phase",
+      "activity_index": 0.806763,
+      "months": 92.4,
+      "region_count": 30
+    },
+    {
+      "index": 8,
+      "file": "frame-08.json",
+      "phase": 0.8,
+      "stage": "declining phase",
+      "activity_index": 0.640839,
+      "months": 105.6,
+      "region_count": 25
+    },
+    {
+      "index": 9,
+      "file": "frame-09.json",
+      "phase": 0.9,
+      "stage": "solar minimum",
+      "activity_index": 0.431763,
+      "months": 118.8,
+      "region_count": 18
+    },
+    {
+      "index": 10,
+      "file": "frame-10.json",
+      "phase": 1.0,
+      "stage": "solar minimum",
+      "activity_index": 0.2,
+      "months": 132.0,
+      "region_count": 10
+    }
+  ],
+  "months_span": 132.0,
+  "note": "Deterministic synthetic solar-cycle series; latitudes follow an idealized butterfly diagram."
+}

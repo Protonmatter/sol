@@ -115,6 +115,11 @@ let projectedRegions = [];
 let projectedButterflyRegions = [];
 let activeBaseKind = "synthetic";
 let activeBaseLabel = "synthetic photosphere";
+let liveState = FALLBACK_STATE;
+let seriesFrames = [];
+let seriesManifest = null;
+let timelineIndex = -1; // -1 = live "now"; otherwise an index into seriesFrames
+let playTimer = 0;
 
 // Real, recognizable Sun imagery (NASA SDO latest browse frames). These are the
 // observed photosphere base the model layers are composited onto. The disk
@@ -152,6 +157,8 @@ function loadBaseImage(key) {
 }
 
 function currentBaseImage() {
+  // Cycle playback is a synthetic model, not today's Sun — render it synthetically.
+  if (timelineIndex >= 0) return null;
   // Prefer the white-light continuum photosphere as the observed base when the
   // Continuum layer is on; fall back to the magnetogram if only it is selected.
   let key = null;
@@ -180,9 +187,95 @@ async function loadState() {
   } catch (error) {
     state = FALLBACK_STATE;
   }
+  liveState = state;
   feedStatus = await loadFeedStatus();
   renderAll();
   maybeAutoStartTour();
+  loadSeries();
+}
+
+async function loadSeries() {
+  try {
+    const response = await fetch("data/series/manifest.json", { cache: "no-store" });
+    if (!response.ok) return;
+    seriesManifest = await response.json();
+    const frames = await Promise.all(
+      (seriesManifest.frames || []).map((entry) =>
+        fetch(`data/series/${entry.file}`, { cache: "no-store" }).then((res) => (res.ok ? res.json() : null))
+      )
+    );
+    seriesFrames = frames.filter(Boolean);
+    const scrubber = document.getElementById("timeScrubber");
+    if (scrubber && seriesFrames.length) scrubber.max = String(seriesFrames.length - 1);
+    drawButterfly();
+  } catch (error) {
+    seriesFrames = [];
+  }
+}
+
+function setTimelineFrame(index) {
+  if (!seriesFrames.length) return;
+  timelineIndex = Math.max(0, Math.min(seriesFrames.length - 1, index));
+  state = seriesFrames[timelineIndex];
+  selectedRegionId = null;
+  const scrubber = document.getElementById("timeScrubber");
+  if (scrubber) scrubber.value = String(timelineIndex);
+  renderAll();
+  updateTimeFrameLabel();
+}
+
+function goLive() {
+  stopPlay();
+  timelineIndex = -1;
+  state = liveState;
+  selectedRegionId = null;
+  renderAll();
+  updateTimeFrameLabel();
+}
+
+function playStep() {
+  if (!seriesFrames.length) return;
+  const next = timelineIndex + 1 >= seriesFrames.length ? 0 : timelineIndex + 1;
+  setTimelineFrame(next);
+}
+
+function startPlay() {
+  if (!seriesFrames.length) return;
+  if (timelineIndex < 0) setTimelineFrame(0);
+  stopPlay();
+  playTimer = window.setInterval(playStep, 1100);
+  updatePlayButton(true);
+}
+
+function stopPlay() {
+  if (playTimer) {
+    window.clearInterval(playTimer);
+    playTimer = 0;
+  }
+  updatePlayButton(false);
+}
+
+function togglePlay() {
+  if (playTimer) stopPlay();
+  else startPlay();
+}
+
+function updatePlayButton(playing) {
+  const button = document.getElementById("playToggle");
+  if (button) button.textContent = playing ? "❚❚ Pause" : "▶ Play cycle";
+}
+
+function updateTimeFrameLabel() {
+  const label = document.getElementById("timeFrameLabel");
+  if (!label) return;
+  if (timelineIndex < 0) {
+    label.textContent = "Live: today's Sun (NASA SDO)";
+    return;
+  }
+  const meta = (seriesManifest && seriesManifest.frames && seriesManifest.frames[timelineIndex]) || {};
+  const stage = state.learning?.cycle_stage || meta.stage || "cycle";
+  const months = meta.months != null ? meta.months : "?";
+  label.textContent = `Cycle model — ${stage}, ~${months} months in (synthetic)`;
 }
 
 async function loadFeedStatus() {
@@ -701,7 +794,70 @@ function drawButterfly() {
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#08090c";
   ctx.fillRect(0, 0, width, height);
-  ctx.strokeStyle = activeMode === "geometry" ? "rgba(246,243,232,0.34)" : "#313742";
+  if (seriesFrames.length) {
+    drawButterflySeries(ctx, width, height);
+  } else {
+    drawButterflySnapshot(ctx, width, height);
+  }
+}
+
+// A real butterfly diagram: sunspot latitude (y) against cycle time (x), one
+// column per series frame. The wings start at high latitude and migrate toward
+// the equator as the cycle advances.
+function drawButterflySeries(ctx, width, height) {
+  const padLeft = 38;
+  const padRight = 14;
+  const top = 14;
+  const bottom = height - 24;
+  const plotH = bottom - top;
+  const count = seriesFrames.length;
+  const latToY = (lat) => top + (1 - (lat + 45) / 90) * plotH;
+  const frameToX = (i) => padLeft + (count === 1 ? 0.5 : i / (count - 1)) * (width - padLeft - padRight);
+
+  ctx.strokeStyle = "#313742";
+  ctx.lineWidth = 1;
+  for (const lat of [45, 0, -45]) {
+    const y = latToY(lat);
+    ctx.beginPath();
+    ctx.moveTo(padLeft, y);
+    ctx.lineTo(width - padRight, y);
+    ctx.stroke();
+  }
+
+  if (timelineIndex >= 0) {
+    const x = frameToX(timelineIndex);
+    ctx.strokeStyle = "rgba(247,183,51,0.75)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.stroke();
+  }
+
+  seriesFrames.forEach((frame, i) => {
+    const x = frameToX(i);
+    for (const region of frame.active_regions || []) {
+      const lat = region.lat_deg || 0;
+      const y = latToY(lat);
+      const size = 1.4 + 4 * clamp(region.complexity || 0.3, 0, 1);
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fillStyle = lat >= 0 ? "rgba(247,183,51,0.82)" : "rgba(64,214,200,0.82)";
+      ctx.fill();
+    }
+  });
+
+  ctx.fillStyle = "#aeb4bd";
+  ctx.font = "13px Segoe UI, sans-serif";
+  ctx.fillText("+45°", 4, latToY(45) + 4);
+  ctx.fillText("eq", 12, latToY(0) + 4);
+  ctx.fillText("-45°", 4, latToY(-45) + 4);
+  ctx.fillText("time →  (one idealized ~11-year cycle)", padLeft, height - 7);
+}
+
+// Fallback used before the series loads: today's regions plotted by latitude.
+function drawButterflySnapshot(ctx, width, height) {
+  ctx.strokeStyle = "#313742";
   ctx.lineWidth = 1;
   for (let i = 1; i < 6; i += 1) {
     const y = (height / 6) * i;
@@ -1224,6 +1380,13 @@ document.getElementById("butterflyCanvas").addEventListener("click", (event) => 
   const canvas = event.currentTarget;
   const rect = canvas.getBoundingClientRect();
   const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+  if (seriesFrames.length) {
+    const usable = canvas.width - 38 - 14;
+    const frac = clamp((x - 38) / usable, 0, 1);
+    stopPlay();
+    setTimelineFrame(Math.round(frac * (seriesFrames.length - 1)));
+    return;
+  }
   const y = (event.clientY - rect.top) * (canvas.height / rect.height);
   let best = null;
   for (const item of projectedButterflyRegions) {
@@ -1408,3 +1571,11 @@ document.getElementById("tourNext")?.addEventListener("click", () => {
   tourIndex += 1;
   showTourStep();
 });
+
+// --- Timeline scrubber / playback wiring. ---
+document.getElementById("timeScrubber")?.addEventListener("input", (event) => {
+  stopPlay();
+  setTimelineFrame(Number(event.target.value));
+});
+document.getElementById("playToggle")?.addEventListener("click", togglePlay);
+document.getElementById("nowBtn")?.addEventListener("click", goLive);

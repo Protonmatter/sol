@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=13">
   </head>
   <body>
     <main class="app-shell">
@@ -143,10 +143,16 @@
       <section id="timeline" class="timeline-band" aria-label="Solar cycle timeline">
         <div class="timeline-inner">
           <div class="timeline-copy">
-            <h2 id="journeyTitle">Solar maximum</h2>
-            <p id="journeyText">Snapshot-driven view of magnetic activity, uncertainty, and observation provenance.</p>
+            <h2 id="journeyTitle">Solar cycle timeline</h2>
+            <p id="journeyText">Play through an idealized 11-year cycle and watch the sunspot bands drift toward the equator.</p>
+            <div class="timeline-controls">
+              <button id="playToggle" class="time-btn" type="button">▶ Play cycle</button>
+              <input id="timeScrubber" class="time-scrubber" type="range" min="0" max="10" step="1" value="0" aria-label="Cycle time">
+              <button id="nowBtn" class="time-btn ghost" type="button">Now</button>
+            </div>
+            <p id="timeFrameLabel" class="time-frame-label">Live: today's Sun (NASA SDO)</p>
           </div>
-          <canvas id="butterflyCanvas" width="980" height="220" aria-label="Butterfly diagram"></canvas>
+          <canvas id="butterflyCanvas" width="980" height="220" aria-label="Butterfly diagram: sunspot latitude over the solar cycle"></canvas>
         </div>
       </section>
     </main>
@@ -165,6 +171,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script src="app.js?v=12"></script>
+    <script src="app.js?v=13"></script>
   </body>
 </html>

@@ -546,6 +546,49 @@ h2 {
   cursor: crosshair;
 }
 
+.timeline-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.time-scrubber {
+  flex: 1;
+  min-width: 6rem;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.time-btn {
+  min-height: 2.2rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--gold);
+  background: #2b1f10;
+  color: var(--text);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.time-btn.ghost {
+  border-color: var(--line);
+  background: var(--panel-2);
+  font-weight: 400;
+}
+
+.time-btn:hover,
+.time-btn:focus-visible {
+  border-color: var(--gold);
+  outline: none;
+}
+
+.time-frame-label {
+  margin: 0.55rem 0 0;
+  color: var(--gold);
+  font-size: 0.85rem;
+}
+
 /* Glossary term affordance + tooltip (plain-language help on hover/focus/tap). */
 .term {
   display: inline-flex;
