@@ -101,11 +101,12 @@ findings below already addressed.
 
 ## What's left
 
-### Finish the ES-module split (in progress)
-The WASM milestone started the migration: `app.js` is now a module importing `engine.js`.
-Next, split the still-monolithic `app.js` into `data/` `render/` `ui/` `state/` modules and
-add `// @ts-check` + a JSDoc `@typedef` for the snapshot contract (optional
-`npx tsc --noEmit` gate). No bundler — keep the no-build, zero-dependency property.
+### ES-module split ✅
+`app.js` is now a 136-line entry; the rest is split into focused modules under
+`apps/web/js/` (config / store / format / dom / selectors / render / panels / view / data /
+timeline / tour / tooltip), with a JSDoc `Snapshot` typedef. Native ESM, no bundler.
+Remaining type-checking polish: turn on `// @ts-check` per module and add an optional
+`npx tsc --noEmit` gate once Node is available.
 
 ### Engine-in-browser follow-ups (now unlocked)
 - Live **what-if** beyond activity: seed/steps and assimilation runs from the wasm engine.

@@ -42,27 +42,37 @@ latitude-vs-time plot driven by a deterministic snapshot series.
 
 ## 4. How the code is organized (`apps/web/`)
 
-Single-file vanilla JS today. Key regions of `app.js`:
-- **Data/config**: `FALLBACK_STATE`, `MODE_COPY`, `APPLICATION_COPY`, `GLOSSARY`,
-  `SURFACE_PANELS`, `BASE_IMAGES`.
-- **State (module-global)**: `state` (current snapshot), `liveState` (today),
-  `seriesFrames` + `timelineIndex` (playback), `activeMode` (surface), `selectedRegionId`.
-- **Load**: `loadState` → `liveState`; `loadSeries` → frames; `loadFeedStatus`.
-- **Render pipeline**: `renderAll` → `applySurfaceVisibility` + `updateText` +
-  `drawSolarDisk` + `drawButterfly`. Everything re-renders on any change (fine at this scale).
-- **Disk**: `drawSolarDisk` picks `drawObservedBase` (real image) or `drawSunBase`+
-  `drawSurfaceTexture` (synthetic fallback / playback), then overlays + `drawActiveRegions`.
-- **Butterfly**: `drawButterflySeries` (real, lat-vs-time) / `drawButterflySnapshot` (fallback).
-- **Tour**: `TOUR_STEPS`, `startTour`/`showTourStep`/`endTour`.
-- **Glossary tooltips**: delegated `mouseover`/`focusin`/`click` on `[data-term]`.
+Native ES modules (no bundler). `apps/web/app.js` is a thin entry (event wiring + boot);
+the rest lives under `apps/web/js/`:
 
-The `tools/validate_web_static.py` `REQUIRED_IDS` set is the de-facto DOM contract — keep it
-in sync when you add/rename ids.
+| module | responsibility |
+|---|---|
+| `config.js` | constants, copy, and the JSDoc `Snapshot` typedef |
+| `store.js` | shared **mutable** state — cross-module via one `store` object (you can't reassign an imported binding, so write `store.x = …`) |
+| `format.js` | pure number/string/array helpers |
+| `dom.js` | `text`/`textWithTitle`/`setPill` + the layer-control refs |
+| `selectors.js` | derived reads over `store.state` (selectedRegion, dataStateLabel, summaries…) |
+| `render.js` | all canvas drawing — disk, overlays, butterfly, `projectRegion` |
+| `panels.js` | DOM text/panel updates + `updateModeButtons` |
+| `view.js` | `renderAll` + `applySurfaceVisibility` (the render orchestrator) |
+| `data.js` | snapshot/series/feed loaders + the observed-image cache (`currentBaseImage`) |
+| `timeline.js` | scrubber/playback + `runLiveEngine` (imports `../engine.js`) |
+| `tour.js` | onboarding spotlight |
+| `tooltip.js` | glossary tooltips |
+
+There are a few **runtime** import cycles (e.g. `view → render → data → view` via `renderAll`);
+ESM handles them because the cyclic functions are only *called* at runtime, never during module
+evaluation. Don't call an imported function at a module's top level.
+
+The `tools/validate_web_static.py` `REQUIRED_IDS` set is the de-facto DOM contract, and it now
+scans `js/*.js` for required JS bindings — keep both in sync when you add/rename ids or move code.
 
 ## 5. Gotchas
 
 - **Cache-bust**: bump `?v=NN` on the CSS/JS `<link>`/`<script>` in `index.html` when you
-  edit them, or browsers serve stale files.
+  edit them, or browsers serve stale files. The `js/*.js` modules and `engine.js` have no
+  version query, so during dev bump `app.js?v=NN` and hard-reload (Ctrl+Shift+R) after
+  editing a module.
 - **No Node/Cargo on this machine.** Data is generated with Python; `node --check` can't run
   here. The web app deliberately needs no build.
 - **SDO images** load without `crossOrigin` (display-only draw; canvas is never read back).
