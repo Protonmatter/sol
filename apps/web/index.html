@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=20">
+    <link rel="stylesheet" href="styles.css?v=22">
   </head>
   <body>
     <main class="app-shell">
@@ -20,6 +20,7 @@
           <canvas id="solarCanvas" width="900" height="900" aria-label="Solar disk rendering"></canvas>
           <canvas id="skyCanvas" width="900" height="900" aria-label="Local sky: a horizon dome showing where each body is"></canvas>
           <canvas id="systemCanvas" width="900" height="900" aria-label="Solar System: a top-down orbit view of the planets"></canvas>
+          <canvas id="orreryCanvas" aria-label="3-D solar system rendered with WebGPU"></canvas>
           <div class="status-strip" aria-live="polite">
             <div>
               <span class="label">Stage</span>
@@ -63,6 +64,7 @@
             <button class="mode-button" type="button" data-mode="research">Research</button>
             <button class="mode-button" type="button" data-mode="sky">My Sky</button>
             <button class="mode-button" type="button" data-mode="system">Solar System</button>
+            <button class="mode-button" type="button" data-mode="orrery">3-D View</button>
           </div>
 
           <section class="sky-panel" aria-label="My Sky">
@@ -107,6 +109,22 @@
             <div class="sky-whatsup">
               <span class="label">Selected</span>
               <div id="systemInfo" class="sky-list"><div class="sky-row">Click a planet to inspect it.</div></div>
+            </div>
+          </section>
+
+          <section class="orrery-panel" aria-label="3-D View">
+            <header class="sky-header">
+              <p class="eyebrow">3-D View</p>
+              <h1>Orrery</h1>
+              <p id="orreryInsight" class="insight">A real 3-D solar system rendered with WebGPU from the same VSOP2013 positions — drag to orbit the camera, scroll to zoom.</p>
+            </header>
+            <div class="sky-observer">
+              <span class="label">Date</span>
+              <div class="sky-loc-row">
+                <button id="orreryNow" class="time-btn" type="button">Now</button>
+                <input id="orreryTime" class="sys-range" type="range" min="-100" max="100" step="0.1" value="0" aria-label="years from now">
+              </div>
+              <p class="time-frame-label">Orbits drawn at their true inclinations; body sizes are exaggerated for visibility.</p>
             </div>
           </section>
 
@@ -228,6 +246,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=21"></script>
+    <script type="module" src="app.js?v=25"></script>
   </body>
 </html>

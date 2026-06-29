@@ -678,6 +678,45 @@ body[data-surface="system"] .timeline-band {
   margin-top: 0.75rem;
 }
 
+/* ---- 3-D View (WebGPU orrery) ---- */
+#orreryCanvas {
+  width: min(78vh, 100%);
+  max-width: 58rem;
+  aspect-ratio: 1 / 1;
+  display: none;
+  cursor: grab;
+  background: #04060c;
+  touch-action: none;
+}
+
+#orreryCanvas:active {
+  cursor: grabbing;
+}
+
+.orrery-panel {
+  display: none;
+}
+
+body[data-surface="orrery"] #orreryCanvas {
+  display: block;
+}
+
+body[data-surface="orrery"] .orrery-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+body[data-surface="orrery"] #solarCanvas,
+body[data-surface="orrery"] #stageRail,
+body[data-surface="orrery"] #baseLabel,
+body[data-surface="orrery"] .status-strip,
+body[data-surface="orrery"] .control-panel > header,
+body[data-surface="orrery"] .summary-panel,
+body[data-surface="orrery"] .timeline-band {
+  display: none !important;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: auto 1fr;

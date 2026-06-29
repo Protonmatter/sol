@@ -1,19 +1,20 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js?v=20";
-import { TOUR_STEPS } from "./js/config.js?v=20";
-import { controls } from "./js/dom.js?v=20";
-import { clamp } from "./js/format.js?v=20";
-import { selectedRegion } from "./js/selectors.js?v=20";
-import { renderAll } from "./js/view.js?v=20";
-import { updateModeButtons } from "./js/panels.js?v=20";
-import { loadState } from "./js/data.js?v=20";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=20";
-import { startTour, endTour, showTourStep } from "./js/tour.js?v=20";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=20";
-import { enterSky, leaveSky } from "./js/sky.js?v=20";
-import { enterSystem, leaveSystem } from "./js/system.js?v=21";
+import { store } from "./js/store.js?v=22";
+import { TOUR_STEPS } from "./js/config.js?v=22";
+import { controls } from "./js/dom.js?v=22";
+import { clamp } from "./js/format.js?v=22";
+import { selectedRegion } from "./js/selectors.js?v=22";
+import { renderAll } from "./js/view.js?v=22";
+import { updateModeButtons } from "./js/panels.js?v=22";
+import { loadState } from "./js/data.js?v=22";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=22";
+import { startTour, endTour, showTourStep } from "./js/tour.js?v=22";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=22";
+import { enterSky, leaveSky } from "./js/sky.js?v=22";
+import { enterSystem, leaveSystem } from "./js/system.js?v=22";
+import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=25";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {
@@ -32,8 +33,10 @@ document.querySelectorAll(".mode-button").forEach((button) => {
     renderAll();
     leaveSky();
     leaveSystem();
+    leaveOrrery();
     if (store.activeMode === "sky") enterSky();
     else if (store.activeMode === "system") enterSystem();
+    else if (store.activeMode === "orrery") enterOrrery();
   });
 });
 
