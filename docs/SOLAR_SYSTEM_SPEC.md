@@ -54,6 +54,27 @@ grounding + the local-sky integration**, not on out-rendering JPL's 3D on day on
 - **New contract** `ephemeris-snapshot.v1` (§6), validated by a new `tools/validate_ephemeris.py`
   and a Horizons cross-check harness (§7), wired into the existing validator suite.
 
+### 2.1 Provider tiers (hybrid — decided 2026-06-29)
+
+`ephemeris-snapshot.v1` is provider-agnostic: the renderer doesn't care whether a snapshot was
+computed in-browser or fetched from a server. That makes a **hybrid** the design:
+
+- **Client tier (default, always available):** the `solar-ephemeris` WASM engine — analytic
+  theory (VSOP2013/TOP2013/ELP-MPP02 after P4), runs offline/instant, free to host as static
+  files, mas-class over roughly ±6000 yr. Handles the everyday "My Sky / live sky" case with **no
+  server**. This is the strength we keep.
+- **Server tier (optional, on-demand):** a backend high-precision provider serving full
+  **DE440/DE441** (JPL numerical, sub-meter, the −13200…+17191 / 30,000-yr span Horizons itself
+  uses) — or NASA **SPICE**, or cached Horizons. The frontend escalates to it **only** when the
+  precision or time-span demand exceeds the client engine (deep-time queries, definitive
+  accuracy, validation). Same contract; non-breaking to add.
+
+Rule: never round-trip to the server for routine ticks (e.g. the per-minute "live" sky) — the
+client engine serves those. The server is for *"compute the exact state in 9000 BC"* class needs.
+This preserves the static/offline/zero-ops identity for the common case while removing the
+asset-size ceiling for the premium case. The "No Node/bundler at runtime" invariant (§1) applies
+to the **client tier**; the server tier may use any toolchain (cspice, calceph, DE readers).
+
 ## 3. The math (pillars 1–3) — what's computed and how
 
 ### 3.1 Time systems
@@ -195,12 +216,18 @@ occultation / navigation accuracy.
   "Up now" list with rise/set. *Deferred to later:* magnitude/phase, object-detail panel, search.
 - **P3 — Solar System view.** 2D top-down ecliptic orbit view with time controls and click-through
   to detail; the Sun object links into the existing solar-surface app.
-- **P4 — Accuracy + physics.** Upgrade to VSOP87 + ELP/MPP02; add nutation/aberration; velocity
-  (vis-viva), equilibrium temperature, illumination; provenance/error-budget panels; tighten
-  tolerances.
+- **P4 — Accuracy upgrade (IN PROGRESS).** Replace Standish-Keplerian with **VSOP2013** (inner) +
+  **TOP2013** (outer giants) + **ELP-MPP02** (Moon), extracted from ephem.js's truncated tiers via
+  a one-time Node data-gen step and embedded in the Rust→WASM engine. Target mas-class over
+  ±6000 yr; fixes Jupiter/Saturn to arcseconds. Plus velocity (vis-viva), equilibrium temperature,
+  illumination/phase; provenance/error-budget panels. Validated vs Horizons; tighten §8 tolerances.
 - **P5 — WebGPU 3D (the "match NASA" stretch).** `wgpu` 3D solar system; reuse the same snapshots.
 - **P6 — Polish.** ZIP table, opt-in address geocoding, a11y (WCAG AA), mobile, performance, and a
   device-orientation "point your phone" mode where supported.
+- **P7 — Backend high-precision provider (hybrid, §2.1).** An optional server that serves full
+  **DE440/DE441** (or SPICE/cached Horizons) behind `ephemeris-snapshot.v1`, for definitive
+  accuracy and deep-time spans. The client engine stays the default; the frontend escalates to the
+  server only when precision/span demand exceeds it.
 
 ## 10. UX surfaces (NN/g progressive disclosure, reused)
 
