@@ -70,11 +70,15 @@ Tracked in [SOLAR_SYSTEM_SPEC.md](SOLAR_SYSTEM_SPEC.md); a second Rust→WASM en
 and validated against **JPL Horizons (DE441)**.
 - **P0–P2 ✅** — time/ΔT/nutation/sidereal, Sun + Moon + 8 planets, topocentric alt/az with
   refraction and rise/transit/set. **My Sky** surface: a local horizon dome for any lat/long.
-- **P4 (accuracy) ✅ mostly** — swapped Standish-Keplerian for **VSOP2013** (Sun + all planets,
-  via ephem.js's 06-normal tier → generated `vsop2013_data.rs`; evaluator `vsop2013.rs`; +
-  light-time, annual aberration, precession, nutation). Validated to **arcsecond class**: Saturn
-  0.3″ (was 250″), Neptune 0.1″, Mercury 0.2″, all <~20″; span ≈ ±6000 yr. TOP2013 dropped as
-  unnecessary. *Open:* Moon → ELP-MPP02 (still Meeus-47, ~10-30″); physics extras.
+- **P4 (accuracy + physics) ✅** — **VSOP2013** (Sun + 8 planets) and **ELP-MPP02** (Moon),
+  generated from ephem.js tiers into `vsop2013_data.rs` / `elpmpp02_data.rs`; evaluators
+  `vsop2013.rs` / `elpmpp02.rs`; light-time, aberration, nutation, and the full **Meeus Ch. 21
+  ecliptic precession** (a longitude-only shift had cost every body ~12″ in dec). Validated vs
+  Horizons to **arcsecond class** (Saturn 0.3″ vs Standish's 250″; Moon geocentric ~3″; worst
+  alt/az 11.3″). TOP2013 dropped (VSOP2013 suffices). `physics.rs` adds phase/illumination,
+  apparent magnitude, vis-viva speed, equilibrium temp → a per-object detail panel in P3.
+  **Review (2026-06-29): green** — 26 workspace tests pass, Horizons gate (22″/32″) passes, web
+  static passes, no compiler warnings, both snapshots well-formed, browser-verified.
 - **P3 (orbit view) ✅** — **Solar System** surface: top-down ecliptic view (`js/system.js` +
   `system_snapshot` export), Sun-centred, real planet positions, guide rings, AU scale,
   ±100-yr time scrubber, 1.5–32 AU zoom, click-to-select. Verified in-browser.

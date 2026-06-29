@@ -220,15 +220,17 @@ occultation / navigation accuracy.
   ±100-yr time scrubber, 1.5–32 AU zoom, and click-to-select (heliocentric distance, light-time,
   ecliptic longitude). Verified in-browser. *Deferred:* true eccentric orbit paths (rings are
   currently mean-distance circles), planet→Sun-surface click-through, 3-D.
-- **P4 — Accuracy upgrade. ✅ MOSTLY DONE.** Replaced Standish-Keplerian with **VSOP2013** for the
-  Sun + all 8 planets (IMCCE, via ephem.js's 06-normal tier → `vsop2013_data.rs`; evaluator in
-  `vsop2013.rs`; planets.rs adds light-time, **annual aberration**, precession, nutation).
-  **Validated vs JPL Horizons** (Boston + Sydney) to **arcsecond class**: Saturn 0.3″ (was 250″
-  under Standish), Neptune 0.1″, Mercury 0.2″, Jupiter ~5-8″, all <~20″; valid span widened to
-  roughly ±6000 yr. **TOP2013 dropped** — VSOP2013 already gets the giants to arcseconds.
-  *Remaining:* the **Moon** is still Meeus-47 (~10-30″, sub-arcminute) — ELP-MPP02 upgrade is the
-  one open refinement (its ephem.js evaluator needs more core porting). Physics extras
-  (vis-viva velocity, equilibrium temp, phase/magnitude, object-detail panel) also still to come.
+- **P4 — Accuracy upgrade + physics. ✅ DONE.** **VSOP2013** for the Sun + 8 planets
+  (`vsop2013.rs` + generated `vsop2013_data.rs`; light-time, **annual aberration**, nutation) and
+  **ELP-MPP02** for the Moon (`elpmpp02.rs` + `elpmpp02_data.rs`; light-time planetary aberration —
+  the Moon shares Earth's velocity so annual aberration does not apply). The of-date reduction uses
+  the full **Meeus Ch. 21 ecliptic precession** (longitude *and* latitude); the earlier
+  longitude-only shift had cost every body ~12″ in declination. **Validated vs JPL Horizons**
+  (Boston + Sydney) to **arcsecond class**: Saturn 0.3″ (was 250″ under Standish), Neptune 0.1″,
+  Moon geocentric RA/Dec ~3″, worst topocentric alt/az 11.3″; span ≈ ±6000 yr. **TOP2013 dropped**
+  (VSOP2013 already nails the giants). Physics (`physics.rs`): phase angle, illuminated fraction,
+  apparent magnitude (Meeus Ch.41), vis-viva orbital speed, black-body equilibrium temperature —
+  surfaced in a **per-object detail panel** in the Solar System view.
 - **P5 — WebGPU 3D (the "match NASA" stretch).** `wgpu` 3D solar system; reuse the same snapshots.
 - **P6 — Polish.** ZIP table, opt-in address geocoding, a11y (WCAG AA), mobile, performance, and a
   device-orientation "point your phone" mode where supported.
