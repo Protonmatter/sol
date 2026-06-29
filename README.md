@@ -39,6 +39,8 @@ ever *consumes* those snapshots. The UI never invents physical values.
 
 See **[docs/STATUS.md](docs/STATUS.md)** for exactly what's done and what's left, and
 **[docs/WEB_REDESIGN_SPEC.md](docs/WEB_REDESIGN_SPEC.md)** for the full redesign plan.
+A proposed next direction — a solar-system + local-sky (ephemeris) engine, "NASA Eyes meets
+SkyView, grounded in facts" — is specced in **[docs/SOLAR_SYSTEM_SPEC.md](docs/SOLAR_SYSTEM_SPEC.md)**.
 
 ---
 
