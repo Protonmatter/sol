@@ -1,7 +1,7 @@
 # Status — Web redesign (v0.2)
 
 Branch: `redesign/web-v0.2` · Baseline rollback point: `master` (`5f92fa6`)
-Last updated: 2026-06-28
+Last updated: 2026-06-29
 
 This tracks the web redesign defined in [WEB_REDESIGN_SPEC.md](WEB_REDESIGN_SPEC.md).
 The Rust engine and Python pipeline are unchanged except for the additive
@@ -63,6 +63,23 @@ and the Rust toolchain is installed.
   SDO image.
 - Verified: `cargo test --workspace` green (incl. solar-wasm); activity 0.20 → solar
   minimum / 0 regions and 0.90 → solar maximum, live, no console errors.
+
+### Solar System engine — "SkyView meets NASA Eyes" (2026-06-29)
+Tracked in [SOLAR_SYSTEM_SPEC.md](SOLAR_SYSTEM_SPEC.md); a second Rust→WASM engine
+(`crates/solar-ephemeris`, `apps/web/pkg/solar_ephemeris.wasm`) grounded in orbital mechanics
+and validated against **JPL Horizons (DE441)**.
+- **P0–P2 ✅** — time/ΔT/nutation/sidereal, Sun + Moon + 8 planets, topocentric alt/az with
+  refraction and rise/transit/set. **My Sky** surface: a local horizon dome for any lat/long.
+- **P4 (accuracy) ✅ mostly** — swapped Standish-Keplerian for **VSOP2013** (Sun + all planets,
+  via ephem.js's 06-normal tier → generated `vsop2013_data.rs`; evaluator `vsop2013.rs`; +
+  light-time, annual aberration, precession, nutation). Validated to **arcsecond class**: Saturn
+  0.3″ (was 250″), Neptune 0.1″, Mercury 0.2″, all <~20″; span ≈ ±6000 yr. TOP2013 dropped as
+  unnecessary. *Open:* Moon → ELP-MPP02 (still Meeus-47, ~10-30″); physics extras.
+- **P3 (orbit view) ✅** — **Solar System** surface: top-down ecliptic view (`js/system.js` +
+  `system_snapshot` export), Sun-centred, real planet positions, guide rings, AU scale,
+  ±100-yr time scrubber, 1.5–32 AU zoom, click-to-select. Verified in-browser.
+- **Decided:** a **hybrid** provider model — the WASM engine is the offline default; an optional
+  DE440/DE441 (or SPICE) backend behind `ephemeris-snapshot.v1` is the future deep-time tier (P7).
 
 ---
 

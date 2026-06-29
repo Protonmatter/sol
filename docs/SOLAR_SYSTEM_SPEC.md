@@ -214,8 +214,12 @@ occultation / navigation accuracy.
   Sydney): Sun/Moon/Mercury/Venus/Mars/Uranus/Neptune all < ~50″; Jupiter < ~1′; **Saturn ~2-5′**
   (the known Standish "great inequality" limit — arcsecond accuracy needs VSOP87, see P4). Ranked
   "Up now" list with rise/set. *Deferred to later:* magnitude/phase, object-detail panel, search.
-- **P3 — Solar System view.** 2D top-down ecliptic orbit view with time controls and click-through
-  to detail; the Sun object links into the existing solar-surface app.
+- **P3 — Solar System view. ✅ DONE.** 2D top-down ecliptic orbit view (`js/system.js`, new
+  "Solar System" surface) fed by the `system_snapshot` engine export (heliocentric VSOP2013
+  positions): Sun at centre, planets at real positions, mean-orbit guide rings, AU scale bar, a
+  ±100-yr time scrubber, 1.5–32 AU zoom, and click-to-select (heliocentric distance, light-time,
+  ecliptic longitude). Verified in-browser. *Deferred:* true eccentric orbit paths (rings are
+  currently mean-distance circles), planet→Sun-surface click-through, 3-D.
 - **P4 — Accuracy upgrade. ✅ MOSTLY DONE.** Replaced Standish-Keplerian with **VSOP2013** for the
   Sun + all 8 planets (IMCCE, via ephem.js's 06-normal tier → `vsop2013_data.rs`; evaluator in
   `vsop2013.rs`; planets.rs adds light-time, **annual aberration**, precession, nutation).
