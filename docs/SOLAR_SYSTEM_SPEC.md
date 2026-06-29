@@ -217,9 +217,11 @@ occultation / navigation accuracy.
 - **P3 — Solar System view. ✅ DONE.** 2D top-down ecliptic orbit view (`js/system.js`, new
   "Solar System" surface) fed by the `system_snapshot` engine export (heliocentric VSOP2013
   positions): Sun at centre, planets at real positions, mean-orbit guide rings, AU scale bar, a
-  ±100-yr time scrubber, 1.5–32 AU zoom, and click-to-select (heliocentric distance, light-time,
-  ecliptic longitude). Verified in-browser. *Deferred:* true eccentric orbit paths (rings are
-  currently mean-distance circles), planet→Sun-surface click-through, 3-D.
+  ±100-yr time scrubber, 1.5–32 AU zoom, and click-to-select with a **per-object detail panel**
+  (distance from Sun/Earth + light-time, vis-viva speed, illuminated fraction + phase, apparent
+  magnitude, equilibrium temperature). Draws **true eccentric/inclined orbit ellipses** from each
+  planet's osculating elements (`vsop2013::elements`), and **clicking the Sun opens the solar
+  surface** (Today). Verified in-browser. *Deferred to P5:* 3-D.
 - **P4 — Accuracy upgrade + physics. ✅ DONE.** **VSOP2013** for the Sun + 8 planets
   (`vsop2013.rs` + generated `vsop2013_data.rs`; light-time, **annual aberration**, nutation) and
   **ELP-MPP02** for the Moon (`elpmpp02.rs` + `elpmpp02_data.rs`; light-time planetary aberration —

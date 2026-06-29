@@ -80,8 +80,10 @@ and validated against **JPL Horizons (DE441)**.
   **Review (2026-06-29): green** — 26 workspace tests pass, Horizons gate (22″/32″) passes, web
   static passes, no compiler warnings, both snapshots well-formed, browser-verified.
 - **P3 (orbit view) ✅** — **Solar System** surface: top-down ecliptic view (`js/system.js` +
-  `system_snapshot` export), Sun-centred, real planet positions, guide rings, AU scale,
-  ±100-yr time scrubber, 1.5–32 AU zoom, click-to-select. Verified in-browser.
+  `system_snapshot` export), Sun-centred, real planet positions, **true orbit ellipses** from
+  osculating elements, AU scale, ±100-yr time scrubber, 1.5–32 AU zoom, click-to-select with a
+  per-object physics detail panel, and **Sun→solar-surface click-through**. Review (2026-06-29):
+  green — all six surfaces switch cleanly, no console errors, validators pass.
 - **Decided:** a **hybrid** provider model — the WASM engine is the offline default; an optional
   DE440/DE441 (or SPICE) backend behind `ephemeris-snapshot.v1` is the future deep-time tier (P7).
 
