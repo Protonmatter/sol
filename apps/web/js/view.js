@@ -1,9 +1,8 @@
 // The render orchestrator + per-surface progressive disclosure.
 
-import { store } from "./store.js?v=ce663a8e7f";
-import { MANAGED_PANELS, SURFACE_PANELS } from "./config.js?v=ce663a8e7f";
-import { updateText } from "./panels.js?v=ce663a8e7f";
-import { drawSolarDisk, drawButterfly } from "./render.js?v=ce663a8e7f";
+import { store } from "./store.js?v=a2360b7fc1";
+import { updateText } from "./panels.js?v=a2360b7fc1";
+import { drawSolarDisk, drawButterfly } from "./render.js?v=a2360b7fc1";
 
 export function renderAll() {
   applySurfaceVisibility();
@@ -13,14 +12,9 @@ export function renderAll() {
 }
 
 export function applySurfaceVisibility() {
+  // Surface visibility is entirely CSS-driven off body[data-surface]; the Sun's depth lives in the
+  // collapsible `.sun-section` drawers (hidden on My Sky / Solar System). Just set the attribute.
   const panel = document.querySelector(".control-panel");
   if (panel) panel.setAttribute("data-surface", store.activeMode);
   document.body.setAttribute("data-surface", store.activeMode);
-  const show = new Set(SURFACE_PANELS[store.activeMode] || []);
-  for (const selector of MANAGED_PANELS) {
-    const node = document.querySelector(selector);
-    if (node) node.classList.toggle("surface-hide", !show.has(selector));
-  }
-  const research = /** @type {HTMLDetailsElement|null} */ (document.querySelector(".research-panel"));
-  if (research) research.open = store.activeMode === "research";
 }

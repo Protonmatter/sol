@@ -43,3 +43,23 @@ precession to J2000. Validated geocentric Moon RA/Dec to ~3″ vs Horizons. **No
 remaining accuracy lever was *not* the tier — the of-date reduction must use the full Meeus
 Ch. 21 ecliptic precession (longitude *and* latitude); a longitude-only shift leaves a
 ~12″/26 yr declination error on every body.
+
+## Outer planets (TOP2013)
+
+The four giants (Jupiter–Neptune) use **TOP2013** instead of VSOP2013: VSOP2013-06-normal drifts to
+hundreds of arcseconds for them by ±6000 yr, while TOP2013 (the IMCCE long-span outer-planet theory)
+stays sub-arcsecond. `crates/solar-ephemeris/src/top2013_data.rs` is generated from the same ephem.js:
+
+```bash
+curl -o top2013_normal.js \
+  https://raw.githubusercontent.com/THRASTRO/ephem.js/develop/src/top2013/dist/06-normal/min/top2013.js
+node gen_top.js          # -> crates/solar-ephemeris/src/top2013_data.rs (analytic Poisson series)
+```
+
+`gen_top.js` decodes ephem.js's packed series: each term is `(mult, Ccos, Csin)` with argument
+`mult · DMU · t` (t in Julian millennia, `DMU = 0.359536228504931` — the Jupiter–Saturn great-inequality
+frequency); the mean longitude L adds the secular `mm · t`, and the `(L, power 1, mult 0)` term is
+dropped. The Rust evaluator (`top2013.rs`) reuses `vsop2013::equinoctial_to_xyz`; a unit test pins it to
+ephem.js ground truth at ±5000 yr to sub-arcsecond. NOTE: tabulating TOP (or TOP−VSOP) as Chebyshev
+fails — the osculating elements / the two theories' short-period terms carry signal that aliases or
+dephases; the analytic series is the only compact, exact form.

@@ -33,6 +33,7 @@ input {
 .app-shell {
   min-height: 100vh;
   background: radial-gradient(circle at 35% 35%, #221309 0, #060608 38rem);
+  overflow-x: hidden; /* keep the collapsed (slid-out) panel from adding a horizontal scrollbar */
 }
 
 .stage-band {
@@ -46,6 +47,7 @@ input {
   min-height: 40rem;
   align-items: stretch;
   padding: 1rem;
+  position: relative; /* containing block for the slid-out panel when collapsed */
 }
 
 .viewport {
@@ -155,12 +157,83 @@ input {
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  background: var(--panel);
-  border: 1px solid #2b303b;
+  /* Liquid glass: translucent + a backdrop blur of whatever is behind it (the 3-D view on the orrery
+     surface, where the panel overlays the full-bleed canvas). */
+  background: rgba(16, 18, 26, 0.55);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 10px 44px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   height: 100%;
   min-height: 0;
   overflow: auto;
+  position: relative;
+  z-index: 5;
+  transition: transform 0.28s ease, opacity 0.22s ease;
 }
+.control-panel > header { padding-right: 2.4rem; } /* clear the floating collapse button */
+
+/* On the 3-D view, the full-bleed canvas spans the whole stage; the glass panel floats over its right
+   side (so the blur is of the actual 3-D scene), and collapsing it gives an unobstructed full view. */
+body[data-surface="orrery"] .viewport { grid-column: 1 / -1; }
+
+/* The panel MUST be lifted out of grid flow to actually float. Spanning the viewport across both
+   columns (above) pushes the still-in-flow panel into a SECOND grid row, whose tall content steals
+   all the height and collapses the absolutely-positioned canvas to 0px — the entire 3-D scene
+   vanishes. Floating it (with the stage-band as the positioned ancestor) lets the viewport own the
+   full 100vh; the panel keeps its own internal scroll via overflow:auto. Desktop only — narrow
+   screens keep the stacked layout from the media query below. */
+@media (min-width: 881px) {
+  body[data-surface="orrery"] .control-panel {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    height: auto;
+    width: min(27rem, calc(100% - 2rem));
+    z-index: 6;
+  }
+}
+
+/* Collapsed: the panel slides out and the viewport takes the full width. The panel is pulled OUT of
+   grid flow (absolute) so the now-single-column stage-band can't stack it into a second row beneath
+   the viewport — that row, though slid out and transparent, left a tall scrollable void (the
+   app-shell gradient) under the Sun on the 2-D surfaces. */
+body.panel-collapsed .stage-band { grid-template-columns: minmax(0, 1fr); }
+body.panel-collapsed .control-panel {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(27rem, calc(100% - 2rem));
+  transform: translateX(115%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Floating pin/collapse toggle. */
+.panel-toggle {
+  position: fixed;
+  top: 1.35rem;
+  right: 1.35rem;
+  z-index: 30;
+  height: 2rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(20, 22, 30, 0.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  color: #e8e6dd;
+  cursor: pointer;
+  font: 600 0.85rem "Segoe UI", system-ui, sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.panel-toggle:hover { background: rgba(40, 44, 56, 0.72); }
 
 .eyebrow,
 .label {
@@ -279,6 +352,11 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem;
+}
+
+/* The top-level destination nav: three equal columns (The Sun · My Sky · Solar System). */
+.mode-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .mode-button {
@@ -623,6 +701,60 @@ h2 {
   cursor: default;
 }
 
+body[data-surface="sky"] #skyCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  aspect-ratio: auto;
+}
+
+/* Hover tooltip for a sky object (rise/transit/set + trajectory note). */
+.sky-tooltip {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 17rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(247, 183, 51, 0.5);
+  border-radius: 0.35rem;
+  background: rgba(8, 10, 16, 0.92);
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+.sky-tooltip strong { color: #ffe39a; font-size: 0.92rem; }
+.sky-tooltip .tt-line { color: rgba(228, 234, 246, 0.86); }
+.sky-tooltip .muted { color: rgba(170, 180, 200, 0.7); }
+
+.sky-row.sky-subhead {
+  margin-top: 0.4rem;
+  color: rgba(247, 183, 51, 0.8);
+  font: 600 0.74rem "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.sky-row.sky-hoverable { cursor: pointer; }
+.sky-row.sky-hoverable:hover { background: rgba(247, 183, 51, 0.08); }
+
+/* Live accuracy / validity readout under the time controls. */
+.epoch-accuracy {
+  margin: 0.4rem 0 0;
+  padding: 0.3rem 0.5rem;
+  border-left: 3px solid var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: rgba(220, 226, 240, 0.8);
+  background: rgba(255, 255, 255, 0.03);
+}
+.epoch-accuracy:empty { display: none; }
+.epoch-accuracy.acc-good { border-left-color: #4caf72; }
+.epoch-accuracy.acc-ok { border-left-color: #d8b24a; }
+.epoch-accuracy.acc-rough { border-left-color: #d8744a; }
+
 .sky-panel {
   display: none;
 }
@@ -644,45 +776,14 @@ body[data-surface="sky"] #baseLabel,
 body[data-surface="sky"] .status-strip,
 body[data-surface="sky"] .control-panel > header,
 body[data-surface="sky"] .summary-panel,
+body[data-surface="sky"] .sun-section,
+body[data-surface="sky"] .wavelength-panel,
 body[data-surface="sky"] .timeline-band {
   display: none !important;
 }
 
-/* ---- Solar System surface (top-down orbit view) ---- */
-#systemCanvas {
-  width: min(78vh, 100%);
-  max-width: 58rem;
-  aspect-ratio: 1 / 1;
-  display: none;
-  cursor: crosshair;
-  background: #05070d;
-}
-
-.system-panel {
-  display: none;
-}
-
-body[data-surface="system"] #systemCanvas {
-  display: block;
-}
-
-body[data-surface="system"] .system-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-/* Hide the Sun-centric chrome when the orbit view is active. */
-body[data-surface="system"] #solarCanvas,
-body[data-surface="system"] #stageRail,
-body[data-surface="system"] #baseLabel,
-body[data-surface="system"] .status-strip,
-body[data-surface="system"] .control-panel > header,
-body[data-surface="system"] .summary-panel,
-body[data-surface="system"] .timeline-band {
-  display: none !important;
-}
-
+/* The top-down orbit view is now a camera toggle inside the 3-D View surface (orrery.js);
+   the standalone Solar System surface was folded in to remove the duplicate of the same data. */
 .sys-range {
   width: 100%;
   margin-top: 0.35rem;
@@ -733,8 +834,50 @@ body[data-surface="orrery"] .orrery-labels {
   text-shadow: 0 1px 3px #000, 0 0 2px #000;
 }
 
+/* Celestial-backdrop marker labels (pulsars, galaxies, bright stars). */
+.orrery-label.sky-pulsar {
+  color: rgba(140, 240, 255, 0.92);
+  font-weight: 600;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+}
+.orrery-label.sky-galaxy {
+  color: rgba(216, 196, 255, 0.85);
+  font-weight: 500;
+  font-size: 0.66rem;
+}
+.orrery-label.sky-star {
+  color: rgba(232, 236, 246, 0.7);
+  font-weight: 500;
+  font-size: 0.64rem;
+}
+
+/* 3-D View control checkboxes. */
+.orrery-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: rgba(232, 238, 255, 0.82);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.orrery-check input {
+  accent-color: #f7b733;
+}
+
 body[data-surface="orrery"] #orreryCanvas {
   display: block;
+  /* Fill the whole viewport instead of a centred 78vh square — the perspective camera uses the
+     canvas aspect ratio, so a full-bleed rectangle just shows more sky. Absolute inset:0 against the
+     position:relative .viewport sidesteps grid/flex percentage-height quirks. Filling also raises the
+     backing-store resolution (ensureSized scales it by devicePixelRatio off the displayed size). */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  aspect-ratio: auto;
 }
 
 body[data-surface="orrery"] .orrery-panel {
@@ -749,8 +892,107 @@ body[data-surface="orrery"] #baseLabel,
 body[data-surface="orrery"] .status-strip,
 body[data-surface="orrery"] .control-panel > header,
 body[data-surface="orrery"] .summary-panel,
+body[data-surface="orrery"] .sun-section,
+body[data-surface="orrery"] .wavelength-panel,
 body[data-surface="orrery"] .timeline-band {
   display: none !important;
+}
+
+/* ---- Solar wavelength selector (the Sun, filterable by SDO channel) ---- */
+.wavelength-panel {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.wavelength-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.wl-chip {
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #e8e6dd;
+  font: 600 0.74rem "Segoe UI", system-ui, sans-serif;
+  padding: 0.28rem 0.6rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.wl-chip::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--wl, #f6aa45);
+}
+.wl-chip:hover { background: rgba(255, 255, 255, 0.07); }
+.wl-chip.active {
+  border-color: var(--wl, var(--gold, #f7b733));
+  background: rgba(247, 183, 51, 0.12);
+  color: #fff;
+}
+
+/* ---- "Inside the Sun" cutaway cross-section ---- */
+.sun-cutaway svg { width: 100%; max-width: 340px; height: auto; display: block; margin: 0 auto; }
+.layer-list { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.7rem; }
+.layer-row { display: flex; gap: 0.55rem; font-size: 0.82rem; line-height: 1.4; color: rgba(220, 226, 240, 0.82); }
+.layer-row strong { color: #f0ede4; }
+.layer-row .muted { color: rgba(220, 226, 240, 0.62); }
+.layer-rad { color: rgba(220, 226, 240, 0.9); }
+.layer-dot {
+  flex: 0 0 auto;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.28rem;
+  border-radius: 50%;
+  background: var(--c, #fff);
+  box-shadow: 0 0 6px var(--c, #fff);
+}
+
+/* ---- "The Sun" surface: one destination, depth revealed in progressive-disclosure drawers ---- */
+.sun-section {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-top: 0.75rem;
+  overflow: hidden;
+}
+.sun-section > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.7rem 0.9rem;
+  font: 600 0.92rem "Segoe UI", system-ui, sans-serif;
+  color: #f0ede4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.sun-section > summary::-webkit-details-marker { display: none; }
+.sun-section > summary::after {
+  content: "▸";
+  color: rgba(247, 183, 51, 0.85);
+  transition: transform 0.15s ease;
+}
+.sun-section[open] > summary::after { transform: rotate(90deg); }
+.sun-section > summary:hover { background: rgba(255, 255, 255, 0.04); }
+.sun-section > .sun-section-body {
+  padding: 0 0.9rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+/* Sections nested in a drawer drop their own outer chrome — the drawer provides it. */
+.sun-section .layer-controls,
+.sun-section .layer-legend,
+.sun-section .metric-grid,
+.sun-section .selection-panel,
+.sun-section .application-panel {
+  margin: 0;
 }
 
 .detail-grid {

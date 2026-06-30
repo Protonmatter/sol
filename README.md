@@ -57,6 +57,13 @@ python -m http.server 8000 --directory apps/web
 # then open http://localhost:8000
 ```
 
+The **3-D View** wraps real planetary maps (NASA Blue Marble + Solar System Scope, CC-BY) onto its
+spheres. They are not committed (gitignored under `apps/web/textures/`); fetch them once with:
+
+```bash
+python tools/fetch_textures.py     # ~4 MB; without it the 3-D View falls back to procedural surfaces
+```
+
 ### Regenerate the data the app reads (Python stdlib only)
 
 ```bash

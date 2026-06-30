@@ -1,15 +1,15 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js?v=ce663a8e7f";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=ce663a8e7f";
-import { text, textWithTitle, setPill } from "./dom.js?v=ce663a8e7f";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=ce663a8e7f";
+import { store } from "./store.js?v=a2360b7fc1";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=a2360b7fc1";
+import { text, textWithTitle, setPill } from "./dom.js?v=a2360b7fc1";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=a2360b7fc1";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
   dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js?v=ce663a8e7f";
+} from "./selectors.js?v=a2360b7fc1";
 
 export function updateText() {
   const run = store.state.run || {};
@@ -22,14 +22,11 @@ export function updateText() {
 
   text("cycleStage", store.state.learning?.cycle_stage || stageFromActivity(run.activity_index || 0));
   textWithTitle("sourceMode", dataStateLabel(), store.state.source_mode || "unknown");
-  text("runTime", `${((run.time_seconds || 0) / 86400).toFixed(2)} days`);
   text("plainInsight", modeInsight());
   text("regionCount", String((store.state.active_regions || []).length));
   text("brMax", brMax.toFixed(3));
   text("confidenceMean", confidenceMean.toFixed(3));
   text("schemaVersion", store.state.schema_version || "unknown");
-  text("modeTitle", mode[0]);
-  text("modeText", mode[1]);
   text("journeyTitle", store.state.learning?.cycle_stage || "Solar journey");
   text("journeyText", mode[1]);
   text("calibrationState", store.state.calibration_state || "not reported");
@@ -50,17 +47,9 @@ export function updateText() {
   }
 }
 
+// The Sun is one surface now; the headline insight is always the plain-language cycle summary.
 function modeInsight() {
-  if (store.activeMode === "today") return beginnerCycleInsight();
-  if (store.activeMode === "explore") return "Click any marker on the Sun to inspect that sunspot group. Use the layer toggles to add or remove the magnetic-field and confidence overlays.";
-  if (store.activeMode === "weather") return weatherInsight();
-  if (store.activeMode === "research") return "This view shows what the model is and is not: the equations it runs, where its data comes from, and what still blocks operational forecasting.";
   return beginnerCycleInsight();
-}
-
-function weatherInsight() {
-  const signals = store.state.observed_context?.space_weather_signals || {};
-  return `SWPC context: Kp ${numberOrNa(signals.latest_kp, 1)}, F10.7 ${numberOrNa(signals.latest_f107, 1)}, GOES/X-ray ${compactNumberOrNa(signals.latest_goes_xray_flux)}, wind ${numberOrNa(signals.latest_solar_wind_speed_km_s, 0)} km/s. Learning view only.`;
 }
 
 function beginnerCycleInsight() {
@@ -123,7 +112,8 @@ function updateLayerLegend() {
 }
 
 function updateApplicationPanel() {
-  const app = APPLICATION_COPY[store.activeMode] || APPLICATION_COPY.today;
+  // The "What it means for Earth" drawer always surfaces the space-weather signals (Kp / F10.7 / etc.).
+  const app = APPLICATION_COPY.weather;
   text("applicationTitle", app.title);
   text("applicationText", app.text);
   const target = document.getElementById("applicationSignals");

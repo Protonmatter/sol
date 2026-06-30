@@ -1,7 +1,17 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot, fetchServerSky } from "./skyEngine.js?v=ce663a8e7f";
+import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=a2360b7fc1";
+import { STARS, CONSTELLATIONS } from "./celestial.js?v=a2360b7fc1";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=a2360b7fc1";
+
+function updateSkyAccuracy() {
+  const node = document.getElementById("skyAccuracy"); if (!node) return;
+  const yrs = (currentUnix() - Date.now() / 1000) / (365.25 * 86400);
+  const a = epochAccuracy(yrs, "sky");
+  node.className = "epoch-accuracy acc-" + a.level;
+  node.textContent = Math.abs(yrs) < 0.5 ? "" : `${epochLabel(yrs)} — ${a.text}`;
+}
 
 const BODY_STYLE = {
   Sun: { color: "#ffd24a", size: 0.030 },
@@ -14,6 +24,33 @@ const BODY_STYLE = {
   Uranus: { color: "#a8e0e6", size: 0.011 },
   Neptune: { color: "#7da7ff", size: 0.011 }
 };
+
+// Name → J2000 (RA°, Dec°) for the constellation stars (used to draw the figures + compute arcs).
+const STAR_RADEC = (() => { const m = {}; for (const s of STARS) m[s.n] = s; return m; })();
+const SIDEREAL_DEG_PER_HOUR = 15.04107;
+
+// Topocentric altitude/azimuth (degrees, az from North through East) for a J2000 RA/Dec at a given
+// local sidereal time and latitude. Precession/nutation/refraction are dropped — sub-degree at the
+// dome's resolution. The engine's own bodies carry the full reduction; this is for the star figures
+// and the diurnal trajectory arcs (which sweep the hour angle from the body's current RA/Dec).
+function altAz(raDeg, decDeg, lstDeg, latDeg) {
+  const d = Math.PI / 180;
+  const H = (lstDeg - raDeg) * d, dec = decDeg * d, lat = latDeg * d;
+  const sinAlt = Math.sin(dec) * Math.sin(lat) + Math.cos(dec) * Math.cos(lat) * Math.cos(H);
+  const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+  const cosA = (Math.sin(dec) - Math.sin(lat) * sinAlt) / (Math.cos(lat) * Math.cos(alt) || 1e-9);
+  let A = Math.acos(Math.max(-1, Math.min(1, cosA)));     // 0..π measured from North
+  if (Math.sin(H) > 0) A = 2 * Math.PI - A;               // east of meridian vs west
+  return { alt: alt / d, az: ((A / d) % 360 + 360) % 360 };
+}
+
+// UI/interaction state for hover tooltips, trajectory arcs, and the constellation overlay.
+let plotted = [];          // {name, x, y, hit, body} in backing-store px, for hover hit-testing
+let domeGeom = null;       // {cx, cy, r, dpr}
+let activeName = null;     // hovered or pinned object
+let pinned = false;
+let showConstellations = true;
+let showTrajectory = true;
 
 const observer = { lat: 40.71, lon: -74.01, elev: 0, label: "New York (default)" };
 let timer = 0;
@@ -88,10 +125,11 @@ export function renderSky() {
     fetchServerSky(unix, observer.lat, observer.lon, observer.elev)
       .then((snap) => {
         if (!active || provider !== "server") return;
-        lastSnap = snap;
-        drawDome(snap);
-        updateList(snap);
-        setProvenance("Source: JPL Horizons / DE441 (server tier). Rise/set come from the on-device engine.");
+        lastSnap = enrichWithLocal(snap, unix);
+        drawDome(lastSnap);
+        updateList(lastSnap);
+        updateSkyAccuracy();
+        setProvenance("Source: JPL Horizons / DE441 for the Sun, Moon, and planets; sidereal time, rise/set, and the star catalogue come from the on-device engine.");
       })
       .catch((error) => {
         // Graceful fall back to the on-device engine when the optional server is down.
@@ -104,6 +142,26 @@ export function renderSky() {
   setProvenance("Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~5″ vs JPL Horizons near today.");
 }
 
+// The DE441 server returns high-precision Sun/Moon/planet positions, but no local sidereal time, no
+// rise/transit/set, and no star catalogue. Backfill those from the on-device engine (same instant and
+// observer) so the dome keeps its constellations, star list, and rise/set — what the provenance promises.
+function enrichWithLocal(serverSnap, unix) {
+  let local;
+  try { local = skySnapshot(unix, observer.lat, observer.lon, observer.elev); }
+  catch (_) { return serverSnap; }
+  if (local.time) serverSnap.time = { ...(serverSnap.time || {}), lst_deg: local.time.lst_deg, obliquity_deg: local.time.obliquity_deg };
+  serverSnap.bodies = serverSnap.bodies || [];
+  const localByName = new Map((local.bodies || []).map((b) => [b.name, b]));
+  for (const b of serverSnap.bodies) {
+    const l = localByName.get(b.name);
+    if (l) { b.rise_jd = l.rise_jd; b.transit_jd = l.transit_jd; b.set_jd = l.set_jd; b.transit_alt_deg = l.transit_alt_deg; }
+  }
+  // Append objects the server omits (the bright-star catalogue) so figures + the list stay complete.
+  const have = new Set(serverSnap.bodies.map((b) => b.name));
+  for (const l of local.bodies || []) if (!have.has(l.name)) serverSnap.bodies.push(l);
+  return serverSnap;
+}
+
 function renderLocal() {
   let snap;
   try {
@@ -114,6 +172,7 @@ function renderLocal() {
   lastSnap = snap;
   drawDome(snap);
   updateList(snap);
+  updateSkyAccuracy();
 }
 
 function sunAltitude(snap) {
@@ -140,92 +199,226 @@ function resize(canvas) {
   return true;
 }
 
+function project(alt, az, g) {
+  const rr = (1 - alt / 90) * g.r, a = az * Math.PI / 180;
+  return [g.cx + rr * Math.sin(a), g.cy - rr * Math.cos(a)];
+}
+
+// --- Moon phase (Meeus Ch. 48) ---------------------------------------------------------------
+// Illuminated fraction k, waxing/waning sense, and a name, computed from the snapshot's geocentric
+// Sun & Moon (RA/Dec + distance). k = (1 + cos i)/2 with phase angle i from the Sun–Moon elongation.
+function moonPhaseInfo(snap) {
+  const bodies = snap.bodies || [];
+  const sun = bodies.find((b) => b.name === "Sun");
+  const moon = bodies.find((b) => b.name === "Moon");
+  if (!sun || !moon || !moon.distance_km || !sun.distance_km) return null;
+  const d = Math.PI / 180;
+  const cosPsi = Math.sin(sun.dec_deg * d) * Math.sin(moon.dec_deg * d)
+    + Math.cos(sun.dec_deg * d) * Math.cos(moon.dec_deg * d) * Math.cos((sun.ra_deg - moon.ra_deg) * d);
+  const psi = Math.acos(Math.max(-1, Math.min(1, cosPsi)));                 // geocentric elongation
+  const i = Math.atan2(sun.distance_km * Math.sin(psi), moon.distance_km - sun.distance_km * Math.cos(psi));
+  const k = (1 + Math.cos(i)) / 2;                                          // illuminated fraction
+  const waxing = ((((moon.ra_deg - sun.ra_deg) % 360) + 360) % 360) < 180;  // Moon east of Sun ⇒ waxing
+  return { k, waxing, name: moonPhaseName(k, waxing), glyph: moonPhaseGlyph(k, waxing) };
+}
+function moonPhaseName(k, waxing) {
+  if (k < 0.04) return "New Moon";
+  if (k > 0.96) return "Full Moon";
+  if (Math.abs(k - 0.5) < 0.06) return waxing ? "First Quarter" : "Last Quarter";
+  if (k < 0.5) return waxing ? "Waxing Crescent" : "Waning Crescent";
+  return waxing ? "Waxing Gibbous" : "Waning Gibbous";
+}
+function moonPhaseGlyph(k, waxing) {
+  if (k < 0.04) return "🌑";
+  if (k > 0.96) return "🌕";
+  if (Math.abs(k - 0.5) < 0.06) return waxing ? "🌓" : "🌗";
+  if (k < 0.5) return waxing ? "🌒" : "🌘";
+  return waxing ? "🌔" : "🌖";
+}
+// Draw the Moon as a lit disc with the dark portion shaded, the bright limb pointing toward `theta`
+// (radians — the on-dome direction to the Sun). The terminator is a half-ellipse whose signed
+// semi-axis r·(2k−1) gives a crescent (k<0.5) or gibbous (k>0.5) automatically.
+function drawMoonDisc(ctx, x, y, r, k, theta) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(theta);
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = "#3a3c46"; ctx.fill();    // shadowed disc
+  const tx = r * (2 * k - 1);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, -Math.PI / 2, Math.PI / 2, false);                          // sun-facing limb, top→bottom
+  ctx.ellipse(0, 0, Math.abs(tx), r, 0, Math.PI / 2, -Math.PI / 2, tx < 0);    // terminator, bottom→top
+  ctx.closePath();
+  ctx.fillStyle = "#dfe2ea"; ctx.fill();
+  ctx.restore();
+}
+
 function drawDome(snap) {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("skyCanvas"));
   if (!canvas || !resize(canvas)) return;
   const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  const h = canvas.height;
-  const cx = w / 2;
-  const cy = h / 2;
-  const r = Math.min(w, h) * 0.46;
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.46;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const g = { cx, cy, r, dpr };
+  domeGeom = g;
+  plotted = [];
+  const lst = snap.time ? snap.time.lst_deg : 0;
+  const lat = snap.observer ? snap.observer.lat_deg : observer.lat;
 
   ctx.clearRect(0, 0, w, h);
-  // Dome (sky) coloured by the Sun's altitude.
+  // Dome (sky) coloured by the Sun's altitude; constellation figures clipped inside it.
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.fillStyle = skyColor(sunAltitude(snap));
-  ctx.fillRect(0, 0, w, h);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = skyColor(sunAltitude(snap)); ctx.fillRect(0, 0, w, h);
+  if (showConstellations) drawConstellations(ctx, g, lst, lat);
   ctx.restore();
 
-  // Altitude rings (30 deg, 60 deg).
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
-  ctx.lineWidth = 1;
-  for (const alt of [30, 60]) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, (1 - alt / 90) * r, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  // Horizon.
-  ctx.strokeStyle = "rgba(247,183,51,0.8)";
-  ctx.lineWidth = Math.max(1.5, w * 0.002);
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.stroke();
+  // Altitude rings (30 deg, 60 deg) + horizon.
+  ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 1;
+  for (const alt of [30, 60]) { ctx.beginPath(); ctx.arc(cx, cy, (1 - alt / 90) * r, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.strokeStyle = "rgba(247,183,51,0.8)"; ctx.lineWidth = Math.max(1.5, w * 0.002);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
 
   // Cardinal directions (N up, clockwise - compass orientation).
-  ctx.fillStyle = "#f6f3e8";
-  ctx.font = `${Math.max(13, r * 0.05)}px Segoe UI, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#f6f3e8"; ctx.font = `${Math.max(13, r * 0.05)}px Segoe UI, sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
   const pad = r * 0.1;
-  ctx.fillText("N", cx, cy - r - pad * 0.6);
-  ctx.fillText("S", cx, cy + r + pad * 0.6);
-  ctx.fillText("E", cx + r + pad * 0.6, cy);
-  ctx.fillText("W", cx - r - pad * 0.6, cy);
+  ctx.fillText("N", cx, cy - r - pad * 0.6); ctx.fillText("S", cx, cy + r + pad * 0.6);
+  ctx.fillText("E", cx + r + pad * 0.6, cy); ctx.fillText("W", cx - r - pad * 0.6, cy);
 
-  // Catalogue stars first (so Sun/Moon/planets draw on top).
-  ctx.fillStyle = "rgba(220,228,255,0.92)";
+  // Catalogue stars (full engine reduction) first, so Sun/Moon/planets draw on top.
   for (const b of snap.bodies || []) {
-    if (!b.above_horizon || BODY_STYLE[b.name]) continue; // BODY_STYLE = Sun/Moon/planets
-    const rr = (1 - b.alt_deg / 90) * r;
-    const az = b.az_deg * Math.PI / 180;
-    const x = cx + rr * Math.sin(az);
-    const y = cy - rr * Math.cos(az);
+    if (BODY_STYLE[b.name] || !b.above_horizon) continue; // BODY_STYLE = Sun/Moon/planets
+    const [x, y] = project(b.alt_deg, b.az_deg, g);
     const mag = b.magnitude == null ? 2 : b.magnitude;
-    const size = Math.max(1.2, (2.5 - mag) * r * 0.005);
-    ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fill();
-    if (mag < 1.5) { // label only the brightest, to avoid clutter
-      ctx.font = `${Math.max(9, r * 0.025)}px Segoe UI, sans-serif`;
-      ctx.textAlign = "left";
-      ctx.fillStyle = "rgba(200,210,235,0.7)";
-      ctx.fillText(b.name, x + size + 3, y);
-      ctx.fillStyle = "rgba(220,228,255,0.92)";
+    const size = Math.max(1.2, (2.6 - mag) * r * 0.0055);
+    ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fillStyle = activeName === b.name ? "#fff3c4" : "rgba(222,230,255,0.94)"; ctx.fill();
+    plotted.push({ name: b.name, x, y, hit: Math.max(10 * dpr, size + 6 * dpr), body: b });
+    if (mag < 1.5) {
+      ctx.font = `${Math.max(9, r * 0.024)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(200,210,235,0.72)"; ctx.fillText(b.name, x + size + 3, y);
     }
   }
 
-  // Sun / Moon / planets above the horizon.
+  // Trajectory arc for the hovered / pinned object, under the body discs.
+  if (showTrajectory && activeName) {
+    const a = (snap.bodies || []).find((b) => b.name === activeName);
+    if (a) drawTrajectory(ctx, g, a, lst, lat);
+  }
+
+  // Sun / Moon / planets — discs above the horizon, rim markers below ("objects outside the view").
+  const moonPhase = moonPhaseInfo(snap);
+  const sunBody = (snap.bodies || []).find((b) => b.name === "Sun");
+  const sunDome = sunBody ? project(sunBody.alt_deg, sunBody.az_deg, g) : null;
   for (const b of snap.bodies || []) {
-    if (!b.above_horizon) continue;
-    const style = BODY_STYLE[b.name];
-    if (!style) continue;
-    const rr = (1 - b.alt_deg / 90) * r;
-    const az = b.az_deg * Math.PI / 180;
-    const x = cx + rr * Math.sin(az);
-    const y = cy - rr * Math.cos(az);
-    const size = Math.max(2.5, r * style.size);
+    const style = BODY_STYLE[b.name]; if (!style) continue;
+    if (b.above_horizon) {
+      const [x, y] = project(b.alt_deg, b.az_deg, g);
+      const size = Math.max(2.5, r * style.size);
+      if (activeName === b.name) {
+        ctx.beginPath(); ctx.arc(x, y, size + 5 * dpr, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(247,183,51,0.95)"; ctx.lineWidth = 2 * dpr; ctx.stroke();
+      }
+      if (b.name === "Moon" && moonPhase && sunDome) {
+        drawMoonDisc(ctx, x, y, size, moonPhase.k, Math.atan2(sunDome[1] - y, sunDome[0] - x));
+      } else {
+      ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fillStyle = style.color; ctx.fill();
+      }
+      ctx.fillStyle = "rgba(246,243,232,0.95)"; ctx.font = `${Math.max(11, r * 0.033)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
+      ctx.fillText(b.name, x + size + 4, y);
+      plotted.push({ name: b.name, x, y, hit: Math.max(12 * dpr, size + 7 * dpr), body: b });
+    } else {
+      const a = b.az_deg * Math.PI / 180, rr = r * 1.05;
+      const x = cx + rr * Math.sin(a), y = cy - rr * Math.cos(a);
+      const mk = Math.max(2, r * style.size * 0.7);
+      ctx.globalAlpha = activeName === b.name ? 0.95 : 0.55;
+      ctx.strokeStyle = style.color; ctx.lineWidth = 1.2 * dpr;
+      ctx.beginPath(); ctx.moveTo(cx + r * 0.99 * Math.sin(a), cy - r * 0.99 * Math.cos(a)); ctx.lineTo(x, y); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, mk, 0, Math.PI * 2); ctx.fillStyle = style.color; ctx.fill();
+      ctx.globalAlpha = 1;
+      plotted.push({ name: b.name, x, y, hit: Math.max(11 * dpr, mk + 6 * dpr), body: b });
+    }
+  }
+}
+
+function drawConstellations(ctx, g, lst, lat) {
+  ctx.strokeStyle = "rgba(208,224,255,0.5)"; // bright enough to read over the daytime sky too
+  ctx.lineWidth = Math.max(1, g.r * 0.0019);
+  for (const c of CONSTELLATIONS) {
+    for (const [n1, n2] of c.lines) {
+      const s1 = STAR_RADEC[n1], s2 = STAR_RADEC[n2]; if (!s1 || !s2) continue;
+      const p1 = altAz(s1.ra, s1.dec, lst, lat), p2 = altAz(s2.ra, s2.dec, lst, lat);
+      if (p1.alt < -2 && p2.alt < -2) continue;
+      const [x1, y1] = project(Math.max(p1.alt, -2), p1.az, g);
+      const [x2, y2] = project(Math.max(p2.alt, -2), p2.az, g);
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = "rgba(228,236,255,0.8)";
+  const seen = new Set();
+  for (const c of CONSTELLATIONS) for (const pair of c.lines) for (const n of pair) {
+    if (seen.has(n)) continue; seen.add(n);
+    const s = STAR_RADEC[n]; if (!s) continue;
+    const p = altAz(s.ra, s.dec, lst, lat); if (p.alt < 0) continue;
+    const [x, y] = project(p.alt, p.az, g);
+    ctx.beginPath(); ctx.arc(x, y, Math.max(0.9, g.r * 0.003), 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// Diurnal path across the sky over the day, swept from the body's current RA/Dec. The hour angle runs
+// ±12 sidereal hours around "now"; the past half is dimmed/dashed and the future half is solid, with
+// rise/set crossings marked. RA/Dec are held fixed — exact for the Sun and planets over a day, a close
+// approximation for the fast Moon.
+let trajCache = { key: null, pts: null };
+
+// Trajectory sample points {alt, az}, centred on "now". Fixed stars use the exact diurnal sweep from
+// their RA/Dec; the Sun/Moon/planets re-solve the ephemeris along the day via the engine (cached) — so
+// the Moon's fast motion is followed precisely, not approximated by a fixed RA/Dec.
+function trajectoryPoints(b, lstNow, lat) {
+  if (!BODY_STYLE[b.name]) {
+    if (b.ra_deg == null) return null;
+    const N = 240, pts = [];
+    for (let k = 0; k <= N; k++) pts.push(altAz(b.ra_deg, b.dec_deg, lstNow - 180 + 360 * (k / N), lat));
+    return pts;
+  }
+  const now = currentUnix();
+  const key = `${b.name}|${Math.round(now / 300)}|${observer.lat.toFixed(3)},${observer.lon.toFixed(3)}`;
+  if (trajCache.key === key && trajCache.body === b.name) return trajCache.pts;
+  const N = 180, dt = (24 * 3600) / N;
+  let track;
+  try { track = bodyTrack(BODY_INDEX[b.name], observer.lat, observer.lon, observer.elev, now - 12 * 3600, dt, N + 1); }
+  catch (_) { return null; }
+  const pts = track.map((s) => ({ alt: s.alt, az: s.az }));
+  trajCache = { key, body: b.name, pts };
+  return pts;
+}
+
+function drawTrajectory(ctx, g, b, lstNow, lat) {
+  const pts = trajectoryPoints(b, lstNow, lat);
+  if (!pts || pts.length < 3) return;
+  const N = pts.length - 1, mid = Math.floor(N / 2);
+  const style = BODY_STYLE[b.name] || { color: "#cfe0ff" };
+  const drawSeg = (from, to, past) => {
+    let started = false;
     ctx.beginPath();
-    ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fillStyle = style.color;
-    ctx.fill();
-    ctx.fillStyle = "rgba(246,243,232,0.95)";
-    ctx.font = `${Math.max(11, r * 0.035)}px Segoe UI, sans-serif`;
-    ctx.textAlign = "left";
-    ctx.fillText(b.name, x + size + 4, y);
+    for (let i = from; i <= to; i++) {
+      const q = pts[i]; if (q.alt < 0) { started = false; continue; }
+      const [x, y] = project(q.alt, q.az, g);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = style.color; ctx.globalAlpha = past ? 0.32 : 0.82;
+    ctx.lineWidth = Math.max(1.3, g.r * 0.004); ctx.setLineDash(past ? [4 * g.dpr, 4 * g.dpr] : []);
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+  };
+  drawSeg(0, mid, true);
+  drawSeg(mid, N, false);
+  for (let i = 1; i <= N; i++) {
+    if ((pts[i - 1].alt < 0) !== (pts[i].alt < 0)) {
+      const [x, y] = project(0, pts[i].az, g);
+      ctx.beginPath(); ctx.arc(x, y, 4 * g.dpr, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(247,183,51,0.9)"; ctx.lineWidth = 1.4 * g.dpr; ctx.stroke();
+    }
   }
 }
 
@@ -235,31 +428,58 @@ function jdToLocal(jd) {
   return new Date(unix * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function rowFor(b, titleText, detailText) {
+  const row = document.createElement("div");
+  row.className = "sky-row sky-hoverable";
+  row.dataset.name = b.name;
+  const title = document.createElement("strong"); title.textContent = titleText;
+  const detail = document.createElement("span"); detail.className = "muted"; detail.textContent = detailText;
+  row.append(title, detail);
+  row.addEventListener("mouseenter", () => { if (pinned) return; activeName = b.name; redraw(); });
+  row.addEventListener("mouseleave", () => { if (pinned) return; if (activeName === b.name) { activeName = null; redraw(); } });
+  return row;
+}
+
 function updateList(snap) {
   const list = document.getElementById("skyList");
   if (!list) return;
   list.textContent = "";
-  const up = (snap.bodies || []).filter((b) => b.above_horizon).sort((a, b) => b.alt_deg - a.alt_deg);
+  const bodies = snap.bodies || [];
+  const up = bodies.filter((b) => b.above_horizon).sort((a, b) => b.alt_deg - a.alt_deg);
   if (!up.length) {
     const row = document.createElement("div");
     row.className = "sky-row";
     row.textContent = "Nothing is above your horizon right now.";
     list.appendChild(row);
   }
+  const phase = moonPhaseInfo(snap);
   for (const b of up) {
-    const row = document.createElement("div");
-    row.className = "sky-row";
-    const title = document.createElement("strong");
-    title.textContent = `${b.name} - ${Math.round(b.alt_deg)} deg up in the ${b.compass}`;
-    const detail = document.createElement("span");
-    detail.className = "muted";
     const magText = (!BODY_STYLE[b.name] && b.magnitude != null) ? `mag ${b.magnitude.toFixed(1)}, ` : "";
-    detail.textContent = `${magText}azimuth ${Math.round(b.az_deg)} deg, rises ${jdToLocal(b.rise_jd)}, sets ${jdToLocal(b.set_jd)}`;
-    row.appendChild(title);
-    row.appendChild(detail);
-    list.appendChild(row);
+    const isMoon = b.name === "Moon" && phase;
+    const title = isMoon
+      ? `Moon ${phase.glyph} ${phase.name} - ${Math.round(b.alt_deg)} deg up in the ${b.compass}`
+      : `${b.name} - ${Math.round(b.alt_deg)} deg up in the ${b.compass}`;
+    const litText = isMoon ? `${Math.round(phase.k * 100)}% lit, ` : "";
+    list.appendChild(rowFor(b, title,
+      `${litText}${magText}azimuth ${Math.round(b.az_deg)} deg, rises ${jdToLocal(b.rise_jd)}, sets ${jdToLocal(b.set_jd)}`));
+  }
+
+  // Below the horizon: the Sun / Moon / planets you can't see yet, and when they rise ("outside the view").
+  const below = bodies.filter((b) => BODY_STYLE[b.name] && !b.above_horizon)
+    .sort((a, b) => (Number.isFinite(a.rise_jd) ? a.rise_jd : 1e9) - (Number.isFinite(b.rise_jd) ? b.rise_jd : 1e9));
+  if (below.length) {
+    const head = document.createElement("div");
+    head.className = "sky-row sky-subhead";
+    head.textContent = "Below the horizon";
+    list.appendChild(head);
+    for (const b of below) {
+      list.appendChild(rowFor(b, `${b.name} - below the ${b.compass} horizon`,
+        Number.isFinite(b.rise_jd) ? `rises ${jdToLocal(b.rise_jd)}` : "does not rise today"));
+    }
   }
 }
+
+function redraw() { if (lastSnap) drawDome(lastSnap); }
 
 // --- Observer controls ---
 document.getElementById("skyGeo")?.addEventListener("click", () => {
@@ -340,3 +560,80 @@ document.getElementById("skyExport")?.addEventListener("click", () => {
   a.click();
   URL.revokeObjectURL(a.href);
 });
+
+// --- Overlay toggles ---
+document.getElementById("skyConst")?.addEventListener("change", (e) => { showConstellations = /** @type {HTMLInputElement} */ (e.target).checked; redraw(); });
+document.getElementById("skyTraj")?.addEventListener("change", (e) => { showTrajectory = /** @type {HTMLInputElement} */ (e.target).checked; redraw(); });
+
+// --- Hover tooltip + click-to-pin on the dome (SkyView-style inspection) ---
+function ensureTooltip() {
+  let t = document.getElementById("skyTooltip");
+  if (!t) { t = document.createElement("div"); t.id = "skyTooltip"; t.className = "sky-tooltip"; t.style.display = "none"; document.body.appendChild(t); }
+  return t;
+}
+function tooltipHTML(b) {
+  const rows = [`<strong>${b.name}</strong>`];
+  rows.push(b.above_horizon
+    ? `${Math.round(b.alt_deg)}&deg; above the ${b.compass} horizon &middot; az ${Math.round(b.az_deg)}&deg;`
+    : `below the ${b.compass} horizon`);
+  if (b.name === "Moon" && lastSnap) {
+    const ph = moonPhaseInfo(lastSnap);
+    if (ph) rows.push(`${ph.glyph} ${ph.name} &middot; ${Math.round(ph.k * 100)}% lit`);
+  }
+  if (b.magnitude != null) rows.push(`magnitude ${b.magnitude.toFixed(1)}`);
+  if (b.distance_km != null && b.distance_km > 0) {
+    const lm = b.distance_km / 299792.458 / 60; // light-minutes
+    rows.push(lm >= 1 ? `${(b.distance_km / 1.495978707e8).toFixed(3)} AU &middot; light ${lm.toFixed(1)} min`
+      : `${Math.round(b.distance_km).toLocaleString()} km away`);
+  }
+  rows.push(`rises ${jdToLocal(b.rise_jd)} &middot; transits ${jdToLocal(b.transit_jd)} (${Math.round(b.transit_alt_deg)}&deg;) &middot; sets ${jdToLocal(b.set_jd)}`);
+  rows.push(`<span class="muted">trajectory: dashed = past, solid = ahead</span>`);
+  return rows.map((r, i) => `<div${i ? ' class="tt-line"' : ""}>${r}</div>`).join("");
+}
+function showTooltip(b, clientX, clientY) {
+  const t = ensureTooltip();
+  t.innerHTML = tooltipHTML(b);
+  t.style.display = "block";
+  const pad = 14, rect = t.getBoundingClientRect();
+  let x = clientX + pad, y = clientY + pad;
+  if (x + rect.width > window.innerWidth - 8) x = clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - 8) y = clientY - rect.height - pad;
+  t.style.left = Math.max(8, x) + "px"; t.style.top = Math.max(8, y) + "px";
+}
+function hideTooltip() { const t = document.getElementById("skyTooltip"); if (t) t.style.display = "none"; }
+function hitTest(ev) {
+  const canvas = document.getElementById("skyCanvas"); if (!canvas || !domeGeom) return null;
+  const rect = canvas.getBoundingClientRect();
+  const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
+  let best = null;
+  for (const p of plotted) { const d = Math.hypot(p.x - x, p.y - y); if (d < p.hit && (!best || d < best.d)) best = { d, p }; }
+  return best ? best.p : null;
+}
+const skyCanvasEl = document.getElementById("skyCanvas");
+if (skyCanvasEl) {
+  skyCanvasEl.addEventListener("mousemove", (ev) => {
+    if (pinned) return;
+    const hit = hitTest(ev);
+    if (hit) { showTooltip(hit.body, ev.clientX, ev.clientY); skyCanvasEl.style.cursor = "pointer"; }
+    else { hideTooltip(); skyCanvasEl.style.cursor = "default"; }
+    const name = hit ? hit.name : null;
+    if (name !== activeName) { activeName = name; redraw(); }
+  });
+  skyCanvasEl.addEventListener("mouseleave", () => {
+    if (pinned) return;
+    if (activeName) { activeName = null; redraw(); }
+    hideTooltip(); skyCanvasEl.style.cursor = "default";
+  });
+  skyCanvasEl.addEventListener("click", (ev) => {
+    const hit = hitTest(ev);
+    if (hit) { activeName = hit.name; pinned = true; showTooltip(hit.body, ev.clientX, ev.clientY); redraw(); }
+    else if (pinned || activeName) { pinned = false; activeName = null; hideTooltip(); redraw(); }
+  });
+}
+
+// Minimal debug hook (used by verification + handy in the console): current snapshot, plotted hit-
+// boxes, dome geometry, and the alt/az helper.
+if (typeof window !== "undefined") {
+  window.__skyDebug = () => ({ snap: lastSnap, plotted, geom: domeGeom, altAz, bodyTrack, skySnapshot, BODY_INDEX, observer, currentUnix });
+}

@@ -1,10 +1,9 @@
 // Snapshot / series / feed-status loaders and the observed-image cache.
 
-import { store } from "./store.js?v=ce663a8e7f";
-import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=ce663a8e7f";
-import { controls } from "./dom.js?v=ce663a8e7f";
-import { renderAll } from "./view.js?v=ce663a8e7f";
-import { maybeAutoStartTour } from "./tour.js?v=ce663a8e7f";
+import { store } from "./store.js?v=a2360b7fc1";
+import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=a2360b7fc1";
+import { renderAll } from "./view.js?v=a2360b7fc1";
+import { maybeAutoStartTour } from "./tour.js?v=a2360b7fc1";
 
 const baseImageCache = {};
 
@@ -25,13 +24,9 @@ function loadBaseImage(key) {
 export function currentBaseImage() {
   // Cycle playback and live WASM runs are synthetic models, not today's Sun.
   if (store.timelineIndex >= 0 || store.liveEngineRun) return null;
-  // Prefer the white-light continuum photosphere when the Continuum layer is on;
-  // fall back to the magnetogram if only it is selected.
-  let key = null;
-  if (controls.continuum.checked) key = "continuum";
-  else if (controls.magnetogram.checked) key = "magnetogram";
-  if (!key) return null;
-  const entry = loadBaseImage(key);
+  // "model" = the synthetic engine view; any other value = that real SDO wavelength channel.
+  if (!store.wavelength || store.wavelength === "model") return null;
+  const entry = loadBaseImage(store.wavelength);
   if (entry && !entry.failed && entry.img.complete && entry.img.naturalWidth > 0) return entry;
   return null;
 }

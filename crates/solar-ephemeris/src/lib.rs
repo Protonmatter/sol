@@ -4,7 +4,6 @@
 //! observer, plus rise/transit/set — emitted as `ephemeris-snapshot.v1` JSON. Validated
 //! against JPL Horizons (see tools/validate_ephemeris.py).
 
-pub mod bodies;
 pub mod coords;
 pub mod elpmpp02;
 mod elpmpp02_data;
@@ -12,6 +11,8 @@ pub mod physics;
 pub mod planets;
 pub mod stars;
 pub mod time;
+pub mod top2013;
+mod top2013_data;
 pub mod vsop2013;
 mod vsop2013_data;
 
@@ -181,7 +182,17 @@ fn events_core(alt_at: &dyn Fn(f64) -> f64, jd_utc: f64) -> (f64, f64, f64, f64)
         prev_jd = jd;
         prev_alt = alt;
     }
-    // Refine transit by parabolic-ish bisection on the derivative sign.
+    // Refine the transit (culmination) with a 3-point parabolic fit around the best sample, so the
+    // returned time/altitude are sub-minute rather than snapped to the 10-minute scan grid.
+    let h = 1.0 / (steps as f64); // sample spacing, days
+    let a_m = alt_at(transit - h);
+    let a_p = alt_at(transit + h);
+    let denom = a_m - 2.0 * transit_alt + a_p; // < 0 at a maximum (concave down)
+    if denom < 0.0 {
+        let dx = 0.5 * (a_m - a_p) / denom; // vertex offset in units of h, |dx| <= 0.5
+        transit += dx * h;
+        transit_alt -= 0.125 * (a_p - a_m) * (a_p - a_m) / denom;
+    }
     (rise, transit, set, transit_alt)
 }
 
@@ -297,15 +308,23 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
     let mut out = String::with_capacity(2048);
     out.push_str("{\n  \"schema_version\": \"system-snapshot.v1\",\n");
     out.push_str(&format!("  \"jd_utc\": {:.6},\n  \"bodies\": [\n", jd_utc));
+    // Jupiter–Neptune use TOP2013 (sub-arcsec for the giants over ±6000 yr, where VSOP2013 drifts to
+    // hundreds of arcsec); the inner planets stay on VSOP2013. Same equinoctial frame, so they mix.
+    let helio = |name: &str, planet: &vsop2013::Planet, t: f64| -> [f64; 3] {
+        match top2013::outer_index(name) {
+            Some(idx) => top2013::helio_xyz(idx, t),
+            None => vsop2013::helio_xyz(planet, t),
+        }
+    };
     for (i, (name, planet)) in bodies.iter().enumerate() {
-        let xyz = vsop2013::helio_xyz(planet, jy2k);
+        let xyz = helio(name, planet, jy2k);
         let r = (xyz[0] * xyz[0] + xyz[1] * xyz[1] + xyz[2] * xyz[2]).sqrt();
         let delta = {
             let d = [xyz[0] - earth[0], xyz[1] - earth[1], xyz[2] - earth[2]];
             (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt()
         };
-        let ahead = vsop2013::helio_xyz(planet, jy2k + dt);
-        let behind = vsop2013::helio_xyz(planet, jy2k - dt);
+        let ahead = helio(name, planet, jy2k + dt);
+        let behind = helio(name, planet, jy2k - dt);
         let speed = {
             // Central difference — O(dt²) accurate vs the forward difference's O(dt).
             let d = [ahead[0] - behind[0], ahead[1] - behind[1], ahead[2] - behind[2]];
@@ -329,7 +348,10 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
                 mag = Some(m + physics::saturn_ring_mag(ra, dec));
             }
         }
-        let (a, ecc, inc, node, argp) = vsop2013::elements(planet, jy2k);
+        let (a, ecc, inc, node, argp) = match top2013::outer_index(name) {
+            Some(idx) => top2013::elements(idx, jy2k),
+            None => vsop2013::elements(planet, jy2k),
+        };
         if i > 0 {
             out.push_str(",\n");
         }
@@ -342,6 +364,33 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
             opt(phase, 2), opt(illum, 4), opt(mag, 2), opt(physics::equilibrium_temp_k(name, r), 1),
             opt(physics::mean_temp_k(name), 0),
             a, ecc, inc.to_degrees(), node.to_degrees(), argp.to_degrees()
+        ));
+    }
+    // The Moon: ELP-MPP02 geocentric position added to Earth's (EMB) heliocentric position, so the
+    // 3-D view can place it beside the Earth with the correct direction, distance, and phase.
+    {
+        let mg = elpmpp02::moon_xyz(jy2k);
+        let moon = [earth[0] + mg[0], earth[1] + mg[1], earth[2] + mg[2]];
+        let r = (moon[0] * moon[0] + moon[1] * moon[1] + moon[2] * moon[2]).sqrt();
+        let delta = (mg[0] * mg[0] + mg[1] * mg[1] + mg[2] * mg[2]).sqrt();
+        let ea = vsop2013::helio_xyz(&vsop2013_data::EMB, jy2k + dt);
+        let eb = vsop2013::helio_xyz(&vsop2013_data::EMB, jy2k - dt);
+        let ma = elpmpp02::moon_xyz(jy2k + dt);
+        let mb = elpmpp02::moon_xyz(jy2k - dt);
+        let d = [
+            (ea[0] + ma[0]) - (eb[0] + mb[0]),
+            (ea[1] + ma[1]) - (eb[1] + mb[1]),
+            (ea[2] + ma[2]) - (eb[2] + mb[2]),
+        ];
+        let speed = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() / (2.0 * dt) * AU_PER_YEAR_KMS;
+        let a = physics::phase_angle_deg(r, delta, sun_earth);
+        let illum = physics::illuminated_fraction(a);
+        out.push_str(&format!(
+            ",\n    {{\"name\":\"Moon\",\"x_au\":{:.8},\"y_au\":{:.8},\"z_au\":{:.8},\"dist_au\":{:.8},\
+             \"geo_dist_au\":{:.8},\"speed_kms\":{:.3},\"phase_angle_deg\":{:.2},\
+             \"illuminated_fraction\":{:.4},\"magnitude\":null,\"equilibrium_temp_k\":null,\"mean_temp_k\":250,\
+             \"a_au\":null,\"ecc\":null,\"inc_deg\":null,\"node_deg\":null,\"argp_deg\":null}}",
+            moon[0], moon[1], moon[2], r, delta, speed, a, illum
         ));
     }
     out.push_str("\n  ]\n}\n");
@@ -379,6 +428,34 @@ pub extern "C" fn system_snapshot(unix_seconds: f64) -> *const u8 {
     let json = system_snapshot_json(jd_utc);
     RESULT.with(|cell| {
         *cell.borrow_mut() = json.into_bytes();
+        cell.borrow().as_ptr()
+    })
+}
+
+/// Topocentric alt/az track of a single body over `n` samples (no rise/set events, so it is cheap
+/// enough to call densely) — for precise trajectory arcs in the sky dome. `body_idx` indexes
+/// ALL_BODIES (0=Sun, 1=Moon, 2=Mercury, 3=Venus, 4=Mars, 5=Jupiter, 6=Saturn, 7=Uranus, 8=Neptune).
+/// Samples start at `unix0` and step by `dt_seconds`. Returns JSON `[{"alt":..,"az":..,"up":bool},..]`
+/// (refracted altitude). Unlike a fixed-RA sweep, this re-solves the body's position at every sample,
+/// so it is exact for the fast-moving Moon as well as the Sun and planets.
+#[no_mangle]
+pub extern "C" fn body_track(body_idx: u32, lat_deg: f64, lon_deg_east: f64, elev_m: f64, unix0: f64, dt_seconds: f64, n: u32) -> *const u8 {
+    let body = ALL_BODIES[(body_idx as usize) % ALL_BODIES.len()];
+    let count = n.min(2000) as usize;
+    let mut out = String::with_capacity(16 + 36 * count);
+    out.push('[');
+    for i in 0..count {
+        let unix = unix0 + (i as f64) * dt_seconds;
+        let jd = time::jd_from_unix(unix);
+        let s = topocentric_sky(body, jd, lat_deg, lon_deg_east, elev_m);
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&format!("{{\"alt\":{:.4},\"az\":{:.4},\"up\":{}}}", s.alt_refracted, s.az, s.alt_refracted > 0.0));
+    }
+    out.push(']');
+    RESULT.with(|cell| {
+        *cell.borrow_mut() = out.into_bytes();
         cell.borrow().as_ptr()
     })
 }

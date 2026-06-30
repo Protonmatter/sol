@@ -1,20 +1,20 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js?v=ce663a8e7f";
-import { TOUR_STEPS } from "./js/config.js?v=ce663a8e7f";
-import { controls } from "./js/dom.js?v=ce663a8e7f";
-import { clamp } from "./js/format.js?v=ce663a8e7f";
-import { selectedRegion } from "./js/selectors.js?v=ce663a8e7f";
-import { renderAll } from "./js/view.js?v=ce663a8e7f";
-import { updateModeButtons } from "./js/panels.js?v=ce663a8e7f";
-import { loadState } from "./js/data.js?v=ce663a8e7f";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=ce663a8e7f";
-import { startTour, endTour, showTourStep } from "./js/tour.js?v=ce663a8e7f";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=ce663a8e7f";
-import { enterSky, leaveSky } from "./js/sky.js?v=ce663a8e7f";
-import { enterSystem, leaveSystem } from "./js/system.js?v=ce663a8e7f";
-import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=ce663a8e7f";
+import { store } from "./js/store.js?v=a2360b7fc1";
+import { TOUR_STEPS } from "./js/config.js?v=a2360b7fc1";
+import { controls } from "./js/dom.js?v=a2360b7fc1";
+import { clamp } from "./js/format.js?v=a2360b7fc1";
+import { renderAll } from "./js/view.js?v=a2360b7fc1";
+import { updateModeButtons } from "./js/panels.js?v=a2360b7fc1";
+import { loadState } from "./js/data.js?v=a2360b7fc1";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=a2360b7fc1";
+import { startTour, endTour, showTourStep } from "./js/tour.js?v=a2360b7fc1";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=a2360b7fc1";
+import { enterSky, leaveSky } from "./js/sky.js?v=a2360b7fc1";
+import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=a2360b7fc1";
+import { buildWavelengthBar } from "./js/wavelength.js?v=a2360b7fc1";
+import { buildSunCutaway } from "./js/sunlayers.js?v=a2360b7fc1";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {
@@ -25,17 +25,13 @@ for (const input of Object.values(controls)) {
 document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => {
     store.activeMode = /** @type {HTMLElement} */ (button).dataset.mode;
-    if (store.activeMode === "explore" && store.selectedRegionId == null) {
-      const region = selectedRegion();
-      store.selectedRegionId = region ? region.id : null;
-    }
+    // The onboarding tour is about the Sun; don't let it linger over the sky / solar-system surfaces.
+    if (store.activeMode === "sky" || store.activeMode === "orrery") endTour();
     updateModeButtons();
     renderAll();
     leaveSky();
-    leaveSystem();
     leaveOrrery();
     if (store.activeMode === "sky") enterSky();
-    else if (store.activeMode === "system") enterSystem();
     else if (store.activeMode === "orrery") enterOrrery();
   });
 });
@@ -53,7 +49,9 @@ document.getElementById("solarCanvas")?.addEventListener("click", (event) => {
   }
   if (best) {
     store.selectedRegionId = best.item.region.id;
-    store.activeMode = "explore";
+    store.activeMode = "today";
+    const exp = /** @type {HTMLDetailsElement|null} */ (document.getElementById("sunExplore"));
+    if (exp) exp.open = true; // reveal the selection in the Explore drawer
     updateModeButtons();
     renderAll();
   }
@@ -79,7 +77,9 @@ document.getElementById("butterflyCanvas")?.addEventListener("click", (event) =>
   }
   if (best) {
     store.selectedRegionId = best.item.region.id;
-    store.activeMode = "explore";
+    store.activeMode = "today";
+    const exp = /** @type {HTMLDetailsElement|null} */ (document.getElementById("sunExplore"));
+    if (exp) exp.open = true; // reveal the selection in the Explore drawer
     updateModeButtons();
     renderAll();
   }
@@ -151,5 +151,20 @@ document.getElementById("nowBtn")?.addEventListener("click", goLive);
 document.getElementById("liveRun")?.addEventListener("click", runLiveEngine);
 document.getElementById("liveActivity")?.addEventListener("change", runLiveEngine);
 
+// --- Collapsible / pinned control panel (for an unobstructed full-bleed 3-D view) ---
+document.getElementById("panelToggle")?.addEventListener("click", () => {
+  const collapsed = document.body.classList.toggle("panel-collapsed");
+  const btn = document.getElementById("panelToggle");
+  if (btn) {
+    btn.textContent = collapsed ? "⟨ Controls" : "⟩ Hide";
+    btn.setAttribute("aria-expanded", String(!collapsed));
+    btn.setAttribute("aria-label", collapsed ? "Show the control panel" : "Collapse the control panel");
+  }
+  // Let the canvases re-fit to the new width (orrery ResizeObserver + 2-D canvases via renderAll).
+  window.dispatchEvent(new Event("resize"));
+});
+
 // --- Boot ---
+buildWavelengthBar();
+buildSunCutaway();
 loadState();

@@ -4,10 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=ce663a8e7f">
+    <link rel="stylesheet" href="styles.css?v=a2360b7fc1">
   </head>
   <body>
     <main class="app-shell">
+      <button id="panelToggle" class="panel-toggle" type="button" aria-label="Collapse the control panel" aria-expanded="true">⟩ Hide</button>
       <section class="stage-band" aria-label="Solar maximum engine">
         <div class="viewport">
           <div id="stageRail" class="stage-rail" role="group" aria-label="Solar cycle stage (click a stage to learn about it)">
@@ -19,8 +20,7 @@
           <div id="baseLabel" class="base-label" aria-live="polite">Base: loading</div>
           <canvas id="solarCanvas" width="900" height="900" aria-label="Solar disk rendering"></canvas>
           <canvas id="skyCanvas" width="900" height="900" aria-label="Local sky: a horizon dome showing where each body is"></canvas>
-          <canvas id="systemCanvas" width="900" height="900" aria-label="Solar System: a top-down orbit view of the planets"></canvas>
-          <canvas id="orreryCanvas" aria-label="3-D solar system rendered with WebGPU"></canvas>
+          <canvas id="orreryCanvas" aria-label="Solar System: lit textured planets, rings, and the real sky in 3-D (with a top-down view), rendered with WebGL2"></canvas>
           <div id="orreryLabels" class="orrery-labels" aria-hidden="true"></div>
           <div class="status-strip" aria-live="polite">
             <div>
@@ -30,10 +30,6 @@
             <div>
               <span class="label">Source</span>
               <strong id="sourceMode">unknown</strong>
-            </div>
-            <div>
-              <span class="label">Run time</span>
-              <strong id="runTime">0.00 days</strong>
             </div>
           </div>
         </div>
@@ -58,23 +54,11 @@
             </div>
           </section>
 
-          <nav class="mode-nav" aria-label="What do you want to do?">
-            <div class="mode-group" role="group" aria-label="The Sun">
-              <span class="mode-group-label">☀ The Sun</span>
-              <div class="mode-grid">
-                <button class="mode-button active" type="button" data-mode="today">Today</button>
-                <button class="mode-button" type="button" data-mode="explore">Explore</button>
-                <button class="mode-button" type="button" data-mode="weather">Space Weather</button>
-                <button class="mode-button" type="button" data-mode="research">Research</button>
-              </div>
-            </div>
-            <div class="mode-group" role="group" aria-label="Sky and Solar System">
-              <span class="mode-group-label">🌌 Sky &amp; Solar System</span>
-              <div class="mode-grid">
-                <button class="mode-button" type="button" data-mode="sky">My Sky</button>
-                <button class="mode-button" type="button" data-mode="system">Solar System</button>
-                <button class="mode-button" type="button" data-mode="orrery">3-D View</button>
-              </div>
+          <nav class="mode-nav" aria-label="Where do you want to look?">
+            <div class="mode-grid mode-grid-3" role="group" aria-label="Destinations">
+              <button class="mode-button active" type="button" data-mode="today">☀ The Sun</button>
+              <button class="mode-button" type="button" data-mode="sky">🌌 My Sky</button>
+              <button class="mode-button" type="button" data-mode="orrery">🪐 Solar System</button>
             </div>
           </nav>
 
@@ -101,6 +85,7 @@
                 <button id="skyNow" class="time-btn" type="button">Now</button>
               </div>
               <p id="skyTimeLabel" class="time-frame-label">Live — updating every minute.</p>
+              <p id="skyAccuracy" class="epoch-accuracy acc-good"></p>
             </div>
             <div class="sky-source">
               <span class="label">Data source</span>
@@ -114,131 +99,176 @@
                 <button id="skyExport" class="time-btn ghost" type="button">Export JSON</button>
               </div>
             </div>
+            <div class="sky-loc-row" style="gap:.9rem; flex-wrap:wrap">
+              <label class="orrery-check"><input id="skyConst" type="checkbox" checked> Constellations</label>
+              <label class="orrery-check"><input id="skyTraj" type="checkbox" checked> Trajectories</label>
+            </div>
+            <p class="time-frame-label">Hover an object for its details and its path across the sky (dashed = where it's been, solid = where it's heading); click to pin. Planets/Sun/Moon below the horizon show as ticks just outside the rim.</p>
             <div class="sky-whatsup">
               <span class="label">Up now</span>
               <div id="skyList" class="sky-list"></div>
             </div>
           </section>
 
-          <section class="system-panel" aria-label="Solar System">
+          <section class="orrery-panel" aria-label="Solar System">
             <header class="sky-header">
               <p class="eyebrow">Solar System</p>
-              <h1>Top-down orbit view</h1>
-              <p id="systemInsight" class="insight">Real heliocentric positions from VSOP2013, validated against JPL Horizons — looking straight down on the ecliptic plane.</p>
-            </header>
-            <div class="sky-observer">
-              <span class="label">Date</span>
-              <p id="systemDateLabel" class="time-frame-label">—</p>
-              <div class="sky-loc-row">
-                <button id="systemNow" class="time-btn" type="button">Now</button>
-                <input id="systemTime" class="sys-range" type="range" min="-100" max="100" step="0.1" value="0" aria-label="years from now">
-              </div>
-              <label class="sys-zoom-row"><span class="label">Zoom (AU across)</span>
-                <input id="systemZoom" class="sys-range" type="range" min="1.5" max="32" step="0.1" value="32" aria-label="view radius in astronomical units">
-              </label>
-            </div>
-            <div class="sky-whatsup">
-              <span class="label">Selected</span>
-              <div id="systemInfo" class="sky-list"><div class="sky-row">Click a planet to inspect it.</div></div>
-            </div>
-            <div class="sky-whatsup">
-              <span class="label">Positions</span>
-              <div id="systemPositions" class="sky-list"></div>
-            </div>
-          </section>
-
-          <section class="orrery-panel" aria-label="3-D View">
-            <header class="sky-header">
-              <p class="eyebrow">3-D View</p>
-              <h1>Orrery</h1>
-              <p id="orreryInsight" class="insight">A real 3-D solar system from the same VSOP2013 positions — rendered on your GPU via WebGPU (Direct3D 12 / Metal / Vulkan), with a WebGL2 fallback. Drag to orbit the camera, scroll to zoom.</p>
+              <h1>The Solar System</h1>
+              <p id="orreryInsight" class="insight">Lit, textured worlds at their true VSOP2013 positions — correct sizes, axial tilts, sidereal spin, oblateness, ring systems, an animated Sun with corona and solar wind, and the real sky behind them (stars, the Milky Way, constellations, seven pulsars, and nearby galaxies). Drag to orbit, scroll to zoom, click a body to inspect it — or switch to a top-down map.</p>
             </header>
             <div class="sky-observer">
               <span class="label">Date</span>
               <div class="sky-loc-row">
                 <button id="orreryNow" class="time-btn" type="button">Now</button>
-                <input id="orreryTime" class="sys-range" type="range" min="-100" max="100" step="0.1" value="0" aria-label="years from now">
+                <input id="orreryTime" class="sys-range" type="range" min="-5000" max="5000" step="1" value="0" aria-label="years from now (heliocentric)">
               </div>
-              <p class="time-frame-label">Orbits at their true inclinations vs the ecliptic (the grey reference plane); drop-lines show each planet's height above/below it. The system really is nearly flat (0.8°–7°). Marker sizes are exaggerated for visibility.</p>
+              <p id="orreryAccuracy" class="epoch-accuracy acc-good"></p>
+              <div class="sky-loc-row" style="margin-top:.5rem; flex-wrap:wrap; gap:.4rem .9rem">
+                <label class="orrery-check"><input id="orreryTopDown" type="checkbox"> Top-down map</label>
+                <label class="orrery-check"><input id="orreryAnimate" type="checkbox" checked> Animate</label>
+                <label class="orrery-check"><input id="orreryTextures" type="checkbox" checked> NASA textures</label>
+                <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> True scale</label>
+                <label class="orrery-check"><input id="orreryShowOrbits" type="checkbox" checked> Orbits</label>
+                <label class="orrery-check"><input id="orreryShowSky" type="checkbox" checked> Sky</label>
+                <label class="orrery-check"><input id="orreryShowConst" type="checkbox" checked> Constellations</label>
+                <label class="orrery-check"><input id="orreryShowLabels" type="checkbox" checked> Sky labels</label>
+                <label class="orrery-check"><input id="orreryShowSunEq" type="checkbox" checked> Sun's equator</label>
+                <label class="orrery-check"><input id="orreryShowSmall" type="checkbox" checked> Small bodies</label>
+                <label class="orrery-check"><input id="orreryDeepSky" type="checkbox" checked> Deep sky (Milky Way)</label>
+              </div>
+              <div class="sky-loc-row" style="margin-top:.5rem; align-items:center; gap:.6rem; flex-wrap:wrap">
+                <label class="orrery-check" style="gap:.4rem">Focus
+                  <select id="orreryAnchor" class="sky-input" style="width:auto" aria-label="camera focus body">
+                    <option value="Sun">Sun</option>
+                    <option value="Mercury">Mercury</option>
+                    <option value="Venus">Venus</option>
+                    <option value="Earth">Earth</option>
+                    <option value="Moon">Moon</option>
+                    <option value="Mars">Mars</option>
+                    <option value="Jupiter">Jupiter</option>
+                    <option value="Saturn">Saturn</option>
+                    <option value="Uranus">Uranus</option>
+                    <option value="Neptune">Neptune</option>
+                  </select>
+                </label>
+                <label class="orrery-check"><input id="orreryFreeFly" type="checkbox"> Free fly (WASD)</label>
+              </div>
+              <div class="sky-loc-row" style="margin-top:.5rem">
+                <button id="orreryGalaxy" class="time-btn" type="button">Zoom out to the Milky Way</button>
+              </div>
+              <label class="sys-zoom-row"><span class="label">Body size</span>
+                <input id="orrerySize" class="sys-range" type="range" min="0.4" max="2.5" step="0.05" value="1" aria-label="body size exaggeration">
+              </label>
+              <label class="sys-zoom-row"><span class="label" id="orrerySpeedLabel">Time speed (years / sec)</span>
+                <input id="orrerySpeed" class="sys-range" type="range" min="0.02" max="5" step="0.02" value="0.5" aria-label="animation time speed">
+              </label>
+              <p class="time-frame-label">Orbits sit at their true inclinations against the ecliptic plane (grey grid); drop-lines show each planet's height above/below it. In "visible" mode the bodies are enlarged so they read at AU scale — switch to True scale for honest sizes.</p>
               <p id="orreryBackend" class="time-frame-label"></p>
             </div>
-          </section>
-
-          <section class="layer-controls" aria-label="Layer controls">
-            <label><input id="layerContinuum" type="checkbox" checked> Continuum</label>
-            <label><input id="layerMagnetogram" type="checkbox" checked> Magnetogram</label>
-            <label><input id="layerConfidence" type="checkbox"> Confidence</label>
-            <label><input id="layerRegions" type="checkbox" checked> Active regions</label>
-          </section>
-
-          <section class="layer-legend" aria-label="Visible layer labels">
-            <span class="label">Visible layers</span>
-            <div id="layerLegend" class="legend-row"></div>
-          </section>
-
-          <section class="metric-grid" aria-label="Snapshot metrics">
-            <div>
-              <span class="label">Active regions <button class="term" type="button" data-term="active-region" aria-label="What is an active region?">?</button></span>
-              <strong id="regionCount">0</strong>
+            <div class="sky-whatsup">
+              <span class="label">Selected body</span>
+              <div id="orreryDetail" class="sky-list"><div class="sky-row">Click the Sun or a planet to inspect its size, gravity, rotation, tilt, magnetic field, atmosphere, and live distance.</div></div>
             </div>
-            <div>
-              <span class="label">Max |Br| <button class="term" type="button" data-term="br" aria-label="What is Br?">?</button></span>
-              <strong id="brMax">0.000</strong>
-            </div>
-            <div>
-              <span class="label">Confidence <button class="term" type="button" data-term="confidence" aria-label="What is confidence?">?</button></span>
-              <strong id="confidenceMean">0.000</strong>
-            </div>
-            <div>
-              <span class="label">Schema</span>
-              <strong id="schemaVersion">unknown</strong>
+            <div class="sky-whatsup">
+              <span class="label">Positions</span>
+              <div id="orreryPositions" class="sky-list"></div>
             </div>
           </section>
 
-          <section class="mode-copy" aria-label="Mode details">
-            <h2 id="modeTitle">Solar Cycle Lab</h2>
-            <p id="modeText"></p>
+          <section class="wavelength-panel" aria-label="Solar wavelength">
+            <span class="label">See the Sun at different wavelengths</span>
+            <div id="wavelengthBar" class="wavelength-bar" role="group" aria-label="Wavelength channel"></div>
+            <p id="wavelengthCaption" class="time-frame-label">The Sun, layer by layer — from the visible surface up through the chromosphere to the million-degree corona.</p>
           </section>
 
-          <section class="selection-panel" aria-label="Selected active region summary" aria-live="polite">
-            <span class="label">Selected region</span>
-            <strong id="selectionTitle">Click an active region</strong>
-            <p id="selectionText">Choose Regions mode or click a marker on the solar disk to inspect magnetic complexity and confidence.</p>
-          </section>
-
-          <section class="application-panel" aria-label="High-value application">
-            <span class="label">V1 application</span>
-            <strong id="applicationTitle">Solar-cycle learning lab</strong>
-            <p id="applicationText">Interactive cycle stages with uncertainty and explainable equations.</p>
-            <div id="applicationSignals" class="signal-grid" aria-label="Application signals"></div>
-          </section>
-
-          <details class="research-panel">
-            <summary>Research panel</summary>
-            <div class="equation-block">
-              <code>dBr/dt = -Omega(theta)dBr/dphi + eta Laplace_s Br + S - Br/tau</code>
-              <code>K = P_f / (P_f + R), x_a = x_f + freshness K (y - x_f)</code>
+          <details class="sun-section" id="sunInside">
+            <summary>Inside the Sun — its layers</summary>
+            <div class="sun-section-body">
+              <p class="time-frame-label">A cutaway of the Sun's structure: the interior we can't photograph (core → radiative → convective zones) and the thin observable atmosphere above it.</p>
+              <div id="sunCutaway" class="sun-cutaway"></div>
             </div>
-            <dl class="research-list">
-              <div><dt>Calibration</dt><dd id="calibrationState">unknown</dd></div>
-              <div><dt>Rendered layers</dt><dd id="layerLabels">none</dd></div>
-              <div><dt>Observation data</dt><dd id="observationState">none</dd></div>
-              <div><dt>Source adapters</dt><dd id="adapterHealth">not loaded</dd></div>
-              <div><dt>Daily feed health</dt><dd id="feedHealth">not loaded</dd></div>
-              <div>
-                <dt>Public method anchors</dt>
-                <dd id="sourceAnchors">
-                  <a href="https://www.nngroup.com/articles/progressive-disclosure/">NN/g progressive disclosure</a>;
-                  <a href="https://www.swpc.noaa.gov/products-and-data">NOAA SWPC data/products</a>;
-                  <a href="https://api.helioviewer.org/docs/v2/">Helioviewer API</a>;
-                  <a href="https://naif.jpl.nasa.gov/naif/">JPL/NAIF SPICE</a>;
-                  <a href="https://www.swpc.noaa.gov/products/wsa-enlil-solar-wind-prediction">NOAA WSA-Enlil</a>.
-                  No SpaceX equivalence is claimed.
-                </dd>
+          </details>
+
+          <details class="sun-section" id="sunExplore" open>
+            <summary>Overlays &amp; region inspection</summary>
+            <div class="sun-section-body">
+              <section class="layer-controls" aria-label="Overlays">
+                <label><input id="layerConfidence" type="checkbox"> Confidence</label>
+                <label><input id="layerRegions" type="checkbox" checked> Active regions</label>
+              </section>
+
+              <section class="layer-legend" aria-label="Visible layer labels">
+                <span class="label">Visible layers</span>
+                <div id="layerLegend" class="legend-row"></div>
+              </section>
+
+              <section class="metric-grid" aria-label="Snapshot metrics">
+                <div>
+                  <span class="label">Active regions <button class="term" type="button" data-term="active-region" aria-label="What is an active region?">?</button></span>
+                  <strong id="regionCount">0</strong>
+                </div>
+                <div>
+                  <span class="label">Max |Br| <button class="term" type="button" data-term="br" aria-label="What is Br?">?</button></span>
+                  <strong id="brMax">0.000</strong>
+                </div>
+                <div>
+                  <span class="label">Confidence <button class="term" type="button" data-term="confidence" aria-label="What is confidence?">?</button></span>
+                  <strong id="confidenceMean">0.000</strong>
+                </div>
+                <div>
+                  <span class="label">Schema</span>
+                  <strong id="schemaVersion">unknown</strong>
+                </div>
+              </section>
+
+              <section class="selection-panel" aria-label="Selected active region summary" aria-live="polite">
+                <span class="label">Selected region</span>
+                <strong id="selectionTitle">Click an active region</strong>
+                <p id="selectionText">Click a marker on the solar disk to inspect a sunspot group's magnetic complexity and confidence.</p>
+              </section>
+            </div>
+          </details>
+
+          <details class="sun-section" id="sunWeather">
+            <summary>What it means for Earth</summary>
+            <div class="sun-section-body">
+              <section class="application-panel" aria-label="Space-weather impact">
+                <span class="label">Space-weather signals</span>
+                <strong id="applicationTitle">Space-weather impact</strong>
+                <p id="applicationText">How today's solar activity maps to aurora, GPS, radio, and satellites. A learning view, not an alert service.</p>
+                <div id="applicationSignals" class="signal-grid" aria-label="Application signals"></div>
+              </section>
+            </div>
+          </details>
+
+          <details class="sun-section" id="sunResearch">
+            <summary>Under the hood — model &amp; data</summary>
+            <div class="sun-section-body">
+              <div class="equation-block">
+                <code>dBr/dt = -Omega(theta)dBr/dphi + eta Laplace_s Br + S - Br/tau</code>
+                <code>K = P_f / (P_f + R), x_a = x_f + freshness K (y - x_f)</code>
               </div>
-              <div><dt>Operational status</dt><dd id="operationalReadiness">not evaluated</dd></div>
-              <div><dt>Caveats</dt><dd id="warningList">none</dd></div>
-            </dl>
+              <dl class="research-list">
+                <div><dt>Calibration</dt><dd id="calibrationState">unknown</dd></div>
+                <div><dt>Rendered layers</dt><dd id="layerLabels">none</dd></div>
+                <div><dt>Observation data</dt><dd id="observationState">none</dd></div>
+                <div><dt>Source adapters</dt><dd id="adapterHealth">not loaded</dd></div>
+                <div><dt>Daily feed health</dt><dd id="feedHealth">not loaded</dd></div>
+                <div>
+                  <dt>Public method anchors</dt>
+                  <dd id="sourceAnchors">
+                    <a href="https://www.nngroup.com/articles/progressive-disclosure/">NN/g progressive disclosure</a>;
+                    <a href="https://www.swpc.noaa.gov/products-and-data">NOAA SWPC data/products</a>;
+                    <a href="https://api.helioviewer.org/docs/v2/">Helioviewer API</a>;
+                    <a href="https://naif.jpl.nasa.gov/naif/">JPL/NAIF SPICE</a>;
+                    <a href="https://www.swpc.noaa.gov/products/wsa-enlil-solar-wind-prediction">NOAA WSA-Enlil</a>.
+                    No SpaceX equivalence is claimed.
+                  </dd>
+                </div>
+                <div><dt>Operational status</dt><dd id="operationalReadiness">not evaluated</dd></div>
+                <div><dt>Caveats</dt><dd id="warningList">none</dd></div>
+              </dl>
+            </div>
           </details>
         </aside>
       </section>
@@ -282,6 +312,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=ce663a8e7f"></script>
+    <script type="module" src="app.js?v=a2360b7fc1"></script>
   </body>
 </html>

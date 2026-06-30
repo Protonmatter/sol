@@ -1,11 +1,12 @@
 // Derived reads over the current snapshot in `store`. No DOM writes.
 
-import { store } from "./store.js?v=ce663a8e7f";
-import { controls } from "./dom.js?v=ce663a8e7f";
+import { store } from "./store.js?v=a2360b7fc1";
+import { controls } from "./dom.js?v=a2360b7fc1";
+import { BASE_IMAGES } from "./config.js?v=a2360b7fc1";
 import {
   number, numberOrNa, compactNumberOrNa, plural, countBy, formatCounts,
   readableMode, humanizeId, complexityLabel
-} from "./format.js?v=ce663a8e7f";
+} from "./format.js?v=a2360b7fc1";
 
 export function fieldValues(id) {
   return store.state.fields?.[id]?.values || [];
@@ -28,12 +29,18 @@ export function selectedRegion() {
 
 export function visibleLayers() {
   const layerMap = new Map((store.state.layers || []).map((layer) => [layer.id, layer]));
-  const requested = [];
-  if (controls.continuum.checked) requested.push("continuum_proxy");
-  if (controls.magnetogram.checked) requested.push("br_normalized");
-  if (controls.confidence.checked) requested.push("confidence");
-  if (controls.regions.checked) requested.push("active_regions");
-  return requested.map((id) => layerMap.get(id) || { id, label: id, kind: "degraded" });
+  const out = [];
+  // The base solar image: the chosen wavelength channel, or the synthetic model.
+  if (store.wavelength === "model") {
+    out.push({ id: "model", label: "Synthetic model", kind: "synthetic" });
+  } else {
+    const cfg = BASE_IMAGES[store.wavelength];
+    out.push({ id: store.wavelength, label: cfg ? cfg.label : store.wavelength, kind: "observed" });
+  }
+  // Overlays on top of whatever base.
+  if (controls.confidence.checked) out.push(layerMap.get("confidence") || { id: "confidence", label: "Model confidence", kind: "degraded" });
+  if (controls.regions.checked) out.push(layerMap.get("active_regions") || { id: "active_regions", label: "Active regions", kind: "synthetic" });
+  return out;
 }
 
 export function visibleLayerSummary() {

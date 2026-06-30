@@ -1,8 +1,8 @@
 // Thin DOM helpers + the layer-toggle control references. No app-state imports.
 
+// Overlay toggles. The base solar image is now chosen by the wavelength selector (store.wavelength),
+// not by checkboxes, so only the confidence + active-region overlays remain here.
 export const controls = {
-  continuum: /** @type {HTMLInputElement} */ (document.getElementById("layerContinuum")),
-  magnetogram: /** @type {HTMLInputElement} */ (document.getElementById("layerMagnetogram")),
   confidence: /** @type {HTMLInputElement} */ (document.getElementById("layerConfidence")),
   regions: /** @type {HTMLInputElement} */ (document.getElementById("layerRegions"))
 };

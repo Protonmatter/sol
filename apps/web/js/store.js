@@ -2,7 +2,7 @@
 // an imported binding, so cross-module state lives as properties on this object:
 // every module imports `store` and reads/writes `store.x`.
 
-import { FALLBACK_STATE } from "./config.js?v=ce663a8e7f";
+import { FALLBACK_STATE } from "./config.js?v=a2360b7fc1";
 
 export const store = {
   /** @type {import('./config.js').Snapshot} */
@@ -19,6 +19,7 @@ export const store = {
   projectedButterflyRegions: [],
   activeBaseKind: "synthetic",
   activeBaseLabel: "synthetic photosphere",
+  wavelength: "continuum", // which SDO channel drives the solar disk ("model" = synthetic engine view)
   /** @type {import('./config.js').Snapshot[]} */
   seriesFrames: [],
   seriesManifest: /** @type {any} */ (null),

@@ -121,7 +121,7 @@ export const GLOSSARY = {
 };
 
 export const SIGNAL_TERMS = { "Kp": "kp", "F10.7": "f107", "GOES/X-ray": "goes-xray", "solar wind": "solar-wind" };
-export const LEGEND_TERMS = { continuum_proxy: "continuum", br_normalized: "magnetogram", confidence: "confidence", active_regions: "active-region" };
+export const LEGEND_TERMS = { continuum: "continuum", magnetogram: "magnetogram", continuum_proxy: "continuum", br_normalized: "magnetogram", confidence: "confidence", active_regions: "active-region" };
 
 export const STAGE_PLAIN = {
   "solar minimum": "its quietest point in the 11-year sunspot cycle",
@@ -129,26 +129,48 @@ export const STAGE_PLAIN = {
   "solar maximum": "its 11-year peak, when sunspots are most common"
 };
 
-// Which panels each surface reveals. "today" is the beginner glance (none of these).
-export const MANAGED_PANELS = [".layer-controls", ".layer-legend", ".metric-grid", ".mode-copy", ".selection-panel", ".application-panel", ".research-panel"];
-export const SURFACE_PANELS = {
-  today: [],
-  explore: [".layer-controls", ".layer-legend", ".metric-grid", ".mode-copy", ".selection-panel"],
-  weather: [".metric-grid", ".mode-copy", ".application-panel"],
-  research: [".layer-controls", ".layer-legend", ".metric-grid", ".mode-copy", ".selection-panel", ".application-panel", ".research-panel"]
+// The Sun is now a single surface; its depth lives in progressive-disclosure drawers (`.sun-section`)
+// shown on the Sun surface and hidden on My Sky / Solar System purely via CSS (body[data-surface]).
+
+// Real NASA SDO "latest" browse images — the Sun looks different at every wavelength because each one
+// is emitted by a different layer/temperature of the solar atmosphere. HMI continuum/magnetogram ARE
+// the photospheric disk (clipped to it); the AIA EUV/UV channels show the corona arcing beyond the limb
+// (not clipped). radiusFrac = the photosphere's radius as a fraction of the 1024-px frame — HMI fills
+// the frame (~0.4565); AIA's wider field of view makes the disk smaller (~0.39).
+const SDO = "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_";
+export const BASE_IMAGES = {
+  continuum:   { url: SDO + "HMIIC.jpg", label: "Visible (HMI continuum)", centerFrac: 0.5, radiusFrac: 0.4565, clip: true, layer: "Photosphere — the surface", temp: "~5,500 K", blurb: "Ordinary white light from the Sun's surface. Dark sunspots are cooler, magnetically intense regions." },
+  magnetogram: { url: SDO + "HMIB.jpg", label: "Magnetic field (HMI magnetogram)", centerFrac: 0.5, radiusFrac: 0.4565, clip: true, layer: "Photosphere — magnetic field", temp: "magnetic map", blurb: "The surface magnetic field. Black and white are opposite magnetic polarities; active regions are where they're strongest." },
+  aia1700:     { url: SDO + "1700.jpg", label: "1700 Å — ultraviolet", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Photosphere / temperature minimum", temp: "~4,500 K", blurb: "Ultraviolet from the lowest atmosphere, just above the visible surface." },
+  aia304:      { url: SDO + "0304.jpg", label: "304 Å — chromosphere", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Chromosphere / transition region", temp: "~50,000 K", blurb: "He II light from the chromosphere — filaments, prominences, and the cooler atmosphere above the surface." },
+  aia171:      { url: SDO + "0171.jpg", label: "171 Å — quiet corona", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Upper transition region / quiet corona", temp: "~600,000 K", blurb: "Fe IX — the iconic magnetic coronal loops arcing above active regions." },
+  aia193:      { url: SDO + "0193.jpg", label: "193 Å — corona", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Corona + hot flare plasma", temp: "~1.2 MK", blurb: "Fe XII — the bright corona, and dark coronal holes where the fast solar wind escapes." },
+  aia211:      { url: SDO + "0211.jpg", label: "211 Å — active corona", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Active-region corona", temp: "~2 MK", blurb: "Fe XIV — the hotter, magnetically active corona." },
+  aia335:      { url: SDO + "0335.jpg", label: "335 Å — active corona", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Active-region corona", temp: "~2.5 MK", blurb: "Fe XVI — hot corona over the most active regions." },
+  aia131:      { url: SDO + "0131.jpg", label: "131 Å — flares", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Flaring corona", temp: "~10 MK (flares)", blurb: "Fe XXI / Fe VIII — flaring regions and the hottest flare plasma." },
+  aia094:      { url: SDO + "0094.jpg", label: "94 Å — flares", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Flaring corona", temp: "~6 MK", blurb: "Fe XVIII — the very hot plasma of solar flares." },
 };
 
-// Real, recognizable Sun imagery (NASA SDO latest browse frames). Disk geometry
-// measured from the 1024px source: the Sun is centered with radius 0.4565 * width.
-export const BASE_IMAGES = {
-  continuum: { url: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", label: "SDO/HMI continuum", centerFrac: 0.5, radiusFrac: 0.4565 },
-  magnetogram: { url: "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIB.jpg", label: "SDO/HMI magnetogram", centerFrac: 0.5, radiusFrac: 0.4565 }
-};
+// The selector, ordered low atmosphere → hot corona; "model" is the synthetic engine view. Colours echo
+// SDO's conventional channel palette so each chip hints at how that wavelength looks.
+export const WAVELENGTHS = [
+  { id: "model", short: "Model", color: "#f6aa45" },
+  { id: "continuum", short: "Visible", color: "#ffcf8a" },
+  { id: "magnetogram", short: "Magnetic", color: "#cdcdd8" },
+  { id: "aia1700", short: "1700", color: "#b99a6b" },
+  { id: "aia304", short: "304", color: "#ff9b4a" },
+  { id: "aia171", short: "171", color: "#ffd24a" },
+  { id: "aia193", short: "193", color: "#caa14a" },
+  { id: "aia211", short: "211", color: "#b56bd6" },
+  { id: "aia335", short: "335", color: "#6b8fd6" },
+  { id: "aia131", short: "131", color: "#5bd6c2" },
+  { id: "aia094", short: "94", color: "#6bd67a" },
+];
 
 export const TOUR_STEPS = [
   { target: null, title: "Meet the Sun", body: "This is the real Sun as seen today by NASA's SDO satellite — not a drawing. Take a few seconds and I'll show you around." },
   { target: "#solarCanvas", title: "Real sunspots", body: "Those dark specks are sunspots: cooler, magnetically intense patches. The more sunspots there are, the more active the Sun is." },
   { target: "#stageRail", title: "Where we are in the cycle", body: "The Sun runs an ~11-year cycle from quiet (Minimum) to busy (Maximum). The highlighted step is where it is right now — click any step to learn about it." },
-  { target: ".mode-grid", title: "Go as deep as you like", body: "Today is the simple view. Explore lets you click sunspot groups and toggle layers. Space Weather and Research go deeper." },
+  { target: ".mode-grid", title: "Three ways to look", body: "The Sun is this view — open the drawers beneath it to explore the layers, see what it means for Earth, or look under the hood. My Sky shows your local sky; Solar System flies you through the planets." },
   { target: null, title: "You're set", body: "Tap any '?' to learn a term, and click a marker on the Sun to inspect it. Enjoy exploring." }
 ];

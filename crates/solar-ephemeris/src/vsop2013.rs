@@ -99,7 +99,8 @@ pub fn elements(p: &Planet, jy2k: f64) -> (f64, f64, f64, f64, f64) {
 
 /// Equinoctial elements (a, mean longitude L, k=e·cosϖ, h=e·sinϖ,
 /// q=sin(i/2)·cosΩ, p=sin(i/2)·sinΩ) → heliocentric ecliptic Cartesian (AU).
-fn equinoctial_to_xyz(a: f64, l: f64, k: f64, h: f64, q: f64, p: f64) -> [f64; 3] {
+/// Shared with the TOP2013 evaluator (`top2013.rs`), which uses the same element set.
+pub fn equinoctial_to_xyz(a: f64, l: f64, k: f64, h: f64, q: f64, p: f64) -> [f64; 3] {
     let e = (k * k + h * h).sqrt();
     let varpi = h.atan2(k);
     let sin_half_i = (q * q + p * p).sqrt().min(1.0);

@@ -1,10 +1,10 @@
 // All canvas rendering: the solar disk, its overlays, and the butterfly diagram.
 
-import { store } from "./store.js?v=ce663a8e7f";
-import { controls, text } from "./dom.js?v=ce663a8e7f";
-import { clamp, hash01 } from "./format.js?v=ce663a8e7f";
-import { selectedRegion, observationFrames } from "./selectors.js?v=ce663a8e7f";
-import { currentBaseImage } from "./data.js?v=ce663a8e7f";
+import { store } from "./store.js?v=a2360b7fc1";
+import { controls, text } from "./dom.js?v=a2360b7fc1";
+import { clamp, hash01 } from "./format.js?v=a2360b7fc1";
+import { selectedRegion } from "./selectors.js?v=a2360b7fc1";
+import { currentBaseImage } from "./data.js?v=a2360b7fc1";
 
 export function drawSolarDisk() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("solarCanvas"));
@@ -64,22 +64,25 @@ function drawObservedBase(ctx, entry, cx, cy, radius) {
   const destX = cx - srcCenter * scale;
   const destY = cy - srcCenter * scale;
   ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.clip();
+  // HMI channels are the photospheric disk (clip to it); AIA EUV/UV show the corona arcing beyond the
+  // limb, so they are drawn unclipped (and skip the limb-darkening vignette, which assumes a hard disk).
+  const clip = entry.cfg.clip !== false;
+  if (clip) { ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.clip(); }
   ctx.drawImage(img, destX, destY, destSize, destSize);
-  const limb = ctx.createRadialGradient(cx, cy, radius * 0.74, cx, cy, radius);
-  limb.addColorStop(0, "rgba(0,0,0,0)");
-  limb.addColorStop(1, "rgba(0,0,0,0.4)");
-  ctx.fillStyle = limb;
-  ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+  if (clip) {
+    const limb = ctx.createRadialGradient(cx, cy, radius * 0.74, cx, cy, radius);
+    limb.addColorStop(0, "rgba(0,0,0,0)");
+    limb.addColorStop(1, "rgba(0,0,0,0.4)");
+    ctx.fillStyle = limb;
+    ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+  }
   ctx.restore();
 }
 
 function drawSunBase(ctx, cx, cy, radius) {
   const disk = ctx.createRadialGradient(cx - radius * 0.26, cy - radius * 0.32, radius * 0.12, cx, cy, radius);
-  disk.addColorStop(0, controls.continuum.checked ? "#ffd27a" : "#f6aa45");
-  disk.addColorStop(0.36, controls.continuum.checked ? "#ff8d24" : "#e67816");
+  disk.addColorStop(0, "#ffd27a");
+  disk.addColorStop(0.36, "#ff8d24");
   disk.addColorStop(0.74, "#d86b12");
   disk.addColorStop(1, "#7a300c");
   ctx.beginPath();
@@ -126,13 +129,14 @@ function drawSurfaceTexture(ctx, cx, cy, radius) {
 }
 
 function drawMagneticPatches(ctx, cx, cy, radius) {
-  if (!controls.magnetogram.checked && !controls.confidence.checked && !controls.continuum.checked) return;
+  // Synthetic sunspots + magnetic dipoles belong to the "Model" view (the real SDO images already show
+  // them). Only the confidence overlay may sit on top of a real wavelength image.
+  const model = store.wavelength === "model";
+  if (!model && !controls.confidence.checked) return;
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.clip();
-  // Let the real photosphere read through the synthetic model overlay.
-  if (store.activeBaseKind === "observed") ctx.globalAlpha = 0.55;
 
   for (const region of store.state.active_regions || []) {
     const point = projectRegion(region, cx, cy, radius);
@@ -143,12 +147,10 @@ function drawMagneticPatches(ctx, cx, cy, radius) {
     const dy = -Math.sin(tilt) * baseSize * 0.38;
     const flux = clamp(region.flux_norm || 0.5, 0.2, 1.5);
 
-    if (controls.continuum.checked && store.activeBaseKind !== "observed") {
-      drawSpot(ctx, point.x, point.y, baseSize * 0.42 * flux, "rgba(55,18,8,0.48)", "rgba(55,18,8,0)");
-    }
-    if (controls.magnetogram.checked) {
-      drawSpot(ctx, point.x + dx, point.y + dy, baseSize * flux, "rgba(90,105,220,0.5)", "rgba(90,105,220,0)");
-      drawSpot(ctx, point.x - dx, point.y - dy, baseSize * flux, "rgba(236,64,126,0.48)", "rgba(236,64,126,0)");
+    if (model) {
+      drawSpot(ctx, point.x, point.y, baseSize * 0.42 * flux, "rgba(55,18,8,0.48)", "rgba(55,18,8,0)");          // sunspot umbra
+      drawSpot(ctx, point.x + dx, point.y + dy, baseSize * flux, "rgba(90,105,220,0.5)", "rgba(90,105,220,0)");  // + polarity
+      drawSpot(ctx, point.x - dx, point.y - dy, baseSize * flux, "rgba(236,64,126,0.48)", "rgba(236,64,126,0)"); // − polarity
     }
     if (controls.confidence.checked) {
       drawSpot(ctx, point.x, point.y, baseSize * 1.35, "rgba(97,224,155,0.22)", "rgba(97,224,155,0)");
@@ -175,7 +177,7 @@ function drawActiveRegions(ctx, cx, cy, radius) {
     if (!point || point.z < -0.15) continue;
     store.projectedRegions.push({ ...point, region });
     const isSelected = selected && selected.id === region.id;
-    const size = (store.activeMode === "explore" ? 6 : 4) + 12 * clamp(region.complexity || 0.3, 0, 1);
+    const size = (isSelected ? 6 : 4) + 12 * clamp(region.complexity || 0.3, 0, 1);
     ctx.beginPath();
     ctx.arc(point.x, point.y, size + (isSelected ? 5 : 0), 0, Math.PI * 2);
     ctx.fillStyle = isSelected ? "rgba(247,183,51,0.25)" : "rgba(64,214,200,0.18)";
@@ -184,7 +186,7 @@ function drawActiveRegions(ctx, cx, cy, radius) {
     ctx.strokeStyle = isSelected ? "#f7b733" : region.flux_norm >= 0.7 ? "#d958a7" : "#40d6c8";
     ctx.stroke();
 
-    if (store.activeMode === "explore" && (isSelected || region.complexity > 0.78)) {
+    if (isSelected) {
       ctx.fillStyle = "rgba(246,243,232,0.92)";
       ctx.font = `${Math.max(11, radius * 0.032)}px Segoe UI, sans-serif`;
       ctx.fillText(`AR ${region.id}`, point.x + size + 5, point.y - size - 4);
@@ -193,16 +195,8 @@ function drawActiveRegions(ctx, cx, cy, radius) {
 }
 
 function drawModeOverlay(ctx, cx, cy, radius) {
-  if (store.activeMode === "today") {
-    drawLatitudeBands(ctx, cx, cy, radius, "rgba(247,183,51,0.12)");
-  } else if (store.activeMode === "explore") {
-    drawLatitudeBands(ctx, cx, cy, radius, "rgba(247,183,51,0.12)");
-    drawGeometryOverlay(ctx, cx, cy, radius);
-  } else if (store.activeMode === "weather") {
-    drawWeatherOverlay(ctx, cx, cy, radius);
-  } else if (store.activeMode === "research") {
-    drawSchemaOverlay(ctx, cx, cy, radius);
-  }
+  // The Sun is a single surface now; the disk carries the latitude-band overlay (sunspot zones).
+  if (store.activeMode === "today") drawLatitudeBands(ctx, cx, cy, radius, "rgba(247,183,51,0.12)");
 }
 
 function drawLatitudeBands(ctx, cx, cy, radius, color) {
@@ -215,75 +209,6 @@ function drawLatitudeBands(ctx, cx, cy, radius, color) {
     ctx.ellipse(cx, y, width, Math.max(4, radius * 0.012), 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-}
-
-function drawWeatherOverlay(ctx, cx, cy, radius) {
-  const frames = observationFrames();
-  ctx.strokeStyle = "rgba(64,214,200,0.72)";
-  ctx.fillStyle = "rgba(64,214,200,0.9)";
-  ctx.lineWidth = Math.max(2, radius * 0.008);
-  for (let i = 0; i < 5; i += 1) {
-    const y = cy - radius * 0.42 + i * radius * 0.2;
-    ctx.beginPath();
-    ctx.moveTo(cx + radius * 0.72, y);
-    ctx.quadraticCurveTo(cx + radius * 1.05, y + radius * 0.08, cx + radius * 1.28, y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx + radius * 1.28, y);
-    ctx.lineTo(cx + radius * 1.22, y - 6);
-    ctx.lineTo(cx + radius * 1.22, y + 6);
-    ctx.closePath();
-    ctx.fill();
-  }
-  drawCanvasLabel(ctx, cx - radius * 0.95, cy + radius * 0.78, `SWPC frames: ${frames.length || 0}`);
-}
-
-function drawGeometryOverlay(ctx, cx, cy, radius) {
-  drawLatitudeBands(ctx, cx, cy, radius, "rgba(246,243,232,0.2)");
-  ctx.strokeStyle = "rgba(246,243,232,0.18)";
-  ctx.lineWidth = 1;
-  for (const lon of [-60, -30, 0, 30, 60]) {
-    const x = cx + radius * Math.sin((lon / 180) * Math.PI);
-    const width = radius * Math.cos((lon / 180) * Math.PI);
-    ctx.beginPath();
-    ctx.ellipse(x, cy, Math.max(5, width * 0.035), radius, 0, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(247,183,51,0.65)";
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + radius * 1.15, cy - radius * 0.18);
-  ctx.stroke();
-  drawCanvasLabel(ctx, cx + radius * 0.46, cy - radius * 0.3, "observer");
-}
-
-function drawSchemaOverlay(ctx, cx, cy, radius) {
-  const nodes = [
-    ["SWPC", -0.72, -0.58, "#40d6c8"],
-    ["Helioviewer", 0.42, -0.72, "#f7b733"],
-    ["JPL geometry", 0.62, 0.62, "#d958a7"]
-  ];
-  for (const [label, ox, oy, color] of nodes) {
-    const x = cx + radius * ox;
-    const y = cy + radius * oy;
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 0.065, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(8,9,12,0.72)";
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    drawCanvasLabel(ctx, x + radius * 0.08, y + 4, label);
-  }
-}
-
-function drawCanvasLabel(ctx, x, y, label) {
-  ctx.font = "13px Segoe UI, sans-serif";
-  const metrics = ctx.measureText(label);
-  ctx.fillStyle = "rgba(8,9,12,0.72)";
-  ctx.fillRect(x - 6, y - 15, metrics.width + 12, 22);
-  ctx.fillStyle = "#f6f3e8";
-  ctx.fillText(label, x, y);
 }
 
 export function drawButterfly() {

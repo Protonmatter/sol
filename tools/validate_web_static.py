@@ -23,7 +23,6 @@ REQUIRED_IDS = {
     "ingestState",
     "readinessState",
     "layerLegend",
-    "modeTitle",
     "applicationTitle",
     "applicationText",
     "applicationSignals",
