@@ -25,21 +25,40 @@ jobs:
         run: cargo test --workspace
 
   lint:
-    name: Rust lint (advisory)
+    name: Rust lint (fmt + clippy)
     runs-on: ubuntu-latest
-    # Advisory for now: the tree is not yet rustfmt/clippy-clean. This surfaces the findings
-    # without blocking merges. Flip `continue-on-error` to false once the codebase is clean.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned so the clippy lint set is deterministic — a newer stable can add lints that would
+      # fail `-D warnings` on code that was clean before. Bump deliberately.
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.96.0"
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: cargo fmt --check
-        run: cargo fmt --all --check
-      - name: cargo clippy
-        run: cargo clippy --workspace --all-targets
+
+      # rustfmt's own `ignore` option is nightly-only, so on stable we format everything and then
+      # diff, excluding the machine-generated coefficient tables (see rustfmt.toml).
+      - name: rustfmt (generated *_data.rs excluded)
+        run: |
+          cargo fmt --all
+          if git diff --quiet -- '*.rs' \
+              ':(exclude)crates/solar-ephemeris/src/vsop2013_data.rs' \
+              ':(exclude)crates/solar-ephemeris/src/elpmpp02_data.rs' \
+              ':(exclude)crates/solar-ephemeris/src/top2013_data.rs'; then
+            echo "hand-written Rust is rustfmt-clean"
+          else
+            echo "::error::not rustfmt-clean — run 'cargo fmt --all' and commit (generated *_data.rs are exempt)"
+            git --no-pager diff -- '*.rs' \
+              ':(exclude)crates/solar-ephemeris/src/vsop2013_data.rs' \
+              ':(exclude)crates/solar-ephemeris/src/elpmpp02_data.rs' \
+              ':(exclude)crates/solar-ephemeris/src/top2013_data.rs'
+            exit 1
+          fi
+          git checkout -- .
+
+      - name: clippy (-D warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
   wasm:
     name: WASM build (wasm32-unknown-unknown)

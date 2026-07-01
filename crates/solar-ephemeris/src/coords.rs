@@ -54,14 +54,21 @@ pub fn observer_rho(lat_deg: f64, elev_m: f64) -> (f64, f64) {
 }
 
 /// Geocentric → topocentric RA/Dec (Meeus 40), correcting for diurnal parallax.
-pub fn topocentric(ra_deg: f64, dec_deg: f64, dist_km: f64, lst_deg: f64, rho_sin: f64, rho_cos: f64) -> (f64, f64) {
+pub fn topocentric(
+    ra_deg: f64,
+    dec_deg: f64,
+    dist_km: f64,
+    lst_deg: f64,
+    rho_sin: f64,
+    rho_cos: f64,
+) -> (f64, f64) {
     let sin_pi = EARTH_R_KM / dist_km;
     let h = (lst_deg - ra_deg) * D2R;
     let dec = dec_deg * D2R;
     let dra = (-rho_cos * sin_pi * h.sin()).atan2(dec.cos() - rho_cos * sin_pi * h.cos());
     let ra_topo = ra_deg + dra * R2D;
-    let dec_topo = ((dec.sin() - rho_sin * sin_pi) * dra.cos())
-        .atan2(dec.cos() - rho_cos * sin_pi * h.cos());
+    let dec_topo =
+        ((dec.sin() - rho_sin * sin_pi) * dra.cos()).atan2(dec.cos() - rho_cos * sin_pi * h.cos());
     (ra_topo.rem_euclid(360.0), dec_topo * R2D)
 }
 

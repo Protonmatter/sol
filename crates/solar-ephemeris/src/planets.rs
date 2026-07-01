@@ -26,14 +26,23 @@ fn earth_center(jy2k: f64) -> [f64; 3] {
 
 /// Reduce a geocentric ecliptic-J2000 vector to apparent ecliptic-of-date (lon °, lat °):
 /// annual aberration (observer velocity / c), then Meeus-21 precession and nutation in longitude.
-fn reduce(mut g: [f64; 3], dist: f64, earth: &[f64; 3], earth_ahead: &[f64; 3], dt: f64, jy2k: f64, dpsi_deg: f64) -> (f64, f64) {
+fn reduce(
+    mut g: [f64; 3],
+    dist: f64,
+    earth: &[f64; 3],
+    earth_ahead: &[f64; 3],
+    dt: f64,
+    jy2k: f64,
+    dpsi_deg: f64,
+) -> (f64, f64) {
     for i in 0..3 {
         let v = (earth_ahead[i] - earth[i]) / dt; // observer velocity, AU/yr
         g[i] += dist * v / C_AU_PER_YEAR;
     }
     let lon_j2000 = g[1].atan2(g[0]).to_degrees();
     let lat_j2000 = g[2].atan2((g[0] * g[0] + g[1] * g[1]).sqrt()).to_degrees();
-    let (lon_date, lat_date) = crate::coords::precess_ecliptic_from_j2000(lon_j2000, lat_j2000, jy2k / 100.0);
+    let (lon_date, lat_date) =
+        crate::coords::precess_ecliptic_from_j2000(lon_j2000, lat_j2000, jy2k / 100.0);
     ((lon_date + dpsi_deg).rem_euclid(360.0), lat_date)
 }
 
@@ -50,7 +59,11 @@ pub fn planet_apparent_ecliptic(planet: &Planet, jd_tt: f64, dpsi_deg: f64) -> (
     let mut dist = geo_distance(&planet_xyz, &earth);
     planet_xyz = vsop2013::helio_xyz(planet, jy2k - dist * LIGHT_YEARS_PER_AU);
     dist = geo_distance(&planet_xyz, &earth);
-    let g = [planet_xyz[0] - earth[0], planet_xyz[1] - earth[1], planet_xyz[2] - earth[2]];
+    let g = [
+        planet_xyz[0] - earth[0],
+        planet_xyz[1] - earth[1],
+        planet_xyz[2] - earth[2],
+    ];
     let (lon, lat) = reduce(g, dist, &earth, &earth_ahead, dt, jy2k, dpsi_deg);
     (lon, lat, dist)
 }
@@ -69,7 +82,11 @@ pub fn sun_apparent_ecliptic(jd_tt: f64, dpsi_deg: f64) -> (f64, f64, f64) {
 }
 
 fn geo_distance(planet: &[f64; 3], earth: &[f64; 3]) -> f64 {
-    let (dx, dy, dz) = (planet[0] - earth[0], planet[1] - earth[1], planet[2] - earth[2]);
+    let (dx, dy, dz) = (
+        planet[0] - earth[0],
+        planet[1] - earth[1],
+        planet[2] - earth[2],
+    );
     (dx * dx + dy * dy + dz * dz).sqrt()
 }
 

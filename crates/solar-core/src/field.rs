@@ -5,7 +5,9 @@ pub struct Field2D {
 
 impl Field2D {
     pub fn filled(len: usize, value: f32) -> Self {
-        Self { values: vec![value; len] }
+        Self {
+            values: vec![value; len],
+        }
     }
 
     pub fn max_abs(&self) -> f32 {

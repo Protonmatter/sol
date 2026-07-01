@@ -110,10 +110,15 @@ mod tests {
         ];
         for (idx, t, truth) in cases {
             let p = helio_xyz(idx, t);
-            let d = ((p[0] - truth[0]).powi(2) + (p[1] - truth[1]).powi(2) + (p[2] - truth[2]).powi(2)).sqrt();
+            let d =
+                ((p[0] - truth[0]).powi(2) + (p[1] - truth[1]).powi(2) + (p[2] - truth[2]).powi(2))
+                    .sqrt();
             let r = (truth[0] * truth[0] + truth[1] * truth[1] + truth[2] * truth[2]).sqrt();
             let arcsec = (d / r) * 206264.806;
-            assert!(arcsec < 0.5, "idx {idx} @{t} yr: {arcsec} arcsec off TOP2013 source");
+            assert!(
+                arcsec < 0.5,
+                "idx {idx} @{t} yr: {arcsec} arcsec off TOP2013 source"
+            );
         }
     }
 
@@ -122,9 +127,14 @@ mod tests {
         // TOP2013 and VSOP2013 agree to well under an arcsecond near the present.
         let top = helio_xyz(0, 0.0);
         let vsop = crate::vsop2013::helio_xyz(&crate::vsop2013_data::JUP, 0.0);
-        let d = ((top[0] - vsop[0]).powi(2) + (top[1] - vsop[1]).powi(2) + (top[2] - vsop[2]).powi(2)).sqrt();
+        let d =
+            ((top[0] - vsop[0]).powi(2) + (top[1] - vsop[1]).powi(2) + (top[2] - vsop[2]).powi(2))
+                .sqrt();
         let r = (top[0] * top[0] + top[1] * top[1] + top[2] * top[2]).sqrt();
         let arcsec = (d / r) * 206264.806;
-        assert!(arcsec < 1.0, "TOP vs VSOP Jupiter at J2000 = {arcsec} arcsec");
+        assert!(
+            arcsec < 1.0,
+            "TOP vs VSOP Jupiter at J2000 = {arcsec} arcsec"
+        );
     }
 }

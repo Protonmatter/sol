@@ -22,6 +22,12 @@ impl SolarGrid {
         self.lon_count * self.lat_count
     }
 
+    /// Always false in practice — the constructor asserts a minimum grid size — but present for
+    /// `len`/`is_empty` API symmetry (and to satisfy clippy::len_without_is_empty).
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn idx(&self, lat_i: usize, lon_i: usize) -> usize {
         let lat = lat_i.min(self.lat_count - 1);
         let lon = lon_i % self.lon_count;

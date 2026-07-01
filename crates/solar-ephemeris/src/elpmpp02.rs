@@ -24,8 +24,20 @@ const AELP: f64 = 384747.980674318;
 const KM2AU: f64 = 6.6846e-9;
 
 // Precession of the ecliptic, P and Q (Laskar 1986).
-const P: [f64; 5] = [0.10180391e-04, 0.47020439e-06, -0.5417367e-09, -0.2507948e-11, 0.463486e-14];
-const Q: [f64; 5] = [-0.113469002e-03, 0.12372674e-06, 0.1265417e-08, -0.1371808e-11, -0.320334e-14];
+const P: [f64; 5] = [
+    0.10180391e-04,
+    0.47020439e-06,
+    -0.5417367e-09,
+    -0.2507948e-11,
+    0.463486e-14,
+];
+const Q: [f64; 5] = [
+    -0.113469002e-03,
+    0.12372674e-06,
+    0.1265417e-08,
+    -0.1371808e-11,
+    -0.320334e-14,
+];
 
 /// Geocentric Moon position in ecliptic-J2000 rectangular coordinates (AU) at
 /// Julian years from J2000.
@@ -39,8 +51,8 @@ pub fn moon_xyz(jy2k: f64) -> [f64; 3] {
         // Main problem.
         for term in MAIN[iv].iter() {
             let mut y = term.f[0];
-            for k in 1..5 {
-                y += term.f[k] * t[k];
+            for (fk, tk) in term.f.iter().zip(&t).skip(1) {
+                y += *fk * *tk;
             }
             acc += term.amp * y.sin();
         }
@@ -48,8 +60,8 @@ pub fn moon_xyz(jy2k: f64) -> [f64; 3] {
         for (it, group) in PERT[iv].iter().enumerate() {
             for term in group.iter() {
                 let mut y = term.f[0];
-                for k in 1..5 {
-                    y += term.f[k] * t[k];
+                for (fk, tk) in term.f.iter().zip(&t).skip(1) {
+                    y += *fk * *tk;
                 }
                 acc += term.amp * t[it] * y.sin();
             }
@@ -111,7 +123,8 @@ pub fn moon_apparent_ecliptic(jd_tt: f64, dpsi_deg: f64) -> (f64, f64, f64) {
     let lon_j2000 = m[1].atan2(m[0]).to_degrees();
     let lat_j2000 = m[2].atan2((m[0] * m[0] + m[1] * m[1]).sqrt()).to_degrees();
     // Precess J2000 ecliptic → ecliptic of date (longitude and latitude), then add nutation.
-    let (lon_date, lat_date) = crate::coords::precess_ecliptic_from_j2000(lon_j2000, lat_j2000, jy2k / 100.0);
+    let (lon_date, lat_date) =
+        crate::coords::precess_ecliptic_from_j2000(lon_j2000, lat_j2000, jy2k / 100.0);
     let lon = lon_date + dpsi_deg;
     (lon.rem_euclid(360.0), lat_date, dist_au * 149_597_870.7)
 }
@@ -124,6 +137,10 @@ mod tests {
     fn moon_distance_is_plausible() {
         // Geocentric Moon distance stays within ~356,500–406,700 km.
         let (_, _, dist_km) = moon_apparent_ecliptic(2460676.5, 0.0);
-        assert!(dist_km > 356_000.0 && dist_km < 407_000.0, "dist_km={}", dist_km);
+        assert!(
+            dist_km > 356_000.0 && dist_km < 407_000.0,
+            "dist_km={}",
+            dist_km
+        );
     }
 }

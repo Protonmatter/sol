@@ -70,8 +70,16 @@ fn diffuse_field(state: &mut SolarState, dt_seconds: f64, diffusion: f32) {
             let c = state.br.values[grid.idx(lat_i, lon_i)];
             let west = state.br.values[grid.idx(lat_i, modulo(lon_i as isize - 1, grid.lon_count))];
             let east = state.br.values[grid.idx(lat_i, lon_i + 1)];
-            let south = if lat_i > 0 { state.br.values[grid.idx(lat_i - 1, lon_i)] } else { c };
-            let north = if lat_i + 1 < grid.lat_count { state.br.values[grid.idx(lat_i + 1, lon_i)] } else { c };
+            let south = if lat_i > 0 {
+                state.br.values[grid.idx(lat_i - 1, lon_i)]
+            } else {
+                c
+            };
+            let north = if lat_i + 1 < grid.lat_count {
+                state.br.values[grid.idx(lat_i + 1, lon_i)]
+            } else {
+                c
+            };
             let lap = west + east + south + north - 4.0 * c;
             next.values[grid.idx(lat_i, lon_i)] = c + diffusion * dt_hours * lap;
         }
@@ -98,8 +106,20 @@ fn inject_bipole(state: &mut SolarState, ar: &ActiveRegion, sigma_deg: f32) {
         Polarity::LeadingNegative => -1.0,
     };
 
-    add_gaussian(state, ar.lat_deg + dlat, ar.lon_deg + dlon, sign * ar.flux_norm, sigma_deg);
-    add_gaussian(state, ar.lat_deg - dlat, ar.lon_deg - dlon, -sign * ar.flux_norm, sigma_deg);
+    add_gaussian(
+        state,
+        ar.lat_deg + dlat,
+        ar.lon_deg + dlon,
+        sign * ar.flux_norm,
+        sigma_deg,
+    );
+    add_gaussian(
+        state,
+        ar.lat_deg - dlat,
+        ar.lon_deg - dlon,
+        -sign * ar.flux_norm,
+        sigma_deg,
+    );
 }
 
 fn add_gaussian(state: &mut SolarState, lat_deg: f32, lon_deg: f32, amp: f32, sigma_deg: f32) {
@@ -108,11 +128,15 @@ fn add_gaussian(state: &mut SolarState, lat_deg: f32, lon_deg: f32, amp: f32, si
     for lat_i in 0..grid.lat_count {
         let lat = grid.lat_deg(lat_i);
         let dlat = lat - lat_deg;
-        if dlat.abs() > 5.0 * sigma_deg { continue; }
+        if dlat.abs() > 5.0 * sigma_deg {
+            continue;
+        }
         for lon_i in 0..grid.lon_count {
             let lon = grid.lon_deg(lon_i);
             let dlon = circular_delta_deg(lon, lon_deg);
-            if dlon.abs() > 5.0 * sigma_deg { continue; }
+            if dlon.abs() > 5.0 * sigma_deg {
+                continue;
+            }
             let w = (-(dlat * dlat + dlon * dlon) / denom).exp();
             let idx = grid.idx(lat_i, lon_i);
             state.br.values[idx] += amp * w;
@@ -132,8 +156,12 @@ fn decay_field(state: &mut SolarState, dt_seconds: f64, decay_per_day: f32) {
 
 fn circular_delta_deg(a: f32, b: f32) -> f32 {
     let mut d = a - b;
-    while d > 180.0 { d -= 360.0; }
-    while d < -180.0 { d += 360.0; }
+    while d > 180.0 {
+        d -= 360.0;
+    }
+    while d < -180.0 {
+        d += 360.0;
+    }
     d
 }
 

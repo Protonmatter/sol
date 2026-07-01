@@ -33,8 +33,15 @@ pub enum Body {
 }
 
 const ALL_BODIES: [Body; 9] = [
-    Body::Sun, Body::Moon, Body::Mercury, Body::Venus, Body::Mars,
-    Body::Jupiter, Body::Saturn, Body::Uranus, Body::Neptune,
+    Body::Sun,
+    Body::Moon,
+    Body::Mercury,
+    Body::Venus,
+    Body::Mars,
+    Body::Jupiter,
+    Body::Saturn,
+    Body::Uranus,
+    Body::Neptune,
 ];
 
 impl Body {
@@ -128,7 +135,14 @@ fn topocentric_sky(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) 
     let (rho_sin, rho_cos) = coords::observer_rho(lat, elev);
     let (ra_t, dec_t) = coords::topocentric(ra, dec, dist_km, lst, rho_sin, rho_cos);
     let (alt, az) = coords::alt_az(ra_t, dec_t, lst, lat);
-    Topo { ra, dec, dist_km, alt, az, alt_refracted: alt + coords::refraction_deg(alt) }
+    Topo {
+        ra,
+        dec,
+        dist_km,
+        alt,
+        az,
+        alt_refracted: alt + coords::refraction_deg(alt),
+    }
 }
 
 /// Apparent topocentric alt/az of a catalogue star, through the same reduction as the planets
@@ -146,16 +160,35 @@ fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _e
     let (ra, dec) = coords::ecl_to_equ(lon_d + dpsi, lat_d, eps_true);
     let lst = (time::gast_deg(jd_utc, dpsi, eps_true) + lon_east).rem_euclid(360.0);
     let (alt, az) = coords::alt_az(ra, dec, lst, lat);
-    Topo { ra, dec, dist_km: f64::INFINITY, alt, az, alt_refracted: alt + coords::refraction_deg(alt) }
+    Topo {
+        ra,
+        dec,
+        dist_km: f64::INFINITY,
+        alt,
+        az,
+        alt_refracted: alt + coords::refraction_deg(alt),
+    }
 }
 
 /// Rise / transit / set as JD(UTC) within ±0.5 day of `jd_utc`. NaN where none.
 fn events(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> (f64, f64, f64, f64) {
-    events_core(&|jd| topocentric_sky(body, jd, lat, lon_east, elev).alt_refracted, jd_utc)
+    events_core(
+        &|jd| topocentric_sky(body, jd, lat, lon_east, elev).alt_refracted,
+        jd_utc,
+    )
 }
 
-fn star_events(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> (f64, f64, f64, f64) {
-    events_core(&|jd| star_topocentric(star, jd, lat, lon_east, elev).alt_refracted, jd_utc)
+fn star_events(
+    star: &stars::Star,
+    jd_utc: f64,
+    lat: f64,
+    lon_east: f64,
+    elev: f64,
+) -> (f64, f64, f64, f64) {
+    events_core(
+        &|jd| star_topocentric(star, jd, lat, lon_east, elev).alt_refracted,
+        jd_utc,
+    )
 }
 
 fn events_core(alt_at: &dyn Fn(f64) -> f64, jd_utc: f64) -> (f64, f64, f64, f64) {
@@ -223,12 +256,18 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     let mut out = String::with_capacity(2048);
     out.push_str("{\n");
     out.push_str("  \"schema_version\": \"ephemeris-snapshot.v1\",\n");
-    out.push_str(&format!("  \"engine_version\": \"solar-ephemeris {}\",\n", env!("CARGO_PKG_VERSION")));
+    out.push_str(&format!(
+        "  \"engine_version\": \"solar-ephemeris {}\",\n",
+        env!("CARGO_PKG_VERSION")
+    ));
     out.push_str("  \"time\": {");
     out.push_str(&format!("\"jd_utc\":{:.8},\"jd_tt\":{:.8},\"delta_t_seconds\":{:.2},\"lst_deg\":{:.6},\"obliquity_deg\":{:.6}", jd_utc, jd_tt, dt, lst, eps_true));
     out.push_str("},\n");
     out.push_str("  \"observer\": {");
-    out.push_str(&format!("\"lat_deg\":{:.6},\"lon_deg\":{:.6},\"elev_m\":{:.1}", lat, lon_east, elev));
+    out.push_str(&format!(
+        "\"lat_deg\":{:.6},\"lon_deg\":{:.6},\"elev_m\":{:.1}",
+        lat, lon_east, elev
+    ));
     out.push_str("},\n");
     out.push_str("  \"accuracy\": {\
 \"class\":\"apparent topocentric place, validated vs JPL Horizons DE441\",\
@@ -240,17 +279,41 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     for (i, body) in ALL_BODIES.iter().enumerate() {
         let s = topocentric_sky(*body, jd_utc, lat, lon_east, elev);
         let (rise, transit, set, transit_alt) = events(*body, jd_utc, lat, lon_east, elev);
-        let ang_size = 2.0 * (body.radius_km() / s.dist_km).asin() * (180.0 / std::f64::consts::PI) * 3600.0;
+        let ang_size =
+            2.0 * (body.radius_km() / s.dist_km).asin() * (180.0 / std::f64::consts::PI) * 3600.0;
         if i > 0 {
             out.push_str(",\n");
         }
         out.push_str("    {");
-        out.push_str(&format!("\"name\":\"{}\",\"kind\":\"{}\",", body.name(), body.kind()));
-        out.push_str(&format!("\"ra_deg\":{:.6},\"dec_deg\":{:.6},\"distance_km\":{:.1},", s.ra, s.dec, s.dist_km));
-        out.push_str(&format!("\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},", s.alt, s.az, s.alt_refracted, s.alt_refracted > 0.0));
+        out.push_str(&format!(
+            "\"name\":\"{}\",\"kind\":\"{}\",",
+            body.name(),
+            body.kind()
+        ));
+        out.push_str(&format!(
+            "\"ra_deg\":{:.6},\"dec_deg\":{:.6},\"distance_km\":{:.1},",
+            s.ra, s.dec, s.dist_km
+        ));
+        out.push_str(&format!(
+            "\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},",
+            s.alt,
+            s.az,
+            s.alt_refracted,
+            s.alt_refracted > 0.0
+        ));
         out.push_str(&format!("\"compass\":\"{}\",", compass(s.az)));
-        out.push_str(&format!("\"angular_size_arcsec\":{:.2},\"horizontal_parallax_deg\":{:.6},", ang_size, coords::horizontal_parallax_deg(s.dist_km)));
-        out.push_str(&format!("\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.3}", jnum(rise), jnum(transit), jnum(set), transit_alt));
+        out.push_str(&format!(
+            "\"angular_size_arcsec\":{:.2},\"horizontal_parallax_deg\":{:.6},",
+            ang_size,
+            coords::horizontal_parallax_deg(s.dist_km)
+        ));
+        out.push_str(&format!(
+            "\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.3}",
+            jnum(rise),
+            jnum(transit),
+            jnum(set),
+            transit_alt
+        ));
         out.push('}');
     }
     // Bright-star catalogue — same topocentric reduction; no distance/parallax (infinite range).
@@ -259,11 +322,29 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
         let (rise, transit, set, transit_alt) = star_events(star, jd_utc, lat, lon_east, elev);
         out.push_str(",\n    {");
         out.push_str(&format!("\"name\":\"{}\",\"kind\":\"star\",", star.name));
-        out.push_str(&format!("\"ra_deg\":{:.6},\"dec_deg\":{:.6},\"distance_km\":null,", s.ra, s.dec));
-        out.push_str(&format!("\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},", s.alt, s.az, s.alt_refracted, s.alt_refracted > 0.0));
+        out.push_str(&format!(
+            "\"ra_deg\":{:.6},\"dec_deg\":{:.6},\"distance_km\":null,",
+            s.ra, s.dec
+        ));
+        out.push_str(&format!(
+            "\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},",
+            s.alt,
+            s.az,
+            s.alt_refracted,
+            s.alt_refracted > 0.0
+        ));
         out.push_str(&format!("\"compass\":\"{}\",", compass(s.az)));
-        out.push_str(&format!("\"angular_size_arcsec\":0,\"horizontal_parallax_deg\":0,\"magnitude\":{:.2},", star.mag));
-        out.push_str(&format!("\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.3}", jnum(rise), jnum(transit), jnum(set), transit_alt));
+        out.push_str(&format!(
+            "\"angular_size_arcsec\":0,\"horizontal_parallax_deg\":0,\"magnitude\":{:.2},",
+            star.mag
+        ));
+        out.push_str(&format!(
+            "\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.3}",
+            jnum(rise),
+            jnum(transit),
+            jnum(set),
+            transit_alt
+        ));
         out.push('}');
     }
     out.push_str("\n  ],\n");
@@ -281,7 +362,10 @@ fn jnum(v: f64) -> String {
 }
 
 fn compass(az_deg: f64) -> &'static str {
-    const PTS: [&str; 16] = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    const PTS: [&str; 16] = [
+        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW",
+        "NW", "NNW",
+    ];
     PTS[(((az_deg + 11.25).rem_euclid(360.0)) / 22.5) as usize % 16]
 }
 
@@ -327,13 +411,21 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
         let behind = helio(name, planet, jy2k - dt);
         let speed = {
             // Central difference — O(dt²) accurate vs the forward difference's O(dt).
-            let d = [ahead[0] - behind[0], ahead[1] - behind[1], ahead[2] - behind[2]];
+            let d = [
+                ahead[0] - behind[0],
+                ahead[1] - behind[1],
+                ahead[2] - behind[2],
+            ];
             (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt() / (2.0 * dt) * AU_PER_YEAR_KMS
         };
         // Phase / illumination / magnitude only make sense for a body seen from Earth.
         let (phase, illum, mut mag) = if *name != "Earth" && delta > 1e-9 {
             let a = physics::phase_angle_deg(r, delta, sun_earth);
-            (Some(a), Some(physics::illuminated_fraction(a)), physics::magnitude(name, r, delta, a))
+            (
+                Some(a),
+                Some(physics::illuminated_fraction(a)),
+                physics::magnitude(name, r, delta, a),
+            )
         } else {
             (None, None, None)
         };
@@ -342,9 +434,15 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
             if let Some(m) = mag {
                 let g = [xyz[0] - earth[0], xyz[1] - earth[1], xyz[2] - earth[2]];
                 let eps = 23.43928_f64.to_radians(); // J2000 obliquity (ecliptic→equatorial)
-                let (ex, ey, ez) = (g[0], g[1] * eps.cos() - g[2] * eps.sin(), g[1] * eps.sin() + g[2] * eps.cos());
+                let (ex, ey, ez) = (
+                    g[0],
+                    g[1] * eps.cos() - g[2] * eps.sin(),
+                    g[1] * eps.sin() + g[2] * eps.cos(),
+                );
                 let ra = ey.atan2(ex).to_degrees();
-                let dec = (ez / (ex * ex + ey * ey + ez * ez).sqrt()).asin().to_degrees();
+                let dec = (ez / (ex * ex + ey * ey + ez * ez).sqrt())
+                    .asin()
+                    .to_degrees();
                 mag = Some(m + physics::saturn_ring_mag(ra, dec));
             }
         }
@@ -412,7 +510,12 @@ thread_local! {
 
 /// Compute a sky snapshot for a Unix time + observer; returns a pointer to UTF-8 JSON bytes.
 #[no_mangle]
-pub extern "C" fn sky_snapshot(unix_seconds: f64, lat_deg: f64, lon_deg_east: f64, elev_m: f64) -> *const u8 {
+pub extern "C" fn sky_snapshot(
+    unix_seconds: f64,
+    lat_deg: f64,
+    lon_deg_east: f64,
+    elev_m: f64,
+) -> *const u8 {
     let jd_utc = time::jd_from_unix(unix_seconds);
     let json = sky_snapshot_json(jd_utc, lat_deg, lon_deg_east, elev_m);
     RESULT.with(|cell| {
@@ -439,7 +542,15 @@ pub extern "C" fn system_snapshot(unix_seconds: f64) -> *const u8 {
 /// (refracted altitude). Unlike a fixed-RA sweep, this re-solves the body's position at every sample,
 /// so it is exact for the fast-moving Moon as well as the Sun and planets.
 #[no_mangle]
-pub extern "C" fn body_track(body_idx: u32, lat_deg: f64, lon_deg_east: f64, elev_m: f64, unix0: f64, dt_seconds: f64, n: u32) -> *const u8 {
+pub extern "C" fn body_track(
+    body_idx: u32,
+    lat_deg: f64,
+    lon_deg_east: f64,
+    elev_m: f64,
+    unix0: f64,
+    dt_seconds: f64,
+    n: u32,
+) -> *const u8 {
     let body = ALL_BODIES[(body_idx as usize) % ALL_BODIES.len()];
     let count = n.min(2000) as usize;
     let mut out = String::with_capacity(16 + 36 * count);
@@ -451,7 +562,12 @@ pub extern "C" fn body_track(body_idx: u32, lat_deg: f64, lon_deg_east: f64, ele
         if i > 0 {
             out.push(',');
         }
-        out.push_str(&format!("{{\"alt\":{:.4},\"az\":{:.4},\"up\":{}}}", s.alt_refracted, s.az, s.alt_refracted > 0.0));
+        out.push_str(&format!(
+            "{{\"alt\":{:.4},\"az\":{:.4},\"up\":{}}}",
+            s.alt_refracted,
+            s.az,
+            s.alt_refracted > 0.0
+        ));
     }
     out.push(']');
     RESULT.with(|cell| {

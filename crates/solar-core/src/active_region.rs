@@ -25,7 +25,6 @@ impl ActiveRegion {
 
     pub fn flare_hazard(&self, activity_index: f32) -> f32 {
         let flux = self.flux_norm.max(0.0).ln_1p();
-        (0.05 + 0.22 * flux + 0.48 * self.complexity + 0.25 * activity_index)
-            .clamp(0.0, 1.0)
+        (0.05 + 0.22 * flux + 0.48 * self.complexity + 0.25 * activity_index).clamp(0.0, 1.0)
     }
 }

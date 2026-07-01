@@ -13,7 +13,10 @@ pub struct AssimilationInput {
 /// K_i = P_f / (P_f + R)
 /// x_a = x_f + freshness * K_i * (y - x_f)
 /// P_a = (1 - K_i) * P_f
-pub fn assimilate_scalar_field(forecast: &Field2D, input: &AssimilationInput) -> (Field2D, Field2D) {
+pub fn assimilate_scalar_field(
+    forecast: &Field2D,
+    input: &AssimilationInput,
+) -> (Field2D, Field2D) {
     assert_eq!(forecast.values.len(), input.observation.values.len());
     let mut analysis = forecast.clone();
     let mut variance = input.forecast_variance.clone();
@@ -23,7 +26,8 @@ pub fn assimilate_scalar_field(forecast: &Field2D, input: &AssimilationInput) ->
         let r = input.observation_variance.values[i].max(1e-6);
         let k = pf / (pf + r);
         let residual = input.observation.values[i] - forecast.values[i];
-        analysis.values[i] = forecast.values[i] + input.freshness_gain.clamp(0.0, 1.0) * k * residual;
+        analysis.values[i] =
+            forecast.values[i] + input.freshness_gain.clamp(0.0, 1.0) * k * residual;
         variance.values[i] = (1.0 - k) * pf;
     }
 

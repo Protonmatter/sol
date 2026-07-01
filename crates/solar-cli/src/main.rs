@@ -66,7 +66,11 @@ fn ingest_swpc_command(args: &[String]) -> Result<(), String> {
     let json = solar_ingest::swpc_observation_report_json(cache.as_deref(), fallback.as_deref())?;
     write_text(&out, &json)?;
     println!("wrote observations={}", out.display());
-    println!("cache={} fallback={}", display_optional(&cache), display_optional(&fallback));
+    println!(
+        "cache={} fallback={}",
+        display_optional(&cache),
+        display_optional(&fallback)
+    );
     Ok(())
 }
 
@@ -78,7 +82,10 @@ fn replay_command(args: &[String]) -> Result<(), String> {
     if !raw.contains("\"schema_version\": \"solar-state-snapshot.v1\"")
         && !raw.contains("\"schema_version\":\"solar-state-snapshot.v1\"")
     {
-        return Err(format!("{} is not a solar-state-snapshot.v1 file", snapshot.display()));
+        return Err(format!(
+            "{} is not a solar-state-snapshot.v1 file",
+            snapshot.display()
+        ));
     }
     fs::create_dir_all(&out_dir).map_err(|err| format!("create {}: {err}", out_dir.display()))?;
     let target = out_dir.join("latest-state.json");
@@ -139,7 +146,8 @@ fn simulate_state(steps: usize, dt_hours: f64, seed: u64) -> (SolarState, f32) {
 fn write_text(path: &Path, content: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent).map_err(|err| format!("create {}: {err}", parent.display()))?;
+            fs::create_dir_all(parent)
+                .map_err(|err| format!("create {}: {err}", parent.display()))?;
         }
     }
     fs::write(path, content).map_err(|err| format!("write {}: {err}", path.display()))
@@ -166,7 +174,9 @@ where
 }
 
 fn value_after<'a>(args: &'a [String], flag: &str) -> Option<&'a String> {
-    args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1))
+    args.iter()
+        .position(|a| a == flag)
+        .and_then(|i| args.get(i + 1))
 }
 
 fn display_optional(path: &Option<PathBuf>) -> String {
@@ -193,6 +203,8 @@ fn print_help() {
     println!("Solar Maximum Engine");
     println!("Commands:");
     println!("  solar-cli simulate --steps <n> --dt-hours <h> --seed <seed> --out <snapshot.json>");
-    println!("  solar-cli ingest swpc --cache <dir> --out <observations.json> --fallback-fixtures <dir>");
+    println!(
+        "  solar-cli ingest swpc --cache <dir> --out <observations.json> --fallback-fixtures <dir>"
+    );
     println!("  solar-cli replay --snapshot <snapshot.json> --out <web-data-dir>");
 }
