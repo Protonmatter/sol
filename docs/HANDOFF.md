@@ -57,8 +57,18 @@ the rest lives under `apps/web/js/`:
 | `view.js` | `renderAll` + `applySurfaceVisibility` (the render orchestrator) |
 | `data.js` | snapshot/series/feed loaders + the observed-image cache (`currentBaseImage`) |
 | `timeline.js` | scrubber/playback + `runLiveEngine` (imports `../engine.js`) |
-| `tour.js` | onboarding spotlight |
+| `tour.js` | onboarding spotlight (modal: sets `<main>` `inert`, traps + restores focus) |
 | `tooltip.js` | glossary tooltips |
+| `wavelength.js` | SDO wavelength-channel selector bar |
+| `sunlayers.js` | the Sun-interior cutaway |
+| `sky.js` | **My Sky** horizon dome (topocentric alt/az; loads `skyEngine.js`) |
+| `skyEngine.js` | loads `solar_ephemeris.wasm`; `skySnapshot`/`systemSnapshot`/`bodyTrack` |
+| `orrery.js` | **Solar System** — WebGL2 3-D scene + top-down map, camera, detail panel |
+| `bodyData.js` | NASA fact-sheet constants + IAU pole/rotation per body |
+| `celestial.js` | star / constellation / pulsar / deep-sky catalogues |
+| `galacticobjects.js` | galactic-frame objects for the Milky-Way zoom-out |
+| `smallbodies.js` | dwarf planets + comets (a small Kepler propagator) |
+| `accuracy.js` | epoch-accuracy labels for the deep-time scrubbers |
 
 There are a few **runtime** import cycles (e.g. `view → render → data → view` via `renderAll`);
 ESM handles them because the cyclic functions are only *called* at runtime, never during module

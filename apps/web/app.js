@@ -1,20 +1,20 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js?v=a2360b7fc1";
-import { TOUR_STEPS } from "./js/config.js?v=a2360b7fc1";
-import { controls } from "./js/dom.js?v=a2360b7fc1";
-import { clamp } from "./js/format.js?v=a2360b7fc1";
-import { renderAll } from "./js/view.js?v=a2360b7fc1";
-import { updateModeButtons } from "./js/panels.js?v=a2360b7fc1";
-import { loadState } from "./js/data.js?v=a2360b7fc1";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=a2360b7fc1";
-import { startTour, endTour, showTourStep } from "./js/tour.js?v=a2360b7fc1";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=a2360b7fc1";
-import { enterSky, leaveSky } from "./js/sky.js?v=a2360b7fc1";
-import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=a2360b7fc1";
-import { buildWavelengthBar } from "./js/wavelength.js?v=a2360b7fc1";
-import { buildSunCutaway } from "./js/sunlayers.js?v=a2360b7fc1";
+import { store } from "./js/store.js?v=09481a1dfc";
+import { TOUR_STEPS } from "./js/config.js?v=09481a1dfc";
+import { controls } from "./js/dom.js?v=09481a1dfc";
+import { clamp } from "./js/format.js?v=09481a1dfc";
+import { renderAll } from "./js/view.js?v=09481a1dfc";
+import { updateModeButtons } from "./js/panels.js?v=09481a1dfc";
+import { loadState } from "./js/data.js?v=09481a1dfc";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=09481a1dfc";
+import { startTour, endTour, showTourStep } from "./js/tour.js?v=09481a1dfc";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=09481a1dfc";
+import { enterSky, leaveSky } from "./js/sky.js?v=09481a1dfc";
+import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=09481a1dfc";
+import { buildWavelengthBar } from "./js/wavelength.js?v=09481a1dfc";
+import { buildSunCutaway } from "./js/sunlayers.js?v=09481a1dfc";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {
@@ -55,6 +55,19 @@ document.getElementById("solarCanvas")?.addEventListener("click", (event) => {
     updateModeButtons();
     renderAll();
   }
+});
+
+// --- Keyboard/AT path to select a region (mirrors clicking a marker on the disk) ---
+document.getElementById("regionList")?.addEventListener("click", (event) => {
+  const btn = /** @type {Element} */ (event.target)?.closest?.("button[data-region-id]");
+  if (!btn) return;
+  const idStr = /** @type {HTMLElement} */ (btn).dataset.regionId;
+  const region = (store.state.active_regions || []).find((r) => String(r.id) === idStr);
+  if (!region) return;
+  store.selectedRegionId = region.id; // keep the original id type so selectors match
+  store.activeMode = "today";
+  updateModeButtons();
+  renderAll();
 });
 
 // --- Click the butterfly: scrub time when a series is loaded, else select a region ---

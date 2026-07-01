@@ -121,7 +121,9 @@ heliocentric ecliptic (theory)
 
 Each body in a snapshot also carries, all from first principles or cited constants:
 - **Distances:** heliocentric r and geocentric Δ (AU + km), plus light-travel time Δ/c.
-- **Orbital velocity:** vis-viva **v = √(GM☉ (2/r − 1/a))** (km/s); plus geocentric range-rate.
+- **Orbital velocity:** the instantaneous speed as a **central difference** of the VSOP2013/ELP-MPP02
+  position over a short step (km/s; matches the vis-viva value √(GM☉(2/r − 1/a)) to ~0.1%); plus
+  geocentric range-rate.
 - **Phase angle** and **illuminated fraction** k (Moon + inner planets).
 - **Angular size** θ = 2·atan(R_body / Δ) (arcsec).
 - **Apparent magnitude** from standard photometric models (per-planet, Moon by phase).
@@ -229,22 +231,25 @@ navigation accuracy.
   "Solar System" surface) fed by the `system_snapshot` engine export (heliocentric VSOP2013
   positions): Sun at centre, planets at real positions, mean-orbit guide rings, AU scale bar, a
   ±100-yr time scrubber, 1.5–32 AU zoom, and click-to-select with a **per-object detail panel**
-  (distance from Sun/Earth + light-time, vis-viva speed, illuminated fraction + phase, apparent
+  (distance from Sun/Earth + light-time, orbital speed, illuminated fraction + phase, apparent
   magnitude, equilibrium temperature). Draws **true eccentric/inclined orbit ellipses** from each
-  planet's osculating elements (`vsop2013::elements`), and **clicking the Sun opens the solar
-  surface** (Today). Verified in-browser. *Deferred to P5:* 3-D.
+  planet's osculating elements (`vsop2013::elements`); clicking any body — including the Sun — opens
+  its detail card. Verified in-browser. *Deferred to P5:* 3-D.
 - **P4 — Accuracy upgrade + physics. ✅ DONE.** **VSOP2013** for the Sun + 8 planets
   (`vsop2013.rs` + generated `vsop2013_data.rs`; light-time, **annual aberration**, nutation) and
-  **ELP-MPP02** for the Moon (`elpmpp02.rs` + `elpmpp02_data.rs`; light-time planetary aberration —
-  the Moon shares Earth's velocity so annual aberration does not apply). The of-date reduction uses
+  **ELP-MPP02** for the Moon (`elpmpp02.rs` + `elpmpp02_data.rs`; **light-time planetary aberration
+  only** — the Moon's *geocentric* ELP position already co-moves with the observer, so annual
+  aberration would double-count Earth's ~30 km/s, unlike the *heliocentric* VSOP2013 planets which do
+  need it; confirmed at syzygy by `tools/stress_moon_syzygy.py`). The of-date reduction uses
   the full **Meeus Ch. 21 ecliptic precession** (longitude *and* latitude — the earlier
   longitude-only shift had cost every body ~12″ in declination), and the observer is **Earth's
   centre** (EMB − Moon-mass-fraction · ELP-Moon), which removed the ~6″ that the bare barycentre
   cost the Sun and inner planets. **Validated vs JPL Horizons DE441** over the §8 4-case envelope:
   great-circle pointing **≤ ~4″ Sun+planets, ≤ ~5″ Moon** (worst 5.2″), geocentric RA/Dec ~3″.
-  *Accuracy is near-present;* deep-time apparent place is ΔT-limited (see §8). **TOP2013 dropped**
-  (VSOP2013 already nails the giants). Physics (`physics.rs`): phase angle, illuminated fraction,
-  apparent magnitude (Meeus Ch.41), vis-viva orbital speed, **black-body** equilibrium temperature
+  *Accuracy is near-present;* deep-time apparent place is ΔT-limited (see §8). **TOP2013** was later
+  shipped for the giants (Jupiter–Neptune) in the heliocentric orbit view (`system_snapshot`); the
+  topocentric My-Sky path stays on VSOP2013. Physics (`physics.rs`): phase angle, illuminated fraction,
+  apparent magnitude (Meeus Ch.41), central-difference orbital speed, **black-body** equilibrium temperature
   (labeled as such — *not* surface temperature) — in a **per-object detail panel**.
 - **P5 — WebGPU 3-D. ✅ DONE.** A dependency-free 3-D solar system (`js/orrery.js`, new "3-D View"
   surface) reusing the VSOP2013 `system_snapshot`. Built on the **browser's native WebGPU API in
@@ -277,8 +282,8 @@ navigation accuracy.
   budget + sources.
 - **Solar System** — top-down orbits at time T, zoom, time controls, click a body → detail.
 - **Object detail** — distance, velocity, phase, magnitude, angular size, rise/transit/set for the
-  observer, equilibrium temp; every value with provenance + accuracy. The Sun opens the
-  solar-surface app.
+  observer, equilibrium temp; every value with provenance + accuracy. Clicking any body (incl. the
+  Sun) opens its detail card.
 
 ## 11. Risks & mitigations
 

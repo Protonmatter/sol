@@ -1,15 +1,15 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js?v=a2360b7fc1";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=a2360b7fc1";
-import { text, textWithTitle, setPill } from "./dom.js?v=a2360b7fc1";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=a2360b7fc1";
+import { store } from "./store.js?v=09481a1dfc";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=09481a1dfc";
+import { text, textWithTitle, setPill } from "./dom.js?v=09481a1dfc";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=09481a1dfc";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
   dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js?v=a2360b7fc1";
+} from "./selectors.js?v=09481a1dfc";
 
 export function updateText() {
   const run = store.state.run || {};
@@ -40,6 +40,7 @@ export function updateText() {
   updateLayerLegend();
   updateApplicationPanel();
   updateSelectionText();
+  updateRegionList();
   updateStageRail();
 
   if (!fields.br_normalized || !fields.continuum_proxy) {
@@ -165,6 +166,34 @@ function updateSelectionText() {
   panel?.classList.add("selected");
   text("selectionTitle", `AR ${region.id}: ${regionLocation(region)}`);
   text("selectionText", selectedRegionSummary(region));
+}
+
+// Keyboard/AT-accessible equivalent of clicking a marker on the solar disk: a list
+// of real <button>s, one per active region. Rebuilt each render so aria-pressed
+// tracks the current selection. Wired via delegation in app.js.
+function updateRegionList() {
+  const list = document.getElementById("regionList");
+  if (!list) return;
+  list.textContent = "";
+  const regions = store.state.active_regions || [];
+  if (!regions.length) {
+    const empty = document.createElement("p");
+    empty.className = "time-frame-label";
+    empty.textContent = "No active regions in this snapshot.";
+    list.appendChild(empty);
+    return;
+  }
+  for (const region of regions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "region-chip";
+    const isSelected = region.id === store.selectedRegionId;
+    if (isSelected) btn.classList.add("selected");
+    btn.setAttribute("aria-pressed", String(isSelected));
+    btn.dataset.regionId = String(region.id);
+    btn.textContent = `AR ${region.id} · ${regionLocation(region)}`;
+    list.appendChild(btn);
+  }
 }
 
 function renderOperationalReadinessChecklist() {

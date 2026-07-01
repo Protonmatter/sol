@@ -8,7 +8,7 @@
 // clock-grade timing), they pin the celestial frame. The galactic-centre and -anticentre markers
 // plus the Milky Way band show where the Sun sits in the Galaxy (~26,000 ly out, toward Sagittarius).
 
-import { equToEcl } from "./bodyData.js?v=a2360b7fc1";
+import { equToEcl } from "./bodyData.js?v=09481a1dfc";
 
 // ---- bright stars (J2000), enough to draw the headline constellations + name the brightest ----
 // name, RA°, Dec°, V-mag, optional constellation tag for grouping.

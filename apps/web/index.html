@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=a2360b7fc1">
+    <link rel="stylesheet" href="styles.css?v=09481a1dfc">
   </head>
   <body>
     <main class="app-shell">
@@ -76,7 +76,7 @@
                 <input id="skyLon" class="sky-input" type="number" step="0.01" placeholder="lon ° (E+)" aria-label="longitude degrees east">
                 <button id="skySet" class="time-btn ghost" type="button">Set</button>
               </div>
-              <p id="skyLocLabel" class="time-frame-label">Using a default location — set yours above.</p>
+              <p id="skyLocLabel" class="time-frame-label" aria-live="polite">Using a default location — set yours above.</p>
             </div>
             <div class="sky-time">
               <span class="label">Time</span>
@@ -84,7 +84,7 @@
                 <input id="skyTime" class="sky-input sky-input-wide" type="datetime-local" aria-label="observation date and time (your local time)">
                 <button id="skyNow" class="time-btn" type="button">Now</button>
               </div>
-              <p id="skyTimeLabel" class="time-frame-label">Live — updating every minute.</p>
+              <p id="skyTimeLabel" class="time-frame-label" aria-live="polite">Live — updating every minute.</p>
               <p id="skyAccuracy" class="epoch-accuracy acc-good"></p>
             </div>
             <div class="sky-source">
@@ -123,51 +123,71 @@
                 <input id="orreryTime" class="sys-range" type="range" min="-5000" max="5000" step="1" value="0" aria-label="years from now (heliocentric)">
               </div>
               <p id="orreryAccuracy" class="epoch-accuracy acc-good"></p>
-              <div class="sky-loc-row" style="margin-top:.5rem; flex-wrap:wrap; gap:.4rem .9rem">
-                <label class="orrery-check"><input id="orreryTopDown" type="checkbox"> Top-down map</label>
-                <label class="orrery-check"><input id="orreryAnimate" type="checkbox" checked> Animate</label>
-                <label class="orrery-check"><input id="orreryTextures" type="checkbox" checked> NASA textures</label>
-                <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> True scale</label>
-                <label class="orrery-check"><input id="orreryShowOrbits" type="checkbox" checked> Orbits</label>
-                <label class="orrery-check"><input id="orreryShowSky" type="checkbox" checked> Sky</label>
-                <label class="orrery-check"><input id="orreryShowConst" type="checkbox" checked> Constellations</label>
-                <label class="orrery-check"><input id="orreryShowLabels" type="checkbox" checked> Sky labels</label>
-                <label class="orrery-check"><input id="orreryShowSunEq" type="checkbox" checked> Sun's equator</label>
-                <label class="orrery-check"><input id="orreryShowSmall" type="checkbox" checked> Small bodies</label>
-                <label class="orrery-check"><input id="orreryDeepSky" type="checkbox" checked> Deep sky (Milky Way)</label>
-              </div>
-              <div class="sky-loc-row" style="margin-top:.5rem; align-items:center; gap:.6rem; flex-wrap:wrap">
-                <label class="orrery-check" style="gap:.4rem">Focus
-                  <select id="orreryAnchor" class="sky-input" style="width:auto" aria-label="camera focus body">
-                    <option value="Sun">Sun</option>
-                    <option value="Mercury">Mercury</option>
-                    <option value="Venus">Venus</option>
-                    <option value="Earth">Earth</option>
-                    <option value="Moon">Moon</option>
-                    <option value="Mars">Mars</option>
-                    <option value="Jupiter">Jupiter</option>
-                    <option value="Saturn">Saturn</option>
-                    <option value="Uranus">Uranus</option>
-                    <option value="Neptune">Neptune</option>
-                  </select>
-                </label>
-                <label class="orrery-check"><input id="orreryFreeFly" type="checkbox"> Free fly (WASD)</label>
-              </div>
-              <div class="sky-loc-row" style="margin-top:.5rem">
-                <button id="orreryGalaxy" class="time-btn" type="button">Zoom out to the Milky Way</button>
-              </div>
-              <label class="sys-zoom-row"><span class="label">Body size</span>
-                <input id="orrerySize" class="sys-range" type="range" min="0.4" max="2.5" step="0.05" value="1" aria-label="body size exaggeration">
-              </label>
-              <label class="sys-zoom-row"><span class="label" id="orrerySpeedLabel">Time speed (years / sec)</span>
-                <input id="orrerySpeed" class="sys-range" type="range" min="0.02" max="5" step="0.02" value="0.5" aria-label="animation time speed">
-              </label>
-              <p class="time-frame-label">Orbits sit at their true inclinations against the ecliptic plane (grey grid); drop-lines show each planet's height above/below it. In "visible" mode the bodies are enlarged so they read at AU scale — switch to True scale for honest sizes.</p>
+              <details class="orrery-group" open>
+                <summary>View</summary>
+                <div class="orrery-group-body">
+                  <div class="orrery-check-grid">
+                    <label class="orrery-check"><input id="orreryTopDown" type="checkbox"> Top-down map</label>
+                    <label class="orrery-check"><input id="orreryAnimate" type="checkbox" checked> Animate</label>
+                    <label class="orrery-check"><input id="orreryTextures" type="checkbox" checked> NASA textures</label>
+                    <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> True scale</label>
+                  </div>
+                  <p class="time-frame-label">Planets are enlarged by default so the small ones stay visible at solar-system scale. Tick <strong>True scale</strong> for honest proportions.</p>
+                </div>
+              </details>
+
+              <details class="orrery-group">
+                <summary>Overlays</summary>
+                <div class="orrery-group-body">
+                  <div class="orrery-check-grid">
+                    <label class="orrery-check"><input id="orreryShowOrbits" type="checkbox" checked> Orbits</label>
+                    <label class="orrery-check"><input id="orreryShowSky" type="checkbox" checked> Sky</label>
+                    <label class="orrery-check"><input id="orreryShowConst" type="checkbox" checked> Constellations</label>
+                    <label class="orrery-check"><input id="orreryShowLabels" type="checkbox" checked> Sky labels</label>
+                    <label class="orrery-check"><input id="orreryShowSunEq" type="checkbox" checked> Sun's equator</label>
+                    <label class="orrery-check"><input id="orreryShowSmall" type="checkbox" checked> Small bodies</label>
+                    <label class="orrery-check"><input id="orreryDeepSky" type="checkbox" checked> Deep sky (Milky Way)</label>
+                  </div>
+                </div>
+              </details>
+              <details class="orrery-group">
+                <summary>Camera &amp; motion</summary>
+                <div class="orrery-group-body">
+                  <div class="sky-loc-row orrery-camera-row">
+                    <label class="orrery-check orrery-focus-label">Focus
+                      <select id="orreryAnchor" class="sky-input orrery-focus-select" aria-label="camera focus body">
+                        <option value="Sun">Sun</option>
+                        <option value="Mercury">Mercury</option>
+                        <option value="Venus">Venus</option>
+                        <option value="Earth">Earth</option>
+                        <option value="Moon">Moon</option>
+                        <option value="Mars">Mars</option>
+                        <option value="Jupiter">Jupiter</option>
+                        <option value="Saturn">Saturn</option>
+                        <option value="Uranus">Uranus</option>
+                        <option value="Neptune">Neptune</option>
+                      </select>
+                    </label>
+                    <label class="orrery-check"><input id="orreryFreeFly" type="checkbox"> Free fly (WASD)</label>
+                  </div>
+                  <div class="sky-loc-row orrery-galaxy-row">
+                    <button id="orreryGalaxy" class="time-btn" type="button">Zoom out to the Milky Way</button>
+                  </div>
+                  <label class="sys-zoom-row"><span class="label">Body size</span>
+                    <input id="orrerySize" class="sys-range" type="range" min="0.4" max="2.5" step="0.05" value="1" aria-label="body size exaggeration">
+                  </label>
+                  <label class="sys-zoom-row"><span class="label" id="orrerySpeedLabel">Time speed (years / sec)</span>
+                    <input id="orrerySpeed" class="sys-range" type="range" min="0.02" max="5" step="0.02" value="0.5" aria-label="animation time speed">
+                  </label>
+                </div>
+              </details>
+
+              <p class="time-frame-label">Orbits sit at their true inclinations against the ecliptic plane (grey grid); drop-lines show each planet's height above/below it.</p>
               <p id="orreryBackend" class="time-frame-label"></p>
             </div>
             <div class="sky-whatsup">
               <span class="label">Selected body</span>
-              <div id="orreryDetail" class="sky-list"><div class="sky-row">Click the Sun or a planet to inspect its size, gravity, rotation, tilt, magnetic field, atmosphere, and live distance.</div></div>
+              <div id="orreryDetail" class="sky-list" aria-live="polite"><div class="sky-row">Click the Sun or a planet to inspect its size, gravity, rotation, tilt, magnetic field, atmosphere, and live distance.</div></div>
             </div>
             <div class="sky-whatsup">
               <span class="label">Positions</span>
@@ -219,6 +239,11 @@
                   <span class="label">Schema</span>
                   <strong id="schemaVersion">unknown</strong>
                 </div>
+              </section>
+
+              <section class="region-picker" aria-label="Active regions">
+                <span class="label">Active regions <span class="muted">— pick one to inspect</span></span>
+                <div id="regionList" class="region-list" role="group" aria-label="Active regions; select one to inspect it on the disk"></div>
               </section>
 
               <section class="selection-panel" aria-label="Selected active region summary" aria-live="polite">
@@ -299,7 +324,7 @@
     </main>
     <div id="tourLayer" class="tour-layer" hidden>
       <div id="tourSpot" class="tour-spot" aria-hidden="true"></div>
-      <div id="tourCard" class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+      <div id="tourCard" class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tourTitle" tabindex="-1">
         <p id="tourStepCount" class="tour-step-count"></p>
         <strong id="tourTitle"></strong>
         <p id="tourBody"></p>
@@ -312,6 +337,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=a2360b7fc1"></script>
+    <script type="module" src="app.js?v=09481a1dfc"></script>
   </body>
 </html>

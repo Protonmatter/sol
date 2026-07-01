@@ -117,7 +117,17 @@ export const GLOSSARY = {
   "stage-minimum": ["Solar minimum", "The calm low point of the ~11-year cycle. Few or no sunspots, few flares, and aurora are rare and stay near the poles."],
   "stage-rising": ["Rising phase", "Activity climbs out of minimum: sunspots grow more frequent and appear at mid-latitudes. Flares and aurora become more common."],
   "stage-maximum": ["Solar maximum", "The busy peak of the cycle. The most sunspots, the most flares and coronal mass ejections, and the best chance of aurora far from the poles."],
-  "stage-declining": ["Declining phase", "Activity winds down toward the next minimum. Sunspots become less frequent and drift toward the Sun's equator."]
+  "stage-declining": ["Declining phase", "Activity winds down toward the next minimum. Sunspots become less frequent and drift toward the Sun's equator."],
+  // Solar System / orrery vocabulary (surfaced by the '?' affordances in the body detail panel).
+  "sidereal": ["Sidereal rotation", "How long a body takes to spin once relative to the distant stars (not to the Sun). 'Retrograde' means it spins backwards compared with most planets."],
+  "axial-tilt": ["Axial tilt", "The angle between a body's spin axis and the straight-up direction of its orbit. Earth's 23.4° tilt is what gives us seasons."],
+  "oblateness": ["Oblateness", "How much a fast-spinning body bulges at its equator and flattens at its poles, making its equatorial radius larger than its polar one."],
+  "escape-velocity": ["Escape velocity", "The speed something needs to break free of a body's gravity for good, with no further push."],
+  "magnetic-dipole": ["Magnetic dipole", "A global magnetic field with a north and south pole, like a bar magnet — here compared with the strength of Earth's."],
+  "orbital-speed": ["Orbital speed", "How fast the body is moving along its orbit right now. Bodies travel faster when they are closer to the Sun."],
+  "phase-angle": ["Phase angle", "The Sun–body–observer angle. It sets how much of the lit face we see — the same effect as the Moon's phases."],
+  "apparent-magnitude": ["Apparent magnitude", "How bright the object looks from Earth. Smaller numbers are brighter; the brightest stars sit near 0 or below."],
+  "equilibrium-temperature": ["Equilibrium temperature", "The temperature a body would settle at from sunlight alone if it were a simple black body — no greenhouse gases, no internal heat. Venus's real ~737 K is far above its ~227 K equilibrium value because of its thick CO₂ atmosphere."]
 };
 
 export const SIGNAL_TERMS = { "Kp": "kp", "F10.7": "f107", "GOES/X-ray": "goes-xray", "solar wind": "solar-wind" };
@@ -171,6 +181,8 @@ export const TOUR_STEPS = [
   { target: null, title: "Meet the Sun", body: "This is the real Sun as seen today by NASA's SDO satellite — not a drawing. Take a few seconds and I'll show you around." },
   { target: "#solarCanvas", title: "Real sunspots", body: "Those dark specks are sunspots: cooler, magnetically intense patches. The more sunspots there are, the more active the Sun is." },
   { target: "#stageRail", title: "Where we are in the cycle", body: "The Sun runs an ~11-year cycle from quiet (Minimum) to busy (Maximum). The highlighted step is where it is right now — click any step to learn about it." },
-  { target: ".mode-grid", title: "Three ways to look", body: "The Sun is this view — open the drawers beneath it to explore the layers, see what it means for Earth, or look under the hood. My Sky shows your local sky; Solar System flies you through the planets." },
+  { target: ".mode-grid", title: "Three places to explore", body: "These buttons switch the whole app. You're on The Sun now — the drawers beneath it go deeper: the layers, what it means for Earth, and the model under the hood." },
+  { target: ".mode-button[data-mode='sky']", title: "My Sky", body: "Switch here for your local night sky: where the Sun, Moon, planets and bright stars are right now for your location, with rise and set times. Real orbital mechanics, validated against NASA JPL." },
+  { target: ".mode-button[data-mode='orrery']", title: "Solar System", body: "And here you fly through the planets in 3-D at their true positions — drag to orbit, scroll to zoom, click a world to inspect it. Sizes are enlarged so the small planets show up; flip on True scale for honest proportions." },
   { target: null, title: "You're set", body: "Tap any '?' to learn a term, and click a marker on the Sun to inspect it. Enjoy exploring." }
 ];

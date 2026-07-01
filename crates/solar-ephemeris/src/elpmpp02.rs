@@ -90,9 +90,17 @@ pub fn moon_xyz(jy2k: f64) -> [f64; 3] {
 }
 
 /// Geocentric ecliptic-of-date apparent (longitude °, latitude °, distance km) of the Moon.
-/// Applies planetary aberration via light-time (the Moon shares Earth's heliocentric velocity,
-/// so annual aberration does not apply to the Earth–Moon direction), general precession of the
-/// longitude from J2000 to date, and nutation in longitude.
+/// Applies planetary aberration via light-time, general precession of the ecliptic from J2000 to
+/// date, and nutation in longitude.
+///
+/// **No annual aberration term** — and this is deliberate, not an oversight. Aberration is set by the
+/// observer's velocity *relative to the frame the source position is expressed in*. ELP-MPP02 gives
+/// the Moon's position in a **geocentric** frame that already co-moves with the observer, so Earth's
+/// ~30 km/s heliocentric velocity cancels in the Earth→Moon vector; adding an annual-aberration term
+/// would double-count it. (The VSOP2013 planets are different: their **heliocentric** positions do
+/// need the observer-velocity term — see `planets::reduce`.) Empirically confirmed: adding annual
+/// aberration here regresses the JPL Horizons gate from ~5″ to ~23″ at syzygy
+/// (`tools/stress_moon_syzygy.py`), because Horizons' geocentric Moon place has no such term either.
 pub fn moon_apparent_ecliptic(jd_tt: f64, dpsi_deg: f64) -> (f64, f64, f64) {
     let jy2k = (jd_tt - 2451545.0) / 365.25;
     let m0 = moon_xyz(jy2k);

@@ -1,9 +1,9 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=a2360b7fc1";
-import { STARS, CONSTELLATIONS } from "./celestial.js?v=a2360b7fc1";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=a2360b7fc1";
+import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=09481a1dfc";
+import { STARS, CONSTELLATIONS } from "./celestial.js?v=09481a1dfc";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=09481a1dfc";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
@@ -432,11 +432,31 @@ function rowFor(b, titleText, detailText) {
   const row = document.createElement("div");
   row.className = "sky-row sky-hoverable";
   row.dataset.name = b.name;
+  row.tabIndex = 0;
+  row.setAttribute("role", "button");
   const title = document.createElement("strong"); title.textContent = titleText;
   const detail = document.createElement("span"); detail.className = "muted"; detail.textContent = detailText;
   row.append(title, detail);
-  row.addEventListener("mouseenter", () => { if (pinned) return; activeName = b.name; redraw(); });
-  row.addEventListener("mouseleave", () => { if (pinned) return; if (activeName === b.name) { activeName = null; redraw(); } });
+  // Focus and hover both preview the body on the dome — keyboard parity with mouse.
+  const previewOn = () => { if (pinned) return; activeName = b.name; redraw(); };
+  const previewOff = () => { if (pinned) return; if (activeName === b.name) { activeName = null; redraw(); } };
+  row.addEventListener("mouseenter", previewOn);
+  row.addEventListener("mouseleave", previewOff);
+  row.addEventListener("focus", previewOn);
+  row.addEventListener("blur", previewOff);
+  // Enter/Space toggles a pin — parity with clicking the body on the dome.
+  row.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    const pinThis = !(pinned && activeName === b.name);
+    pinned = pinThis;
+    activeName = pinThis ? b.name : null;
+    const listEl = row.parentElement;
+    if (listEl) listEl.querySelectorAll('.sky-row[role="button"]').forEach((r) => r.setAttribute("aria-pressed", "false"));
+    row.setAttribute("aria-pressed", String(pinThis));
+    redraw();
+  });
+  row.setAttribute("aria-pressed", String(pinned && activeName === b.name));
   return row;
 }
 
@@ -503,13 +523,20 @@ document.getElementById("skyGeo")?.addEventListener("click", () => {
 document.getElementById("skySet")?.addEventListener("click", () => {
   const lat = Number(/** @type {HTMLInputElement} */ (document.getElementById("skyLat")).value);
   const lon = Number(/** @type {HTMLInputElement} */ (document.getElementById("skyLon")).value);
-  if (Number.isFinite(lat) && Number.isFinite(lon)) {
-    observer.lat = Math.max(-90, Math.min(90, lat));
-    observer.lon = lon;
-    observer.label = "Set location";
-    setLocLabel();
-    renderSky();
+  const label = document.getElementById("skyLocLabel");
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    if (label) label.textContent = "Enter a numeric latitude and longitude — e.g. 40.71, -74.01.";
+    return;
   }
+  const clampedLat = Math.max(-90, Math.min(90, lat));
+  observer.lat = clampedLat;
+  observer.lon = lon;
+  observer.label = "Set location";
+  setLocLabel();
+  if (clampedLat !== lat && label) {
+    label.textContent = `Latitude out of range — clamped to ${clampedLat}° (valid: -90° to 90°).`;
+  }
+  renderSky();
 });
 
 // --- Data-source toggle (on-device engine vs optional DE441 server tier) ---
@@ -526,11 +553,14 @@ document.getElementById("skyProviderServer")?.addEventListener("click", () => se
 document.getElementById("skyTime")?.addEventListener("change", (event) => {
   const v = /** @type {HTMLInputElement} */ (event.target).value;
   const t = v ? new Date(v).getTime() : NaN;
-  if (Number.isFinite(t)) {
-    chosenUnix = t / 1000;
-    setTimeLabel();
-    if (active) renderSky();
+  const label = document.getElementById("skyTimeLabel");
+  if (!Number.isFinite(t)) {
+    if (label) label.textContent = "Enter a valid date and time, or press Now for live.";
+    return;
   }
+  chosenUnix = t / 1000;
+  setTimeLabel();
+  if (active) renderSky();
 });
 document.getElementById("skyNow")?.addEventListener("click", () => {
   chosenUnix = null;
@@ -571,28 +601,42 @@ function ensureTooltip() {
   if (!t) { t = document.createElement("div"); t.id = "skyTooltip"; t.className = "sky-tooltip"; t.style.display = "none"; document.body.appendChild(t); }
   return t;
 }
-function tooltipHTML(b) {
-  const rows = [`<strong>${b.name}</strong>`];
-  rows.push(b.above_horizon
-    ? `${Math.round(b.alt_deg)}&deg; above the ${b.compass} horizon &middot; az ${Math.round(b.az_deg)}&deg;`
-    : `below the ${b.compass} horizon`);
+// Build the tooltip via DOM nodes + textContent (never innerHTML): with the
+// "NASA JPL (live)" provider, b.name/b.compass come from a fetched JSON response,
+// so string-interpolating them into innerHTML would be an injection vector.
+function fillTooltip(t, b) {
+  t.textContent = "";
+  const line = (text, cls) => {
+    const d = document.createElement("div");
+    if (cls) d.className = cls;
+    d.textContent = text;
+    t.appendChild(d);
+  };
+  const nameRow = document.createElement("div");
+  const strong = document.createElement("strong");
+  strong.textContent = b.name;
+  nameRow.appendChild(strong);
+  t.appendChild(nameRow);
+
+  line(b.above_horizon
+    ? `${Math.round(b.alt_deg)}° above the ${b.compass} horizon · az ${Math.round(b.az_deg)}°`
+    : `below the ${b.compass} horizon`, "tt-line");
   if (b.name === "Moon" && lastSnap) {
     const ph = moonPhaseInfo(lastSnap);
-    if (ph) rows.push(`${ph.glyph} ${ph.name} &middot; ${Math.round(ph.k * 100)}% lit`);
+    if (ph) line(`${ph.glyph} ${ph.name} · ${Math.round(ph.k * 100)}% lit`, "tt-line");
   }
-  if (b.magnitude != null) rows.push(`magnitude ${b.magnitude.toFixed(1)}`);
+  if (b.magnitude != null) line(`magnitude ${b.magnitude.toFixed(1)}`, "tt-line");
   if (b.distance_km != null && b.distance_km > 0) {
     const lm = b.distance_km / 299792.458 / 60; // light-minutes
-    rows.push(lm >= 1 ? `${(b.distance_km / 1.495978707e8).toFixed(3)} AU &middot; light ${lm.toFixed(1)} min`
-      : `${Math.round(b.distance_km).toLocaleString()} km away`);
+    line(lm >= 1 ? `${(b.distance_km / 1.495978707e8).toFixed(3)} AU · light ${lm.toFixed(1)} min`
+      : `${Math.round(b.distance_km).toLocaleString()} km away`, "tt-line");
   }
-  rows.push(`rises ${jdToLocal(b.rise_jd)} &middot; transits ${jdToLocal(b.transit_jd)} (${Math.round(b.transit_alt_deg)}&deg;) &middot; sets ${jdToLocal(b.set_jd)}`);
-  rows.push(`<span class="muted">trajectory: dashed = past, solid = ahead</span>`);
-  return rows.map((r, i) => `<div${i ? ' class="tt-line"' : ""}>${r}</div>`).join("");
+  line(`rises ${jdToLocal(b.rise_jd)} · transits ${jdToLocal(b.transit_jd)} (${Math.round(b.transit_alt_deg)}°) · sets ${jdToLocal(b.set_jd)}`, "tt-line");
+  line("trajectory: dashed = past, solid = ahead", "tt-line muted");
 }
 function showTooltip(b, clientX, clientY) {
   const t = ensureTooltip();
-  t.innerHTML = tooltipHTML(b);
+  fillTooltip(t, b);
   t.style.display = "block";
   const pad = 14, rect = t.getBoundingClientRect();
   let x = clientX + pad, y = clientY + pad;

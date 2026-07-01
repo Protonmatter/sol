@@ -18,6 +18,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent / "apps" / "web"
 TOKEN = re.compile(r"\?v=[0-9a-zA-Z]+")
+# Binary assets that carry no ?v of their own but must influence the token: the WASM engines
+# and the surface textures. Folding their bytes into the hash means a wasm-only rebuild (new
+# ABI) or a texture swap re-stamps every JS module that loads them, so cached JS can never pair
+# with a mismatched engine. The daily-changing data/ JSON is deliberately excluded — it is
+# fetched with cache:"no-store" (always fresh) and would otherwise thrash the token every ingest.
+ASSET_GLOBS = ("pkg/*.wasm", "textures/*")
 
 
 def main() -> int:
@@ -27,6 +33,11 @@ def main() -> int:
     for path in files:
         text = io.open(path, encoding="utf-8").read()
         h.update(TOKEN.sub("?v=", text).encode("utf-8"))
+        h.update(path.name.encode("utf-8"))
+    # Fold in the binary assets' bytes (tolerating absent, e.g. gitignored, textures).
+    assets = sorted({p for glob in ASSET_GLOBS for p in ROOT.glob(glob) if p.is_file()})
+    for path in assets:
+        h.update(path.read_bytes())
         h.update(path.name.encode("utf-8"))
     version = h.hexdigest()[:10]
 
@@ -39,7 +50,7 @@ def main() -> int:
         if new != text:
             io.open(path, "w", encoding="utf-8", newline="\n").write(new)
             changed.append(path.name)
-    print(f"stamped ?v={version} ({len(changed)} files updated)")
+    print(f"stamped ?v={version} ({len(changed)} files updated; {len(assets)} binary assets folded into the hash)")
     return 0
 
 

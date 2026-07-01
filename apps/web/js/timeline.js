@@ -1,11 +1,18 @@
 // Timeline scrubber / cycle playback + the in-browser (WASM) live engine run.
 
-import { store } from "./store.js?v=a2360b7fc1";
-import { renderAll } from "./view.js?v=a2360b7fc1";
-import { loadEngine, simulateSnapshot } from "../engine.js?v=a2360b7fc1";
+import { store } from "./store.js?v=09481a1dfc";
+import { renderAll } from "./view.js?v=09481a1dfc";
+import { loadEngine, simulateSnapshot } from "../engine.js?v=09481a1dfc";
+
+// Monotonic counter bumped whenever the displayed state changes (scrub, Now, or a
+// new live run). runLiveEngine() captures it before awaiting the WASM load and
+// bails if it changed, so a slow-resolving simulate can't overwrite state the user
+// has since navigated away from.
+let navGeneration = 0;
 
 export function setTimelineFrame(index) {
   if (!store.seriesFrames.length) return;
+  navGeneration++;
   store.liveEngineRun = false;
   store.timelineIndex = Math.max(0, Math.min(store.seriesFrames.length - 1, index));
   store.state = store.seriesFrames[store.timelineIndex];
@@ -18,6 +25,7 @@ export function setTimelineFrame(index) {
 
 export function goLive() {
   stopPlay();
+  navGeneration++;
   store.liveEngineRun = false;
   store.timelineIndex = -1;
   store.state = store.liveState;
@@ -31,11 +39,13 @@ export async function runLiveEngine() {
   const status = document.getElementById("liveStatus");
   const slider = /** @type {HTMLInputElement|null} */ (document.getElementById("liveActivity"));
   const activity = Number(slider?.value || 0.9);
+  const gen = ++navGeneration; // this run supersedes any earlier nav/run in flight
   try {
     await loadEngine();
     const start = performance.now();
     const snapshot = simulateSnapshot({ seed: 42, steps: 24, dtHours: 1, activity, lon: 72, lat: 36 });
     const ms = (performance.now() - start).toFixed(1);
+    if (gen !== navGeneration) return; // user navigated away while the engine loaded — don't clobber
     stopPlay();
     store.timelineIndex = -1;
     store.liveEngineRun = true;

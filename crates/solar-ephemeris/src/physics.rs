@@ -1,6 +1,7 @@
 //! Derived physical quantities for the planets: phase, illuminated fraction, apparent
-//! magnitude, and equilibrium temperature. Heliocentric orbital speed (vis-viva) is taken
-//! from the VSOP2013 state in `lib.rs` by finite difference.
+//! magnitude, and equilibrium temperature. Heliocentric orbital speed is taken from the
+//! VSOP2013/ELP-MPP02 state in `lib.rs` by central difference (≈ the vis-viva value to ~0.1%,
+//! but computed numerically, not from √(GM(2/r − 1/a))).
 
 /// Phase angle Sun–body–Earth (degrees) from the heliocentric (r), geocentric (Δ),
 /// and Sun–Earth (R) distances in AU.

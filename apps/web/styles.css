@@ -12,6 +12,7 @@
   --magenta: #d958a7;
   --green: #8fd17f;
   --danger: #ff5964;
+  --focus-ring: #7cc4ff;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -28,6 +29,15 @@ body {
 button,
 input {
   font: inherit;
+}
+
+/* Accessible focus indicator: one high-contrast ring for every keyboard-focused
+   control. Components must NOT set `outline: none` — a same-colour border change
+   is invisible (that was the bug). The 2px offset sits the ring on the dark panel
+   behind the control, so it stays >=3:1 even over the gold button fills. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .app-shell {
@@ -673,7 +683,6 @@ h2 {
 .time-btn:hover,
 .time-btn:focus-visible {
   border-color: var(--gold);
-  outline: none;
 }
 
 .time-frame-label {
@@ -691,6 +700,94 @@ h2 {
 .live-engine .time-frame-label {
   color: var(--teal);
 }
+
+/* Keyboard/AT-accessible active-region picker (mirrors clicking a disk marker). */
+.region-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.region-chip {
+  min-height: 2.1rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.region-chip:hover {
+  border-color: var(--gold);
+}
+
+.region-chip.selected {
+  border-color: var(--gold);
+  background: #2b1f10;
+  font-weight: 700;
+}
+
+/* Sky "Up now" rows are focusable buttons (keyboard preview + pin). */
+.sky-row[role="button"] {
+  cursor: pointer;
+}
+
+/* Solar System control groups — the Sun panel's <details> disclosure ported here so
+   the orrery's dense controls aren't one flat wall. Own class (not .sun-section,
+   which is display:none on this surface) but visually identical. */
+.orrery-group {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-top: 0.6rem;
+}
+
+.orrery-group > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.55rem 0.8rem;
+  font: 600 0.9rem "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.orrery-group > summary::-webkit-details-marker { display: none; }
+
+.orrery-group > summary::after {
+  content: "▸";
+  color: rgba(247, 183, 51, 0.85);
+  transition: transform 0.15s ease;
+}
+
+.orrery-group[open] > summary::after { transform: rotate(90deg); }
+.orrery-group > summary:hover { background: rgba(255, 255, 255, 0.04); }
+
+.orrery-group-body {
+  padding: 0 0.8rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.orrery-check-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+}
+
+.orrery-camera-row {
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.orrery-focus-label { gap: 0.4rem; }
+.orrery-focus-select { width: auto; }
 
 /* ---- My Sky surface ---- */
 #skyCanvas {
@@ -1104,7 +1201,6 @@ body[data-surface="orrery"] .timeline-band {
 .term:focus-visible {
   border-color: var(--gold);
   color: var(--gold);
-  outline: none;
 }
 
 .legend-chip[data-term] {
@@ -1114,7 +1210,6 @@ body[data-surface="orrery"] .timeline-band {
 .legend-chip[data-term]:hover,
 .legend-chip[data-term]:focus-visible {
   border-color: var(--gold);
-  outline: none;
 }
 
 .term-tip {
@@ -1166,7 +1261,6 @@ body[data-surface="orrery"] .timeline-band {
 .tour-cta:hover,
 .tour-cta:focus-visible {
   background: #3a2912;
-  outline: none;
 }
 
 .tour-layer {

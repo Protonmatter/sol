@@ -7,13 +7,16 @@ let loadPromise = null;
 export function loadSkyEngine() {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
-    const response = await fetch("pkg/solar_ephemeris.wasm", { cache: "no-store" });
+    const response = await fetch("pkg/solar_ephemeris.wasm?v=09481a1dfc", { cache: "no-store" });
     if (!response.ok) throw new Error(`ephemeris wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});
     wasmExports = instance.exports;
     return wasmExports;
   })();
+  // Clear the memo on failure so My Sky / Solar System can retry after a transient
+  // load error instead of being permanently disabled for the life of the tab.
+  loadPromise.catch(() => { loadPromise = null; });
   return loadPromise;
 }
 

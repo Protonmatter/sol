@@ -75,14 +75,16 @@ and validated against **JPL Horizons (DE441)**.
   `vsop2013.rs` / `elpmpp02.rs`; light-time, aberration, nutation, and the full **Meeus Ch. 21
   ecliptic precession** (a longitude-only shift had cost every body ~12″ in dec). Validated vs
   Horizons to **arcsecond class** (Saturn 0.3″ vs Standish's 250″; Moon geocentric ~3″; worst
-  alt/az 11.3″). TOP2013 dropped (VSOP2013 suffices). `physics.rs` adds phase/illumination,
-  apparent magnitude, vis-viva speed, equilibrium temp → a per-object detail panel in P3.
+  alt/az 11.3″). (TOP2013 was later shipped for the orbit-view giants; the topocentric path stays on
+  VSOP2013.) `physics.rs` adds phase/illumination, apparent magnitude, central-difference orbital
+  speed, equilibrium temp → a per-object detail panel in P3.
   **Review (2026-06-29): green** — 26 workspace tests pass, Horizons gate (22″/32″) passes, web
   static passes, no compiler warnings, both snapshots well-formed, browser-verified.
 - **P3 (orbit view) ✅** — **Solar System** surface: top-down ecliptic view (`js/system.js` +
   `system_snapshot` export), Sun-centred, real planet positions, **true orbit ellipses** from
   osculating elements, AU scale, ±100-yr time scrubber, 1.5–32 AU zoom, click-to-select with a
-  per-object physics detail panel, and **Sun→solar-surface click-through**. Review (2026-06-29):
+  per-object physics detail panel. (The early Sun→solar-surface click-through was dropped when
+  `system.js` was folded into `orrery.js`; the Sun now opens its own detail card.) Review (2026-06-29):
   green — all six surfaces switch cleanly, no console errors, validators pass.
 - **P5 (WebGPU 3-D) ✅** — **3-D View** surface (`js/orrery.js`): a dependency-free orrery on the
   browser's native **WebGPU** API (not `wgpu` — wasm-bindgen won't build on this ARM64 toolchain),

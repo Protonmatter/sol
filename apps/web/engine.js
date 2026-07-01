@@ -11,13 +11,17 @@ export function loadEngine() {
   loadPromise = (async () => {
     // Use instantiate(arrayBuffer) rather than instantiateStreaming so it works
     // even when the static server doesn't send the application/wasm MIME type.
-    const response = await fetch("pkg/solar_wasm.wasm", { cache: "no-store" });
+    const response = await fetch("pkg/solar_wasm.wasm?v=09481a1dfc", { cache: "no-store" });
     if (!response.ok) throw new Error(`wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});
     wasmExports = instance.exports;
     return wasmExports;
   })();
+  // If the load fails, clear the memoized promise so a later call can retry —
+  // otherwise one transient network blip disables the live engine for the tab's
+  // whole life. Callers still see this attempt's rejection via the returned promise.
+  loadPromise.catch(() => { loadPromise = null; });
   return loadPromise;
 }
 
