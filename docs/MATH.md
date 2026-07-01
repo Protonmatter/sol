@@ -32,6 +32,13 @@ G(x,y) = exp(-(x²+y²)/(2σ²))
   -B_r/τ
 ```
 
+> **v0.1 implements a reduced form of this equation** (matching `docs/SPEC.md` §"v0.1 implements"):
+> the differential-rotation shear (−Ω ∂B_r/∂φ), diffusion, source injection, and decay. The
+> **meridional-circulation term** (−1/(R⊙ sinθ)·∂[v B_r sinθ]/∂θ) is **not yet built**, and the
+> implemented rotation/diffusion use a flat lat–lon stencil — the sinθ / spherical-metric factors are
+> absorbed into the tuned coefficients rather than applied explicitly, so `∇²_s` here is that reduced
+> operator, not the exact surface Laplacian. See `crates/solar-core/src/flux_transport.rs`.
+
 ## Continuum proxy
 
 ```text

@@ -1,0 +1,319 @@
+# Solar System & Sky Engine — Spec (v0.3 "Orrery + My Sky")
+
+Status: Draft for review (build gated on sign-off)
+Date: 2026-06-28
+Relationship: extends the Solar Maximum Engine. Reuses the Rust→WASM deterministic
+engine pattern, the snapshot/provenance contracts, the operational-honesty discipline,
+and the ES-module web shell. The existing solar-surface app becomes the **Sun** object.
+
+---
+
+## 0. Purpose & north star
+
+> **"Where is everything in the solar system right now — and exactly where would I see it
+> from where I'm standing — with every number derived from orbital mechanics and physics, and
+> checked against JPL."**
+
+Two reference points the user named:
+- **NASA's Eyes on the Solar System** — real-time **3D** flythrough positioned from JPL
+  ephemerides/SPICE. Strong renderer + mission data; does **not** answer "what can I see from my
+  backyard."
+- **SkyView** — point-your-phone AR sky with object **altitude/azimuth**. Strong observer-centric
+  local sky; thin on data/physics/provenance.
+
+**The niche we own = the intersection:** rigorous, deterministic orbital math **plus** the
+observer-centric "from your exact lat/long, here's where it is and why" view — every value
+labelled with its method and its measured error vs JPL Horizons. We win on **usability + fact
+grounding + the local-sky integration**, not on out-rendering JPL's 3D on day one.
+
+## 1. Invariants (carried over from Sol)
+
+- **Deterministic, math-first engine.** Positions come from published analytic theory compiled
+  into Rust→WASM — not a runtime data feed. Same seed/time ⇒ same answer, byte-for-byte.
+- **Grounded in facts = validated against JPL Horizons.** Every body's apparent RA/Dec and
+  topocentric alt/az is regression-tested against Horizons to a stated tolerance. Constants come
+  from IAU / NASA fact sheets with provenance.
+- **Honesty about accuracy.** Outputs carry an `accuracy_class` (e.g. "arcminute analytic,
+  validated vs JPL Horizons to < X"). **Not** for navigation, spacecraft ops, or occultation
+  timing. Mirrors `operational_readiness`.
+- **Snapshot-driven UI.** The renderer consumes immutable `ephemeris-snapshot.v1`; the UI never
+  invents geometry.
+- **No bundler, no Node at runtime.** Native ES modules + a WASM engine, hostable as static files.
+- **Privacy.** The observer's location is obtained only via the browser Geolocation API (the user
+  grants it) or manual entry. Location is never sent anywhere; geocoding is opt-in (§5.4).
+
+## 2. Architecture (how it fits Sol)
+
+- **New Rust crate `solar-ephemeris`** (zero/minimal deps) → compiled to WASM exactly like
+  `solar-wasm`. Pure functions; deterministic; host-testable.
+- **New WASM surface** alongside `solar_wasm`: `ephemeris.wasm` exporting
+  `sky_snapshot(jd, lat, lon, elev) → JSON` and `system_snapshot(jd) → JSON`.
+- **New web surfaces** (new ES modules under `apps/web/js/`): **"My Sky"** (local horizon) and
+  **"Solar System"** (orbit view), added to the existing surface set; object **detail** reuses the
+  disclosure machine.
+- **New contract** `ephemeris-snapshot.v1` (§6), validated by a new `tools/validate_ephemeris.py`
+  and a Horizons cross-check harness (§7), wired into the existing validator suite.
+
+### 2.1 Provider tiers (hybrid — decided 2026-06-29)
+
+`ephemeris-snapshot.v1` is provider-agnostic: the renderer doesn't care whether a snapshot was
+computed in-browser or fetched from a server. That makes a **hybrid** the design:
+
+- **Client tier (default, always available):** the `solar-ephemeris` WASM engine — analytic
+  theory (VSOP2013/TOP2013/ELP-MPP02 after P4), runs offline/instant, free to host as static
+  files, mas-class over roughly ±6000 yr. Handles the everyday "My Sky / live sky" case with **no
+  server**. This is the strength we keep.
+- **Server tier (optional, on-demand):** a backend high-precision provider serving full
+  **DE440/DE441** (JPL numerical, sub-meter, the −13200…+17191 / 30,000-yr span Horizons itself
+  uses) — or NASA **SPICE**, or cached Horizons. The frontend escalates to it **only** when the
+  precision or time-span demand exceeds the client engine (deep-time queries, definitive
+  accuracy, validation). Same contract; non-breaking to add.
+
+Rule: never round-trip to the server for routine ticks (e.g. the per-minute "live" sky) — the
+client engine serves those. The server is for *"compute the exact state in 9000 BC"* class needs.
+This preserves the static/offline/zero-ops identity for the common case while removing the
+asset-size ceiling for the premium case. The "No Node/bundler at runtime" invariant (§1) applies
+to the **client tier**; the server tier may use any toolchain (cspice, calceph, DE readers).
+
+## 3. The math (pillars 1–3) — what's computed and how
+
+### 3.1 Time systems
+- Calendar (local, with the observer's IANA time zone / DST) → **UTC** → **Julian Date (JD)**.
+- **TT = UTC + ΔT** (ΔT ≈ +69 s in 2024; tabulated + polynomial extrapolation). TT drives the
+  ephemeris; **UT1 ≈ UTC** (sub-second; ignored at arcminute precision) drives sidereal time.
+- **GMST** (IAU 1982 polynomial in JD) → **GAST** (+ equation of equinoxes) → **LST = GAST + λ_east**.
+- Mean **obliquity ε** (IAU secular polynomial); true obliquity adds nutation.
+
+### 3.2 Ephemerides (geometry of the bodies)
+Bodies: Sun, Moon, Mercury…Neptune (Pluto optional), plus a small curated set of named
+asteroids/comets later (orbital elements from the IAU MPC).
+- **MVP theory:** Standish/JPL **"Keplerian Elements for Approximate Positions of the Major
+  Planets"** (linear element rates, valid 1800–2050). Heliocentric ecliptic → subtract Earth's
+  heliocentric vector → geocentric. ~arcminute class.
+- **Moon (MVP):** truncated **ELP2000-82** (Meeus Ch. 47) — ~10″.
+- **Sun (MVP):** geometric solar position (Meeus Ch. 25) — ~arcsecond.
+- **Upgrade path:** **VSOP87** (planets, ~1″) + **ELP/MPP02** (Moon) as compiled term tables.
+- **Apparent-place corrections** (applied to get "what you actually see," matching Horizons
+  *apparent* coordinates): light-time/planetary aberration (iterate on r/c), annual aberration
+  (~20″), precession to date, and nutation (Moon especially). Phase-gated (§9): MVP includes
+  light-time + precession; nutation/aberration added in the accuracy phase.
+
+### 3.3 Coordinate transform chain (the sky-view)
+```
+heliocentric ecliptic (theory)
+  → geocentric ecliptic (− Earth vector)
+  → geocentric equatorial RA/Dec  (rotate by obliquity ε)
+  → apparent RA/Dec of date       (precession, nutation, aberration)
+  → topocentric                   (− observer geocentric vector; parallax)
+  → horizontal alt/az             (hour angle H = LST − RA; spherical trig)
+  → apparent altitude             (+ atmospheric refraction near horizon)
+```
+- **Topocentric parallax** uses the **WGS84** ellipsoid (ρ·sinφ′, ρ·cosφ′). Negligible for
+  planets (arcsec), but **up to ~1° for the Moon** — required.
+- **Refraction:** Bennett's formula (~34′ lift at the horizon).
+- **Azimuth** reported from **true north, clockwise** (0°=N, 90°=E, 180°=S, 270°=W) → mapped to
+  the 8/16-point compass; magnetic-vs-true north noted (we report **true**; magnetic declination
+  is an optional later overlay).
+- **Rise / set / transit:** standard altitude-crossing solve (h₀ = −0°34′ for point bodies;
+  −0°50′ for the Sun's upper limb; +Moon parallax−semidiameter), with iteration over the day.
+
+## 4. Derived physics (pillar making it "based on physics/thermodynamics/velocity")
+
+Each body in a snapshot also carries, all from first principles or cited constants:
+- **Distances:** heliocentric r and geocentric Δ (AU + km), plus light-travel time Δ/c.
+- **Orbital velocity:** the instantaneous speed as a **central difference** of the VSOP2013/ELP-MPP02
+  position over a short step (km/s; matches the vis-viva value √(GM☉(2/r − 1/a)) to ~0.1%); plus
+  geocentric range-rate.
+- **Phase angle** and **illuminated fraction** k (Moon + inner planets).
+- **Angular size** θ = 2·atan(R_body / Δ) (arcsec).
+- **Apparent magnitude** from standard photometric models (per-planet, Moon by phase).
+- **Equilibrium temperature** **T_eq = T☉·√(R☉/2d)·(1−A)^¼** (thermodynamic black-body estimate;
+  labelled as equilibrium, *not* measured surface temperature; albedo A from fact sheets).
+- Static facts (radius, mass, rotation period, axial tilt, albedo) from **NASA planetary fact
+  sheets / IAU**, carried with a `source` tag.
+
+Every derived value is provenance-tagged; physical constants (GM☉, c, AU, R☉, T☉) are pinned in
+one audited module, mirroring `solar-core/constants`.
+
+## 5. Observer location (pillar 3 detail)
+
+1. **Browser Geolocation API** (default; user grants permission) → lat/lon/elev. Private; nothing
+   leaves the device.
+2. **Manual lat/long** entry (and elevation).
+3. **ZIP / postal code** → a **bundled public US ZIP-centroid table** (offline, ~1 MB, public
+   domain) → lat/lon. Other countries: later.
+4. **Street address** → needs an **external geocoder** (e.g. OSM Nominatim) — the one networked,
+   ToS-bound piece; **opt-in**, behind explicit consent, with the query never auto-submitted.
+
+Time zone derived from location (IANA tz database) so local clock + DST are correct.
+
+## 6. Data contract — `ephemeris-snapshot.v1`
+
+Immutable JSON the UI renders (same philosophy as `solar-state-snapshot.v1`):
+```text
+EphemerisSnapshotV1 {
+  schema_version = "ephemeris-snapshot.v1"
+  engine_version
+  time { utc, jd_tt, jd_ut1, delta_t_seconds, lst_deg, obliquity_deg }
+  observer { lat_deg, lon_deg, elev_m, source }          // source: geolocation|manual|zip
+  accuracy { class, theory, validated_against, max_error_arcsec }   // honesty fields
+  bodies: Body[] {
+    id, name, kind                                       // star|planet|moon|dwarf|asteroid|comet
+    helio_ecliptic_au { x, y, z }
+    geo_equatorial { ra_deg, dec_deg, distance_au, light_time_s }
+    topocentric { alt_deg, az_deg, compass, above_horizon }
+    derived { velocity_km_s, phase_angle_deg, illuminated_fraction,
+              angular_size_arcsec, apparent_magnitude, equilibrium_temp_k }
+    events { rise_utc, transit_utc, set_utc, transit_alt_deg }
+    provenance { theory, constants_source }
+  }
+  warnings: string[]
+}
+```
+`system-snapshot.v1` is the heliocentric subset (no observer/topocentric block) for the orbit view.
+
+## 7. Validation strategy ("grounded in facts" = enforced)
+
+- **Ground truth: JPL Horizons.** A harness (`tools/validate_ephemeris.py`, building on the
+  existing Horizons cache/ingest) queries apparent RA/Dec + topocentric alt/az for each body across
+  a sampled grid of dates and observer sites, and asserts our WASM output is within tolerance.
+- **Golden fixtures** (deterministic, checked-in) for offline CI; a separate live cross-check job
+  for drift. Same split as the snapshot validators today.
+- **Tolerances** (= the published `max_error_arcsec`): see §8. A snapshot whose self-reported class
+  can't be met by the validators fails CI — the analog of the operational-readiness gate.
+- Host-side Rust unit tests for each transform against worked examples (Meeus), so failures localize
+  to a stage (time / theory / transform / topocentric).
+
+## 8. Accuracy budget — **measured** vs JPL Horizons (DE441) apparent place
+
+Measured by `tools/validate_ephemeris.py` over **4 cases** spanning both hemispheres, two
+seasons, and equatorial → sub-arctic latitude (Boston, Sydney, **Reykjavík 64°N**, **Nairobi**),
+36 body-instances. The headline metric is the **great-circle pointing error** (`sep`), which —
+unlike raw azimuth difference — does not blow up near the zenith/nadir.
+
+| Quantity | Achieved (this envelope) | Theory |
+|---|---|---|
+| Sun + planets — pointing | **≤ ~4″** (most ≤ 2″, several < 1″) | VSOP2013 + Earth-centre observer |
+| Moon — pointing | **≤ ~5″** | ELP-MPP02; parallax-sensitive |
+| Geocentric RA/Dec (any body) | **~3″** | — |
+| Inertial heliocentric position | mas-class | VSOP2013/ELP truncation |
+
+**Gate:** `sep ≤ 6″` and `d_alt ≤ 6″` for every body in every case (current worst **5.2″**).
+
+**Epoch caveat (the claim is about *now*, not all of ±6000 yr).** The VSOP2013/ELP *series* are
+mas-class over ~±6000 yr, and that bounds the **inertial** position. But **apparent** quantities
+(alt/az, rise/set) also depend on Earth orientation, i.e. **ΔT**, whose extrapolation reaches
+**hours** at ±6000 yr (Morrison–Stephenson) — enough to put the Moon **degrees** off. So:
+arcsecond *apparent* place holds near the present epoch; deep-time use is for the inertial /
+heliocentric geometry, not topocentric pointing. Other near-present limiters: **abridged
+nutation (~0.5″)**, no UT1−UTC / polar motion. Explicit non-goal: sub-arcsecond / occultation /
+navigation accuracy.
+
+## 9. Phased delivery (each phase shippable + Horizons-validated)
+
+- **P0 — Ephemeris foundation. ✅ DONE (2026-06-29).** `solar-ephemeris` crate: time systems
+  (JD, ΔT, nutation, obliquity, GMST/GAST/LST), Sun (Meeus 25) + Moon (Meeus 47 principal terms),
+  full apparent-place + topocentric chain (parallax via WGS84, refraction), rise/transit/set,
+  `ephemeris-snapshot.v1` JSON, raw-ABI WASM (`apps/web/pkg/solar_ephemeris.wasm`, ~80 KB), a `sky`
+  CLI, Meeus worked-example unit tests, and `tools/validate_ephemeris.py`. **Validated vs JPL
+  Horizons DE441** across Boston (day/night) + Sydney: worst alt/az error **37.5″**, most < 15″ —
+  arcsecond class, well inside §8.
+- **P1 — "My Sky" MVP. ✅ DONE.** New web surface (`apps/web/js/sky.js` + `skyEngine.js`): a 2D
+  horizon dome (alt/az, compass, altitude rings, sky colour by Sun altitude), observer input
+  (browser Geolocation or manual lat/long), a live "Up now" list with altitude/compass/rise-set in
+  local time, fed by `solar_ephemeris.wasm`. Verified in-browser against the engine/Horizons.
+- **P2 — Planets + "what's up." ✅ DONE.** Added Standish/JPL Keplerian elements for all 8 planets
+  (`planets.rs`); they flow into My Sky automatically. **Validated vs JPL Horizons** (Boston +
+  Sydney): Sun/Moon/Mercury/Venus/Mars/Uranus/Neptune all < ~50″; Jupiter < ~1′; **Saturn ~2-5′**
+  (the known Standish "great inequality" limit — arcsecond accuracy needs VSOP87, see P4). Ranked
+  "Up now" list with rise/set. *Deferred to later:* magnitude/phase, object-detail panel, search.
+- **P3 — Solar System view. ✅ DONE.** 2D top-down ecliptic orbit view (`js/system.js`, new
+  "Solar System" surface) fed by the `system_snapshot` engine export (heliocentric VSOP2013
+  positions): Sun at centre, planets at real positions, mean-orbit guide rings, AU scale bar, a
+  ±100-yr time scrubber, 1.5–32 AU zoom, and click-to-select with a **per-object detail panel**
+  (distance from Sun/Earth + light-time, orbital speed, illuminated fraction + phase, apparent
+  magnitude, equilibrium temperature). Draws **true eccentric/inclined orbit ellipses** from each
+  planet's osculating elements (`vsop2013::elements`); clicking any body — including the Sun — opens
+  its detail card. Verified in-browser. *Deferred to P5:* 3-D.
+- **P4 — Accuracy upgrade + physics. ✅ DONE.** **VSOP2013** for the Sun + 8 planets
+  (`vsop2013.rs` + generated `vsop2013_data.rs`; light-time, **annual aberration**, nutation) and
+  **ELP-MPP02** for the Moon (`elpmpp02.rs` + `elpmpp02_data.rs`; **light-time planetary aberration
+  only** — the Moon's *geocentric* ELP position already co-moves with the observer, so annual
+  aberration would double-count Earth's ~30 km/s, unlike the *heliocentric* VSOP2013 planets which do
+  need it; confirmed at syzygy by `tools/stress_moon_syzygy.py`). The of-date reduction uses
+  the full **Meeus Ch. 21 ecliptic precession** (longitude *and* latitude — the earlier
+  longitude-only shift had cost every body ~12″ in declination), and the observer is **Earth's
+  centre** (EMB − Moon-mass-fraction · ELP-Moon), which removed the ~6″ that the bare barycentre
+  cost the Sun and inner planets. **Validated vs JPL Horizons DE441** over the §8 4-case envelope:
+  great-circle pointing **≤ ~4″ Sun+planets, ≤ ~5″ Moon** (worst 5.2″), geocentric RA/Dec ~3″.
+  *Accuracy is near-present;* deep-time apparent place is ΔT-limited (see §8). **TOP2013** was later
+  shipped for the giants (Jupiter–Neptune) in the heliocentric orbit view (`system_snapshot`); the
+  topocentric My-Sky path stays on VSOP2013. Physics (`physics.rs`): phase angle, illuminated fraction,
+  apparent magnitude (Meeus Ch.41), central-difference orbital speed, **black-body** equilibrium temperature
+  (labeled as such — *not* surface temperature) — in a **per-object detail panel**.
+- **P5 — WebGPU 3-D. ✅ DONE.** A dependency-free 3-D solar system (`js/orrery.js`, new "3-D View"
+  surface) reusing the VSOP2013 `system_snapshot`. Built on the **browser's native WebGPU API in
+  JS** — *not* `wgpu`, which needs `wasm-bindgen` and can't build on this ARM64 toolchain. Sun +
+  planets are camera-facing billboards in real heliocentric 3-D space; orbits are their true
+  inclined ellipses; perspective camera (drag-orbit, wheel-zoom), depth buffer, alpha blending,
+  time scrubber, and a graceful fallback where WebGPU is unavailable. Renders on-demand (no
+  perpetual rAF loop). **Hardened + cross-platform:** a backend abstraction runs WebGPU first
+  (→ D3D12 on Windows arm64/x86_64, Metal on Apple-silicon + Intel Macs, Vulkan on Linux
+  arm64/x86_64) and falls back to **WebGL2** (ANGLE → D3D/GL/Metal/Vulkan) anywhere WebGPU is
+  off. High-performance adapter selection, validation error-scoping, uncaptured-error logging,
+  **device-loss recovery** (driver reset / TDR / sleep-wake), `ResizeObserver` repaint, and the
+  active GPU/backend shown in the panel. Verified in-browser on both backends.
+- **P6 — Polish.** ZIP table, opt-in address geocoding, a11y (WCAG AA), mobile, performance, and a
+  device-orientation "point your phone" mode where supported.
+- **P7 — Backend high-precision provider (hybrid, §2.1). ✅ DONE.** `services/ephemeris-server/`
+  is a stdlib-only Python server that serves the same `ephemeris-snapshot.v1` from **JPL Horizons
+  (DE441)** — the definitive ephemeris (`definitive_positions()` is the provider seam for a future
+  SPICE/DE440 kernel reader). Throttled parallel per-body queries with 429/503 retry, on-disk cache
+  (first call ~3 s, repeats ~50 ms), open CORS, `/health` + `/v1/sky`. The web app's **My Sky**
+  gains an *On-device / High-precision (DE441)* toggle: the WASM engine stays the offline default,
+  escalation renders the server snapshot through the same dome/list, and it falls back to on-device
+  with a clear message when the (optional) server is down. Server vs on-device agree to ≤ 11.3″.
+
+## 10. UX surfaces (NN/g progressive disclosure, reused)
+
+- **My Sky** — azimuthal-equidistant horizon dome (zenith centre, N/E/S/W rim), bodies at their
+  alt/az, below-horizon dimmed, day/twilight shading, a time scrubber, and a plain-language "what's
+  up" list. L0 glance: *"Jupiter — bright, high in the south."* → L3 research: full vectors + error
+  budget + sources.
+- **Solar System** — top-down orbits at time T, zoom, time controls, click a body → detail.
+- **Object detail** — distance, velocity, phase, magnitude, angular size, rise/transit/set for the
+  observer, equilibrium temp; every value with provenance + accuracy. Clicking any body (incl. the
+  Sun) opens its detail card.
+
+## 11. Risks & mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Coordinate-convention bugs (the classic) | Validate every stage vs Meeus worked examples + Horizons; fail CI on drift. |
+| Accuracy drift outside 1800–2050 (Keplerian) | Gate date range; show a warning; VSOP87 widens it. |
+| Horizons rate limits / offline | Cache + checked-in golden fixtures; live job is a separate drift check. |
+| Time-zone / DST / leap-second errors | IANA tz + tabulated ΔT/leap seconds; unit-tested. |
+| Privacy of location | Geolocation only with consent; never transmitted; geocoding opt-in. |
+| 3D scope (P5) balloons | Phases 1–4 ship full value in 2D first; 3D is additive. |
+| Overclaiming accuracy | `accuracy_class` + non-goals on every snapshot, enforced by validators. |
+
+## 12. Open decisions (for the build kickoff)
+
+1. **First slice** (if/when we build): "My Sky" core vs orbit view vs thin end-to-end — see the
+   chat options; spec assumes **My Sky first**.
+2. **Ephemeris start:** Keplerian MVP (fast, ~arcmin) vs straight to VSOP87 (more work, ~arcsec).
+   Recommend **Keplerian MVP → upgrade**, validated throughout.
+3. **Where it lives:** new surfaces inside the current app (recommended) vs a separate page.
+4. **WASM packaging:** one combined `engine.wasm` (solar-core + ephemeris) vs two modules.
+   Recommend **two** for separation; both raw-ABI, no wasm-bindgen.
+
+## 13. Sources & public-method anchors
+
+All public and inspectable, consistent with Sol's anchoring discipline:
+- Standish, *Keplerian Elements for Approximate Positions of the Major Planets* (JPL SSD).
+- Bretagnon & Francou, **VSOP87**; Chapront, **ELP2000 / ELP-MPP02**.
+- Meeus, *Astronomical Algorithms* (2nd ed.) — transforms, Sun/Moon, rise/set.
+- **IAU SOFA** conventions (precession/nutation, sidereal time); **WGS84** ellipsoid.
+- **JPL Horizons** (validation ground truth); **USNO** data; **NASA planetary fact sheets**
+  (radii, masses, albedos); **IANA tz database**; **IERS** ΔT / leap seconds.
+- No proprietary or non-public algorithm is used or claimed.

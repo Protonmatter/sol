@@ -37,7 +37,13 @@ impl<'a> SnapshotRequest<'a> {
 pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'_>) -> String {
     let mut out = String::with_capacity(256 + state.br.values.len() * 40);
     out.push_str("{\n");
-    json_string_field(&mut out, 1, "schema_version", SOLAR_STATE_SNAPSHOT_SCHEMA, true);
+    json_string_field(
+        &mut out,
+        1,
+        "schema_version",
+        SOLAR_STATE_SNAPSHOT_SCHEMA,
+        true,
+    );
     json_string_field(&mut out, 1, "model_version", request.model_version, true);
     json_string_field(&mut out, 1, "source_mode", request.source_mode, true);
     out.push_str("  \"operational_use\": false,\n");
@@ -51,18 +57,42 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     operational_readiness_json(&mut out);
 
     out.push_str("  \"manifest\": {\n");
-    json_string_field(&mut out, 2, "schema_version", MODEL_RUN_MANIFEST_SCHEMA, true);
-    json_string_field(&mut out, 2, "model_name", "Solar Maximum Engine CPU reference", true);
+    json_string_field(
+        &mut out,
+        2,
+        "schema_version",
+        MODEL_RUN_MANIFEST_SCHEMA,
+        true,
+    );
+    json_string_field(
+        &mut out,
+        2,
+        "model_name",
+        "Solar Maximum Engine CPU reference",
+        true,
+    );
     json_string_field(&mut out, 2, "math_basis", "differential rotation + diffusion + source injection + decay + diagonal Kalman-style assimilation contract", true);
-    json_string_field(&mut out, 2, "rendering_rule", "UI renders immutable state snapshots and does not own the physics model", false);
+    json_string_field(
+        &mut out,
+        2,
+        "rendering_rule",
+        "UI renders immutable state snapshots and does not own the physics model",
+        false,
+    );
     out.push_str("  },\n");
 
     out.push_str("  \"run\": {\n");
     out.push_str(&format!("    \"seed\": {},\n", request.seed));
     out.push_str(&format!("    \"steps\": {},\n", request.steps));
     out.push_str(&format!("    \"dt_hours\": {:.6},\n", request.dt_hours));
-    out.push_str(&format!("    \"activity_index\": {:.6},\n", request.activity_index));
-    out.push_str(&format!("    \"time_seconds\": {:.6},\n", state.time_seconds));
+    out.push_str(&format!(
+        "    \"activity_index\": {:.6},\n",
+        request.activity_index
+    ));
+    out.push_str(&format!(
+        "    \"time_seconds\": {:.6},\n",
+        state.time_seconds
+    ));
     json_string_field(&mut out, 2, "mode", solar_mode_name(&state.mode), false);
     out.push_str("  },\n");
 
@@ -81,7 +111,13 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     out.push_str("  ],\n");
 
     out.push_str("  \"fields\": {\n");
-    field_json(&mut out, "br_normalized", &state.br, "normalized magnetic field", true);
+    field_json(
+        &mut out,
+        "br_normalized",
+        &state.br,
+        "normalized magnetic field",
+        true,
+    );
     field_json(
         &mut out,
         "br_variance_normalized",
@@ -89,7 +125,13 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
         "normalized variance",
         true,
     );
-    field_json(&mut out, "continuum_proxy", &state.continuum, "relative intensity", true);
+    field_json(
+        &mut out,
+        "continuum_proxy",
+        &state.continuum,
+        "relative intensity",
+        true,
+    );
     field_json(&mut out, "confidence", &state.confidence, "0..1", false);
     out.push_str("  },\n");
 
@@ -103,7 +145,13 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     out.push_str("],\n");
 
     out.push_str("  \"learning\": {\n");
-    json_string_field(&mut out, 2, "cycle_stage", cycle_stage(request.activity_index), true);
+    json_string_field(
+        &mut out,
+        2,
+        "cycle_stage",
+        cycle_stage(request.activity_index),
+        true,
+    );
     json_string_field(&mut out, 2, "plain_language_insight", insight(state), false);
     out.push_str("  },\n");
 
@@ -154,7 +202,9 @@ fn operational_readiness_json(out: &mut String) {
     out.push_str("      \"Calibrated physical magnetic units are not implemented.\",\n");
     out.push_str("      \"No historical validation skill score is present.\",\n");
     out.push_str("      \"No on-call alerting, SLA, or operational authority is configured.\",\n");
-    out.push_str("      \"Outputs are not approved for warning, mission safety, or fleet operations.\"\n");
+    out.push_str(
+        "      \"Outputs are not approved for warning, mission safety, or fleet operations.\"\n",
+    );
     out.push_str("    ]\n");
     out.push_str("  },\n");
 }

@@ -12,6 +12,7 @@
   --magenta: #d958a7;
   --green: #8fd17f;
   --danger: #ff5964;
+  --focus-ring: #7cc4ff;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -30,24 +31,41 @@ input {
   font: inherit;
 }
 
+/* Accessible focus indicator: one high-contrast ring for every keyboard-focused
+   control. Components must NOT set `outline: none` — a same-colour border change
+   is invisible (that was the bug). The 2px offset sits the ring on the dark panel
+   behind the control, so it stays >=3:1 even over the gold button fills. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .app-shell {
   min-height: 100vh;
   background: radial-gradient(circle at 35% 35%, #221309 0, #060608 38rem);
+  overflow-x: hidden; /* keep the collapsed (slid-out) panel from adding a horizontal scrollbar */
 }
 
 .stage-band {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(19rem, 27rem);
   gap: 1.25rem;
-  min-height: 78vh;
+  /* The Sun is the hero: the first section fills the screen so the disk is
+     above the fold. The text column scrolls inside its own cell instead of
+     stretching the visual column into a void. */
+  height: 100vh;
+  min-height: 40rem;
+  align-items: stretch;
   padding: 1rem;
+  position: relative; /* containing block for the slid-out panel when collapsed */
 }
 
 .viewport {
   position: relative;
   display: grid;
   place-items: center;
-  min-height: clamp(28rem, 72vh, 48rem);
+  height: 100%;
+  min-height: 0;
   border: 1px solid #1f232c;
   background: #050507;
   overflow: hidden;
@@ -75,6 +93,61 @@ input {
   backdrop-filter: blur(8px);
 }
 
+.stage-rail {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  gap: 0.3rem;
+  max-width: calc(100% - 2rem);
+  padding: 0.35rem 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(7, 8, 10, 0.74);
+  backdrop-filter: blur(8px);
+}
+
+.stage-step {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.stage-step.active {
+  color: #1a1206;
+  background: var(--gold);
+  border-color: var(--gold);
+  font-weight: 800;
+}
+
+.base-label {
+  position: absolute;
+  top: 3.9rem;
+  left: 1rem;
+  z-index: 2;
+  max-width: calc(100% - 2rem);
+  padding: 0.4rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(7, 8, 10, 0.74);
+  color: #dce2e6;
+  font-size: 0.74rem;
+  backdrop-filter: blur(8px);
+  overflow-wrap: anywhere;
+}
+
+.base-label.observed {
+  border-color: rgba(64, 214, 200, 0.6);
+  color: #dffaf7;
+}
+
+.base-label.synthetic {
+  border-color: rgba(247, 183, 51, 0.6);
+  color: #f7e4b2;
+}
+
 .status-strip {
   position: absolute;
   left: 1rem;
@@ -94,10 +167,83 @@ input {
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  background: var(--panel);
-  border: 1px solid #2b303b;
+  /* Liquid glass: translucent + a backdrop blur of whatever is behind it (the 3-D view on the orrery
+     surface, where the panel overlays the full-bleed canvas). */
+  background: rgba(16, 18, 26, 0.55);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 10px 44px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  height: 100%;
+  min-height: 0;
   overflow: auto;
+  position: relative;
+  z-index: 5;
+  transition: transform 0.28s ease, opacity 0.22s ease;
 }
+.control-panel > header { padding-right: 2.4rem; } /* clear the floating collapse button */
+
+/* On the 3-D view, the full-bleed canvas spans the whole stage; the glass panel floats over its right
+   side (so the blur is of the actual 3-D scene), and collapsing it gives an unobstructed full view. */
+body[data-surface="orrery"] .viewport { grid-column: 1 / -1; }
+
+/* The panel MUST be lifted out of grid flow to actually float. Spanning the viewport across both
+   columns (above) pushes the still-in-flow panel into a SECOND grid row, whose tall content steals
+   all the height and collapses the absolutely-positioned canvas to 0px — the entire 3-D scene
+   vanishes. Floating it (with the stage-band as the positioned ancestor) lets the viewport own the
+   full 100vh; the panel keeps its own internal scroll via overflow:auto. Desktop only — narrow
+   screens keep the stacked layout from the media query below. */
+@media (min-width: 881px) {
+  body[data-surface="orrery"] .control-panel {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    height: auto;
+    width: min(27rem, calc(100% - 2rem));
+    z-index: 6;
+  }
+}
+
+/* Collapsed: the panel slides out and the viewport takes the full width. The panel is pulled OUT of
+   grid flow (absolute) so the now-single-column stage-band can't stack it into a second row beneath
+   the viewport — that row, though slid out and transparent, left a tall scrollable void (the
+   app-shell gradient) under the Sun on the 2-D surfaces. */
+body.panel-collapsed .stage-band { grid-template-columns: minmax(0, 1fr); }
+body.panel-collapsed .control-panel {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(27rem, calc(100% - 2rem));
+  transform: translateX(115%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Floating pin/collapse toggle. */
+.panel-toggle {
+  position: fixed;
+  top: 1.35rem;
+  right: 1.35rem;
+  z-index: 30;
+  height: 2rem;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(20, 22, 30, 0.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  color: #e8e6dd;
+  cursor: pointer;
+  font: 600 0.85rem "Segoe UI", system-ui, sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.panel-toggle:hover { background: rgba(40, 44, 56, 0.72); }
 
 .eyebrow,
 .label {
@@ -197,10 +343,30 @@ h2 {
   border-color: rgba(246, 243, 232, 0.22);
 }
 
+.mode-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.mode-group-label {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
 .mode-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem;
+}
+
+/* The top-level destination nav: three equal columns (The Sun · My Sky · Solar System). */
+.mode-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .mode-button {
@@ -483,6 +649,712 @@ h2 {
   cursor: crosshair;
 }
 
+.timeline-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.time-scrubber {
+  flex: 1;
+  min-width: 6rem;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.time-btn {
+  min-height: 2.2rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--gold);
+  background: #2b1f10;
+  color: var(--text);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.time-btn.ghost {
+  border-color: var(--line);
+  background: var(--panel-2);
+  font-weight: 400;
+}
+
+.time-btn:hover,
+.time-btn:focus-visible {
+  border-color: var(--gold);
+}
+
+.time-frame-label {
+  margin: 0.55rem 0 0;
+  color: var(--gold);
+  font-size: 0.85rem;
+}
+
+.live-engine {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.live-engine .time-frame-label {
+  color: var(--teal);
+}
+
+/* Keyboard/AT-accessible active-region picker (mirrors clicking a disk marker). */
+.region-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.region-chip {
+  min-height: 2.1rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.region-chip:hover {
+  border-color: var(--gold);
+}
+
+.region-chip.selected {
+  border-color: var(--gold);
+  background: #2b1f10;
+  font-weight: 700;
+}
+
+/* Sky "Up now" rows are focusable buttons (keyboard preview + pin). */
+.sky-row[role="button"] {
+  cursor: pointer;
+}
+
+/* Solar System control groups — the Sun panel's <details> disclosure ported here so
+   the orrery's dense controls aren't one flat wall. Own class (not .sun-section,
+   which is display:none on this surface) but visually identical. */
+.orrery-group {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-top: 0.6rem;
+}
+
+.orrery-group > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.55rem 0.8rem;
+  font: 600 0.9rem "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.orrery-group > summary::-webkit-details-marker { display: none; }
+
+.orrery-group > summary::after {
+  content: "▸";
+  color: rgba(247, 183, 51, 0.85);
+  transition: transform 0.15s ease;
+}
+
+.orrery-group[open] > summary::after { transform: rotate(90deg); }
+.orrery-group > summary:hover { background: rgba(255, 255, 255, 0.04); }
+
+.orrery-group-body {
+  padding: 0 0.8rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.orrery-check-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+}
+
+.orrery-camera-row {
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.orrery-focus-label { gap: 0.4rem; }
+.orrery-focus-select { width: auto; }
+
+/* ---- My Sky surface ---- */
+#skyCanvas {
+  width: min(78vh, 100%);
+  max-width: 58rem;
+  aspect-ratio: 1 / 1;
+  display: none;
+  cursor: default;
+}
+
+body[data-surface="sky"] #skyCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  aspect-ratio: auto;
+}
+
+/* Hover tooltip for a sky object (rise/transit/set + trajectory note). */
+.sky-tooltip {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 17rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(247, 183, 51, 0.5);
+  border-radius: 0.35rem;
+  background: rgba(8, 10, 16, 0.92);
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+.sky-tooltip strong { color: #ffe39a; font-size: 0.92rem; }
+.sky-tooltip .tt-line { color: rgba(228, 234, 246, 0.86); }
+.sky-tooltip .muted { color: rgba(170, 180, 200, 0.7); }
+
+.sky-row.sky-subhead {
+  margin-top: 0.4rem;
+  color: rgba(247, 183, 51, 0.8);
+  font: 600 0.74rem "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.sky-row.sky-hoverable { cursor: pointer; }
+.sky-row.sky-hoverable:hover { background: rgba(247, 183, 51, 0.08); }
+
+/* Live accuracy / validity readout under the time controls. */
+.epoch-accuracy {
+  margin: 0.4rem 0 0;
+  padding: 0.3rem 0.5rem;
+  border-left: 3px solid var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: rgba(220, 226, 240, 0.8);
+  background: rgba(255, 255, 255, 0.03);
+}
+.epoch-accuracy:empty { display: none; }
+.epoch-accuracy.acc-good { border-left-color: #4caf72; }
+.epoch-accuracy.acc-ok { border-left-color: #d8b24a; }
+.epoch-accuracy.acc-rough { border-left-color: #d8744a; }
+
+.sky-panel {
+  display: none;
+}
+
+body[data-surface="sky"] #skyCanvas {
+  display: block;
+}
+
+body[data-surface="sky"] .sky-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Hide the Sun-centric chrome when the sky view is active. */
+body[data-surface="sky"] #solarCanvas,
+body[data-surface="sky"] #stageRail,
+body[data-surface="sky"] #baseLabel,
+body[data-surface="sky"] .status-strip,
+body[data-surface="sky"] .control-panel > header,
+body[data-surface="sky"] .summary-panel,
+body[data-surface="sky"] .sun-section,
+body[data-surface="sky"] .wavelength-panel,
+body[data-surface="sky"] .timeline-band {
+  display: none !important;
+}
+
+/* The top-down orbit view is now a camera toggle inside the 3-D View surface (orrery.js);
+   the standalone Solar System surface was folded in to remove the duplicate of the same data. */
+.sys-range {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.sys-zoom-row {
+  display: block;
+  margin-top: 0.75rem;
+}
+
+/* ---- 3-D View (WebGPU orrery) ---- */
+#orreryCanvas {
+  width: min(78vh, 100%);
+  max-width: 58rem;
+  aspect-ratio: 1 / 1;
+  display: none;
+  cursor: grab;
+  background: #04060c;
+  touch-action: none;
+}
+
+#orreryCanvas:active {
+  cursor: grabbing;
+}
+
+.orrery-panel {
+  display: none;
+}
+
+/* Projected planet name labels overlaid on the WebGPU/WebGL2 canvas. */
+.orrery-labels {
+  position: absolute;
+  pointer-events: none;
+  display: none;
+  z-index: 2;
+}
+
+body[data-surface="orrery"] .orrery-labels {
+  display: block;
+}
+
+.orrery-label {
+  position: absolute;
+  transform: translate(0.5rem, -50%);
+  color: rgba(232, 238, 255, 0.88);
+  font: 600 0.72rem "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px #000, 0 0 2px #000;
+}
+
+/* Celestial-backdrop marker labels (pulsars, galaxies, bright stars). */
+.orrery-label.sky-pulsar {
+  color: rgba(140, 240, 255, 0.92);
+  font-weight: 600;
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+}
+.orrery-label.sky-galaxy {
+  color: rgba(216, 196, 255, 0.85);
+  font-weight: 500;
+  font-size: 0.66rem;
+}
+.orrery-label.sky-star {
+  color: rgba(232, 236, 246, 0.7);
+  font-weight: 500;
+  font-size: 0.64rem;
+}
+
+/* 3-D View control checkboxes. */
+.orrery-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: rgba(232, 238, 255, 0.82);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.orrery-check input {
+  accent-color: #f7b733;
+}
+
+body[data-surface="orrery"] #orreryCanvas {
+  display: block;
+  /* Fill the whole viewport instead of a centred 78vh square — the perspective camera uses the
+     canvas aspect ratio, so a full-bleed rectangle just shows more sky. Absolute inset:0 against the
+     position:relative .viewport sidesteps grid/flex percentage-height quirks. Filling also raises the
+     backing-store resolution (ensureSized scales it by devicePixelRatio off the displayed size). */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  aspect-ratio: auto;
+}
+
+body[data-surface="orrery"] .orrery-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+body[data-surface="orrery"] #solarCanvas,
+body[data-surface="orrery"] #stageRail,
+body[data-surface="orrery"] #baseLabel,
+body[data-surface="orrery"] .status-strip,
+body[data-surface="orrery"] .control-panel > header,
+body[data-surface="orrery"] .summary-panel,
+body[data-surface="orrery"] .sun-section,
+body[data-surface="orrery"] .wavelength-panel,
+body[data-surface="orrery"] .timeline-band {
+  display: none !important;
+}
+
+/* ---- Solar wavelength selector (the Sun, filterable by SDO channel) ---- */
+.wavelength-panel {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.wavelength-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.wl-chip {
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #e8e6dd;
+  font: 600 0.74rem "Segoe UI", system-ui, sans-serif;
+  padding: 0.28rem 0.6rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.wl-chip::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--wl, #f6aa45);
+}
+.wl-chip:hover { background: rgba(255, 255, 255, 0.07); }
+.wl-chip.active {
+  border-color: var(--wl, var(--gold, #f7b733));
+  background: rgba(247, 183, 51, 0.12);
+  color: #fff;
+}
+
+/* ---- "Inside the Sun" cutaway cross-section ---- */
+.sun-cutaway svg { width: 100%; max-width: 340px; height: auto; display: block; margin: 0 auto; }
+.layer-list { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 0.7rem; }
+.layer-row { display: flex; gap: 0.55rem; font-size: 0.82rem; line-height: 1.4; color: rgba(220, 226, 240, 0.82); }
+.layer-row strong { color: #f0ede4; }
+.layer-row .muted { color: rgba(220, 226, 240, 0.62); }
+.layer-rad { color: rgba(220, 226, 240, 0.9); }
+.layer-dot {
+  flex: 0 0 auto;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-top: 0.28rem;
+  border-radius: 50%;
+  background: var(--c, #fff);
+  box-shadow: 0 0 6px var(--c, #fff);
+}
+
+/* ---- "The Sun" surface: one destination, depth revealed in progressive-disclosure drawers ---- */
+.sun-section {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-top: 0.75rem;
+  overflow: hidden;
+}
+.sun-section > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.7rem 0.9rem;
+  font: 600 0.92rem "Segoe UI", system-ui, sans-serif;
+  color: #f0ede4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+.sun-section > summary::-webkit-details-marker { display: none; }
+.sun-section > summary::after {
+  content: "▸";
+  color: rgba(247, 183, 51, 0.85);
+  transition: transform 0.15s ease;
+}
+.sun-section[open] > summary::after { transform: rotate(90deg); }
+.sun-section > summary:hover { background: rgba(255, 255, 255, 0.04); }
+.sun-section > .sun-section-body {
+  padding: 0 0.9rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+/* Sections nested in a drawer drop their own outer chrome — the drawer provides it. */
+.sun-section .layer-controls,
+.sun-section .layer-legend,
+.sun-section .metric-grid,
+.sun-section .selection-panel,
+.sun-section .application-panel {
+  margin: 0;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.28rem 0.85rem;
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+}
+
+.detail-grid dt {
+  color: var(--muted);
+}
+
+.detail-grid dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.sky-header h1 {
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  margin-bottom: 0.5rem;
+}
+
+.sky-observer,
+.sky-source,
+.sky-time {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--teal);
+  background: #10161a;
+}
+
+.sky-input-wide {
+  width: auto;
+  flex: 1 1 11rem;
+  min-width: 9rem;
+}
+
+.sky-source {
+  border-left-color: var(--gold);
+}
+
+.time-btn.active {
+  background: var(--gold);
+  color: #15110a;
+  border-color: var(--gold);
+}
+
+.sky-loc-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+}
+
+.sky-input {
+  width: 5.5rem;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--line);
+  background: #090b0f;
+  color: var(--text);
+}
+
+.sky-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.sky-row {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  background: #0e1217;
+}
+
+.sky-row strong {
+  display: block;
+}
+
+.sky-row .muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Glossary term affordance + tooltip (plain-language help on hover/focus/tap). */
+.term {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-left: 0.15rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #090b0f;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  vertical-align: middle;
+}
+
+.term:hover,
+.term:focus-visible {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.legend-chip[data-term] {
+  cursor: help;
+}
+
+.legend-chip[data-term]:hover,
+.legend-chip[data-term]:focus-visible {
+  border-color: var(--gold);
+}
+
+.term-tip {
+  position: fixed;
+  z-index: 50;
+  max-width: 18rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--gold);
+  background: rgba(10, 11, 15, 0.97);
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.term-tip strong {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--gold);
+}
+
+.term-tip[hidden] {
+  display: none;
+}
+
+/* Progressive disclosure: panels hidden on a given surface get this class in JS.
+   "Today" is the beginner glance; depth is revealed on Explore/Weather/Research. */
+.surface-hide {
+  display: none !important;
+}
+
+.stage-step[data-term] {
+  cursor: help;
+}
+
+/* Onboarding tour CTA + guided overlay. */
+.tour-cta {
+  align-self: start;
+  margin-top: 0.2rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--gold);
+  background: #2b1f10;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tour-cta:hover,
+.tour-cta:focus-visible {
+  background: #3a2912;
+}
+
+.tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.tour-layer[hidden] {
+  display: none;
+}
+
+.tour-spot {
+  position: fixed;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(4, 5, 8, 0.72);
+  transition: all 0.18s ease;
+  pointer-events: none;
+}
+
+.tour-spot.hidden {
+  display: none;
+}
+
+.tour-card {
+  position: fixed;
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--gold);
+  background: rgba(12, 13, 17, 0.98);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+}
+
+.tour-card strong {
+  display: block;
+  margin: 0.1rem 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.tour-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.tour-step-count {
+  margin: 0 0 0.2rem;
+  color: var(--gold);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.tour-spacer {
+  flex: 1;
+}
+
+.tour-btn {
+  min-height: 2.1rem;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tour-btn.primary {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: #1a1206;
+  font-weight: 700;
+}
+
+.tour-btn.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tour-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 @media (max-width: 880px) {
   .stage-band,
   .timeline-inner {
@@ -490,8 +1362,23 @@ h2 {
   }
 
   .stage-band {
+    height: auto;
     min-height: auto;
     gap: 0.8rem;
+  }
+
+  .stage-rail,
+  .base-label {
+    position: static;
+    transform: none;
+    align-self: stretch;
+    max-width: none;
+    margin-bottom: 0.55rem;
+  }
+
+  .stage-rail {
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   .control-panel {

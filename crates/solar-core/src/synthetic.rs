@@ -33,10 +33,19 @@ pub struct SyntheticSolarModel {
 
 impl SyntheticSolarModel {
     pub fn new(config: SyntheticConfig) -> Self {
-        Self { rng: XorShift64::new(config.seed), next_id: 1, config }
+        Self {
+            rng: XorShift64::new(config.seed),
+            next_id: 1,
+            config,
+        }
     }
 
-    pub fn generate_births(&mut self, now_seconds: f64, dt_seconds: f64, _grid: &SolarGrid) -> Vec<ActiveRegion> {
+    pub fn generate_births(
+        &mut self,
+        now_seconds: f64,
+        dt_seconds: f64,
+        _grid: &SolarGrid,
+    ) -> Vec<ActiveRegion> {
         let dt_days = (dt_seconds / 86_400.0) as f32;
         let expected = self.config.birth_rate_per_day * self.config.activity_index * dt_days;
         let count = poisson_sample(&mut self.rng, expected);
@@ -44,10 +53,14 @@ impl SyntheticSolarModel {
 
         for _ in 0..count {
             let hemi = if self.rng.next_f32() < 0.5 { -1.0 } else { 1.0 };
-            let lat = hemi * (self.config.mean_latitude_deg + self.config.latitude_sigma_deg * self.rng.normal_approx());
+            let lat = hemi
+                * (self.config.mean_latitude_deg
+                    + self.config.latitude_sigma_deg * self.rng.normal_approx());
             let lon = 360.0 * self.rng.next_f32();
             let complexity = (0.35 + 0.65 * self.rng.next_f32()).clamp(0.0, 1.0);
-            let flux = self.config.mean_flux_norm * (0.55 + 1.20 * self.rng.next_f32()) * (0.75 + complexity);
+            let flux = self.config.mean_flux_norm
+                * (0.55 + 1.20 * self.rng.next_f32())
+                * (0.75 + complexity);
 
             out.push(ActiveRegion {
                 id: self.next_id,
@@ -58,7 +71,11 @@ impl SyntheticSolarModel {
                 area_msh: 150.0 + 1800.0 * complexity,
                 tilt_deg: hemi * (4.0 + 18.0 * self.rng.next_f32()),
                 complexity,
-                polarity: if self.rng.next_f32() < 0.5 { Polarity::LeadingPositive } else { Polarity::LeadingNegative },
+                polarity: if self.rng.next_f32() < 0.5 {
+                    Polarity::LeadingPositive
+                } else {
+                    Polarity::LeadingNegative
+                },
                 confidence: 0.65,
             });
             self.next_id += 1;

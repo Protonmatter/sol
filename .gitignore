@@ -3,3 +3,7 @@ __pycache__/
 *.py[cod]
 tmp-solar-web-server.*.log
 tmp-solar-web-server.pid
+/target/
+
+# Downloaded planetary textures (run tools/fetch_textures.py to populate)
+apps/web/textures/

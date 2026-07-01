@@ -13,7 +13,9 @@ LOGGER = logging.getLogger("validate_web_static")
 
 REQUIRED_IDS = {
     "solarCanvas",
-    "sceneBadge",
+    "stageRail",
+    "baseLabel",
+    "termTip",
     "plainInsight",
     "summaryPrimary",
     "summaryDetail",
@@ -21,7 +23,6 @@ REQUIRED_IDS = {
     "ingestState",
     "readinessState",
     "layerLegend",
-    "modeTitle",
     "applicationTitle",
     "applicationText",
     "applicationSignals",
@@ -95,7 +96,10 @@ def validate(root: Path) -> list[str]:
     if not js.is_file():
         errors.append("app.js not found")
     else:
+        # The app is split into ES modules under js/; scan them all plus the entry.
         js_text = js.read_text(encoding="utf-8")
+        for module in sorted((root / "js").glob("*.js")):
+            js_text += "\n" + module.read_text(encoding="utf-8")
         for token in ("operational_readiness", "summaryPrimary", "layerLegend", "applicationTitle", "readinessChecklistItems", "butterflyCanvas"):
             if token not in js_text:
                 errors.append(f"app.js missing {token} binding")

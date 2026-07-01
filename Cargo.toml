@@ -2,7 +2,9 @@
 members = [
   "crates/solar-core",
   "crates/solar-ingest",
-  "crates/solar-cli"
+  "crates/solar-cli",
+  "crates/solar-wasm",
+  "crates/solar-ephemeris"
 ]
 resolver = "2"
 

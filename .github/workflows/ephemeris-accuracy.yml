@@ -1,0 +1,33 @@
+name: Ephemeris accuracy (JPL Horizons)
+
+# Network-dependent: queries the live JPL Horizons API, so it is deliberately NOT part of the
+# PR-gating CI (flaky / rate-limited). It runs weekly and on demand to catch ephemeris drift or an
+# upstream Horizons change, and to re-confirm the "grounded in facts" accuracy claims.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  horizons:
+    name: Validate + Moon syzygy stress vs JPL Horizons
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the sky CLI
+        run: cargo build --release -p solar-ephemeris --bin sky
+
+      - name: Apparent alt/az vs Horizons (4-site envelope)
+        run: python tools/validate_ephemeris.py
+
+      - name: Moon apparent place at new/full moon (syzygy stress)
+        run: python tools/stress_moon_syzygy.py

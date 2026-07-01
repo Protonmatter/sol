@@ -1,0 +1,13 @@
+[package]
+name = "solar-ephemeris"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# Deterministic ephemeris + topocentric sky engine. Pure math, zero deps.
+# cdylib for the browser (raw extern "C" ABI, no wasm-bindgen); rlib for tests/CLI.
+[lib]
+name = "solar_ephemeris"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]

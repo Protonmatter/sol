@@ -1,0 +1,20 @@
+// The render orchestrator + per-surface progressive disclosure.
+
+import { store } from "./store.js?v=aebfcb9c5a";
+import { updateText } from "./panels.js?v=aebfcb9c5a";
+import { drawSolarDisk, drawButterfly } from "./render.js?v=aebfcb9c5a";
+
+export function renderAll() {
+  applySurfaceVisibility();
+  updateText();
+  drawSolarDisk();
+  drawButterfly();
+}
+
+export function applySurfaceVisibility() {
+  // Surface visibility is entirely CSS-driven off body[data-surface]; the Sun's depth lives in the
+  // collapsible `.sun-section` drawers (hidden on My Sky / Solar System). Just set the attribute.
+  const panel = document.querySelector(".control-panel");
+  if (panel) panel.setAttribute("data-surface", store.activeMode);
+  document.body.setAttribute("data-surface", store.activeMode);
+}
