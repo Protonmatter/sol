@@ -1,15 +1,15 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js?v=09481a1dfc";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=09481a1dfc";
-import { text, textWithTitle, setPill } from "./dom.js?v=09481a1dfc";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=09481a1dfc";
+import { store } from "./store.js?v=aebfcb9c5a";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=aebfcb9c5a";
+import { text, textWithTitle, setPill } from "./dom.js?v=aebfcb9c5a";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=aebfcb9c5a";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
   dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js?v=09481a1dfc";
+} from "./selectors.js?v=aebfcb9c5a";
 
 export function updateText() {
   const run = store.state.run || {};

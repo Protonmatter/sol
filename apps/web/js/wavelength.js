@@ -3,9 +3,9 @@
 // selector doubles as a tour up through the Sun — surface → chromosphere → corona → flares. "Model"
 // shows the synthetic engine view instead.
 
-import { store } from "./store.js?v=09481a1dfc";
-import { WAVELENGTHS, BASE_IMAGES } from "./config.js?v=09481a1dfc";
-import { renderAll } from "./view.js?v=09481a1dfc";
+import { store } from "./store.js?v=aebfcb9c5a";
+import { WAVELENGTHS, BASE_IMAGES } from "./config.js?v=aebfcb9c5a";
+import { renderAll } from "./view.js?v=aebfcb9c5a";
 
 function updateWavelengthCaption() {
   const node = document.getElementById("wavelengthCaption");

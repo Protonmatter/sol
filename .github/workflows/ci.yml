@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [master, "redesign/**"]
+  pull_request:
+
+# Newer pushes to the same ref cancel in-flight runs.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Rust tests (workspace)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test --workspace
+        run: cargo test --workspace
+
+  lint:
+    name: Rust lint (advisory)
+    runs-on: ubuntu-latest
+    # Advisory for now: the tree is not yet rustfmt/clippy-clean. This surfaces the findings
+    # without blocking merges. Flip `continue-on-error` to false once the codebase is clean.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets
+
+  wasm:
+    name: WASM build (wasm32-unknown-unknown)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Build solar-wasm + solar-ephemeris
+        run: |
+          cargo build --release -p solar-wasm --target wasm32-unknown-unknown
+          cargo build --release -p solar-ephemeris --target wasm32-unknown-unknown
+
+  web:
+    name: Web (JS syntax + validators + cache-bust sync)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: JS syntax (node --check, ESM)
+        shell: bash
+        run: |
+          status=0
+          while IFS= read -r -d '' f; do
+            if ! node --check "$f"; then
+              echo "::error file=$f::JavaScript syntax error"
+              status=1
+            fi
+          done < <(find apps/web -name '*.js' -not -path '*/pkg/*' -print0)
+          exit $status
+
+      - name: Static web validation
+        run: python tools/validate_web_static.py
+
+      - name: Snapshot contract (solar-state-snapshot.v1)
+        run: python tools/validate_snapshot.py apps/web/data/latest-state.json
+
+      - name: Operational-readiness gate
+        run: python tools/validate_operational_readiness.py apps/web/data/latest-state.json
+
+      - name: Cache-bust tokens in sync
+        shell: bash
+        run: |
+          python tools/build_web.py
+          if ! git diff --quiet; then
+            echo "::error::?v= cache-bust tokens are stale — run 'python tools/build_web.py' and commit the result."
+            git --no-pager diff --stat
+            exit 1
+          fi

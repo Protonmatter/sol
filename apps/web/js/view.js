@@ -1,8 +1,8 @@
 // The render orchestrator + per-surface progressive disclosure.
 
-import { store } from "./store.js?v=09481a1dfc";
-import { updateText } from "./panels.js?v=09481a1dfc";
-import { drawSolarDisk, drawButterfly } from "./render.js?v=09481a1dfc";
+import { store } from "./store.js?v=aebfcb9c5a";
+import { updateText } from "./panels.js?v=aebfcb9c5a";
+import { drawSolarDisk, drawButterfly } from "./render.js?v=aebfcb9c5a";
 
 export function renderAll() {
   applySurfaceVisibility();

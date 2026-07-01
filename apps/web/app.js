@@ -1,20 +1,20 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js?v=09481a1dfc";
-import { TOUR_STEPS } from "./js/config.js?v=09481a1dfc";
-import { controls } from "./js/dom.js?v=09481a1dfc";
-import { clamp } from "./js/format.js?v=09481a1dfc";
-import { renderAll } from "./js/view.js?v=09481a1dfc";
-import { updateModeButtons } from "./js/panels.js?v=09481a1dfc";
-import { loadState } from "./js/data.js?v=09481a1dfc";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=09481a1dfc";
-import { startTour, endTour, showTourStep } from "./js/tour.js?v=09481a1dfc";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=09481a1dfc";
-import { enterSky, leaveSky } from "./js/sky.js?v=09481a1dfc";
-import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=09481a1dfc";
-import { buildWavelengthBar } from "./js/wavelength.js?v=09481a1dfc";
-import { buildSunCutaway } from "./js/sunlayers.js?v=09481a1dfc";
+import { store } from "./js/store.js?v=aebfcb9c5a";
+import { TOUR_STEPS } from "./js/config.js?v=aebfcb9c5a";
+import { controls } from "./js/dom.js?v=aebfcb9c5a";
+import { clamp } from "./js/format.js?v=aebfcb9c5a";
+import { renderAll } from "./js/view.js?v=aebfcb9c5a";
+import { updateModeButtons } from "./js/panels.js?v=aebfcb9c5a";
+import { loadState } from "./js/data.js?v=aebfcb9c5a";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=aebfcb9c5a";
+import { startTour, endTour, showTourStep } from "./js/tour.js?v=aebfcb9c5a";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=aebfcb9c5a";
+import { enterSky, leaveSky } from "./js/sky.js?v=aebfcb9c5a";
+import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=aebfcb9c5a";
+import { buildWavelengthBar } from "./js/wavelength.js?v=aebfcb9c5a";
+import { buildSunCutaway } from "./js/sunlayers.js?v=aebfcb9c5a";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {

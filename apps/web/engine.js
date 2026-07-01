@@ -11,7 +11,7 @@ export function loadEngine() {
   loadPromise = (async () => {
     // Use instantiate(arrayBuffer) rather than instantiateStreaming so it works
     // even when the static server doesn't send the application/wasm MIME type.
-    const response = await fetch("pkg/solar_wasm.wasm?v=09481a1dfc", { cache: "no-store" });
+    const response = await fetch("pkg/solar_wasm.wasm?v=aebfcb9c5a", { cache: "no-store" });
     if (!response.ok) throw new Error(`wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});

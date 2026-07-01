@@ -18,12 +18,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent / "apps" / "web"
 TOKEN = re.compile(r"\?v=[0-9a-zA-Z]+")
-# Binary assets that carry no ?v of their own but must influence the token: the WASM engines
-# and the surface textures. Folding their bytes into the hash means a wasm-only rebuild (new
-# ABI) or a texture swap re-stamps every JS module that loads them, so cached JS can never pair
-# with a mismatched engine. The daily-changing data/ JSON is deliberately excluded — it is
-# fetched with cache:"no-store" (always fresh) and would otherwise thrash the token every ingest.
-ASSET_GLOBS = ("pkg/*.wasm", "textures/*")
+# Binary assets folded into the token so a wasm rebuild re-stamps every JS module that loads it —
+# cached JS can then never pair with a mismatched engine. Only *tracked* assets belong here so the
+# committed token is reproducible from a clean checkout; that reproducibility is exactly what lets
+# CI gate on it (see .github/workflows/ci.yml). Textures are EXCLUDED on purpose: they are
+# gitignored (fetched by tools/fetch_textures.py), so hashing them would tie the token to untracked
+# files and make it differ between a dev machine and CI. They still receive the stamped ?v= (any
+# token bump busts them) and, being NASA/ESA surface maps, effectively never change. The
+# daily-changing data/ JSON is excluded too — it is fetched cache:"no-store" (always fresh).
+ASSET_GLOBS = ("pkg/*.wasm",)
 
 
 def main() -> int:

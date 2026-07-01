@@ -1,0 +1,53 @@
+name: Deploy web app (GitHub Pages)
+
+# Publishes the dependency-free static app in apps/web/ to GitHub Pages.
+# The WASM engines are committed under apps/web/pkg/, so no Rust build is needed here; textures are
+# gitignored and fetched best-effort at deploy time (the renderer falls back to procedural if absent).
+#
+# One-time setup: repo Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; don't cancel an in-progress publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build static site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch NASA/ESA surface textures (best-effort)
+        run: python tools/fetch_textures.py || echo "::warning::textures unavailable — renderer will use its procedural fallback"
+
+      - name: Stamp cache-bust tokens
+        run: python tools/build_web.py
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
