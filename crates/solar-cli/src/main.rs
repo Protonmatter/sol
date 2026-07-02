@@ -24,7 +24,13 @@ fn run() -> Result<(), String> {
             print_help();
             Ok(())
         }
-        _ => legacy_summary(&args),
+        // Bare flags (e.g. `solar-cli --steps 48`) keep the legacy stdout summary; anything
+        // else is a typo'd subcommand — silently running the legacy summary for `simulte`
+        // was a footgun.
+        Some(first) if first.starts_with('-') => legacy_summary(&args),
+        Some(other) => Err(format!(
+            "unknown command '{other}' (expected simulate, ingest, or replay — see --help)"
+        )),
     }
 }
 
@@ -32,16 +38,19 @@ fn simulate_command(args: &[String]) -> Result<(), String> {
     let steps = parse_or_default(args, "--steps", 24usize)?;
     let dt_hours = parse_or_default(args, "--dt-hours", 1.0f64)?;
     let seed = parse_or_default(args, "--seed", 42u64)?;
+    let activity = parse_or_default(args, "--activity", 0.9f32)?.clamp(0.0, 1.0);
     let out = required_path(args, "--out")?;
 
-    let (state, activity_index) = simulate_state(steps, dt_hours, seed);
+    let state = simulate_state(steps, dt_hours, seed, activity);
     let snapshot = solar_state_snapshot_json(
         &state,
-        &SnapshotRequest::synthetic(seed, steps, dt_hours, activity_index),
+        &SnapshotRequest::synthetic(seed, steps, dt_hours, activity),
     );
     write_text(&out, &snapshot)?;
     println!("wrote snapshot={}", out.display());
-    println!("source_mode=synthetic steps={steps} dt_hours={dt_hours} seed={seed}");
+    println!(
+        "source_mode=synthetic steps={steps} dt_hours={dt_hours} seed={seed} activity={activity}"
+    );
     Ok(())
 }
 
@@ -105,7 +114,8 @@ fn legacy_summary(args: &[String]) -> Result<(), String> {
     let steps = parse_or_default(args, "--steps", 24usize)?;
     let dt_hours = parse_or_default(args, "--dt-hours", 1.0f64)?;
     let seed = parse_or_default(args, "--seed", 42u64)?;
-    let (state, _) = simulate_state(steps, dt_hours, seed);
+    let activity = parse_or_default(args, "--activity", 0.9f32)?.clamp(0.0, 1.0);
+    let state = simulate_state(steps, dt_hours, seed, activity);
 
     println!("Solar Maximum Engine v0.1 CPU reference");
     println!("steps={steps} dt_hours={dt_hours} seed={seed}");
@@ -123,8 +133,7 @@ fn legacy_summary(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn simulate_state(steps: usize, dt_hours: f64, seed: u64) -> (SolarState, f32) {
-    let activity_index = 0.9;
+fn simulate_state(steps: usize, dt_hours: f64, seed: u64, activity_index: f32) -> SolarState {
     let grid = SolarGrid::new(144, 72);
     let mut state = SolarState::new(grid.clone(), SolarMode::Synthetic);
     let mut model = SyntheticSolarModel::new(SyntheticConfig {
@@ -140,7 +149,7 @@ fn simulate_state(steps: usize, dt_hours: f64, seed: u64) -> (SolarState, f32) {
         advance_flux_transport(&mut state, dt_hours * 3600.0, &cfg);
     }
 
-    (state, activity_index)
+    state
 }
 
 fn write_text(path: &Path, content: &str) -> Result<(), String> {
@@ -202,7 +211,7 @@ fn escape_json(value: &str) -> String {
 fn print_help() {
     println!("Solar Maximum Engine");
     println!("Commands:");
-    println!("  solar-cli simulate --steps <n> --dt-hours <h> --seed <seed> --out <snapshot.json>");
+    println!("  solar-cli simulate --steps <n> --dt-hours <h> --seed <seed> --activity <0..1> --out <snapshot.json>");
     println!(
         "  solar-cli ingest swpc --cache <dir> --out <observations.json> --fallback-fixtures <dir>"
     );

@@ -271,8 +271,8 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     out.push_str("},\n");
     out.push_str("  \"accuracy\": {\
 \"class\":\"apparent topocentric place, validated vs JPL Horizons DE441\",\
-\"theory\":\"Sun+planets VSOP2013, Moon ELP-MPP02; Earth-centre observer; Meeus-21 precession; abridged nutation (~0.5 arcsec)\",\
-\"pointing_error\":\"<=~5 arcsec (Moon), <=~4 arcsec (Sun+planets) across 4 sites equator-64N both hemispheres 2 seasons; geocentric RA/Dec ~3 arcsec\",\
+\"theory\":\"Sun+planets VSOP2013, Moon ELP-MPP02; Earth-centre observer; measured IERS delta-T near present; Meeus-21 precession; abridged nutation (~0.5 arcsec)\",\
+\"pointing_error\":\"<=~4 arcsec (worst 3.6, Mercury) and Moon <=~1.5 arcsec across 4 sites equator-64N both hemispheres 2 seasons\",\
 \"valid_epoch\":\"near present; deep-time apparent place is delta-T limited (not arcsecond): delta-T reaches hours at +-6000 yr, so the Moon can be off by degrees\",\
 \"non_goal\":\"navigation / occultation timing\"},\n");
     out.push_str("  \"bodies\": [\n");
@@ -385,7 +385,10 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
         ("Neptune", &vsop2013_data::NEP),
     ];
     const AU_PER_YEAR_KMS: f64 = 4.740_57; // 1 AU/yr in km/s
-    let earth = vsop2013::helio_xyz(&vsop2013_data::EMB, jy2k);
+                                           // Earth's CENTRE, not the Earth-Moon barycentre: VSOP2013's EMB sits ~4671 km toward the
+                                           // Moon. Using it as "Earth" also overstated the Earth→Moon separation by the same amount
+                                           // (EMB + geocentric Moon double-counts the barycentre offset by the lunar mass fraction).
+    let earth = planets::earth_center(jy2k);
     let sun_earth = (earth[0] * earth[0] + earth[1] * earth[1] + earth[2] * earth[2]).sqrt();
     let dt = 0.001; // years, for the velocity finite difference
 
@@ -395,6 +398,9 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
     // Jupiter–Neptune use TOP2013 (sub-arcsec for the giants over ±6000 yr, where VSOP2013 drifts to
     // hundreds of arcsec); the inner planets stay on VSOP2013. Same equinoctial frame, so they mix.
     let helio = |name: &str, planet: &vsop2013::Planet, t: f64| -> [f64; 3] {
+        if name == "Earth" {
+            return planets::earth_center(t);
+        }
         match top2013::outer_index(name) {
             Some(idx) => top2013::helio_xyz(idx, t),
             None => vsop2013::helio_xyz(planet, t),
@@ -464,15 +470,15 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
             a, ecc, inc.to_degrees(), node.to_degrees(), argp.to_degrees()
         ));
     }
-    // The Moon: ELP-MPP02 geocentric position added to Earth's (EMB) heliocentric position, so the
-    // 3-D view can place it beside the Earth with the correct direction, distance, and phase.
+    // The Moon: ELP-MPP02 geocentric position added to Earth's CENTRE heliocentric position, so
+    // the 3-D view places it beside the Earth with the correct direction, distance, and phase.
     {
         let mg = elpmpp02::moon_xyz(jy2k);
         let moon = [earth[0] + mg[0], earth[1] + mg[1], earth[2] + mg[2]];
         let r = (moon[0] * moon[0] + moon[1] * moon[1] + moon[2] * moon[2]).sqrt();
         let delta = (mg[0] * mg[0] + mg[1] * mg[1] + mg[2] * mg[2]).sqrt();
-        let ea = vsop2013::helio_xyz(&vsop2013_data::EMB, jy2k + dt);
-        let eb = vsop2013::helio_xyz(&vsop2013_data::EMB, jy2k - dt);
+        let ea = planets::earth_center(jy2k + dt);
+        let eb = planets::earth_center(jy2k - dt);
         let ma = elpmpp02::moon_xyz(jy2k + dt);
         let mb = elpmpp02::moon_xyz(jy2k - dt);
         let d = [

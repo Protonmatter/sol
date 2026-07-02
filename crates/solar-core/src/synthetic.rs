@@ -62,6 +62,24 @@ impl SyntheticSolarModel {
                 * (0.55 + 1.20 * self.rng.next_f32())
                 * (0.75 + complexity);
 
+            // Hale's law: within a cycle the leading-spot polarity is coherent per hemisphere
+            // and opposite between hemispheres (it flips at each ~11-yr cycle boundary; this is
+            // a single-cycle engine, so the parity is fixed). ~8% of real regions violate it
+            // ("anti-Hale"), which the second draw reproduces. The old 50/50 coin flip per
+            // region produced a magnetically impossible Sun.
+            let hale = if hemi > 0.0 {
+                Polarity::LeadingPositive
+            } else {
+                Polarity::LeadingNegative
+            };
+            let polarity = if self.rng.next_f32() < 0.08 {
+                match hale {
+                    Polarity::LeadingPositive => Polarity::LeadingNegative,
+                    Polarity::LeadingNegative => Polarity::LeadingPositive,
+                }
+            } else {
+                hale
+            };
             out.push(ActiveRegion {
                 id: self.next_id,
                 birth_seconds: now_seconds,
@@ -71,11 +89,7 @@ impl SyntheticSolarModel {
                 area_msh: 150.0 + 1800.0 * complexity,
                 tilt_deg: hemi * (4.0 + 18.0 * self.rng.next_f32()),
                 complexity,
-                polarity: if self.rng.next_f32() < 0.5 {
-                    Polarity::LeadingPositive
-                } else {
-                    Polarity::LeadingNegative
-                },
+                polarity,
                 confidence: 0.65,
             });
             self.next_id += 1;
@@ -108,12 +122,15 @@ impl XorShift64 {
         (v as f32) / ((1u64 << 24) as f32)
     }
 
+    /// Irwin–Hall approximation to a standard normal. Twelve uniforms are required for unit
+    /// variance (Var[U]=1/12 each); the previous six-uniform version had σ=√0.5≈0.707, so every
+    /// configured sigma (e.g. `latitude_sigma_deg`) silently acted ~29% tighter than stated.
     fn normal_approx(&mut self) -> f32 {
         let mut sum = 0.0;
-        for _ in 0..6 {
+        for _ in 0..12 {
             sum += self.next_f32();
         }
-        sum - 3.0
+        sum - 6.0
     }
 }
 
@@ -136,6 +153,35 @@ fn poisson_sample(rng: &mut XorShift64, lambda: f32) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn polarity_follows_hales_law() {
+        let grid = SolarGrid::new(72, 36);
+        let mut model = SyntheticSolarModel::new(SyntheticConfig::default());
+        let births = model.generate_births(0.0, 86_400.0 * 60.0, &grid);
+        assert!(
+            births.len() > 40,
+            "need a decent sample, got {}",
+            births.len()
+        );
+        let obeys = births
+            .iter()
+            .filter(|ar| {
+                let hale = if ar.lat_deg > 0.0 {
+                    Polarity::LeadingPositive
+                } else {
+                    Polarity::LeadingNegative
+                };
+                ar.polarity == hale
+            })
+            .count();
+        // ~92% Hale-obeying by construction; require a clear hemispheric signal.
+        assert!(
+            obeys as f32 / births.len() as f32 > 0.8,
+            "{obeys}/{} regions obey Hale's law",
+            births.len()
+        );
+    }
 
     #[test]
     fn same_seed_reproduces_births() {

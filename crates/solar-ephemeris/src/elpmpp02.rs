@@ -21,7 +21,7 @@ pub struct Term {
 const RAD: f64 = 206264.806_247_096_36; // 648000 / π — arcsec per radian
 const A405: f64 = 384747.9613701725;
 const AELP: f64 = 384747.980674318;
-const KM2AU: f64 = 6.6846e-9;
+const KM2AU: f64 = 1.0 / 149_597_870.7; // exact AU definition (the old 5-digit 6.6846e-9 cost ~1 km)
 
 // Precession of the ecliptic, P and Q (Laskar 1986).
 const P: [f64; 5] = [
