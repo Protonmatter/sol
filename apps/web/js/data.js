@@ -1,9 +1,9 @@
 // Snapshot / series / feed-status loaders and the observed-image cache.
 
-import { store } from "./store.js?v=aebfcb9c5a";
-import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=aebfcb9c5a";
-import { renderAll } from "./view.js?v=aebfcb9c5a";
-import { maybeAutoStartTour } from "./tour.js?v=aebfcb9c5a";
+import { store } from "./store.js?v=1e53a8939f";
+import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=1e53a8939f";
+import { renderAll } from "./view.js?v=1e53a8939f";
+import { maybeAutoStartTour } from "./tour.js?v=1e53a8939f";
 
 const baseImageCache = {};
 
@@ -13,12 +13,29 @@ function loadBaseImage(key) {
   if (!cfg) return null;
   const img = new Image();
   img.decoding = "async";
-  img.onload = () => renderAll();
-  img.onerror = () => { baseImageCache[key].failed = true; };
+  const announce = () => window.dispatchEvent(new Event("sol:baseimage")); // caption provenance refresh
+  img.onload = () => { renderAll(); announce(); };
+  img.onerror = () => { entry.failed = true; renderAll(); announce(); }; // relabel as synthetic immediately
   img.src = cfg.url;
   const entry = { img, cfg, failed: false };
   baseImageCache[key] = entry;
   return entry;
+}
+
+// Give a failed channel another chance when the user selects it again — a transient network
+// blip used to pin that wavelength to the synthetic fallback for the tab's whole life (the
+// same reasoning engine.js documents for retrying its WASM fetch). Deliberately NOT retried
+// automatically from onerror: that would loop through renderAll while the network is down.
+export function retryBaseImage(key) {
+  if (baseImageCache[key] && baseImageCache[key].failed) delete baseImageCache[key];
+}
+
+// Whether the current wavelength's live image is showing, for provenance-consistent captions.
+export function baseImageState(key) {
+  const entry = baseImageCache[key];
+  if (!entry) return "pending";
+  if (entry.failed) return "failed";
+  return entry.img.complete && entry.img.naturalWidth > 0 ? "live" : "pending";
 }
 
 export function currentBaseImage() {

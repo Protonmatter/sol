@@ -1,0 +1,20 @@
+# One line-ending story on every platform. The generated JSON artifacts embed
+# newline-normalized byte counts and the CI determinism gate diffs regenerated files
+# against the committed ones — CRLF-smudged checkouts (Windows autocrlf) broke both.
+* text=auto
+*.rs text eol=lf
+*.js text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.svg text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.ps1 text eol=lf
+
+*.wasm binary
+*.png binary
+*.jpg binary
+*.ppm binary

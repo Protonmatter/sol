@@ -17,25 +17,22 @@ browser.**
 
 ## 2. Where things stand
 
-- **Branch `redesign/web-v0.2`** holds the redesign. **`master` is the untouched v0.1.4
-  baseline** — the rollback point.
-- Commit trail (newest first):
-  - `90bd739` review cleanup (dead code + stale refs)
-  - `222e4b6` Phase 3 — time playback + real butterfly
-  - `904d72f` finish Phase 2 — onboarding tour + interactive stage rail
-  - `5299ea8` Phase 2 — intent surfaces + disclosure + glossary
-  - `e893025` Phase 1 — real-Sun hero + layout fix
-  - `db179b6` redesign spec
-  - `5f92fa6` v0.1.4 baseline (on master)
-- Phases 1–3 are **done and verified in-browser** (no console errors). Phases 4–5 remain.
-- Nothing is pushed to a remote and no PR exists yet — local branch only.
+- **`master` is the only branch** — default, protected (PRs + 4 CI checks required), and
+  deployed to GitHub Pages at https://protonmatter.github.io/sol/ on every push. The
+  former `redesign/web-v0.2` branch was fully merged (PR #1) and deleted.
+- Repo: github.com/Protonmatter/sol. CI: `.github/workflows/ci.yml` (tests, blocking
+  fmt+clippy, wasm build, web validators, determinism gate, cache-bust sync) plus a
+  weekly network `ephemeris-accuracy.yml` (JPL Horizons) and `deploy-pages.yml`.
+- Redesign Phases 1–3 plus the Solar-System/My-Sky engine work are **done and verified
+  in-browser**. See STATUS.md for the current done/left detail.
 
 ## 3. The redesign in one paragraph
 
 The old app was a dense, jargon-first status dashboard with the Sun stranded below the fold
 and a fake butterfly diagram. It now opens on a **real NASA SDO image of the Sun** with one
-plain sentence (the "Today" glance), and earns its way into depth through four intent
-surfaces (Today / Explore / Space Weather / Research) via genuine progressive disclosure.
+plain sentence, and earns its way into depth through **three destinations (The Sun / My Sky /
+Solar System)** — the Sun surface layers further via progressive-disclosure drawers
+(layers & region inspection / what it means for Earth / under the hood).
 Every science term has a glossary tooltip; an onboarding tour orients first-timers; a
 timeline scrubber plays an idealized 11-year cycle; and the butterfly diagram is now a real
 latitude-vs-time plot driven by a deterministic snapshot series.
@@ -83,8 +80,10 @@ scans `js/*.js` for required JS bindings — keep both in sync when you add/rena
   It stamps a single content-hash `?v=<hash>` across every HTML/JS reference, so the token changes
   only when content changes and all references move together — no more hand-bumping `?v=N` per file
   (which risked a stale-module mismatch if one was missed).
-- **No Node/Cargo on this machine.** Data is generated with Python; `node --check` can't run
-  here. The web app deliberately needs no build.
+- **Node AND Cargo are installed on this machine** (Node v24 at `C:\Program Files\nodejs`;
+  cargo/rustup at `~/.cargo/bin` — on the PowerShell PATH, not Bash). Data is generated
+  with Python; `node --check` is the zero-dep JS syntax gate. The web app still
+  deliberately needs no build/bundler.
 - **SDO images** load without `crossOrigin` (display-only draw; canvas is never read back).
   If you ever need `getImageData`, you'll need a CORS-enabled source.
 - **Cycle frames drop `observed_context`** to stay small, so Space-Weather chips read "n/a"

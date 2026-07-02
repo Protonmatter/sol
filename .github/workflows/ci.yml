@@ -107,6 +107,32 @@ jobs:
       - name: Operational-readiness gate
         run: python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 
+      - name: Series frames validate (solar-state-snapshot.v1)
+        shell: bash
+        run: |
+          status=0
+          for f in apps/web/data/series/frame-*.json; do
+            python tools/validate_snapshot.py "$f" || status=1
+          done
+          exit $status
+
+      # Turns "deterministic, versioned snapshots" from a claim into an enforced property:
+      # the generator must be byte-stable run-to-run, and regenerating the committed
+      # fixture-mode observations must produce exactly the committed bytes (platform-stable
+      # thanks to POSIX display paths + newline-normalized byte counts + .gitattributes).
+      - name: Determinism gate (fixture regeneration is byte-stable)
+        shell: bash
+        run: |
+          python tools/generate_fixture_snapshot.py --out /tmp/det-a.json --observations-out tests/fixtures/live-swpc-normalized.json
+          python tools/generate_fixture_snapshot.py --out /tmp/det-b.json --observations-out /tmp/det-b-obs.json
+          cmp /tmp/det-a.json /tmp/det-b.json
+          python tools/validate_snapshot.py /tmp/det-a.json
+          if ! git diff --quiet -- tests/fixtures/live-swpc-normalized.json; then
+            echo "::error::regenerating tests/fixtures/live-swpc-normalized.json changed it — generator/fixture drift; regenerate and commit"
+            git --no-pager diff --stat -- tests/fixtures/live-swpc-normalized.json
+            exit 1
+          fi
+
       - name: Cache-bust tokens in sync
         shell: bash
         run: |

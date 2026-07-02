@@ -4,15 +4,6 @@ export function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-export function wrapIndex(value, count) {
-  return ((value % count) + count) % count;
-}
-
-export function valueAt(values, index, fallback) {
-  const value = values[index];
-  return Number.isFinite(value) ? value : fallback;
-}
-
 export function hash01(value) {
   const raw = Math.sin(value * 12.9898 + 78.233) * 43758.5453;
   return raw - Math.floor(raw);

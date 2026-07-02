@@ -73,34 +73,18 @@ export const FALLBACK_STATE = {
   warnings: ["Fallback state rendered because apps/web/data/latest-state.json was unavailable."]
 };
 
+// (The old explore/weather/research entries described surfaces removed in the
+// three-destination consolidation — they were unreachable dead copy.)
 export const MODE_COPY = {
   today: ["Today on the Sun", "A plain-language snapshot of where the Sun is in its cycle and what is happening on the side facing us right now."],
-  explore: ["Explore the Sun", "Toggle layers, then click any marker to inspect a sunspot group's location, size, magnetic complexity, and how confident the model is."],
-  weather: ["Space Weather", "How today's solar activity maps to things people feel on Earth — aurora, GPS, radio, and satellites. A learning view, not an alert service."],
-  research: ["Research", "The model behind the picture: the equations it runs, where its data comes from, source-adapter health, and the gates that still block operational forecasting."]
 };
 
 export const APPLICATION_COPY = {
-  today: {
-    title: "Where the Sun is now",
-    text: "The Sun runs an ~11-year cycle from quiet (minimum) to active (maximum). More sunspot groups means more flares and more aurora.",
-    signals: ["stage", "regions", "confidence"]
-  },
-  explore: {
-    title: "Inspect active regions",
-    text: "Each marker is a sunspot group. Click one to see its location, magnetic complexity, area, and the model's confidence.",
-    signals: ["selected AR", "complexity", "confidence"]
-  },
   weather: {
     title: "Space-weather impact",
     text: "Public SWPC indices map to impact categories you may have heard of. Shown for learning only — this app issues no warnings.",
     signals: ["Kp", "F10.7", "GOES/X-ray", "solar wind"]
   },
-  research: {
-    title: "Model bench & provenance",
-    text: "Seeded simulations, immutable snapshots, provenance labels, adapter health, and golden checks make algorithm changes auditable.",
-    signals: ["schema", "provenance", "golden tests"]
-  }
 };
 
 // Plain-language definitions surfaced via the ? affordances and legend/signal chips.

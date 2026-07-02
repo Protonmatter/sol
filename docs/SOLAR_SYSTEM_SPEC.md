@@ -227,8 +227,9 @@ navigation accuracy.
   Sydney): Sun/Moon/Mercury/Venus/Mars/Uranus/Neptune all < ~50″; Jupiter < ~1′; **Saturn ~2-5′**
   (the known Standish "great inequality" limit — arcsecond accuracy needs VSOP87, see P4). Ranked
   "Up now" list with rise/set. *Deferred to later:* magnitude/phase, object-detail panel, search.
-- **P3 — Solar System view. ✅ DONE.** 2D top-down ecliptic orbit view (`js/system.js`, new
-  "Solar System" surface) fed by the `system_snapshot` engine export (heliocentric VSOP2013
+- **P3 — Solar System view. ✅ DONE.** 2D top-down ecliptic orbit view (originally
+  `js/system.js`; since **folded into `js/orrery.js`** as the "Top-down map" toggle) fed by
+  the `system_snapshot` engine export (heliocentric VSOP2013
   positions): Sun at centre, planets at real positions, mean-orbit guide rings, AU scale bar, a
   ±100-yr time scrubber, 1.5–32 AU zoom, and click-to-select with a **per-object detail panel**
   (distance from Sun/Earth + light-time, orbital speed, illuminated fraction + phase, apparent

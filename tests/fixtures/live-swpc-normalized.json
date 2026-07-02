@@ -2,14 +2,14 @@
   "adapter_health": [
     {
       "id": "swpc-rtsw-mag-1m",
-      "local_path": "tests\\swpc_scn26_21\\rtsw_mag_1m_new.json",
+      "local_path": "tests/swpc_scn26_21/rtsw_mag_1m_new.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
       "raw_bytes": 215,
       "state": "fixture"
     },
     {
       "id": "swpc-rtsw-wind-1m",
-      "local_path": "tests\\swpc_scn26_21\\rtsw_wind_1m_new.json",
+      "local_path": "tests/swpc_scn26_21/rtsw_wind_1m_new.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
       "raw_bytes": 185,
       "state": "fixture"
@@ -44,6 +44,20 @@
     },
     {
       "id": "swpc-sunspot-report",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "swpc-planetary-k-index-1m",
+      "local_path": "",
+      "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
+      "raw_bytes": 0,
+      "state": "missing"
+    },
+    {
+      "id": "swpc-f107-cm-flux",
       "local_path": "",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
       "raw_bytes": 0,
@@ -129,6 +143,20 @@
       "url": "https://services.swpc.noaa.gov/json/sunspot_report.json"
     },
     {
+      "default_quality": "Kp context for impact-learning panels; not an alerting source",
+      "id": "swpc-planetary-k-index-1m",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC planetary K index",
+      "url": "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
+    },
+    {
+      "default_quality": "F10.7 solar-radio proxy context for cycle and impact-learning displays",
+      "id": "swpc-f107-cm-flux",
+      "layer_kind": "observed",
+      "name": "NOAA/SWPC F10.7 cm radio flux",
+      "url": "https://services.swpc.noaa.gov/json/f107_cm_flux.json"
+    },
+    {
       "default_quality": "recent XRS context for flare activity research display",
       "id": "swpc-goes-xrays-1-day",
       "layer_kind": "observed",
@@ -161,7 +189,7 @@
     {
       "id": "swpc-rtsw-mag-1m",
       "layer_kind": "observed",
-      "local_path": "tests\\swpc_scn26_21\\rtsw_mag_1m_new.json",
+      "local_path": "tests/swpc_scn26_21/rtsw_mag_1m_new.json",
       "provenance": {
         "active": true,
         "raw_source_metadata": {
@@ -183,7 +211,7 @@
     {
       "id": "swpc-rtsw-wind-1m",
       "layer_kind": "observed",
-      "local_path": "tests\\swpc_scn26_21\\rtsw_wind_1m_new.json",
+      "local_path": "tests/swpc_scn26_21/rtsw_wind_1m_new.json",
       "provenance": {
         "active": true,
         "raw_source_metadata": {
@@ -207,13 +235,27 @@
   "observed_context": {
     "activity_index": 0.9,
     "activity_proxy_sources": {
+      "f107_cm_flux_rows": 0,
       "goes_xray_flares_7_day_rows": 0,
+      "goes_xrays_1_day_rows": 0,
       "latest_f107": null,
+      "planetary_k_index_rows": 0,
       "solar_region_rows": 0,
       "sunspot_rows": 0
     },
     "note": "Observed public context tunes research fixture density only; magnetic fields remain normalized and not operationally calibrated.",
     "schema_version": "observed-context.v1",
+    "signal_freshness": {},
+    "space_weather_signals": {
+      "latest_bz_gsm_nt": -3.8,
+      "latest_f107": null,
+      "latest_goes_xray_flux": null,
+      "latest_kp": null,
+      "latest_solar_wind_speed_km_s": 420.0,
+      "rtsw_magnetometer_rows": 1,
+      "rtsw_wind_rows": 1
+    },
+    "stale_feeds": [],
     "synthetic_region_count": 34
   },
   "schema_version": "observation-frame.v1",

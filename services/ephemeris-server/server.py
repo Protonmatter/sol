@@ -23,6 +23,7 @@ import json
 import math
 import os
 import re
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -50,16 +51,22 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 
 
 def refraction_deg(alt_deg: float) -> float:
-    """Bennett atmospheric refraction lift (deg) — matches the Rust engine's coords::refraction_deg."""
+    """Sæmundsson atmospheric refraction lift (deg) from a TRUE altitude — kept in sync with
+    the Rust engine's coords::refraction_deg. (Bennett's coefficients expect the APPARENT
+    altitude; using them here left the two providers ~5.5 arcmin apart at the horizon, so
+    switching tiers could flip above_horizon while rise/set said otherwise.)"""
     if alt_deg < -1.0:
         return 0.0
-    r_arcmin = 1.0 / math.tan(math.radians(alt_deg + 7.31 / (alt_deg + 4.4)))
+    r_arcmin = 1.02 / math.tan(math.radians(alt_deg + 10.3 / (alt_deg + 5.11)))
     return r_arcmin / 60.0
 
 
 def compass(az_deg: float) -> str:
-    pts = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-    return pts[int((az_deg % 360) / 45.0 + 0.5) % 8]
+    # 16-point, matching the WASM engine's compass() exactly — the provider toggle used to
+    # change "NNE" to "NE" with no position change (8-point here vs 16-point on-device).
+    pts = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+           "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    return pts[int(((az_deg + 11.25) % 360.0) / 22.5) % 16]
 
 
 def fetch_body(when: dt.datetime, lat: float, lon_east: float, elev_m: float, hid: str) -> dict:
@@ -68,8 +75,12 @@ def fetch_body(when: dt.datetime, lat: float, lon_east: float, elev_m: float, hi
         "format": "text", "COMMAND": f"'{hid}'", "OBJ_DATA": "'NO'", "MAKE_EPHEM": "'YES'",
         "EPHEM_TYPE": "'OBSERVER'", "CENTER": "'coord@399'", "COORD_TYPE": "'GEODETIC'",
         "SITE_COORD": f"'{lon_east},{lat},{elev_m / 1000.0}'",
-        "START_TIME": "'" + when.strftime("%Y-%m-%d %H:%M") + "'",
-        "STOP_TIME": "'" + (when + dt.timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M") + "'",
+        # Seconds precision. The old %H:%M silently floored the request to the whole minute
+        # while the payload claimed "definitive apparent place" for the exact instant —
+        # Earth rotates ~15″/s, so hh:mm:59 requests came back up to ~15′ off in az/el
+        # (worse than the on-device engine this tier exists to upgrade).
+        "START_TIME": "'" + when.strftime("%Y-%m-%d %H:%M:%S") + "'",
+        "STOP_TIME": "'" + (when + dt.timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M:%S") + "'",
         "STEP_SIZE": "'1'", "QUANTITIES": "'2,4,20'", "ANG_FORMAT": "'DEG'", "APPARENT": "'AIRLESS'",
     }
     url = HORIZONS + "?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
@@ -80,6 +91,12 @@ def fetch_body(when: dt.datetime, lat: float, lon_east: float, elev_m: float, hi
             break
         except urllib.error.HTTPError as exc:
             if exc.code in (429, 503) and attempt < 3:  # rate limit / transient — back off and retry
+                time.sleep(0.6 * (attempt + 1))
+                continue
+            raise
+        except urllib.error.URLError:
+            # Socket timeouts / transient network — the most retryable class of all.
+            if attempt < 3:
                 time.sleep(0.6 * (attempt + 1))
                 continue
             raise
@@ -133,23 +150,62 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict:
     }
 
 
+CACHE_VERSION = "v2"  # bump when the snapshot format changes so stale-schema entries can't serve
+
+
 def cache_path(unix: float, lat: float, lon: float, elev: float) -> str:
-    key = f"{round(unix / 60.0)}|{lat:.4f}|{lon:.4f}|{elev:.1f}"
+    # The key and the Horizons query MUST share one quantization. The old key rounded to
+    # the NEAREST minute while the query floored — adjacent requests collided onto the
+    # wrong minute's sky, stamped with another request's timestamp.
+    key = f"{CACHE_VERSION}|{int(unix)}|{lat:.4f}|{lon:.4f}|{elev:.1f}"
     return os.path.join(CACHE_DIR, hashlib.sha1(key.encode()).hexdigest() + ".json")
 
 
 def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict:
+    unix = float(int(unix))  # whole-second quantization, shared by key, query, and jd_utc
     path = cache_path(unix, lat, lon, elev)
     if os.path.isfile(path):
-        with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                return json.load(fh)
+        except (json.JSONDecodeError, OSError):
+            # A corrupt/truncated entry used to 502 this key forever; treat it as a miss.
+            try:
+                os.remove(path)
+            except OSError:
+                pass
     snap = build_snapshot(unix, lat, lon, elev)
     os.makedirs(CACHE_DIR, exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(snap, fh)
-    os.replace(tmp, path)
+    # Unique temp name per writer: two concurrent misses for the same key used to share
+    # one fixed ".tmp" path — interleaved writes could persist garbage (or raise
+    # PermissionError on Windows while the other thread held the handle).
+    fd, tmp = tempfile.mkstemp(dir=CACHE_DIR, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(snap, fh)
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
     return snap
+
+
+def validate_params(unix: float, lat: float, lon: float, elev: float) -> str | None:
+    """Return an error message for out-of-range/non-finite params, or None when valid."""
+    if not all(math.isfinite(v) for v in (unix, lat, lon, elev)):
+        return "unix, lat, lon, and elev must be finite numbers"
+    # Horizons runs DE441 (roughly −13200..+17191); keep a generous but sane window.
+    if not -4.0e12 < unix < 4.0e12:
+        return "unix is outside the supported time range"
+    if not -90.0 <= lat <= 90.0:
+        return "lat must be within [-90, 90] degrees"
+    if not -360.0 <= lon <= 360.0:
+        return "lon must be within [-360, 360] degrees east"
+    if not -12_000.0 <= elev <= 100_000.0:
+        return "elev must be within [-12000, 100000] metres"
+    return None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -186,6 +242,12 @@ class Handler(BaseHTTPRequestHandler):
                 elev = float(q.get("elev", ["0"])[0])
             except (TypeError, ValueError):
                 self._send(400, {"error": "require numeric unix, lat, lon, elev query params"})
+                return
+            # Bounds check BEFORE spending nine Horizons queries: garbage like lat=91 or
+            # unix=nan used to be forwarded upstream and come back as a misleading 502.
+            problem = validate_params(unix, lat, lon, elev)
+            if problem:
+                self._send(400, {"error": problem})
                 return
             try:
                 self._send(200, snapshot_cached(unix, lat, lon, elev))

@@ -25,6 +25,16 @@ from typing import Any
 TIMEOUT_SECONDS = 20
 USER_AGENT = "solar-maximum-engine/0.1.3 research-learning-daily-ingest"
 LOGGER = logging.getLogger("fetch_public_data")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def display_path(path: Path) -> str:
+    """Repo-relative POSIX path (or basename outside the repo) for manifest records that
+    end up committed/deployed via feed-status.json — never absolute local paths."""
+    try:
+        return path.resolve().relative_to(REPO_ROOT).as_posix()
+    except (ValueError, OSError):
+        return path.name
 
 
 @dataclass(frozen=True)
@@ -90,8 +100,8 @@ def fetch_cache(
             "ok": False,
             "bytes": 0,
             "fetched_at_utc": fetched_at.isoformat(),
-            "local_path": str(target),
-            "history_path": str(history_dir / endpoint.file) if archive_history else None,
+            "local_path": display_path(target),
+            "history_path": display_path(history_dir / endpoint.file) if archive_history else None,
             "error": None,
             "quality_flags": [
                 endpoint.quality_note,
@@ -101,6 +111,7 @@ def fetch_cache(
         }
         try:
             raw = fetch(endpoint.url, timeout_seconds=timeout_seconds)
+            validate_payload(endpoint.file, raw)
             atomic_write_bytes(target, raw)
             if archive_history:
                 shutil.copy2(target, history_dir / endpoint.file)
@@ -122,8 +133,8 @@ def fetch_cache(
         "generated_by": "tools/fetch_public_data.py",
         "fetched_at_utc": fetched_at.isoformat(),
         "history_date": stamp.isoformat(),
-        "cache_dir": str(cache),
-        "history_dir": str(history_dir) if archive_history else None,
+        "cache_dir": display_path(cache),
+        "history_dir": display_path(history_dir) if archive_history else None,
         "include_jpl": include_jpl,
         "status": status,
         "critical_failures": critical_failures,
@@ -258,10 +269,28 @@ def build_endpoints(*, include_jpl: bool, start_date: date) -> list[Endpoint]:
     return endpoints
 
 
-def fetch(url: str, *, timeout_seconds: int) -> bytes:
+def fetch(url: str, *, timeout_seconds: int, attempts: int = 3) -> bytes:
+    """Fetch with small retries — one transient blip on a critical feed used to fail the
+    whole daily run on the first and only attempt."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-        return response.read()
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                return response.read()
+        except Exception as exc:  # noqa: BLE001 - retried, then recorded by the caller.
+            last_error = exc
+            if attempt + 1 < attempts:
+                time.sleep(1.0 * (attempt + 1))
+    raise last_error if last_error is not None else RuntimeError(f"fetch failed: {url}")
+
+
+def validate_payload(file_name: str, raw: bytes) -> None:
+    """Refuse to poison the cache with a non-JSON body served under HTTP 200 (SWPC
+    maintenance pages do this) — the old code cached it, recorded ok=true, and the
+    failure surfaced later as a confusing parse error in the fixture generator."""
+    if file_name.endswith(".json"):
+        json.loads(raw.decode("utf-8"))
 
 
 def horizons_url(start: date) -> str:

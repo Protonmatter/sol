@@ -5,8 +5,9 @@ Generated: 2026-06-28
 ## What was validated in this environment
 
 - Python prototype executed successfully in the original v0.1.1 package.
-- `synthetic_solar_maximum.ppm` generated successfully in the original v0.1.1 package.
-- `synthetic_solar_maximum.png` generated successfully from the PPM output in the original v0.1.1 package.
+- `synthetic_solar_maximum.ppm` / `.png` generated successfully in the original v0.1.1
+  package. (These prototype outputs are no longer committed — a 3 MB uncompressed PPM at
+  the repo root; regenerate with the `prototype_solar_maximum.py` command below.)
 
 ## What was not validated here
 

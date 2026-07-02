@@ -1,10 +1,10 @@
 // Onboarding tour: a short, skippable spotlight walkthrough for first-time visitors.
 
-import { store } from "./store.js?v=aebfcb9c5a";
-import { TOUR_STEPS } from "./config.js?v=aebfcb9c5a";
-import { text } from "./dom.js?v=aebfcb9c5a";
-import { renderAll } from "./view.js?v=aebfcb9c5a";
-import { updateModeButtons } from "./panels.js?v=aebfcb9c5a";
+import { store } from "./store.js?v=1e53a8939f";
+import { TOUR_STEPS } from "./config.js?v=1e53a8939f";
+import { text } from "./dom.js?v=1e53a8939f";
+import { renderAll } from "./view.js?v=1e53a8939f";
+import { updateModeButtons } from "./panels.js?v=1e53a8939f";
 
 const tourLayer = document.getElementById("tourLayer");
 const tourSpot = document.getElementById("tourSpot");
@@ -105,6 +105,10 @@ function centerTourCard() {
 }
 
 export function maybeAutoStartTour() {
+  // Never hijack a deep-linked or restored non-Sun surface: startTour() forces the mode
+  // back to "today", which would strand a "#sky=…" share-link recipient. The tour stays
+  // one click away on the CTA.
+  if (store.activeMode !== "today") return;
   let seen = null;
   try { seen = localStorage.getItem("sol-tour-seen"); } catch (error) { seen = "1"; }
   if (!seen) startTour();

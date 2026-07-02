@@ -1,9 +1,9 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=aebfcb9c5a";
-import { STARS, CONSTELLATIONS } from "./celestial.js?v=aebfcb9c5a";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=aebfcb9c5a";
+import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=1e53a8939f";
+import { STARS, CONSTELLATIONS } from "./celestial.js?v=1e53a8939f";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=1e53a8939f";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
@@ -27,7 +27,6 @@ const BODY_STYLE = {
 
 // Name → J2000 (RA°, Dec°) for the constellation stars (used to draw the figures + compute arcs).
 const STAR_RADEC = (() => { const m = {}; for (const s of STARS) m[s.n] = s; return m; })();
-const SIDEREAL_DEG_PER_HOUR = 15.04107;
 
 // Topocentric altitude/azimuth (degrees, az from North through East) for a J2000 RA/Dec at a given
 // local sidereal time and latitude. Precession/nutation/refraction are dropped — sub-degree at the
@@ -58,6 +57,38 @@ let active = false;
 let provider = "local"; // "local" = on-device WASM (default), "server" = DE441 high-precision tier
 let chosenUnix = null;  // null = live "now"; otherwise a frozen instant (seconds)
 let lastSnap = null;    // most recent snapshot, for Export
+let deepLinkApplied = false; // the #sky= hash is applied ONCE, not on every surface switch
+let renderGen = 0;      // stale-response guard for the async server tier
+
+// --- Persistence: My Sky is a repeat-use surface; losing the observer/provider on every
+// reload (and re-prompting for geolocation) was real friction. localStorage can throw in
+// private-mode/blocked-storage browsers, so every access is guarded.
+function saveSkyPrefs() {
+  try {
+    localStorage.setItem("sol-sky-observer", JSON.stringify({
+      lat: observer.lat, lon: observer.lon, elev: observer.elev, label: observer.label,
+    }));
+    localStorage.setItem("sol-sky-provider", provider);
+  } catch (_) { /* storage unavailable — session-only prefs */ }
+}
+
+function restoreSkyPrefs() {
+  try {
+    const raw = localStorage.getItem("sol-sky-observer");
+    if (raw) {
+      const saved = JSON.parse(raw);
+      if (Number.isFinite(saved.lat) && Number.isFinite(saved.lon)) {
+        observer.lat = Math.max(-90, Math.min(90, saved.lat));
+        observer.lon = Math.max(-180, Math.min(180, saved.lon));
+        observer.elev = Number.isFinite(saved.elev) ? saved.elev : 0;
+        observer.label = typeof saved.label === "string" && saved.label ? saved.label : "Saved location";
+      }
+    }
+    const savedProvider = localStorage.getItem("sol-sky-provider");
+    if (savedProvider === "server" || savedProvider === "local") provider = savedProvider;
+  } catch (_) { /* storage unavailable */ }
+}
+restoreSkyPrefs();
 
 const currentUnix = () => (chosenUnix != null ? chosenUnix : Date.now() / 1000);
 
@@ -68,7 +99,7 @@ function setProvenance(text) {
 
 function setLocLabel() {
   const node = document.getElementById("skyLocLabel");
-  if (node) node.textContent = `${observer.label}: ${observer.lat.toFixed(2)} deg, ${observer.lon.toFixed(2)} deg.`;
+  if (node) node.textContent = `${observer.label}: ${observer.lat.toFixed(2)}°, ${observer.lon.toFixed(2)}° E.`;
 }
 
 function setTimeLabel() {
@@ -89,14 +120,27 @@ function syncTimeInput() {
   if (input) input.value = toLocalInput(currentUnix());
 }
 
-// Deep link: #sky=lat,lon[,unix] restores a shared location/time.
+// Deep link: #sky=lat,lon[,unix] restores a shared location/time — applied ONCE per page
+// load. Re-applying on every enterSky() re-froze the sky at the share instant after every
+// surface switch (the trap re-armed each time the user pressed Now and navigated away).
 function applyDeepLink() {
+  if (deepLinkApplied) return;
+  deepLinkApplied = true; // latch on the first check — a hash written later by "share" must never re-apply
   const m = /sky=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,(\d+))?/.exec(location.hash);
   if (!m) return;
   observer.lat = Math.max(-90, Math.min(90, parseFloat(m[1])));
-  observer.lon = parseFloat(m[2]);
+  observer.lon = ((parseFloat(m[2]) % 360) + 540) % 360 - 180; // wrap: longitude is an angle
   observer.label = "Shared location";
   if (m[3]) chosenUnix = parseInt(m[3], 10);
+}
+
+// Drop the #sky= hash once the user overrides what it encoded (goes live, moves, or
+// repicks a time) so reloads and future deep-link logic don't resurrect stale state.
+function clearDeepLinkHash() {
+  deepLinkApplied = true;
+  if (/#?sky=/.test(location.hash)) {
+    history.replaceState(null, "", location.pathname + location.search);
+  }
 }
 
 export function enterSky() {
@@ -118,13 +162,21 @@ export function leaveSky() {
   if (timer) { window.clearInterval(timer); timer = 0; }
 }
 
+// Re-fit the dome to its CSS box. Without this, a resize or panel collapse while the time
+// was frozen left the backing store at the old size — the dome rendered as an ellipse
+// until the next redraw trigger (which, frozen, never came).
+export function resizeSky() {
+  if (active) redraw();
+}
+
 export function renderSky() {
   const unix = currentUnix();
+  const gen = ++renderGen; // drop out-of-order server responses (older fetch resolving last)
   if (provider === "server") {
     setProvenance("Fetching high-precision positions (DE441)…");
     fetchServerSky(unix, observer.lat, observer.lon, observer.elev)
       .then((snap) => {
-        if (!active || provider !== "server") return;
+        if (!active || provider !== "server" || gen !== renderGen) return;
         lastSnap = enrichWithLocal(snap, unix);
         drawDome(lastSnap);
         updateList(lastSnap);
@@ -132,6 +184,7 @@ export function renderSky() {
         setProvenance("Source: JPL Horizons / DE441 for the Sun, Moon, and planets; sidereal time, rise/set, and the star catalogue come from the on-device engine.");
       })
       .catch((error) => {
+        if (!active || provider !== "server" || gen !== renderGen) return;
         // Graceful fall back to the on-device engine when the optional server is down.
         renderLocal();
         setProvenance(`High-precision server unavailable (${error.message}) — showing the on-device engine.`);
@@ -139,7 +192,7 @@ export function renderSky() {
     return;
   }
   renderLocal();
-  setProvenance("Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~5″ vs JPL Horizons near today.");
+  setProvenance("Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~4″ vs JPL Horizons near today (Moon ≤ ~1.5″).");
 }
 
 // The DE441 server returns high-precision Sun/Moon/planet positions, but no local sidereal time, no
@@ -167,6 +220,13 @@ function renderLocal() {
   try {
     snap = skySnapshot(currentUnix(), observer.lat, observer.lon, observer.elev);
   } catch (error) {
+    // Engine not instantiated yet (e.g. Set/Now pressed during the WASM fetch): say so and
+    // finish the render once it lands — the old silent return produced a dead button.
+    // Retry ONLY for the not-loaded case; retrying an engine trap would loop forever.
+    if (String(error && error.message).includes("not loaded")) {
+      setProvenance("Sky engine is still loading — this will render in a moment.");
+      loadSkyEngine().then(() => { if (active) renderSky(); }).catch(() => {});
+    }
     return;
   }
   lastSnap = snap;
@@ -444,10 +504,10 @@ function rowFor(b, titleText, detailText) {
   row.addEventListener("mouseleave", previewOff);
   row.addEventListener("focus", previewOn);
   row.addEventListener("blur", previewOff);
-  // Enter/Space toggles a pin — parity with clicking the body on the dome.
-  row.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
+  // Enter/Space AND click/tap toggle a pin — parity with clicking the body on the dome.
+  // (The row advertised role="button" + cursor:pointer but had no click handler, so mouse
+  // and iOS users got less than keyboard users.)
+  const togglePin = () => {
     const pinThis = !(pinned && activeName === b.name);
     pinned = pinThis;
     activeName = pinThis ? b.name : null;
@@ -455,7 +515,13 @@ function rowFor(b, titleText, detailText) {
     if (listEl) listEl.querySelectorAll('.sky-row[role="button"]').forEach((r) => r.setAttribute("aria-pressed", "false"));
     row.setAttribute("aria-pressed", String(pinThis));
     redraw();
+  };
+  row.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    togglePin();
   });
+  row.addEventListener("click", togglePin);
   row.setAttribute("aria-pressed", String(pinned && activeName === b.name));
   return row;
 }
@@ -477,11 +543,11 @@ function updateList(snap) {
     const magText = (!BODY_STYLE[b.name] && b.magnitude != null) ? `mag ${b.magnitude.toFixed(1)}, ` : "";
     const isMoon = b.name === "Moon" && phase;
     const title = isMoon
-      ? `Moon ${phase.glyph} ${phase.name} - ${Math.round(b.alt_deg)} deg up in the ${b.compass}`
-      : `${b.name} - ${Math.round(b.alt_deg)} deg up in the ${b.compass}`;
+      ? `Moon ${phase.glyph} ${phase.name} - ${Math.round(b.alt_deg)}° up in the ${b.compass}`
+      : `${b.name} - ${Math.round(b.alt_deg)}° up in the ${b.compass}`;
     const litText = isMoon ? `${Math.round(phase.k * 100)}% lit, ` : "";
     list.appendChild(rowFor(b, title,
-      `${litText}${magText}azimuth ${Math.round(b.az_deg)} deg, rises ${jdToLocal(b.rise_jd)}, sets ${jdToLocal(b.set_jd)}`));
+      `${litText}${magText}azimuth ${Math.round(b.az_deg)}°, rises ${jdToLocal(b.rise_jd)}, sets ${jdToLocal(b.set_jd)}`));
   }
 
   // Below the horizon: the Sun / Moon / planets you can't see yet, and when they rise ("outside the view").
@@ -503,19 +569,25 @@ function redraw() { if (lastSnap) drawDome(lastSnap); }
 
 // --- Observer controls ---
 document.getElementById("skyGeo")?.addEventListener("click", () => {
-  if (!navigator.geolocation) return;
+  const label = document.getElementById("skyLocLabel");
+  if (!navigator.geolocation) {
+    if (label) label.textContent = "This browser has no geolocation — enter coordinates manually.";
+    return;
+  }
+  if (label) label.textContent = "Locating…"; // pending feedback while the permission prompt is open
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       observer.lat = pos.coords.latitude;
       observer.lon = pos.coords.longitude;
       observer.elev = pos.coords.altitude || 0;
       observer.label = "Your location";
+      clearDeepLinkHash();
+      saveSkyPrefs();
       setLocLabel();
       renderSky();
     },
     () => {
-      const node = document.getElementById("skyLocLabel");
-      if (node) node.textContent = "Location permission denied - enter coordinates manually.";
+      if (label) label.textContent = "Location permission denied - enter coordinates manually.";
     }
   );
 });
@@ -529,25 +601,53 @@ document.getElementById("skySet")?.addEventListener("click", () => {
     return;
   }
   const clampedLat = Math.max(-90, Math.min(90, lat));
+  // Longitude is an ANGLE: wrap it into [-180, 180] instead of clamping. Clamping sent a
+  // pasted 0–360-style value like 270 (= 90°W) to +180 — the wrong meridian entirely.
+  const wrappedLon = ((lon % 360) + 540) % 360 - 180;
   observer.lat = clampedLat;
-  observer.lon = lon;
+  observer.lon = wrappedLon;
   observer.label = "Set location";
+  clearDeepLinkHash();
+  saveSkyPrefs();
   setLocLabel();
   if (clampedLat !== lat && label) {
     label.textContent = `Latitude out of range — clamped to ${clampedLat}° (valid: -90° to 90°).`;
+  } else if (wrappedLon !== lon && label) {
+    label.textContent = `Longitude wrapped to ${wrappedLon}° (east-positive; e.g. 270 means 90°W).`;
   }
   renderSky();
 });
 
+// Enter in either coordinate field commits it — same as pressing Set.
+for (const id of ["skyLat", "skyLon"]) {
+  document.getElementById(id)?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      document.getElementById("skySet")?.click();
+    }
+  });
+}
+
 // --- Data-source toggle (on-device engine vs optional DE441 server tier) ---
 function setProvider(p) {
   provider = p;
-  document.getElementById("skyProviderLocal")?.classList.toggle("active", p === "local");
-  document.getElementById("skyProviderServer")?.classList.toggle("active", p === "server");
+  const localBtn = document.getElementById("skyProviderLocal");
+  const serverBtn = document.getElementById("skyProviderServer");
+  localBtn?.classList.toggle("active", p === "local");
+  serverBtn?.classList.toggle("active", p === "server");
+  // Class-only state was invisible to assistive tech.
+  localBtn?.setAttribute("aria-pressed", String(p === "local"));
+  serverBtn?.setAttribute("aria-pressed", String(p === "server"));
+  saveSkyPrefs();
   if (active) renderSky();
 }
 document.getElementById("skyProviderLocal")?.addEventListener("click", () => setProvider("local"));
 document.getElementById("skyProviderServer")?.addEventListener("click", () => setProvider("server"));
+// Reflect the restored provider in the buttons at boot (without triggering a render).
+document.getElementById("skyProviderLocal")?.classList.toggle("active", provider === "local");
+document.getElementById("skyProviderServer")?.classList.toggle("active", provider === "server");
+document.getElementById("skyProviderLocal")?.setAttribute("aria-pressed", String(provider === "local"));
+document.getElementById("skyProviderServer")?.setAttribute("aria-pressed", String(provider === "server"));
 
 // --- Time controls (plan for any date/time, not just "now") ---
 document.getElementById("skyTime")?.addEventListener("change", (event) => {
@@ -559,11 +659,15 @@ document.getElementById("skyTime")?.addEventListener("change", (event) => {
     return;
   }
   chosenUnix = t / 1000;
+  clearDeepLinkHash();
   setTimeLabel();
   if (active) renderSky();
 });
 document.getElementById("skyNow")?.addEventListener("click", () => {
   chosenUnix = null;
+  // Going live supersedes a shared instant; leaving the #sky= hash in place used to
+  // re-freeze the view on the next surface switch.
+  clearDeepLinkHash();
   syncTimeInput();
   setTimeLabel();
   if (active) renderSky();

@@ -14,7 +14,7 @@ const MOON_MASS_FRACTION: f64 = 0.012150585;
 /// Heliocentric ecliptic-J2000 position (AU) of **Earth's centre** — the proper observer for
 /// apparent place. VSOP2013 gives the Earth-Moon barycentre; Earth's centre is offset toward the
 /// Moon by the lunar mass fraction (≈4671 km), which is ~6″ for the Sun and inner planets.
-fn earth_center(jy2k: f64) -> [f64; 3] {
+pub(crate) fn earth_center(jy2k: f64) -> [f64; 3] {
     let emb = vsop2013::helio_xyz(&EMB, jy2k);
     let moon = crate::elpmpp02::moon_xyz(jy2k); // geocentric ecliptic J2000, AU
     [
@@ -26,18 +26,11 @@ fn earth_center(jy2k: f64) -> [f64; 3] {
 
 /// Reduce a geocentric ecliptic-J2000 vector to apparent ecliptic-of-date (lon °, lat °):
 /// annual aberration (observer velocity / c), then Meeus-21 precession and nutation in longitude.
-fn reduce(
-    mut g: [f64; 3],
-    dist: f64,
-    earth: &[f64; 3],
-    earth_ahead: &[f64; 3],
-    dt: f64,
-    jy2k: f64,
-    dpsi_deg: f64,
-) -> (f64, f64) {
+/// `vel` is Earth's velocity in AU/yr from a CENTRAL difference — a forward difference samples
+/// the velocity ~dt/2 late, rotating the ~20.5″ aberration displacement by ~0.9° (≈0.3″ error).
+fn reduce(mut g: [f64; 3], dist: f64, vel: &[f64; 3], jy2k: f64, dpsi_deg: f64) -> (f64, f64) {
     for i in 0..3 {
-        let v = (earth_ahead[i] - earth[i]) / dt; // observer velocity, AU/yr
-        g[i] += dist * v / C_AU_PER_YEAR;
+        g[i] += dist * vel[i] / C_AU_PER_YEAR;
     }
     let lon_j2000 = g[1].atan2(g[0]).to_degrees();
     let lat_j2000 = g[2].atan2((g[0] * g[0] + g[1] * g[1]).sqrt()).to_degrees();
@@ -53,7 +46,7 @@ pub fn planet_apparent_ecliptic(planet: &Planet, jd_tt: f64, dpsi_deg: f64) -> (
     let jy2k = (jd_tt - J2000) / 365.25;
     let dt = 0.005;
     let earth = earth_center(jy2k);
-    let earth_ahead = earth_center(jy2k + dt);
+    let vel = earth_velocity(jy2k, dt);
     // One light-time iteration on the planet's heliocentric position.
     let mut planet_xyz = vsop2013::helio_xyz(planet, jy2k);
     let mut dist = geo_distance(&planet_xyz, &earth);
@@ -64,8 +57,19 @@ pub fn planet_apparent_ecliptic(planet: &Planet, jd_tt: f64, dpsi_deg: f64) -> (
         planet_xyz[1] - earth[1],
         planet_xyz[2] - earth[2],
     ];
-    let (lon, lat) = reduce(g, dist, &earth, &earth_ahead, dt, jy2k, dpsi_deg);
+    let (lon, lat) = reduce(g, dist, &vel, jy2k, dpsi_deg);
     (lon, lat, dist)
+}
+
+/// Earth-centre velocity (AU/yr) by central difference over ±dt years.
+fn earth_velocity(jy2k: f64, dt: f64) -> [f64; 3] {
+    let ahead = earth_center(jy2k + dt);
+    let behind = earth_center(jy2k - dt);
+    [
+        (ahead[0] - behind[0]) / (2.0 * dt),
+        (ahead[1] - behind[1]) / (2.0 * dt),
+        (ahead[2] - behind[2]) / (2.0 * dt),
+    ]
 }
 
 /// Apparent geocentric ecliptic-of-date position of the Sun. Geocentric Sun = −(Earth's centre);
@@ -74,10 +78,10 @@ pub fn sun_apparent_ecliptic(jd_tt: f64, dpsi_deg: f64) -> (f64, f64, f64) {
     let jy2k = (jd_tt - J2000) / 365.25;
     let dt = 0.005;
     let earth = earth_center(jy2k);
-    let earth_ahead = earth_center(jy2k + dt);
+    let vel = earth_velocity(jy2k, dt);
     let dist = (earth[0] * earth[0] + earth[1] * earth[1] + earth[2] * earth[2]).sqrt();
     let g = [-earth[0], -earth[1], -earth[2]];
-    let (lon, lat) = reduce(g, dist, &earth, &earth_ahead, dt, jy2k, dpsi_deg);
+    let (lon, lat) = reduce(g, dist, &vel, jy2k, dpsi_deg);
     (lon, lat, dist)
 }
 

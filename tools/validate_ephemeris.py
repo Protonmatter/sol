@@ -18,6 +18,7 @@ import json
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -70,11 +71,33 @@ def horizons_altaz(command: str, when: dt.datetime, lat: float, lon: float, elev
         "STEP_SIZE": "'1'", "QUANTITIES": "'4'", "ANG_FORMAT": "'DEG'", "APPARENT": "'AIRLESS'",
     }
     url = "https://ssd.jpl.nasa.gov/api/horizons.api?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
-    text = urllib.request.urlopen(url, timeout=40).read().decode()
+    text = fetch_with_retry(url)
     block = text.split("$$SOE")[1].split("$$EOE")[0].strip().splitlines()[0]
     floats = re.findall(r"[-+]?\d+\.\d+", block)
     az, el = float(floats[-2]), float(floats[-1])
     return az, el
+
+
+def fetch_with_retry(url: str, attempts: int = 4) -> str:
+    """Horizons rate-limits bursts (429/503). This gate fires 36 serial queries; the old
+    single-attempt fetch flaked red on rate-limit days — the same failure mode
+    services/ephemeris-server already handles. Also paces requests slightly."""
+    import time
+
+    last: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            text = urllib.request.urlopen(url, timeout=40).read().decode()
+            time.sleep(0.3)  # be gentle between the serial queries
+            return text
+        except urllib.error.HTTPError as exc:
+            last = exc
+            if exc.code not in (429, 503):
+                raise
+        except urllib.error.URLError as exc:  # transient network — the most retryable class
+            last = exc
+        time.sleep(1.2 * (attempt + 1))
+    raise last if last is not None else RuntimeError(f"fetch failed: {url}")
 
 
 def az_diff(a: float, b: float) -> float:

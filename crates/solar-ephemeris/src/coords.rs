@@ -14,7 +14,9 @@ pub fn precess_ecliptic_from_j2000(lon_deg: f64, lat_deg: f64, t: f64) -> (f64, 
     let t2 = t * t;
     let t3 = t2 * t;
     let eta = (47.0029 * t - 0.03302 * t2 + 0.000060 * t3) / 3600.0 * D2R;
-    let pi_deg = 174.876384 - (869.8089 * t + 0.03536 * t2) / 3600.0;
+    // Meeus (21.5), initial epoch J2000: Π = 174°.876384 − 869″.8089·t + 0″.03536·t²
+    // (the t² term is POSITIVE — a sign slip here costs ~1″ at ±5000 yr, nothing near J2000).
+    let pi_deg = 174.876384 - (869.8089 * t - 0.03536 * t2) / 3600.0;
     let pi_rad = pi_deg * D2R;
     let p_deg = (5029.0966 * t + 1.11113 * t2 - 0.000006 * t3) / 3600.0;
     let (lon, lat) = (lon_deg * D2R, lat_deg * D2R);
@@ -82,12 +84,16 @@ pub fn alt_az(ra_deg: f64, dec_deg: f64, lst_deg: f64, lat_deg: f64) -> (f64, f6
     (alt * R2D, (az * R2D).rem_euclid(360.0))
 }
 
-/// Atmospheric refraction lift (degrees) at a true altitude, Bennett's formula.
+/// Atmospheric refraction lift (degrees) at a TRUE altitude — Sæmundsson's formula
+/// (Meeus 16.4), the true→apparent inverse of Bennett. Bennett's coefficients
+/// (1/tan(h + 7.31/(h+4.4))) expect the APPARENT altitude as input; feeding them the
+/// true altitude overestimates refraction by ~5.5′ at the horizon (34.5′ vs the
+/// consistent ~29′), biasing displayed altitudes and rise/set times by ~20–30 s.
 pub fn refraction_deg(true_alt_deg: f64) -> f64 {
     if true_alt_deg < -1.0 {
         return 0.0;
     }
-    let r_arcmin = 1.0 / ((true_alt_deg + 7.31 / (true_alt_deg + 4.4)) * D2R).tan();
+    let r_arcmin = 1.02 / ((true_alt_deg + 10.3 / (true_alt_deg + 5.11)) * D2R).tan();
     r_arcmin / 60.0
 }
 

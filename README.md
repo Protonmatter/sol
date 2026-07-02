@@ -24,12 +24,15 @@ ever *consumes* those snapshots. The UI never invents physical values.
      `model-run-manifest.v1`, `operational-readiness.v1`, plus `series-manifest.v1`.
 
 2. **Web app** (`apps/web/`) — a dependency-free, no-build static app that renders the
-   snapshots, currently under a **v0.2 redesign** (branch `redesign/web-v0.2`):
+   snapshots (the redesign is merged; `master` is the only branch and deploys to
+   GitHub Pages):
    - **Real NASA SDO/HMI imagery** as the observed photosphere, with the model's
      active-regions / magnetic field / confidence composited on top (observed-vs-model
      always labelled).
-   - **Layered progressive disclosure** — four intent surfaces (**Today · Explore · Space
-     Weather · Research**); a beginner "glance" by default, research depth on request.
+   - **Three destinations** (**The Sun · My Sky · Solar System**), with the Sun surface
+     layered through progressive-disclosure drawers (layers & region inspection →
+     space-weather impact → the model under the hood); a beginner "glance" by default,
+     research depth on request.
    - **Onboarding tour**, a glossary of every science term, an interactive cycle **stage
      rail**, a **time scrubber / playback** of an idealized 11-year cycle, and a **real
      butterfly diagram** (sunspot latitude vs. time).
@@ -49,10 +52,7 @@ SkyView, grounded in facts" — is specced in **[docs/SOLAR_SYSTEM_SPEC.md](docs
 ### Run the web app
 
 ```bash
-# Option A: open the file directly (works offline; uses the checked-in fallback state)
-#   apps/web/index.html
-
-# Option B: serve it so the browser can fetch data/*.json (recommended)
+# Serve it (required — the app is native ES modules, which browsers block over file://)
 python -m http.server 8000 --directory apps/web
 # then open http://localhost:8000
 ```
@@ -67,7 +67,9 @@ python tools/fetch_textures.py     # ~4 MB; without it the 3-D View falls back t
 ### Regenerate the data the app reads (Python stdlib only)
 
 ```bash
-# The live "today" snapshot
+# The live "today" snapshot — a deterministic ILLUSTRATIVE fixture (static bipole
+# painting; its manifest says so). The real flux-transport engine is `solar-cli simulate`
+# (below) and the in-browser WASM run.
 python tools/generate_fixture_snapshot.py \
   --out apps/web/data/latest-state.json \
   --observations-out tests/fixtures/live-swpc-normalized.json --seed 42

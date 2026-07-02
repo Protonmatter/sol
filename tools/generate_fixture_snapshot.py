@@ -4,11 +4,65 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import math
 import random
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+# Feeds whose cached copies should be flagged when older than this many hours.
+FRESHNESS_LIMITS_HOURS = {
+    "rtsw_mag_1m.json": 3.0,
+    "rtsw_wind_1m.json": 3.0,
+    "swpc-planetary-k-index-1m": 3.0,
+    "swpc-goes-xrays-1-day": 3.0,
+    "swpc-f107-cm-flux": 48.0,
+    "swpc-solar-regions": 48.0,
+    "swpc-sunspot-report": 48.0,
+    "swpc-goes-xray-flares-7-day": 48.0,
+}
+
+
+def display_path(path: Path) -> str:
+    """Repo-relative POSIX path, or just the file name for paths outside the repo.
+
+    Embedding `str(path)` produced Windows backslashes (platform-dependent artifacts)
+    and, for cache paths, leaked the local username into committed/deployed JSON.
+    """
+    try:
+        return path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.name
+
+
+def content_bytes(path: Path) -> int:
+    """Byte count of the newline-normalized content, so CRLF (Windows autocrlf)
+    and LF checkouts report the same number for the same committed file."""
+    return len(path.read_bytes().replace(b"\r\n", b"\n"))
+
+
+def parse_time_tag(value: Any) -> dt.datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip().replace("Z", "+00:00")
+    try:
+        parsed = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed
+
+
+def row_time(row: dict[str, Any]) -> str | None:
+    for key in ("time_tag", "time", "date", "begin_time"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 OPTIONAL_CACHE_SOURCES = [
@@ -142,17 +196,22 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
         "operational_readiness": build_operational_readiness(source_mode, observations),
         "manifest": {
             "schema_version": "model-run-manifest.v1",
-            "model_name": "Solar Maximum Engine CPU reference fixture",
-            "math_basis": "differential rotation + diffusion + bipolar source injection + decay + diagonal Kalman-style assimilation contract",
+            "model_name": "Solar Maximum Engine deterministic fixture",
+            # Honest provenance: this generator paints static Gaussian bipoles once — it does
+            # NOT run the transport model. The previous manifest claimed the full
+            # rotation+diffusion+decay math basis and a fabricated 48-step run, which
+            # contradicted the project's own rendering rule. `solar-cli simulate` (or the
+            # in-browser WASM engine) is the real transport run.
+            "math_basis": "static bipolar active-region field painting (illustrative fixture; the flux-transport engine lives in solar-core / solar-cli simulate)",
             "rendering_rule": "UI renders immutable state snapshots and does not own the physics model",
         },
         "run": {
             "seed": seed,
-            "steps": 48,
-            "dt_hours": 1.0,
+            "steps": 0,
+            "dt_hours": 0.0,
             "activity_index": activity_index,
-            "time_seconds": 172800.0,
-            "mode": "Synthetic",
+            "time_seconds": 0.0,
+            "mode": "SyntheticFixture",
         },
         "grid": {
             "lon_count": lon_count,
@@ -181,11 +240,29 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
         "observed_context": observed_context,
         "observations": [observations],
         "warnings": [
-            "Reduced surface flux transport model in normalized magnetic units.",
+            "Static deterministic fixture in normalized magnetic units (not a flux-transport run).",
             observation_warning(observations),
+            *(
+                [
+                    "Stale cached feeds: "
+                    + "; ".join(observed_context.get("stale_feeds", []))
+                    + " — 'latest' signals may be out of date."
+                ]
+                if observed_context.get("stale_feeds")
+                else []
+            ),
             "Research and learning use only; not operational space-weather forecasting.",
         ],
     }
+
+
+def hale_polarity(rng: random.Random, hemi: float) -> str:
+    """Hale's law: leading polarity is hemisphere-coherent within a cycle (~8% anti-Hale
+    exceptions). Mirrors solar-core's synthetic model; a 50/50 coin flip per region
+    produced a magnetically impossible Sun."""
+    hale = "leading_positive" if hemi > 0.0 else "leading_negative"
+    anti = "leading_negative" if hemi > 0.0 else "leading_positive"
+    return anti if rng.random() < 0.08 else hale
 
 
 def build_regions(rng: random.Random, count: int) -> list[dict[str, Any]]:
@@ -205,7 +282,7 @@ def build_regions(rng: random.Random, count: int) -> list[dict[str, Any]]:
                 "area_msh": round(150.0 + 1800.0 * complexity, 6),
                 "tilt_deg": round(hemi * (4.0 + 18.0 * rng.random()), 6),
                 "complexity": round(complexity, 6),
-                "polarity": "leading_positive" if rng.random() < 0.5 else "leading_negative",
+                "polarity": hale_polarity(rng, hemi),
                 "confidence": 0.65,
             }
         )
@@ -330,8 +407,8 @@ def read_json_candidate(cache_dir: Path | None, cache_name: str, fixture_path: P
                 "id": cache_name,
                 "layer_kind": "observed",
                 "source_mode": "cached",
-                "local_path": str(cache_path),
-                "raw_bytes": cache_path.stat().st_size,
+                "local_path": display_path(cache_path),
+                "raw_bytes": content_bytes(cache_path),
             }
     data = read_json_fixture(fixture_path)
     return {
@@ -340,8 +417,8 @@ def read_json_candidate(cache_dir: Path | None, cache_name: str, fixture_path: P
         "id": cache_name,
         "layer_kind": "observed",
         "source_mode": "fixture",
-        "local_path": str(fixture_path),
-        "raw_bytes": fixture_path.stat().st_size,
+        "local_path": display_path(fixture_path),
+        "raw_bytes": content_bytes(fixture_path),
     }
 
 
@@ -351,14 +428,14 @@ def read_optional_cache_candidate(cache_dir: Path | None, source: dict[str, str]
         data = read_json_fixture(cache_path)
         source_mode = "cached"
         row = first_row(data)
-        raw_bytes = cache_path.stat().st_size
-        local_path = str(cache_path)
+        raw_bytes = content_bytes(cache_path)
+        local_path = display_path(cache_path)
     else:
         data = None
         source_mode = "missing"
         row = {}
         raw_bytes = 0
-        local_path = str(cache_path) if cache_dir is not None else ""
+        local_path = display_path(cache_path) if cache_dir is not None else ""
     return {
         "data": data,
         "row": row,
@@ -416,6 +493,39 @@ def frame_from_row(frame_id: str, layer_kind: str, candidate: dict[str, Any]) ->
     }
 
 
+def evaluate_freshness(candidates: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]:
+    """Age of each CACHED feed's newest row, with per-feed staleness limits.
+
+    Only cached feeds are evaluated: fixture-mode outputs must stay byte-deterministic
+    across runs, and canned fixtures have no meaningful age. The quality flags always
+    promised "cached data freshness must be evaluated" — this is the evaluation.
+    """
+    now = dt.datetime.now(dt.timezone.utc)
+    report: dict[str, Any] = {}
+    stale: list[str] = []
+    for candidate in candidates:
+        if candidate.get("source_mode") != "cached":
+            continue
+        newest: dt.datetime | None = None
+        for row in rows(candidate.get("data")):
+            parsed = parse_time_tag(row_time(row))
+            if parsed is not None and (newest is None or parsed > newest):
+                newest = parsed
+        if newest is None:
+            continue
+        age_hours = round((now - newest).total_seconds() / 3600.0, 1)
+        limit = FRESHNESS_LIMITS_HOURS.get(candidate["id"], 48.0)
+        entry = {
+            "latest_time_tag": newest.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "age_hours": age_hours,
+            "stale": age_hours > limit,
+        }
+        report[candidate["id"]] = entry
+        if entry["stale"]:
+            stale.append(f"{candidate['id']} (newest row {age_hours} h old)")
+    return report, stale
+
+
 def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     by_id = {candidate["id"]: candidate for candidate in candidates}
     rtsw_mag = rows(by_id.get("rtsw_mag_1m.json", {}).get("data"))
@@ -450,10 +560,13 @@ def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
         proxies.append(clamp_float((latest_f107 - 65.0) / 170.0, 0.25, 1.0))
     activity_index = round(sum(proxies) / len(proxies), 6) if proxies else 0.9
     synthetic_region_count = 34 if not proxies else int(round(12 + 26 * activity_index))
+    freshness, stale_feeds = evaluate_freshness(candidates)
 
     return {
         "schema_version": "observed-context.v1",
         "activity_index": activity_index,
+        "signal_freshness": freshness,
+        "stale_feeds": stale_feeds,
         "activity_proxy_sources": {
             "solar_region_rows": region_count,
             "sunspot_rows": sunspot_count,
@@ -488,7 +601,20 @@ def rows(value: Any) -> list[dict[str, Any]]:
 
 
 def latest_numeric(row_values: list[dict[str, Any]], *keys: str) -> float | None:
-    for row in reversed(row_values):
+    """Newest parseable value for any of `keys`.
+
+    SWPC feeds disagree on row order — rtsw_* and f107_cm_flux are NEWEST-first while
+    planetary_k_index and the GOES X-ray series are oldest-first — so order by time_tag
+    instead of assuming a direction. (Assuming oldest-first shipped a six-week-old F10.7
+    labelled "latest" and skewed the derived activity index.) ISO time tags compare
+    correctly as strings; rows without a time tag fall back to the old reversed scan.
+    """
+    stamped = [(tag, row) for row in row_values if (tag := row_time(row)) is not None]
+    if stamped:
+        ordered = [row for _, row in sorted(stamped, key=lambda pair: pair[0], reverse=True)]
+    else:
+        ordered = list(reversed(row_values))
+    for row in ordered:
         for key in keys:
             if key in row:
                 value = numeric(row.get(key))

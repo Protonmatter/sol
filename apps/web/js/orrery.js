@@ -13,12 +13,12 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=aebfcb9c5a";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, rotationPhase } from "./bodyData.js?v=aebfcb9c5a";
-import { buildCelestial } from "./celestial.js?v=aebfcb9c5a";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=aebfcb9c5a";
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=aebfcb9c5a";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=aebfcb9c5a";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=1e53a8939f";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, rotationPhase } from "./bodyData.js?v=1e53a8939f";
+import { buildCelestial } from "./celestial.js?v=1e53a8939f";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=1e53a8939f";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=1e53a8939f";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=1e53a8939f";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -340,19 +340,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=aebfcb9c5a"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=1e53a8939f"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=aebfcb9c5a";
+  ring.src = "textures/saturn_ring.png?v=1e53a8939f";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=aebfcb9c5a";
+  sun.src = "textures/sun.jpg?v=1e53a8939f";
 }
 
 function compile(type, src) {
@@ -377,7 +377,13 @@ function initGL(canvas) {
     P.ring = program(RING_VS, RING_FS);
     P.pt = program(PT_VS, PT_FS);
     P.glow = program(GLOW_VS, GLOW_FS);
-  } catch (e) { console.error("orrery shader error:", e.message); return null; }
+  } catch (e) {
+    console.error("orrery shader error:", e.message);
+    // Leave no half-initialised context behind: a truthy `gl` with an empty program set
+    // made the next enterOrrery skip init and crash in paint() with the wrong fallback text.
+    gl = null; P = {};
+    return null;
+  }
   P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_tex"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_useTex", "u_tex"]);
@@ -604,6 +610,7 @@ function buildSmallBuffers() {
 
 // Recompute every small-body marker for the current `renderUnix`, and upload them as one point buffer.
 function rebuildSmallBodies() {
+  if (!gl) return; // context lost — keep the previous CPU-side list until restore
   smallBodies = [];
   if (!state.showSmall) { celBufs.smallMarkCount = 0; return; }
   const jy2k = timeJy2k(state.renderUnix);
@@ -634,7 +641,7 @@ function spawnParticle(i) {
   particles.age[i] = Math.random() * 60;
 }
 function stepParticles(dt) {
-  if (!particles) return;
+  if (!particles || !gl) return;
   for (let i = 0; i < particles.N; i++) {
     const x = particles.p[i * 3], y = particles.p[i * 3 + 1], z = particles.p[i * 3 + 2];
     const rr = Math.hypot(x, y, z) || 1e-6;
@@ -685,6 +692,7 @@ function updateOrreryPositions() {
 }
 
 function buildSceneLines() {
+  if (!gl) return; // context lost mid-animation — tick()/handlers survive until restore
   const v = []; sceneRanges = [];
   const push = (pts, col, mode) => {
     const first = v.length / 6; for (const p of pts) v.push(p[0], p[1], p[2], col[0], col[1], col[2]);
@@ -1128,7 +1136,13 @@ function showDetail(name) {
   const host = document.getElementById("orreryDetail"); if (!host) return;
   const phys = BODY[name]; const live = state.bodies.find((b) => b.name === name);
   host.textContent = "";
-  if (!phys) { host.innerHTML = '<div class="sky-row">Click the Sun or a planet to inspect its facts.</div>'; return; }
+  if (!phys) {
+    const row = document.createElement("div");
+    row.className = "sky-row";
+    row.textContent = "Click the Sun or a planet to inspect its facts.";
+    host.appendChild(row);
+    return;
+  }
   const card = document.createElement("div"); card.className = "sky-row system-detail";
   const h = document.createElement("strong"); h.textContent = name; card.appendChild(h);
   const blurb = document.createElement("p"); blurb.className = "time-frame-label"; blurb.textContent = phys.blurb; card.appendChild(blurb);
@@ -1189,7 +1203,14 @@ function tick(now) {
   }
   if (state.freeFly) flyStep(dt);
   paint();
-  rafId = requestAnimationFrame(tick);
+  // Idle when nothing advances frame-to-frame: with Animate off (and no free-fly) the loop
+  // used to keep re-tessellating and repainting the full scene at 60 fps forever. All the
+  // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
+  if (state.animate || state.freeFly) {
+    rafId = requestAnimationFrame(tick);
+  } else {
+    rafId = 0;
+  }
 }
 function startLoop() { if (!rafId) { state.lastTick = 0; rafId = requestAnimationFrame(tick); } }
 
@@ -1229,9 +1250,11 @@ function setSpeedSliderMode(galaxy) {
   if (!s) return;
   if (galaxy) {
     s.min = "0.1"; s.max = "50"; s.step = "0.1"; s.value = String(state.galSpeed);
+    s.setAttribute("aria-label", "galactic time speed (millions of years per second)");
     if (lbl) lbl.textContent = "Galactic time (Myr / sec)";
   } else {
     s.min = "0.02"; s.max = "5"; s.step = "0.02"; s.value = String(state.yearsPerSec);
+    s.setAttribute("aria-label", "animation time speed (years per second)");
     if (lbl) lbl.textContent = "Time speed (years / sec)";
   }
 }
@@ -1248,9 +1271,10 @@ function setFreeFly(on) {
     state.yaw = Math.atan2(dir[1], dir[0]);
     state.pitch = Math.max(-1.5, Math.min(1.5, Math.asin(dir[2])));
     const c = document.getElementById("orreryCanvas"); if (c) c.focus();
+    startLoop(); // free-fly integrates held keys per frame, so the loop must run even with Animate off
     if (hint) hint.textContent = "Free-fly camera: click the view, then W/A/S/D to move, R/F (or E/Q) for up/down, Shift to boost, drag to look, scroll to thrust forward. Untick Free fly to return to orbit.";
   } else if (hint) {
-    hint.textContent = "Lit, textured worlds at their true VSOP2013 positions — real NASA surface maps, correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it.";
+    hint.textContent = "Lit, textured worlds at their true VSOP2013 positions — real NASA surface maps, correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
   }
   paint();
 }
@@ -1259,7 +1283,11 @@ function setFreeFly(on) {
 export async function enterOrrery() {
   state.active = true;
   const canvas = document.getElementById("orreryCanvas"); if (!canvas) return;
-  canvas.style.display = "block";
+  // Clear a possible showFallback() hide — but ONLY clear. Setting an inline
+  // display:block here permanently overrode the CSS that hides this canvas on the other
+  // surfaces (body[data-surface] rules), so one visit to the 3-D view left a stale WebGL
+  // frame corrupting the Sun surface's layout for the rest of the session.
+  canvas.style.display = "";
   try {
     await loadSkyEngine();
     if (!gl) {
@@ -1287,12 +1315,26 @@ export function leaveOrrery() {
 function showFallback(msg) {
   const node = document.getElementById("orreryInsight"); if (node) node.textContent = msg;
   const canvas = document.getElementById("orreryCanvas"); if (canvas) canvas.style.display = "none";
+  // Keep the text alternative alive: the "Positions" list needs only the ephemeris engine,
+  // not WebGL — it used to stay empty after a GL failure, leaving a fully dead panel.
+  try {
+    const snap = systemSnapshot(Date.now() / 1000);
+    state.bodies = snap.bodies || [];
+    updateOrreryPositions();
+  } catch (_) { /* engine unavailable too — nothing to show */ }
 }
 
 // ---------------------------------------------------------------- interaction
 (function attach() {
   const canvas = document.getElementById("orreryCanvas"); if (!canvas) return;
   canvas.tabIndex = 0;
+  // Respect the OS motion preference: the 3-D surface must not auto-animate full-viewport
+  // for users who asked for reduced motion. The Animate checkbox re-enables it explicitly.
+  if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    state.animate = false;
+    const cb = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryAnimate"));
+    if (cb) cb.checked = false;
+  }
   const clampR = (r) => Math.max(0.6, Math.min(160, r));
   const pointers = new Map(); let lx = 0, ly = 0, pinch = 0, downX = 0, downY = 0, moved = false;
   const spread = () => { const p = [...pointers.values()]; return p.length >= 2 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0; };
@@ -1303,13 +1345,27 @@ function showFallback(msg) {
     if (pointers.size === 2) pinch = spread();
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
   });
-  const drop = (e) => { pointers.delete(e.pointerId); try { canvas.releasePointerCapture(e.pointerId); } catch (_) {} };
+  const drop = (e) => {
+    pointers.delete(e.pointerId);
+    try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    // Ending a pinch: re-anchor the drag origin to the surviving finger, or its next
+    // pointermove computed dx against a pre-pinch position and whipped the camera.
+    if (pointers.size === 1) {
+      const p = pointers.values().next().value;
+      lx = p.x; ly = p.y;
+      pinch = 0;
+    }
+  };
   canvas.addEventListener("pointerup", (e) => { if (!moved) pick(e); drop(e); });
   canvas.addEventListener("pointercancel", drop);
   canvas.addEventListener("pointermove", (e) => {
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.size >= 2) { const d = spread(); if (pinch > 0 && d > 0) { state.radius = clampR(state.radius * (pinch / d)); pinch = d; if (!state.animate) paint(); } return; }
+    if (pointers.size >= 2) {
+      moved = true; // a pinch is a gesture, not a tap — lifting a finger must not trigger pick()
+      const d = spread(); if (pinch > 0 && d > 0) { state.radius = clampR(state.radius * (pinch / d)); pinch = d; if (!state.animate) paint(); }
+      return;
+    }
     if (Math.hypot(e.clientX - downX, e.clientY - downY) > 4) moved = true;
     const dx = e.clientX - lx, dy = e.clientY - ly;
     if (state.freeFly) { // drag = mouse-look
@@ -1375,8 +1431,11 @@ function showFallback(msg) {
   const bind = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
   bind("orreryTime", "input", (e) => { state.offsetYears = Number(e.target.value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); updateOrreryAccuracy(); paint(); });
   bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = document.getElementById("orreryTime"); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); updateOrreryAccuracy(); paint(); });
-  bind("orrerySize", "input", (e) => { state.exaggeration = Number(e.target.value); ringBufs = {}; paint(); });
-  bind("orreryTrueScale", "change", (e) => { state.trueScale = e.target.checked; ringBufs = {}; paint(); });
+  // drawRing already detects a radius change and re-uploads into the SAME buffer, so no
+  // ringBufs reset here — nuking the map on every slider input orphaned up to three ~1.3 MB
+  // GPU buffers per event without gl.deleteBuffer.
+  bind("orrerySize", "input", (e) => { state.exaggeration = Number(e.target.value); paint(); });
+  bind("orreryTrueScale", "change", (e) => { state.trueScale = e.target.checked; paint(); });
   bind("orreryAnimate", "change", (e) => { state.animate = e.target.checked; if (state.animate) startLoop(); else paint(); });
   bind("orrerySpeed", "input", (e) => { const v = Number(e.target.value); if (state.galaxy) state.galSpeed = v; else state.yearsPerSec = v; });
   bind("orreryShowOrbits", "change", (e) => { state.showOrbits = e.target.checked; buildSceneLines(); paint(); });
@@ -1409,14 +1468,32 @@ function showFallback(msg) {
     } else {
       state.radius = state.savedRadius; state.el = 0.45;
       if (btn) btn.textContent = "Zoom out to the Milky Way";
-      if (insight) insight.textContent = "Lit, textured worlds at their true VSOP2013 positions — real NASA surface maps, correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it.";
+      if (insight) insight.textContent = "Lit, textured worlds at their true VSOP2013 positions — real NASA surface maps, correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
       rebuildPositions();
     }
     paint();
   });
 
-  canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); gl = null; P = {}; });
-  canvas.addEventListener("webglcontextrestored", () => { if (state.active) { const c = document.getElementById("orreryCanvas"); initGL(c); initParticles(); rebuildPositions(); paint(); } });
+  canvas.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault();
+    // Everything GPU-side belongs to the dead context. The texture/ring caches MUST be
+    // invalidated too: their `ready` flags used to survive the loss, so after a restore
+    // drawBody bound dead textures (planets rendered flat, rings vanished) and
+    // texturesStarted=true meant loadTextures() never re-fetched for the life of the tab.
+    gl = null; P = {};
+    textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
+    whiteTex = null; ringBufs = {}; texturesStarted = false; particles = null;
+  });
+  canvas.addEventListener("webglcontextrestored", () => {
+    if (!state.active) return;
+    const c = document.getElementById("orreryCanvas");
+    if (!initGL(c)) return;
+    initParticles();
+    loadTextures();
+    rebuildPositions();
+    paint();
+    startLoop(); // the tick loop may have stopped while gl was null; re-arm it
+  });
   // Repaint on any size change (DPI / window / layout) so ensureSized rebuilds the backing store at
   // full resolution — fires even when rAF is throttled (background tab), unlike the animation loop.
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => { if (state.active) paint(); }).observe(canvas);

@@ -1,7 +1,8 @@
 # Status — Web redesign (v0.2)
 
-Branch: `redesign/web-v0.2` · Baseline rollback point: `master` (`5f92fa6`)
-Last updated: 2026-06-29
+Branch: **`master`** — the only branch (the redesign merged via PR #1; `redesign/web-v0.2`
+was deleted; `5f92fa6` remains in history as the pre-redesign baseline)
+Last updated: 2026-07-01
 
 This tracks the web redesign defined in [WEB_REDESIGN_SPEC.md](WEB_REDESIGN_SPEC.md).
 The Rust engine and Python pipeline are unchanged except for the additive

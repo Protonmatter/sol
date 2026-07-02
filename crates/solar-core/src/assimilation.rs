@@ -11,8 +11,13 @@ pub struct AssimilationInput {
 /// Diagonal Kalman-style correction for scalar fields.
 ///
 /// K_i = P_f / (P_f + R)
-/// x_a = x_f + freshness * K_i * (y - x_f)
-/// P_a = (1 - K_i) * P_f
+/// g_i = freshness * K_i          (the gain actually applied)
+/// x_a = x_f + g_i * (y - x_f)
+/// P_a = (1 - g_i) * P_f
+///
+/// The analysis variance uses the *effective* gain: when freshness damps the increment,
+/// claiming the full (1 − K)·P_f reduction would make the analysis overconfident about an
+/// update it only partially applied.
 pub fn assimilate_scalar_field(
     forecast: &Field2D,
     input: &AssimilationInput,
@@ -20,15 +25,15 @@ pub fn assimilate_scalar_field(
     assert_eq!(forecast.values.len(), input.observation.values.len());
     let mut analysis = forecast.clone();
     let mut variance = input.forecast_variance.clone();
+    let freshness = input.freshness_gain.clamp(0.0, 1.0);
 
     for i in 0..forecast.values.len() {
         let pf = input.forecast_variance.values[i].max(1e-6);
         let r = input.observation_variance.values[i].max(1e-6);
-        let k = pf / (pf + r);
+        let gain = freshness * pf / (pf + r);
         let residual = input.observation.values[i] - forecast.values[i];
-        analysis.values[i] =
-            forecast.values[i] + input.freshness_gain.clamp(0.0, 1.0) * k * residual;
-        variance.values[i] = (1.0 - k) * pf;
+        analysis.values[i] = forecast.values[i] + gain * residual;
+        variance.values[i] = (1.0 - gain) * pf;
     }
 
     (analysis, variance)

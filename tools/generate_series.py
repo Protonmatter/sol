@@ -17,7 +17,7 @@ import math
 import random
 from pathlib import Path
 
-from generate_fixture_snapshot import build_field, continuum_from_br
+from generate_fixture_snapshot import build_field, continuum_from_br, hale_polarity
 
 STAGES = [
     (0.00, 0.12, "solar minimum"),
@@ -66,7 +66,7 @@ def build_cycle_regions(rng: random.Random, count: int, phase: float) -> list[di
                 "area_msh": round(150.0 + 1800.0 * complexity, 6),
                 "tilt_deg": round(hemi * (4.0 + 18.0 * rng.random()), 6),
                 "complexity": round(complexity, 6),
-                "polarity": "leading_positive" if rng.random() < 0.5 else "leading_negative",
+                "polarity": hale_polarity(rng, hemi),
                 "confidence": 0.65,
             }
         )
@@ -118,6 +118,9 @@ def main() -> int:
         }
         frame["active_regions"] = regions
         frame["run"] = dict(frame.get("run", {}))
+        # Provenance: record the seed this frame was ACTUALLY built from, not the base
+        # snapshot's seed (the cloned run block used to claim seed 42 for every frame).
+        frame["run"]["seed"] = args.seed + i * 7919
         frame["run"]["activity_index"] = activity
         frame["run"]["time_seconds"] = round(months * 30.0 * 86400.0, 1)
         frame["run"]["mode"] = "SyntheticCycleSeries"
@@ -134,7 +137,7 @@ def main() -> int:
         ]
 
         name = f"frame-{i:02d}.json"
-        (out_dir / name).write_text(json.dumps(frame), encoding="utf-8")
+        atomic_write_text(out_dir / name, json.dumps(frame))
         manifest_frames.append(
             {
                 "index": i,
@@ -153,9 +156,16 @@ def main() -> int:
         "months_span": args.months_span,
         "note": "Deterministic synthetic solar-cycle series; latitudes follow an idealized butterfly diagram.",
     }
-    (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    atomic_write_text(out_dir / "manifest.json", json.dumps(manifest, indent=2))
     print(f"wrote {args.frames} frames + manifest to {out_dir}")
     return 0
+
+
+def atomic_write_text(path: Path, content: str) -> None:
+    """Write via a temp file + rename so an interrupted run never leaves a truncated frame."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(path)
 
 
 if __name__ == "__main__":

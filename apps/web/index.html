@@ -4,7 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Solar Maximum Engine</title>
-    <link rel="stylesheet" href="styles.css?v=aebfcb9c5a">
+    <meta name="description" content="See today's real Sun (NASA SDO), your local sky, and a 3-D solar system at true VSOP2013 positions — a deterministic solar-cycle engine with honest provenance.">
+    <meta name="theme-color" content="#0b0d12">
+    <meta property="og:title" content="Solar Maximum Engine">
+    <meta property="og:description" content="Today's real Sun, your local sky, and a 3-D solar system — validated against JPL Horizons.">
+    <meta property="og:type" content="website">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=1e53a8939f">
+    <link rel="stylesheet" href="styles.css?v=1e53a8939f">
   </head>
   <body>
     <main class="app-shell">
@@ -56,9 +62,9 @@
 
           <nav class="mode-nav" aria-label="Where do you want to look?">
             <div class="mode-grid mode-grid-3" role="group" aria-label="Destinations">
-              <button class="mode-button active" type="button" data-mode="today">☀ The Sun</button>
-              <button class="mode-button" type="button" data-mode="sky">🌌 My Sky</button>
-              <button class="mode-button" type="button" data-mode="orrery">🪐 Solar System</button>
+              <button class="mode-button active" type="button" data-mode="today" aria-pressed="true"><span aria-hidden="true">☀ </span>The Sun</button>
+              <button class="mode-button" type="button" data-mode="sky" aria-pressed="false"><span aria-hidden="true">🌌 </span>My Sky</button>
+              <button class="mode-button" type="button" data-mode="orrery" aria-pressed="false"><span aria-hidden="true">🪐 </span>Solar System</button>
             </div>
           </nav>
 
@@ -66,14 +72,14 @@
             <header class="sky-header">
               <p class="eyebrow">My Sky</p>
               <h1>Where to look right now</h1>
-              <p id="skyInsight" class="insight">Real positions for your location — the Sun, Moon, planets (orbital mechanics, validated against JPL Horizons) and the brightest stars.</p>
+              <p id="skyInsight" class="insight" aria-live="polite">Real positions for your location — the Sun, Moon, planets (orbital mechanics, validated against JPL Horizons) and the brightest stars.</p>
             </header>
             <div class="sky-observer">
               <span class="label">Your location</span>
               <div class="sky-loc-row">
                 <button id="skyGeo" class="time-btn" type="button">Use my location</button>
-                <input id="skyLat" class="sky-input" type="number" step="0.01" placeholder="lat °" aria-label="latitude degrees">
-                <input id="skyLon" class="sky-input" type="number" step="0.01" placeholder="lon ° (E+)" aria-label="longitude degrees east">
+                <input id="skyLat" class="sky-input" type="number" step="0.01" min="-90" max="90" placeholder="lat °" aria-label="latitude degrees">
+                <input id="skyLon" class="sky-input" type="number" step="0.01" min="-180" max="180" placeholder="lon ° (E+)" aria-label="longitude degrees east">
                 <button id="skySet" class="time-btn ghost" type="button">Set</button>
               </div>
               <p id="skyLocLabel" class="time-frame-label" aria-live="polite">Using a default location — set yours above.</p>
@@ -93,7 +99,7 @@
                 <button id="skyProviderLocal" class="time-btn active" type="button">On your device</button>
                 <button id="skyProviderServer" class="time-btn ghost" type="button">NASA JPL (live)</button>
               </div>
-              <p id="skyProvenance" class="time-frame-label">Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~5″ vs JPL Horizons near today.</p>
+              <p id="skyProvenance" class="time-frame-label" aria-live="polite">Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~4″ vs JPL Horizons near today (Moon ≤ ~1.5″).</p>
               <div class="sky-loc-row" style="margin-top: 0.5rem">
                 <button id="skyShare" class="time-btn ghost" type="button">Copy share link</button>
                 <button id="skyExport" class="time-btn ghost" type="button">Export JSON</button>
@@ -114,7 +120,7 @@
             <header class="sky-header">
               <p class="eyebrow">Solar System</p>
               <h1>The Solar System</h1>
-              <p id="orreryInsight" class="insight">Lit, textured worlds at their true VSOP2013 positions — correct sizes, axial tilts, sidereal spin, oblateness, ring systems, an animated Sun with corona and solar wind, and the real sky behind them (stars, the Milky Way, constellations, seven pulsars, and nearby galaxies). Drag to orbit, scroll to zoom, click a body to inspect it — or switch to a top-down map.</p>
+              <p id="orreryInsight" class="insight" aria-live="polite">Lit, textured worlds at their true VSOP2013 positions — correct sizes, axial tilts, sidereal spin, oblateness, ring systems, an animated Sun with corona and solar wind, and the real sky behind them (stars, the Milky Way, constellations, seven pulsars, and nearby galaxies). Drag to orbit, scroll to zoom, click a body to inspect it — or switch to a top-down map. Keyboard: focus the view, then arrow keys orbit and +/− zoom.</p>
             </header>
             <div class="sky-observer">
               <span class="label">Date</span>
@@ -315,7 +321,7 @@
                 <input id="liveActivity" class="time-scrubber" type="range" min="0.2" max="1" step="0.05" value="0.9" aria-label="Activity index">
                 <button id="liveRun" class="time-btn" type="button">Simulate</button>
               </div>
-              <p id="liveStatus" class="time-frame-label">The real solar-core model, compiled to WebAssembly, runs in your browser.</p>
+              <p id="liveStatus" class="time-frame-label" aria-live="polite">The real solar-core model, compiled to WebAssembly, runs in your browser.</p>
             </div>
           </div>
           <canvas id="butterflyCanvas" width="980" height="220" aria-label="Butterfly diagram: sunspot latitude over the solar cycle"></canvas>
@@ -337,6 +343,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=aebfcb9c5a"></script>
+    <script type="module" src="app.js?v=1e53a8939f"></script>
   </body>
 </html>
