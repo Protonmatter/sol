@@ -58,10 +58,12 @@ python -m http.server 8000 --directory apps/web
 ```
 
 The **3-D View** wraps real planetary maps (NASA Blue Marble + Solar System Scope, CC-BY) onto its
-spheres. They are not committed (gitignored under `apps/web/textures/`); fetch them once with:
+spheres, and today's live NASA SDO imagery — all ten wavelength channels — onto the Sun.
+They are not committed (gitignored under `apps/web/textures/`); fetch them once with:
 
 ```bash
-python tools/fetch_textures.py     # ~4 MB; without it the 3-D View falls back to procedural surfaces
+python tools/fetch_textures.py     # ~6.5 MB; without it the 3-D View falls back to procedural surfaces
+# re-run any time to refresh the Sun's "today" imagery
 ```
 
 ### Regenerate the data the app reads (Python stdlib only)

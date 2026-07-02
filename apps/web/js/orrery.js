@@ -13,24 +13,24 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=c044ef3203";
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=c044ef3203";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=c044ef3203";
-import { buildCelestial } from "./celestial.js?v=c044ef3203";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=c044ef3203";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=c044ef3203";
+import { store } from "./store.js?v=8ede0f0c36";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=8ede0f0c36";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=8ede0f0c36";
+import { buildCelestial } from "./celestial.js?v=8ede0f0c36";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=8ede0f0c36";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=8ede0f0c36";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=c044ef3203";
+} from "./orreryMath.js?v=8ede0f0c36";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=c044ef3203";
+} from "./orreryShaders.js?v=8ede0f0c36";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
-} from "./orreryGalaxy.js?v=c044ef3203";
-import { renderDetail } from "./orreryDetail.js?v=c044ef3203";
+} from "./orreryGalaxy.js?v=8ede0f0c36";
+import { renderDetail } from "./orreryDetail.js?v=8ede0f0c36";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -73,6 +73,7 @@ const state = (store.orrery = {
   // Camera: orbit around `anchor` (a body name; "Sun" = origin) or a free-fly camera (WASD + look).
   anchor: "Sun", freeFly: false, freePos: [18, 18, 12], yaw: -2.3, pitch: -0.4, flySpeed: 4, keys: new Set(),
   renderUnix: Date.now() / 1000, simElapsed: 0, galYears: 0, selected: null, backend: "",
+  sunChannel: "continuum", // which live SDO channel is wrapped on the 3-D Sun (SUN_CHANNELS)
   bodies: [], lastTick: 0,
 });
 
@@ -85,8 +86,60 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [];
 let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, texturesStarted = false;
-let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3-D Sun's surface
 let galaxy = null;
+
+// ---- The 3-D Sun's live SDO channels (same set as the 2-D wavelength bar) ----
+// Served same-origin from textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote
+// image can't be a WebGL texture); tools/fetch_textures.py downloads them. diskScale is the
+// solar disk's radius as a fraction of the 1024-px frame (HMI fills it, AIA is wider), and
+// corona tints the glow billboards to the channel's conventional palette.
+const SUN_CHANNELS = {
+  continuum:   { file: "sun.jpg",      diskScale: 0.4565, corona: [1.0, 0.85, 0.50], outer: [1.0, 0.55, 0.20] },
+  magnetogram: { file: "sun_hmib.jpg", diskScale: 0.4565, corona: [0.80, 0.83, 0.92], outer: [0.55, 0.60, 0.75] },
+  aia1700:     { file: "sun_1700.jpg", diskScale: 0.39,   corona: [0.85, 0.72, 0.50], outer: [0.62, 0.48, 0.30] },
+  aia304:      { file: "sun_0304.jpg", diskScale: 0.39,   corona: [1.0, 0.55, 0.30],  outer: [0.85, 0.30, 0.12] },
+  aia171:      { file: "sun_0171.jpg", diskScale: 0.39,   corona: [1.0, 0.85, 0.35],  outer: [0.85, 0.62, 0.15] },
+  aia193:      { file: "sun_0193.jpg", diskScale: 0.39,   corona: [0.88, 0.70, 0.35], outer: [0.65, 0.48, 0.18] },
+  aia211:      { file: "sun_0211.jpg", diskScale: 0.39,   corona: [0.78, 0.50, 0.88], outer: [0.55, 0.28, 0.68] },
+  aia335:      { file: "sun_0335.jpg", diskScale: 0.39,   corona: [0.48, 0.62, 0.90], outer: [0.28, 0.40, 0.72] },
+  aia131:      { file: "sun_0131.jpg", diskScale: 0.39,   corona: [0.40, 0.88, 0.82], outer: [0.20, 0.62, 0.58] },
+  aia094:      { file: "sun_0094.jpg", diskScale: 0.39,   corona: [0.48, 0.88, 0.52], outer: [0.25, 0.65, 0.30] },
+};
+let sunChannelTex = {}; // id → { tex, ready, basis } (basis = the Sun-fixed projection frame)
+
+function loadSunChannel(id) {
+  if (sunChannelTex[id] || !gl || !SUN_CHANNELS[id]) return;
+  const entry = (sunChannelTex[id] = { tex: null, ready: false, basis: null });
+  const img = new Image();
+  img.onload = () => {
+    try {
+      entry.tex = makeTexture(img, false);
+      entry.ready = true;
+      if (state.active && !state.animate) paint();
+    } catch (e) { console.warn("sun channel", id, e.message); }
+  };
+  img.onerror = () => {}; // absent (fetch_textures.py not run) → procedural Sun
+  img.src = "textures/" + SUN_CHANNELS[id].file + "?v=8ede0f0c36";
+}
+
+// Pin the SDO photo to the Sun's SURFACE: build the disk's projection basis in the Sun's
+// object space from the Earth direction at (approximately) the image epoch — "latest"
+// imagery, so the load moment is within its cadence. transpose(iauRotation) maps
+// world → object; from then on the model matrix's rotation carries the active regions
+// around with the Sun's real ~25-day spin instead of letting them follow the camera.
+function computeSunBasis(unix) {
+  const earth = state.bodies.find((b) => b.name === "Earth");
+  const dir = earth ? norm([earth.x_au, earth.y_au, earth.z_au]) : [1, 0, 0];
+  let right = norm(cross([0, 0, 1], dir)); if (!isFinite(right[0])) right = [0, 1, 0];
+  const up = cross(dir, right);
+  const R = iauRotation(BODY.Sun, unix); // column-major; columns = object axes in world
+  const toObj = (v) => [
+    R[0] * v[0] + R[1] * v[1] + R[2] * v[2],
+    R[4] * v[0] + R[5] * v[1] + R[6] * v[2],
+    R[8] * v[0] + R[9] * v[1] + R[10] * v[2],
+  ];
+  return { A: toObj(dir), R: toObj(right), U: toObj(up) };
+}
 let smallBodies = []; // per-frame small-body markers: {name, pos, col, kind, note}
 
 function makeTexture(img, repeatS) {
@@ -112,19 +165,14 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=c044ef3203"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=8ede0f0c36"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=c044ef3203";
-  // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
-  // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
-  // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
-  const sun = new Image();
-  sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
-  sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=c044ef3203";
+  ring.src = "textures/saturn_ring.png?v=8ede0f0c36";
+  // The Sun's live SDO channel (see SUN_CHANNELS above); other channels load on selection.
+  loadSunChannel(state.sunChannel);
 }
 
 function compile(type, src) {
@@ -156,7 +204,7 @@ function initGL(canvas) {
     gl = null; P = {};
     return null;
   }
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_tex"]);
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_tex", "u_sunA", "u_sunR", "u_sunU", "u_diskScale"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_useTex", "u_tex"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
@@ -608,13 +656,24 @@ function drawBody(b, vp, eye) {
   gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(atmo));
   gl.uniform1f(P.sphereU.u_atmoStr, atmoStr);
   const isSun = b.name === "Sun";
-  const sunTexd = isSun && state.useTextures && sunTex.ready;
+  const chan = isSun ? sunChannelTex[state.sunChannel] : null;
+  const sunTexd = isSun && state.useTextures && chan && chan.ready;
   const planetTexd = !isSun && state.useTextures && textures[b.name] && textures[b.name].ready;
   const useTex = sunTexd || planetTexd;
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, sunTexd ? sunTex.tex : (planetTexd ? textures[b.name].tex : whiteTex));
+  gl.bindTexture(gl.TEXTURE_2D, sunTexd ? chan.tex : (planetTexd ? textures[b.name].tex : whiteTex));
   gl.uniform1i(P.sphereU.u_tex, 0);
   gl.uniform1i(P.sphereU.u_useTex, useTex ? 1 : 0);
+  if (sunTexd) {
+    // Freeze the projection frame the first time this channel draws with positions known;
+    // from then on the IAU rotation in `model` carries the photo with the Sun's surface.
+    if (!chan.basis && state.bodies.length) chan.basis = computeSunBasis(state.renderUnix);
+    const basis = chan.basis || { A: [1, 0, 0], R: [0, 1, 0], U: [0, 0, 1] };
+    gl.uniform3fv(P.sphereU.u_sunA, new Float32Array(basis.A));
+    gl.uniform3fv(P.sphereU.u_sunR, new Float32Array(basis.R));
+    gl.uniform3fv(P.sphereU.u_sunU, new Float32Array(basis.U));
+    gl.uniform1f(P.sphereU.u_diskScale, SUN_CHANNELS[state.sunChannel].diskScale);
+  }
 
   gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
@@ -676,9 +735,12 @@ function drawSun(vp, eye, w, h) {
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.disableVertexAttribArray(1); gl.disableVertexAttribArray(2);
-  gl.uniform3fv(P.glowU.u_color, new Float32Array([1.0, 0.85, 0.5])); gl.uniform1f(P.glowU.u_size, rSun * 2.6); gl.uniform1f(P.glowU.u_pow, 2.8);
+  // Corona tinted to the selected SDO channel's conventional palette (gold for visible,
+  // red-orange for 304 Å, teal for 131 Å…), so the whole Sun reads as one instrument view.
+  const glow = SUN_CHANNELS[state.sunChannel] || SUN_CHANNELS.continuum;
+  gl.uniform3fv(P.glowU.u_color, new Float32Array(glow.corona)); gl.uniform1f(P.glowU.u_size, rSun * 2.6); gl.uniform1f(P.glowU.u_pow, 2.8);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
-  gl.uniform3fv(P.glowU.u_color, new Float32Array([1.0, 0.55, 0.2])); gl.uniform1f(P.glowU.u_size, rSun * 4.8); gl.uniform1f(P.glowU.u_pow, 4.2);
+  gl.uniform3fv(P.glowU.u_color, new Float32Array(glow.outer)); gl.uniform1f(P.glowU.u_size, rSun * 4.8); gl.uniform1f(P.glowU.u_pow, 4.2);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   // solar wind particles
@@ -871,8 +933,30 @@ function setAnchor(name) {
   paint();
 }
 
-// The Time-speed slider serves both views at very different scales, so reconfigure it per mode:
-// solar-system = years/sec (orbital motion); galaxy = millions of years/sec (the galactic clock).
+// ---- Time-speed slider: perceptual (logarithmic) in the solar-system view ----
+// The useful range spans 4½ decades: at the bottom a planet's SPIN is watchable (1 hour of
+// sim time per real second turns Earth once every 24 s — the old linear floor of 0.02 yr/s
+// still spun it 7×/second); at the top the giants visibly orbit. A linear slider can't hold
+// both, so the slider position maps exponentially between these bounds.
+const SPEED_MIN_YRS = 1 / 8766; // ≈1 hour of simulated time per real second, in yr/s
+const SPEED_MAX_YRS = 5;
+const speedFromSlider = (v) => SPEED_MIN_YRS * Math.pow(SPEED_MAX_YRS / SPEED_MIN_YRS, v);
+const sliderFromSpeed = (rate) =>
+  Math.max(0, Math.min(1, Math.log(rate / SPEED_MIN_YRS) / Math.log(SPEED_MAX_YRS / SPEED_MIN_YRS)));
+
+// Humane rate label: "2.4 hours/sec", "3 days/sec", "1.5 months/sec", "0.50 years/sec".
+function formatTimeRate(yrsPerSec) {
+  const hours = yrsPerSec * 8766;
+  if (hours < 48) return `${hours.toFixed(hours < 10 ? 1 : 0)} hours/sec`;
+  const days = hours / 24;
+  if (days < 60) return `${days.toFixed(days < 10 ? 1 : 0)} days/sec`;
+  const months = days / 30.44;
+  if (months < 18) return `${months.toFixed(1)} months/sec`;
+  return `${yrsPerSec.toFixed(2)} years/sec`;
+}
+
+// The slider serves both views at very different scales, so reconfigure it per mode:
+// solar-system = log-mapped hours→years/sec (orbital + spin); galaxy = Myr/sec (linear).
 function setSpeedSliderMode(galaxy) {
   const s = /** @type {HTMLInputElement|null} */ (document.getElementById("orrerySpeed"));
   const lbl = document.getElementById("orrerySpeedLabel");
@@ -882,9 +966,9 @@ function setSpeedSliderMode(galaxy) {
     s.setAttribute("aria-label", "galactic time speed (millions of years per second)");
     if (lbl) lbl.textContent = "Galactic time (Myr / sec)";
   } else {
-    s.min = "0.02"; s.max = "5"; s.step = "0.02"; s.value = String(state.yearsPerSec);
-    s.setAttribute("aria-label", "animation time speed (years per second)");
-    if (lbl) lbl.textContent = "Time speed (years / sec)";
+    s.min = "0"; s.max = "1"; s.step = "0.001"; s.value = String(sliderFromSpeed(state.yearsPerSec));
+    s.setAttribute("aria-label", "animation time speed, from one hour to five years of simulated time per second");
+    if (lbl) lbl.textContent = `Time speed — ${formatTimeRate(state.yearsPerSec)}`;
   }
 }
 
@@ -1079,7 +1163,13 @@ function showFallback(msg) {
   bind("orrerySize", "input", (e) => { state.exaggeration = Number(e.target.value); paint(); });
   bind("orreryTrueScale", "change", (e) => { state.trueScale = e.target.checked; paint(); });
   bind("orreryAnimate", "change", (e) => { state.animate = e.target.checked; if (state.animate) startLoop(); else paint(); });
-  bind("orrerySpeed", "input", (e) => { const v = Number(e.target.value); if (state.galaxy) state.galSpeed = v; else state.yearsPerSec = v; });
+  bind("orrerySpeed", "input", (e) => {
+    const v = Number(e.target.value);
+    if (state.galaxy) { state.galSpeed = v; return; }
+    state.yearsPerSec = speedFromSlider(v);
+    const lbl = document.getElementById("orrerySpeedLabel");
+    if (lbl) lbl.textContent = `Time speed — ${formatTimeRate(state.yearsPerSec)}`;
+  });
   bind("orreryShowOrbits", "change", (e) => { state.showOrbits = e.target.checked; buildSceneLines(); paint(); });
   bind("orreryShowSky", "change", (e) => { state.showSky = e.target.checked; paint(); });
   bind("orreryShowConst", "change", (e) => { state.showConst = e.target.checked; paint(); });
@@ -1088,6 +1178,11 @@ function showFallback(msg) {
   bind("orreryShowSmall", "change", (e) => { state.showSmall = e.target.checked; buildSceneLines(); rebuildSmallBodies(); paint(); });
   bind("orreryDeepSky", "change", (e) => { state.galDeepSky = e.target.checked; paint(); });
   bind("orreryTextures", "change", (e) => { state.useTextures = e.target.checked; paint(); });
+  bind("orrerySunChannel", "change", (e) => {
+    state.sunChannel = e.target.value;
+    loadSunChannel(state.sunChannel); // lazy — each channel fetches on first selection
+    if (!state.animate) paint();
+  });
   bind("orreryTopDown", "change", (e) => {
     state.topDown = e.target.checked;
     if (state.topDown) { state.preTopRadius = state.radius; state.radius = 78; } // frame the whole system from above
@@ -1123,7 +1218,7 @@ function showFallback(msg) {
     // drawBody bound dead textures (planets rendered flat, rings vanished) and
     // texturesStarted=true meant loadTextures() never re-fetched for the life of the tab.
     gl = null; P = {};
-    textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
+    textures = {}; sunChannelTex = {}; ringTex = { ready: false, tex: null };
     whiteTex = null; ringBufs = {}; texturesStarted = false; particles = null;
   });
   canvas.addEventListener("webglcontextrestored", () => {
