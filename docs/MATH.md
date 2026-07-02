@@ -51,8 +51,10 @@ I = clamp(1 - 0.72 spot + 0.08 facula, 0.05, 1.25)
 
 ```text
 K = P_f / (P_f + R)
-x_a = x_f + K(y - x_f)
-P_a = (1-K)P_f
+g = freshness · K          (the gain actually applied; freshness ∈ [0,1])
+x_a = x_f + g (y - x_f)
+P_a = (1-g) P_f
 ```
 
-Use source freshness to attenuate K.
+Source freshness attenuates the gain — and the analysis variance uses the same
+attenuated gain, so a damped update is not credited with the full (1−K) confidence.
