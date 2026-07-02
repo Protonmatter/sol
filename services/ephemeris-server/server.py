@@ -151,6 +151,29 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict:
 
 
 CACHE_VERSION = "v2"  # bump when the snapshot format changes so stale-schema entries can't serve
+CACHE_MAX_ENTRIES = 4096  # a client polling "now" writes ~1 entry/min → cap ≈ 3 days of live use
+
+
+def evict_cache(max_entries: int = CACHE_MAX_ENTRIES) -> None:
+    """Drop the oldest entries (by mtime) once the cache exceeds the cap. Runs only on a
+    cache MISS (writes are the rare path), so the listdir cost is amortized; without this
+    the on-disk cache grew one file per distinct minute/site forever."""
+    try:
+        entries = [
+            os.path.join(CACHE_DIR, name)
+            for name in os.listdir(CACHE_DIR)
+            if name.endswith(".json")
+        ]
+        if len(entries) <= max_entries:
+            return
+        entries.sort(key=lambda p: os.path.getmtime(p))
+        for path in entries[: len(entries) - max_entries]:
+            try:
+                os.remove(path)
+            except OSError:
+                pass  # concurrent eviction/read — someone else won, fine
+    except OSError:
+        pass  # cache dir unreadable — eviction is best-effort
 
 
 def cache_path(unix: float, lat: float, lon: float, elev: float) -> str:
@@ -189,6 +212,7 @@ def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict:
             os.remove(tmp)
         except OSError:
             pass
+    evict_cache()
     return snap
 
 

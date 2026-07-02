@@ -60,7 +60,11 @@ the rest lives under `apps/web/js/`:
 | `sunlayers.js` | the Sun-interior cutaway |
 | `sky.js` | **My Sky** horizon dome (topocentric alt/az; loads `skyEngine.js`) |
 | `skyEngine.js` | loads `solar_ephemeris.wasm`; `skySnapshot`/`systemSnapshot`/`bodyTrack` |
-| `orrery.js` | **Solar System** — WebGL2 3-D scene + top-down map, camera, detail panel |
+| `orrery.js` | **Solar System** — the WebGL2 renderer/orchestrator: GL plumbing, camera, input, draw loop |
+| `orreryMath.js` | pure mat4/vec3 helpers, IAU WGCCRE orientation, sphere/ring/ellipse geometry |
+| `orreryShaders.js` | the five GLSL programs (sphere/line/ring/point/glow) as string constants |
+| `orreryGalaxy.js` | the Milky-Way model: constants, Sun's galactic orbit, shear, point-cloud generation |
+| `orreryDetail.js` | the click-to-inspect physical-facts panel (pure DOM from bodyData + live row) |
 | `bodyData.js` | NASA fact-sheet constants + IAU pole/rotation per body |
 | `celestial.js` | star / constellation / pulsar / deep-sky catalogues |
 | `galacticobjects.js` | galactic-frame objects for the Milky-Way zoom-out |

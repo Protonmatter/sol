@@ -7,7 +7,7 @@ let loadPromise = null;
 export function loadSkyEngine() {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
-    const response = await fetch("pkg/solar_ephemeris.wasm?v=1e53a8939f", { cache: "no-store" });
+    const response = await fetch("pkg/solar_ephemeris.wasm?v=c044ef3203", { cache: "no-store" });
     if (!response.ok) throw new Error(`ephemeris wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});
