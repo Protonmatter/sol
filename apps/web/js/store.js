@@ -2,7 +2,7 @@
 // an imported binding, so cross-module state lives as properties on this object:
 // every module imports `store` and reads/writes `store.x`.
 
-import { FALLBACK_STATE } from "./config.js?v=1e53a8939f";
+import { FALLBACK_STATE } from "./config.js?v=d0de50de19";
 
 export const store = {
   /** @type {import('./config.js').Snapshot} */
@@ -27,5 +27,15 @@ export const store = {
   playTimer: 0,
   liveEngineRun: false, // true while showing an in-browser WASM engine run
   tourIndex: -1,
-  tipPinned: false
+  tipPinned: false,
+
+  // Surface state registries. Each surface module OWNS its state object but registers it
+  // here at module init, so all user-facing app state is reachable from one place:
+  //   sky    — set by sky.js:   { observer:{lat,lon,elev,label}, provider, chosenUnix }
+  //   orrery — set by orrery.js: the 3-D view's scene/user state (camera, toggles, bodies…)
+  // Rendering internals (GL handles, hover hit-lists) deliberately stay module-local.
+  /** @type {any} */
+  sky: null,
+  /** @type {any} */
+  orrery: null,
 };

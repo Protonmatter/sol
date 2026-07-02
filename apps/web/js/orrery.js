@@ -13,12 +13,24 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=1e53a8939f";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, rotationPhase } from "./bodyData.js?v=1e53a8939f";
-import { buildCelestial } from "./celestial.js?v=1e53a8939f";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=1e53a8939f";
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=1e53a8939f";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=1e53a8939f";
+import { store } from "./store.js?v=d0de50de19";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=d0de50de19";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=d0de50de19";
+import { buildCelestial } from "./celestial.js?v=d0de50de19";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=d0de50de19";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=d0de50de19";
+import {
+  perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
+  iauRotation, buildSphere, buildRing, ellipse3d,
+} from "./orreryMath.js?v=d0de50de19";
+import {
+  SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
+} from "./orreryShaders.js?v=d0de50de19";
+import {
+  GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
+  galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
+} from "./orreryGalaxy.js?v=d0de50de19";
+import { renderDetail } from "./orreryDetail.js?v=d0de50de19";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -46,9 +58,12 @@ const TEXTURE_FILES = {
   Jupiter: "jupiter.jpg", Saturn: "saturn.jpg", Uranus: "uranus.jpg", Neptune: "neptune.jpg", Moon: "moon.jpg",
 };
 
-const state = {
+// Registered on the shared store (store.orrery) so this surface's state is inspectable
+// from one place like the rest of the app — the same object, no copies. Rendering-internal
+// GL handles stay module-local below; this holds the user-facing/scene state.
+const state = (store.orrery = {
   az: 0.7, el: 0.45, radius: 26, savedRadius: 26, offsetYears: 0,
-  active: false, exaggeration: 1, trueScale: false, animate: true,
+  active: false, entering: false, exaggeration: 1, trueScale: false, animate: true,
   yearsPerSec: 0.5, // solar-system animation rate (sim years per real second) — fast enough to see the giants orbit
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: true, showLabels: true, showSunEq: true, useTextures: true, galaxy: false,
@@ -59,255 +74,12 @@ const state = {
   anchor: "Sun", freeFly: false, freePos: [18, 18, 12], yaw: -2.3, pitch: -0.4, flySpeed: 4, keys: new Set(),
   renderUnix: Date.now() / 1000, simElapsed: 0, galYears: 0, selected: null, backend: "",
   bodies: [], lastTick: 0,
-};
+});
 
 const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 
-// ---------------------------------------------------------------- mat/vec helpers (column-major)
-function perspective(fovy, aspect, near, far) {
-  const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
-  return [f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) * nf, -1, 0, 0, 2 * far * near * nf, 0];
-}
-function lookAt(eye, c, up) {
-  const z = norm(sub(eye, c)), x = norm(cross(up, z)), y = cross(z, x);
-  return [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, eye), -dot(y, eye), -dot(z, eye), 1];
-}
-function mul(a, b) {
-  const o = new Array(16).fill(0);
-  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
-    let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k];
-    o[c * 4 + r] = s;
-  }
-  return o;
-}
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const translate = (t) => [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, t[0], t[1], t[2], 1];
-const scaleM = (s) => [s[0], 0, 0, 0, 0, s[1], 0, 0, 0, 0, s[2], 0, 0, 0, 0, 1];
-function normalMat3(m) { return [m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]]; }
-
-const D2R = Math.PI / 180, ECL_J2000 = 23.43928 * D2R;
-// Equatorial-J2000 (ICRS) unit vector → ecliptic-J2000 world frame (rotate −ε about x).
-function eclFromEqu(v) {
-  const c = Math.cos(ECL_J2000), s = Math.sin(ECL_J2000);
-  return [v[0], v[1] * c + v[2] * s, -v[1] * s + v[2] * c];
-}
-
-// Physically-correct body orientation per the IAU WGCCRE 2015 convention, as a column-major mat4
-// (rotation only). The spin axis is the IAU pole (α0, δ0); the prime meridian is measured by the
-// rotation angle W = W0 + Ẇ·d from the ascending node of the body's equator on the ICRS equator
-// (RA = α0 + 90°). This fixes the ABSOLUTE phase — so the right meridian/hemisphere faces the Sun at
-// any time t — rather than spinning from an arbitrary reference. Ẇ<0 (Venus, Uranus) → retrograde.
-function iauRotation(phys, unixSeconds) {
-  const a0 = phys.poleRaDeg * D2R, d0 = phys.poleDecDeg * D2R, w = rotationPhase(phys, unixSeconds);
-  const pole = norm(eclFromEqu([Math.cos(d0) * Math.cos(a0), Math.cos(d0) * Math.sin(a0), Math.sin(d0)]));
-  const node = norm(eclFromEqu([-Math.sin(a0), Math.cos(a0), 0])); // ascending node of the equator (RA=α0+90°)
-  const pxn = cross(pole, node);                                    // node rotated +90° about the pole (eastward)
-  const cw = Math.cos(w), sw = Math.sin(w);
-  const x = norm([node[0] * cw + pxn[0] * sw, node[1] * cw + pxn[1] * sw, node[2] * cw + pxn[2] * sw]); // prime meridian
-  const y = cross(pole, x);                                         // +90° east longitude
-  return [x[0], x[1], x[2], 0, y[0], y[1], y[2], 0, pole[0], pole[1], pole[2], 0, 0, 0, 0, 1];
-}
-
-// ---------------------------------------------------------------- sphere + ring + quad geometry
-function buildSphere(stacks, slices) {
-  const pos = [], idx = [];
-  for (let i = 0; i <= stacks; i++) {
-    const v = i / stacks, phi = v * Math.PI;       // 0..π, pole at +z
-    const z = Math.cos(phi), r = Math.sin(phi);
-    for (let j = 0; j <= slices; j++) {
-      const u = j / slices, th = u * 2 * Math.PI;
-      pos.push(r * Math.cos(th), r * Math.sin(th), z);  // unit sphere; normal == position
-    }
-  }
-  const row = slices + 1;
-  for (let i = 0; i < stacks; i++) for (let j = 0; j < slices; j++) {
-    const a = i * row + j, b = a + row;
-    idx.push(a, b, a + 1, a + 1, b, b + 1);
-  }
-  return { pos: new Float32Array(pos), idx: new Uint16Array(idx) };
-}
-
-// A ring annulus in the body's equatorial (xy) plane, radii in AU, vertex-coloured from the real
-// km structure (C/B/A brightness + the Cassini Division gap). Returns interleaved [x,y,z,r,g,b,a].
-function buildRing(rings, rEqAU, radiusKm) {
-  const inner = (rings.innerKm / radiusKm) * rEqAU;
-  const outer = (rings.outerKm / radiusKm) * rEqAU;
-  const RAD = 56, ANG = 120, v = [];
-  const colorAt = (rAU) => {
-    const km = (rAU / rEqAU) * radiusKm;
-    if (rings.gaps) for (const [g0, g1] of rings.gaps) if (km > g0 && km < g1) return [0, 0, 0, 0];
-    if (!rings.gaps) return [0.62, 0.64, 0.66, 0.16]; // faint Uranus/Neptune rings
-    let a, tint;
-    if (km < 92000) { a = 0.18; tint = [0.55, 0.50, 0.42]; }        // C ring (dim)
-    else if (km < 117580) { a = 0.78; tint = [0.86, 0.78, 0.60]; }  // B ring (bright)
-    else { a = 0.5; tint = [0.78, 0.72, 0.56]; }                    // A ring
-    return [tint[0], tint[1], tint[2], a];
-  };
-  for (let i = 0; i < RAD; i++) {
-    const f0 = i / RAD, f1 = (i + 1) / RAD;
-    const r0 = inner + (outer - inner) * f0;
-    const r1 = inner + (outer - inner) * f1;
-    const c0 = colorAt(r0), c1 = colorAt(r1);
-    for (let j = 0; j < ANG; j++) {
-      const t0 = (j / ANG) * 2 * Math.PI, t1 = ((j + 1) / ANG) * 2 * Math.PI;
-      const p = (r, t, c, f) => v.push(r * Math.cos(t), r * Math.sin(t), 0, c[0], c[1], c[2], c[3], f);
-      p(r0, t0, c0, f0); p(r1, t0, c1, f1); p(r1, t1, c1, f1);
-      p(r0, t0, c0, f0); p(r1, t1, c1, f1); p(r0, t1, c0, f0);
-    }
-  }
-  return new Float32Array(v);
-}
-
-function ellipse3d(b) {
-  const a = b.a_au, e = b.ecc;
-  const inc = b.inc_deg * Math.PI / 180, node = b.node_deg * Math.PI / 180, argp = b.argp_deg * Math.PI / 180;
-  const co = Math.cos(argp), so = Math.sin(argp), cn = Math.cos(node), sn = Math.sin(node);
-  const ci = Math.cos(inc), si = Math.sin(inc), bm = a * Math.sqrt(1 - e * e), pts = [];
-  for (let k = 0; k <= 160; k++) {
-    const ea = (k / 160) * 2 * Math.PI, xp = a * (Math.cos(ea) - e), yp = bm * Math.sin(ea);
-    pts.push([(co * cn - so * sn * ci) * xp + (-so * cn - co * sn * ci) * yp,
-      (co * sn + so * cn * ci) * xp + (-so * sn + co * cn * ci) * yp, (so * si) * xp + (co * si) * yp]);
-  }
-  return pts;
-}
-
-// ---------------------------------------------------------------- GLSL
-const NOISE = `
-float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
-float vn(vec3 x){ vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
-  return mix(mix(mix(h31(i+vec3(0,0,0)),h31(i+vec3(1,0,0)),f.x),mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),
-             mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z); }
-float fbm(vec3 p){ float a=0.5,s=0.0; for(int i=0;i<5;i++){ s+=a*vn(p); p*=2.03; a*=0.5; } return s; }
-float craters(vec3 p,float sc){ p*=sc; vec3 ip=floor(p); float best=1e9,rnd=0.0;
-  for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++)for(int z=-1;z<=1;z++){ vec3 c=ip+vec3(x,y,z);
-    vec3 o=vec3(h31(c),h31(c+11.0),h31(c+23.0)); float rad=0.32+0.5*h31(c+37.0);
-    float d=length(p-(c+o))/rad; if(d<best){ best=d; rnd=h31(c+53.0);} }
-  float rim=smoothstep(1.05,0.92,best)-smoothstep(0.92,0.6,best); // bright rim, dark floor
-  float floor_=smoothstep(0.9,0.0,best); return rim*0.5 - floor_*0.28*rnd; }
-`;
-
-const SPHERE_VS = `#version 300 es
-layout(location=0) in vec3 a_pos; layout(location=1) in vec3 a_nrm;
-uniform mat4 u_mvp; uniform mat4 u_model; uniform mat3 u_nmat;
-out vec3 v_obj; out vec3 v_world; out vec3 v_nrm;
-void main(){ v_obj=a_pos; v_world=(u_model*vec4(a_pos,1.0)).xyz; v_nrm=normalize(u_nmat*a_nrm); gl_Position=u_mvp*vec4(a_pos,1.0); }`;
-
-const SPHERE_FS = `#version 300 es
-precision highp float;
-in vec3 v_obj; in vec3 v_world; in vec3 v_nrm; out vec4 o;
-uniform int u_style; uniform int u_mode; uniform float u_time;
-uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_atmo; uniform float u_atmoStr;
-uniform int u_useTex; uniform sampler2D u_tex;
-${NOISE}
-void main(){
-  vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
-  float lat=p.z; float fres=pow(1.0-clamp(dot(N,V),0.0,1.0),3.0);
-  if(u_mode==2){ // atmosphere limb halo (additive shell)
-    o=vec4(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4, 1.0); return; }
-  if(u_mode==1){ // Sun
-    if(u_useTex==1){ // the real, latest SDO disk — projected orthographically toward the camera so the
-      // visible hemisphere always shows the genuine solar disk (sunspots, granulation) from any angle.
-      vec3 ax=normalize(u_cam);
-      vec3 R=normalize(cross(vec3(0.0,0.0,1.0),ax));
-      vec3 U=cross(ax,R);
-      vec2 d=vec2(dot(N,R),dot(N,U))*0.4565;                 // 0.4565 = disk radius / SDO frame width
-      vec3 sc=texture(u_tex, vec2(0.5+d.x, 0.5-d.y)).rgb;
-      float lb=pow(clamp(dot(N,ax),0.0,1.0),0.45);           // gentle limb darkening to read as a sphere
-      o=vec4(sc*(0.65+0.5*lb), 1.0); return; }
-    // procedural fallback: emissive granulation + sunspots + limb darkening
-    float g=fbm(p*9.0+vec3(u_time*0.06)); float fac=fbm(p*22.0+vec3(u_time*0.1));
-    float spot=smoothstep(0.60,0.55,fbm(p*3.2+vec3(5.0)));
-    vec3 c=mix(vec3(1.0,0.50,0.10),vec3(1.0,0.92,0.55),0.45+0.6*g);
-    c+=vec3(0.25,0.18,0.05)*smoothstep(0.6,0.95,fac); // faculae
-    c=mix(c,vec3(0.30,0.13,0.05),spot*0.9);
-    float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); c*=0.55+0.7*limb;
-    o=vec4(c,1.0); return; }
-  vec3 col=u_base;
-  if(u_useTex==1){ float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862; col=texture(u_tex,vec2(uu,vv)).rgb; }
-  else if(u_style==1){ col=vec3(0.55,0.51,0.46)*(0.75+0.5*fbm(p*6.0)); col+=craters(p,7.0); }       // Mercury
-  else if(u_style==9){ float mare=smoothstep(0.52,0.46,fbm(p*2.4+vec3(3.0)));                   // Moon
-        col=mix(vec3(0.62,0.61,0.58),vec3(0.30,0.30,0.31),mare); col+=craters(p,8.0); }
-  else if(u_style==2){ float c=fbm(p*4.0+vec3(u_time*0.03,0,0));                                // Venus
-        col=mix(vec3(0.86,0.78,0.55),vec3(0.97,0.93,0.78),c); }
-  else if(u_style==3){ float cont=fbm(p*2.3+vec3(11.0));                                        // Earth
-        float land=smoothstep(0.50,0.54,cont); float ice=smoothstep(0.80,0.90,abs(lat));
-        vec3 ground=mix(vec3(0.16,0.40,0.15),vec3(0.50,0.42,0.25),smoothstep(0.25,0.6,fbm(p*5.0)));
-        ground=mix(ground,vec3(0.22,0.34,0.13),smoothstep(0.0,0.4,abs(lat))*0.4);
-        vec3 surf=mix(vec3(0.04,0.20,0.42),ground,land); surf=mix(surf,vec3(0.95,0.96,0.98),ice);
-        float cl=smoothstep(0.58,0.78,fbm(p*3.2+vec3(u_time*0.02,0.0,0.0))); col=mix(surf,vec3(1.0),cl*0.55); }
-  else if(u_style==4){ float a=fbm(p*3.4+vec3(7.0));                                            // Mars
-        col=mix(vec3(0.78,0.36,0.22),vec3(0.55,0.26,0.16),a); col+=craters(p,6.0)*0.6;
-        col=mix(col,vec3(0.95,0.95,0.97),smoothstep(0.86,0.95,abs(lat))); }
-  else if(u_style==5){ float warp=fbm(p*vec3(3.0,8.0,3.0));                                     // Jupiter
-        float b=sin(lat*22.0+1.6*warp); vec3 zone=vec3(0.92,0.85,0.70),belt=vec3(0.72,0.52,0.36);
-        col=mix(belt,zone,smoothstep(-0.3,0.3,b)); col*=0.9+0.2*fbm(p*vec3(10.0,3.0,10.0));
-        float lon=atan(p.y,p.x); float grs=smoothstep(0.16,0.0,length(vec2((lon-2.2),(lat+0.34)*2.0)));
-        col=mix(col,vec3(0.80,0.34,0.22),grs); }
-  else if(u_style==6){ float warp=fbm(p*vec3(3.0,7.0,3.0));                                     // Saturn
-        float b=sin(lat*18.0+1.4*warp); col=mix(vec3(0.80,0.72,0.52),vec3(0.95,0.90,0.72),smoothstep(-0.3,0.3,b)); }
-  else if(u_style==7){ float b=sin(lat*10.0+fbm(p*4.0));                                        // Uranus
-        col=mix(vec3(0.58,0.83,0.86),vec3(0.72,0.92,0.93),0.5+0.5*b); }
-  else if(u_style==8){ float warp=fbm(p*vec3(3.0,6.0,3.0));                                     // Neptune
-        float b=sin(lat*9.0+1.2*warp); col=mix(vec3(0.18,0.34,0.78),vec3(0.30,0.46,0.88),0.5+0.5*b);
-        float lon=atan(p.y,p.x); col=mix(col,vec3(0.10,0.16,0.40),smoothstep(0.14,0.0,length(vec2(lon+1.0,(lat-0.3)*2.0)))); }
-  float lambert=max(dot(N,normalize(u_light)),0.0);
-  float shade=0.05+0.95*lambert;
-  col*=shade;
-  col+=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert); // atmospheric scattering on the disc rim
-  o=vec4(col,1.0);
-}`;
-
-const LINE_VS = `#version 300 es
-layout(location=0) in vec3 a_pos; layout(location=1) in vec3 a_col;
-uniform mat4 u_vp; out vec3 v_col; void main(){ v_col=a_col; gl_Position=u_vp*vec4(a_pos,1.0); }`;
-const LINE_FS = `#version 300 es
-precision highp float; in vec3 v_col; out vec4 o; uniform float u_alpha;
-void main(){ o=vec4(v_col,u_alpha); }`;
-
-const RING_VS = `#version 300 es
-layout(location=0) in vec3 a_pos; layout(location=1) in vec4 a_col; layout(location=2) in float a_frac;
-uniform mat4 u_mvp; out vec4 v_col; out float v_frac;
-void main(){ v_col=a_col; v_frac=a_frac; gl_Position=u_mvp*vec4(a_pos,1.0); }`;
-const RING_FS = `#version 300 es
-precision highp float; in vec4 v_col; in float v_frac; out vec4 o; uniform int u_useTex; uniform sampler2D u_tex;
-void main(){ vec4 c=v_col; if(u_useTex==1){ vec4 t=texture(u_tex, vec2(v_frac,0.5)); c=vec4(t.rgb*1.05, t.a); } if(c.a<0.02) discard; o=c; }`;
-
-const PT_VS = `#version 300 es
-layout(location=0) in vec3 a_pos; layout(location=1) in float a_size; layout(location=2) in vec4 a_col;
-uniform mat4 u_vp; uniform float u_dpr; uniform float u_shearT; uniform float u_shearK; uniform float u_shearRc;
-out vec4 v_col;
-void main(){
-  v_col=a_col;
-  vec3 p=a_pos;
-  // Differential (galactic) rotation: a flat rotation curve gives angular speed Ω(r)=K/r, so inner
-  // stars lap outer ones and any spiral feature shears/winds up over time (the "winding problem").
-  // Inside Rc the disc turns rigidly (Ω=K/Rc), which both matches a real galaxy's rising inner curve
-  // and avoids the r→0 singularity. u_shearT=0 (every non-galaxy draw) ⇒ no rotation.
-  if(u_shearT!=0.0){
-    float r=max(length(p.xy),u_shearRc);
-    float ang=u_shearK/r*u_shearT;
-    float c=cos(ang), s=sin(ang);
-    p.xy=vec2(c*p.x - s*p.y, s*p.x + c*p.y);
-  }
-  gl_Position=u_vp*vec4(p,1.0); gl_PointSize=a_size*u_dpr;
-}`;
-const PT_FS = `#version 300 es
-precision highp float; in vec4 v_col; out vec4 o; uniform float u_soft;
-void main(){ float d=length(gl_PointCoord-vec2(0.5))*2.0; if(d>1.0) discard;
-  float a=mix(step(d,1.0), smoothstep(1.0,0.0,d), u_soft); o=vec4(v_col.rgb, v_col.a*a); }`;
-
-const GLOW_VS = `#version 300 es
-layout(location=0) in vec2 a_corner;
-uniform mat4 u_vp; uniform vec3 u_center; uniform vec3 u_right; uniform vec3 u_up; uniform float u_size;
-out vec2 v_uv; void main(){ v_uv=a_corner; vec3 w=u_center+(a_corner.x*u_right+a_corner.y*u_up)*u_size;
-  gl_Position=u_vp*vec4(w,1.0); }`;
-const GLOW_FS = `#version 300 es
-precision highp float; in vec2 v_uv; out vec4 o; uniform vec3 u_color; uniform float u_pow;
-void main(){ float r=length(v_uv); if(r>1.0) discard; float a=pow(1.0-r,u_pow); o=vec4(u_color*a,a); }`;
+// (mat/vec helpers, the IAU orientation, and the sphere/ring/ellipse geometry builders
+// live in orreryMath.js; GLSL sources in orreryShaders.js — both imported above.)
 
 // ---------------------------------------------------------------- WebGL2 renderer
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
@@ -340,19 +112,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=1e53a8939f"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=d0de50de19"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=1e53a8939f";
+  ring.src = "textures/saturn_ring.png?v=d0de50de19";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=1e53a8939f";
+  sun.src = "textures/sun.jpg?v=d0de50de19";
 }
 
 function compile(type, src) {
@@ -466,38 +238,9 @@ function buildCelestialBuffers() {
 }
 
 // ---------------------------------------------------------------- Milky Way (galactic-scale view)
-// A face-on model of our Galaxy showing where the Sun sits: the Sun orbits ~8.18 kpc (≈26,700 ly)
-// from the centre, in the Orion Spur between the Sagittarius and Perseus arms. Scale: 1 world unit
-// ≈ 0.326 kpc (≈1,063 ly); disc radius ~15 kpc. Logarithmic spiral arms + a central bar/bulge.
-const GAL_UNIT_KPC = 0.326;           // kpc per world unit
-const GAL_SUN_R = 8.178 / GAL_UNIT_KPC; // Sun's galactocentric distance (GRAVITY Collab. 2019)
-
-// --- The Sun's galactic orbit, so the Milky-Way view carries the transit of time ---
-// A "galactic year" is the time for one lap: T = 2π·R0 / Θ0, with R0 = 8.178 kpc and the local
-// circular speed Θ0 ≈ 230 km/s → ≈ 2.18×10^8 yr. The Sun's azimuth advances at ω = 2π/T. NOTE the
-// scale: over the ±5000-yr orbit scrubber the Sun moves only ω·5000 ≈ 0.008° here (sub-pixel), so the
-// *visible* motion comes from animating — the Time-speed slider, scaled to millions of years per second.
-const GAL_THETA0 = 2.4;                                          // the Sun's current galactocentric azimuth (rad)
-const GAL_SPEED_KMS = 230;                                       // local circular speed Θ0
-const GAL_PERIOD_YR = (2 * Math.PI * 8.178 * 3.0856776e16) / GAL_SPEED_KMS / 3.15576e7; // ≈ 2.18e8 yr
-const GAL_OMEGA = (2 * Math.PI) / GAL_PERIOD_YR;                 // rad per year
-// Differential rotation (flat curve): Ω(r) = GAL_SHEAR_K / max(r, Rc), in world units. Negative ⇒ the
-// disc turns the same (clockwise) sense as the Sun, and at the Sun's radius Ω = GAL_OMEGA exactly, so
-// the Sun stays embedded in its neighbourhood while the inner disc laps it and the arms wind up.
-const GAL_SHEAR_K = -(GAL_OMEGA * GAL_SUN_R);                    // V_circ in world·rad/yr (Ω·r is constant)
-const GAL_SHEAR_RC = 6.0;                                        // ≈2 kpc: rigid inner rotation below this
-// CPU twin of the point shader's differential rotation — so discrete objects (deep-sky landmarks) and
-// their text labels orbit the galactic centre in lockstep with the sheared disc.
-function galShear(p, galYears) {
-  if (!galYears) return p;
-  const r = Math.max(Math.hypot(p[0], p[1]), GAL_SHEAR_RC);
-  const ang = (GAL_SHEAR_K / r) * galYears, c = Math.cos(ang), s = Math.sin(ang);
-  return [c * p[0] - s * p[1], s * p[0] + c * p[1], p[2]];
-}
-function sunGalacticPos(years) {
-  const th = GAL_THETA0 - GAL_OMEGA * years;                     // azimuth at this galactic time
-  return [GAL_SUN_R * Math.cos(th), GAL_SUN_R * Math.sin(th), 0];
-}
+// (The galaxy MODEL — constants, the Sun's orbit, differential-rotation shear, and the
+// procedural point-cloud/guide-ring/label generation — lives in orreryGalaxy.js, imported
+// above. This file only uploads the returned arrays and draws them.)
 // Galactic years advanced per real second while animating (reuses the Time-speed slider, scaled to Myr).
 function galYearsPerSec() { return state.galSpeed * 1e6; }       // galSpeed is in Myr/s; default 2 ⇒ a lap in ~110 s
 // Move the Sun along its galactic orbit for the current galactic time, and update its travelling label.
@@ -515,88 +258,21 @@ function updateGalaxySun() {
   }
 }
 
-function buildGalaxyBuffers() {
-  const rng = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(99173);
-  const pts = [];
-  const ARMS = 4, PITCH = 12.5 * Math.PI / 180, B = 1 / Math.tan(PITCH), RMAX = 46;
-  // Spiral-arm stars
-  for (let i = 0; i < 5200; i++) {
-    const arm = i % ARMS;
-    const t = Math.pow(rng(), 0.5);
-    const r = 3 + t * (RMAX - 3);
-    const theta = arm * (2 * Math.PI / ARMS) + Math.log(r / 3) * B + (rng() - 0.5) * 0.5;
-    const spread = 1.2 + r * 0.10;
-    const rx = (rng() - 0.5) * spread, ry = (rng() - 0.5) * spread;
-    const x = r * Math.cos(theta) + rx, y = r * Math.sin(theta) + ry;
-    const z = (rng() - 0.5) * (1.4 - 0.9 * Math.min(1, r / RMAX)) * 1.6;
-    const hii = rng() > 0.93;
-    const col = hii ? [1.0, 0.5, 0.6] : (rng() > 0.5 ? [0.8, 0.86, 1.0] : [0.95, 0.95, 0.92]);
-    const a = 0.5 + 0.5 * rng();
-    pts.push(x, y, z, hii ? 2.6 : 1.5 + rng(), col[0], col[1], col[2], a);
-  }
-  // Central bulge / bar
-  for (let i = 0; i < 2000; i++) {
-    const u = rng(), r = Math.pow(u, 1.6) * 9;
-    const th = rng() * 2 * Math.PI;
-    const bar = 1 + 0.8 * Math.abs(Math.cos(th)); // slight bar elongation
-    const x = r * bar * Math.cos(th), y = r * Math.sin(th), z = (rng() - 0.5) * (3.2 - r * 0.2);
-    pts.push(x, y, z, 1.4 + rng() * 1.2, 1.0, 0.86, 0.62, 0.5 + 0.5 * rng());
-  }
-  // Diffuse disc haze
-  for (let i = 0; i < 1400; i++) {
-    const r = Math.sqrt(rng()) * RMAX, th = rng() * 2 * Math.PI;
-    pts.push(r * Math.cos(th), r * Math.sin(th), (rng() - 0.5) * 2.0, 0.9, 0.7, 0.75, 0.95, 0.18 + 0.2 * rng());
-  }
-  const sunPos = sunGalacticPos(0);
-  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galaxy);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pts), gl.STATIC_DRAW);
-  celBufs.galaxyCount = pts.length / 8;
-
-  // Reference rings at the Sun's orbit + galactocentric radii (with kly labels), as line strips.
-  const guide = [], ranges = [];
-  const ring = (rad, col) => {
-    const first = guide.length / 6;
-    for (let k = 0; k <= 128; k++) { const a = k / 128 * 2 * Math.PI; guide.push(Math.cos(a) * rad, Math.sin(a) * rad, 0, col[0], col[1], col[2]); }
-    ranges.push({ first, count: 129 });
-  };
-  for (const kpc of [4, 8.178, 12, 16]) ring(kpc / GAL_UNIT_KPC, kpc === 8.178 ? [0.95, 0.78, 0.30] : [0.25, 0.3, 0.42]);
-  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galGuide);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(guide), gl.STATIC_DRAW);
-  galaxy = {
-    sunPos, ranges,
-    labels: [
-      { name: "◎ Galactic Centre (Sgr A*)", p: [0, 0, 0] },
-      { name: "☉ Sun — you are here (~26,700 ly out)", p: sunPos, sun: true },
-      { name: "Perseus Arm", p: [-30, 14, 0] },
-      { name: "Sagittarius Arm", p: [18, -22, 0] },
-      { name: "Sun's orbit ≈ 26,700 ly", p: [GAL_SUN_R * Math.cos(-0.5), GAL_SUN_R * Math.sin(-0.5), 0] },
-    ],
-  };
-  buildGalObjects();
-}
-
-// Galactic (l, b, distance-kpc) → the galaxy view's world frame: l=0 points from the Sun to the
-// galactic centre, l=90° along the Sun's direction of rotation, b toward the north galactic pole.
-function galacticToWorld(lDeg, bDeg, dKpc) {
-  const S = sunGalacticPos(0), th = GAL_THETA0;
-  const gc = [-Math.cos(th), -Math.sin(th)];   // toward the galactic centre (l = 0)
-  const rot = [Math.sin(th), -Math.cos(th)];   // direction of galactic rotation (l = 90°)
-  const l = lDeg * D2R, b = bDeg * D2R, d = dKpc / GAL_UNIT_KPC, cb = Math.cos(b);
-  const e0 = cb * Math.cos(l), e1 = cb * Math.sin(l);
-  return [S[0] + d * (e0 * gc[0] + e1 * rot[0]), S[1] + d * (e0 * gc[1] + e1 * rot[1]), S[2] + d * Math.sin(b)];
-}
-
-// Place the deep-sky landmark objects (nebulae, pulsars, black holes, nearby stars…) at their true
-// positions relative to the Sun, and upload them as one colour-coded point buffer.
+// Upload the procedural galaxy model (points, guide rings, labels) and the deep-sky
+// landmark objects — generation is pure and lives in orreryGalaxy.js.
 let galObjects = [];
-function buildGalObjects() {
-  galObjects = GAL_OBJECTS.map((o) => {
-    const t = GAL_TYPES[o.type] || GAL_TYPES.star;
-    return { name: o.n, pos: galacticToWorld(o.l, o.b, o.d), type: o.type, note: o.note, col: t.col, size: t.size, tag: t.tag };
-  });
-  const a = new Float32Array(galObjects.length * 8);
-  galObjects.forEach((o, i) => a.set([o.pos[0], o.pos[1], o.pos[2], o.size, o.col[0], o.col[1], o.col[2], 1.0], i * 8));
-  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galObj); gl.bufferData(gl.ARRAY_BUFFER, a, gl.STATIC_DRAW);
+function buildGalaxyBuffers() {
+  const model = buildGalaxyModel();
+  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galaxy);
+  gl.bufferData(gl.ARRAY_BUFFER, model.points, gl.STATIC_DRAW);
+  celBufs.galaxyCount = model.count;
+  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galGuide);
+  gl.bufferData(gl.ARRAY_BUFFER, model.guide, gl.STATIC_DRAW);
+  galaxy = { sunPos: model.sunPos, ranges: model.ranges, labels: model.labels };
+
+  const list = buildGalObjectList();
+  galObjects = list.objects;
+  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galObj); gl.bufferData(gl.ARRAY_BUFFER, list.packed, gl.STATIC_DRAW);
   celBufs.galObjCount = galObjects.length;
 }
 
@@ -1131,57 +807,10 @@ function updateLabels(canvas, vp, skyVp) {
 }
 
 // ---------------------------------------------------------------- detail panel
-function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
+// (The facts card itself is built by orreryDetail.js; this wrapper just supplies the
+// body's live snapshot row.)
 function showDetail(name) {
-  const host = document.getElementById("orreryDetail"); if (!host) return;
-  const phys = BODY[name]; const live = state.bodies.find((b) => b.name === name);
-  host.textContent = "";
-  if (!phys) {
-    const row = document.createElement("div");
-    row.className = "sky-row";
-    row.textContent = "Click the Sun or a planet to inspect its facts.";
-    host.appendChild(row);
-    return;
-  }
-  const card = document.createElement("div"); card.className = "sky-row system-detail";
-  const h = document.createElement("strong"); h.textContent = name; card.appendChild(h);
-  const blurb = document.createElement("p"); blurb.className = "time-frame-label"; blurb.textContent = phys.blurb; card.appendChild(blurb);
-  const dl = document.createElement("dl"); dl.className = "detail-grid";
-  const add = (k, v, term) => {
-    if (v == null) return;
-    const dt = document.createElement("dt"); dt.textContent = k;
-    if (term) {
-      // Reuse the Sun panel's glossary affordance: the global [data-term] tooltip
-      // handlers (app.js) service this '?' on hover, keyboard focus, and tap.
-      const btn = document.createElement("button");
-      btn.className = "term"; btn.type = "button"; btn.dataset.term = term;
-      btn.setAttribute("aria-label", `What is ${k}?`); btn.textContent = "?";
-      dt.append(" ", btn);
-    }
-    const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd);
-  };
-  add("Equatorial radius", `${fmt(phys.radiusKm)} km${phys.polarKm !== phys.radiusKm ? ` · oblate (polar ${fmt(phys.polarKm)} km)` : ""}`, phys.polarKm !== phys.radiusKm ? "oblateness" : null);
-  add("Surface gravity", `${phys.gravity.toFixed(2)} m/s² · escape ${phys.escapeKms.toFixed(1)} km/s`, "escape-velocity");
-  add("Mean density", `${phys.densityGcm3.toFixed(3)} g/cm³`);
-  const rh = phys.rotationHours, retro = rh < 0;
-  add("Rotation (sidereal)", `${fmt(Math.abs(rh), 2)} h${Math.abs(rh) > 48 ? ` (${(Math.abs(rh) / 24).toFixed(2)} d)` : ""}${retro ? " · retrograde" : ""}`, "sidereal");
-  add("Axial tilt", `${phys.tiltDeg.toFixed(2)}°`, "axial-tilt");
-  add("Magnetic field", phys.magnetosphere ? (phys.magDipoleEarth >= 1 ? `global dipole ~${fmt(phys.magDipoleEarth)}× Earth` : phys.magDipoleEarth > 0 ? `weak dipole (~${(phys.magDipoleEarth).toExponential(1)}× Earth)` : "intrinsic field") : "no global field", "magnetic-dipole");
-  add("Atmosphere", isFinite(phys.atmosphere.pressureBar) && phys.atmosphere.pressureBar > 0 ? `${phys.atmosphere.pressureBar < 0.001 ? phys.atmosphere.pressureBar.toExponential(1) : fmt(phys.atmosphere.pressureBar, 3)} bar — ${phys.atmosphere.composition}` : phys.atmosphere.composition);
-  add("Mean temperature", `${fmt(phys.meanTempK)} K (${fmt(phys.meanTempK - 273)} °C)`);
-  if (live && live.equilibrium_temp_k != null) add("Equilibrium temp", `${fmt(live.equilibrium_temp_k)} K — black-body from sunlight alone (excludes greenhouse & internal heat)`, "equilibrium-temperature");
-  if (phys.rings) add("Rings", `${fmt(phys.rings.innerKm)}–${fmt(phys.rings.outerKm)} km from centre${phys.rings.gaps ? " · Cassini Division" : ""}`);
-  if (live) {
-    add("Distance from Sun", `${live.dist_au.toFixed(3)} AU`);
-    add("Distance from Earth", `${live.geo_dist_au.toFixed(3)} AU · light ${(live.geo_dist_au * 8.317).toFixed(1)} min`);
-    add("Orbital speed", `${live.speed_kms.toFixed(2)} km/s`, "orbital-speed");
-    if (live.illuminated_fraction != null) add("Illuminated", `${(live.illuminated_fraction * 100).toFixed(1)}% · phase ${live.phase_angle_deg.toFixed(1)}°`, "phase-angle");
-    if (live.magnitude != null) add("Apparent magnitude", live.magnitude.toFixed(1), "apparent-magnitude");
-  } else if (name === "Sun") {
-    add("Luminosity", "3.828×10²⁶ W");
-    add("Composition", "73% H, 25% He (by mass)");
-  }
-  card.appendChild(dl); host.appendChild(card);
+  renderDetail(name, state.bodies.find((b) => b.name === name));
 }
 
 // ---------------------------------------------------------------- animation loop
@@ -1281,6 +910,19 @@ function setFreeFly(on) {
 
 // ---------------------------------------------------------------- lifecycle
 export async function enterOrrery() {
+  // Idempotent against overlapping calls: enter is async (WASM load + GL init), so a
+  // double-invocation could race two initGL passes. app.js always leaves before entering,
+  // but the boot router and future callers shouldn't have to know that.
+  if (state.entering) return;
+  state.entering = true;
+  try {
+    await enterOrreryInner();
+  } finally {
+    state.entering = false;
+  }
+}
+
+async function enterOrreryInner() {
   state.active = true;
   const canvas = document.getElementById("orreryCanvas"); if (!canvas) return;
   // Clear a possible showFallback() hide — but ONLY clear. Setting an inline
