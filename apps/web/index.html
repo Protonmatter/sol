@@ -9,8 +9,8 @@
     <meta property="og:title" content="Solar Maximum Engine">
     <meta property="og:description" content="Today's real Sun, your local sky, and a 3-D solar system — validated against JPL Horizons.">
     <meta property="og:type" content="website">
-    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=c044ef3203">
-    <link rel="stylesheet" href="styles.css?v=c044ef3203">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=8ede0f0c36">
+    <link rel="stylesheet" href="styles.css?v=8ede0f0c36">
   </head>
   <body>
     <main class="app-shell">
@@ -139,6 +139,23 @@
                     <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> True scale</label>
                   </div>
                   <p class="time-frame-label">Planets are enlarged by default so the small ones stay visible at solar-system scale. Tick <strong>True scale</strong> for honest proportions.</p>
+                  <div class="sky-loc-row orrery-camera-row">
+                    <label class="orrery-check orrery-focus-label">Sun view
+                      <select id="orrerySunChannel" class="sky-input orrery-focus-select" aria-label="Sun imagery channel (live NASA SDO)">
+                        <option value="continuum">Visible (HMI)</option>
+                        <option value="magnetogram">Magnetic (HMI)</option>
+                        <option value="aia304">304 Å — chromosphere</option>
+                        <option value="aia171">171 Å — quiet corona</option>
+                        <option value="aia193">193 Å — corona</option>
+                        <option value="aia211">211 Å — active corona</option>
+                        <option value="aia335">335 Å — active corona</option>
+                        <option value="aia131">131 Å — flares</option>
+                        <option value="aia094">94 Å — flares</option>
+                        <option value="aia1700">1700 Å — UV surface</option>
+                      </select>
+                    </label>
+                  </div>
+                  <p class="time-frame-label">Today's real NASA SDO imagery, wrapped on the Earth-facing hemisphere — active regions stay fixed on the surface and carry the Sun's real ~25-day rotation. The far side (which no one can see) is the procedural model.</p>
                 </div>
               </details>
 
@@ -182,9 +199,10 @@
                   <label class="sys-zoom-row"><span class="label">Body size</span>
                     <input id="orrerySize" class="sys-range" type="range" min="0.4" max="2.5" step="0.05" value="1" aria-label="body size exaggeration">
                   </label>
-                  <label class="sys-zoom-row"><span class="label" id="orrerySpeedLabel">Time speed (years / sec)</span>
-                    <input id="orrerySpeed" class="sys-range" type="range" min="0.02" max="5" step="0.02" value="0.5" aria-label="animation time speed">
+                  <label class="sys-zoom-row"><span class="label" id="orrerySpeedLabel">Time speed — 0.50 years/sec</span>
+                    <input id="orrerySpeed" class="sys-range" type="range" min="0" max="1" step="0.001" value="0.785" aria-label="animation time speed, from one hour to five years of simulated time per second">
                   </label>
+                  <p class="time-frame-label">The speed scale is logarithmic — slide left to slow time right down. Near the bottom (an hour per second) you can watch a planet's spin instead of a blur.</p>
                 </div>
               </details>
 
@@ -343,6 +361,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=c044ef3203"></script>
+    <script type="module" src="app.js?v=8ede0f0c36"></script>
   </body>
 </html>
