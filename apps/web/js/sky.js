@@ -1,9 +1,9 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=c829bbcd8c";
-import { STARS, CONSTELLATIONS } from "./celestial.js?v=c829bbcd8c";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=c829bbcd8c";
+import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=1e53a8939f";
+import { STARS, CONSTELLATIONS } from "./celestial.js?v=1e53a8939f";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=1e53a8939f";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
@@ -129,7 +129,7 @@ function applyDeepLink() {
   const m = /sky=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,(\d+))?/.exec(location.hash);
   if (!m) return;
   observer.lat = Math.max(-90, Math.min(90, parseFloat(m[1])));
-  observer.lon = parseFloat(m[2]);
+  observer.lon = ((parseFloat(m[2]) % 360) + 540) % 360 - 180; // wrap: longitude is an angle
   observer.label = "Shared location";
   if (m[3]) chosenUnix = parseInt(m[3], 10);
 }
@@ -601,18 +601,19 @@ document.getElementById("skySet")?.addEventListener("click", () => {
     return;
   }
   const clampedLat = Math.max(-90, Math.min(90, lat));
-  // Longitude gets the same treatment latitude always had — it used to accept any number silently.
-  const clampedLon = Math.max(-180, Math.min(180, lon));
+  // Longitude is an ANGLE: wrap it into [-180, 180] instead of clamping. Clamping sent a
+  // pasted 0–360-style value like 270 (= 90°W) to +180 — the wrong meridian entirely.
+  const wrappedLon = ((lon % 360) + 540) % 360 - 180;
   observer.lat = clampedLat;
-  observer.lon = clampedLon;
+  observer.lon = wrappedLon;
   observer.label = "Set location";
   clearDeepLinkHash();
   saveSkyPrefs();
   setLocLabel();
   if (clampedLat !== lat && label) {
     label.textContent = `Latitude out of range — clamped to ${clampedLat}° (valid: -90° to 90°).`;
-  } else if (clampedLon !== lon && label) {
-    label.textContent = `Longitude out of range — clamped to ${clampedLon}° (valid: -180° to 180°, east-positive).`;
+  } else if (wrappedLon !== lon && label) {
+    label.textContent = `Longitude wrapped to ${wrappedLon}° (east-positive; e.g. 270 means 90°W).`;
   }
   renderSky();
 });

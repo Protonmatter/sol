@@ -13,12 +13,12 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=c829bbcd8c";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, rotationPhase } from "./bodyData.js?v=c829bbcd8c";
-import { buildCelestial } from "./celestial.js?v=c829bbcd8c";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=c829bbcd8c";
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=c829bbcd8c";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=c829bbcd8c";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=1e53a8939f";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, rotationPhase } from "./bodyData.js?v=1e53a8939f";
+import { buildCelestial } from "./celestial.js?v=1e53a8939f";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=1e53a8939f";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=1e53a8939f";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=1e53a8939f";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -340,19 +340,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=c829bbcd8c"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=1e53a8939f"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=c829bbcd8c";
+  ring.src = "textures/saturn_ring.png?v=1e53a8939f";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=c829bbcd8c";
+  sun.src = "textures/sun.jpg?v=1e53a8939f";
 }
 
 function compile(type, src) {

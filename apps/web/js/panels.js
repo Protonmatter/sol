@@ -1,15 +1,15 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js?v=c829bbcd8c";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=c829bbcd8c";
-import { text, textWithTitle, setPill } from "./dom.js?v=c829bbcd8c";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=c829bbcd8c";
+import { store } from "./store.js?v=1e53a8939f";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=1e53a8939f";
+import { text, textWithTitle, setPill } from "./dom.js?v=1e53a8939f";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=1e53a8939f";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
   dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js?v=c829bbcd8c";
+} from "./selectors.js?v=1e53a8939f";
 
 export function updateText() {
   const run = store.state.run || {};
@@ -182,7 +182,10 @@ function updateRegionList() {
   const list = document.getElementById("regionList");
   if (!list) return;
   const regions = store.state.active_regions || [];
-  const signature = `${regions.map((r) => r.id).join(",")}|${store.selectedRegionId}`;
+  // The signature must include the coordinates, not just the ids: timeline frames reuse
+  // ids 1..N with different lat/lon, so an id-only key kept the previous frame's
+  // locations in the list while the disk rendered the new snapshot.
+  const signature = `${regions.map((r) => `${r.id}@${r.lat_deg},${r.lon_deg}`).join(";")}|${store.selectedRegionId}`;
   if (signature === lastRegionListSignature && list.childNodes.length) return;
   lastRegionListSignature = signature;
   const focused = /** @type {HTMLElement|null} */ (document.activeElement);

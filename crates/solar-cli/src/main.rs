@@ -36,9 +36,9 @@ fn run() -> Result<(), String> {
 
 fn simulate_command(args: &[String]) -> Result<(), String> {
     let steps = parse_or_default(args, "--steps", 24usize)?;
-    let dt_hours = parse_or_default(args, "--dt-hours", 1.0f64)?;
+    let dt_hours = parse_finite(args, "--dt-hours", 1.0f64)?.clamp(0.001, 8760.0);
     let seed = parse_or_default(args, "--seed", 42u64)?;
-    let activity = parse_or_default(args, "--activity", 0.9f32)?.clamp(0.0, 1.0);
+    let activity = (parse_finite(args, "--activity", 0.9f64)? as f32).clamp(0.0, 1.0);
     let out = required_path(args, "--out")?;
 
     let state = simulate_state(steps, dt_hours, seed, activity);
@@ -112,9 +112,9 @@ fn replay_command(args: &[String]) -> Result<(), String> {
 
 fn legacy_summary(args: &[String]) -> Result<(), String> {
     let steps = parse_or_default(args, "--steps", 24usize)?;
-    let dt_hours = parse_or_default(args, "--dt-hours", 1.0f64)?;
+    let dt_hours = parse_finite(args, "--dt-hours", 1.0f64)?.clamp(0.001, 8760.0);
     let seed = parse_or_default(args, "--seed", 42u64)?;
-    let activity = parse_or_default(args, "--activity", 0.9f32)?.clamp(0.0, 1.0);
+    let activity = (parse_finite(args, "--activity", 0.9f64)? as f32).clamp(0.0, 1.0);
     let state = simulate_state(steps, dt_hours, seed, activity);
 
     println!("Solar Maximum Engine v0.1 CPU reference");
@@ -180,6 +180,17 @@ where
             .map_err(|_| format!("invalid value for {flag}: {value}")),
         None => Ok(default),
     }
+}
+
+/// Like `parse_or_default`, but rejects NaN/±inf — `f32::from_str` happily parses "NaN",
+/// and clamp() preserves it, which sent a NaN activity into the Poisson sampler and hung
+/// the simulate loop.
+fn parse_finite(args: &[String], flag: &str, default: f64) -> Result<f64, String> {
+    let value = parse_or_default(args, flag, default)?;
+    if !value.is_finite() {
+        return Err(format!("invalid value for {flag}: must be a finite number"));
+    }
+    Ok(value)
 }
 
 fn value_after<'a>(args: &'a [String], flag: &str) -> Option<&'a String> {

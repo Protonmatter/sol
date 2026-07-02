@@ -52,6 +52,19 @@ fn run_simulation(
     lon_count: u32,
     lat_count: u32,
 ) -> String {
+    // Sanitize the raw-ABI numeric inputs: JS can hand us NaN/inf for the f64/f32 params,
+    // which used to reach the Poisson sampler (infinite loop = a hung tab) and the field
+    // updates (NaN fields serialising as nulls).
+    let dt_hours = if dt_hours.is_finite() {
+        dt_hours.clamp(0.001, 8760.0)
+    } else {
+        1.0
+    };
+    let activity_index = if activity_index.is_finite() {
+        activity_index.clamp(0.0, 1.0)
+    } else {
+        0.9
+    };
     let grid = SolarGrid::new((lon_count.max(8)) as usize, (lat_count.max(4)) as usize);
     let mut state = SolarState::new(grid.clone(), SolarMode::Synthetic);
     let mut model = SyntheticSolarModel::new(SyntheticConfig {

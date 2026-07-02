@@ -135,7 +135,10 @@ impl XorShift64 {
 }
 
 fn poisson_sample(rng: &mut XorShift64, lambda: f32) -> usize {
-    if lambda <= 0.0 {
+    // Check finiteness FIRST: a bare `lambda <= 0.0` is false for NaN, which made the
+    // loop's `p <= exp(-NaN)` exit test permanently false and spin forever (a NaN activity
+    // index from the CLI/WASM boundary hung the whole simulate call).
+    if !lambda.is_finite() || lambda <= 0.0 {
         return 0;
     }
     let l = (-lambda).exp();
@@ -181,6 +184,17 @@ mod tests {
             "{obeys}/{} regions obey Hale's law",
             births.len()
         );
+    }
+
+    #[test]
+    fn nan_activity_yields_no_births_instead_of_hanging() {
+        let grid = SolarGrid::new(72, 36);
+        let mut model = SyntheticSolarModel::new(SyntheticConfig {
+            activity_index: f32::NAN,
+            ..SyntheticConfig::default()
+        });
+        let births = model.generate_births(0.0, 86_400.0, &grid);
+        assert!(births.is_empty());
     }
 
     #[test]

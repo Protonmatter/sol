@@ -51,10 +51,13 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 
 
 def refraction_deg(alt_deg: float) -> float:
-    """Bennett atmospheric refraction lift (deg) — matches the Rust engine's coords::refraction_deg."""
+    """Sæmundsson atmospheric refraction lift (deg) from a TRUE altitude — kept in sync with
+    the Rust engine's coords::refraction_deg. (Bennett's coefficients expect the APPARENT
+    altitude; using them here left the two providers ~5.5 arcmin apart at the horizon, so
+    switching tiers could flip above_horizon while rise/set said otherwise.)"""
     if alt_deg < -1.0:
         return 0.0
-    r_arcmin = 1.0 / math.tan(math.radians(alt_deg + 7.31 / (alt_deg + 4.4)))
+    r_arcmin = 1.02 / math.tan(math.radians(alt_deg + 10.3 / (alt_deg + 5.11)))
     return r_arcmin / 60.0
 
 

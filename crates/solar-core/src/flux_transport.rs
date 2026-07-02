@@ -68,37 +68,45 @@ fn rotate_field(state: &mut SolarState, dt_seconds: f64) {
 
 fn diffuse_field(state: &mut SolarState, dt_seconds: f64, diffusion: f32) {
     let grid = state.grid.clone();
-    let mut next = state.br.clone();
 
     // Diffusion is a RATE: scale the stencil by the timestep so the smoothing over a given span of
     // simulated time is independent of how it is subdivided. Previously the increment was applied
     // once per call regardless of dt, so halving dt while doubling the step count silently doubled
     // the effective diffusivity. Normalised to a 1-hour reference step, so the tuned
-    // DEFAULT_DIFFUSION and the existing 1-hour-step output (and golden snapshots) are unchanged;
-    // at that step diffusion·dt_hours = diffusion stays well under the 0.25 explicit-stability limit.
-    let dt_hours = (dt_seconds / 3600.0) as f32;
+    // DEFAULT_DIFFUSION and the existing 1-hour-step output (and golden snapshots) are unchanged.
+    //
+    // STABILITY: the explicit 5-point stencil requires diffusion·dt ≤ 0.25 or the update blows up
+    // (fields → ±inf → nulls in the snapshot JSON). Callers may pass any dt (`--dt-hours 48` is
+    // legal CLI input), so substep: apply the stencil k times at diffusion·dt/k ≤ 0.2 each. At the
+    // 1-hour reference step k = 1, so tuned behaviour is byte-identical.
+    let dt_hours_total = (dt_seconds / 3600.0) as f32;
+    let substeps = ((diffusion * dt_hours_total / 0.2).ceil()).max(1.0) as usize;
+    let dt_hours = dt_hours_total / substeps as f32;
 
-    for lat_i in 0..grid.lat_count {
-        for lon_i in 0..grid.lon_count {
-            let c = state.br.values[grid.idx(lat_i, lon_i)];
-            let west = state.br.values[grid.idx(lat_i, modulo(lon_i as isize - 1, grid.lon_count))];
-            let east = state.br.values[grid.idx(lat_i, lon_i + 1)];
-            let south = if lat_i > 0 {
-                state.br.values[grid.idx(lat_i - 1, lon_i)]
-            } else {
-                c
-            };
-            let north = if lat_i + 1 < grid.lat_count {
-                state.br.values[grid.idx(lat_i + 1, lon_i)]
-            } else {
-                c
-            };
-            let lap = west + east + south + north - 4.0 * c;
-            next.values[grid.idx(lat_i, lon_i)] = c + diffusion * dt_hours * lap;
+    for _ in 0..substeps {
+        let mut next = state.br.clone();
+        for lat_i in 0..grid.lat_count {
+            for lon_i in 0..grid.lon_count {
+                let c = state.br.values[grid.idx(lat_i, lon_i)];
+                let west =
+                    state.br.values[grid.idx(lat_i, modulo(lon_i as isize - 1, grid.lon_count))];
+                let east = state.br.values[grid.idx(lat_i, lon_i + 1)];
+                let south = if lat_i > 0 {
+                    state.br.values[grid.idx(lat_i - 1, lon_i)]
+                } else {
+                    c
+                };
+                let north = if lat_i + 1 < grid.lat_count {
+                    state.br.values[grid.idx(lat_i + 1, lon_i)]
+                } else {
+                    c
+                };
+                let lap = west + east + south + north - 4.0 * c;
+                next.values[grid.idx(lat_i, lon_i)] = c + diffusion * dt_hours * lap;
+            }
         }
+        state.br = next;
     }
-
-    state.br = next;
 }
 
 fn inject_sources(state: &mut SolarState, cfg: &FluxTransportConfig) {
@@ -252,6 +260,26 @@ mod tests {
         assert!(
             after_second <= after_birth * 1.01,
             "flux grew after birth step: {after_birth} -> {after_second}"
+        );
+    }
+
+    #[test]
+    fn diffusion_stays_stable_at_large_timesteps() {
+        // 48-hour steps put diffusion·dt at 0.576 — past the 0.25 explicit-stencil limit —
+        // which used to blow the field up to ±inf (serialised as nulls, rejected by
+        // validate_snapshot). The substepped update must stay finite and bounded.
+        let grid = SolarGrid::new(72, 36);
+        let mut state = SolarState::new(grid, SolarMode::Synthetic);
+        state.active_regions.push(test_region(0.0));
+        let cfg = FluxTransportConfig::default();
+        for _ in 0..20 {
+            advance_flux_transport(&mut state, 48.0 * 3600.0, &cfg);
+        }
+        assert!(state.br.values.iter().all(|v| v.is_finite()));
+        assert!(
+            state.br.max_abs() < 10.0,
+            "field blew up: {}",
+            state.br.max_abs()
         );
     }
 
