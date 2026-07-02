@@ -51,7 +51,8 @@ class WebAppParser(HTMLParser):
             self.asset_refs.append(values["href"] or "")
         if tag == "script" and values.get("src"):
             self.asset_refs.append(values["src"] or "")
-        if tag == "details" and values.get("class") == "research-panel" and "open" in values:
+        classes = (values.get("class") or "").split()
+        if tag == "details" and "research-panel" in classes and "open" in values:
             self.open_research_panel = True
 
 

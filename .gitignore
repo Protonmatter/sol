@@ -1,9 +1,12 @@
 .cache/
+.claude/
 __pycache__/
 *.py[cod]
 tmp-solar-web-server.*.log
 tmp-solar-web-server.pid
 /target/
+synthetic_solar_maximum.ppm
+synthetic_solar_maximum.png
 
 # Downloaded planetary textures (run tools/fetch_textures.py to populate)
 apps/web/textures/

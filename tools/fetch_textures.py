@@ -42,6 +42,9 @@ TEXTURES = {
 UA = {"User-Agent": "Mozilla/5.0 (SolarMaximumEngine texture fetcher)"}
 
 
+MAGIC = {".jpg": b"\xff\xd8\xff", ".png": b"\x89PNG"}
+
+
 def fetch(key: str, url: str) -> tuple[str, int]:
     ext = ".png" if url.endswith(".png") else ".jpg"
     dst = OUT / f"{key}{ext}"
@@ -50,7 +53,13 @@ def fetch(key: str, url: str) -> tuple[str, int]:
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=60) as resp:
         data = resp.read()
-    dst.write_bytes(data)
+    # Refuse an HTML error page served as 200, and write atomically — a truncated
+    # multi-MB write used to satisfy the exists-skip forever, blocking its own repair.
+    if not data.startswith(MAGIC[ext]):
+        raise ValueError(f"{url} did not return a {ext} image ({data[:12]!r})")
+    tmp = dst.with_suffix(dst.suffix + ".tmp")
+    tmp.write_bytes(data)
+    tmp.replace(dst)
     return f"saved {dst.name}", len(data)
 
 

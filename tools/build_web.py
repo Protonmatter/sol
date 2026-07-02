@@ -30,18 +30,26 @@ ASSET_GLOBS = ("pkg/*.wasm",)
 
 
 def main() -> int:
-    files = sorted(list(ROOT.glob("*.html")) + list(ROOT.glob("*.js")) + list(ROOT.glob("js/*.js")) + list(ROOT.glob("*.css")))
+    # Sort on the POSIX relative path, not Path objects: Path ordering compares native
+    # separators ('/' 0x2F vs '\' 0x5C), so a future top-level name sorting between them
+    # (e.g. js2.js) would order differently on Windows vs Linux and flip the hash — CI's
+    # "tokens stale" gate would then fail on exactly one platform.
+    rel = lambda p: p.relative_to(ROOT).as_posix()  # noqa: E731
+    files = sorted(
+        list(ROOT.glob("*.html")) + list(ROOT.glob("*.js")) + list(ROOT.glob("js/*.js")) + list(ROOT.glob("*.css")),
+        key=rel,
+    )
     # Hash content with tokens neutralised so the hash doesn't depend on the previous token.
     h = hashlib.sha1()
     for path in files:
         text = io.open(path, encoding="utf-8").read()
         h.update(TOKEN.sub("?v=", text).encode("utf-8"))
-        h.update(path.name.encode("utf-8"))
+        h.update(rel(path).encode("utf-8"))
     # Fold in the binary assets' bytes (tolerating absent, e.g. gitignored, textures).
-    assets = sorted({p for glob in ASSET_GLOBS for p in ROOT.glob(glob) if p.is_file()})
+    assets = sorted({p for glob in ASSET_GLOBS for p in ROOT.glob(glob) if p.is_file()}, key=rel)
     for path in assets:
         h.update(path.read_bytes())
-        h.update(path.name.encode("utf-8"))
+        h.update(rel(path).encode("utf-8"))
     version = h.hexdigest()[:10]
 
     changed = []

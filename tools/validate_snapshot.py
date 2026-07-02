@@ -5,9 +5,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
+
+
+def finite_number(value: Any) -> bool:
+    """A real, finite JSON number. Excludes booleans (isinstance(True, int) is True in
+    Python) and NaN/Infinity (which json.loads accepts by default but JSON forbids)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 ALLOWED_LAYER_KINDS = {"synthetic", "observed", "blended", "inferred", "degraded"}
 REQUIRED_FIELDS = {"br_normalized", "continuum_proxy", "confidence"}
@@ -79,8 +86,8 @@ def validate(data: dict[str, Any]) -> list[str]:
             errors.append(f"fields.{field_id}.values must be a list")
         elif expected_len is not None and len(values) != expected_len:
             errors.append(f"fields.{field_id}.values length {len(values)} != grid length {expected_len}")
-        elif not all(isinstance(value, (int, float)) for value in values):
-            errors.append(f"fields.{field_id}.values must be numeric")
+        elif not all(finite_number(value) for value in values):
+            errors.append(f"fields.{field_id}.values must be finite numbers (no NaN/Infinity/booleans)")
 
     for layer in data.get("layers") or []:
         kind = layer.get("kind")

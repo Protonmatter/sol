@@ -19,6 +19,20 @@ from pathlib import Path
 from typing import Any
 
 LOGGER = logging.getLogger("run_daily_ingest")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def display_token(token: str) -> str:
+    """Sanitize a command token for the committed/deployed status file: repo paths become
+    repo-relative POSIX, other absolute paths collapse to their basename. The old verbatim
+    recording shipped the local username and interpreter path to the public site."""
+    path = Path(token)
+    if not path.is_absolute() and ("/" not in token and "\\" not in token):
+        return token
+    try:
+        return path.resolve().relative_to(REPO_ROOT).as_posix()
+    except (ValueError, OSError):
+        return path.name if path.is_absolute() else Path(token).as_posix()
 
 
 def main() -> int:
@@ -37,17 +51,25 @@ def main() -> int:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-    root = Path.cwd()
-    cache = Path(args.cache)
-    web_data = Path(args.web_data)
-    snapshot = Path(args.snapshot)
-    observations = Path(args.observations_out)
+    # Anchor at the repo root, not the caller's CWD — a manual run from elsewhere used to
+    # fail confusingly because tool paths and the validators' relative --root broke.
+    root = REPO_ROOT
+
+    def under_root(value: str) -> Path:
+        path = Path(value)
+        return path if path.is_absolute() else root / path
+
+    cache = under_root(args.cache)
+    web_data = under_root(args.web_data)
+    snapshot = under_root(args.snapshot)
+    observations = under_root(args.observations_out)
     status_path = web_data / "feed-status.json"
     fetched_at = datetime.now(UTC)
 
     commands: list[dict[str, Any]] = []
     cache_manifest: dict[str, Any] | None = None
     fetch_exit = 0
+    completed_all = False
 
     try:
         if args.skip_fetch:
@@ -94,6 +116,7 @@ def main() -> int:
         ]
         for name, command in validation_commands:
             commands.append(run_command(name, command))
+        completed_all = True
     finally:
         status = build_status(
             fetched_at=fetched_at,
@@ -103,12 +126,13 @@ def main() -> int:
             cache_manifest=cache_manifest,
             commands=commands,
             fetch_exit=fetch_exit,
+            aborted=not completed_all,
         )
         write_json(status_path, status)
         LOGGER.info("wrote feed status=%s status=%s", status_path, status["status"])
 
     status = read_json(status_path)
-    if status["status"] == "failed":
+    if status["status"] in ("failed", "aborted"):
         return 1
     if args.fail_on_degraded and status["status"] == "degraded":
         return 1
@@ -124,14 +148,22 @@ def run_command(name: str, command: list[str]) -> dict[str, Any]:
         text=True,
         encoding="utf-8",
         errors="replace",
+        cwd=REPO_ROOT,
     )
     return {
         "name": name,
-        "command": command,
+        "command": [display_token(token) for token in command],
         "exit_code": completed.returncode,
-        "stdout_tail": tail(completed.stdout),
-        "stderr_tail": tail(completed.stderr),
+        "stdout_tail": scrub_paths(tail(completed.stdout)),
+        "stderr_tail": scrub_paths(tail(completed.stderr)),
     }
+
+
+def scrub_paths(text: str) -> str:
+    """Child processes echo absolute paths; replace the repo root (either separator style)
+    so the committed/deployed status file carries no machine/username paths."""
+    native = str(REPO_ROOT)
+    return text.replace(native + "\\", "").replace(native + "/", "").replace(native, ".")
 
 
 def build_status(
@@ -143,6 +175,7 @@ def build_status(
     cache_manifest: dict[str, Any] | None,
     commands: list[dict[str, Any]],
     fetch_exit: int,
+    aborted: bool = False,
 ) -> dict[str, Any]:
     command_failures = [item["name"] for item in commands if item.get("exit_code", 0) != 0 and item.get("name") != "fetch_public_data"]
     fetch_manifest_status = (cache_manifest or {}).get("status", "missing")
@@ -158,9 +191,17 @@ def build_status(
         status = "degraded"
     if fetch_exit != 0 or critical_failures or command_failures:
         status = "failed"
+    if aborted:
+        # The run died before the command list completed (Ctrl-C, scheduler kill). The old
+        # code built a healthy-looking "ok" status that simply omitted the never-run
+        # validators — the served feed-health panel then lied about a run that validated
+        # nothing.
+        status = "aborted"
 
     next_run = fetched_at + timedelta(days=1)
     warnings: list[str] = []
+    if aborted:
+        warnings.append("Ingest run was interrupted before all steps completed; results are partial.")
     if optional_failures:
         warnings.append(f"Optional sources failed: {', '.join(str(item) for item in optional_failures)}")
     if critical_failures:
@@ -173,9 +214,9 @@ def build_status(
         "status": status,
         "last_run_utc": fetched_at.isoformat(),
         "next_recommended_run_utc": next_run.isoformat(),
-        "cache_dir": str(cache),
-        "snapshot": str(snapshot),
-        "observations": str(observations),
+        "cache_dir": display_token(str(cache)),
+        "snapshot": display_token(str(snapshot)),
+        "observations": display_token(str(observations)),
         "cache_manifest_status": fetch_manifest_status,
         "critical_failures": critical_failures,
         "optional_failures": optional_failures,
