@@ -1,14 +1,21 @@
 // Glossary tooltips: plain-language help on hover, keyboard focus, and tap.
 
-import { store } from "./store.js?v=aebfcb9c5a";
-import { GLOSSARY } from "./config.js?v=aebfcb9c5a";
+import { store } from "./store.js?v=c829bbcd8c";
+import { GLOSSARY } from "./config.js?v=c829bbcd8c";
 
 const termTip = document.getElementById("termTip");
+let tipTarget = null; // the trigger currently described by the tip, for aria cleanup
 
 export function showTip(target) {
   if (!termTip) return;
   const entry = GLOSSARY[target.getAttribute("data-term")];
   if (!entry) return;
+  // Programmatically associate the tip with its trigger — without this, screen-reader
+  // users activating a "?" button perceived nothing (the definition rendered in an
+  // unrelated floating div). aria-describedby makes AT read the definition on focus.
+  if (tipTarget && tipTarget !== target) tipTarget.removeAttribute("aria-describedby");
+  target.setAttribute("aria-describedby", "termTip");
+  tipTarget = target;
   termTip.textContent = "";
   const title = document.createElement("strong");
   title.textContent = entry[0];
@@ -26,6 +33,7 @@ export function showTip(target) {
 
 export function hideTip() {
   if (termTip) termTip.hidden = true;
+  if (tipTarget) { tipTarget.removeAttribute("aria-describedby"); tipTarget = null; }
   store.tipPinned = false;
 }
 

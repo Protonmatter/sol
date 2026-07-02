@@ -6,6 +6,10 @@
   --text: #f6f3e8;
   --muted: #aeb4bd;
   --line: #313742;
+  /* Interactive component boundaries (inputs, ghost/mode buttons) need >=3:1 against
+     their fills (WCAG 1.4.11 non-text contrast); --line at 1.45–1.65:1 is for
+     decorative hairlines only. #616a7c measures 3.2:1 vs #181a20 and 3.6:1 vs #090b0f. */
+  --line-strong: #616a7c;
   --gold: #f7b733;
   --amber: #ff6f3c;
   --teal: #40d6c8;
@@ -52,8 +56,10 @@ input {
   gap: 1.25rem;
   /* The Sun is the hero: the first section fills the screen so the disk is
      above the fold. The text column scrolls inside its own cell instead of
-     stretching the visual column into a void. */
+     stretching the visual column into a void. dvh tracks iOS Safari's dynamic
+     toolbar (100vh overflows while the toolbar is visible); vh is the fallback. */
   height: 100vh;
+  height: 100dvh;
   min-height: 40rem;
   align-items: stretch;
   padding: 1rem;
@@ -371,7 +377,7 @@ h2 {
 
 .mode-button {
   min-height: 2.6rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: var(--panel-2);
   color: var(--text);
   cursor: pointer;
@@ -675,7 +681,7 @@ h2 {
 }
 
 .time-btn.ghost {
-  border-color: var(--line);
+  border-color: var(--line-strong);
   background: var(--panel-2);
   font-weight: 400;
 }
@@ -1008,12 +1014,13 @@ body[data-surface="orrery"] .timeline-band {
   gap: 0.35rem;
 }
 .wl-chip {
-  border: 1px solid var(--line, rgba(255, 255, 255, 0.14));
+  border: 1px solid var(--line-strong, rgba(255, 255, 255, 0.3));
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.03);
   color: #e8e6dd;
   font: 600 0.74rem "Segoe UI", system-ui, sans-serif;
   padding: 0.28rem 0.6rem;
+  min-height: 1.5rem; /* 24px touch-target floor */
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1150,7 +1157,7 @@ body[data-surface="orrery"] .timeline-band {
   width: 5.5rem;
   min-height: 2.2rem;
   padding: 0.35rem 0.4rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: #090b0f;
   color: var(--text);
 }
@@ -1182,11 +1189,12 @@ body[data-surface="orrery"] .timeline-band {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.15rem;
-  height: 1.15rem;
+  /* 24px minimum touch target (WCAG 2.5.8) — 1.15rem ≈ 18px was below the floor. */
+  width: 1.5rem;
+  height: 1.5rem;
   margin-left: 0.15rem;
   padding: 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 50%;
   background: #090b0f;
   color: var(--muted);
@@ -1331,7 +1339,7 @@ body[data-surface="orrery"] .timeline-band {
 .tour-btn {
   min-height: 2.1rem;
   padding: 0.35rem 0.8rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   background: var(--panel-2);
   color: var(--text);
   cursor: pointer;
@@ -1514,5 +1522,48 @@ body[data-surface="orrery"] .timeline-band {
 
   .metric-grid > div:nth-last-child(-n + 2) {
     border-bottom: 0;
+  }
+}
+
+/* Respect the OS motion preference: no decorative transitions/animations for users who
+   asked for reduced motion. (The 3-D view's auto-animation is gated in JS — orrery.js
+   checks the same media query at init.) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print: browsers strip dark backgrounds by default, which left pale-grey text on white.
+   Flip to a light scheme and drop the interactive chrome. */
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  body,
+  .app-shell {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .control-panel,
+  .summary-panel,
+  .sky-panel,
+  .orrery-panel {
+    color: #111 !important;
+  }
+
+  .panel-toggle,
+  .tour-cta,
+  .tour-layer,
+  .term-tip,
+  canvas {
+    display: none !important;
   }
 }

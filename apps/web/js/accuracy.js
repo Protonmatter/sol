@@ -30,9 +30,10 @@ export function epochAccuracy(yearsFromNow, kind) {
   return { level: "rough", text: "ΔT-limited: Earth's unpredictable rotation can swing the whole sky by up to ~degrees at ±6000 yr. Relative star patterns stay correct." };
 }
 
-// A compact human label for a year offset from the present (~2026).
+// A compact human label for a year offset from the present. The base year is read from the
+// clock — a hardcoded 2026 would silently mislabel every epoch from 2027 onward.
 export function epochLabel(yearsFromNow) {
-  const yr = Math.round(2026 + yearsFromNow);
+  const yr = Math.round(new Date().getFullYear() + yearsFromNow);
   if (yr <= 0) return `${Math.abs(yr - 1)} BCE`;   // no year 0
   return `${yr} CE`;
 }

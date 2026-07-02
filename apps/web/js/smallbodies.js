@@ -75,7 +75,9 @@ export const DWARFS = [
 // Famous comets. Tp = JD of perihelion (M = 0). i > 90° ⇒ retrograde orbit.
 export const COMETS = [
   { n: "1P/Halley",  a: 17.834, e: 0.96714, i: 162.26, node: 58.42,  argp: 111.33, Tp: 2446470.5, col: [0.70, 0.88, 1.0], note: "near aphelion now; returns ~2061" },
-  { n: "2P/Encke",   a: 2.2155, e: 0.84833, i: 11.78,  node: 334.57, argp: 186.55, Tp: 2459919.5, col: [0.75, 0.95, 0.85], note: "shortest-period comet, 3.3 yr" },
+  // Tp = 2023-10-22 perihelion (JPL SBDB). The previous value (JD 2459919.5 = 2022-12-06)
+  // was not an Encke perihelion at all — the marker sat ~90° off along the orbit.
+  { n: "2P/Encke",   a: 2.2155, e: 0.84833, i: 11.78,  node: 334.57, argp: 186.55, Tp: 2460240.0, col: [0.75, 0.95, 0.85], note: "shortest-period comet, 3.3 yr" },
   { n: "Hale–Bopp",  a: 186.0,  e: 0.99511, i: 89.43,  node: 282.47, argp: 130.59, Tp: 2450537.5, col: [0.90, 0.96, 1.0], note: "Great Comet of 1997 · ~2500-yr orbit" },
 ];
 

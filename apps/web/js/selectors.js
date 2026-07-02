@@ -1,12 +1,12 @@
 // Derived reads over the current snapshot in `store`. No DOM writes.
 
-import { store } from "./store.js?v=aebfcb9c5a";
-import { controls } from "./dom.js?v=aebfcb9c5a";
-import { BASE_IMAGES } from "./config.js?v=aebfcb9c5a";
+import { store } from "./store.js?v=c829bbcd8c";
+import { controls } from "./dom.js?v=c829bbcd8c";
+import { BASE_IMAGES } from "./config.js?v=c829bbcd8c";
 import {
   number, numberOrNa, compactNumberOrNa, plural, countBy, formatCounts,
   readableMode, humanizeId, complexityLabel
-} from "./format.js?v=aebfcb9c5a";
+} from "./format.js?v=c829bbcd8c";
 
 export function fieldValues(id) {
   return store.state.fields?.[id]?.values || [];
@@ -23,8 +23,10 @@ export function selectedRegion() {
   if (store.selectedRegionId != null) {
     return regions.find((region) => region.id === store.selectedRegionId) || null;
   }
-  if (store.activeMode !== "explore" || !regions.length) return null;
-  return [...regions].sort((a, b) => (b.complexity || 0) - (a.complexity || 0))[0];
+  // (The old auto-select-most-complex branch tested activeMode === "explore", a surface
+  // that no longer exists — it was unreachable dead code, so explicit selection is the
+  // only path, matching the app's actual behaviour.)
+  return null;
 }
 
 export function visibleLayers() {
@@ -97,6 +99,7 @@ export function feedStateLabel() {
   if (store.feedStatus.status === "ok") return "daily ok";
   if (store.feedStatus.status === "degraded") return "degraded";
   if (store.feedStatus.status === "failed") return "failed";
+  if (store.feedStatus.status === "aborted") return "aborted";
   return "unknown";
 }
 
@@ -104,16 +107,16 @@ export function feedStateClass() {
   const label = feedStateLabel();
   if (label === "daily ok") return "live";
   if (label === "degraded") return "fixture";
-  if (label === "failed") return "degraded";
+  if (label === "failed" || label === "aborted") return "degraded";
   return "blocked";
 }
 
 export function regionLocation(region) {
-  return `lat ${number(region.lat_deg, 1)} deg, lon ${number(region.lon_deg, 1)} deg`;
+  return `lat ${number(region.lat_deg, 1)}°, lon ${number(region.lon_deg, 1)}°`;
 }
 
 export function selectedRegionSummary(region) {
-  return `AR ${region.id} is at ${regionLocation(region)} with normalized flux ${number(region.flux_norm, 2)}, complexity ${complexityLabel(region.complexity)}, area ${number(region.area_msh, 0)} MSH, tilt ${number(region.tilt_deg, 1)} deg, and confidence ${number(region.confidence, 2)}.`;
+  return `AR ${region.id} is at ${regionLocation(region)} with normalized flux ${number(region.flux_norm, 2)}, complexity ${complexityLabel(region.complexity)}, area ${number(region.area_msh, 0)} MSH (millionths of the solar hemisphere), tilt ${number(region.tilt_deg, 1)}°, and confidence ${number(region.confidence, 2)}.`;
 }
 
 export function selectedRegionSentence() {

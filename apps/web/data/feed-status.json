@@ -1,33 +1,22 @@
 {
-  "cache_dir": ".cache\\solar-data",
+  "cache_dir": ".cache/solar-data",
   "cache_manifest_status": "ok",
   "commands": [
     {
-      "command": [
-        "C:\\Users\\mkang\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
-        "C:\\Users\\mkang\\Documents\\Sol\\tools\\fetch_public_data.py",
-        "--cache",
-        ".cache\\solar-data",
-        "--timeout-seconds",
-        "20",
-        "--archive-history",
-        "--include-jpl"
-      ],
-      "exit_code": 0,
       "name": "fetch_public_data",
-      "stderr_tail": "INFO: wrote cache=.cache\\solar-data\nINFO: manifest=.cache\\solar-data\\manifest.json status=ok\n",
-      "stdout_tail": ""
+      "reason": "skip-fetch",
+      "skipped": true
     },
     {
       "command": [
-        "C:\\Users\\mkang\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
-        "C:\\Users\\mkang\\Documents\\Sol\\tools\\generate_fixture_snapshot.py",
+        "python.exe",
+        "tools/generate_fixture_snapshot.py",
         "--cache",
-        ".cache\\solar-data",
+        ".cache/solar-data",
         "--out",
-        "apps\\web\\data\\latest-state.json",
+        "apps/web/data/latest-state.json",
         "--observations-out",
-        "apps\\web\\data\\latest-observations.json",
+        "apps/web/data/latest-observations.json",
         "--seed",
         "42"
       ],
@@ -38,9 +27,9 @@
     },
     {
       "command": [
-        "C:\\Users\\mkang\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
-        "C:\\Users\\mkang\\Documents\\Sol\\tools\\validate_snapshot.py",
-        "apps\\web\\data\\latest-state.json"
+        "python.exe",
+        "tools/validate_snapshot.py",
+        "apps/web/data/latest-state.json"
       ],
       "exit_code": 0,
       "name": "validate_snapshot",
@@ -49,9 +38,9 @@
     },
     {
       "command": [
-        "C:\\Users\\mkang\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
-        "C:\\Users\\mkang\\Documents\\Sol\\tools\\validate_operational_readiness.py",
-        "apps\\web\\data\\latest-state.json"
+        "python.exe",
+        "tools/validate_operational_readiness.py",
+        "apps/web/data/latest-state.json"
       ],
       "exit_code": 0,
       "name": "validate_operational_readiness",
@@ -60,8 +49,8 @@
     },
     {
       "command": [
-        "C:\\Users\\mkang\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
-        "C:\\Users\\mkang\\Documents\\Sol\\tools\\validate_web_static.py",
+        "python.exe",
+        "tools/validate_web_static.py",
         "--root",
         "apps/web"
       ],
@@ -73,23 +62,23 @@
   ],
   "critical_failures": [],
   "generated_by": "tools/run_daily_ingest.py",
-  "last_run_utc": "2026-06-28T20:56:35.477115+00:00",
-  "next_recommended_run_utc": "2026-06-29T20:56:35.477115+00:00",
-  "observations": "apps\\web\\data\\latest-observations.json",
+  "last_run_utc": "2026-07-02T03:29:46.834078+00:00",
+  "next_recommended_run_utc": "2026-07-03T03:29:46.834078+00:00",
+  "observations": "apps/web/data/latest-observations.json",
   "optional_failures": [],
   "schema_version": "daily-ingest-status.v1",
-  "snapshot": "apps\\web\\data\\latest-state.json",
+  "snapshot": "apps/web/data/latest-state.json",
   "sources": [
     {
-      "bytes": 1482831,
+      "bytes": 1602395,
       "cadence": "1 minute",
       "critical": true,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "rtsw_mag_1m.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\rtsw_mag_1m.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/rtsw_mag_1m.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\rtsw_mag_1m.json",
+      "local_path": ".cache/solar-data/rtsw_mag_1m.json",
       "ok": true,
       "quality_flags": [
         "Real-time solar wind magnetic-field context; retain source and active flags.",
@@ -101,15 +90,15 @@
       "url": "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
     },
     {
-      "bytes": 2622914,
+      "bytes": 2793134,
       "cadence": "1 minute",
       "critical": true,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "rtsw_wind_1m.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\rtsw_wind_1m.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/rtsw_wind_1m.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\rtsw_wind_1m.json",
+      "local_path": ".cache/solar-data/rtsw_wind_1m.json",
       "ok": true,
       "quality_flags": [
         "Real-time plasma context; retain source and active flags.",
@@ -121,15 +110,15 @@
       "url": "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
     },
     {
-      "bytes": 1075658,
+      "bytes": 1057616,
       "cadence": "1 hour",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "rtsw_ephemerides_1h.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\rtsw_ephemerides_1h.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/rtsw_ephemerides_1h.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\rtsw_ephemerides_1h.json",
+      "local_path": ".cache/solar-data/rtsw_ephemerides_1h.json",
       "ok": true,
       "quality_flags": [
         "Observer/satellite context for RTSW measurements.",
@@ -141,15 +130,15 @@
       "url": "https://services.swpc.noaa.gov/json/rtsw/rtsw_ephemerides_1h.json"
     },
     {
-      "bytes": 511810,
+      "bytes": 511970,
       "cadence": "monthly",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "observed-solar-cycle-indices.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\observed-solar-cycle-indices.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/observed-solar-cycle-indices.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\observed-solar-cycle-indices.json",
+      "local_path": ".cache/solar-data/observed-solar-cycle-indices.json",
       "ok": true,
       "quality_flags": [
         "Solar-cycle context for research trend displays.",
@@ -161,15 +150,15 @@
       "url": "https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json"
     },
     {
-      "bytes": 19158,
+      "bytes": 18830,
       "cadence": "monthly",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "predicted-solar-cycle.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\predicted-solar-cycle.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/predicted-solar-cycle.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\predicted-solar-cycle.json",
+      "local_path": ".cache/solar-data/predicted-solar-cycle.json",
       "ok": true,
       "quality_flags": [
         "Public NOAA cycle progression context; not an internal forecast model.",
@@ -181,15 +170,15 @@
       "url": "https://services.swpc.noaa.gov/json/solar-cycle/predicted-solar-cycle.json"
     },
     {
-      "bytes": 181478,
+      "bytes": 152092,
       "cadence": "daily",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "solar_regions.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\solar_regions.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/solar_regions.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\solar_regions.json",
+      "local_path": ".cache/solar-data/solar_regions.json",
       "ok": true,
       "quality_flags": [
         "Daily active-region context for research model inputs.",
@@ -201,15 +190,15 @@
       "url": "https://services.swpc.noaa.gov/json/solar_regions.json"
     },
     {
-      "bytes": 243482,
+      "bytes": 220976,
       "cadence": "daily",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "sunspot_report.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\sunspot_report.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/sunspot_report.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\sunspot_report.json",
+      "local_path": ".cache/solar-data/sunspot_report.json",
       "ok": true,
       "quality_flags": [
         "Daily sunspot context for cycle-stage teaching displays.",
@@ -225,11 +214,11 @@
       "cadence": "1 minute",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "planetary_k_index_1m.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\planetary_k_index_1m.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/planetary_k_index_1m.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\planetary_k_index_1m.json",
+      "local_path": ".cache/solar-data/planetary_k_index_1m.json",
       "ok": true,
       "quality_flags": [
         "Kp context for impact-learning panels; not an alerting source in this app.",
@@ -241,15 +230,15 @@
       "url": "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
     },
     {
-      "bytes": 22864,
+      "bytes": 22484,
       "cadence": "daily",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "f107_cm_flux.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\f107_cm_flux.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/f107_cm_flux.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\f107_cm_flux.json",
+      "local_path": ".cache/solar-data/f107_cm_flux.json",
       "ok": true,
       "quality_flags": [
         "F10.7 solar-radio proxy context for cycle and impact-learning displays.",
@@ -261,15 +250,15 @@
       "url": "https://services.swpc.noaa.gov/json/f107_cm_flux.json"
     },
     {
-      "bytes": 656284,
+      "bytes": 653793,
       "cadence": "1 minute",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "goes_xrays_1_day.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\goes_xrays_1_day.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/goes_xrays_1_day.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\goes_xrays_1_day.json",
+      "local_path": ".cache/solar-data/goes_xrays_1_day.json",
       "ok": true,
       "quality_flags": [
         "GOES XRS context for flare activity research displays.",
@@ -281,15 +270,15 @@
       "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
     },
     {
-      "bytes": 18051,
+      "bytes": 29823,
       "cadence": "event",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "goes_xray_flares_7_day.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\goes_xray_flares_7_day.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/goes_xray_flares_7_day.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\goes_xray_flares_7_day.json",
+      "local_path": ".cache/solar-data/goes_xray_flares_7_day.json",
       "ok": true,
       "quality_flags": [
         "Recent flare-event context; do not infer warnings from this app.",
@@ -305,11 +294,11 @@
       "cadence": "daily metadata",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
+      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
       "file": "helioviewer_datasources.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\helioviewer_datasources.json",
+      "history_path": ".cache/solar-data/history/2026-07-02/helioviewer_datasources.json",
       "layer_kind": "observed",
-      "local_path": ".cache\\solar-data\\helioviewer_datasources.json",
+      "local_path": ".cache/solar-data/helioviewer_datasources.json",
       "ok": true,
       "quality_flags": [
         "Quicklook source metadata for future image overlays; not calibrated FITS analysis.",
@@ -319,26 +308,6 @@
       "quality_note": "Quicklook source metadata for future image overlays; not calibrated FITS analysis.",
       "source": "Helioviewer API data-source metadata",
       "url": "https://api.helioviewer.org/v2/getDataSources/"
-    },
-    {
-      "bytes": 526,
-      "cadence": "daily",
-      "critical": false,
-      "error": null,
-      "fetched_at_utc": "2026-06-28T20:56:35.624590+00:00",
-      "file": "jpl_horizons_sun_earth.json",
-      "history_path": ".cache\\solar-data\\history\\2026-06-28\\jpl_horizons_sun_earth.json",
-      "layer_kind": "inferred",
-      "local_path": ".cache\\solar-data\\jpl_horizons_sun_earth.json",
-      "ok": true,
-      "quality_flags": [
-        "Observer geometry context; not a solar magnetic model.",
-        "public online source",
-        "not promoted to operational truth"
-      ],
-      "quality_note": "Observer geometry context; not a solar magnetic model.",
-      "source": "JPL Horizons Sun/Earth observer geometry",
-      "url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=10&EPHEM_TYPE=OBSERVER&CENTER=500%40399&START_TIME=2026-Jun-28&STOP_TIME=2026-Jun-29&STEP_SIZE=1+d&QUANTITIES=4%2C20"
     }
   ],
   "status": "ok",

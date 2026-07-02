@@ -1,8 +1,8 @@
 // Timeline scrubber / cycle playback + the in-browser (WASM) live engine run.
 
-import { store } from "./store.js?v=aebfcb9c5a";
-import { renderAll } from "./view.js?v=aebfcb9c5a";
-import { loadEngine, simulateSnapshot } from "../engine.js?v=aebfcb9c5a";
+import { store } from "./store.js?v=c829bbcd8c";
+import { renderAll } from "./view.js?v=c829bbcd8c";
+import { loadEngine, simulateSnapshot } from "../engine.js?v=c829bbcd8c";
 
 // Monotonic counter bumped whenever the displayed state changes (scrub, Now, or a
 // new live run). runLiveEngine() captures it before awaiting the WASM load and
@@ -40,6 +40,7 @@ export async function runLiveEngine() {
   const slider = /** @type {HTMLInputElement|null} */ (document.getElementById("liveActivity"));
   const activity = Number(slider?.value || 0.9);
   const gen = ++navGeneration; // this run supersedes any earlier nav/run in flight
+  if (status) status.textContent = "Running the engine…"; // pending feedback while the WASM fetch/solve runs
   try {
     await loadEngine();
     const start = performance.now();
@@ -68,11 +69,17 @@ function playStep() {
 }
 
 export function startPlay() {
-  if (!store.seriesFrames.length) return;
+  if (!store.seriesFrames.length) {
+    // Say why nothing happens instead of a silently dead Play button (series missing/unfetchable).
+    const label = document.getElementById("timeFrameLabel");
+    if (label) label.textContent = "Cycle playback unavailable — the frame series (data/series/) did not load.";
+    return;
+  }
   if (store.timelineIndex < 0) setTimelineFrame(0);
   stopPlay();
   store.playTimer = window.setInterval(playStep, 1100);
   updatePlayButton(true);
+  setStatusLiveRegions("off"); // playback mutates three live regions every 1.1 s — mute the barrage
 }
 
 export function stopPlay() {
@@ -81,6 +88,16 @@ export function stopPlay() {
     store.playTimer = 0;
   }
   updatePlayButton(false);
+  setStatusLiveRegions("polite");
+}
+
+// The status strip / base label / selection panel are aria-live so async data changes
+// announce — but during timeline playback they'd announce every frame, an SR barrage the
+// user can only stop by finding Pause.
+function setStatusLiveRegions(mode) {
+  for (const sel of [".status-strip", "#baseLabel", ".selection-panel"]) {
+    document.querySelector(sel)?.setAttribute("aria-live", mode);
+  }
 }
 
 export function togglePlay() {

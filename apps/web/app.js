@@ -1,20 +1,20 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js?v=aebfcb9c5a";
-import { TOUR_STEPS } from "./js/config.js?v=aebfcb9c5a";
-import { controls } from "./js/dom.js?v=aebfcb9c5a";
-import { clamp } from "./js/format.js?v=aebfcb9c5a";
-import { renderAll } from "./js/view.js?v=aebfcb9c5a";
-import { updateModeButtons } from "./js/panels.js?v=aebfcb9c5a";
-import { loadState } from "./js/data.js?v=aebfcb9c5a";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=aebfcb9c5a";
-import { startTour, endTour, showTourStep } from "./js/tour.js?v=aebfcb9c5a";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=aebfcb9c5a";
-import { enterSky, leaveSky } from "./js/sky.js?v=aebfcb9c5a";
-import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=aebfcb9c5a";
-import { buildWavelengthBar } from "./js/wavelength.js?v=aebfcb9c5a";
-import { buildSunCutaway } from "./js/sunlayers.js?v=aebfcb9c5a";
+import { store } from "./js/store.js?v=c829bbcd8c";
+import { TOUR_STEPS } from "./js/config.js?v=c829bbcd8c";
+import { controls } from "./js/dom.js?v=c829bbcd8c";
+import { clamp } from "./js/format.js?v=c829bbcd8c";
+import { renderAll } from "./js/view.js?v=c829bbcd8c";
+import { updateModeButtons } from "./js/panels.js?v=c829bbcd8c";
+import { loadState } from "./js/data.js?v=c829bbcd8c";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=c829bbcd8c";
+import { startTour, endTour, showTourStep } from "./js/tour.js?v=c829bbcd8c";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=c829bbcd8c";
+import { enterSky, leaveSky, resizeSky } from "./js/sky.js?v=c829bbcd8c";
+import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=c829bbcd8c";
+import { buildWavelengthBar } from "./js/wavelength.js?v=c829bbcd8c";
+import { buildSunCutaway } from "./js/sunlayers.js?v=c829bbcd8c";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {
@@ -25,14 +25,18 @@ for (const input of Object.values(controls)) {
 document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => {
     store.activeMode = /** @type {HTMLElement} */ (button).dataset.mode;
-    // The onboarding tour is about the Sun; don't let it linger over the sky / solar-system surfaces.
-    if (store.activeMode === "sky" || store.activeMode === "orrery") endTour();
+    // The onboarding tour is about the Sun; don't let it linger over the sky / solar-system
+    // surfaces. Guard on an OPEN tour (like the Escape handler below): calling endTour()
+    // unconditionally wrote sol-tour-seen and stole focus to the (about-to-hide) tour CTA
+    // on every tab click — first-time visitors who clicked a tab never saw the tour at all.
+    if ((store.activeMode === "sky" || store.activeMode === "orrery") && store.tourIndex >= 0) endTour();
     updateModeButtons();
     renderAll();
     leaveSky();
     leaveOrrery();
     if (store.activeMode === "sky") enterSky();
     else if (store.activeMode === "orrery") enterOrrery();
+    try { localStorage.setItem("sol-surface", store.activeMode); } catch (_) { /* session-only */ }
   });
 });
 
@@ -104,6 +108,7 @@ window.addEventListener("resize", () => {
   window.clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
     renderAll();
+    resizeSky(); // the sky dome sizes its backing store on draw; frozen time never redraws otherwise
     if (store.tourIndex >= 0) showTourStep();
   }, 120);
 });
@@ -139,6 +144,16 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideTip();
     if (store.tourIndex >= 0) endTour();
+    return;
+  }
+  // Enter/Space activates the role="button" spans (stage steps, legend/signal chips):
+  // real buttons synthesize click from the keyboard, spans don't — so AT announced
+  // "button" on elements that keyboard users couldn't actually press.
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const target = /** @type {Element} */ (event.target);
+  if (target instanceof HTMLElement && target.matches('[role="button"][data-term]')) {
+    event.preventDefault();
+    target.click();
   }
 });
 
@@ -180,4 +195,20 @@ document.getElementById("panelToggle")?.addEventListener("click", () => {
 // --- Boot ---
 buildWavelengthBar();
 buildSunCutaway();
+// Route the initial surface: a #sky= share link outranks the remembered surface, which
+// outranks the default. Share-link recipients used to land on the Sun surface with no
+// hint their link encoded a sky view; everyone else lost their place on every reload.
+(() => {
+  let target = null;
+  if (/#sky=/.test(location.hash)) target = "sky";
+  else {
+    try {
+      const saved = localStorage.getItem("sol-surface");
+      if (saved === "sky" || saved === "orrery") target = saved;
+    } catch (_) { /* storage unavailable */ }
+  }
+  if (target) {
+    /** @type {HTMLElement|null} */ (document.querySelector(`.mode-button[data-mode="${target}"]`))?.click();
+  }
+})();
 loadState();

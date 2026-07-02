@@ -1,15 +1,15 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js?v=aebfcb9c5a";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=aebfcb9c5a";
-import { text, textWithTitle, setPill } from "./dom.js?v=aebfcb9c5a";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=aebfcb9c5a";
+import { store } from "./store.js?v=c829bbcd8c";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=c829bbcd8c";
+import { text, textWithTitle, setPill } from "./dom.js?v=c829bbcd8c";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=c829bbcd8c";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
   dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js?v=aebfcb9c5a";
+} from "./selectors.js?v=c829bbcd8c";
 
 export function updateText() {
   const run = store.state.run || {};
@@ -69,7 +69,11 @@ function updateStageRail() {
   else if (stage.includes("rising")) current = "rising";
   else if (stage.includes("max")) current = "maximum";
   document.querySelectorAll("#stageRail .stage-step").forEach((el) => {
-    el.classList.toggle("active", /** @type {HTMLElement} */ (el).dataset.stage === current);
+    const isActive = /** @type {HTMLElement} */ (el).dataset.stage === current;
+    el.classList.toggle("active", isActive);
+    // Announce where we are in the cycle — the active step used to be class-only.
+    if (isActive) el.setAttribute("aria-current", "true");
+    else el.removeAttribute("aria-current");
   });
 }
 
@@ -169,13 +173,21 @@ function updateSelectionText() {
 }
 
 // Keyboard/AT-accessible equivalent of clicking a marker on the solar disk: a list
-// of real <button>s, one per active region. Rebuilt each render so aria-pressed
-// tracks the current selection. Wired via delegation in app.js.
+// of real <button>s, one per active region. Wired via delegation in app.js.
+// Skipped when nothing changed and focus is restored across rebuilds: timeline playback
+// re-renders every 1.1 s, and the wholesale rebuild used to destroy the focused chip —
+// teleporting keyboard users to <body> mid-interaction.
+let lastRegionListSignature = null;
 function updateRegionList() {
   const list = document.getElementById("regionList");
   if (!list) return;
-  list.textContent = "";
   const regions = store.state.active_regions || [];
+  const signature = `${regions.map((r) => r.id).join(",")}|${store.selectedRegionId}`;
+  if (signature === lastRegionListSignature && list.childNodes.length) return;
+  lastRegionListSignature = signature;
+  const focused = /** @type {HTMLElement|null} */ (document.activeElement);
+  const focusedId = focused && list.contains(focused) ? focused.dataset.regionId : null;
+  list.textContent = "";
   if (!regions.length) {
     const empty = document.createElement("p");
     empty.className = "time-frame-label";
@@ -193,6 +205,9 @@ function updateRegionList() {
     btn.dataset.regionId = String(region.id);
     btn.textContent = `AR ${region.id} · ${regionLocation(region)}`;
     list.appendChild(btn);
+  }
+  if (focusedId) {
+    /** @type {HTMLElement|null} */ (list.querySelector(`button[data-region-id="${focusedId}"]`))?.focus();
   }
 }
 
@@ -274,6 +289,9 @@ export function updateModeButtons() {
   document.querySelectorAll(".mode-button").forEach((node) => {
     const isActive = /** @type {HTMLElement} */ (node).dataset.mode === store.activeMode;
     node.classList.toggle("active", isActive);
-    node.setAttribute("aria-selected", isActive ? "true" : "false");
+    // aria-pressed, not aria-selected: aria-selected is only valid on tab/option/gridcell/
+    // row roles, so AT ignored it on these plain buttons — the active destination was
+    // invisible to screen-reader users.
+    node.setAttribute("aria-pressed", isActive ? "true" : "false");
   });
 }
