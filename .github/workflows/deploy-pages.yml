@@ -1,8 +1,9 @@
 name: Deploy web app (GitHub Pages)
 
 # Publishes the dependency-free static app in apps/web/ to GitHub Pages.
-# The WASM engines are committed under apps/web/pkg/, so no Rust build is needed here; textures are
-# gitignored and fetched best-effort at deploy time (the renderer falls back to procedural if absent).
+# The WASM engines are built from source here (apps/web/pkg/ is gitignored, not committed) so the
+# deployed binary always matches the committed Rust; textures are likewise gitignored and fetched
+# best-effort at deploy time (the renderer falls back to procedural if absent).
 #
 # One-time setup: repo Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
 on:
@@ -29,6 +30,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build the WASM engines from source (solar-wasm + solar-ephemeris)
+        run: python tools/build_wasm.py
 
       - name: Fetch NASA/ESA surface textures (best-effort)
         run: python tools/fetch_textures.py || echo "::warning::textures unavailable — renderer will use its procedural fallback"
