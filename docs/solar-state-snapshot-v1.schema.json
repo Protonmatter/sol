@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Protonmatter/sol/docs/solar-state-snapshot-v1.schema.json",
+  "title": "solar-state-snapshot.v1",
+  "description": "Single source of truth for the Solar Maximum Engine snapshot contract. Every producer must emit a document that validates against this file: the Rust serializer (crates/solar-core/src/contracts.rs), the in-browser WASM engine (which reuses that serializer), and the Python deterministic fixtures (tools/generate_fixture_snapshot.py, tools/generate_series.py). Validated in CI by tools/validate_snapshot.py (structure) plus cross-field semantic checks. additionalProperties is false throughout so a new field in any producer fails CI until this schema is updated deliberately.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model_version",
+    "source_mode",
+    "operational_use",
+    "calibration_state",
+    "operational_readiness",
+    "manifest",
+    "run",
+    "grid",
+    "layers",
+    "fields",
+    "active_regions",
+    "learning",
+    "observations",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": { "const": "solar-state-snapshot.v1" },
+    "model_version": { "type": "string" },
+    "source_mode": {
+      "type": "string",
+      "description": "Free-form provenance string, e.g. 'synthetic', 'synthetic+fixture-observed-context', 'synthetic+cached-observed-context', 'synthetic-cycle-series'."
+    },
+    "operational_use": { "const": false },
+    "calibration_state": {
+      "type": "string",
+      "description": "Must disclose normalized (not physical Gauss/Mx) units; enforced by the semantic layer."
+    },
+    "operational_readiness": { "$ref": "#/$defs/operationalReadiness" },
+    "manifest": { "$ref": "#/$defs/manifest" },
+    "run": { "$ref": "#/$defs/run" },
+    "grid": { "$ref": "#/$defs/grid" },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/layer" }
+    },
+    "fields": { "$ref": "#/$defs/fields" },
+    "active_regions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/activeRegion" }
+    },
+    "learning": { "$ref": "#/$defs/learning" },
+    "observed_context": {
+      "type": "object",
+      "description": "Public-data context that tunes the deterministic Python fixture. Emitted by the fixture generator only; the Rust engine omits it and the cycle series drops it. Optional by design.",
+      "additionalProperties": true
+    },
+    "observations": {
+      "type": "array",
+      "description": "Zero or more observation-frame.v1 reports. The nested frame shape is checked by the semantic layer, not this schema.",
+      "items": { "type": "object" }
+    },
+    "warnings": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "steps", "dt_hours", "activity_index", "time_seconds", "mode"],
+      "properties": {
+        "seed": { "type": "integer" },
+        "steps": { "type": "integer" },
+        "dt_hours": { "type": "number" },
+        "activity_index": { "type": "number" },
+        "time_seconds": { "type": "number" },
+        "mode": {
+          "description": "Canonical producer mode. 'Synthetic', 'Assimilation', 'DegradedSyntheticFallback' are the solar-core engine modes (SolarMode); 'SyntheticFixture' and 'SyntheticCycleSeries' identify the deterministic Python fixtures. Any value outside this set is rejected — this is the enforcement the contract previously lacked. Future cleanup: split engine mode from a separate source_type field.",
+          "enum": [
+            "Synthetic",
+            "Assimilation",
+            "DegradedSyntheticFallback",
+            "SyntheticFixture",
+            "SyntheticCycleSeries"
+          ]
+        }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lon_count", "lat_count", "dlon_deg", "dlat_deg"],
+      "properties": {
+        "lon_count": { "type": "integer" },
+        "lat_count": { "type": "integer" },
+        "dlon_deg": { "type": "number" },
+        "dlat_deg": { "type": "number" }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "kind", "units"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "kind": {
+          "enum": ["synthetic", "observed", "blended", "inferred", "degraded"]
+        },
+        "units": { "type": "string" }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["br_normalized", "continuum_proxy", "confidence"],
+      "properties": {
+        "br_normalized": { "$ref": "#/$defs/field" },
+        "br_variance_normalized": { "$ref": "#/$defs/field" },
+        "continuum_proxy": { "$ref": "#/$defs/field" },
+        "confidence": { "$ref": "#/$defs/field" }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["units", "values"],
+      "properties": {
+        "units": { "type": "string" },
+        "values": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "Row-major lon x lat samples. Length == grid.lon_count * grid.lat_count and finiteness are enforced by the semantic layer."
+        }
+      }
+    },
+    "activeRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "birth_seconds",
+        "lat_deg",
+        "lon_deg",
+        "flux_norm",
+        "area_msh",
+        "tilt_deg",
+        "complexity",
+        "polarity",
+        "confidence"
+      ],
+      "properties": {
+        "id": { "type": "integer" },
+        "birth_seconds": { "type": "number" },
+        "lat_deg": { "type": "number" },
+        "lon_deg": { "type": "number" },
+        "flux_norm": { "type": "number" },
+        "area_msh": { "type": "number" },
+        "tilt_deg": { "type": "number" },
+        "complexity": { "type": "number" },
+        "polarity": { "enum": ["leading_positive", "leading_negative"] },
+        "confidence": { "type": "number" }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cycle_stage", "plain_language_insight"],
+      "properties": {
+        "cycle_stage": { "type": "string" },
+        "plain_language_insight": { "type": "string" }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "model_name", "math_basis", "rendering_rule"],
+      "properties": {
+        "schema_version": { "const": "model-run-manifest.v1" },
+        "model_name": { "type": "string" },
+        "math_basis": { "type": "string" },
+        "rendering_rule": { "type": "string" }
+      }
+    },
+    "operationalReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "research_learning_ready",
+        "space_weather_operational",
+        "data_state",
+        "gates",
+        "blockers"
+      ],
+      "properties": {
+        "schema_version": { "const": "operational-readiness.v1" },
+        "status": { "type": "string" },
+        "research_learning_ready": { "const": true },
+        "space_weather_operational": {
+          "const": false,
+          "description": "Hard invariant: stays false until calibrated units, historical validation, SWPC comparison, monitoring, and approval evidence exist."
+        },
+        "data_state": { "$ref": "#/$defs/dataState" },
+        "gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/gate" }
+        },
+        "blockers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "dataState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_mode", "observation_mode", "cache_state", "live_data_present"],
+      "properties": {
+        "source_mode": { "type": "string" },
+        "observation_mode": { "type": "string" },
+        "cache_state": { "type": "string" },
+        "live_data_present": { "type": "boolean" },
+        "daily_cache_present": {
+          "type": "boolean",
+          "description": "Emitted by the Python fixture generator; the Rust engine omits it. Optional."
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "passed"],
+      "properties": {
+        "id": {
+          "enum": [
+            "snapshot_contract",
+            "deterministic_replay",
+            "public_data_provenance",
+            "normalized_units_disclosed",
+            "calibrated_physical_units",
+            "historical_validation",
+            "swpc_product_comparison",
+            "operational_monitoring"
+          ]
+        },
+        "label": { "type": "string" },
+        "passed": { "type": "boolean" }
+      }
+    }
+  }
+}

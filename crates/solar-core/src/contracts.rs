@@ -328,4 +328,47 @@ mod tests {
         assert!(json.contains("\"schema_version\": \"operational-readiness.v1\""));
         assert!(json.contains("\"space_weather_operational\": false"));
     }
+
+    #[test]
+    fn schema_file_documents_all_emitted_modes_and_gates() {
+        // Ties solar-core to the shared contract: docs/solar-state-snapshot-v1.schema.json
+        // is the single source of truth (see tools/validate_snapshot.py). If a SolarMode
+        // or a readiness gate is added/renamed here without updating the schema, this fails.
+        let schema = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/solar-state-snapshot-v1.schema.json"
+        ))
+        .expect("read docs/solar-state-snapshot-v1.schema.json");
+
+        assert!(schema.contains("solar-state-snapshot.v1"));
+
+        // Every SolarMode name the serializer can emit must be an allowed run.mode value.
+        for mode in [
+            solar_mode_name(&SolarMode::Synthetic),
+            solar_mode_name(&SolarMode::Assimilation),
+            solar_mode_name(&SolarMode::DegradedSyntheticFallback),
+        ] {
+            assert!(
+                schema.contains(&format!("\"{mode}\"")),
+                "schema is missing run.mode value {mode:?}"
+            );
+        }
+
+        // Every operational-readiness gate id emitted by operational_readiness_json().
+        for gate in [
+            "snapshot_contract",
+            "deterministic_replay",
+            "public_data_provenance",
+            "normalized_units_disclosed",
+            "calibrated_physical_units",
+            "historical_validation",
+            "swpc_product_comparison",
+            "operational_monitoring",
+        ] {
+            assert!(
+                schema.contains(&format!("\"{gate}\"")),
+                "schema is missing operational-readiness gate {gate:?}"
+            );
+        }
+    }
 }
