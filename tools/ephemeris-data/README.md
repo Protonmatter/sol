@@ -5,6 +5,17 @@ coefficients in `elpmpp02_data.rs` are generated (not hand-written) from the tru
 published by the MIT-licensed [ephem.js](https://github.com/THRASTRO/ephem.js) project
 (IMCCE **VSOP2013**, Simon et al.; **ELP-MPP02**, Chapront — the `jpl`/DE405 fit).
 
+## Packed binary form (what is committed)
+
+The coefficient tables are **not** committed as Rust source. They live as compact little-endian
+blobs under `crates/solar-ephemeris/data/` (`vsop2013.bin`, `elpmpp02.bin`, `top2013.bin` — ~380 KB
+total vs ~1.1 MB of generated `.rs`), `include_bytes!`d and decoded once at first use by the sibling
+`*_data.rs` modules (`binread.rs` is the shared little-endian cursor). This keeps ~1 MB of tables
+out of the compiler, rust-analyzer, and the rustfmt path. The blobs were produced from the generated
+`.rs` by a one-shot serializer (`src/genbin.rs`, preserved in git history); the `pack_*.py` /
+`gen_top.js` steps below still emit the `.rs` form, so to regenerate from a new ephem.js tier:
+produce the `.rs`, then re-run that serializer to repack the `.bin`.
+
 ## Regenerate (needs Node)
 
 ```bash

@@ -37,25 +37,10 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
 
-      # rustfmt's own `ignore` option is nightly-only, so on stable we format everything and then
-      # diff, excluding the machine-generated coefficient tables (see rustfmt.toml).
-      - name: rustfmt (generated *_data.rs excluded)
-        run: |
-          cargo fmt --all
-          if git diff --quiet -- '*.rs' \
-              ':(exclude)crates/solar-ephemeris/src/vsop2013_data.rs' \
-              ':(exclude)crates/solar-ephemeris/src/elpmpp02_data.rs' \
-              ':(exclude)crates/solar-ephemeris/src/top2013_data.rs'; then
-            echo "hand-written Rust is rustfmt-clean"
-          else
-            echo "::error::not rustfmt-clean — run 'cargo fmt --all' and commit (generated *_data.rs are exempt)"
-            git --no-pager diff -- '*.rs' \
-              ':(exclude)crates/solar-ephemeris/src/vsop2013_data.rs' \
-              ':(exclude)crates/solar-ephemeris/src/elpmpp02_data.rs' \
-              ':(exclude)crates/solar-ephemeris/src/top2013_data.rs'
-            exit 1
-          fi
-          git checkout -- .
+      # All Rust in the workspace is hand-written now — the ephemeris coefficient tables moved to
+      # packed binary blobs under crates/solar-ephemeris/data/ — so a plain format check suffices.
+      - name: rustfmt
+        run: cargo fmt --all --check
 
       - name: clippy (-D warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings

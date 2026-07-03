@@ -1,7 +1,6 @@
 //! Apparent geocentric planet positions from VSOP2013 heliocentric coordinates.
 
 use crate::vsop2013::{self, Planet};
-use crate::vsop2013_data::EMB;
 
 const J2000: f64 = 2451545.0;
 /// Light-time per AU, in Julian years (≈499.0048 s).
@@ -15,7 +14,7 @@ const MOON_MASS_FRACTION: f64 = 0.012150585;
 /// apparent place. VSOP2013 gives the Earth-Moon barycentre; Earth's centre is offset toward the
 /// Moon by the lunar mass fraction (≈4671 km), which is ~6″ for the Sun and inner planets.
 pub(crate) fn earth_center(jy2k: f64) -> [f64; 3] {
-    let emb = vsop2013::helio_xyz(&EMB, jy2k);
+    let emb = vsop2013::helio_xyz(crate::vsop2013_data::emb(), jy2k);
     let moon = crate::elpmpp02::moon_xyz(jy2k); // geocentric ecliptic J2000, AU
     [
         emb[0] - MOON_MASS_FRACTION * moon[0],
@@ -97,12 +96,11 @@ fn geo_distance(planet: &[f64; 3], earth: &[f64; 3]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::vsop2013_data::JUP;
 
     #[test]
     fn jupiter_distance_is_plausible() {
         // Geocentric Jupiter distance stays within roughly 4–7 AU.
-        let (_, _, dist) = planet_apparent_ecliptic(&JUP, 2460676.5, 0.0);
+        let (_, _, dist) = planet_apparent_ecliptic(crate::vsop2013_data::jup(), 2460676.5, 0.0);
         assert!(dist > 3.9 && dist < 6.6, "dist={}", dist);
     }
 }
