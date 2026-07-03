@@ -28,8 +28,6 @@ in vec3 v_obj; in vec3 v_world; in vec3 v_nrm; out vec4 o;
 uniform int u_style; uniform int u_mode; uniform float u_time;
 uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_atmo; uniform float u_atmoStr;
 uniform int u_useTex; uniform sampler2D u_tex;
-// Sun-fixed SDO projection basis (object space) + the channel's disk-radius/frame ratio.
-uniform vec3 u_sunA; uniform vec3 u_sunR; uniform vec3 u_sunU; uniform float u_diskScale;
 ${NOISE}
 void main(){
   vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
@@ -37,28 +35,23 @@ void main(){
   if(u_mode==2){ // atmosphere limb halo (additive shell)
     o=vec4(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4, 1.0); return; }
   if(u_mode==1){ // Sun
-    // Procedural granulation + sunspots + limb darkening — the full-surface model, and the
-    // far-side fallback when a live SDO channel is wrapped on the near side.
+    if(u_useTex==1){ // the real, latest SDO disk — projected orthographically toward the camera so the
+      // visible hemisphere always shows the genuine solar disk (sunspots, granulation) from any angle.
+      vec3 ax=normalize(u_cam);
+      vec3 R=normalize(cross(vec3(0.0,0.0,1.0),ax));
+      vec3 U=cross(ax,R);
+      vec2 d=vec2(dot(N,R),dot(N,U))*0.4565;                 // 0.4565 = disk radius / SDO frame width
+      vec3 sc=texture(u_tex, vec2(0.5+d.x, 0.5-d.y)).rgb;
+      float lb=pow(clamp(dot(N,ax),0.0,1.0),0.45);           // gentle limb darkening to read as a sphere
+      o=vec4(sc*(0.65+0.5*lb), 1.0); return; }
+    // procedural fallback: emissive granulation + sunspots + limb darkening
     float g=fbm(p*9.0+vec3(u_time*0.06)); float fac=fbm(p*22.0+vec3(u_time*0.1));
     float spot=smoothstep(0.60,0.55,fbm(p*3.2+vec3(5.0)));
-    vec3 proc=mix(vec3(1.0,0.50,0.10),vec3(1.0,0.92,0.55),0.45+0.6*g);
-    proc+=vec3(0.25,0.18,0.05)*smoothstep(0.6,0.95,fac); // faculae
-    proc=mix(proc,vec3(0.30,0.13,0.05),spot*0.9);
-    float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); proc*=0.55+0.7*limb;
-    if(u_useTex==1){
-      // The live SDO image is a photo of the EARTH-FACING disk. Project it in the
-      // SUN-FIXED frame: u_sunA/u_sunR/u_sunU are object-space basis vectors computed
-      // once per texture from the Earth direction at load time, so the model matrix's
-      // IAU rotation carries the active regions around with the Sun's real ~25-day spin —
-      // they stay fixed on the surface instead of following the camera. The far side is
-      // the procedural model (we cannot see it), blended across the limb.
-      float vis=dot(p,u_sunA);
-      vec2 d=vec2(dot(p,u_sunR),dot(p,u_sunU))*u_diskScale;  // diskScale = disk radius / SDO frame width
-      vec3 sc=texture(u_tex, vec2(0.5+d.x, 0.5-d.y)).rgb;
-      float shade=0.65+0.5*pow(clamp(vis,0.0,1.0),0.45);     // continue the photo's own limb falloff
-      float w=smoothstep(0.02,0.20,vis);                     // near-side photo → far-side procedural
-      o=vec4(mix(proc, sc*shade, w), 1.0); return; }
-    o=vec4(proc,1.0); return; }
+    vec3 c=mix(vec3(1.0,0.50,0.10),vec3(1.0,0.92,0.55),0.45+0.6*g);
+    c+=vec3(0.25,0.18,0.05)*smoothstep(0.6,0.95,fac); // faculae
+    c=mix(c,vec3(0.30,0.13,0.05),spot*0.9);
+    float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); c*=0.55+0.7*limb;
+    o=vec4(c,1.0); return; }
   vec3 col=u_base;
   if(u_useTex==1){ float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862; col=texture(u_tex,vec2(uu,vv)).rgb; }
   else if(u_style==1){ col=vec3(0.55,0.51,0.46)*(0.75+0.5*fbm(p*6.0)); col+=craters(p,7.0); }       // Mercury

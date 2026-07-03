@@ -37,17 +37,6 @@ TEXTURES = {
     "moon": ("https://www.solarsystemscope.com/textures/download/2k_moon.jpg", "Solar System Scope (CC-BY 4.0) · NASA/LRO + Clementine"),
     "saturn_ring": ("https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png", "Solar System Scope (CC-BY 4.0) · NASA/Cassini ring photometry"),
     "sun": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg", "NASA SDO/HMI continuum — today's real Sun (public domain, NASA/SDO)"),
-    # The other SDO channels, for the 3-D Sun's channel selector (each shows a different
-    # layer/temperature of the solar atmosphere — same set as the 2-D wavelength bar).
-    "sun_hmib": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIB.jpg", "NASA SDO/HMI magnetogram (public domain, NASA/SDO)"),
-    "sun_1700": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_1700.jpg", "NASA SDO/AIA 1700 Å (public domain, NASA/SDO)"),
-    "sun_0304": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0304.jpg", "NASA SDO/AIA 304 Å (public domain, NASA/SDO)"),
-    "sun_0171": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0171.jpg", "NASA SDO/AIA 171 Å (public domain, NASA/SDO)"),
-    "sun_0193": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0193.jpg", "NASA SDO/AIA 193 Å (public domain, NASA/SDO)"),
-    "sun_0211": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0211.jpg", "NASA SDO/AIA 211 Å (public domain, NASA/SDO)"),
-    "sun_0335": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0335.jpg", "NASA SDO/AIA 335 Å (public domain, NASA/SDO)"),
-    "sun_0131": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0131.jpg", "NASA SDO/AIA 131 Å (public domain, NASA/SDO)"),
-    "sun_0094": ("https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0094.jpg", "NASA SDO/AIA 94 Å (public domain, NASA/SDO)"),
 }
 
 UA = {"User-Agent": "Mozilla/5.0 (SolarMaximumEngine texture fetcher)"}
