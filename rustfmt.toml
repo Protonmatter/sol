@@ -1,8 +1,0 @@
-# Generated coefficient tables (emitted by tools/ephemeris-data/*.js + *.py) are machine-written.
-# Exclude them from formatting: reformatting them is tens of thousands of lines of churn that also
-# diverges from the generator output. Everything else in the workspace is rustfmt-clean.
-ignore = [
-    "crates/solar-ephemeris/src/vsop2013_data.rs",
-    "crates/solar-ephemeris/src/elpmpp02_data.rs",
-    "crates/solar-ephemeris/src/top2013_data.rs",
-]

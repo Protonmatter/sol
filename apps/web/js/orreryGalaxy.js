@@ -8,7 +8,7 @@
 // Scale: 1 world unit ≈ 0.326 kpc (≈1,063 ly); disc radius ~15 kpc. Logarithmic spiral
 // arms + a central bar/bulge.
 
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=c044ef3203";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=f456703b32";
 
 const D2R = Math.PI / 180;
 

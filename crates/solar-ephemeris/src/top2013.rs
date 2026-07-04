@@ -12,7 +12,7 @@
 //! (L, power 1, mult 0) term is the mean motion and is supplied by `mm` instead. Coefficients live in
 //! the generated `top2013_data` module; the result feeds `vsop2013::equinoctial_to_xyz`.
 
-use crate::top2013_data::{TopPlanet, JUP, NEP, SAT, URA};
+use crate::top2013_data::{self, TopPlanet};
 
 /// Great-inequality fundamental frequency (rad / 1000 yr); every term's frequency is `mult · DMU`.
 const DMU: f64 = 0.359536228504931;
@@ -20,10 +20,10 @@ const DMU: f64 = 0.359536228504931;
 /// Maps the engine's outer-planet index (0=Jupiter, 1=Saturn, 2=Uranus, 3=Neptune) to its series.
 fn planet(idx: usize) -> &'static TopPlanet {
     match idx {
-        0 => &JUP,
-        1 => &SAT,
-        2 => &URA,
-        _ => &NEP,
+        0 => top2013_data::jup(),
+        1 => top2013_data::sat(),
+        2 => top2013_data::ura(),
+        _ => top2013_data::nep(),
     }
 }
 
@@ -126,7 +126,7 @@ mod tests {
     fn jupiter_near_j2000_matches_vsop() {
         // TOP2013 and VSOP2013 agree to well under an arcsecond near the present.
         let top = helio_xyz(0, 0.0);
-        let vsop = crate::vsop2013::helio_xyz(&crate::vsop2013_data::JUP, 0.0);
+        let vsop = crate::vsop2013::helio_xyz(crate::vsop2013_data::jup(), 0.0);
         let d =
             ((top[0] - vsop[0]).powi(2) + (top[1] - vsop[1]).powi(2) + (top[2] - vsop[2]).powi(2))
                 .sqrt();

@@ -4,6 +4,7 @@
 //! observer, plus rise/transit/set — emitted as `ephemeris-snapshot.v1` JSON. Validated
 //! against JPL Horizons (see tools/validate_ephemeris.py).
 
+mod binread;
 pub mod coords;
 pub mod elpmpp02;
 mod elpmpp02_data;
@@ -80,13 +81,13 @@ impl Body {
     }
     fn elements(self) -> Option<&'static vsop2013::Planet> {
         match self {
-            Body::Mercury => Some(&vsop2013_data::MER),
-            Body::Venus => Some(&vsop2013_data::VEN),
-            Body::Mars => Some(&vsop2013_data::MAR),
-            Body::Jupiter => Some(&vsop2013_data::JUP),
-            Body::Saturn => Some(&vsop2013_data::SAT),
-            Body::Uranus => Some(&vsop2013_data::URA),
-            Body::Neptune => Some(&vsop2013_data::NEP),
+            Body::Mercury => Some(vsop2013_data::mer()),
+            Body::Venus => Some(vsop2013_data::ven()),
+            Body::Mars => Some(vsop2013_data::mar()),
+            Body::Jupiter => Some(vsop2013_data::jup()),
+            Body::Saturn => Some(vsop2013_data::sat()),
+            Body::Uranus => Some(vsop2013_data::ura()),
+            Body::Neptune => Some(vsop2013_data::nep()),
             _ => None,
         }
     }
@@ -375,14 +376,14 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
     let jd_tt = jd_utc + time::delta_t_seconds(year) / 86400.0;
     let jy2k = (jd_tt - time::J2000) / 365.25;
     let bodies: [(&str, &vsop2013::Planet); 8] = [
-        ("Mercury", &vsop2013_data::MER),
-        ("Venus", &vsop2013_data::VEN),
-        ("Earth", &vsop2013_data::EMB),
-        ("Mars", &vsop2013_data::MAR),
-        ("Jupiter", &vsop2013_data::JUP),
-        ("Saturn", &vsop2013_data::SAT),
-        ("Uranus", &vsop2013_data::URA),
-        ("Neptune", &vsop2013_data::NEP),
+        ("Mercury", vsop2013_data::mer()),
+        ("Venus", vsop2013_data::ven()),
+        ("Earth", vsop2013_data::emb()),
+        ("Mars", vsop2013_data::mar()),
+        ("Jupiter", vsop2013_data::jup()),
+        ("Saturn", vsop2013_data::sat()),
+        ("Uranus", vsop2013_data::ura()),
+        ("Neptune", vsop2013_data::nep()),
     ];
     const AU_PER_YEAR_KMS: f64 = 4.740_57; // 1 AU/yr in km/s
                                            // Earth's CENTRE, not the Earth-Moon barycentre: VSOP2013's EMB sits ~4671 km toward the

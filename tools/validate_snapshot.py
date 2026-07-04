@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Validate the v1 Solar Maximum Engine snapshot contract."""
+"""Validate the v1 Solar Maximum Engine snapshot contract.
+
+Structure is enforced by the shared JSON Schema
+(``docs/solar-state-snapshot-v1.schema.json``) via the dependency-free
+``jsonschema_min`` validator — the single source of truth every producer (Rust
+serializer, in-browser WASM, Python fixtures) must satisfy.
+
+This module adds the cross-field / semantic checks JSON Schema can't express:
+grid<->field length agreement, finite (non-NaN) numeric values, the required
+operational-readiness gate ids, normalized-unit disclosure, and the nested
+observation-frame.v1 shape.
+"""
 
 from __future__ import annotations
 
@@ -10,31 +21,31 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import jsonschema_min
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCHEMA_PATH = REPO_ROOT / "docs" / "solar-state-snapshot-v1.schema.json"
+
+ALLOWED_LAYER_KINDS = {"synthetic", "observed", "blended", "inferred", "degraded"}
+REQUIRED_FIELDS = {"br_normalized", "continuum_proxy", "confidence"}
+# A subset of the gate ids must be PRESENT (JSON Schema enums the allowed ids but
+# cannot require an array to contain a specific one).
+REQUIRED_GATE_IDS = (
+    "snapshot_contract",
+    "normalized_units_disclosed",
+    "calibrated_physical_units",
+    "historical_validation",
+)
+
 
 def finite_number(value: Any) -> bool:
     """A real, finite JSON number. Excludes booleans (isinstance(True, int) is True in
     Python) and NaN/Infinity (which json.loads accepts by default but JSON forbids)."""
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
-ALLOWED_LAYER_KINDS = {"synthetic", "observed", "blended", "inferred", "degraded"}
-REQUIRED_FIELDS = {"br_normalized", "continuum_proxy", "confidence"}
-REQUIRED_TOP_LEVEL = {
-    "schema_version",
-    "model_version",
-    "source_mode",
-    "operational_use",
-    "calibration_state",
-    "operational_readiness",
-    "manifest",
-    "run",
-    "grid",
-    "layers",
-    "fields",
-    "active_regions",
-    "learning",
-    "observations",
-    "warnings",
-}
+
+def load_schema() -> dict[str, Any]:
+    return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 
 
 def main() -> int:
@@ -44,8 +55,9 @@ def main() -> int:
 
     path = Path(args.snapshot)
     try:
+        schema = load_schema()
         data = json.loads(path.read_text(encoding="utf-8"))
-        errors = validate(data)
+        errors = validate(data, schema)
     except Exception as exc:  # noqa: BLE001 - CLI validation should report any parse failure.
         errors = [f"{path}: {exc}"]
 
@@ -57,84 +69,64 @@ def main() -> int:
     return 0
 
 
-def validate(data: dict[str, Any]) -> list[str]:
+def validate(data: Any, schema: dict[str, Any] | None = None) -> list[str]:
+    if schema is None:
+        schema = load_schema()
+    # Structural validation against the shared schema (types, enums, consts,
+    # required + additionalProperties). This is where run.mode, gate ids, layer
+    # kinds and polarity are now enforced.
+    errors = list(jsonschema_min.validate(data, schema))
+    errors.extend(semantic_checks(data))
+    return errors
+
+
+def semantic_checks(data: Any) -> list[str]:
+    """Cross-field / value checks that JSON Schema (this subset) can't express."""
     errors: list[str] = []
-    missing = sorted(REQUIRED_TOP_LEVEL.difference(data))
-    if missing:
-        errors.append(f"missing top-level fields: {', '.join(missing)}")
-    if data.get("schema_version") != "solar-state-snapshot.v1":
-        errors.append("schema_version must be solar-state-snapshot.v1")
-    if data.get("operational_use") is not False:
-        errors.append("operational_use must be false")
+    if not isinstance(data, dict):
+        return errors
+
     if "normalized" not in str(data.get("calibration_state", "")).lower():
         errors.append("calibration_state must disclose normalized units")
-    errors.extend(validate_operational_readiness(data.get("operational_readiness")))
 
     grid = data.get("grid") or {}
     lon_count = grid.get("lon_count")
     lat_count = grid.get("lat_count")
-    if not isinstance(lon_count, int) or not isinstance(lat_count, int):
-        errors.append("grid.lon_count and grid.lat_count must be integers")
-        expected_len = None
+    if (
+        isinstance(lon_count, int)
+        and not isinstance(lon_count, bool)
+        and isinstance(lat_count, int)
+        and not isinstance(lat_count, bool)
+    ):
+        expected_len: int | None = lon_count * lat_count
     else:
-        expected_len = lon_count * lat_count
+        expected_len = None
 
     fields = data.get("fields") or {}
-    for field_id in REQUIRED_FIELDS:
+    for field_id in sorted(REQUIRED_FIELDS):
         values = (fields.get(field_id) or {}).get("values")
         if not isinstance(values, list):
-            errors.append(f"fields.{field_id}.values must be a list")
-        elif expected_len is not None and len(values) != expected_len:
+            # The schema already reported the missing/mistyped field.
+            continue
+        if expected_len is not None and len(values) != expected_len:
             errors.append(f"fields.{field_id}.values length {len(values)} != grid length {expected_len}")
         elif not all(finite_number(value) for value in values):
             errors.append(f"fields.{field_id}.values must be finite numbers (no NaN/Infinity/booleans)")
 
-    for layer in data.get("layers") or []:
-        kind = layer.get("kind")
-        if kind not in ALLOWED_LAYER_KINDS:
-            errors.append(f"layer {layer.get('id')} has invalid kind {kind}")
+    readiness = data.get("operational_readiness")
+    if isinstance(readiness, dict):
+        gates = readiness.get("gates")
+        if isinstance(gates, list):
+            gate_ids = {gate.get("id") for gate in gates if isinstance(gate, dict)}
+            for required in REQUIRED_GATE_IDS:
+                if required not in gate_ids:
+                    errors.append(f"operational_readiness.gates missing {required}")
 
     observations = data.get("observations")
-    if not isinstance(observations, list):
-        errors.append("observations must be a list")
-    else:
+    if isinstance(observations, list):
         for idx, observation in enumerate(observations):
             errors.extend(validate_observation_report(idx, observation))
 
-    warnings = data.get("warnings")
-    if not isinstance(warnings, list) or not warnings:
-        errors.append("warnings must be a non-empty list")
-
-    return errors
-
-
-def validate_operational_readiness(value: Any) -> list[str]:
-    errors: list[str] = []
-    if not isinstance(value, dict):
-        return ["operational_readiness must be an object"]
-    if value.get("schema_version") != "operational-readiness.v1":
-        errors.append("operational_readiness.schema_version must be operational-readiness.v1")
-    if value.get("space_weather_operational") is not False:
-        errors.append("operational_readiness.space_weather_operational must be false until externally validated")
-    if value.get("research_learning_ready") is not True:
-        errors.append("operational_readiness.research_learning_ready must be true for the v1 app fixture")
-    gates = value.get("gates")
-    if not isinstance(gates, list) or not gates:
-        errors.append("operational_readiness.gates must be a non-empty list")
-    else:
-        gate_ids = {gate.get("id") for gate in gates if isinstance(gate, dict)}
-        for required in ("snapshot_contract", "normalized_units_disclosed", "calibrated_physical_units", "historical_validation"):
-            if required not in gate_ids:
-                errors.append(f"operational_readiness.gates missing {required}")
-        for gate in gates:
-            if not isinstance(gate, dict):
-                errors.append("operational_readiness.gates entries must be objects")
-                continue
-            if not isinstance(gate.get("passed"), bool):
-                errors.append(f"operational_readiness gate {gate.get('id')} must have boolean passed")
-    blockers = value.get("blockers")
-    if not isinstance(blockers, list) or not blockers:
-        errors.append("operational_readiness.blockers must list the operational blockers")
     return errors
 
 

@@ -10,3 +10,6 @@ synthetic_solar_maximum.png
 
 # Downloaded planetary textures (run tools/fetch_textures.py to populate)
 apps/web/textures/
+
+# Built WebAssembly engines (run tools/build_wasm.py to populate; built from source at deploy time)
+apps/web/pkg/*.wasm

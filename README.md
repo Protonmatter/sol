@@ -22,6 +22,9 @@ ever *consumes* those snapshots. The UI never invents physical values.
      Helioviewer, JPL Horizons), snapshot-series generation, and validation.
    - Versioned JSON contracts: `solar-state-snapshot.v1`, `observation-frame.v1`,
      `model-run-manifest.v1`, `operational-readiness.v1`, plus `series-manifest.v1`.
+     The `solar-state-snapshot.v1` shape is defined once in
+     [`docs/solar-state-snapshot-v1.schema.json`](docs/solar-state-snapshot-v1.schema.json)
+     and enforced across Rust, Python, and the browser via `tools/validate_snapshot.py`.
 
 2. **Web app** (`apps/web/`) — a dependency-free, no-build static app that renders the
    snapshots (the redesign is merged; `master` is the only branch and deploys to

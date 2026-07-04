@@ -7,8 +7,6 @@
 //!
 //! Returns the geocentric Moon position in the inertial mean ecliptic & equinox of J2000.
 
-use crate::elpmpp02_data::{MAIN, PERT, W0};
-
 /// Light-time per AU, in Julian years (≈499.0048 s) — for the Moon's planetary aberration.
 const LIGHT_YEARS_PER_AU: f64 = 0.005775518 / 365.25;
 
@@ -42,6 +40,11 @@ const Q: [f64; 5] = [
 /// Geocentric Moon position in ecliptic-J2000 rectangular coordinates (AU) at
 /// Julian years from J2000.
 pub fn moon_xyz(jy2k: f64) -> [f64; 3] {
+    let (main, pert, w0) = (
+        crate::elpmpp02_data::main(),
+        crate::elpmpp02_data::pert(),
+        crate::elpmpp02_data::w0(),
+    );
     let t1 = jy2k / 100.0;
     let t = [1.0, t1, t1 * t1, t1 * t1 * t1, t1 * t1 * t1 * t1];
 
@@ -49,7 +52,7 @@ pub fn moon_xyz(jy2k: f64) -> [f64; 3] {
     for iv in 0..3 {
         let mut acc = 0.0;
         // Main problem.
-        for term in MAIN[iv].iter() {
+        for term in main[iv].iter() {
             let mut y = term.f[0];
             for (fk, tk) in term.f.iter().zip(&t).skip(1) {
                 y += *fk * *tk;
@@ -57,7 +60,7 @@ pub fn moon_xyz(jy2k: f64) -> [f64; 3] {
             acc += term.amp * y.sin();
         }
         // Perturbations, grouped by time power t⁰..t³.
-        for (it, group) in PERT[iv].iter().enumerate() {
+        for (it, group) in pert[iv].iter().enumerate() {
             for term in group.iter() {
                 let mut y = term.f[0];
                 for (fk, tk) in term.f.iter().zip(&t).skip(1) {
@@ -69,7 +72,7 @@ pub fn moon_xyz(jy2k: f64) -> [f64; 3] {
         v[iv] = acc;
     }
 
-    let lon = v[0] / RAD + W0[0] + W0[1] * t[1] + W0[2] * t[2] + W0[3] * t[3] + W0[4] * t[4];
+    let lon = v[0] / RAD + w0[0] + w0[1] * t[1] + w0[2] * t[2] + w0[3] * t[3] + w0[4] * t[4];
     let lat = v[1] / RAD;
     let dist = v[2] * (A405 / AELP);
 

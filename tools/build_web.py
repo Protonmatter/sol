@@ -18,15 +18,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent / "apps" / "web"
 TOKEN = re.compile(r"\?v=[0-9a-zA-Z]+")
-# Binary assets folded into the token so a wasm rebuild re-stamps every JS module that loads it —
-# cached JS can then never pair with a mismatched engine. Only *tracked* assets belong here so the
-# committed token is reproducible from a clean checkout; that reproducibility is exactly what lets
-# CI gate on it (see .github/workflows/ci.yml). Textures are EXCLUDED on purpose: they are
-# gitignored (fetched by tools/fetch_textures.py), so hashing them would tie the token to untracked
-# files and make it differ between a dev machine and CI. They still receive the stamped ?v= (any
-# token bump busts them) and, being NASA/ESA surface maps, effectively never change. The
-# daily-changing data/ JSON is excluded too — it is fetched cache:"no-store" (always fresh).
-ASSET_GLOBS = ("pkg/*.wasm",)
+# The token is a SHA-1 over the *tracked* HTML/JS/CSS text only, so it is reproducible from a clean
+# checkout — which is exactly what lets CI gate on it (see .github/workflows/ci.yml). Build- and
+# deploy-time artifacts are deliberately NOT folded in: the WASM engines (apps/web/pkg/*.wasm, built
+# from source by tools/build_wasm.py) and the surface textures (apps/web/textures/, fetched by
+# tools/fetch_textures.py) are both gitignored, so hashing them would tie the token to untracked
+# files and make it differ between a dev machine and CI. Both still receive the stamped ?v= (any
+# token bump busts them); the wasm is additionally fetched cache:"no-store", so a browser always
+# pulls the freshly deployed engine regardless of its query token. The daily-changing data/ JSON is
+# excluded for the same no-store reason. Re-add a glob here ONLY for assets that are committed.
+ASSET_GLOBS: tuple[str, ...] = ()
 
 
 def main() -> int:
