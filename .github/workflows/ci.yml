@@ -18,7 +18,7 @@ jobs:
     name: Rust tests (workspace)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: cargo test --workspace
@@ -28,7 +28,7 @@ jobs:
     name: Rust lint (fmt + clippy)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Pinned so the clippy lint set is deterministic — a newer stable can add lints that would
       # fail `-D warnings` on code that was clean before. Bump deliberately.
       - uses: dtolnay/rust-toolchain@master
@@ -49,7 +49,7 @@ jobs:
     name: WASM build (wasm32-unknown-unknown)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -63,11 +63,11 @@ jobs:
     name: Web (JS syntax + validators + cache-bust sync)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
