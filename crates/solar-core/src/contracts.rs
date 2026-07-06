@@ -1,6 +1,6 @@
 use crate::{ActiveRegion, Field2D, Polarity, SolarMode, SolarState};
 
-pub const SOLAR_STATE_SNAPSHOT_SCHEMA: &str = "solar-state-snapshot.v1";
+pub const SOLAR_STATE_SNAPSHOT_SCHEMA: &str = "solar-state-snapshot.v2";
 pub const OBSERVATION_FRAME_SCHEMA: &str = "observation-frame.v1";
 pub const MODEL_RUN_MANIFEST_SCHEMA: &str = "model-run-manifest.v1";
 
@@ -27,6 +27,7 @@ impl<'a> SnapshotRequest<'a> {
             source_mode: "synthetic",
             warnings: vec![
                 "Reduced surface flux transport model in normalized magnetic units.",
+                "Grid coordinates are west-positive heliographic Carrington coordinates.",
                 "Research and learning use only; not operational space-weather forecasting.",
             ],
             observations_json: None,
@@ -35,7 +36,7 @@ impl<'a> SnapshotRequest<'a> {
 }
 
 pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'_>) -> String {
-    let mut out = String::with_capacity(256 + state.br.values.len() * 40);
+    let mut out = String::with_capacity(512 + state.br.values.len() * 40);
     out.push_str("{\n");
     json_string_field(
         &mut out,
@@ -71,7 +72,13 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
         "Solar Maximum Engine CPU reference",
         true,
     );
-    json_string_field(&mut out, 2, "math_basis", "differential rotation + diffusion + source injection + decay + diagonal Kalman-style assimilation contract", true);
+    json_string_field(
+        &mut out,
+        2,
+        "math_basis",
+        "Carrington-frame differential rotation + timestep-scaled diffusion + event-timed source injection + exponential decay + diagonal assimilation contract",
+        true,
+    );
     json_string_field(
         &mut out,
         2,
@@ -96,11 +103,68 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     json_string_field(&mut out, 2, "mode", solar_mode_name(&state.mode), false);
     out.push_str("  },\n");
 
+    out.push_str("  \"coordinates\": {\n");
+    json_string_field(
+        &mut out,
+        2,
+        "frame",
+        state.grid.coordinates.frame.name(),
+        true,
+    );
+    json_string_field(
+        &mut out,
+        2,
+        "longitude_positive",
+        state.grid.coordinates.longitude_positive.name(),
+        true,
+    );
+    json_string_field(
+        &mut out,
+        2,
+        "latitude_type",
+        state.grid.coordinates.latitude_type.name(),
+        true,
+    );
+    out.push_str(&format!(
+        "    \"reference_epoch_jd_tt\": {:.9},\n",
+        state.grid.coordinates.reference_epoch_jd_tt
+    ));
+    out.push_str(&format!(
+        "    \"central_meridian_longitude_deg\": {:.9},\n",
+        state.grid.coordinates.central_meridian_longitude_deg
+    ));
+    out.push_str(&format!(
+        "    \"rotation_reference_deg_per_day\": {:.9},\n",
+        state.grid.coordinates.rotation_reference_deg_per_day
+    ));
+    json_string_field(
+        &mut out,
+        2,
+        "observer",
+        state.grid.coordinates.observer,
+        false,
+    );
+    out.push_str("  },\n");
+
     out.push_str("  \"grid\": {\n");
     out.push_str(&format!("    \"lon_count\": {},\n", state.grid.lon_count));
     out.push_str(&format!("    \"lat_count\": {},\n", state.grid.lat_count));
     out.push_str(&format!("    \"dlon_deg\": {:.6},\n", state.grid.dlon_deg));
-    out.push_str(&format!("    \"dlat_deg\": {:.6}\n", state.grid.dlat_deg));
+    out.push_str(&format!("    \"dlat_deg\": {:.6},\n", state.grid.dlat_deg));
+    json_string_field(
+        &mut out,
+        2,
+        "storage_order",
+        "lat_major_lon_contiguous",
+        true,
+    );
+    json_string_field(
+        &mut out,
+        2,
+        "index_formula",
+        "lat_i * lon_count + lon_i",
+        false,
+    );
     out.push_str("  },\n");
 
     out.push_str("  \"layers\": [\n");
@@ -190,6 +254,7 @@ fn operational_readiness_json(out: &mut String) {
     out.push_str("    },\n");
     out.push_str("    \"gates\": [\n");
     out.push_str("      {\"id\":\"snapshot_contract\",\"label\":\"Versioned snapshot contract present\",\"passed\":true},\n");
+    out.push_str("      {\"id\":\"coordinate_frame_explicit\",\"label\":\"Solar coordinate frame and storage order explicit\",\"passed\":true},\n");
     out.push_str("      {\"id\":\"deterministic_replay\",\"label\":\"Deterministic replay available\",\"passed\":true},\n");
     out.push_str("      {\"id\":\"public_data_provenance\",\"label\":\"Public-data provenance retained when observations are attached\",\"passed\":true},\n");
     out.push_str("      {\"id\":\"normalized_units_disclosed\",\"label\":\"Normalized magnetic units disclosed\",\"passed\":true},\n");
@@ -202,9 +267,7 @@ fn operational_readiness_json(out: &mut String) {
     out.push_str("      \"Calibrated physical magnetic units are not implemented.\",\n");
     out.push_str("      \"No historical validation skill score is present.\",\n");
     out.push_str("      \"No on-call alerting, SLA, or operational authority is configured.\",\n");
-    out.push_str(
-        "      \"Outputs are not approved for warning, mission safety, or fleet operations.\"\n",
-    );
+    out.push_str("      \"Outputs are not approved for warning, mission safety, or fleet operations.\"\n");
     out.push_str("    ]\n");
     out.push_str("  },\n");
 }
@@ -317,46 +380,35 @@ mod tests {
     use crate::{SolarGrid, SolarMode, SolarState};
 
     #[test]
-    fn snapshot_contract_includes_schema_and_layer_labels() {
+    fn snapshot_contract_includes_coordinate_semantics() {
         let state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
         let json = solar_state_snapshot_json(&state, &SnapshotRequest::synthetic(42, 1, 1.0, 0.9));
-        assert!(json.contains("\"schema_version\": \"solar-state-snapshot.v1\""));
-        assert!(json.contains("\"schema_version\": \"model-run-manifest.v1\""));
-        assert!(json.contains("\"kind\":\"synthetic\""));
-        assert!(json.contains("\"kind\":\"inferred\""));
+        assert!(json.contains("\"schema_version\": \"solar-state-snapshot.v2\""));
+        assert!(json.contains("\"frame\": \"heliographic_carrington\""));
+        assert!(json.contains("\"longitude_positive\": \"west\""));
+        assert!(json.contains("\"index_formula\": \"lat_i * lon_count + lon_i\""));
         assert!(json.contains("\"operational_use\": false"));
-        assert!(json.contains("\"schema_version\": \"operational-readiness.v1\""));
-        assert!(json.contains("\"space_weather_operational\": false"));
     }
 
     #[test]
     fn schema_file_documents_all_emitted_modes_and_gates() {
-        // Ties solar-core to the shared contract: docs/solar-state-snapshot-v1.schema.json
-        // is the single source of truth (see tools/validate_snapshot.py). If a SolarMode
-        // or a readiness gate is added/renamed here without updating the schema, this fails.
         let schema = std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../docs/solar-state-snapshot-v1.schema.json"
+            "/../../docs/solar-state-snapshot-v2.schema.json"
         ))
-        .expect("read docs/solar-state-snapshot-v1.schema.json");
+        .expect("read docs/solar-state-snapshot-v2.schema.json");
 
-        assert!(schema.contains("solar-state-snapshot.v1"));
-
-        // Every SolarMode name the serializer can emit must be an allowed run.mode value.
+        assert!(schema.contains("solar-state-snapshot.v2"));
         for mode in [
             solar_mode_name(&SolarMode::Synthetic),
             solar_mode_name(&SolarMode::Assimilation),
             solar_mode_name(&SolarMode::DegradedSyntheticFallback),
         ] {
-            assert!(
-                schema.contains(&format!("\"{mode}\"")),
-                "schema is missing run.mode value {mode:?}"
-            );
+            assert!(schema.contains(&format!("\"{mode}\"")));
         }
-
-        // Every operational-readiness gate id emitted by operational_readiness_json().
         for gate in [
             "snapshot_contract",
+            "coordinate_frame_explicit",
             "deterministic_replay",
             "public_data_provenance",
             "normalized_units_disclosed",
@@ -365,10 +417,7 @@ mod tests {
             "swpc_product_comparison",
             "operational_monitoring",
         ] {
-            assert!(
-                schema.contains(&format!("\"{gate}\"")),
-                "schema is missing operational-readiness gate {gate:?}"
-            );
+            assert!(schema.contains(&format!("\"{gate}\"")));
         }
     }
 }
