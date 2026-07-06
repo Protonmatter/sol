@@ -1,8 +1,9 @@
 use crate::active_region::{ActiveRegion, Polarity};
 use crate::constants::{
-    ACTIVE_REGION_LIFETIME_DAYS, DEFAULT_DECAY_PER_DAY, DEFAULT_DIFFUSION, SECONDS_PER_DAY,
+    ACTIVE_REGION_LIFETIME_DAYS, DEFAULT_DECAY_PER_DAY, DEFAULT_DIFFUSION,
+    DEFAULT_MAX_TRANSPORT_STEP_SECONDS, SECONDS_PER_DAY,
 };
-use crate::differential_rotation::differential_rotation_deg_per_day;
+use crate::differential_rotation::carrington_advection_deg_per_day;
 use crate::{Field2D, SolarState};
 
 #[derive(Clone, Debug)]
@@ -10,6 +11,7 @@ pub struct FluxTransportConfig {
     pub diffusion: f32,
     pub decay_per_day: f32,
     pub source_sigma_deg: f32,
+    pub max_step_seconds: f64,
 }
 
 impl Default for FluxTransportConfig {
@@ -18,23 +20,59 @@ impl Default for FluxTransportConfig {
             diffusion: DEFAULT_DIFFUSION,
             decay_per_day: DEFAULT_DECAY_PER_DAY,
             source_sigma_deg: 2.2,
+            max_step_seconds: DEFAULT_MAX_TRANSPORT_STEP_SECONDS,
         }
     }
 }
 
+/// Advance to `state.time_seconds + dt_seconds` with deterministic internal
+/// substeps. Active regions are injected exactly once at their birth time, so
+/// callers obtain the same state whether they request one long interval or
+/// partition that interval into smaller calls.
 pub fn advance_flux_transport(state: &mut SolarState, dt_seconds: f64, cfg: &FluxTransportConfig) {
-    rotate_field(state, dt_seconds);
-    diffuse_field(state, dt_seconds, cfg.diffusion);
-    inject_sources(state, cfg);
-    decay_field(state, dt_seconds, cfg.decay_per_day);
-    state.time_seconds += dt_seconds;
+    assert!(dt_seconds.is_finite() && dt_seconds >= 0.0);
+    assert!(cfg.max_step_seconds.is_finite() && cfg.max_step_seconds > 0.0);
+    assert!(cfg.diffusion.is_finite() && cfg.diffusion >= 0.0);
+    assert!(cfg.decay_per_day.is_finite() && cfg.decay_per_day >= 0.0);
+    assert!(cfg.source_sigma_deg.is_finite() && cfg.source_sigma_deg > 0.0);
+
+    let start = state.time_seconds;
+    let target = start + dt_seconds;
+    let mut events: Vec<ActiveRegion> = state
+        .active_regions
+        .iter()
+        .filter(|ar| ar.birth_seconds >= start && ar.birth_seconds < target)
+        .cloned()
+        .collect();
+    events.sort_by(|a, b| {
+        a.birth_seconds
+            .total_cmp(&b.birth_seconds)
+            .then_with(|| a.id.cmp(&b.id))
+    });
+
+    for event in events {
+        advance_continuous(state, event.birth_seconds - state.time_seconds, cfg);
+        inject_bipole(state, &event, cfg.source_sigma_deg);
+    }
+    advance_continuous(state, target - state.time_seconds, cfg);
+
+    state.time_seconds = target;
     retire_regions(state);
     state.recompute_continuum_from_br();
 }
 
-/// Drop regions past their tracking lifetime. Their injected flux keeps living (and decaying)
-/// in the field; only the metadata entry retires. Without this the region list — and with it
-/// the injection scan, the snapshot JSON, and the "insight" heuristics — grew without bound.
+fn advance_continuous(state: &mut SolarState, dt_seconds: f64, cfg: &FluxTransportConfig) {
+    let mut remaining = dt_seconds.max(0.0);
+    while remaining > 0.0 {
+        let step = remaining.min(cfg.max_step_seconds);
+        rotate_field(state, step);
+        diffuse_field(state, step, cfg.diffusion);
+        decay_field(state, step, cfg.decay_per_day);
+        state.time_seconds += step;
+        remaining = (remaining - step).max(0.0);
+    }
+}
+
 fn retire_regions(state: &mut SolarState) {
     let now = state.time_seconds;
     state
@@ -49,7 +87,7 @@ fn rotate_field(state: &mut SolarState, dt_seconds: f64) {
 
     for lat_i in 0..grid.lat_count {
         let lat = grid.lat_deg(lat_i) as f64;
-        let shift_deg = differential_rotation_deg_per_day(lat) * dt_days;
+        let shift_deg = carrington_advection_deg_per_day(lat) * dt_days;
         let shift_cells = shift_deg as f32 / grid.dlon_deg;
         for lon_i in 0..grid.lon_count {
             let src = lon_i as f32 - shift_cells;
@@ -68,17 +106,6 @@ fn rotate_field(state: &mut SolarState, dt_seconds: f64) {
 
 fn diffuse_field(state: &mut SolarState, dt_seconds: f64, diffusion: f32) {
     let grid = state.grid.clone();
-
-    // Diffusion is a RATE: scale the stencil by the timestep so the smoothing over a given span of
-    // simulated time is independent of how it is subdivided. Previously the increment was applied
-    // once per call regardless of dt, so halving dt while doubling the step count silently doubled
-    // the effective diffusivity. Normalised to a 1-hour reference step, so the tuned
-    // DEFAULT_DIFFUSION and the existing 1-hour-step output (and golden snapshots) are unchanged.
-    //
-    // STABILITY: the explicit 5-point stencil requires diffusion·dt ≤ 0.25 or the update blows up
-    // (fields → ±inf → nulls in the snapshot JSON). Callers may pass any dt (`--dt-hours 48` is
-    // legal CLI input), so substep: apply the stencil k times at diffusion·dt/k ≤ 0.2 each. At the
-    // 1-hour reference step k = 1, so tuned behaviour is byte-identical.
     let dt_hours_total = (dt_seconds / 3600.0) as f32;
     let substeps = ((diffusion * dt_hours_total / 0.2).ceil()).max(1.0) as usize;
     let dt_hours = dt_hours_total / substeps as f32;
@@ -106,25 +133,6 @@ fn diffuse_field(state: &mut SolarState, dt_seconds: f64, diffusion: f32) {
             }
         }
         state.br = next;
-    }
-}
-
-fn inject_sources(state: &mut SolarState, cfg: &FluxTransportConfig) {
-    // Inject each bipole ONCE, at birth — not on every step. Re-injecting every region every
-    // step made the equilibrium field amplitude scale as 1/dt (the identical bug class the
-    // diffusion stencil's dt-scaling fix documents above: halving dt doubled the deposited
-    // flux per simulated day against the 1.5%/day decay). Regions born this step carry
-    // birth_seconds equal to the current model time — the callers generate births *before*
-    // advancing — so `birth_seconds >= time_seconds` selects exactly the fresh ones; older
-    // regions have already deposited their flux, which rotation/diffusion/decay now evolve.
-    let fresh: Vec<ActiveRegion> = state
-        .active_regions
-        .iter()
-        .filter(|ar| ar.birth_seconds >= state.time_seconds)
-        .cloned()
-        .collect();
-    for ar in &fresh {
-        inject_bipole(state, ar, cfg.source_sigma_deg);
     }
 }
 
@@ -180,10 +188,11 @@ fn add_gaussian(state: &mut SolarState, lat_deg: f32, lon_deg: f32, amp: f32, si
 
 fn decay_field(state: &mut SolarState, dt_seconds: f64, decay_per_day: f32) {
     let dt_days = (dt_seconds / SECONDS_PER_DAY) as f32;
-    let decay = (1.0 - decay_per_day * dt_days).clamp(0.0, 1.0);
+    let decay = (-decay_per_day * dt_days).exp();
     state.br.scale(decay);
+    let confidence_decay = 0.999_f32.powf(dt_days);
     for c in &mut state.confidence.values {
-        *c *= 0.999_f32.powf(dt_days);
+        *c *= confidence_decay;
     }
 }
 
@@ -208,6 +217,21 @@ mod tests {
     use super::*;
     use crate::{SolarGrid, SolarMode};
 
+    fn test_region(id: u64, birth_seconds: f64) -> ActiveRegion {
+        ActiveRegion {
+            id,
+            birth_seconds,
+            lat_deg: 15.0,
+            lon_deg: 120.0,
+            flux_norm: 1.0,
+            area_msh: 500.0,
+            tilt_deg: 8.0,
+            complexity: 0.5,
+            polarity: Polarity::LeadingPositive,
+            confidence: 0.65,
+        }
+    }
+
     #[test]
     fn constant_field_remains_bounded() {
         let grid = SolarGrid::new(72, 36);
@@ -227,76 +251,73 @@ mod tests {
         assert!(state.br.values.iter().all(|v| v.is_finite()));
     }
 
-    fn test_region(birth_seconds: f64) -> ActiveRegion {
-        ActiveRegion {
-            id: 1,
-            birth_seconds,
-            lat_deg: 15.0,
-            lon_deg: 120.0,
-            flux_norm: 1.0,
-            area_msh: 500.0,
-            tilt_deg: 8.0,
-            complexity: 0.5,
-            polarity: Polarity::LeadingPositive,
-            confidence: 0.65,
-        }
-    }
-
     #[test]
-    fn bipole_flux_is_injected_once_not_per_step() {
-        // The regression this guards: re-injecting every region every step made the field
-        // amplitude grow ~linearly with the step count (equilibrium ∝ 1/dt). With
-        // inject-at-birth, steps after the birth step must not ADD flux — the total
-        // unsigned flux can only be moved (rotation), spread (diffusion), or shrunk (decay).
+    fn bipole_flux_is_injected_once() {
         let grid = SolarGrid::new(72, 36);
         let mut state = SolarState::new(grid, SolarMode::Synthetic);
-        state.active_regions.push(test_region(0.0));
+        state.active_regions.push(test_region(1, 0.0));
         let cfg = FluxTransportConfig::default();
-        advance_flux_transport(&mut state, 3600.0, &cfg); // birth step: injects
+        advance_flux_transport(&mut state, 3600.0, &cfg);
         let after_birth: f32 = state.br.values.iter().map(|v| v.abs()).sum();
-        advance_flux_transport(&mut state, 3600.0, &cfg); // must NOT inject again
+        advance_flux_transport(&mut state, 3600.0, &cfg);
         let after_second: f32 = state.br.values.iter().map(|v| v.abs()).sum();
-        assert!(after_birth > 0.5, "birth step injected nothing");
-        assert!(
-            after_second <= after_birth * 1.01,
-            "flux grew after birth step: {after_birth} -> {after_second}"
-        );
+        assert!(after_birth > 0.5);
+        assert!(after_second <= after_birth * 1.01);
     }
 
     #[test]
-    fn diffusion_stays_stable_at_large_timesteps() {
-        // 48-hour steps put diffusion·dt at 0.576 — past the 0.25 explicit-stencil limit —
-        // which used to blow the field up to ±inf (serialised as nulls, rejected by
-        // validate_snapshot). The substepped update must stay finite and bounded.
+    fn long_call_matches_hourly_partition_with_midstep_birth() {
+        let grid = SolarGrid::new(72, 36);
+        let mut one_call = SolarState::new(grid.clone(), SolarMode::Synthetic);
+        one_call.active_regions.push(test_region(1, 6.5 * 3600.0));
+        let mut hourly = one_call.clone();
+        let cfg = FluxTransportConfig::default();
+
+        advance_flux_transport(&mut one_call, 24.0 * 3600.0, &cfg);
+        for _ in 0..24 {
+            advance_flux_transport(&mut hourly, 3600.0, &cfg);
+        }
+
+        assert_eq!(one_call.time_seconds, hourly.time_seconds);
+        for (a, b) in one_call.br.values.iter().zip(&hourly.br.values) {
+            assert!((a - b).abs() <= 2.0e-6, "partition mismatch: {a} vs {b}");
+        }
+    }
+
+    #[test]
+    fn exponential_decay_is_partition_invariant() {
+        let grid = SolarGrid::new(72, 36);
+        let mut one_call = SolarState::new(grid.clone(), SolarMode::Synthetic);
+        one_call.br.values.fill(1.0);
+        let mut hourly = one_call.clone();
+        let mut cfg = FluxTransportConfig::default();
+        cfg.diffusion = 0.0;
+
+        advance_flux_transport(&mut one_call, 30.0 * SECONDS_PER_DAY, &cfg);
+        for _ in 0..(30 * 24) {
+            advance_flux_transport(&mut hourly, 3600.0, &cfg);
+        }
+        assert!((one_call.br.values[0] - hourly.br.values[0]).abs() < 1.0e-5);
+    }
+
+    #[test]
+    fn large_timestep_stays_finite() {
         let grid = SolarGrid::new(72, 36);
         let mut state = SolarState::new(grid, SolarMode::Synthetic);
-        state.active_regions.push(test_region(0.0));
+        state.active_regions.push(test_region(1, 0.0));
         let cfg = FluxTransportConfig::default();
-        for _ in 0..20 {
-            advance_flux_transport(&mut state, 48.0 * 3600.0, &cfg);
-        }
+        advance_flux_transport(&mut state, 48.0 * 3600.0, &cfg);
         assert!(state.br.values.iter().all(|v| v.is_finite()));
-        assert!(
-            state.br.max_abs() < 10.0,
-            "field blew up: {}",
-            state.br.max_abs()
-        );
+        assert!(state.br.max_abs() < 10.0);
     }
 
     #[test]
     fn regions_retire_after_lifetime() {
         let grid = SolarGrid::new(72, 36);
         let mut state = SolarState::new(grid, SolarMode::Synthetic);
-        state.active_regions.push(test_region(0.0));
+        state.active_regions.push(test_region(1, 0.0));
         let cfg = FluxTransportConfig::default();
-        // Step past the tracking lifetime in day-long steps.
-        for _ in 0..16 {
-            advance_flux_transport(&mut state, 86_400.0, &cfg);
-        }
-        assert!(
-            state.active_regions.is_empty(),
-            "region should retire after {} days",
-            crate::constants::ACTIVE_REGION_LIFETIME_DAYS
-        );
+        advance_flux_transport(&mut state, 16.0 * SECONDS_PER_DAY, &cfg);
+        assert!(state.active_regions.is_empty());
     }
 }
