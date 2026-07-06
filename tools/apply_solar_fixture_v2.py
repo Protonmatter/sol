@@ -44,6 +44,8 @@ text = text.replace(
     '            "Static deterministic fixture in normalized magnetic units (not a flux-transport run).",\n'
     '            "Coordinates are west-positive heliographic Carrington coordinates.",\n',
 )
+if '"schema_version": "solar-state-snapshot.v2"' not in text or '"coordinates": {' not in text:
+    raise SystemExit("fixture v2 migration postcondition failed")
 fixture_path.write_text(text, encoding="utf-8")
 
 series_path = Path("tools/generate_series.py")
@@ -66,4 +68,13 @@ text = text.replace(
     '        frame["run"]["dt_hours"] = 0.0\n'
     '        frame["run"]["time_seconds"] = 0.0\n',
 )
+if "solar-state-snapshot.v2" not in text or '"storage_order": "lat_major_lon_contiguous"' not in text:
+    raise SystemExit("series v2 migration postcondition failed")
 series_path.write_text(text, encoding="utf-8")
+
+schema_path = Path("docs/solar-state-snapshot-v2.schema.json")
+schema = schema_path.read_text(encoding="utf-8")
+schema = schema.replace('"dt_hours": { "type": "number", "exclusiveMinimum": 0 }', '"dt_hours": { "type": "number", "minimum": 0 }')
+if '"dt_hours": { "type": "number", "minimum": 0 }' not in schema:
+    raise SystemExit("schema dt_hours migration postcondition failed")
+schema_path.write_text(schema, encoding="utf-8")
