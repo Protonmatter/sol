@@ -57,12 +57,6 @@ const RAPID: [(f64, f64, f64, f64); 7] = [
     (61_223.0, 0.014_873, 0.205_47, 0.388_64),
 ];
 
-/// Return Earth-orientation parameters for UTC Julian Date.
-///
-/// Rapid-service values are linearly interpolated. The published Bulletin A
-/// prediction equations are used only through the bulletin's one-year horizon.
-/// All other dates return a labelled degraded value with a conservative DUT1
-/// uncertainty instead of silently asserting UT1 equals UTC.
 pub fn for_jd_utc(jd_utc: f64) -> EarthOrientation {
     let mjd = jd_utc - 2_400_000.5;
     if (RAPID[0].0..=RAPID[RAPID.len() - 1].0).contains(&mjd) {
@@ -72,6 +66,28 @@ pub fn for_jd_utc(jd_utc: f64) -> EarthOrientation {
         return bulletin_prediction(mjd);
     }
     EarthOrientation::degraded("no bundled IERS EOP sample covers this UTC epoch")
+}
+
+/// First-order IERS polar-motion correction from terrestrial geodetic latitude
+/// and east longitude to the instantaneous rotation-axis frame. Inputs xp/yp
+/// are arcseconds. The approximation is sub-milliarcsecond for Bulletin A values.
+pub fn corrected_observer_geodetic(
+    lat_deg: f64,
+    lon_east_deg: f64,
+    xp_arcsec: f64,
+    yp_arcsec: f64,
+) -> (f64, f64) {
+    const ARCSEC_TO_RAD: f64 = PI / (180.0 * 3600.0);
+    let lat = lat_deg.clamp(-89.999_999, 89.999_999).to_radians();
+    let lon = lon_east_deg.to_radians();
+    let xp = xp_arcsec * ARCSEC_TO_RAD;
+    let yp = yp_arcsec * ARCSEC_TO_RAD;
+    let delta_lat = xp * lon.cos() - yp * lon.sin();
+    let delta_lon = (xp * lon.sin() + yp * lon.cos()) * lat.tan();
+    (
+        (lat + delta_lat).to_degrees(),
+        (lon + delta_lon).to_degrees().rem_euclid(360.0),
+    )
 }
 
 fn rapid_interpolated(mjd: f64) -> EarthOrientation {
@@ -131,6 +147,13 @@ mod tests {
         assert!((eop.dut1_seconds - 0.014_873).abs() < 1.0e-12);
         assert!((eop.xp_arcsec - 0.205_47).abs() < 1.0e-12);
         assert!((eop.yp_arcsec - 0.388_64).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn zero_polar_motion_is_identity() {
+        let corrected = corrected_observer_geodetic(42.36, -71.06, 0.0, 0.0);
+        assert!((corrected.0 - 42.36).abs() < 1.0e-12);
+        assert!((corrected.1 - 288.94).abs() < 1.0e-12);
     }
 
     #[test]
