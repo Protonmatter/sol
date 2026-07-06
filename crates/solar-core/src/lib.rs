@@ -1,12 +1,13 @@
 //! CPU-reference core for the Solar Maximum Engine.
 //!
-//! This crate intentionally has no external dependencies in v0.1 so that the
+//! This crate intentionally has no external dependencies so that the
 //! mathematical reference model remains easy to audit and deterministic.
 
 pub mod active_region;
 pub mod assimilation;
 pub mod constants;
 pub mod contracts;
+pub mod coordinates;
 pub mod differential_rotation;
 pub mod field;
 pub mod flux_transport;
@@ -16,6 +17,9 @@ pub mod synthetic;
 pub use active_region::{ActiveRegion, Polarity};
 pub use assimilation::{assimilate_scalar_field, AssimilationInput};
 pub use contracts::{solar_state_snapshot_json, SnapshotRequest};
+pub use coordinates::{
+    LongitudeDirection, SolarCoordinateFrame, SolarCoordinates, SolarLatitudeType,
+};
 pub use field::Field2D;
 pub use flux_transport::{advance_flux_transport, FluxTransportConfig};
 pub use grid::SolarGrid;
