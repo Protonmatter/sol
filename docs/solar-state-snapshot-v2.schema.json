@@ -67,7 +67,7 @@
       "properties": {
         "seed": { "type": "integer", "minimum": 0 },
         "steps": { "type": "integer", "minimum": 0 },
-        "dt_hours": { "type": "number", "exclusiveMinimum": 0 },
+        "dt_hours": { "type": "number", "minimum": 0 },
         "activity_index": { "type": "number", "minimum": 0, "maximum": 1 },
         "time_seconds": { "type": "number", "minimum": 0 },
         "mode": {

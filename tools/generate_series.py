@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a deterministic solar-cycle snapshot series for web timeline playback.
 
-Each frame is a valid solar-state-snapshot.v1 (it copies the validated base
+Each frame is a valid solar-state-snapshot.v2 (it copies the validated base
 snapshot and overrides only the cycle-varying fields), so the web app can swap a
 frame in exactly like the live snapshot. Active-region latitudes follow an
 idealized butterfly diagram (Spoerer's law): emergence latitude is high early in
@@ -59,7 +59,7 @@ def build_cycle_regions(rng: random.Random, count: int, phase: float) -> list[di
         regions.append(
             {
                 "id": idx + 1,
-                "birth_seconds": round(idx * 3600.0, 6),
+                "birth_seconds": 0.0,
                 "lat_deg": round(lat, 6),
                 "lon_deg": round(360.0 * rng.random(), 6),
                 "flux_norm": round(0.45 + 1.1 * rng.random() * (0.75 + complexity), 6),
@@ -109,6 +109,8 @@ def main() -> int:
             "lat_count": lat,
             "dlon_deg": round(360.0 / lon, 6),
             "dlat_deg": round(180.0 / lat, 6),
+            "storage_order": "lat_major_lon_contiguous",
+            "index_formula": "lat_i * lon_count + lon_i",
         }
         frame["fields"] = {
             "br_normalized": {"units": "normalized magnetic field", "values": br},
@@ -122,7 +124,9 @@ def main() -> int:
         # snapshot's seed (the cloned run block used to claim seed 42 for every frame).
         frame["run"]["seed"] = args.seed + i * 7919
         frame["run"]["activity_index"] = activity
-        frame["run"]["time_seconds"] = round(months * 30.0 * 86400.0, 1)
+        frame["run"]["steps"] = 0
+        frame["run"]["dt_hours"] = 0.0
+        frame["run"]["time_seconds"] = 0.0
         frame["run"]["mode"] = "SyntheticCycleSeries"
         frame["learning"] = {
             "cycle_stage": stage,
