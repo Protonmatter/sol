@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Protonmatter/sol/docs/solar-state-snapshot-v2.schema.json",
+  "title": "solar-state-snapshot.v2",
+  "description": "Coordinate-complete Solar Maximum Engine snapshot contract. Cross-field length, finiteness, temporal, and spacing invariants are enforced by tools/validate_snapshot.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "model_version",
+    "source_mode",
+    "operational_use",
+    "calibration_state",
+    "operational_readiness",
+    "manifest",
+    "run",
+    "coordinates",
+    "grid",
+    "layers",
+    "fields",
+    "active_regions",
+    "learning",
+    "observations",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": { "const": "solar-state-snapshot.v2" },
+    "model_version": { "type": "string", "minLength": 1 },
+    "source_mode": { "type": "string", "minLength": 1 },
+    "operational_use": { "const": false },
+    "calibration_state": { "type": "string", "minLength": 1 },
+    "operational_readiness": { "$ref": "#/$defs/operationalReadiness" },
+    "manifest": { "$ref": "#/$defs/manifest" },
+    "run": { "$ref": "#/$defs/run" },
+    "coordinates": { "$ref": "#/$defs/coordinates" },
+    "grid": { "$ref": "#/$defs/grid" },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/layer" }
+    },
+    "fields": { "$ref": "#/$defs/fields" },
+    "active_regions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/activeRegion" }
+    },
+    "learning": { "$ref": "#/$defs/learning" },
+    "observed_context": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "observations": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "warnings": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "steps", "dt_hours", "activity_index", "time_seconds", "mode"],
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0 },
+        "steps": { "type": "integer", "minimum": 0 },
+        "dt_hours": { "type": "number", "exclusiveMinimum": 0 },
+        "activity_index": { "type": "number", "minimum": 0, "maximum": 1 },
+        "time_seconds": { "type": "number", "minimum": 0 },
+        "mode": {
+          "enum": [
+            "Synthetic",
+            "Assimilation",
+            "DegradedSyntheticFallback",
+            "SyntheticFixture",
+            "SyntheticCycleSeries"
+          ]
+        }
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "frame",
+        "longitude_positive",
+        "latitude_type",
+        "reference_epoch_jd_tt",
+        "central_meridian_longitude_deg",
+        "rotation_reference_deg_per_day",
+        "observer"
+      ],
+      "properties": {
+        "frame": { "const": "heliographic_carrington" },
+        "longitude_positive": { "const": "west" },
+        "latitude_type": { "const": "heliographic" },
+        "reference_epoch_jd_tt": { "type": "number" },
+        "central_meridian_longitude_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
+        "rotation_reference_deg_per_day": { "type": "number", "exclusiveMinimum": 0 },
+        "observer": { "const": "sun_center" }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lon_count",
+        "lat_count",
+        "dlon_deg",
+        "dlat_deg",
+        "storage_order",
+        "index_formula"
+      ],
+      "properties": {
+        "lon_count": { "type": "integer", "minimum": 8 },
+        "lat_count": { "type": "integer", "minimum": 4 },
+        "dlon_deg": { "type": "number", "exclusiveMinimum": 0 },
+        "dlat_deg": { "type": "number", "exclusiveMinimum": 0 },
+        "storage_order": { "const": "lat_major_lon_contiguous" },
+        "index_formula": { "const": "lat_i * lon_count + lon_i" }
+      }
+    },
+    "layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "kind", "units"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["synthetic", "observed", "blended", "inferred", "degraded"] },
+        "units": { "type": "string", "minLength": 1 }
+      }
+    },
+    "fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["br_normalized", "br_variance_normalized", "continuum_proxy", "confidence"],
+      "properties": {
+        "br_normalized": { "$ref": "#/$defs/field" },
+        "br_variance_normalized": { "$ref": "#/$defs/field" },
+        "continuum_proxy": { "$ref": "#/$defs/field" },
+        "confidence": { "$ref": "#/$defs/field" }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["units", "values"],
+      "properties": {
+        "units": { "type": "string", "minLength": 1 },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "number" }
+        }
+      }
+    },
+    "activeRegion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "birth_seconds",
+        "lat_deg",
+        "lon_deg",
+        "flux_norm",
+        "area_msh",
+        "tilt_deg",
+        "complexity",
+        "polarity",
+        "confidence"
+      ],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1 },
+        "birth_seconds": { "type": "number", "minimum": 0 },
+        "lat_deg": { "type": "number", "minimum": -90, "maximum": 90 },
+        "lon_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
+        "flux_norm": { "type": "number", "exclusiveMinimum": 0 },
+        "area_msh": { "type": "number", "minimum": 0 },
+        "tilt_deg": { "type": "number", "minimum": -90, "maximum": 90 },
+        "complexity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "polarity": { "enum": ["leading_positive", "leading_negative"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cycle_stage", "plain_language_insight"],
+      "properties": {
+        "cycle_stage": { "type": "string", "minLength": 1 },
+        "plain_language_insight": { "type": "string", "minLength": 1 }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "model_name", "math_basis", "rendering_rule"],
+      "properties": {
+        "schema_version": { "const": "model-run-manifest.v1" },
+        "model_name": { "type": "string", "minLength": 1 },
+        "math_basis": { "type": "string", "minLength": 1 },
+        "rendering_rule": { "type": "string", "minLength": 1 }
+      }
+    },
+    "operationalReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "research_learning_ready",
+        "space_weather_operational",
+        "data_state",
+        "gates",
+        "blockers"
+      ],
+      "properties": {
+        "schema_version": { "const": "operational-readiness.v1" },
+        "status": { "type": "string", "minLength": 1 },
+        "research_learning_ready": { "const": true },
+        "space_weather_operational": { "const": false },
+        "data_state": { "$ref": "#/$defs/dataState" },
+        "gates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/gate" }
+        },
+        "blockers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "dataState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_mode", "observation_mode", "cache_state", "live_data_present"],
+      "properties": {
+        "source_mode": { "type": "string", "minLength": 1 },
+        "observation_mode": { "type": "string", "minLength": 1 },
+        "cache_state": { "type": "string", "minLength": 1 },
+        "live_data_present": { "type": "boolean" },
+        "daily_cache_present": { "type": "boolean" }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "passed"],
+      "properties": {
+        "id": {
+          "enum": [
+            "snapshot_contract",
+            "coordinate_frame_explicit",
+            "deterministic_replay",
+            "public_data_provenance",
+            "normalized_units_disclosed",
+            "calibrated_physical_units",
+            "historical_validation",
+            "swpc_product_comparison",
+            "operational_monitoring"
+          ]
+        },
+        "label": { "type": "string", "minLength": 1 },
+        "passed": { "type": "boolean" }
+      }
+    }
+  }
+}
