@@ -36,6 +36,10 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add crates/solar-ephemeris/src/lib.rs tools/generate_fixture_snapshot.py tools/generate_series.py
+          git add \
+            crates/solar-ephemeris/src/lib.rs \
+            tools/generate_fixture_snapshot.py \
+            tools/generate_series.py \
+            docs/solar-state-snapshot-v2.schema.json
           git commit -m "feat(precision): apply P0 source migrations [skip ci]"
           git push origin HEAD:precision/p0-hardening
