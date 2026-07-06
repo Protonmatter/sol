@@ -7,6 +7,7 @@ on:
     paths:
       - tools/apply_ephemeris_core_p0.py
       - tools/apply_ephemeris_serializer_p0.py
+      - tools/apply_solar_fixture_v2.py
       - .github/workflows/apply-precision-migrations.yml
 
 permissions:
@@ -25,6 +26,7 @@ jobs:
         run: |
           python tools/apply_ephemeris_core_p0.py
           python tools/apply_ephemeris_serializer_p0.py
+          python tools/apply_solar_fixture_v2.py
           cargo fmt --all
       - name: Commit generated source
         run: |
@@ -34,6 +36,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add crates/solar-ephemeris/src/lib.rs
-          git commit -m "feat(ephemeris): implement P0 coordinate and time semantics [skip ci]"
+          git add crates/solar-ephemeris/src/lib.rs tools/generate_fixture_snapshot.py tools/generate_series.py
+          git commit -m "feat(precision): apply P0 source migrations [skip ci]"
           git push origin HEAD:precision/p0-hardening
