@@ -1,0 +1,35 @@
+name: Precision diagnostics
+
+on:
+  push:
+    branches: ["precision/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  formatted-source:
+    name: Export rustfmt-normalized source
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96.0"
+          components: rustfmt
+      - name: Format source without mutating the repository
+        run: cargo fmt --all
+      - name: Package formatted files and diff
+        run: |
+          mkdir -p /tmp/precision-diagnostics
+          cp -a crates /tmp/precision-diagnostics/crates
+          git diff --binary > /tmp/precision-diagnostics/rustfmt.patch
+          cargo test --workspace --locked > /tmp/precision-diagnostics/cargo-test.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: precision-diagnostics
+          path: /tmp/precision-diagnostics
+          if-no-files-found: error
+          retention-days: 1
