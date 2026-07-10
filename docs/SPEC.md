@@ -1,21 +1,35 @@
-# Solar Maximum Engine Spec
+# Solar Maximum Engine Specification
+
+Status: current architecture contract  
+Updated: 2026-07-10
+
+Normative architectural decisions are recorded under `docs/adr/`.
 
 ## Design principle
 
-Build a state-estimation engine:
+Build an uncertainty-aware state-estimation and learning system:
 
 ```text
 reduced solar-surface physics -> forecast
 observations -> correction
 confidence model -> uncertainty-aware state
-renderer -> view
+versioned snapshots -> browser views
 ```
 
-Use progressive disclosure in the NN/g sense: the first view teaches with the Sun, stage, and one insight; equations, adapter health, raw provenance, and caveats stay behind explicit user intent in the Research panel.
+The first view teaches with the Sun, stage, and one plain-language insight. Equations, adapter health, raw provenance, accuracy limits, and caveats remain behind deliberate user intent.
 
-Scientific and source claims must stay anchored to public sources: NOAA/SWPC products for public space-weather context, Helioviewer for quicklook imagery and metadata, JPL/NAIF SPICE-style tooling for observer geometry, and NOAA WSA-Enlil as a public operational product family for future comparison context. Do not claim SpaceX equivalence or proprietary internal JPL/SpaceX algorithms.
+Scientific and source claims remain anchored to public methods and data: NOAA/SWPC products, Helioviewer quicklook imagery and metadata, IERS Earth-orientation data, JPL Horizons/DE441 validation, published analytic ephemerides, and NASA/IAU constants. Sol does not claim proprietary JPL, NOAA, or commercial forecasting algorithms.
 
-## Canonical state
+## Architecture
+
+- Rust CPU-reference engines are the mathematical source of truth.
+- The browser runs audited Rust engines through raw WebAssembly ABIs.
+- The frontend uses native ES modules and consumes immutable JSON snapshots.
+- Python tools generate deterministic fixtures, validate schemas and semantics, and perform external evidence checks.
+- The optional JPL server and local WASM ephemeris implement the same provider-neutral contract.
+- Production deployment is static and is permitted only for a commit that passed the complete CI gate.
+
+## Canonical solar state
 
 ```rust
 SolarState {
@@ -26,77 +40,124 @@ SolarState {
   br_variance,
   continuum,
   confidence,
-  active_regions
+  active_regions,
+  private deterministic transport checkpoint state
 }
 ```
 
+The private transport checkpoint makes the state at a requested target time invariant to how a caller partitions the interval. External assimilation or replacement of transport fields must explicitly rebase that checkpoint.
+
 ## Snapshot contracts
 
-The renderer consumes versioned immutable JSON snapshots:
+### `solar-state-snapshot.v2`
 
 ```text
-SolarStateSnapshotV1 {
-  schema_version = "solar-state-snapshot.v1"
+SolarStateSnapshotV2 {
+  schema_version = "solar-state-snapshot.v2"
   model_version
   source_mode
   operational_use = false
   calibration_state
-  operational_readiness
+  operational_readiness: OperationalReadinessV1
   manifest: ModelRunManifestV1
   run
+  coordinates
   grid
   layers
   fields
   active_regions
   learning
+  observed_context?
   observations: ObservationFrameV1[]
   warnings
 }
 ```
 
-`ObservationFrameV1` must preserve source URL, source mode, timestamp, source/active metadata when present, quality flags, and raw-reference metadata. `ModelRunManifestV1` must describe model basis and rendering rules. Normalized magnetic values must remain labeled as normalized until calibrated physical units are implemented.
+The v2 solar contract explicitly declares west-positive heliographic Carrington coordinates and latitude-major, longitude-contiguous storage. Every producer must pass the same JSON Schema and cross-field semantic validator.
 
-`operational_readiness` uses `operational-readiness.v1` and separates two tracks:
+### `ephemeris-snapshot.v2`
 
-1. Research/learning readiness: deterministic replay, valid snapshot contract, retained public-data provenance, and visible normalized-unit caveats.
-2. Space-weather operational readiness: blocked until calibrated physical units, historical validation, SWPC product comparison, adapter freshness monitoring, alerting, and approval evidence exist.
+Both the local Rust/WASM engine and optional JPL Horizons provider emit:
 
-## Forecast model
+```text
+EphemerisSnapshotV2 {
+  schema_version = "ephemeris-snapshot.v2"
+  engine_version
+  provider?
+  time {
+    jd_utc, jd_tai?, jd_tt, jd_ut1,
+    tai_minus_utc_seconds?, dut1_seconds, delta_t_seconds,
+    lst_deg, obliquity_deg, earth_orientation
+  }
+  observer {
+    terrestrial coordinates,
+    polar-motion-corrected coordinates,
+    elevation
+  }
+  accuracy
+  bodies[] {
+    apparent topocentric aliases ra_deg/dec_deg,
+    explicit geocentric apparent RA/Dec,
+    explicit topocentric apparent RA/Dec,
+    distance, true and refracted alt/az,
+    visibility, compass, angular size, parallax,
+    nullable rise/transit/set fields
+  }
+  warnings
+}
+```
 
-The reduced surface magnetic flux transport equation:
+Mixed v1/v2 providers are rejected. Missing values are `null`; they are never fabricated.
+
+## Operational boundary
+
+`operational-readiness.v1` separates two tracks:
+
+1. Research/learning readiness: deterministic replay, valid contracts, explicit coordinates, retained provenance, finite values, and visible normalized-unit caveats.
+2. Space-weather operational readiness: remains blocked until calibrated physical units, historical forecast validation, SWPC product comparison, adapter monitoring/alerting, and documented operational approval exist.
+
+`space_weather_operational` must remain `false` until every operational gate is satisfied. Browser copy and exports must not imply warning authority.
+
+## Solar forecast model
+
+The intended surface magnetic flux-transport equation is:
 
 ```text
 dB_r/dt =
   - Omega(theta) dB_r/dphi
   - meridional_advection
   + eta_h Laplace_s B_r
-  + S(theta,phi,t)
+  + S(theta, phi, t)
   - B_r/tau
 ```
 
-v0.1 implements:
+The current reduced model implements:
 
-1. Latitude-dependent differential rotation.
-2. Grid diffusion.
-3. Bipolar active-region source injection.
-4. Exponential decay.
-5. Continuum derivation from magnetic-field strength.
+1. Latitude-dependent differential rotation relative to the Carrington frame.
+2. Tuned flat-grid diffusion; it is not represented as an exact spherical Laplacian.
+3. Event-timed bipolar active-region source injection.
+4. Exact exponential decay over each integration segment.
+5. Continuum derivation from normalized magnetic-field strength.
+6. Fixed-clock replay of partial integration intervals for caller-partition invariance.
+
+Meridional circulation, spherical metric factors, and calibrated Gauss/Mx units are not yet implemented and must not be implied.
 
 ## Assimilation model
 
-Use diagonal Kalman-style correction:
+Sol uses a diagonal Kalman-style correction:
 
 ```text
 K_i = P_f / (P_f + R)
-x_a = x_f + freshness_gain * K_i * (y - x_f)
-P_a = (1 - K_i) * P_f
+g_i = freshness * K_i
+x_a = x_f + g_i * (y - x_f)
+P_a = (1 - g_i) * P_f
 ```
 
-This is intentionally simpler than a full Ensemble Kalman Filter. It is stable, explainable, and GPU-friendly.
+This is intentionally simpler than an Ensemble Kalman Filter. Observation provenance, quality, freshness, and active-source metadata remain attached to the resulting snapshot.
 
 ## UI contract
 
-The UI receives immutable state snapshots and must label each rendered layer as one of:
+Rendered layers are labeled as exactly one of:
 
 - synthetic
 - observed
@@ -104,23 +165,34 @@ The UI receives immutable state snapshots and must label each rendered layer as 
 - inferred
 - degraded
 
-Progressive disclosure requirements:
+Current top-level destinations are:
 
-1. Default view: solar disk, cycle stage, source mode, and one plain-language insight.
-2. User-selected layers: continuum, magnetogram, confidence, and active-region markers.
-3. Mode views: cycle lab, region explorer, weather sandbox, geometry viewer, schema harness, and classroom journey.
-4. Research panel: equations, calibration state, layer labels, observation state, adapter health, and caveats.
-5. Readiness display: first-screen research/data state, with detailed gates and blockers behind the research panel.
+1. **The Sun** — newcomer front door, wavelength views, overlays, cycle playback, impact learning, and research disclosure.
+2. **My Sky** — observer-centric local horizon using the on-device engine by default.
+3. **Solar System** — 3-D and top-down heliocentric views with progressive detail.
 
-## High-value applications
+Canvas views require keyboard-accessible or textual alternatives. The tour is modal, focus-trapped, and skippable. The remote ephemeris provider is disabled unless explicitly configured and requires location-sharing consent.
 
-1. Solar-cycle learning lab: stage progression, active-region growth, rotation, uncertainty, and explainable equations.
-2. Research-grade model bench: deterministic seeded simulations, immutable snapshots, provenance labels, exportable scenario state, and golden tests.
-3. Space-weather impact explorer: SWPC-backed Kp, F10.7, GOES/X-ray, and real-time solar-wind context mapped to satellite, GNSS, HF radio, aurora, and grid-risk learning panels.
-4. Incident replay / classroom kiosk: public event context replay with progressive disclosure from visual story to raw data and equations.
+## Validation and release gates
+
+A releasable commit must pass:
+
+- Rust workspace tests.
+- rustfmt and Clippy with warnings denied.
+- both WASM builds.
+- solar and ephemeris JSON Schema validation.
+- cross-field semantic validation.
+- deterministic fixture and cycle-series regeneration.
+- local/server ephemeris provider compatibility tests.
+- EOP prediction-window freshness.
+- static web/module validation and content-derived cache stamping.
+- independent external Horizons evidence workflow where network access is available.
+
+GitHub Pages deploys only the exact `master` SHA whose CI workflow succeeded.
 
 ## Non-goals
 
-- No full 3D radiative MHD in this build.
-- No operational flare/CME forecasting claims.
-- No ML output promoted to truth without source/confidence metadata.
+- No full 3-D radiative MHD.
+- No operational flare, CME, navigation, occultation, mission-safety, or warning claims.
+- No ML output promoted to truth without source, uncertainty, and validation metadata.
+- No claim that deep-time apparent topocentric accuracy equals near-present accuracy.
