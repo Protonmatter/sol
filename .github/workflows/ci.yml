@@ -90,6 +90,9 @@ jobs:
       - name: Operational-readiness gate
         run: python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 
+      - name: Regenerate deterministic solar-cycle series
+        run: python tools/generate_series.py
+
       - name: Series frames validate (solar-state-snapshot.v2)
         shell: bash
         run: |
@@ -98,6 +101,13 @@ jobs:
             python tools/validate_snapshot.py "$file" || status=1
           done
           exit $status
+
+      - name: Series regeneration is byte-stable
+        shell: bash
+        run: |
+          cp -a apps/web/data/series /tmp/series-a
+          python tools/generate_series.py
+          diff -qr /tmp/series-a apps/web/data/series
 
       - name: Deterministic solar fixture regeneration
         shell: bash
