@@ -130,7 +130,85 @@ jobs:
       - name: Generate on-device ephemeris v2 fixture
         run: cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v2.json
 
-      - name: Validate ephemeris v2 schema and numerical semantics
+      - name: Ephemeris v2 structural schema
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import jsonschema_min
+          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          schema = json.loads(Path("docs/ephemeris-snapshot-v2.schema.json").read_text(encoding="utf-8"))
+          errors = jsonschema_min.validate(data, schema)
+          if errors:
+              print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Ephemeris v2 finite-number safety
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import validate_ephemeris_snapshot as validator
+          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          errors = validator.finite_tree(data)
+          if errors:
+              print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Ephemeris v2 time and EOP semantics
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import validate_ephemeris_snapshot as validator
+          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          time = data.get("time") or {}
+          observer = data.get("observer") or {}
+          accuracy = data.get("accuracy") or {}
+          errors = validator.check_time(time)
+          for key in (
+              "terrestrial_lat_deg", "terrestrial_lon_deg_east",
+              "polar_motion_corrected_lat_deg", "polar_motion_corrected_lon_deg_east", "elev_m",
+          ):
+              if key in observer and not validator.finite(observer[key]):
+                  errors.append(f"observer.{key} must be finite")
+          eop = time.get("earth_orientation") or {}
+          if accuracy.get("eop_status") != eop.get("quality"):
+              errors.append("accuracy.eop_status must equal time.earth_orientation.quality")
+          if eop.get("quality") == "degraded":
+              if "degraded" not in str(accuracy.get("class", "")).lower():
+                  errors.append("degraded EOP requires a degraded accuracy class")
+              if not any("degraded" in str(item).lower() for item in data.get("warnings", [])):
+                  errors.append("degraded EOP requires an explicit warning")
+          if errors:
+              print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Ephemeris v2 body and event semantics
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import validate_ephemeris_snapshot as validator
+          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          errors = validator.check_bodies(data.get("bodies", []), data.get("time"), data.get("observer"))
+          if errors:
+              print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Validate complete ephemeris v2 contract
         run: python tools/validate_ephemeris_snapshot.py /tmp/ephemeris-v2.json
 
       - name: Validate browser ephemeris v2 runtime guard
