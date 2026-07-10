@@ -49,6 +49,10 @@ pub struct SolarState {
     pub(crate) transport_anchor_seconds: f64,
     pub(crate) transport_anchor_br: Field2D,
     pub(crate) transport_anchor_confidence: Field2D,
+    // Every source event at or before this cutoff is already represented by the
+    // checkpoint fields. The initial value is negative infinity because a new
+    // state has not yet injected events scheduled at t=0.
+    pub(crate) transport_anchor_event_cutoff_seconds: f64,
 }
 
 impl SolarState {
@@ -68,16 +72,19 @@ impl SolarState {
             transport_anchor_seconds: 0.0,
             transport_anchor_br: br,
             transport_anchor_confidence: confidence,
+            transport_anchor_event_cutoff_seconds: f64::NEG_INFINITY,
         }
     }
 
     /// Rebase the deterministic transport checkpoint after an external state
-    /// correction such as data assimilation. Call this immediately after
-    /// replacing `br` or `confidence` outside the transport solver.
+    /// correction such as data assimilation. This declares that all source
+    /// events at or before `time_seconds` are already represented in the
+    /// corrected fields. Add newly scheduled events after calling this method.
     pub fn synchronize_transport_anchor(&mut self) {
         self.transport_anchor_seconds = self.time_seconds;
         self.transport_anchor_br = self.br.clone();
         self.transport_anchor_confidence = self.confidence.clone();
+        self.transport_anchor_event_cutoff_seconds = self.time_seconds;
     }
 
     pub fn recompute_continuum_from_br(&mut self) {
@@ -106,6 +113,8 @@ mod tests {
         assert_eq!(state.br.values.len(), grid.len());
         assert_eq!(state.continuum.values.len(), grid.len());
         assert_eq!(state.transport_anchor_br.values.len(), grid.len());
+        assert!(state.transport_anchor_event_cutoff_seconds.is_infinite());
+        assert!(state.transport_anchor_event_cutoff_seconds.is_sign_negative());
     }
 
     #[test]
@@ -119,5 +128,6 @@ mod tests {
         assert_eq!(state.transport_anchor_seconds, 123.0);
         assert_eq!(state.transport_anchor_br.values[0], 0.75);
         assert_eq!(state.transport_anchor_confidence.values[0], 0.9);
+        assert_eq!(state.transport_anchor_event_cutoff_seconds, 123.0);
     }
 }
