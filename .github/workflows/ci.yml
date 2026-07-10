@@ -84,6 +84,9 @@ jobs:
       - name: Python syntax
         run: python -m compileall -q tools services/ephemeris-server
 
+      - name: EOP prediction coverage
+        run: python tools/check_eop_freshness.py --minimum-days 90
+
       - name: Solar snapshot contract (v2)
         run: python tools/validate_snapshot.py apps/web/data/latest-state.json
 
