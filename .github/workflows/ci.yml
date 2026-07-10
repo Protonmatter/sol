@@ -127,11 +127,14 @@ jobs:
             exit 1
           fi
 
-      - name: Generate and validate on-device ephemeris v2
-        run: |
-          cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v2.json
-          python tools/validate_ephemeris_snapshot.py /tmp/ephemeris-v2.json
-          node tools/test_ephemeris_contract.mjs /tmp/ephemeris-v2.json
+      - name: Generate on-device ephemeris v2 fixture
+        run: cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v2.json
+
+      - name: Validate ephemeris v2 schema and numerical semantics
+        run: python tools/validate_ephemeris_snapshot.py /tmp/ephemeris-v2.json
+
+      - name: Validate browser ephemeris v2 runtime guard
+        run: node tools/test_ephemeris_contract.mjs /tmp/ephemeris-v2.json
 
       - name: Validate optional DE441 provider contract offline
         run: python services/ephemeris-server/test_server.py -v
