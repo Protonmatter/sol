@@ -41,12 +41,28 @@ jobs:
         run: cargo fmt --all
       - name: Rust workspace tests
         run: cargo test --workspace --locked
-      - name: Rust Clippy
+      - name: Capture Clippy diagnostics
         shell: bash
         run: |
-          if ! cargo clippy --workspace --all-targets --locked -- -D warnings > /tmp/clippy.log 2>&1; then
+          set +e
+          cargo clippy --workspace --all-targets --locked -- -D warnings > /tmp/clippy.log 2>&1
+          echo $? > /tmp/clippy.status
+          exit 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rise-set-clippy-diagnostic
+          path: |
+            /tmp/clippy.log
+            /tmp/clippy.status
+          if-no-files-found: error
+          retention-days: 1
+      - name: Enforce Clippy result
+        shell: bash
+        run: |
+          status=$(cat /tmp/clippy.status)
+          if [[ "$status" != "0" ]]; then
             cat /tmp/clippy.log
-            exit 1
+            exit "$status"
           fi
       - name: JavaScript syntax
         run: node --check apps/web/js/sky.js
