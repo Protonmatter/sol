@@ -174,7 +174,11 @@ def check_bodies(bodies: list[Any], time: Any, observer: Any) -> list[str]:
             errors.append(f"{prefix}.above_horizon disagrees with refracted altitude")
         if body.get("distance_km") is None and body.get("kind") != "star":
             errors.append(f"{prefix}.distance_km may be null only for catalogue stars")
-        if body.get("kind") == "star":
+
+        # Only catalogue stars are modeled at infinite distance. The Sun is also
+        # astrophysically a star, but it has finite distance and therefore real
+        # topocentric parallax; it must not be forced to alias geocentric RA/Dec.
+        if body.get("kind") == "star" and body.get("distance_km") is None:
             geo_ra = body.get("geocentric_apparent_ra_deg")
             geo_dec = body.get("geocentric_apparent_dec_deg")
             if all(finite(value) for value in (geo_ra, top_ra)) and not close(float(geo_ra), float(top_ra), 1.0e-10):
