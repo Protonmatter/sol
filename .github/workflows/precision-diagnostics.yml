@@ -3,6 +3,7 @@ name: Precision diagnostics
 on:
   push:
     branches: ["precision/**"]
+  pull_request:
   workflow_dispatch:
 
 permissions:
