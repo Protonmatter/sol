@@ -70,7 +70,10 @@ mod tests {
             grid.coordinates.frame,
             SolarCoordinateFrame::HeliographicCarrington
         );
-        assert_eq!(grid.coordinates.longitude_positive, LongitudeDirection::West);
+        assert_eq!(
+            grid.coordinates.longitude_positive,
+            LongitudeDirection::West
+        );
         assert_eq!(grid.idx(1, 2), 74);
     }
 }

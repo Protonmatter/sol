@@ -114,7 +114,9 @@ mod tests {
         assert_eq!(state.continuum.values.len(), grid.len());
         assert_eq!(state.transport_anchor_br.values.len(), grid.len());
         assert!(state.transport_anchor_event_cutoff_seconds.is_infinite());
-        assert!(state.transport_anchor_event_cutoff_seconds.is_sign_negative());
+        assert!(state
+            .transport_anchor_event_cutoff_seconds
+            .is_sign_negative());
     }
 
     #[test]

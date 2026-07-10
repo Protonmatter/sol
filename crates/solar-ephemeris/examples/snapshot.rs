@@ -13,5 +13,8 @@ fn main() {
     let lat_deg = parse(2, 42.36);
     let lon_deg_east = parse(3, -71.06);
     let elev_m = parse(4, 0.0);
-    print!("{}", sky_snapshot_json(jd_utc, lat_deg, lon_deg_east, elev_m));
+    print!(
+        "{}",
+        sky_snapshot_json(jd_utc, lat_deg, lon_deg_east, elev_m)
+    );
 }

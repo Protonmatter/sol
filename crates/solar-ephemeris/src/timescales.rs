@@ -128,9 +128,18 @@ mod tests {
     #[test]
     fn leap_second_boundaries_are_complete() {
         assert_eq!(tai_minus_utc_seconds(gregorian_to_jd(1971, 12, 31)), None);
-        assert_eq!(tai_minus_utc_seconds(gregorian_to_jd(1972, 1, 1)), Some(10.0));
-        assert_eq!(tai_minus_utc_seconds(gregorian_to_jd(2016, 12, 31)), Some(36.0));
-        assert_eq!(tai_minus_utc_seconds(gregorian_to_jd(2017, 1, 1)), Some(37.0));
+        assert_eq!(
+            tai_minus_utc_seconds(gregorian_to_jd(1972, 1, 1)),
+            Some(10.0)
+        );
+        assert_eq!(
+            tai_minus_utc_seconds(gregorian_to_jd(2016, 12, 31)),
+            Some(36.0)
+        );
+        assert_eq!(
+            tai_minus_utc_seconds(gregorian_to_jd(2017, 1, 1)),
+            Some(37.0)
+        );
     }
 
     #[test]

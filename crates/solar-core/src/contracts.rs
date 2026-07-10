@@ -263,13 +263,11 @@ fn validate_snapshot_inputs(state: &SolarState, request: &SnapshotRequest<'_>) {
         assert!(field.values.iter().all(|value| value.is_finite()));
     }
     assert!(state.br_variance.values.iter().all(|value| *value >= 0.0));
-    assert!(
-        state
-            .confidence
-            .values
-            .iter()
-            .all(|value| (0.0..=1.0).contains(value))
-    );
+    assert!(state
+        .confidence
+        .values
+        .iter()
+        .all(|value| (0.0..=1.0).contains(value)));
     for region in &state.active_regions {
         assert!(region.birth_seconds.is_finite() && region.birth_seconds >= 0.0);
         assert!(region.birth_seconds <= state.time_seconds + 1.0e-6);
@@ -352,9 +350,8 @@ fn operational_readiness_json(out: &mut String, request: &SnapshotRequest<'_>) {
             .iter()
             .any(|token| source_lower.contains(token));
     let provenance_present = observations.is_none()
-        || observations.is_some_and(|raw| {
-            raw.contains("\"provenance\"") && raw.contains("\"source\"")
-        });
+        || observations
+            .is_some_and(|raw| raw.contains("\"provenance\"") && raw.contains("\"source\""));
 
     out.push_str("  \"operational_readiness\": {\n");
     json_string_field(out, 2, "schema_version", "operational-readiness.v1", true);
@@ -388,7 +385,9 @@ fn operational_readiness_json(out: &mut String, request: &SnapshotRequest<'_>) {
     out.push_str("      \"Calibrated physical magnetic units are not implemented.\",\n");
     out.push_str("      \"No historical validation skill score is present.\",\n");
     out.push_str("      \"No on-call alerting, SLA, or operational authority is configured.\",\n");
-    out.push_str("      \"Outputs are not approved for warning, mission safety, or fleet operations.\"\n");
+    out.push_str(
+        "      \"Outputs are not approved for warning, mission safety, or fleet operations.\"\n",
+    );
     out.push_str("    ]\n");
     out.push_str("  },\n");
 }
@@ -458,9 +457,7 @@ fn push_escaped(out: &mut String, value: &str) {
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
-            control if control.is_control() => {
-                out.push_str(&format!("\\u{:04x}", control as u32))
-            }
+            control if control.is_control() => out.push_str(&format!("\\u{:04x}", control as u32)),
             other => out.push(other),
         }
     }

@@ -87,16 +87,14 @@ impl SyntheticSolarModel {
                 break;
             }
             out.push(self.sample_region(birth_seconds));
-            self.next_birth_seconds =
-                Some(birth_seconds + self.sample_interarrival_seconds(rate));
+            self.next_birth_seconds = Some(birth_seconds + self.sample_interarrival_seconds(rate));
         }
         self.generated_until_seconds = Some(end_seconds);
         out
     }
 
     fn effective_rate_per_second(&self) -> f64 {
-        self.config.birth_rate_per_day as f64 * self.config.activity_index as f64
-            / SECONDS_PER_DAY
+        self.config.birth_rate_per_day as f64 * self.config.activity_index as f64 / SECONDS_PER_DAY
     }
 
     fn sample_interarrival_seconds(&mut self, rate_per_second: f64) -> f64 {
@@ -111,9 +109,8 @@ impl SyntheticSolarModel {
                 + self.config.latitude_sigma_deg * self.rng.normal_approx());
         let lon = 360.0 * self.rng.next_f32();
         let complexity = (0.35 + 0.65 * self.rng.next_f32()).clamp(0.0, 1.0);
-        let flux = self.config.mean_flux_norm
-            * (0.55 + 1.20 * self.rng.next_f32())
-            * (0.75 + complexity);
+        let flux =
+            self.config.mean_flux_norm * (0.55 + 1.20 * self.rng.next_f32()) * (0.75 + complexity);
 
         let hale = if hemi > 0.0 {
             Polarity::LeadingPositive
@@ -193,7 +190,11 @@ mod tests {
         let grid = SolarGrid::new(72, 36);
         let mut model = SyntheticSolarModel::new(SyntheticConfig::default());
         let births = model.generate_births(0.0, SECONDS_PER_DAY * 60.0, &grid);
-        assert!(births.len() > 40, "need a decent sample, got {}", births.len());
+        assert!(
+            births.len() > 40,
+            "need a decent sample, got {}",
+            births.len()
+        );
         let obeys = births
             .iter()
             .filter(|ar| {
@@ -215,7 +216,9 @@ mod tests {
             activity_index: f32::NAN,
             ..SyntheticConfig::default()
         });
-        assert!(model.generate_births(0.0, SECONDS_PER_DAY, &grid).is_empty());
+        assert!(model
+            .generate_births(0.0, SECONDS_PER_DAY, &grid)
+            .is_empty());
     }
 
     #[test]

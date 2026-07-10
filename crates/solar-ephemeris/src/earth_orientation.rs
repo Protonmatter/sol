@@ -124,17 +124,11 @@ fn rapid_interpolated(mjd: f64) -> EarthOrientation {
 fn bulletin_prediction(mjd: f64) -> EarthOrientation {
     let a = 2.0 * PI * (mjd - RAPID_END_MJD) / 365.25;
     let c = 2.0 * PI * (mjd - RAPID_END_MJD) / 435.0;
-    let xp = 0.1443 + 0.0966 * a.cos() + 0.0955 * a.sin()
-        - 0.0259 * c.cos()
-        - 0.0720 * c.sin();
-    let yp = 0.3687 + 0.0899 * a.cos() - 0.0868 * a.sin()
-        - 0.0720 * c.cos()
-        + 0.0259 * c.sin();
-    let besselian_year =
-        1900.0 + (mjd + 2_400_000.5 - 2_415_020.313_52) / 365.242_198_781;
+    let xp = 0.1443 + 0.0966 * a.cos() + 0.0955 * a.sin() - 0.0259 * c.cos() - 0.0720 * c.sin();
+    let yp = 0.3687 + 0.0899 * a.cos() - 0.0868 * a.sin() - 0.0720 * c.cos() + 0.0259 * c.sin();
+    let besselian_year = 1900.0 + (mjd + 2_400_000.5 - 2_415_020.313_52) / 365.242_198_781;
     let phase = 2.0 * PI * besselian_year;
-    let ut2_minus_ut1 = 0.022 * phase.sin() - 0.012 * phase.cos()
-        - 0.006 * (2.0 * phase).sin()
+    let ut2_minus_ut1 = 0.022 * phase.sin() - 0.012 * phase.cos() - 0.006 * (2.0 * phase).sin()
         + 0.007 * (2.0 * phase).cos();
     let dut1 = -0.0018 - 0.00008 * (mjd - 61_231.0) - ut2_minus_ut1;
     let days = mjd - RAPID_END_MJD;
@@ -180,10 +174,7 @@ mod tests {
     fn coverage_boundary_is_declared_and_testable() {
         let final_supported = 2_400_000.5 + PREDICTION_END_MJD;
         assert_eq!(for_jd_utc(final_supported).quality, Quality::Predicted);
-        assert_eq!(
-            for_jd_utc(final_supported + 1.0).quality,
-            Quality::Degraded
-        );
+        assert_eq!(for_jd_utc(final_supported + 1.0).quality, Quality::Degraded);
         assert_eq!(coverage_days_remaining(final_supported), 0.0);
     }
 }
