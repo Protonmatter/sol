@@ -42,7 +42,12 @@ jobs:
       - name: Rust workspace tests
         run: cargo test --workspace --locked
       - name: Rust Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        shell: bash
+        run: |
+          if ! cargo clippy --workspace --all-targets --locked -- -D warnings > /tmp/clippy.log 2>&1; then
+            cat /tmp/clippy.log
+            exit 1
+          fi
       - name: JavaScript syntax
         run: node --check apps/web/js/sky.js
       - name: Static web validation
