@@ -46,7 +46,11 @@ impl EarthOrientation {
     }
 }
 
-const SOURCE: &str = "IERS Bulletin A Vol. XXXIX No. 027, 2026-07-02";
+pub const EOP_SOURCE: &str = "IERS Bulletin A Vol. XXXIX No. 027, 2026-07-02";
+pub const RAPID_START_MJD: f64 = 61_217.0;
+pub const RAPID_END_MJD: f64 = 61_223.0;
+pub const PREDICTION_END_MJD: f64 = 61_588.0;
+
 const RAPID: [(f64, f64, f64, f64); 7] = [
     (61_217.0, 0.011_613, 0.202_50, 0.393_65),
     (61_218.0, 0.012_088, 0.203_20, 0.392_68),
@@ -59,13 +63,17 @@ const RAPID: [(f64, f64, f64, f64); 7] = [
 
 pub fn for_jd_utc(jd_utc: f64) -> EarthOrientation {
     let mjd = jd_utc - 2_400_000.5;
-    if (RAPID[0].0..=RAPID[RAPID.len() - 1].0).contains(&mjd) {
+    if (RAPID_START_MJD..=RAPID_END_MJD).contains(&mjd) {
         return rapid_interpolated(mjd);
     }
-    if (61_223.0..=61_588.0).contains(&mjd) {
+    if (RAPID_END_MJD..=PREDICTION_END_MJD).contains(&mjd) {
         return bulletin_prediction(mjd);
     }
     EarthOrientation::degraded("no bundled IERS EOP sample covers this UTC epoch")
+}
+
+pub fn coverage_days_remaining(jd_utc: f64) -> f64 {
+    PREDICTION_END_MJD - (jd_utc - 2_400_000.5)
 }
 
 /// First-order IERS polar-motion correction from terrestrial geodetic latitude
@@ -98,40 +106,44 @@ fn rapid_interpolated(mjd: f64) -> EarthOrientation {
     let lower = upper.saturating_sub(1);
     let (m0, d0, x0, y0) = RAPID[lower];
     let (m1, d1, x1, y1) = RAPID[upper];
-    let fraction = if m1 == m0 { 0.0 } else { (mjd - m0) / (m1 - m0) };
+    let fraction = if m1 == m0 {
+        0.0
+    } else {
+        (mjd - m0) / (m1 - m0)
+    };
     EarthOrientation {
         dut1_seconds: d0 + fraction * (d1 - d0),
         xp_arcsec: x0 + fraction * (x1 - x0),
         yp_arcsec: y0 + fraction * (y1 - y0),
         dut1_uncertainty_seconds: 0.000_062,
-        source: SOURCE,
+        source: EOP_SOURCE,
         quality: Quality::Rapid,
     }
 }
 
 fn bulletin_prediction(mjd: f64) -> EarthOrientation {
-    let a = 2.0 * PI * (mjd - 61_223.0) / 365.25;
-    let c = 2.0 * PI * (mjd - 61_223.0) / 435.0;
+    let a = 2.0 * PI * (mjd - RAPID_END_MJD) / 365.25;
+    let c = 2.0 * PI * (mjd - RAPID_END_MJD) / 435.0;
     let xp = 0.1443 + 0.0966 * a.cos() + 0.0955 * a.sin()
         - 0.0259 * c.cos()
         - 0.0720 * c.sin();
     let yp = 0.3687 + 0.0899 * a.cos() - 0.0868 * a.sin()
         - 0.0720 * c.cos()
         + 0.0259 * c.sin();
-    let besselian_year = 1900.0
-        + (mjd + 2_400_000.5 - 2_415_020.313_52) / 365.242_198_781;
+    let besselian_year =
+        1900.0 + (mjd + 2_400_000.5 - 2_415_020.313_52) / 365.242_198_781;
     let phase = 2.0 * PI * besselian_year;
     let ut2_minus_ut1 = 0.022 * phase.sin() - 0.012 * phase.cos()
         - 0.006 * (2.0 * phase).sin()
         + 0.007 * (2.0 * phase).cos();
     let dut1 = -0.0018 - 0.00008 * (mjd - 61_231.0) - ut2_minus_ut1;
-    let days = mjd - 61_223.0;
+    let days = mjd - RAPID_END_MJD;
     EarthOrientation {
         dut1_seconds: dut1,
         xp_arcsec: xp,
         yp_arcsec: yp,
         dut1_uncertainty_seconds: (0.001 + 0.0002 * days).min(0.1),
-        source: SOURCE,
+        source: EOP_SOURCE,
         quality: Quality::Predicted,
     }
 }
@@ -142,7 +154,7 @@ mod tests {
 
     #[test]
     fn exact_rapid_sample_is_preserved() {
-        let eop = for_jd_utc(2_400_000.5 + 61_223.0);
+        let eop = for_jd_utc(2_400_000.5 + RAPID_END_MJD);
         assert_eq!(eop.quality, Quality::Rapid);
         assert!((eop.dut1_seconds - 0.014_873).abs() < 1.0e-12);
         assert!((eop.xp_arcsec - 0.205_47).abs() < 1.0e-12);
@@ -162,5 +174,16 @@ mod tests {
         assert_eq!(eop.quality, Quality::Degraded);
         assert_eq!(eop.dut1_seconds, 0.0);
         assert_eq!(eop.dut1_uncertainty_seconds, 0.9);
+    }
+
+    #[test]
+    fn coverage_boundary_is_declared_and_testable() {
+        let final_supported = 2_400_000.5 + PREDICTION_END_MJD;
+        assert_eq!(for_jd_utc(final_supported).quality, Quality::Predicted);
+        assert_eq!(
+            for_jd_utc(final_supported + 1.0).quality,
+            Quality::Degraded
+        );
+        assert_eq!(coverage_days_remaining(final_supported), 0.0);
     }
 }
