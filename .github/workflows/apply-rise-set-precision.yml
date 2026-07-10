@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: apply-precision-migrations
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   apply:
