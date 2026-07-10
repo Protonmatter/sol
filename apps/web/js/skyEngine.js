@@ -120,6 +120,16 @@ export async function checkServerHealth(base = SERVER_BASE) {
   }
 }
 
+function discloseBrowserAugmentation(snapshot) {
+  const provider = snapshot.provider;
+  if (!provider || provider.tier !== "server") return snapshot;
+  const disclosure =
+    "Browser view may augment server body positions with on-device rise/transit/set events and catalogue stars.";
+  provider.source = `${provider.source}; on-device Sol augmentation is identified in snapshot warnings`;
+  if (!snapshot.warnings.includes(disclosure)) snapshot.warnings.push(disclosure);
+  return snapshot;
+}
+
 export async function fetchServerSky(unixSeconds, lat, lonEast, elev, base = SERVER_BASE) {
   if (!base) throw new Error("JPL DE441 server is not configured for this deployment");
   if (!ensureServerConsent()) throw new Error("remote ephemeris request was not authorized");
@@ -141,7 +151,7 @@ export async function fetchServerSky(unixSeconds, lat, lonEast, elev, base = SER
     if (!response.ok) throw new Error(`ephemeris server HTTP ${response.status}`);
     const snapshot = await response.json();
     if (snapshot.error) throw new Error(snapshot.error);
-    return assertEphemerisSnapshotV2(snapshot);
+    return discloseBrowserAugmentation(assertEphemerisSnapshotV2(snapshot));
   } finally {
     clearTimeout(timer);
   }
