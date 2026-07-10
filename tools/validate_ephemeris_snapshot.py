@@ -30,6 +30,19 @@ def close(left: float, right: float, tolerance: float) -> bool:
     return abs(left - right) <= tolerance
 
 
+def local_solar_day_start(jd_utc: float, lon_east_deg: float) -> float:
+    """Mirror solar-ephemeris' local mean-solar-day boundary.
+
+    Rise/transit/set are defined over the observer's longitude-based mean-solar
+    day, not over a ±12-hour window around the query instant. Keeping the
+    validator on the same explicit convention prevents valid events west/east
+    of Greenwich from being rejected merely because the query is near UTC
+    midnight.
+    """
+    offset_days = lon_east_deg / 360.0
+    return math.floor(jd_utc - 0.5 + offset_days) + 0.5 - offset_days
+
+
 def validate(data: Any) -> list[str]:
     schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     errors = list(jsonschema_min.validate(data, schema))
@@ -73,7 +86,7 @@ def semantic_checks(data: Any) -> list[str]:
 
     bodies = data.get("bodies")
     if isinstance(bodies, list):
-        errors.extend(check_bodies(bodies, time))
+        errors.extend(check_bodies(bodies, time, observer))
     return errors
 
 
@@ -131,7 +144,7 @@ def check_time(time: dict[str, Any]) -> list[str]:
     return errors
 
 
-def check_bodies(bodies: list[Any], time: Any) -> list[str]:
+def check_bodies(bodies: list[Any], time: Any, observer: Any) -> list[str]:
     errors: list[str] = []
     names = [body.get("name") for body in bodies if isinstance(body, dict)]
     if len(names) != len(set(names)):
@@ -141,6 +154,10 @@ def check_bodies(bodies: list[Any], time: Any) -> list[str]:
         errors.append(f"missing major bodies: {', '.join(missing)}")
 
     jd_utc = time.get("jd_utc") if isinstance(time, dict) else None
+    lon_east = observer.get("terrestrial_lon_deg_east") if isinstance(observer, dict) else None
+    day_start = None
+    if finite(jd_utc) and finite(lon_east):
+        day_start = local_solar_day_start(float(jd_utc), float(lon_east))
     for index, body in enumerate(bodies):
         if not isinstance(body, dict):
             continue
@@ -166,9 +183,12 @@ def check_bodies(bodies: list[Any], time: Any) -> list[str]:
                 errors.append(f"{prefix} infinite-distance star must have equal geocentric/topocentric Dec")
         for event_name in ("rise_jd", "transit_jd", "set_jd"):
             event = body.get(event_name)
-            if event is not None and finite(event) and finite(jd_utc):
-                if abs(float(event) - float(jd_utc)) > 0.5001:
-                    errors.append(f"{prefix}.{event_name} lies outside the declared 24-hour window")
+            if event is not None and finite(event) and day_start is not None:
+                tolerance = 2.0e-7
+                if not day_start - tolerance <= float(event) <= day_start + 1.0 + tolerance:
+                    errors.append(
+                        f"{prefix}.{event_name} lies outside the observer local mean-solar day"
+                    )
 
     moon = next((body for body in bodies if isinstance(body, dict) and body.get("name") == "Moon"), None)
     if moon:
