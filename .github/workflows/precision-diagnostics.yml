@@ -2,12 +2,12 @@ name: Precision diagnostics
 
 on:
   push:
-    branches: ["precision/**"]
+    branches: ["precision/p0-hardening"]
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   formatted-source:
@@ -16,19 +16,34 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.event.pull_request.head.sha }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96.0"
           components: rustfmt
-      - name: Format source without mutating the repository
+      - name: Format source
         run: cargo fmt --all
-      - name: Package formatted files and diff
+      - name: Commit formatter output on the precision branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/precision/p0-hardening'
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates
+          git commit -m "style: apply rustfmt to precision hardening"
+          git push origin HEAD:precision/p0-hardening
+      - name: Package formatted files and test evidence
+        if: always()
         run: |
           mkdir -p /tmp/precision-diagnostics
           cp -a crates /tmp/precision-diagnostics/crates
           git diff --binary > /tmp/precision-diagnostics/rustfmt.patch
           cargo test --workspace --locked > /tmp/precision-diagnostics/cargo-test.log 2>&1 || true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: precision-diagnostics
           path: /tmp/precision-diagnostics
