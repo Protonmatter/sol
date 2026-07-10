@@ -2,27 +2,84 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/Protonmatter/sol/docs/ephemeris-snapshot-v2.schema.json",
   "title": "ephemeris-snapshot.v2",
+  "description": "Provider-neutral apparent-place contract shared by the on-device WASM and optional JPL DE441 server tiers.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "engine_version", "time", "observer", "accuracy", "bodies", "warnings"],
+  "required": [
+    "schema_version",
+    "engine_version",
+    "time",
+    "observer",
+    "accuracy",
+    "bodies",
+    "warnings"
+  ],
   "properties": {
-    "schema_version": { "const": "ephemeris-snapshot.v2" },
-    "engine_version": { "type": "string", "minLength": 1 },
-    "time": { "$ref": "#/$defs/time" },
-    "observer": { "$ref": "#/$defs/observer" },
-    "accuracy": { "$ref": "#/$defs/accuracy" },
+    "schema_version": {
+      "const": "ephemeris-snapshot.v2"
+    },
+    "engine_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider": {
+      "$ref": "#/$defs/provider"
+    },
+    "time": {
+      "$ref": "#/$defs/time"
+    },
+    "observer": {
+      "$ref": "#/$defs/observer"
+    },
+    "accuracy": {
+      "$ref": "#/$defs/accuracy"
+    },
     "bodies": {
       "type": "array",
       "minItems": 9,
-      "items": { "$ref": "#/$defs/body" }
+      "items": {
+        "$ref": "#/$defs/body"
+      }
     },
     "warnings": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "$defs": {
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tier",
+        "source",
+        "ephemeris",
+        "endpoint_contract"
+      ],
+      "properties": {
+        "tier": {
+          "enum": [
+            "client",
+            "server"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ephemeris": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoint_contract": {
+          "const": "ephemeris-snapshot.v2"
+        }
+      }
+    },
     "time": {
       "type": "object",
       "additionalProperties": false,
@@ -39,28 +96,83 @@
         "earth_orientation"
       ],
       "properties": {
-        "jd_utc": { "type": "number" },
-        "jd_tai": { "type": ["number", "null"] },
-        "jd_tt": { "type": "number" },
-        "jd_ut1": { "type": "number" },
-        "tai_minus_utc_seconds": { "type": ["number", "null"] },
-        "dut1_seconds": { "type": "number", "minimum": -0.9, "maximum": 0.9 },
-        "delta_t_seconds": { "type": "number" },
-        "lst_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
-        "obliquity_deg": { "type": "number", "minimum": 20, "maximum": 26 },
-        "earth_orientation": { "$ref": "#/$defs/earthOrientation" }
+        "jd_utc": {
+          "type": "number"
+        },
+        "jd_tai": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "jd_tt": {
+          "type": "number"
+        },
+        "jd_ut1": {
+          "type": "number"
+        },
+        "tai_minus_utc_seconds": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "dut1_seconds": {
+          "type": "number",
+          "minimum": -0.9,
+          "maximum": 0.9
+        },
+        "delta_t_seconds": {
+          "type": "number"
+        },
+        "lst_deg": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "obliquity_deg": {
+          "type": "number",
+          "minimum": 20,
+          "maximum": 26
+        },
+        "earth_orientation": {
+          "$ref": "#/$defs/earthOrientation"
+        }
       }
     },
     "earthOrientation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "quality", "xp_arcsec", "yp_arcsec", "dut1_uncertainty_seconds"],
+      "required": [
+        "source",
+        "quality",
+        "xp_arcsec",
+        "yp_arcsec",
+        "dut1_uncertainty_seconds"
+      ],
       "properties": {
-        "source": { "type": "string", "minLength": 1 },
-        "quality": { "enum": ["rapid", "predicted", "degraded", "pre_utc_ut1_proxy"] },
-        "xp_arcsec": { "type": "number" },
-        "yp_arcsec": { "type": "number" },
-        "dut1_uncertainty_seconds": { "type": "number", "minimum": 0 }
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quality": {
+          "enum": [
+            "rapid",
+            "predicted",
+            "degraded",
+            "pre_utc_ut1_proxy"
+          ]
+        },
+        "xp_arcsec": {
+          "type": "number"
+        },
+        "yp_arcsec": {
+          "type": "number"
+        },
+        "dut1_uncertainty_seconds": {
+          "type": "number",
+          "minimum": 0
+        }
       }
     },
     "observer": {
@@ -74,11 +186,31 @@
         "elev_m"
       ],
       "properties": {
-        "terrestrial_lat_deg": { "type": "number", "minimum": -90, "maximum": 90 },
-        "terrestrial_lon_deg_east": { "type": "number", "minimum": -360, "maximum": 360 },
-        "polar_motion_corrected_lat_deg": { "type": "number", "minimum": -90, "maximum": 90 },
-        "polar_motion_corrected_lon_deg_east": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
-        "elev_m": { "type": "number", "minimum": -500, "maximum": 100000 }
+        "terrestrial_lat_deg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "terrestrial_lon_deg_east": {
+          "type": "number",
+          "minimum": -360,
+          "maximum": 360
+        },
+        "polar_motion_corrected_lat_deg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "polar_motion_corrected_lon_deg_east": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "elev_m": {
+          "type": "number",
+          "minimum": -12000,
+          "maximum": 100000
+        }
       }
     },
     "accuracy": {
@@ -94,13 +226,38 @@
         "non_goal"
       ],
       "properties": {
-        "class": { "type": "string", "minLength": 1 },
-        "coordinate_semantics": { "type": "string", "minLength": 1 },
-        "time_scales": { "type": "string", "minLength": 1 },
-        "eop_status": { "enum": ["rapid", "predicted", "degraded", "pre_utc_ut1_proxy"] },
-        "validation_scope": { "type": "string", "minLength": 1 },
-        "valid_epoch": { "type": "string", "minLength": 1 },
-        "non_goal": { "type": "string", "minLength": 1 }
+        "class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coordinate_semantics": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time_scales": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eop_status": {
+          "enum": [
+            "rapid",
+            "predicted",
+            "degraded",
+            "pre_utc_ut1_proxy"
+          ]
+        },
+        "validation_scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "valid_epoch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "non_goal": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "body": {
@@ -130,28 +287,116 @@
         "transit_alt_deg"
       ],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "kind": { "enum": ["star", "moon", "planet"] },
-        "coordinate_frame": { "const": "true_equator_and_equinox_of_date" },
-        "ra_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
-        "dec_deg": { "type": "number", "minimum": -90, "maximum": 90 },
-        "geocentric_apparent_ra_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
-        "geocentric_apparent_dec_deg": { "type": "number", "minimum": -90, "maximum": 90 },
-        "topocentric_apparent_ra_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
-        "topocentric_apparent_dec_deg": { "type": "number", "minimum": -90, "maximum": 90 },
-        "distance_km": { "type": ["number", "null"], "minimum": 0 },
-        "alt_deg": { "type": "number", "minimum": -90, "maximum": 90 },
-        "az_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
-        "alt_refracted_deg": { "type": "number", "minimum": -90, "maximum": 91 },
-        "above_horizon": { "type": "boolean" },
-        "compass": { "type": "string", "minLength": 1 },
-        "angular_size_arcsec": { "type": "number", "minimum": 0 },
-        "horizontal_parallax_deg": { "type": "number", "minimum": 0 },
-        "magnitude": { "type": "number" },
-        "rise_jd": { "type": ["number", "null"] },
-        "transit_jd": { "type": ["number", "null"] },
-        "set_jd": { "type": ["number", "null"] },
-        "transit_alt_deg": { "type": "number", "minimum": -90, "maximum": 90 }
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "star",
+            "moon",
+            "planet"
+          ]
+        },
+        "coordinate_frame": {
+          "const": "true_equator_and_equinox_of_date"
+        },
+        "ra_deg": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "dec_deg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "geocentric_apparent_ra_deg": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "geocentric_apparent_dec_deg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "topocentric_apparent_ra_deg": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "topocentric_apparent_dec_deg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "distance_km": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "alt_deg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "az_deg": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "alt_refracted_deg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 91
+        },
+        "above_horizon": {
+          "type": "boolean"
+        },
+        "compass": {
+          "type": "string",
+          "minLength": 1
+        },
+        "angular_size_arcsec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "horizontal_parallax_deg": {
+          "type": "number",
+          "minimum": 0
+        },
+        "magnitude": {
+          "type": "number"
+        },
+        "rise_jd": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "transit_jd": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "set_jd": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "transit_alt_deg": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -90,
+          "maximum": 90
+        }
       }
     }
   }
