@@ -1,14 +1,11 @@
 name: Deploy web app (GitHub Pages)
 
-# Publishes the dependency-free static app in apps/web/ to GitHub Pages.
-# The WASM engines are built from source here (apps/web/pkg/ is gitignored, not committed) so the
-# deployed binary always matches the committed Rust; textures are likewise gitignored and fetched
-# best-effort at deploy time (the renderer falls back to procedural if absent).
-#
-# One-time setup: repo Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
+# Production publishes only the exact master SHA that completed the full CI workflow.
+# A manual dispatch remains available for an explicitly reviewed recovery deployment.
 on:
-  push:
-    branches: [master]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -16,17 +13,23 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment; don't cancel an in-progress publish.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build static site
+    name: Build tested static site
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'master')
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -35,14 +38,26 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build the WASM engines from source (solar-wasm + solar-ephemeris)
+      - name: Build WASM engines from the tested source
         run: python tools/build_wasm.py
 
-      - name: Fetch NASA/ESA surface textures (best-effort)
-        run: python tools/fetch_textures.py || echo "::warning::textures unavailable — renderer will use its procedural fallback"
+      # Remote surface maps are deliberately opt-in because upstream mutable URLs do not
+      # produce a byte-reproducible deployment. The renderer has a deterministic procedural
+      # fallback. Set repository variable SOL_FETCH_REMOTE_TEXTURES=true only for a reviewed
+      # deployment where that trade-off is accepted.
+      - name: Fetch optional remote textures
+        if: vars.SOL_FETCH_REMOTE_TEXTURES == 'true'
+        continue-on-error: true
+        run: python tools/fetch_textures.py --force
 
-      - name: Stamp cache-bust tokens
+      - name: Stamp content-derived cache tokens
         run: python tools/build_web.py
+
+      - name: Validate built artifact
+        run: |
+          python tools/validate_web_static.py
+          test -s apps/web/pkg/solar_wasm.wasm
+          test -s apps/web/pkg/solar_ephemeris.wasm
 
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
@@ -50,9 +65,10 @@ jobs:
           path: apps/web
 
   deploy:
-    name: Deploy to GitHub Pages
+    name: Deploy tested SHA
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
