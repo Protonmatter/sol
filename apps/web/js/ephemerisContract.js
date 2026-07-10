@@ -62,6 +62,16 @@ function bodyAt(value, index) {
   if (body.distance_km === null && body.kind !== "star") {
     fail(`${path}.distance_km`, "may be null only for catalogue stars");
   }
+  // Catalogue stars are represented at infinite distance. The Sun is also a
+  // star, but has finite distance and measurable topocentric parallax.
+  if (body.kind === "star" && body.distance_km === null) {
+    if (Math.abs(body.geocentric_apparent_ra_deg - body.topocentric_apparent_ra_deg) > 1e-9) {
+      fail(`${path}.topocentric_apparent_ra_deg`, "catalogue star must equal geocentric RA");
+    }
+    if (Math.abs(body.geocentric_apparent_dec_deg - body.topocentric_apparent_dec_deg) > 1e-9) {
+      fail(`${path}.topocentric_apparent_dec_deg`, "catalogue star must equal geocentric Dec");
+    }
+  }
   rangeAt(body.alt_deg, `${path}.alt_deg`, -90, 90);
   rangeAt(body.az_deg, `${path}.az_deg`, 0, 360, true);
   rangeAt(body.alt_refracted_deg, `${path}.alt_refracted_deg`, -90, 91);
