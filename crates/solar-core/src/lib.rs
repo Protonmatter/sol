@@ -42,21 +42,42 @@ pub struct SolarState {
     pub continuum: Field2D,
     pub confidence: Field2D,
     pub active_regions: Vec<ActiveRegion>,
+
+    // The transport solver replays the final partial integration interval from
+    // the last fixed-step checkpoint. This makes the result at a target time
+    // independent of how callers partition the same interval.
+    pub(crate) transport_anchor_seconds: f64,
+    pub(crate) transport_anchor_br: Field2D,
+    pub(crate) transport_anchor_confidence: Field2D,
 }
 
 impl SolarState {
     pub fn new(grid: SolarGrid, mode: SolarMode) -> Self {
         let n = grid.len();
+        let br = Field2D::filled(n, 0.0);
+        let confidence = Field2D::filled(n, 0.25);
         Self {
             time_seconds: 0.0,
             mode,
             grid,
-            br: Field2D::filled(n, 0.0),
+            br: br.clone(),
             br_variance: Field2D::filled(n, 1.0),
             continuum: Field2D::filled(n, 1.0),
-            confidence: Field2D::filled(n, 0.25),
+            confidence: confidence.clone(),
             active_regions: Vec::new(),
+            transport_anchor_seconds: 0.0,
+            transport_anchor_br: br,
+            transport_anchor_confidence: confidence,
         }
+    }
+
+    /// Rebase the deterministic transport checkpoint after an external state
+    /// correction such as data assimilation. Call this immediately after
+    /// replacing `br` or `confidence` outside the transport solver.
+    pub fn synchronize_transport_anchor(&mut self) {
+        self.transport_anchor_seconds = self.time_seconds;
+        self.transport_anchor_br = self.br.clone();
+        self.transport_anchor_confidence = self.confidence.clone();
     }
 
     pub fn recompute_continuum_from_br(&mut self) {
@@ -84,5 +105,19 @@ mod tests {
         let state = SolarState::new(grid.clone(), SolarMode::Synthetic);
         assert_eq!(state.br.values.len(), grid.len());
         assert_eq!(state.continuum.values.len(), grid.len());
+        assert_eq!(state.transport_anchor_br.values.len(), grid.len());
+    }
+
+    #[test]
+    fn external_correction_can_rebase_transport_checkpoint() {
+        let grid = SolarGrid::new(8, 4);
+        let mut state = SolarState::new(grid, SolarMode::Assimilation);
+        state.time_seconds = 123.0;
+        state.br.values.fill(0.75);
+        state.confidence.values.fill(0.9);
+        state.synchronize_transport_anchor();
+        assert_eq!(state.transport_anchor_seconds, 123.0);
+        assert_eq!(state.transport_anchor_br.values[0], 0.75);
+        assert_eq!(state.transport_anchor_confidence.values[0], 0.9);
     }
 }
