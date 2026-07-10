@@ -41,22 +41,28 @@ pub fn advance_flux_transport(state: &mut SolarState, dt_seconds: f64, cfg: &Flu
     assert!(cfg.source_sigma_deg.is_finite() && cfg.source_sigma_deg > 0.0);
     assert!(state.time_seconds.is_finite() && state.time_seconds >= 0.0);
     assert!(state.transport_anchor_seconds.is_finite());
-    assert!(state.transport_anchor_seconds <= state.time_seconds + time_tolerance(state.time_seconds));
+    assert!(
+        state.transport_anchor_seconds
+            <= state.time_seconds + time_tolerance(state.time_seconds)
+    );
 
     let target = state.time_seconds + dt_seconds;
     assert!(target.is_finite());
 
     // Discard the previously evaluated partial interval and replay it from the
-    // last fixed-step checkpoint. This is the key partition-invariance rule.
+    // last fixed-step checkpoint. This is the partition-invariance rule.
     state.time_seconds = state.transport_anchor_seconds;
     state.br = state.transport_anchor_br.clone();
     state.confidence = state.transport_anchor_confidence.clone();
 
-    let anchor = state.transport_anchor_seconds;
+    let event_cutoff = state.transport_anchor_event_cutoff_seconds;
     let mut events: Vec<ActiveRegion> = state
         .active_regions
         .iter()
-        .filter(|region| region.birth_seconds >= anchor && region.birth_seconds < target)
+        .filter(|region| {
+            region.birth_seconds > event_cutoff + time_tolerance(event_cutoff)
+                && region.birth_seconds < target
+        })
         .cloned()
         .collect();
     events.sort_by(|left, right| {
@@ -91,26 +97,27 @@ pub fn advance_flux_transport(state: &mut SolarState, dt_seconds: f64, cfg: &Flu
             event_index += 1;
         }
 
-        if is_fixed_boundary(state.time_seconds, cfg.max_step_seconds) {
-            state.transport_anchor_seconds = state.time_seconds;
-            state.transport_anchor_br = state.br.clone();
-            state.transport_anchor_confidence = state.confidence.clone();
+        if is_fixed_boundary(state.time_seconds, cfg.max_step_seconds)
+            && state.time_seconds
+                > state.transport_anchor_seconds
+                    + time_tolerance(state.transport_anchor_seconds)
+        {
+            save_transport_anchor(state);
         }
 
-        // The only zero-length case is an event exactly at the current time.
-        // If no event remains at this time, force progress to the next boundary.
+        // The only intended zero-length segment is an event exactly at the
+        // current time. If no event remains there, force progress.
+        let event_remains_at_current = events.get(event_index).is_some_and(|event| {
+            (event.birth_seconds - current).abs() <= time_tolerance(current)
+        });
         if (state.time_seconds - current).abs() <= time_tolerance(current)
-            && events.get(event_index).is_none_or(|event| {
-                (event.birth_seconds - current).abs() > time_tolerance(current)
-            })
+            && !event_remains_at_current
         {
             let forced_end = target.min(next_boundary);
             assert!(forced_end > current);
             advance_operator_split(state, forced_end - current, cfg);
             if is_fixed_boundary(state.time_seconds, cfg.max_step_seconds) {
-                state.transport_anchor_seconds = state.time_seconds;
-                state.transport_anchor_br = state.br.clone();
-                state.transport_anchor_confidence = state.confidence.clone();
+                save_transport_anchor(state);
             }
         }
     }
@@ -120,8 +127,19 @@ pub fn advance_flux_transport(state: &mut SolarState, dt_seconds: f64, cfg: &Flu
     state.recompute_continuum_from_br();
 }
 
+fn save_transport_anchor(state: &mut SolarState) {
+    state.transport_anchor_seconds = state.time_seconds;
+    state.transport_anchor_br = state.br.clone();
+    state.transport_anchor_confidence = state.confidence.clone();
+    state.transport_anchor_event_cutoff_seconds = state.time_seconds;
+}
+
 fn time_tolerance(time_seconds: f64) -> f64 {
-    1.0e-9_f64.max(time_seconds.abs() * 1.0e-13)
+    if time_seconds.is_finite() {
+        1.0e-9_f64.max(time_seconds.abs() * 1.0e-13)
+    } else {
+        0.0
+    }
 }
 
 fn next_fixed_boundary(time_seconds: f64, step_seconds: f64) -> f64 {
@@ -150,9 +168,9 @@ fn advance_operator_split(state: &mut SolarState, dt_seconds: f64, cfg: &FluxTra
 
 fn retire_regions(state: &mut SolarState) {
     let now = state.time_seconds;
-    state
-        .active_regions
-        .retain(|region| now - region.birth_seconds <= ACTIVE_REGION_LIFETIME_DAYS * SECONDS_PER_DAY);
+    state.active_regions.retain(|region| {
+        now - region.birth_seconds <= ACTIVE_REGION_LIFETIME_DAYS * SECONDS_PER_DAY
+    });
 }
 
 fn rotate_field(state: &mut SolarState, dt_seconds: f64) {
@@ -311,10 +329,21 @@ mod tests {
     fn assert_fields_close(left: &SolarState, right: &SolarState, tolerance: f32) {
         assert_eq!(left.time_seconds, right.time_seconds);
         for (a, b) in left.br.values.iter().zip(&right.br.values) {
-            assert!((a - b).abs() <= tolerance, "partition mismatch: {a} vs {b}");
+            assert!(
+                (a - b).abs() <= tolerance,
+                "partition mismatch: {a} vs {b}"
+            );
         }
-        for (a, b) in left.confidence.values.iter().zip(&right.confidence.values) {
-            assert!((a - b).abs() <= tolerance, "confidence mismatch: {a} vs {b}");
+        for (a, b) in left
+            .confidence
+            .values
+            .iter()
+            .zip(&right.confidence.values)
+        {
+            assert!(
+                (a - b).abs() <= tolerance,
+                "confidence mismatch: {a} vs {b}"
+            );
         }
     }
 
@@ -356,7 +385,9 @@ mod tests {
     fn long_call_matches_hourly_partition_with_midstep_birth() {
         let grid = SolarGrid::new(72, 36);
         let mut one_call = SolarState::new(grid.clone(), SolarMode::Synthetic);
-        one_call.active_regions.push(test_region(1, 6.5 * 3600.0));
+        one_call
+            .active_regions
+            .push(test_region(1, 6.5 * 3600.0));
         let mut hourly = one_call.clone();
         let cfg = FluxTransportConfig::default();
 
@@ -374,10 +405,10 @@ mod tests {
         let mut one_call = SolarState::new(grid.clone(), SolarMode::Synthetic);
         one_call.br.values[grid.idx(18, 12)] = 0.8;
         one_call.confidence.values[grid.idx(18, 12)] = 0.9;
+        one_call.synchronize_transport_anchor();
         one_call.active_regions.push(test_region(1, 0.0));
         one_call.active_regions.push(test_region(2, 4_217.0));
         one_call.active_regions.push(test_region(3, 9_001.0));
-        one_call.synchronize_transport_anchor();
         let mut partitioned = one_call.clone();
         let cfg = FluxTransportConfig::default();
         let total = 12_345.0;
