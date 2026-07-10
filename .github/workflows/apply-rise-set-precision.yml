@@ -37,13 +37,16 @@ jobs:
           python tools/apply_rise_set_precision.py
           python tools/apply_sky_timezone_copy.py
           python tools/build_web.py
-      - name: Format and validate the complete workspace
-        run: |
-          cargo fmt --all
-          cargo test --workspace --locked
-          cargo clippy --workspace --all-targets --locked -- -D warnings
-          node --check apps/web/js/sky.js
-          python tools/validate_web_static.py
+      - name: Rust format
+        run: cargo fmt --all
+      - name: Rust workspace tests
+        run: cargo test --workspace --locked
+      - name: Rust Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: JavaScript syntax
+        run: node --check apps/web/js/sky.js
+      - name: Static web validation
+        run: python tools/validate_web_static.py
       - name: Commit exact validated source
         run: |
           if git diff --quiet -- crates/solar-ephemeris/src/lib.rs apps/web; then
