@@ -27,6 +27,14 @@ jobs:
       - name: Generate fixture
         run: cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v2.json
 
+      - name: Publish generated fixture
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ephemeris-v2-diagnostic
+          path: /tmp/ephemeris-v2.json
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Body names, coordinate aliases, distances, and lunar parallax
         run: |
           python - <<'PY'
