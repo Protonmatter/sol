@@ -78,12 +78,11 @@ jobs:
               echo "::error file=$file::JavaScript syntax error"
               status=1
             fi
-          done < <(find apps/web tools -name '*.js' -o -name '*.mjs' -print0)
+          done < <(find apps/web tools \( -name '*.js' -o -name '*.mjs' \) -print0)
           exit $status
 
       - name: Python syntax
-        run: |
-          python -m compileall -q tools services/ephemeris-server
+        run: python -m compileall -q tools services/ephemeris-server
 
       - name: Solar snapshot contract (v2)
         run: python tools/validate_snapshot.py apps/web/data/latest-state.json
