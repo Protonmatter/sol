@@ -36,45 +36,25 @@ jobs:
         run: |
           python tools/apply_rise_set_precision.py
           python tools/apply_sky_timezone_copy.py
+          python tools/apply_clippy_fix.py
           python tools/build_web.py
       - name: Rust format
         run: cargo fmt --all
       - name: Rust workspace tests
         run: cargo test --workspace --locked
-      - name: Capture Clippy diagnostics
-        shell: bash
-        run: |
-          set +e
-          cargo clippy --workspace --all-targets --locked -- -D warnings > /tmp/clippy.log 2>&1
-          echo $? > /tmp/clippy.status
-          exit 0
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: rise-set-clippy-diagnostic
-          path: |
-            /tmp/clippy.log
-            /tmp/clippy.status
-          if-no-files-found: error
-          retention-days: 1
-      - name: Enforce Clippy result
-        shell: bash
-        run: |
-          status=$(cat /tmp/clippy.status)
-          if [[ "$status" != "0" ]]; then
-            cat /tmp/clippy.log
-            exit "$status"
-          fi
+      - name: Rust Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: JavaScript syntax
         run: node --check apps/web/js/sky.js
       - name: Static web validation
         run: python tools/validate_web_static.py
       - name: Commit exact validated source
         run: |
-          if git diff --quiet -- crates/solar-ephemeris/src/lib.rs apps/web; then
+          if git diff --quiet -- crates/solar-core/src/flux_transport.rs crates/solar-ephemeris/src/lib.rs apps/web; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add crates/solar-ephemeris/src/lib.rs apps/web
+          git add crates/solar-core/src/flux_transport.rs crates/solar-ephemeris/src/lib.rs apps/web
           git commit -m "fix(precision): correct event semantics and timezone disclosure"
           git push origin HEAD:precision/p0-hardening
