@@ -2,10 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, "redesign/**"]
+    branches: [master, "precision/**", "redesign/**"]
   pull_request:
 
-# Newer pushes to the same ref cancel in-flight runs.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -17,37 +16,34 @@ jobs:
   test:
     name: Rust tests (workspace)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: cargo test --workspace
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
 
   lint:
     name: Rust lint (fmt + clippy)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      # Pinned so the clippy lint set is deterministic — a newer stable can add lints that would
-      # fail `-D warnings` on code that was clean before. Bump deliberately.
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.96.0"
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-
-      # All Rust in the workspace is hand-written now — the ephemeris coefficient tables moved to
-      # packed binary blobs under crates/solar-ephemeris/data/ — so a plain format check suffices.
       - name: rustfmt
         run: cargo fmt --all --check
-
       - name: clippy (-D warnings)
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   wasm:
     name: WASM build (wasm32-unknown-unknown)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -56,12 +52,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build solar-wasm + solar-ephemeris
         run: |
-          cargo build --release -p solar-wasm --target wasm32-unknown-unknown
-          cargo build --release -p solar-ephemeris --target wasm32-unknown-unknown
+          cargo build --release --locked -p solar-wasm --target wasm32-unknown-unknown
+          cargo build --release --locked -p solar-ephemeris --target wasm32-unknown-unknown
 
   web:
-    name: Web (JS syntax + validators + cache-bust sync)
+    name: Web and contract validation
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -70,42 +67,40 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
 
-      - name: JS syntax (node --check, ESM)
+      - name: JavaScript syntax (native ESM)
         shell: bash
         run: |
           status=0
-          while IFS= read -r -d '' f; do
-            if ! node --check "$f"; then
-              echo "::error file=$f::JavaScript syntax error"
+          while IFS= read -r -d '' file; do
+            if ! node --check "$file"; then
+              echo "::error file=$file::JavaScript syntax error"
               status=1
             fi
-          done < <(find apps/web -name '*.js' -not -path '*/pkg/*' -print0)
+          done < <(find apps/web tools -name '*.js' -o -name '*.mjs' -print0)
           exit $status
 
-      - name: Static web validation
-        run: python tools/validate_web_static.py
+      - name: Python syntax
+        run: |
+          python -m compileall -q tools services/ephemeris-server
 
-      - name: Snapshot contract (solar-state-snapshot.v1)
+      - name: Solar snapshot contract (v2)
         run: python tools/validate_snapshot.py apps/web/data/latest-state.json
 
       - name: Operational-readiness gate
         run: python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 
-      - name: Series frames validate (solar-state-snapshot.v1)
+      - name: Series frames validate (solar-state-snapshot.v2)
         shell: bash
         run: |
           status=0
-          for f in apps/web/data/series/frame-*.json; do
-            python tools/validate_snapshot.py "$f" || status=1
+          for file in apps/web/data/series/frame-*.json; do
+            python tools/validate_snapshot.py "$file" || status=1
           done
           exit $status
 
-      # Turns "deterministic, versioned snapshots" from a claim into an enforced property:
-      # the generator must be byte-stable run-to-run, and regenerating the committed
-      # fixture-mode observations must produce exactly the committed bytes (platform-stable
-      # thanks to POSIX display paths + newline-normalized byte counts + .gitattributes).
-      - name: Determinism gate (fixture regeneration is byte-stable)
+      - name: Deterministic solar fixture regeneration
         shell: bash
         run: |
           python tools/generate_fixture_snapshot.py --out /tmp/det-a.json --observations-out tests/fixtures/live-swpc-normalized.json
@@ -113,17 +108,27 @@ jobs:
           cmp /tmp/det-a.json /tmp/det-b.json
           python tools/validate_snapshot.py /tmp/det-a.json
           if ! git diff --quiet -- tests/fixtures/live-swpc-normalized.json; then
-            echo "::error::regenerating tests/fixtures/live-swpc-normalized.json changed it — generator/fixture drift; regenerate and commit"
+            echo "::error::fixture generator drifted from the committed observation fixture"
             git --no-pager diff --stat -- tests/fixtures/live-swpc-normalized.json
             exit 1
           fi
 
-      - name: Cache-bust tokens in sync
+      - name: Generate and validate on-device ephemeris v2
+        run: |
+          cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v2.json
+          python tools/validate_ephemeris_snapshot.py /tmp/ephemeris-v2.json
+          node tools/test_ephemeris_contract.mjs /tmp/ephemeris-v2.json
+
+      - name: Validate optional DE441 provider contract offline
+        run: python services/ephemeris-server/test_server.py -v
+
+      - name: Build static web cache tokens deterministically
         shell: bash
         run: |
           python tools/build_web.py
-          if ! git diff --quiet; then
-            echo "::error::?v= cache-bust tokens are stale — run 'python tools/build_web.py' and commit the result."
-            git --no-pager diff --stat
-            exit 1
-          fi
+          cp -a apps/web /tmp/web-stamped
+          python tools/build_web.py
+          diff -qr /tmp/web-stamped apps/web
+
+      - name: Static web validation after build stamping
+        run: python tools/validate_web_static.py
