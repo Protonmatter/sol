@@ -1,7 +1,7 @@
 // ES module: loads the solar-ephemeris engine (WebAssembly) and validates
 // provider-neutral ephemeris-snapshot.v2 responses from both local and server tiers.
 
-import { assertEphemerisSnapshotV2 } from "./ephemerisContract.js?v=f456703b32";
+import { assertEphemerisSnapshotV2 } from "./ephemerisContract.js?v=9b90a76ff4";
 
 let wasmExports = null;
 let loadPromise = null;
@@ -9,7 +9,7 @@ let loadPromise = null;
 export function loadSkyEngine() {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
-    const response = await fetch("pkg/solar_ephemeris.wasm?v=f456703b32", { cache: "no-store" });
+    const response = await fetch("pkg/solar_ephemeris.wasm?v=9b90a76ff4", { cache: "no-store" });
     if (!response.ok) throw new Error(`ephemeris wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});

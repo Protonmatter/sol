@@ -1,10 +1,10 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { store } from "./store.js?v=f456703b32";
-import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=f456703b32";
-import { STARS, CONSTELLATIONS } from "./celestial.js?v=f456703b32";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=f456703b32";
+import { store } from "./store.js?v=9b90a76ff4";
+import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=9b90a76ff4";
+import { STARS, CONSTELLATIONS } from "./celestial.js?v=9b90a76ff4";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=9b90a76ff4";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
@@ -109,11 +109,18 @@ function setLocLabel() {
   if (node) node.textContent = `${observer.label}: ${observer.lat.toFixed(2)}°, ${observer.lon.toFixed(2)}° E.`;
 }
 
+function browserTimeZoneLabel() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "device timezone"; }
+  catch (_) { return "device timezone"; }
+}
+
 function setTimeLabel() {
   const node = document.getElementById("skyTimeLabel");
-  if (node) node.textContent = skyState.chosenUnix == null
+  if (!node) return;
+  const stateText = skyState.chosenUnix == null
     ? "Live — updating every minute."
     : "Frozen at the chosen time. Press Now to return to live.";
+  node.textContent = `${stateText} Rise, transit, and set times use ${browserTimeZoneLabel()}, the browser/device timezone.`;
 }
 
 function toLocalInput(unix) {
@@ -493,7 +500,11 @@ function drawTrajectory(ctx, g, b, lstNow, lat) {
 function jdToLocal(jd) {
   if (jd == null || !Number.isFinite(jd)) return "--";
   const unix = (jd - 2440587.5) * 86400;
-  return new Date(unix * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(unix * 1000).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
 }
 
 function rowFor(b, titleText, detailText) {

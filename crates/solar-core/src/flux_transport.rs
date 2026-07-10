@@ -415,8 +415,10 @@ mod tests {
         one_call.br.values.fill(1.0);
         one_call.synchronize_transport_anchor();
         let mut hourly = one_call.clone();
-        let mut cfg = FluxTransportConfig::default();
-        cfg.diffusion = 0.0;
+        let cfg = FluxTransportConfig {
+            diffusion: 0.0,
+            ..FluxTransportConfig::default()
+        };
 
         advance_flux_transport(&mut one_call, 30.0 * SECONDS_PER_DAY, &cfg);
         for _ in 0..(30 * 24) {

@@ -1,7 +1,7 @@
 // Glossary tooltips: plain-language help on hover, keyboard focus, and tap.
 
-import { store } from "./store.js?v=f456703b32";
-import { GLOSSARY } from "./config.js?v=f456703b32";
+import { store } from "./store.js?v=9b90a76ff4";
+import { GLOSSARY } from "./config.js?v=9b90a76ff4";
 
 const termTip = document.getElementById("termTip");
 let tipTarget = null; // the trigger currently described by the tip, for aria cleanup
