@@ -137,11 +137,15 @@ A reproducible solar-maximum state from a solar-cycle activity index, a bipolar
 active-region birth model, differential rotation, surface flux transport, and
 probabilistic flare/CME hazard fields.
 
-### Assimilation primitive (mode not yet wired)
-A diagonal Kalman-style update primitive ships in `solar-core` with the contract's
-`Assimilation` mode reserved for it, but **no production path calls it yet** — the CLI
-cannot attach observation frames to a run, and every emitted snapshot is honest about
-being synthetic. Wiring observations → grid → this update is the next engine milestone:
+### Assimilation mode (scalar activity, v1 scope)
+`solar-cli simulate --observations <report.json>` corrects the scalar activity forecast
+with the daily pipeline's observed activity index through the diagonal Kalman-style
+update below — freshness-damped from the report's own staleness evaluation, and gated on
+attributable provenance (frames without a source are disclosed, not embedded). The
+snapshot is emitted in `Assimilation` mode with the evidence frames attached; the **Br
+grid remains synthetic and says so** — spatial assimilation waits for real magnetogram
+frames (ROADMAP v0.4). Unusable observations leave the run `Synthetic` with a warning
+saying why; degraded inputs never inflate the mode. See ADR 0005.
 
 ```text
 forecast  x_f = M(x_t)

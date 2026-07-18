@@ -1,7 +1,16 @@
 # ADR 0005: Wiring the assimilation primitive into a real mode
 
-- Status: Proposed (design complete; implementation requires a Rust toolchain session)
+- Status: **Accepted and implemented** (same day, once a local toolchain was installed)
 - Date: 2026-07-18
+- Implementation amendments to the original design, discovered against the real data:
+  1. The observed scalar comes from the report's own `observed_context.activity_index`
+     (the frames carry provenance, not numerics — no separate CLI flag was needed, and
+     the multi-proxy derivation stays owned by the Python pipeline that documents it).
+  2. Only frames with attributable `provenance.source` are embedded as evidence — the
+     snapshot contract requires it, and it is right to: evidence you cannot attribute
+     is not evidence. Unattributed frames are counted and disclosed in a warning.
+  3. Freshness gain = the fresh fraction of `signal_freshness` at report generation
+     (deterministic from file content alone; the clock is never consulted).
 
 ## Context
 

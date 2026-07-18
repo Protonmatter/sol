@@ -105,6 +105,19 @@ jobs:
       - name: Operational-readiness gate
         run: python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 
+      # ADR 0005 round-trip: the Rust CLI reads a real observation report, corrects the
+      # activity forecast through the Kalman primitive, and the emitted Assimilation-mode
+      # snapshot must pass the shared Python validators — Rust reading, Rust writing,
+      # Python judging, one contract.
+      - name: Assimilation round-trip (Rust -> shared validators)
+        shell: bash
+        run: |
+          cargo run --quiet --locked -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 \
+            --observations apps/web/data/latest-observations.json --out /tmp/assimilated.json
+          grep -q '"mode": "Assimilation"' /tmp/assimilated.json
+          python tools/validate_snapshot.py /tmp/assimilated.json
+          python tools/validate_operational_readiness.py /tmp/assimilated.json
+
       - name: Regenerate deterministic solar-cycle series
         run: python tools/generate_series.py
 
