@@ -827,7 +827,15 @@ pub extern "C" fn body_track(
     dt_seconds: f64,
     n: u32,
 ) -> *const u8 {
-    let out = body_track_json(body_idx, lat_deg, lon_deg_east, elev_m, unix0, dt_seconds, n);
+    let out = body_track_json(
+        body_idx,
+        lat_deg,
+        lon_deg_east,
+        elev_m,
+        unix0,
+        dt_seconds,
+        n,
+    );
     RESULT.with(|cell| {
         *cell.borrow_mut() = out.into_bytes();
         cell.borrow().as_ptr()
@@ -955,7 +963,10 @@ mod tests {
         // α Cen (μ ≈ 3.7″/yr) accumulates ~1.6′ in the 26 years since J2000 — the exact
         // drift the catalogue carried as error before proper motion was applied. Deneb
         // (μ ≈ 2.7 mas/yr) must stay put at this scale.
-        let alpha_cen = stars::STARS.iter().find(|s| s.name == "Rigil Kentaurus").unwrap();
+        let alpha_cen = stars::STARS
+            .iter()
+            .find(|s| s.name == "Rigil Kentaurus")
+            .unwrap();
         let (ra, dec) = star_catalog_place_of_date(alpha_cen, 26.0);
         let dra_arc = (ra - alpha_cen.ra_deg) * alpha_cen.dec_deg.to_radians().cos();
         let ddec = dec - alpha_cen.dec_deg;
@@ -978,7 +989,15 @@ mod tests {
 
     #[test]
     fn abi_body_track_with_hostile_inputs_stays_valid_json() {
-        let json = body_track_json(9999, f64::NAN, f64::INFINITY, f64::NAN, f64::NAN, f64::NAN, 5);
+        let json = body_track_json(
+            9999,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NAN,
+            f64::NAN,
+            f64::NAN,
+            5,
+        );
         assert!(json.starts_with('[') && json.ends_with(']'));
         assert!(!json.contains("NaN") && !json.contains("inf"));
         // Sane inputs still produce the full sample count.

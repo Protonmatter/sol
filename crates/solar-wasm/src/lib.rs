@@ -121,7 +121,11 @@ mod tests {
         // on the max 1024x512 grid, and a well-formed snapshot out the other side.
         let json = run_simulation(42, 1, 1.0, 0.9, u32::MAX, u32::MAX);
         assert!(json.contains("\"schema_version\": \"solar-state-snapshot.v2\""));
-        assert!(!json.contains("NaN") && !json.contains("inf"));
+        // Scrub legitimate prose before the non-finite scan: the layer kind "inferred"
+        // contains "inf" (found the hard way — the first version of this test failed
+        // on perfectly valid output).
+        let scrubbed = json.replace("inferred", "");
+        assert!(!scrubbed.contains("NaN") && !scrubbed.contains("inf"));
     }
 
     #[test]

@@ -80,13 +80,11 @@ pub fn delta_t_seconds(year: f64) -> f64 {
         -2.79 + 1.494119 * t - 0.0598939 * t * t + 0.0061966 * t.powi(3) - 0.000197 * t.powi(4)
     } else if (1860.0..1900.0).contains(&year) {
         let t = year - 1860.0;
-        7.62 + 0.5737 * t - 0.251754 * t * t + 0.01680668 * t.powi(3)
-            - 0.0004473624 * t.powi(4)
+        7.62 + 0.5737 * t - 0.251754 * t * t + 0.01680668 * t.powi(3) - 0.0004473624 * t.powi(4)
             + t.powi(5) / 233174.0
     } else if (1800.0..1860.0).contains(&year) {
         let t = year - 1800.0;
-        13.72 - 0.332447 * t + 0.0068612 * t * t + 0.0041116 * t.powi(3)
-            - 0.00037436 * t.powi(4)
+        13.72 - 0.332447 * t + 0.0068612 * t * t + 0.0041116 * t.powi(3) - 0.00037436 * t.powi(4)
             + 0.0000121272 * t.powi(5)
             - 0.0000001699 * t.powi(6)
             + 0.000000000875 * t.powi(7)
@@ -104,8 +102,7 @@ pub fn delta_t_seconds(year: f64) -> f64 {
             + 0.0083572073 * u.powi(6)
     } else if (-500.0..500.0).contains(&year) {
         let u = year / 100.0;
-        10583.6 - 1014.41 * u + 33.78311 * u * u - 5.952053 * u.powi(3)
-            - 0.1798452 * u.powi(4)
+        10583.6 - 1014.41 * u + 33.78311 * u * u - 5.952053 * u.powi(3) - 0.1798452 * u.powi(4)
             + 0.022174192 * u.powi(5)
             + 0.0090316521 * u.powi(6)
     } else {
@@ -193,8 +190,8 @@ mod tests {
         // E&M's own polynomials stitch to ≤0.26 s (worst: 1600); the near-present splices
         // were built to ≤0.2 s. Before the full table existed the 1986 seam jumped ~13 s.
         for y in [
-            -500.0, 500.0, 1600.0, 1700.0, 1800.0, 1860.0, 1900.0, 1920.0, 1941.0, 1961.0,
-            1986.0, 2005.0, 2026.0, 2035.0, 2050.0,
+            -500.0, 500.0, 1600.0, 1700.0, 1800.0, 1860.0, 1900.0, 1920.0, 1941.0, 1961.0, 1986.0,
+            2005.0, 2026.0, 2035.0, 2050.0,
         ] {
             let below = delta_t_seconds(y - 1e-6);
             let above = delta_t_seconds(y + 1e-6);
