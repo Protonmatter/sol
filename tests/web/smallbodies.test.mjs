@@ -23,7 +23,9 @@ test("keplerXYZ: a circular orbit stays at radius a, in-plane for zero inclinati
   for (let M = 0; M < 6.28; M += 0.7) {
     const [x, y, z] = keplerXYZ(2.5, 0, 0, 0, 0, M);
     assert.ok(Math.abs(Math.hypot(x, y) - 2.5) < 1e-9);
-    assert.equal(z, 0);
+    // z === 0, not assert.equal: sin(0)·negative gives -0, and node:assert compares
+    // with Object.is, which distinguishes -0 from 0 (=== does not — the physics is fine).
+    assert.ok(z === 0, `z=${z}`);
   }
 });
 
