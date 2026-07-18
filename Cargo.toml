@@ -12,3 +12,16 @@ resolver = "2"
 edition = "2021"
 version = "0.1.1"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/Protonmatter/sol"
+# Publish floor, not a promise of the oldest possible: verified by CI stable; add an MSRV
+# job (and lower this deliberately) before the first crates.io release if older matters.
+rust-version = "1.85"
+
+# The two cdylibs ship to browsers on every page load — optimize the artifact, not the
+# compile: z + fat LTO + one codegen unit + abort typically ~halves a raw wasm binary.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

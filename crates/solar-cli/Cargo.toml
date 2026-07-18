@@ -3,6 +3,9 @@ name = "solar-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "CLI for the Solar Maximum Engine: simulate, ingest, replay"
 
 [dependencies]
 solar-core = { path = "../solar-core" }
