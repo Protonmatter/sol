@@ -166,6 +166,17 @@ fn topocentric_sky_at_time(
     }
 }
 
+/// Catalogue (J2000) place of a star advanced by proper motion to `years` past J2000.
+/// μα is stored as μα·cosδ (the SIMBAD/Hipparcos convention), so the RA rate is divided
+/// back by cosδ — the clamp keeps Polaris (δ ≈ 89.26°, cosδ ≈ 0.013) finite; its RA
+/// legitimately moves fast near the pole and the great-circle motion stays correct.
+fn star_catalog_place_of_date(star: &stars::Star, years: f64) -> (f64, f64) {
+    let dec = star.dec_deg + star.pm_dec_mas_yr * years / 3.6e6;
+    let cos_dec = (star.dec_deg.to_radians()).cos().abs().max(1e-6);
+    let ra = star.ra_deg + star.pm_ra_mas_yr * years / 3.6e6 / cos_dec;
+    (ra, dec)
+}
+
 /// Apparent topocentric place of a catalogue star. At infinite distance its
 /// geocentric and topocentric right ascension/declination are identical.
 fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _elev: f64) -> Topo {
@@ -174,7 +185,10 @@ fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _e
     let (dpsi, deps) = time::nutation_deg(t);
     let eps_true = time::mean_obliquity_deg(t) + deps;
     let eps0 = time::mean_obliquity_deg(0.0);
-    let (lon0, lat0) = coords::equ_to_ecl(star.ra_deg, star.dec_deg, eps0);
+    // Proper motion first (in the J2000 frame), then the standard reduction.
+    let years = (astro.jd_tt - time::J2000) / 365.25;
+    let (ra_cat, dec_cat) = star_catalog_place_of_date(star, years);
+    let (lon0, lat0) = coords::equ_to_ecl(ra_cat, dec_cat, eps0);
     let (lon_d, lat_d) = coords::precess_ecliptic_from_j2000(lon0, lat0, t);
     let (ra, dec) = coords::ecl_to_equ(lon_d + dpsi, lat_d, eps_true);
     let (observer_lat, observer_lon) = earth_orientation::corrected_observer_geodetic(
@@ -868,6 +882,32 @@ mod tests {
         let json = sky_snapshot_json(jd, lat, lon, elev);
         assert!(json.contains("\"schema_version\""));
         assert!(!json.contains("NaN") && !json.contains("inf"));
+    }
+
+    #[test]
+    fn proper_motion_moves_alpha_cen_a_full_arcminute_but_leaves_deneb_still() {
+        // α Cen (μ ≈ 3.7″/yr) accumulates ~1.6′ in the 26 years since J2000 — the exact
+        // drift the catalogue carried as error before proper motion was applied. Deneb
+        // (μ ≈ 2.7 mas/yr) must stay put at this scale.
+        let alpha_cen = stars::STARS.iter().find(|s| s.name == "Rigil Kentaurus").unwrap();
+        let (ra, dec) = star_catalog_place_of_date(alpha_cen, 26.0);
+        let dra_arc = (ra - alpha_cen.ra_deg) * alpha_cen.dec_deg.to_radians().cos();
+        let ddec = dec - alpha_cen.dec_deg;
+        let shift_deg = (dra_arc * dra_arc + ddec * ddec).sqrt();
+        assert!(
+            (0.025..0.028).contains(&shift_deg),
+            "alpha Cen 26-yr shift {shift_deg}"
+        );
+
+        let deneb = stars::STARS.iter().find(|s| s.name == "Deneb").unwrap();
+        let (ra_d, dec_d) = star_catalog_place_of_date(deneb, 26.0);
+        let dra_d = (ra_d - deneb.ra_deg) * deneb.dec_deg.to_radians().cos();
+        let shift_d = (dra_d * dra_d + (dec_d - deneb.dec_deg).powi(2)).sqrt();
+        assert!(shift_d < 1e-4, "Deneb 26-yr shift {shift_d}");
+
+        // Zero elapsed time is the identity — the catalogue place itself.
+        let (ra0, dec0) = star_catalog_place_of_date(alpha_cen, 0.0);
+        assert!(ra0 == alpha_cen.ra_deg && dec0 == alpha_cen.dec_deg);
     }
 
     #[test]

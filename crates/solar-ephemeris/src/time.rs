@@ -35,11 +35,14 @@ const DELTA_T_MEASURED: [(f64, f64); 12] = [
     (2026.0, 69.10),
 ];
 
-/// ΔT = TT − UT in seconds. Espenak & Meeus 2006 polynomials outside the measured era;
-/// 2005–2026 uses the measured IERS values above; 2026–2035 holds the current ~69 s
-/// plateau (leap seconds paused, Earth rotating fast); 2035–2050 bridges linearly back
-/// to the long-term parabola. Near-present accuracy is what the Horizons gate validates;
-/// the deep-time envelope is unchanged (and documented as ΔT-limited regardless).
+/// ΔT = TT − UT in seconds. The COMPLETE Espenak & Meeus 2006 era-polynomial table
+/// (eclipse.gsfc.nasa.gov/SEcat5/deltatpoly.html) from −500 to 1986; 1986–2005 is the
+/// E&M quintic; 2005–2026 uses the measured IERS values above (the E&M 2005–2050 curve
+/// assumed continued slowing and is ~6 s high by 2026 — see DELTA_T_MEASURED); 2026–2035
+/// holds the current ~69 s plateau; 2035–2050 bridges linearly to the long-term curve.
+/// Every era boundary is continuous to ≤0.26 s (enforced by the continuity test below).
+/// Before this table existed, everything pre-1986 fell to the long-term parabola — a
+/// ~13 s systematic (tens of arcsec on the Moon) for ANY 20th-century date.
 pub fn delta_t_seconds(year: f64) -> f64 {
     if (2005.0..2026.0).contains(&year) {
         let i = DELTA_T_MEASURED
@@ -63,7 +66,50 @@ pub fn delta_t_seconds(year: f64) -> f64 {
             + 0.00002373599 * t.powi(5)
     } else if (2050.0..2150.0).contains(&year) {
         -20.0 + 32.0 * ((year - 1820.0) / 100.0).powi(2) - 0.5628 * (2150.0 - year)
+    } else if (1961.0..1986.0).contains(&year) {
+        let t = year - 1975.0;
+        45.45 + 1.067 * t - t * t / 260.0 - t.powi(3) / 718.0
+    } else if (1941.0..1961.0).contains(&year) {
+        let t = year - 1950.0;
+        29.07 + 0.407 * t - t * t / 233.0 + t.powi(3) / 2547.0
+    } else if (1920.0..1941.0).contains(&year) {
+        let t = year - 1920.0;
+        21.20 + 0.84493 * t - 0.076100 * t * t + 0.0020936 * t.powi(3)
+    } else if (1900.0..1920.0).contains(&year) {
+        let t = year - 1900.0;
+        -2.79 + 1.494119 * t - 0.0598939 * t * t + 0.0061966 * t.powi(3) - 0.000197 * t.powi(4)
+    } else if (1860.0..1900.0).contains(&year) {
+        let t = year - 1860.0;
+        7.62 + 0.5737 * t - 0.251754 * t * t + 0.01680668 * t.powi(3)
+            - 0.0004473624 * t.powi(4)
+            + t.powi(5) / 233174.0
+    } else if (1800.0..1860.0).contains(&year) {
+        let t = year - 1800.0;
+        13.72 - 0.332447 * t + 0.0068612 * t * t + 0.0041116 * t.powi(3)
+            - 0.00037436 * t.powi(4)
+            + 0.0000121272 * t.powi(5)
+            - 0.0000001699 * t.powi(6)
+            + 0.000000000875 * t.powi(7)
+    } else if (1700.0..1800.0).contains(&year) {
+        let t = year - 1700.0;
+        8.83 + 0.1603 * t - 0.0059285 * t * t + 0.00013336 * t.powi(3) - t.powi(4) / 1174000.0
+    } else if (1600.0..1700.0).contains(&year) {
+        let t = year - 1600.0;
+        120.0 - 0.9808 * t - 0.01532 * t * t + t.powi(3) / 7129.0
+    } else if (500.0..1600.0).contains(&year) {
+        let u = (year - 1000.0) / 100.0;
+        1574.2 - 556.01 * u + 71.23472 * u * u + 0.319781 * u.powi(3)
+            - 0.8503463 * u.powi(4)
+            - 0.005050998 * u.powi(5)
+            + 0.0083572073 * u.powi(6)
+    } else if (-500.0..500.0).contains(&year) {
+        let u = year / 100.0;
+        10583.6 - 1014.41 * u + 33.78311 * u * u - 5.952053 * u.powi(3)
+            - 0.1798452 * u.powi(4)
+            + 0.022174192 * u.powi(5)
+            + 0.0090316521 * u.powi(6)
     } else {
+        // Before −500 and after 2150: the long-term parabola.
         let u = (year - 1820.0) / 100.0;
         -20.0 + 32.0 * u * u
     }
@@ -143,15 +189,33 @@ mod tests {
         // gave ~75 s in 2026 (a ~3″ Moon systematic).
         assert!((delta_t_seconds(2020.0) - 69.36).abs() < 0.05);
         assert!((delta_t_seconds(2026.5) - 69.10).abs() < 0.2);
-        // Era boundaries stay continuous.
-        for y in [2005.0, 2026.0, 2035.0, 2050.0] {
+        // EVERY era boundary stays continuous — including all eleven Espenak–Meeus seams.
+        // E&M's own polynomials stitch to ≤0.26 s (worst: 1600); the near-present splices
+        // were built to ≤0.2 s. Before the full table existed the 1986 seam jumped ~13 s.
+        for y in [
+            -500.0, 500.0, 1600.0, 1700.0, 1800.0, 1860.0, 1900.0, 1920.0, 1941.0, 1961.0,
+            1986.0, 2005.0, 2026.0, 2035.0, 2050.0,
+        ] {
             let below = delta_t_seconds(y - 1e-6);
             let above = delta_t_seconds(y + 1e-6);
             assert!(
-                (below - above).abs() < 0.2,
+                (below - above).abs() < 0.3,
                 "jump at {y}: {below} vs {above}"
             );
         }
+    }
+
+    #[test]
+    fn delta_t_matches_espenak_meeus_reference_values() {
+        // Each era polynomial's t=0 constant term is a direct published value.
+        assert!((delta_t_seconds(1900.0) - -2.79).abs() < 1e-9);
+        assert!((delta_t_seconds(1950.0) - 29.07).abs() < 1e-9);
+        assert!((delta_t_seconds(1975.0) - 45.45).abs() < 1e-9);
+        assert!((delta_t_seconds(2000.0) - 63.86).abs() < 1e-9);
+        assert!((delta_t_seconds(1700.0) - 8.83).abs() < 1e-9);
+        assert!((delta_t_seconds(1600.0) - 120.0).abs() < 1e-9);
+        // Mid-era sanity: 1990 from the published quintic.
+        assert!((delta_t_seconds(1990.0) - 56.89).abs() < 0.05);
     }
 
     #[test]
