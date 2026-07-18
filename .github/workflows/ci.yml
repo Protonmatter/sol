@@ -83,6 +83,16 @@ jobs:
           done < <(find apps/web tools \( -name '*.js' -o -name '*.mjs' \) -print0)
           exit $status
 
+      - name: JS unit tests (node --test)
+        run: node --test tests/web/
+
+      # Advisory until the pre-existing JSDoc baseline is clean, then flip to blocking
+      # (delete continue-on-error). The ?v= specifiers are stripped in a temp copy —
+      # see tools/typecheck_web.py.
+      - name: JSDoc typecheck (tsc, advisory)
+        continue-on-error: true
+        run: python tools/typecheck_web.py
+
       - name: Python syntax
         run: python -m compileall -q tools services/ephemeris-server
 
@@ -224,6 +234,13 @@ jobs:
         shell: bash
         run: |
           python tools/build_web.py
+          # The COMMITTED token must match the content hash. The idempotence diff below
+          # can't see a stale committed token (deploy restamps, so production hides it),
+          # and one already slipped through — see the chore/launch-hardening restamp.
+          if ! git diff --exit-code --stat -- apps/web; then
+            echo "::error::committed ?v= cache token is stale — run 'python tools/build_web.py' and commit the restamp"
+            exit 1
+          fi
           cp -a apps/web /tmp/web-stamped
           python tools/build_web.py
           diff -qr /tmp/web-stamped apps/web
@@ -233,3 +250,58 @@ jobs:
 
       - name: Headless browser smoke (Sun + My Sky)
         run: python tools/browser_smoke.py
+
+  # The engine's determinism and the wasm "byte-compatible snapshots" claim both rest on
+  # every float passing through platform libm before {:.6} rounding — plausible, never
+  # proven. These two jobs make it an enforced property: the same reference simulation
+  # must be byte-identical run-to-run on each OS AND byte-identical across all three.
+  # If a platform ever diverges, this reddens and the accuracy docs gain a caveat —
+  # either way the claim stops being prose.
+  determinism:
+    name: Engine determinism (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - name: Reference simulation, twice — byte-identical on this OS
+        shell: bash
+        run: |
+          cargo run --release --locked -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 --activity 0.9 --out "snapshot-${{ matrix.os }}.json"
+          cargo run --release --locked -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 --activity 0.9 --out snapshot-again.json
+          cmp "snapshot-${{ matrix.os }}.json" snapshot-again.json
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: determinism-${{ matrix.os }}
+          path: snapshot-${{ matrix.os }}.json
+
+  determinism-compare:
+    name: Engine determinism (cross-OS byte compare + schema)
+    runs-on: ubuntu-latest
+    needs: determinism
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          path: snaps
+          merge-multiple: true
+      - name: Snapshots byte-identical across ubuntu / macos / windows
+        shell: bash
+        run: |
+          ls -l snaps
+          cmp snaps/snapshot-ubuntu-latest.json snaps/snapshot-macos-latest.json
+          cmp snaps/snapshot-ubuntu-latest.json snaps/snapshot-windows-latest.json
+      # Also the first time a RUST-emitted snapshot passes the shared JSON Schema in CI —
+      # the "enforced across Rust, Python, and the browser" claim previously leaned on a
+      # substring smoke test on the Rust side.
+      - name: Rust CLI output passes the shared snapshot contract
+        run: python tools/validate_snapshot.py snaps/snapshot-ubuntu-latest.json
