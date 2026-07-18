@@ -13,24 +13,24 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=d47a263346";
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=d47a263346";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=d47a263346";
-import { buildCelestial } from "./celestial.js?v=d47a263346";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=d47a263346";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=d47a263346";
+import { store } from "./store.js?v=3b7d0d5283";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=3b7d0d5283";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=3b7d0d5283";
+import { buildCelestial } from "./celestial.js?v=3b7d0d5283";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=3b7d0d5283";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=3b7d0d5283";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=d47a263346";
+} from "./orreryMath.js?v=3b7d0d5283";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=d47a263346";
+} from "./orreryShaders.js?v=3b7d0d5283";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
-} from "./orreryGalaxy.js?v=d47a263346";
-import { renderDetail } from "./orreryDetail.js?v=d47a263346";
+} from "./orreryGalaxy.js?v=3b7d0d5283";
+import { renderDetail } from "./orreryDetail.js?v=3b7d0d5283";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -112,19 +112,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=d47a263346"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=3b7d0d5283"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=d47a263346";
+  ring.src = "textures/saturn_ring.png?v=3b7d0d5283";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=d47a263346";
+  sun.src = "textures/sun.jpg?v=3b7d0d5283";
 }
 
 function compile(type, src) {
@@ -339,10 +339,33 @@ function stepParticles(dt) {
 function effectiveBaseUnix() { return Date.now() / 1000 + state.offsetYears * YR; }
 
 let lastPosUpdate = 0;
+let lastFullSnapshot = 0;
+
 function rebuildPositions() {
   try {
-    const snap = systemSnapshot(state.renderUnix);
-    state.bodies = snap.bodies || [];
+    // Fast path for the 60 fps animation: raw positions from linear memory, updated
+    // in place — the full JSON snapshot (phase/magnitude/speed for the detail panel)
+    // refreshes at ≤~1 Hz, aligned with the DOM list's own throttle below. An older
+    // deployed wasm without the export, a name-order mismatch, or an empty first call
+    // all fall back to the JSON path, which also (re)seeds the body objects.
+    const positions = systemPositions(state.renderUnix);
+    const aligned = positions
+      && positions.length === SYSTEM_POSITIONS_ORDER.length * 3
+      && state.bodies.length === SYSTEM_POSITIONS_ORDER.length
+      && state.bodies.every((b, i) => b.name === SYSTEM_POSITIONS_ORDER[i]);
+    if (aligned && performance.now() - lastFullSnapshot <= 800) {
+      for (let i = 0; i < state.bodies.length; i++) {
+        const body = state.bodies[i];
+        body.x_au = positions[i * 3];
+        body.y_au = positions[i * 3 + 1];
+        body.z_au = positions[i * 3 + 2];
+        body.dist_au = Math.hypot(body.x_au, body.y_au, body.z_au);
+      }
+    } else {
+      const snap = systemSnapshot(state.renderUnix);
+      state.bodies = snap.bodies || [];
+      lastFullSnapshot = performance.now();
+    }
   } catch (e) { console.error("orrery snapshot failed:", e); }
   buildSceneLines();
   rebuildSmallBodies();

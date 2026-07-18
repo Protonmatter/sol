@@ -1,9 +1,9 @@
 // Snapshot / series / feed-status loaders and the observed-image cache.
 
-import { store } from "./store.js?v=d47a263346";
-import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=d47a263346";
-import { renderAll } from "./view.js?v=d47a263346";
-import { maybeAutoStartTour } from "./tour.js?v=d47a263346";
+import { store } from "./store.js?v=3b7d0d5283";
+import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=3b7d0d5283";
+import { renderAll } from "./view.js?v=3b7d0d5283";
+import { maybeAutoStartTour } from "./tour.js?v=3b7d0d5283";
 
 const baseImageCache = {};
 

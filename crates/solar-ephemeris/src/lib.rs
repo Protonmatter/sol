@@ -505,11 +505,10 @@ fn compass(az_deg: f64) -> &'static str {
     PTS[(((az_deg + 11.25).rem_euclid(360.0)) / 22.5) as usize % 16]
 }
 
-/// Heliocentric ecliptic-J2000 positions (AU) of the planets for the top-down orbit view.
-pub fn system_snapshot_json(jd_utc: f64) -> String {
-    let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
-    let jy2k = (jd_tt - time::J2000) / 365.25;
-    let bodies: [(&str, &vsop2013::Planet); 8] = [
+/// The system view's planet table, in the ONE canonical order shared by the JSON
+/// snapshot and the raw `system_positions` fast path (the browser indexes by position).
+fn system_planet_table() -> [(&'static str, &'static vsop2013::Planet); 8] {
+    [
         ("Mercury", vsop2013_data::mer()),
         ("Venus", vsop2013_data::ven()),
         ("Earth", vsop2013_data::emb()),
@@ -518,7 +517,26 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
         ("Saturn", vsop2013_data::sat()),
         ("Uranus", vsop2013_data::ura()),
         ("Neptune", vsop2013_data::nep()),
-    ];
+    ]
+}
+
+/// One body's heliocentric position on the system view's canonical model split:
+/// Earth's centre (not the EMB), TOP2013 for the giants, VSOP2013 for the rest.
+fn system_helio_xyz(name: &str, planet: &vsop2013::Planet, jy2k: f64) -> [f64; 3] {
+    if name == "Earth" {
+        return planets::earth_center(jy2k);
+    }
+    match top2013::outer_index(name) {
+        Some(idx) => top2013::helio_xyz(idx, jy2k),
+        None => vsop2013::helio_xyz(planet, jy2k),
+    }
+}
+
+/// Heliocentric ecliptic-J2000 positions (AU) of the planets for the top-down orbit view.
+pub fn system_snapshot_json(jd_utc: f64) -> String {
+    let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
+    let jy2k = (jd_tt - time::J2000) / 365.25;
+    let bodies = system_planet_table();
     const AU_PER_YEAR_KMS: f64 = 4.740_57; // 1 AU/yr in km/s
                                            // Earth's CENTRE, not the Earth-Moon barycentre: VSOP2013's EMB sits ~4671 km toward the
                                            // Moon. Using it as "Earth" also overstated the Earth→Moon separation by the same amount
@@ -532,15 +550,7 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
     out.push_str(&format!("  \"jd_utc\": {:.6},\n  \"bodies\": [\n", jd_utc));
     // Jupiter–Neptune use TOP2013 (sub-arcsec for the giants over ±6000 yr, where VSOP2013 drifts to
     // hundreds of arcsec); the inner planets stay on VSOP2013. Same equinoctial frame, so they mix.
-    let helio = |name: &str, planet: &vsop2013::Planet, t: f64| -> [f64; 3] {
-        if name == "Earth" {
-            return planets::earth_center(t);
-        }
-        match top2013::outer_index(name) {
-            Some(idx) => top2013::helio_xyz(idx, t),
-            None => vsop2013::helio_xyz(planet, t),
-        }
-    };
+    let helio = system_helio_xyz;
     for (i, (name, planet)) in bodies.iter().enumerate() {
         let xyz = helio(name, planet, jy2k);
         let r = (xyz[0] * xyz[0] + xyz[1] * xyz[1] + xyz[2] * xyz[2]).sqrt();
@@ -718,6 +728,42 @@ pub extern "C" fn system_snapshot(unix_seconds: f64) -> *const u8 {
     })
 }
 
+thread_local! {
+    static POSITIONS: RefCell<Vec<f64>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Per-frame animation fast path: heliocentric ecliptic-J2000 positions ONLY, as raw
+/// f64 triples in `system_snapshot_json`'s exact body order (the eight planets, then the
+/// Moon). Identical body math to the JSON path — `system_planet_table` +
+/// `system_helio_xyz` are shared, so the two paths cannot drift — but it skips the
+/// phase/magnitude/element work and, crucially, the JSON serialize→parse round-trip
+/// that made a 60 fps animation loop the app's hottest path. The buffer stays valid
+/// until the next `system_positions` call; read length via `system_positions_len`.
+#[no_mangle]
+pub extern "C" fn system_positions(unix_seconds: f64) -> *const f64 {
+    let jd_utc = time::jd_from_unix(sanitize_unix(unix_seconds));
+    let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
+    let jy2k = (jd_tt - time::J2000) / 365.25;
+    let earth = planets::earth_center(jy2k);
+    POSITIONS.with(|cell| {
+        let mut values = cell.borrow_mut();
+        values.clear();
+        for (name, planet) in system_planet_table().iter() {
+            let xyz = system_helio_xyz(name, planet, jy2k);
+            values.extend_from_slice(&xyz);
+        }
+        let mg = elpmpp02::moon_xyz(jy2k);
+        values.extend_from_slice(&[earth[0] + mg[0], earth[1] + mg[1], earth[2] + mg[2]]);
+        values.as_ptr()
+    })
+}
+
+/// Number of f64 values behind the most recent `system_positions` pointer.
+#[no_mangle]
+pub extern "C" fn system_positions_len() -> usize {
+    POSITIONS.with(|cell| cell.borrow().len())
+}
+
 /// Topocentric alt/az track of a single body over `n` samples (no rise/set events, so it is cheap
 /// enough to call densely) — for precise trajectory arcs in the sky dome. `body_idx` indexes
 /// ALL_BODIES (0=Sun, 1=Moon, 2=Mercury, 3=Venus, 4=Mars, 5=Jupiter, 6=Saturn, 7=Uranus, 8=Neptune).
@@ -882,6 +928,26 @@ mod tests {
         let json = sky_snapshot_json(jd, lat, lon, elev);
         assert!(json.contains("\"schema_version\""));
         assert!(!json.contains("NaN") && !json.contains("inf"));
+    }
+
+    #[test]
+    fn system_positions_fast_path_matches_the_json_snapshot_exactly() {
+        // The raw fast path and the JSON path must be the SAME numbers: every fast-path
+        // coordinate, formatted with the JSON path's own {:.8}, must appear verbatim in
+        // the snapshot for the same instant. If the two model splits ever diverge
+        // (e.g. one path switches Earth back to the EMB), this fails.
+        let unix = 1.7e9;
+        let _ = system_positions(unix);
+        let values = POSITIONS.with(|cell| cell.borrow().clone());
+        assert_eq!(values.len(), 27, "8 planets + Moon, xyz each");
+        assert_eq!(system_positions_len(), 27);
+        let json = system_snapshot_json(time::jd_from_unix(unix));
+        for (i, chunk) in values.chunks(3).enumerate() {
+            for (axis, value) in ["x_au", "y_au", "z_au"].iter().zip(chunk) {
+                let needle = format!("\"{}\":{:.8}", axis, value);
+                assert!(json.contains(&needle), "body {i}: {needle} not in snapshot");
+            }
+        }
     }
 
     #[test]
