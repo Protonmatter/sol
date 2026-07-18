@@ -62,7 +62,14 @@ fn run_simulation(
     } else {
         0.9
     };
-    let grid = SolarGrid::new((lon_count.max(8)) as usize, (lat_count.max(4)) as usize);
+    // Upper clamps, not just lower: an unbounded `steps` spins the tab for minutes and
+    // unbounded grid dims can allocate gigabytes — or overflow the 32-bit usize multiply
+    // on wasm32 in release (silent wrap -> a field shorter than idx()'s range). This is
+    // the same hung-tab class the non-finite sanitizing above exists for.
+    let steps = steps.min(10_000);
+    let lon_count = lon_count.clamp(8, 1024) as usize;
+    let lat_count = lat_count.clamp(4, 512) as usize;
+    let grid = SolarGrid::new(lon_count, lat_count);
     let mut state = SolarState::new(grid.clone(), SolarMode::Synthetic);
     let mut model = SyntheticSolarModel::new(SyntheticConfig {
         seed: seed as u64,
@@ -106,5 +113,21 @@ mod tests {
         let json = run_simulation(42, 1, f64::NAN, f32::INFINITY, 72, 36);
         assert!(json.contains("\"dt_hours\": 1.000000"));
         assert!(json.contains("\"activity_index\": 0.900000"));
+    }
+
+    #[test]
+    fn hostile_abi_sizes_are_clamped() {
+        // u32::MAX for every size parameter must neither hang nor overflow — one step
+        // on the max 1024x512 grid, and a well-formed snapshot out the other side.
+        let json = run_simulation(42, 1, 1.0, 0.9, u32::MAX, u32::MAX);
+        assert!(json.contains("\"schema_version\": \"solar-state-snapshot.v2\""));
+        assert!(!json.contains("NaN") && !json.contains("inf"));
+    }
+
+    #[test]
+    fn hostile_step_count_terminates_promptly() {
+        // The steps clamp (10_000) on the minimum grid: must return, not spin the tab.
+        let json = run_simulation(42, u32::MAX, 1.0, 0.2, 8, 4);
+        assert!(json.contains("\"schema_version\": \"solar-state-snapshot.v2\""));
     }
 }

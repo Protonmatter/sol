@@ -635,6 +635,47 @@ thread_local! {
     static RESULT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
+// --- Raw-ABI input sanitizing -------------------------------------------------------------
+//
+// These entry points take raw f64s straight from JS. A NaN latitude (an empty input box
+// coerced by a caller) otherwise flows into format!("{:.n}") sites, which render the literal
+// `NaN` — invalid JSON that throws at JSON.parse in the browser. Clamp ranges are physical,
+// not cosmetic: |lat| ≤ 90, longitude wrapped to (-180, 180] (wrapping, unlike clamping,
+// leaves any valid input's meaning unchanged), elevation Dead Sea..Everest, and time held to
+// ±≈12,700 years around the epoch — beyond the model's stated ±5000 yr envelope but small
+// enough that every downstream polynomial stays finite.
+
+const UNIX_ABS_MAX: f64 = 4.0e11;
+
+fn sanitize_unix(unix_seconds: f64) -> f64 {
+    if unix_seconds.is_finite() {
+        unix_seconds.clamp(-UNIX_ABS_MAX, UNIX_ABS_MAX)
+    } else {
+        0.0
+    }
+}
+
+fn sanitize_observer(lat_deg: f64, lon_deg_east: f64, elev_m: f64) -> (f64, f64, f64) {
+    let lat = if lat_deg.is_finite() {
+        lat_deg.clamp(-90.0, 90.0)
+    } else {
+        0.0
+    };
+    let lon = if lon_deg_east.is_finite() {
+        // Wrap into (-180, 180] so a valid longitude round-trips unchanged in the
+        // snapshot's echoed observer block.
+        -((-lon_deg_east + 180.0).rem_euclid(360.0) - 180.0)
+    } else {
+        0.0
+    };
+    let elev = if elev_m.is_finite() {
+        elev_m.clamp(-430.0, 9000.0)
+    } else {
+        0.0
+    };
+    (lat, lon, elev)
+}
+
 /// Compute a sky snapshot for a Unix time + observer; returns a pointer to UTF-8 JSON bytes.
 #[no_mangle]
 pub extern "C" fn sky_snapshot(
@@ -643,7 +684,8 @@ pub extern "C" fn sky_snapshot(
     lon_deg_east: f64,
     elev_m: f64,
 ) -> *const u8 {
-    let jd_utc = time::jd_from_unix(unix_seconds);
+    let (lat_deg, lon_deg_east, elev_m) = sanitize_observer(lat_deg, lon_deg_east, elev_m);
+    let jd_utc = time::jd_from_unix(sanitize_unix(unix_seconds));
     let json = sky_snapshot_json(jd_utc, lat_deg, lon_deg_east, elev_m);
     RESULT.with(|cell| {
         *cell.borrow_mut() = json.into_bytes();
@@ -654,7 +696,7 @@ pub extern "C" fn sky_snapshot(
 /// Heliocentric positions of the planets for the orbit view; pointer to UTF-8 JSON.
 #[no_mangle]
 pub extern "C" fn system_snapshot(unix_seconds: f64) -> *const u8 {
-    let jd_utc = time::jd_from_unix(unix_seconds);
+    let jd_utc = time::jd_from_unix(sanitize_unix(unix_seconds));
     let json = system_snapshot_json(jd_utc);
     RESULT.with(|cell| {
         *cell.borrow_mut() = json.into_bytes();
@@ -668,6 +710,53 @@ pub extern "C" fn system_snapshot(unix_seconds: f64) -> *const u8 {
 /// Samples start at `unix0` and step by `dt_seconds`. Returns JSON `[{"alt":..,"az":..,"up":bool},..]`
 /// (refracted altitude). Unlike a fixed-RA sweep, this re-solves the body's position at every sample,
 /// so it is exact for the fast-moving Moon as well as the Sun and planets.
+fn body_track_json(
+    body_idx: u32,
+    lat_deg: f64,
+    lon_deg_east: f64,
+    elev_m: f64,
+    unix0: f64,
+    dt_seconds: f64,
+    n: u32,
+) -> String {
+    let body = ALL_BODIES[(body_idx as usize) % ALL_BODIES.len()];
+    let (lat_deg, lon_deg_east, elev_m) = sanitize_observer(lat_deg, lon_deg_east, elev_m);
+    let unix0 = sanitize_unix(unix0);
+    // Non-finite dt collapses to the app's own 60 s default; the magnitude cap keeps
+    // unix0 + i*dt inside the sanitized time envelope for every sample.
+    let dt_seconds = if dt_seconds.is_finite() {
+        dt_seconds.clamp(-1.0e9, 1.0e9)
+    } else {
+        60.0
+    };
+    let count = n.min(2000) as usize;
+    let mut out = String::with_capacity(16 + 36 * count);
+    out.push('[');
+    let mut emitted = false;
+    for i in 0..count {
+        let unix = sanitize_unix(unix0 + (i as f64) * dt_seconds);
+        let jd = time::jd_from_unix(unix);
+        let s = topocentric_sky(body, jd, lat_deg, lon_deg_east, elev_m);
+        // A sample the solver can't produce finitely is simply omitted: the JSON stays
+        // valid and the arc just has a gap, instead of a literal NaN killing JSON.parse.
+        if !(s.alt_refracted.is_finite() && s.az.is_finite()) {
+            continue;
+        }
+        if emitted {
+            out.push(',');
+        }
+        emitted = true;
+        out.push_str(&format!(
+            "{{\"alt\":{:.4},\"az\":{:.4},\"up\":{}}}",
+            s.alt_refracted,
+            s.az,
+            s.alt_refracted > 0.0
+        ));
+    }
+    out.push(']');
+    out
+}
+
 #[no_mangle]
 pub extern "C" fn body_track(
     body_idx: u32,
@@ -678,25 +767,7 @@ pub extern "C" fn body_track(
     dt_seconds: f64,
     n: u32,
 ) -> *const u8 {
-    let body = ALL_BODIES[(body_idx as usize) % ALL_BODIES.len()];
-    let count = n.min(2000) as usize;
-    let mut out = String::with_capacity(16 + 36 * count);
-    out.push('[');
-    for i in 0..count {
-        let unix = unix0 + (i as f64) * dt_seconds;
-        let jd = time::jd_from_unix(unix);
-        let s = topocentric_sky(body, jd, lat_deg, lon_deg_east, elev_m);
-        if i > 0 {
-            out.push(',');
-        }
-        out.push_str(&format!(
-            "{{\"alt\":{:.4},\"az\":{:.4},\"up\":{}}}",
-            s.alt_refracted,
-            s.az,
-            s.alt_refracted > 0.0
-        ));
-    }
-    out.push(']');
+    let out = body_track_json(body_idx, lat_deg, lon_deg_east, elev_m, unix0, dt_seconds, n);
     RESULT.with(|cell| {
         *cell.borrow_mut() = out.into_bytes();
         cell.borrow().as_ptr()
@@ -761,5 +832,51 @@ mod tests {
         assert!(rise.is_finite() && set.is_finite() && transit.is_finite());
         assert!(transit_alt > 29.9);
         assert!((transit - (day_start + 0.25)).abs() < 1.0e-4);
+    }
+
+    #[test]
+    fn abi_observer_sanitizing_preserves_valid_inputs() {
+        // Every already-valid observer must round-trip unchanged (New York's -74.01°E
+        // must NOT come back as 285.99): wrapping, not clamping, for longitude.
+        let (lat, lon, elev) = sanitize_observer(40.71, -74.01, 10.0);
+        assert!((lat - 40.71).abs() < 1.0e-12);
+        assert!((lon - -74.01).abs() < 1.0e-12);
+        assert!((elev - 10.0).abs() < 1.0e-12);
+        let (_, lon_wrapped, _) = sanitize_observer(0.0, 190.0, 0.0);
+        assert!((lon_wrapped - -170.0).abs() < 1.0e-9);
+        let (_, lon_edge, _) = sanitize_observer(0.0, 180.0, 0.0);
+        assert!((lon_edge - 180.0).abs() < 1.0e-9);
+    }
+
+    #[test]
+    fn abi_hostile_observer_inputs_are_neutralized() {
+        let (lat, lon, elev) = sanitize_observer(f64::NAN, f64::INFINITY, f64::NEG_INFINITY);
+        assert_eq!((lat, lon, elev), (0.0, 0.0, 0.0));
+        let (lat_hi, _, elev_hi) = sanitize_observer(1.0e6, 0.0, 1.0e9);
+        assert_eq!(lat_hi, 90.0);
+        assert_eq!(elev_hi, 9000.0);
+        assert_eq!(sanitize_unix(f64::NAN), 0.0);
+        assert_eq!(sanitize_unix(1.0e30), UNIX_ABS_MAX);
+    }
+
+    #[test]
+    fn abi_snapshot_with_hostile_inputs_stays_valid_json() {
+        // The exact path the extern wrappers take: NaN/∞ from JS must never reach a
+        // format! site — a literal `NaN` in the output throws at JSON.parse in the app.
+        let (lat, lon, elev) = sanitize_observer(f64::NAN, f64::INFINITY, f64::NAN);
+        let jd = time::jd_from_unix(sanitize_unix(f64::NAN));
+        let json = sky_snapshot_json(jd, lat, lon, elev);
+        assert!(json.contains("\"schema_version\""));
+        assert!(!json.contains("NaN") && !json.contains("inf"));
+    }
+
+    #[test]
+    fn abi_body_track_with_hostile_inputs_stays_valid_json() {
+        let json = body_track_json(9999, f64::NAN, f64::INFINITY, f64::NAN, f64::NAN, f64::NAN, 5);
+        assert!(json.starts_with('[') && json.ends_with(']'));
+        assert!(!json.contains("NaN") && !json.contains("inf"));
+        // Sane inputs still produce the full sample count.
+        let ok = body_track_json(0, 40.71, -74.01, 10.0, 1.7e9, 600.0, 5);
+        assert_eq!(ok.matches("\"alt\"").count(), 5);
     }
 }

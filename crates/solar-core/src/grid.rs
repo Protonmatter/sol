@@ -21,6 +21,13 @@ impl SolarGrid {
     ) -> Self {
         assert!(lon_count >= 8);
         assert!(lat_count >= 4);
+        // len() is lon*lat on a bare usize: on wasm32 (32-bit usize) a hostile pair can
+        // wrap in release, yielding fields shorter than idx()'s range. Fail here, at
+        // construction, instead of as a bounds panic deep inside the transport loop.
+        assert!(
+            lon_count.checked_mul(lat_count).is_some(),
+            "grid cell count overflows usize"
+        );
         assert!(coordinates.reference_epoch_jd_tt.is_finite());
         assert!(coordinates.central_meridian_longitude_deg.is_finite());
         assert!(coordinates.rotation_reference_deg_per_day.is_finite());
