@@ -9,38 +9,39 @@
     <meta property="og:title" content="Solar Maximum Engine">
     <meta property="og:description" content="Today's real Sun, your local sky, and a 3-D solar system — validated against JPL Horizons.">
     <meta property="og:type" content="website">
-    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=ae3573fc32">
-    <link rel="stylesheet" href="styles.css?v=ae3573fc32">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=cc9af050a1">
+    <link rel="stylesheet" href="styles.css?v=cc9af050a1">
     <!-- Flatten the ES-module waterfall: without these, the ~28-module import graph
          loads serially by depth. Keep in sync with apps/web/js/ (validate_web_static checks). -->
-    <link rel="modulepreload" href="engine.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/accuracy.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/bodyData.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/celestial.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/config.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/data.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/dom.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/ephemerisContract.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/format.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/galacticobjects.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/orrery.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/orreryDetail.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/orreryGalaxy.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/orreryMath.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/orreryShaders.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/panels.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/render.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/selectors.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/sky.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/skyEngine.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/smallbodies.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/store.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/sunlayers.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/timeline.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/tooltip.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/tour.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/view.js?v=ae3573fc32">
-    <link rel="modulepreload" href="js/wavelength.js?v=ae3573fc32">
+    <link rel="modulepreload" href="engine.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/accuracy.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/aurora.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/bodyData.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/celestial.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/config.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/data.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/dom.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/ephemerisContract.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/format.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/galacticobjects.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/orrery.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/orreryDetail.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/orreryGalaxy.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/orreryMath.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/orreryShaders.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/panels.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/render.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/selectors.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/sky.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/skyEngine.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/smallbodies.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/store.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/sunlayers.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/timeline.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/tooltip.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/tour.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/view.js?v=cc9af050a1">
+    <link rel="modulepreload" href="js/wavelength.js?v=cc9af050a1">
   </head>
   <body>
     <main class="app-shell">
@@ -297,6 +298,7 @@
                 <span class="label">Space-weather signals</span>
                 <strong id="applicationTitle">Space-weather impact</strong>
                 <p id="applicationText">How today's solar activity maps to aurora, GPS, radio, and satellites. A learning view, not an alert service.</p>
+                <p id="auroraOutlook" class="aurora-outlook" aria-label="Aurora outlook for your location"></p>
                 <div id="applicationSignals" class="signal-grid" aria-label="Application signals"></div>
               </section>
             </div>
@@ -373,6 +375,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=ae3573fc32"></script>
+    <script type="module" src="app.js?v=cc9af050a1"></script>
   </body>
 </html>

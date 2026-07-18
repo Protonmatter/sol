@@ -2,7 +2,7 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY } from "./bodyData.js?v=ae3573fc32";
+import { BODY } from "./bodyData.js?v=cc9af050a1";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 

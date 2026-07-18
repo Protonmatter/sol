@@ -26,6 +26,7 @@ REQUIRED_IDS = {
     "applicationTitle",
     "applicationText",
     "applicationSignals",
+    "auroraOutlook",
     "selectionTitle",
     "selectionText",
     "feedHealth",
