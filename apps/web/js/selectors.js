@@ -94,9 +94,30 @@ export function readinessClass() {
   return "blocked";
 }
 
+// Hours the daily feed is past its own next_recommended_run_utc (minus a 6 h grace
+// window for a merely-late run), or null when not overdue / not knowable. The feed
+// status file records health AT GENERATION TIME — without this recheck a frozen
+// 16-day-old "ok" renders as current health forever, which is exactly the kind of
+// silent dishonesty the provenance labels exist to prevent. `nowMs` is injectable
+// for tests.
+export function feedOverdueHours(nowMs = Date.now()) {
+  if (!store.feedStatus || !store.feedStatus.next_recommended_run_utc) return null;
+  const due = Date.parse(store.feedStatus.next_recommended_run_utc);
+  if (!Number.isFinite(due)) return null;
+  const graceMs = 6 * 3600 * 1000;
+  const overdueMs = nowMs - due - graceMs;
+  return overdueMs > 0 ? overdueMs / 3600 / 1000 : null;
+}
+
 export function feedStateLabel() {
   if (!store.feedStatus) return "not run";
-  if (store.feedStatus.status === "ok") return "daily ok";
+  if (store.feedStatus.status === "ok") {
+    const overdue = feedOverdueHours();
+    if (overdue !== null) {
+      return overdue >= 48 ? `stale ${Math.floor(overdue / 24)}d` : "overdue";
+    }
+    return "daily ok";
+  }
   if (store.feedStatus.status === "degraded") return "degraded";
   if (store.feedStatus.status === "failed") return "failed";
   if (store.feedStatus.status === "aborted") return "aborted";
@@ -106,6 +127,10 @@ export function feedStateLabel() {
 export function feedStateClass() {
   const label = feedStateLabel();
   if (label === "daily ok") return "live";
+  // A stale-but-healthy feed must not wear the healthy green: short overdue reads
+  // amber ("fixture"), multi-day staleness reads like a failure ("degraded").
+  if (label === "overdue") return "fixture";
+  if (label.startsWith("stale")) return "degraded";
   if (label === "degraded") return "fixture";
   if (label === "failed" || label === "aborted") return "degraded";
   return "blocked";
