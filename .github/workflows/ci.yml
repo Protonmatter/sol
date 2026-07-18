@@ -2,10 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, "redesign/**"]
+    branches: [master, "precision/**", "redesign/**"]
   pull_request:
 
-# Newer pushes to the same ref cancel in-flight runs.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -17,95 +16,105 @@ jobs:
   test:
     name: Rust tests (workspace)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: cargo test --workspace
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
 
   lint:
     name: Rust lint (fmt + clippy)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      # Pinned so the clippy lint set is deterministic — a newer stable can add lints that would
-      # fail `-D warnings` on code that was clean before. Bump deliberately.
-      - uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
         with:
           toolchain: "1.96.0"
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-
-      # All Rust in the workspace is hand-written now — the ephemeris coefficient tables moved to
-      # packed binary blobs under crates/solar-ephemeris/data/ — so a plain format check suffices.
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: rustfmt
         run: cargo fmt --all --check
-
       - name: clippy (-D warnings)
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   wasm:
     name: WASM build (wasm32-unknown-unknown)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
         with:
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Build solar-wasm + solar-ephemeris
         run: |
-          cargo build --release -p solar-wasm --target wasm32-unknown-unknown
-          cargo build --release -p solar-ephemeris --target wasm32-unknown-unknown
+          cargo build --release --locked -p solar-wasm --target wasm32-unknown-unknown
+          cargo build --release --locked -p solar-ephemeris --target wasm32-unknown-unknown
 
   web:
-    name: Web (JS syntax + validators + cache-bust sync)
+    name: Web, provider, and browser validation
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "22"
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        with:
+          targets: wasm32-unknown-unknown
 
-      - name: JS syntax (node --check, ESM)
+      - name: JavaScript syntax (native ESM)
         shell: bash
         run: |
           status=0
-          while IFS= read -r -d '' f; do
-            if ! node --check "$f"; then
-              echo "::error file=$f::JavaScript syntax error"
+          while IFS= read -r -d '' file; do
+            if ! node --check "$file"; then
+              echo "::error file=$file::JavaScript syntax error"
               status=1
             fi
-          done < <(find apps/web -name '*.js' -not -path '*/pkg/*' -print0)
+          done < <(find apps/web tools \( -name '*.js' -o -name '*.mjs' \) -print0)
           exit $status
 
-      - name: Static web validation
-        run: python tools/validate_web_static.py
+      - name: Python syntax
+        run: python -m compileall -q tools services/ephemeris-server
 
-      - name: Snapshot contract (solar-state-snapshot.v1)
+      - name: EOP prediction coverage
+        run: python tools/check_eop_freshness.py --minimum-days 90
+
+      - name: Solar snapshot contract (v2)
         run: python tools/validate_snapshot.py apps/web/data/latest-state.json
 
       - name: Operational-readiness gate
         run: python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 
-      - name: Series frames validate (solar-state-snapshot.v1)
+      - name: Regenerate deterministic solar-cycle series
+        run: python tools/generate_series.py
+
+      - name: Series frames validate (solar-state-snapshot.v2)
         shell: bash
         run: |
           status=0
-          for f in apps/web/data/series/frame-*.json; do
-            python tools/validate_snapshot.py "$f" || status=1
+          for file in apps/web/data/series/frame-*.json; do
+            python tools/validate_snapshot.py "$file" || status=1
           done
           exit $status
 
-      # Turns "deterministic, versioned snapshots" from a claim into an enforced property:
-      # the generator must be byte-stable run-to-run, and regenerating the committed
-      # fixture-mode observations must produce exactly the committed bytes (platform-stable
-      # thanks to POSIX display paths + newline-normalized byte counts + .gitattributes).
-      - name: Determinism gate (fixture regeneration is byte-stable)
+      - name: Series regeneration is byte-stable
+        shell: bash
+        run: |
+          cp -a apps/web/data/series /tmp/series-a
+          python tools/generate_series.py
+          diff -qr /tmp/series-a apps/web/data/series
+
+      - name: Deterministic solar fixture regeneration
         shell: bash
         run: |
           python tools/generate_fixture_snapshot.py --out /tmp/det-a.json --observations-out tests/fixtures/live-swpc-normalized.json
@@ -113,17 +122,114 @@ jobs:
           cmp /tmp/det-a.json /tmp/det-b.json
           python tools/validate_snapshot.py /tmp/det-a.json
           if ! git diff --quiet -- tests/fixtures/live-swpc-normalized.json; then
-            echo "::error::regenerating tests/fixtures/live-swpc-normalized.json changed it — generator/fixture drift; regenerate and commit"
+            echo "::error::fixture generator drifted from the committed observation fixture"
             git --no-pager diff --stat -- tests/fixtures/live-swpc-normalized.json
             exit 1
           fi
 
-      - name: Cache-bust tokens in sync
+      - name: Generate on-device ephemeris v2 fixture
+        run: cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v2.json
+
+      - name: Ephemeris v2 structural schema
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import jsonschema_min
+          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          schema = json.loads(Path("docs/ephemeris-snapshot-v2.schema.json").read_text(encoding="utf-8"))
+          errors = jsonschema_min.validate(data, schema)
+          if errors:
+              print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Ephemeris v2 finite-number safety
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import validate_ephemeris_snapshot as validator
+          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          errors = validator.finite_tree(data)
+          if errors:
+              print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Ephemeris v2 time and EOP semantics
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import validate_ephemeris_snapshot as validator
+          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          time = data.get("time") or {}
+          observer = data.get("observer") or {}
+          accuracy = data.get("accuracy") or {}
+          errors = validator.check_time(time)
+          for key in (
+              "terrestrial_lat_deg", "terrestrial_lon_deg_east",
+              "polar_motion_corrected_lat_deg", "polar_motion_corrected_lon_deg_east", "elev_m",
+          ):
+              if key in observer and not validator.finite(observer[key]):
+                  errors.append(f"observer.{key} must be finite")
+          eop = time.get("earth_orientation") or {}
+          if accuracy.get("eop_status") != eop.get("quality"):
+              errors.append("accuracy.eop_status must equal time.earth_orientation.quality")
+          if eop.get("quality") == "degraded":
+              if "degraded" not in str(accuracy.get("class", "")).lower():
+                  errors.append("degraded EOP requires a degraded accuracy class")
+              if not any("degraded" in str(item).lower() for item in data.get("warnings", [])):
+                  errors.append("degraded EOP requires an explicit warning")
+          if errors:
+              print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Ephemeris v2 body and event semantics
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import validate_ephemeris_snapshot as validator
+          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          errors = validator.check_bodies(data.get("bodies", []), data.get("time"), data.get("observer"))
+          if errors:
+              print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Validate complete ephemeris v2 contract
+        run: python tools/validate_ephemeris_snapshot.py /tmp/ephemeris-v2.json
+
+      - name: Validate browser ephemeris v2 runtime guard
+        run: node tools/test_ephemeris_contract.mjs /tmp/ephemeris-v2.json
+
+      - name: Validate optional DE441 provider contract offline
+        run: python services/ephemeris-server/test_server.py -v
+
+      - name: Build browser WASM from source
+        run: python tools/build_wasm.py
+
+      - name: Build static web cache tokens deterministically
         shell: bash
         run: |
           python tools/build_web.py
-          if ! git diff --quiet; then
-            echo "::error::?v= cache-bust tokens are stale — run 'python tools/build_web.py' and commit the result."
-            git --no-pager diff --stat
-            exit 1
-          fi
+          cp -a apps/web /tmp/web-stamped
+          python tools/build_web.py
+          diff -qr /tmp/web-stamped apps/web
+
+      - name: Static web validation after build stamping
+        run: python tools/validate_web_static.py
+
+      - name: Headless browser smoke (Sun + My Sky)
+        run: python tools/browser_smoke.py

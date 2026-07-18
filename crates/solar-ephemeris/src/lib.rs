@@ -1,17 +1,19 @@
 //! Deterministic ephemeris + topocentric sky engine (Sun & Moon for P0).
 //!
-//! Pure math (Meeus). Produces apparent geocentric RA/Dec and topocentric alt/az for an
-//! observer, plus rise/transit/set — emitted as `ephemeris-snapshot.v1` JSON. Validated
-//! against JPL Horizons (see tools/validate_ephemeris.py).
+//! Deterministic analytic astronomy. The v2 contract separates geocentric and
+//! topocentric apparent coordinates and carries UTC, TAI, TT, UT1, DUT1, polar
+//! motion, and Earth-orientation quality explicitly.
 
 mod binread;
 pub mod coords;
+pub mod earth_orientation;
 pub mod elpmpp02;
 mod elpmpp02_data;
 pub mod physics;
 pub mod planets;
 pub mod stars;
 pub mod time;
+pub mod timescales;
 pub mod top2013;
 mod top2013_data;
 pub mod vsop2013;
@@ -19,6 +21,7 @@ mod vsop2013_data;
 
 use coords::AU_KM;
 use std::cell::RefCell;
+use timescales::AstroTime;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Body {
@@ -94,21 +97,19 @@ impl Body {
 }
 
 /// Apparent geocentric equatorial position + geocentric distance (km).
-fn geocentric(body: Body, jd_utc: f64) -> (f64, f64, f64) {
-    let year = time::year_from_jd(jd_utc);
-    let jd_tt = jd_utc + time::delta_t_seconds(year) / 86400.0;
-    let t = time::centuries(jd_tt);
+fn geocentric(body: Body, astro: &AstroTime) -> (f64, f64, f64) {
+    let t = time::centuries(astro.jd_tt);
     let (dpsi, deps) = time::nutation_deg(t);
     let eps_true = time::mean_obliquity_deg(t) + deps;
     let (lambda, beta, dist_km) = match body {
         Body::Sun => {
-            let (l, b, dist_au) = planets::sun_apparent_ecliptic(jd_tt, dpsi);
+            let (l, b, dist_au) = planets::sun_apparent_ecliptic(astro.jd_tt, dpsi);
             (l, b, dist_au * AU_KM)
         }
-        Body::Moon => elpmpp02::moon_apparent_ecliptic(jd_tt, dpsi),
+        Body::Moon => elpmpp02::moon_apparent_ecliptic(astro.jd_tt, dpsi),
         _ => {
             let el = body.elements().expect("planet elements");
-            let (l, b, dist_au) = planets::planet_apparent_ecliptic(el, jd_tt, dpsi);
+            let (l, b, dist_au) = planets::planet_apparent_ecliptic(el, astro.jd_tt, dpsi);
             (l, b, dist_au * AU_KM)
         }
     };
@@ -117,8 +118,10 @@ fn geocentric(body: Body, jd_utc: f64) -> (f64, f64, f64) {
 }
 
 struct Topo {
-    ra: f64,
-    dec: f64,
+    geocentric_ra: f64,
+    geocentric_dec: f64,
+    topocentric_ra: f64,
+    topocentric_dec: f64,
     dist_km: f64,
     alt: f64,
     az: f64,
@@ -126,19 +129,36 @@ struct Topo {
 }
 
 fn topocentric_sky(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Topo {
-    let year = time::year_from_jd(jd_utc);
-    let jd_tt = jd_utc + time::delta_t_seconds(year) / 86400.0;
-    let t = time::centuries(jd_tt);
+    let astro = AstroTime::from_jd_utc(jd_utc);
+    topocentric_sky_at_time(body, &astro, lat, lon_east, elev)
+}
+
+fn topocentric_sky_at_time(
+    body: Body,
+    astro: &AstroTime,
+    lat: f64,
+    lon_east: f64,
+    elev: f64,
+) -> Topo {
+    let t = time::centuries(astro.jd_tt);
     let (dpsi, deps) = time::nutation_deg(t);
     let eps_true = time::mean_obliquity_deg(t) + deps;
-    let (ra, dec, dist_km) = geocentric(body, jd_utc);
-    let lst = (time::gast_deg(jd_utc, dpsi, eps_true) + lon_east).rem_euclid(360.0);
-    let (rho_sin, rho_cos) = coords::observer_rho(lat, elev);
+    let (ra, dec, dist_km) = geocentric(body, astro);
+    let (observer_lat, observer_lon) = earth_orientation::corrected_observer_geodetic(
+        lat,
+        lon_east,
+        astro.eop.xp_arcsec,
+        astro.eop.yp_arcsec,
+    );
+    let lst = (time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon).rem_euclid(360.0);
+    let (rho_sin, rho_cos) = coords::observer_rho(observer_lat, elev);
     let (ra_t, dec_t) = coords::topocentric(ra, dec, dist_km, lst, rho_sin, rho_cos);
-    let (alt, az) = coords::alt_az(ra_t, dec_t, lst, lat);
+    let (alt, az) = coords::alt_az(ra_t, dec_t, lst, observer_lat);
     Topo {
-        ra,
-        dec,
+        geocentric_ra: ra,
+        geocentric_dec: dec,
+        topocentric_ra: ra_t,
+        topocentric_dec: dec_t,
         dist_km,
         alt,
         az,
@@ -146,24 +166,30 @@ fn topocentric_sky(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) 
     }
 }
 
-/// Apparent topocentric alt/az of a catalogue star, through the same reduction as the planets
-/// (J2000 equatorial → J2000 ecliptic → Meeus-21 precession → nutation → equatorial of date →
-/// alt/az). Stars are at infinite distance: no parallax, no light-time.
+/// Apparent topocentric place of a catalogue star. At infinite distance its
+/// geocentric and topocentric right ascension/declination are identical.
 fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _elev: f64) -> Topo {
-    let year = time::year_from_jd(jd_utc);
-    let jd_tt = jd_utc + time::delta_t_seconds(year) / 86400.0;
-    let t = time::centuries(jd_tt);
+    let astro = AstroTime::from_jd_utc(jd_utc);
+    let t = time::centuries(astro.jd_tt);
     let (dpsi, deps) = time::nutation_deg(t);
     let eps_true = time::mean_obliquity_deg(t) + deps;
-    let eps0 = time::mean_obliquity_deg(0.0); // J2000 obliquity for the catalogue frame
+    let eps0 = time::mean_obliquity_deg(0.0);
     let (lon0, lat0) = coords::equ_to_ecl(star.ra_deg, star.dec_deg, eps0);
     let (lon_d, lat_d) = coords::precess_ecliptic_from_j2000(lon0, lat0, t);
     let (ra, dec) = coords::ecl_to_equ(lon_d + dpsi, lat_d, eps_true);
-    let lst = (time::gast_deg(jd_utc, dpsi, eps_true) + lon_east).rem_euclid(360.0);
-    let (alt, az) = coords::alt_az(ra, dec, lst, lat);
+    let (observer_lat, observer_lon) = earth_orientation::corrected_observer_geodetic(
+        lat,
+        lon_east,
+        astro.eop.xp_arcsec,
+        astro.eop.yp_arcsec,
+    );
+    let lst = (time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon).rem_euclid(360.0);
+    let (alt, az) = coords::alt_az(ra, dec, lst, observer_lat);
     Topo {
-        ra,
-        dec,
+        geocentric_ra: ra,
+        geocentric_dec: dec,
+        topocentric_ra: ra,
+        topocentric_dec: dec,
         dist_km: f64::INFINITY,
         alt,
         az,
@@ -171,11 +197,40 @@ fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _e
     }
 }
 
-/// Rise / transit / set as JD(UTC) within ±0.5 day of `jd_utc`. NaN where none.
+const STANDARD_REFRACTION_DEG: f64 = 34.0 / 60.0;
+
+/// Standard geometric centre altitude used for a rise/set crossing. Topocentric
+/// parallax is already applied by `topocentric_sky`, so the Sun and Moon need
+/// only atmospheric refraction plus their instantaneous apparent semidiameter.
+fn standard_altitude_deg(body: Body, distance_km: f64) -> f64 {
+    match body {
+        Body::Sun | Body::Moon => {
+            let semidiameter = (body.radius_km() / distance_km)
+                .clamp(-1.0, 1.0)
+                .asin()
+                .to_degrees();
+            -(STANDARD_REFRACTION_DEG + semidiameter)
+        }
+        _ => -STANDARD_REFRACTION_DEG,
+    }
+}
+
+/// Start of the observer's local mean-solar day, expressed as JD(UTC).
+/// Civil timezone/DST is deliberately not inferred from longitude.
+fn local_solar_day_start(jd_utc: f64, lon_east: f64) -> f64 {
+    let offset_days = lon_east / 360.0;
+    ((jd_utc - 0.5 + offset_days).floor() + 0.5) - offset_days
+}
+
+/// Rise / transit / set as JD(UTC) during the observer's local mean-solar day.
+/// NaN is returned when an event does not occur in that interval.
 fn events(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> (f64, f64, f64, f64) {
     events_core(
-        &|jd| topocentric_sky(body, jd, lat, lon_east, elev).alt_refracted,
-        jd_utc,
+        &|jd| {
+            let sky = topocentric_sky(body, jd, lat, lon_east, elev);
+            (sky.alt - standard_altitude_deg(body, sky.dist_km), sky.alt)
+        },
+        local_solar_day_start(jd_utc, lon_east),
     )
 }
 
@@ -187,43 +242,50 @@ fn star_events(
     elev: f64,
 ) -> (f64, f64, f64, f64) {
     events_core(
-        &|jd| star_topocentric(star, jd, lat, lon_east, elev).alt_refracted,
-        jd_utc,
+        &|jd| {
+            let sky = star_topocentric(star, jd, lat, lon_east, elev);
+            (sky.alt + STANDARD_REFRACTION_DEG, sky.alt)
+        },
+        local_solar_day_start(jd_utc, lon_east),
     )
 }
 
-fn events_core(alt_at: &dyn Fn(f64) -> f64, jd_utc: f64) -> (f64, f64, f64, f64) {
-    let steps = 144; // 10-minute sampling over 24h
-    let mut prev_jd = jd_utc - 0.5;
-    let mut prev_alt = alt_at(prev_jd);
+/// `sample_at` returns `(crossing_margin_deg, true_centre_altitude_deg)`.
+fn events_core(
+    sample_at: &dyn Fn(f64) -> (f64, f64),
+    day_start_jd_utc: f64,
+) -> (f64, f64, f64, f64) {
+    let steps = 144; // 10-minute sampling over one local mean-solar day
+    let mut prev_jd = day_start_jd_utc;
+    let (mut prev_margin, initial_alt) = sample_at(prev_jd);
     let mut rise = f64::NAN;
     let mut set = f64::NAN;
     let mut transit = prev_jd;
-    let mut transit_alt = prev_alt;
+    let mut transit_alt = initial_alt;
     for i in 1..=steps {
-        let jd = jd_utc - 0.5 + (i as f64) / (steps as f64);
-        let alt = alt_at(jd);
+        let jd = day_start_jd_utc + (i as f64) / (steps as f64);
+        let (margin, alt) = sample_at(jd);
         if alt > transit_alt {
             transit_alt = alt;
             transit = jd;
         }
-        if prev_alt < 0.0 && alt >= 0.0 && rise.is_nan() {
-            rise = bisect_cross(alt_at, prev_jd, jd);
+        if prev_margin < 0.0 && margin >= 0.0 && rise.is_nan() {
+            rise = bisect_cross(&|time| sample_at(time).0, prev_jd, jd);
         }
-        if prev_alt >= 0.0 && alt < 0.0 && set.is_nan() {
-            set = bisect_cross(alt_at, prev_jd, jd);
+        if prev_margin >= 0.0 && margin < 0.0 && set.is_nan() {
+            set = bisect_cross(&|time| sample_at(time).0, prev_jd, jd);
         }
         prev_jd = jd;
-        prev_alt = alt;
+        prev_margin = margin;
     }
-    // Refine the transit (culmination) with a 3-point parabolic fit around the best sample, so the
-    // returned time/altitude are sub-minute rather than snapped to the 10-minute scan grid.
-    let h = 1.0 / (steps as f64); // sample spacing, days
-    let a_m = alt_at(transit - h);
-    let a_p = alt_at(transit + h);
-    let denom = a_m - 2.0 * transit_alt + a_p; // < 0 at a maximum (concave down)
+
+    // Refine culmination with a three-point parabolic fit around the best sample.
+    let h = 1.0 / (steps as f64);
+    let a_m = sample_at(transit - h).1;
+    let a_p = sample_at(transit + h).1;
+    let denom = a_m - 2.0 * transit_alt + a_p;
     if denom < 0.0 {
-        let dx = 0.5 * (a_m - a_p) / denom; // vertex offset in units of h, |dx| <= 0.5
+        let dx = 0.5 * (a_m - a_p) / denom;
         transit += dx * h;
         transit_alt -= 0.125 * (a_p - a_m) * (a_p - a_m) / denom;
     }
@@ -246,57 +308,102 @@ fn bisect_cross(f: &dyn Fn(f64) -> f64, mut a: f64, mut b: f64) -> f64 {
 }
 
 pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> String {
-    let year = time::year_from_jd(jd_utc);
-    let dt = time::delta_t_seconds(year);
-    let jd_tt = jd_utc + dt / 86400.0;
-    let t = time::centuries(jd_tt);
+    let astro = AstroTime::from_jd_utc(jd_utc);
+    let t = time::centuries(astro.jd_tt);
     let (dpsi, deps) = time::nutation_deg(t);
     let eps_true = time::mean_obliquity_deg(t) + deps;
-    let lst = (time::gast_deg(jd_utc, dpsi, eps_true) + lon_east).rem_euclid(360.0);
+    let (observer_lat, observer_lon) = earth_orientation::corrected_observer_geodetic(
+        lat,
+        lon_east,
+        astro.eop.xp_arcsec,
+        astro.eop.yp_arcsec,
+    );
+    let lst = (time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon).rem_euclid(360.0);
+    let accuracy_class = if astro.eop.quality.precision_ready() {
+        "eop-aware apparent topocentric place"
+    } else {
+        "degraded Earth-orientation apparent topocentric place"
+    };
 
-    let mut out = String::with_capacity(2048);
+    let mut out = String::with_capacity(4096);
     out.push_str("{\n");
-    out.push_str("  \"schema_version\": \"ephemeris-snapshot.v1\",\n");
+    out.push_str("  \"schema_version\": \"ephemeris-snapshot.v2\",\n");
     out.push_str(&format!(
         "  \"engine_version\": \"solar-ephemeris {}\",\n",
         env!("CARGO_PKG_VERSION")
     ));
     out.push_str("  \"time\": {");
-    out.push_str(&format!("\"jd_utc\":{:.8},\"jd_tt\":{:.8},\"delta_t_seconds\":{:.2},\"lst_deg\":{:.6},\"obliquity_deg\":{:.6}", jd_utc, jd_tt, dt, lst, eps_true));
-    out.push_str("},\n");
+    out.push_str(&format!(
+        "\"jd_utc\":{:.10},\"jd_tai\":{},\"jd_tt\":{:.10},\"jd_ut1\":{:.10},",
+        astro.jd_utc,
+        jnum(astro.jd_tai.unwrap_or(f64::NAN)),
+        astro.jd_tt,
+        astro.jd_ut1
+    ));
+    out.push_str(&format!(
+        "\"tai_minus_utc_seconds\":{},\"dut1_seconds\":{:.9},\"delta_t_seconds\":{:.9},",
+        jnum(astro.tai_minus_utc_seconds.unwrap_or(f64::NAN)),
+        astro.eop.dut1_seconds,
+        astro.delta_t_seconds
+    ));
+    out.push_str(&format!(
+        "\"lst_deg\":{:.9},\"obliquity_deg\":{:.9},",
+        lst, eps_true
+    ));
+    out.push_str("\"earth_orientation\":{");
+    out.push_str(&format!(
+        "\"source\":\"{}\",\"quality\":\"{}\",\"xp_arcsec\":{:.8},\"yp_arcsec\":{:.8},\"dut1_uncertainty_seconds\":{:.8}",
+        astro.eop.source,
+        astro.eop.quality.name(),
+        astro.eop.xp_arcsec,
+        astro.eop.yp_arcsec,
+        astro.eop.dut1_uncertainty_seconds
+    ));
+    out.push_str("}},\n");
     out.push_str("  \"observer\": {");
     out.push_str(&format!(
-        "\"lat_deg\":{:.6},\"lon_deg\":{:.6},\"elev_m\":{:.1}",
-        lat, lon_east, elev
+        "\"terrestrial_lat_deg\":{:.8},\"terrestrial_lon_deg_east\":{:.8},\"polar_motion_corrected_lat_deg\":{:.8},\"polar_motion_corrected_lon_deg_east\":{:.8},\"elev_m\":{:.3}",
+        lat, lon_east, observer_lat, observer_lon, elev
     ));
     out.push_str("},\n");
-    out.push_str("  \"accuracy\": {\
-\"class\":\"apparent topocentric place, validated vs JPL Horizons DE441\",\
-\"theory\":\"Sun+planets VSOP2013, Moon ELP-MPP02; Earth-centre observer; measured IERS delta-T near present; Meeus-21 precession; abridged nutation (~0.5 arcsec)\",\
-\"pointing_error\":\"<=~4 arcsec (worst 3.6, Mercury) and Moon <=~1.5 arcsec across 4 sites equator-64N both hemispheres 2 seasons\",\
-\"valid_epoch\":\"near present; deep-time apparent place is delta-T limited (not arcsecond): delta-T reaches hours at +-6000 yr, so the Moon can be off by degrees\",\
-\"non_goal\":\"navigation / occultation timing\"},\n");
+    out.push_str("  \"accuracy\": {");
+    out.push_str(&format!("\"class\":\"{}\",", accuracy_class));
+    out.push_str("\"coordinate_semantics\":\"ra_deg and dec_deg are apparent topocentric coordinates; geocentric and topocentric values are also emitted under explicit field names\",");
+    out.push_str("\"time_scales\":\"UTC to TAI from leap-second table, TT = TAI + 32.184 s, UT1 = UTC + DUT1\",");
+    out.push_str(&format!("\"eop_status\":\"{}\",", astro.eop.quality.name()));
+    out.push_str("\"validation_scope\":\"Numerical claims are limited to the committed regression matrix and independently rerunnable JPL Horizons validation\",");
+    out.push_str("\"valid_epoch\":\"Precision Earth rotation is limited to the declared EOP source coverage; outside it the snapshot is explicitly degraded\",");
+    out.push_str(
+        "\"non_goal\":\"navigation, occultation prediction, or safety-critical timing\"},\n",
+    );
     out.push_str("  \"bodies\": [\n");
-    for (i, body) in ALL_BODIES.iter().enumerate() {
-        let s = topocentric_sky(*body, jd_utc, lat, lon_east, elev);
+
+    for (index, body) in ALL_BODIES.iter().enumerate() {
+        let s = topocentric_sky_at_time(*body, &astro, lat, lon_east, elev);
         let (rise, transit, set, transit_alt) = events(*body, jd_utc, lat, lon_east, elev);
-        let ang_size =
+        let angular_size =
             2.0 * (body.radius_km() / s.dist_km).asin() * (180.0 / std::f64::consts::PI) * 3600.0;
-        if i > 0 {
+        if index > 0 {
             out.push_str(",\n");
         }
         out.push_str("    {");
         out.push_str(&format!(
-            "\"name\":\"{}\",\"kind\":\"{}\",",
+            "\"name\":\"{}\",\"kind\":\"{}\",\"coordinate_frame\":\"true_equator_and_equinox_of_date\",",
             body.name(),
             body.kind()
         ));
         out.push_str(&format!(
-            "\"ra_deg\":{:.6},\"dec_deg\":{:.6},\"distance_km\":{:.1},",
-            s.ra, s.dec, s.dist_km
+            "\"ra_deg\":{:.9},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{:.9},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{:.9},\"topocentric_apparent_dec_deg\":{:.9},\"distance_km\":{:.3},",
+            s.topocentric_ra,
+            s.topocentric_dec,
+            s.geocentric_ra,
+            s.geocentric_dec,
+            s.topocentric_ra,
+            s.topocentric_dec,
+            s.dist_km
         ));
         out.push_str(&format!(
-            "\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},",
+            "\"alt_deg\":{:.7},\"az_deg\":{:.7},\"alt_refracted_deg\":{:.7},\"above_horizon\":{},",
             s.alt,
             s.az,
             s.alt_refracted,
@@ -304,12 +411,12 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
         ));
         out.push_str(&format!("\"compass\":\"{}\",", compass(s.az)));
         out.push_str(&format!(
-            "\"angular_size_arcsec\":{:.2},\"horizontal_parallax_deg\":{:.6},",
-            ang_size,
+            "\"angular_size_arcsec\":{:.4},\"horizontal_parallax_deg\":{:.9},",
+            angular_size,
             coords::horizontal_parallax_deg(s.dist_km)
         ));
         out.push_str(&format!(
-            "\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.3}",
+            "\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.6}",
             jnum(rise),
             jnum(transit),
             jnum(set),
@@ -317,18 +424,26 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
         ));
         out.push('}');
     }
-    // Bright-star catalogue — same topocentric reduction; no distance/parallax (infinite range).
+
     for star in stars::STARS.iter() {
         let s = star_topocentric(star, jd_utc, lat, lon_east, elev);
         let (rise, transit, set, transit_alt) = star_events(star, jd_utc, lat, lon_east, elev);
         out.push_str(",\n    {");
-        out.push_str(&format!("\"name\":\"{}\",\"kind\":\"star\",", star.name));
         out.push_str(&format!(
-            "\"ra_deg\":{:.6},\"dec_deg\":{:.6},\"distance_km\":null,",
-            s.ra, s.dec
+            "\"name\":\"{}\",\"kind\":\"star\",\"coordinate_frame\":\"true_equator_and_equinox_of_date\",",
+            star.name
         ));
         out.push_str(&format!(
-            "\"alt_deg\":{:.5},\"az_deg\":{:.5},\"alt_refracted_deg\":{:.5},\"above_horizon\":{},",
+            "\"ra_deg\":{:.9},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{:.9},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{:.9},\"topocentric_apparent_dec_deg\":{:.9},\"distance_km\":null,",
+            s.topocentric_ra,
+            s.topocentric_dec,
+            s.geocentric_ra,
+            s.geocentric_dec,
+            s.topocentric_ra,
+            s.topocentric_dec
+        ));
+        out.push_str(&format!(
+            "\"alt_deg\":{:.7},\"az_deg\":{:.7},\"alt_refracted_deg\":{:.7},\"above_horizon\":{},",
             s.alt,
             s.az,
             s.alt_refracted,
@@ -340,7 +455,7 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             star.mag
         ));
         out.push_str(&format!(
-            "\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.3}",
+            "\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.6}",
             jnum(rise),
             jnum(transit),
             jnum(set),
@@ -349,7 +464,13 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
         out.push('}');
     }
     out.push_str("\n  ],\n");
-    out.push_str("  \"warnings\": [\"Analytic apparent place; research/observing-planning only, not navigation.\"]\n");
+    out.push_str(
+        "  \"warnings\": [\"Analytic apparent place; research and observing-planning only.\"",
+    );
+    if !astro.eop.quality.precision_ready() {
+        out.push_str(",\"Earth orientation is degraded for this epoch; sub-arcsecond topocentric accuracy is not asserted.\"");
+    }
+    out.push_str("]\n");
     out.push_str("}\n");
     out
 }
@@ -372,8 +493,7 @@ fn compass(az_deg: f64) -> &'static str {
 
 /// Heliocentric ecliptic-J2000 positions (AU) of the planets for the top-down orbit view.
 pub fn system_snapshot_json(jd_utc: f64) -> String {
-    let year = time::year_from_jd(jd_utc);
-    let jd_tt = jd_utc + time::delta_t_seconds(year) / 86400.0;
+    let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
     let jy2k = (jd_tt - time::J2000) / 365.25;
     let bodies: [(&str, &vsop2013::Planet); 8] = [
         ("Mercury", vsop2013_data::mer()),
@@ -596,8 +716,50 @@ mod tests {
     fn snapshot_is_well_formed() {
         // 2024-01-01 00:00 UTC ≈ JD 2460310.5, Boston.
         let json = sky_snapshot_json(2460310.5, 42.36, -71.06, 0.0);
-        assert!(json.contains("ephemeris-snapshot.v1"));
+        assert!(json.contains("ephemeris-snapshot.v2"));
+        assert!(json.contains("topocentric_apparent_ra_deg"));
+        assert!(json.contains("dut1_seconds"));
         assert!(json.contains("\"name\":\"Sun\""));
         assert!(json.contains("\"name\":\"Moon\""));
+    }
+
+    #[test]
+    fn lunar_topocentric_coordinates_are_not_geocentric_aliases() {
+        let astro = AstroTime::from_jd_utc(2_400_000.5 + 61_223.0);
+        let moon = topocentric_sky_at_time(Body::Moon, &astro, 42.36, -71.06, 0.0);
+        let separation = (moon.topocentric_ra - moon.geocentric_ra).abs()
+            + (moon.topocentric_dec - moon.geocentric_dec).abs();
+        assert!(separation > 1.0e-5);
+    }
+
+    #[test]
+    fn standard_altitudes_use_upper_limb_for_sun_and_moon() {
+        let sun = standard_altitude_deg(Body::Sun, AU_KM);
+        assert!((-0.85..-0.80).contains(&sun));
+        let moon = standard_altitude_deg(Body::Moon, 384_400.0);
+        assert!((-0.86..-0.80).contains(&moon));
+        assert!((standard_altitude_deg(Body::Venus, AU_KM) + 34.0 / 60.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn local_solar_day_is_one_day_and_longitude_shifted() {
+        let start = local_solar_day_start(2_460_310.75, 90.0);
+        let next = local_solar_day_start(2_460_311.75, 90.0);
+        assert!((next - start - 1.0).abs() < 1.0e-12);
+        assert!((start - 2_460_310.25).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn event_solver_uses_crossing_margin_but_reports_true_transit_altitude() {
+        let day_start = 2_460_000.5;
+        let sample = |jd: f64| {
+            let phase = 2.0 * std::f64::consts::PI * (jd - day_start);
+            let altitude = 30.0 * phase.sin();
+            (altitude + STANDARD_REFRACTION_DEG, altitude)
+        };
+        let (rise, transit, set, transit_alt) = events_core(&sample, day_start);
+        assert!(rise.is_finite() && set.is_finite() && transit.is_finite());
+        assert!(transit_alt > 29.9);
+        assert!((transit - (day_start + 0.25)).abs() < 1.0e-4);
     }
 }

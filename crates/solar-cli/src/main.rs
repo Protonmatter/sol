@@ -24,9 +24,6 @@ fn run() -> Result<(), String> {
             print_help();
             Ok(())
         }
-        // Bare flags (e.g. `solar-cli --steps 48`) keep the legacy stdout summary; anything
-        // else is a typo'd subcommand — silently running the legacy summary for `simulte`
-        // was a footgun.
         Some(first) if first.starts_with('-') => legacy_summary(&args),
         Some(other) => Err(format!(
             "unknown command '{other}' (expected simulate, ingest, or replay — see --help)"
@@ -40,6 +37,7 @@ fn simulate_command(args: &[String]) -> Result<(), String> {
     let seed = parse_or_default(args, "--seed", 42u64)?;
     let activity = (parse_finite(args, "--activity", 0.9f64)? as f32).clamp(0.0, 1.0);
     let out = required_path(args, "--out")?;
+    validate_run_span(steps, dt_hours)?;
 
     let state = simulate_state(steps, dt_hours, seed, activity);
     let snapshot = solar_state_snapshot_json(
@@ -49,7 +47,7 @@ fn simulate_command(args: &[String]) -> Result<(), String> {
     write_text(&out, &snapshot)?;
     println!("wrote snapshot={}", out.display());
     println!(
-        "source_mode=synthetic steps={steps} dt_hours={dt_hours} seed={seed} activity={activity}"
+        "schema=solar-state-snapshot.v2 source_mode=synthetic steps={steps} dt_hours={dt_hours} seed={seed} activity={activity} internal_max_step_hours=1"
     );
     Ok(())
 }
@@ -88,11 +86,19 @@ fn replay_command(args: &[String]) -> Result<(), String> {
     let out_dir = required_path(args, "--out")?;
     let raw = fs::read_to_string(&snapshot)
         .map_err(|err| format!("read snapshot {}: {err}", snapshot.display()))?;
-    if !raw.contains("\"schema_version\": \"solar-state-snapshot.v1\"")
-        && !raw.contains("\"schema_version\":\"solar-state-snapshot.v1\"")
+    if !raw.contains("\"schema_version\": \"solar-state-snapshot.v2\"")
+        && !raw.contains("\"schema_version\":\"solar-state-snapshot.v2\"")
     {
         return Err(format!(
-            "{} is not a solar-state-snapshot.v1 file",
+            "{} is not a solar-state-snapshot.v2 file",
+            snapshot.display()
+        ));
+    }
+    if !raw.contains("\"frame\": \"heliographic_carrington\"")
+        && !raw.contains("\"frame\":\"heliographic_carrington\"")
+    {
+        return Err(format!(
+            "{} lacks required Carrington coordinate metadata",
             snapshot.display()
         ));
     }
@@ -102,7 +108,7 @@ fn replay_command(args: &[String]) -> Result<(), String> {
     write_text(
         &out_dir.join("replay-manifest.json"),
         &format!(
-            "{{\n  \"schema_version\": \"model-run-manifest.v1\",\n  \"source_snapshot\": \"{}\",\n  \"web_entry\": \"latest-state.json\"\n}}\n",
+            "{{\n  \"schema_version\": \"model-run-manifest.v1\",\n  \"source_snapshot\": \"{}\",\n  \"snapshot_contract\": \"solar-state-snapshot.v2\",\n  \"web_entry\": \"latest-state.json\"\n}}\n",
             escape_json(&snapshot.display().to_string())
         ),
     )?;
@@ -115,10 +121,11 @@ fn legacy_summary(args: &[String]) -> Result<(), String> {
     let dt_hours = parse_finite(args, "--dt-hours", 1.0f64)?.clamp(0.001, 8760.0);
     let seed = parse_or_default(args, "--seed", 42u64)?;
     let activity = (parse_finite(args, "--activity", 0.9f64)? as f32).clamp(0.0, 1.0);
+    validate_run_span(steps, dt_hours)?;
     let state = simulate_state(steps, dt_hours, seed, activity);
 
-    println!("Solar Maximum Engine v0.1 CPU reference");
-    println!("steps={steps} dt_hours={dt_hours} seed={seed}");
+    println!("Solar Maximum Engine v0.2 CPU reference");
+    println!("steps={steps} dt_hours={dt_hours} seed={seed} internal_max_step_hours=1");
     println!("time_days={:.2}", state.time_seconds / 86_400.0);
     println!("active_regions={}", state.active_regions.len());
     println!("br_max_abs={:.4}", state.br.max_abs());
@@ -130,6 +137,14 @@ fn legacy_summary(args: &[String]) -> Result<(), String> {
             .iter()
             .fold(f32::INFINITY, |a, &b| a.min(b))
     );
+    Ok(())
+}
+
+fn validate_run_span(steps: usize, dt_hours: f64) -> Result<(), String> {
+    let total_seconds = steps as f64 * dt_hours * 3600.0;
+    if !total_seconds.is_finite() {
+        return Err("steps * dt-hours exceeds finite simulation time".to_string());
+    }
     Ok(())
 }
 
@@ -182,9 +197,6 @@ where
     }
 }
 
-/// Like `parse_or_default`, but rejects NaN/±inf — `f32::from_str` happily parses "NaN",
-/// and clamp() preserves it, which sent a NaN activity into the Poisson sampler and hung
-/// the simulate loop.
 fn parse_finite(args: &[String], flag: &str, default: f64) -> Result<f64, String> {
     let value = parse_or_default(args, flag, default)?;
     if !value.is_finite() {
@@ -195,26 +207,26 @@ fn parse_finite(args: &[String], flag: &str, default: f64) -> Result<f64, String
 
 fn value_after<'a>(args: &'a [String], flag: &str) -> Option<&'a String> {
     args.iter()
-        .position(|a| a == flag)
-        .and_then(|i| args.get(i + 1))
+        .position(|argument| argument == flag)
+        .and_then(|index| args.get(index + 1))
 }
 
 fn display_optional(path: &Option<PathBuf>) -> String {
     path.as_ref()
-        .map(|p| p.display().to_string())
+        .map(|value| value.display().to_string())
         .unwrap_or_else(|| "none".to_string())
 }
 
 fn escape_json(value: &str) -> String {
     value
         .chars()
-        .flat_map(|ch| match ch {
+        .flat_map(|character| match character {
             '"' => "\\\"".chars().collect::<Vec<_>>(),
             '\\' => "\\\\".chars().collect::<Vec<_>>(),
             '\n' => "\\n".chars().collect::<Vec<_>>(),
             '\r' => "\\r".chars().collect::<Vec<_>>(),
             '\t' => "\\t".chars().collect::<Vec<_>>(),
-            c => vec![c],
+            other => vec![other],
         })
         .collect()
 }
@@ -223,8 +235,9 @@ fn print_help() {
     println!("Solar Maximum Engine");
     println!("Commands:");
     println!("  solar-cli simulate --steps <n> --dt-hours <h> --seed <seed> --activity <0..1> --out <snapshot.json>");
+    println!("    Public dt-hours is internally subdivided to at most one-hour physics steps.");
     println!(
         "  solar-cli ingest swpc --cache <dir> --out <observations.json> --fallback-fixtures <dir>"
     );
-    println!("  solar-cli replay --snapshot <snapshot.json> --out <web-data-dir>");
+    println!("  solar-cli replay --snapshot <solar-state-snapshot.v2> --out <web-data-dir>");
 }

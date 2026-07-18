@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Generate a deterministic solar-cycle snapshot series for web timeline playback.
 
-Each frame is a valid solar-state-snapshot.v1 (it copies the validated base
-snapshot and overrides only the cycle-varying fields), so the web app can swap a
-frame in exactly like the live snapshot. Active-region latitudes follow an
-idealized butterfly diagram (Spoerer's law): emergence latitude is high early in
-the cycle and drifts toward the equator as activity peaks and declines.
+Each frame is a valid solar-state-snapshot.v2. It copies the validated base
+snapshot and replaces every field whose semantics change for the synthetic
+cycle, including operational-readiness data-state metadata. Active-region
+latitudes follow an idealized butterfly diagram (Spoerer's law): emergence
+latitude is high early in the cycle and drifts toward the equator.
 """
 
 from __future__ import annotations
@@ -43,12 +43,10 @@ def stage_for(phase: float) -> str:
 
 
 def activity_for(phase: float) -> float:
-    # Smooth bump: ~0.2 at the cycle ends, ~0.95 at mid-cycle.
     return round(0.2 + 0.75 * math.sin(math.pi * min(max(phase, 0.0), 1.0)), 6)
 
 
 def build_cycle_regions(rng: random.Random, count: int, phase: float) -> list[dict]:
-    # Spoerer's law: mean emergence latitude is high early and migrates equatorward.
     mean_lat = 5.0 + 30.0 * (1.0 - phase)
     regions: list[dict] = []
     for idx in range(count):
@@ -59,10 +57,12 @@ def build_cycle_regions(rng: random.Random, count: int, phase: float) -> list[di
         regions.append(
             {
                 "id": idx + 1,
-                "birth_seconds": round(idx * 3600.0, 6),
+                "birth_seconds": 0.0,
                 "lat_deg": round(lat, 6),
                 "lon_deg": round(360.0 * rng.random(), 6),
-                "flux_norm": round(0.45 + 1.1 * rng.random() * (0.75 + complexity), 6),
+                "flux_norm": round(
+                    0.45 + 1.1 * rng.random() * (0.75 + complexity), 6
+                ),
                 "area_msh": round(150.0 + 1800.0 * complexity, 6),
                 "tilt_deg": round(hemi * (4.0 + 18.0 * rng.random()), 6),
                 "complexity": round(complexity, 6),
@@ -71,6 +71,26 @@ def build_cycle_regions(rng: random.Random, count: int, phase: float) -> list[di
             }
         )
     return regions
+
+
+def synthetic_readiness(base: dict) -> dict:
+    readiness = copy.deepcopy(base.get("operational_readiness") or {})
+    readiness["status"] = "research_learning_ready"
+    readiness["research_learning_ready"] = True
+    readiness["space_weather_operational"] = False
+    readiness["data_state"] = {
+        "source_mode": "synthetic-cycle-series",
+        "observation_mode": "none",
+        "cache_state": "none",
+        "live_data_present": False,
+    }
+    gates = readiness.get("gates")
+    if isinstance(gates, list):
+        for gate in gates:
+            if isinstance(gate, dict) and gate.get("id") == "public_data_provenance":
+                # No observations are attached, so provenance is not missing.
+                gate["passed"] = True
+    return readiness
 
 
 def main() -> int:
@@ -104,25 +124,31 @@ def main() -> int:
 
         frame = copy.deepcopy(base)
         frame["source_mode"] = "synthetic-cycle-series"
+        frame["operational_readiness"] = synthetic_readiness(base)
         frame["grid"] = {
             "lon_count": lon,
             "lat_count": lat,
             "dlon_deg": round(360.0 / lon, 6),
             "dlat_deg": round(180.0 / lat, 6),
+            "storage_order": "lat_major_lon_contiguous",
+            "index_formula": "lat_i * lon_count + lon_i",
         }
         frame["fields"] = {
             "br_normalized": {"units": "normalized magnetic field", "values": br},
-            "br_variance_normalized": {"units": "normalized variance", "values": variance},
+            "br_variance_normalized": {
+                "units": "normalized variance",
+                "values": variance,
+            },
             "continuum_proxy": {"units": "relative intensity", "values": continuum},
             "confidence": {"units": "0..1", "values": confidence},
         }
         frame["active_regions"] = regions
         frame["run"] = dict(frame.get("run", {}))
-        # Provenance: record the seed this frame was ACTUALLY built from, not the base
-        # snapshot's seed (the cloned run block used to claim seed 42 for every frame).
         frame["run"]["seed"] = args.seed + i * 7919
         frame["run"]["activity_index"] = activity
-        frame["run"]["time_seconds"] = round(months * 30.0 * 86400.0, 1)
+        frame["run"]["steps"] = 0
+        frame["run"]["dt_hours"] = 0.0
+        frame["run"]["time_seconds"] = 0.0
         frame["run"]["mode"] = "SyntheticCycleSeries"
         frame["learning"] = {
             "cycle_stage": stage,
@@ -137,7 +163,10 @@ def main() -> int:
         ]
 
         name = f"frame-{i:02d}.json"
-        atomic_write_text(out_dir / name, json.dumps(frame))
+        atomic_write_text(
+            out_dir / name,
+            json.dumps(frame, sort_keys=True, separators=(",", ":")),
+        )
         manifest_frames.append(
             {
                 "index": i,
@@ -156,13 +185,15 @@ def main() -> int:
         "months_span": args.months_span,
         "note": "Deterministic synthetic solar-cycle series; latitudes follow an idealized butterfly diagram.",
     }
-    atomic_write_text(out_dir / "manifest.json", json.dumps(manifest, indent=2))
+    atomic_write_text(
+        out_dir / "manifest.json",
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+    )
     print(f"wrote {args.frames} frames + manifest to {out_dir}")
     return 0
 
 
 def atomic_write_text(path: Path, content: str) -> None:
-    """Write via a temp file + rename so an interrupted run never leaves a truncated frame."""
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(content, encoding="utf-8")
     tmp.replace(path)

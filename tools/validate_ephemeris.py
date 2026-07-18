@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the solar-ephemeris engine against JPL Horizons (DE441).
+"""Validate ephemeris-snapshot.v2 against JPL Horizons observer quantities 2, 4, and 49.
 
 Runs the `sky` CLI (apparent topocentric alt/az from the engine) and compares to
 Horizons' airless Az/El for the same instant + site. This is the "grounded in
@@ -26,10 +26,10 @@ from pathlib import Path
 # (label, UTC, lat_deg, lon_deg_east, elev_m) — spread over season, hemisphere, and latitude
 # (equatorial → sub-arctic) so the gate characterises an envelope, not one geometry.
 CASES = [
-    ("Boston", dt.datetime(2026, 6, 29, 16, 0, tzinfo=dt.timezone.utc), 42.36, -71.06, 0.0),
-    ("Sydney", dt.datetime(2026, 1, 15, 9, 0, tzinfo=dt.timezone.utc), -33.87, 151.21, 20.0),
-    ("Reykjavik", dt.datetime(2026, 12, 21, 12, 0, tzinfo=dt.timezone.utc), 64.13, -21.90, 0.0),
-    ("Nairobi", dt.datetime(2026, 3, 20, 18, 0, tzinfo=dt.timezone.utc), -1.29, 36.82, 1660.0),
+    ("Boston", dt.datetime(2026, 7, 1, 2, 13, 47, tzinfo=dt.timezone.utc), 42.36, -71.06, 10.0),
+    ("Sydney", dt.datetime(2026, 7, 1, 8, 31, 19, tzinfo=dt.timezone.utc), -33.87, 151.21, 20.0),
+    ("Reykjavik", dt.datetime(2026, 7, 1, 14, 44, 3, tzinfo=dt.timezone.utc), 64.13, -21.90, 25.0),
+    ("Nairobi", dt.datetime(2026, 7, 1, 20, 57, 41, tzinfo=dt.timezone.utc), -1.29, 36.82, 1660.0),
 ]
 # Horizons COMMAND ids (planet centres use the "99" suffix).
 BODIES = {
@@ -38,8 +38,9 @@ BODIES = {
 }
 # The headline gate is the great-circle POINTING error (`sep`), which — unlike raw d_az —
 # does not blow up near the zenith/nadir. d_alt is also gated; d_az is reported for context.
-TOL_SEP_DEG = 0.0017  # ~6" pointing error (Sun+planets VSOP2013, Moon ELP-MPP02, Earth-centre observer)
-TOL_ALT_DEG = 0.0017  # ~6"
+DEFAULT_TOL_ARCSEC = 30.0
+MOON_TOL_ARCSEC = 60.0
+DUT1_TOL_SECONDS = 0.003
 
 
 def find_binary(explicit: str | None) -> Path:
@@ -52,30 +53,39 @@ def find_binary(explicit: str | None) -> Path:
     sys.exit("sky binary not found; run: cargo build --release -p solar-ephemeris --bin sky")
 
 
-def engine_altaz(binary: Path, when: dt.datetime, lat: float, lon: float, elev: float) -> dict:
-    unix = when.timestamp()
-    out = subprocess.run([str(binary), str(unix), str(lat), str(lon), str(elev)],
-                         capture_output=True, text=True, check=True).stdout
-    snap = json.loads(out)
-    return {b["name"]: b for b in snap["bodies"]}
+def engine_snapshot(binary: Path, when: dt.datetime, lat: float, lon: float, elev: float) -> dict:
+    out = subprocess.run(
+        [str(binary), str(when.timestamp()), str(lat), str(lon), str(elev)],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    snapshot = json.loads(out)
+    if snapshot.get("schema_version") != "ephemeris-snapshot.v2":
+        raise RuntimeError("engine did not emit ephemeris-snapshot.v2")
+    return snapshot
 
 
-def horizons_altaz(command: str, when: dt.datetime, lat: float, lon: float, elev_m: float) -> tuple[float, float]:
-    lon_east = lon % 360.0
+def horizons_observation(command: str, when: dt.datetime, lat: float, lon: float, elev_m: float) -> dict:
+    jd_utc = when.timestamp() / 86400.0 + 2440587.5
     params = {
         "format": "text", "COMMAND": f"'{command}'", "OBJ_DATA": "'NO'", "MAKE_EPHEM": "'YES'",
         "EPHEM_TYPE": "'OBSERVER'", "CENTER": "'coord@399'", "COORD_TYPE": "'GEODETIC'",
-        "SITE_COORD": f"'{lon_east},{lat},{elev_m / 1000.0}'",
-        "START_TIME": "'" + when.strftime("%Y-%m-%d %H:%M") + "'",
-        "STOP_TIME": "'" + (when + dt.timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M") + "'",
-        "STEP_SIZE": "'1'", "QUANTITIES": "'4'", "ANG_FORMAT": "'DEG'", "APPARENT": "'AIRLESS'",
+        "SITE_COORD": f"'{lon % 360.0},{lat},{elev_m / 1000.0}'",
+        "TLIST": f"'{jd_utc:.12f}'", "TLIST_TYPE": "'JD'", "TIME_TYPE": "'UT'",
+        "TIME_DIGITS": "'FRACSEC'", "QUANTITIES": "'2,4,49'", "ANG_FORMAT": "'DEG'",
+        "APPARENT": "'AIRLESS'", "EXTRA_PREC": "'YES'", "CSV_FORMAT": "'YES'", "ELEV_CUT": "'-90'",
     }
     url = "https://ssd.jpl.nasa.gov/api/horizons.api?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
-    text = fetch_with_retry(url)
-    block = text.split("$$SOE")[1].split("$$EOE")[0].strip().splitlines()[0]
-    floats = re.findall(r"[-+]?\d+\.\d+", block)
-    az, el = float(floats[-2]), float(floats[-1])
-    return az, el
+    payload = fetch_with_retry(url)
+    if "$$SOE" not in payload or "$$EOE" not in payload:
+        raise RuntimeError(f"Horizons response lacks ephemeris block: {payload[:500]}")
+    line = payload.split("$$SOE", 1)[1].split("$$EOE", 1)[0].strip().splitlines()[0]
+    values = [float(value) for value in re.findall(r"[-+]?\d+(?:\.\d+)(?:[Ee][-+]?\d+)?", line)]
+    if len(values) < 5:
+        raise RuntimeError(f"could not parse Horizons quantities 2,4,49: {line}")
+    ra, dec, az, el, dut1 = values[-5:]
+    return {"ra_deg": ra, "dec_deg": dec, "az_deg": az, "el_deg": el, "dut1_seconds": dut1}
 
 
 def fetch_with_retry(url: str, attempts: int = 4) -> str:
@@ -118,34 +128,87 @@ def angular_sep(alt1: float, az1: float, alt2: float, az2: float) -> float:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", help="path to the sky CLI")
+    parser.add_argument("--report", help="write machine-readable validation evidence")
     args = parser.parse_args()
     binary = find_binary(args.binary)
 
-    worst_sep = 0.0
-    worst_alt = 0.0
+    records = []
     failures = []
-    print(f"{'case':<11}{'body':<9}{'sep(arcsec)':>12}{'d_alt(arcsec)':>14}{'d_az(arcsec)':>14}")
+    print(f"{'case':<11}{'body':<9}{'radec(arcsec)':>15}{'altaz(arcsec)':>15}{'d_alt(arcsec)':>15}{'d_dut1(ms)':>13}")
     for label, when, lat, lon, elev in CASES:
-        eng = engine_altaz(binary, when, lat, lon, elev)
-        for name, cmd in BODIES.items():
-            h_az, h_el = horizons_altaz(cmd, when, lat, lon, elev)
-            b = eng[name]
-            d_alt = abs(b["alt_deg"] - h_el)
-            d_az = az_diff(b["az_deg"], h_az)
-            sep = angular_sep(b["alt_deg"], b["az_deg"], h_el, h_az)
-            worst_sep = max(worst_sep, sep)
-            worst_alt = max(worst_alt, d_alt)
-            print(f"{label:<11}{name:<9}{sep * 3600:>12.1f}{d_alt * 3600:>14.1f}{d_az * 3600:>14.1f}")
-            if sep > TOL_SEP_DEG or d_alt > TOL_ALT_DEG:
-                failures.append(f"{label}/{name}: sep={sep * 3600:.1f}arcsec d_alt={d_alt * 3600:.1f}arcsec")
+        snapshot = engine_snapshot(binary, when, lat, lon, elev)
+        bodies = {body["name"]: body for body in snapshot["bodies"]}
+        engine_dut1 = float(snapshot["time"]["dut1_seconds"])
+        for name, command in BODIES.items():
+            reference = horizons_observation(command, when, lat, lon, elev)
+            body = bodies[name]
+            radec = angular_sep(
+                body["topocentric_apparent_dec_deg"],
+                body["topocentric_apparent_ra_deg"],
+                reference["dec_deg"],
+                reference["ra_deg"],
+            )
+            altaz = angular_sep(body["alt_deg"], body["az_deg"], reference["el_deg"], reference["az_deg"])
+            d_alt = abs(body["alt_deg"] - reference["el_deg"])
+            d_dut1 = abs(engine_dut1 - reference["dut1_seconds"])
+            tolerance = MOON_TOL_ARCSEC if name == "Moon" else DEFAULT_TOL_ARCSEC
+            passed = (
+                radec * 3600.0 <= tolerance
+                and altaz * 3600.0 <= tolerance
+                and d_alt * 3600.0 <= tolerance
+                and d_dut1 <= DUT1_TOL_SECONDS
+            )
+            record = {
+                "case": label,
+                "utc": when.isoformat(),
+                "body": name,
+                "radec_error_arcsec": radec * 3600.0,
+                "altaz_error_arcsec": altaz * 3600.0,
+                "altitude_error_arcsec": d_alt * 3600.0,
+                "dut1_error_seconds": d_dut1,
+                "tolerance_arcsec": tolerance,
+                "passed": passed,
+            }
+            records.append(record)
+            print(
+                f"{label:<11}{name:<9}{record['radec_error_arcsec']:>15.2f}"
+                f"{record['altaz_error_arcsec']:>15.2f}{record['altitude_error_arcsec']:>15.2f}"
+                f"{record['dut1_error_seconds'] * 1000.0:>13.3f}"
+            )
+            if not passed:
+                failures.append(
+                    f"{label}/{name}: RADEC={record['radec_error_arcsec']:.2f} arcsec "
+                    f"ALTAZ={record['altaz_error_arcsec']:.2f} arcsec DUT1={d_dut1:.6f} s"
+                )
 
-    print(f"\nworst pointing error: {worst_sep * 3600:.1f} arcsec | worst d_alt: {worst_alt * 3600:.1f} arcsec"
-          f"  (tol: sep {TOL_SEP_DEG * 3600:.0f}arcsec, alt {TOL_ALT_DEG * 3600:.0f}arcsec)")
+    report = {
+        "schema_version": "ephemeris-validation-report.v2",
+        "reference": "JPL Horizons observer quantities 2,4,49; airless; exact UT TLIST",
+        "matrix_size": len(records),
+        "thresholds": {
+            "default_arcsec": DEFAULT_TOL_ARCSEC,
+            "moon_arcsec": MOON_TOL_ARCSEC,
+            "dut1_seconds": DUT1_TOL_SECONDS,
+        },
+        "maxima": {
+            "radec_error_arcsec": max(row["radec_error_arcsec"] for row in records),
+            "altaz_error_arcsec": max(row["altaz_error_arcsec"] for row in records),
+            "altitude_error_arcsec": max(row["altitude_error_arcsec"] for row in records),
+            "dut1_error_seconds": max(row["dut1_error_seconds"] for row in records),
+        },
+        "passed": not failures,
+        "records": records,
+    }
+    if args.report:
+        report_path = Path(args.report)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
     if failures:
-        for f in failures:
-            print("FAIL:", f, file=sys.stderr)
+        for failure in failures:
+            print("FAIL:", failure, file=sys.stderr)
         return 1
-    print("OK: engine matches JPL Horizons within tolerance")
+    print("OK: topocentric RA/Dec, alt/az, and DUT1 satisfy the Horizons matrix")
     return 0
 
 

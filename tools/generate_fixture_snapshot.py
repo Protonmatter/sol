@@ -188,8 +188,8 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
 
     source_mode = snapshot_source_mode(observations)
     return {
-        "schema_version": "solar-state-snapshot.v1",
-        "model_version": "0.1.1",
+        "schema_version": "solar-state-snapshot.v2",
+        "model_version": "0.2.0",
         "source_mode": source_mode,
         "operational_use": False,
         "calibration_state": "normalized magnetic units; physical Gauss/Mx calibration not asserted",
@@ -213,11 +213,22 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
             "time_seconds": 0.0,
             "mode": "SyntheticFixture",
         },
+        "coordinates": {
+            "frame": "heliographic_carrington",
+            "longitude_positive": "west",
+            "latitude_type": "heliographic",
+            "reference_epoch_jd_tt": 2451545.0,
+            "central_meridian_longitude_deg": 0.0,
+            "rotation_reference_deg_per_day": 14.1844,
+            "observer": "sun_center",
+        },
         "grid": {
             "lon_count": lon_count,
             "lat_count": lat_count,
             "dlon_deg": round(360.0 / lon_count, 6),
             "dlat_deg": round(180.0 / lat_count, 6),
+            "storage_order": "lat_major_lon_contiguous",
+            "index_formula": "lat_i * lon_count + lon_i",
         },
         "layers": [
             {"id": "br_normalized", "label": "Radial magnetic field", "kind": "synthetic", "units": "normalized magnetic field"},
@@ -241,6 +252,7 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
         "observations": [observations],
         "warnings": [
             "Static deterministic fixture in normalized magnetic units (not a flux-transport run).",
+            "Coordinates are west-positive heliographic Carrington coordinates.",
             observation_warning(observations),
             *(
                 [
@@ -275,7 +287,7 @@ def build_regions(rng: random.Random, count: int) -> list[dict[str, Any]]:
         regions.append(
             {
                 "id": idx + 1,
-                "birth_seconds": round(idx * 3600.0, 6),
+                "birth_seconds": 0.0,
                 "lat_deg": round(max(-40.0, min(40.0, lat)), 6),
                 "lon_deg": round(lon, 6),
                 "flux_norm": round(0.45 + 1.1 * rng.random() * (0.75 + complexity), 6),
@@ -704,6 +716,7 @@ def build_operational_readiness(source_mode: str, observations: dict[str, Any]) 
         },
         "gates": [
             {"id": "snapshot_contract", "label": "Versioned snapshot contract present", "passed": True},
+            {"id": "coordinate_frame_explicit", "label": "Solar coordinate frame and storage order explicit", "passed": True},
             {"id": "deterministic_replay", "label": "Deterministic fixture replay available", "passed": True},
             {"id": "public_data_provenance", "label": "Public-data provenance retained", "passed": True},
             {"id": "normalized_units_disclosed", "label": "Normalized magnetic units disclosed", "passed": True},
