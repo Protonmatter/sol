@@ -252,7 +252,10 @@ navigation accuracy.
   topocentric My-Sky path stays on VSOP2013. Physics (`physics.rs`): phase angle, illuminated fraction,
   apparent magnitude (Meeus Ch.41), central-difference orbital speed, **black-body** equilibrium temperature
   (labeled as such — *not* surface temperature) — in a **per-object detail panel**.
-- **P5 — WebGPU 3-D. ✅ DONE.** A dependency-free 3-D solar system (`js/orrery.js`, new "3-D View"
+- **P5 — 3-D orrery. ✅ DONE.** *(Historical note: as first shipped this was WebGPU-first with a
+  WebGL2 fallback, as described below. The current `js/orrery.js` is **WebGL2-only** — the WebGPU
+  backend was retired in the lit/textured rewrite (PR #3/#4) to keep one shader path; the
+  device-loss/context-loss recovery survived the port.)* A dependency-free 3-D solar system (`js/orrery.js`, new "3-D View"
   surface) reusing the VSOP2013 `system_snapshot`. Built on the **browser's native WebGPU API in
   JS** — *not* `wgpu`, which needs `wasm-bindgen` and can't build on this ARM64 toolchain. Sun +
   planets are camera-facing billboards in real heliocentric 3-D space; orbits are their true

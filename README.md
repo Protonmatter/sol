@@ -1,5 +1,10 @@
 # Solar Maximum Engine ("Sol")
 
+[![CI](https://github.com/Protonmatter/sol/actions/workflows/ci.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/ci.yml)
+[![Ephemeris accuracy](https://github.com/Protonmatter/sol/actions/workflows/ephemeris-accuracy.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/ephemeris-accuracy.yml)
+
+**Live app: <https://protonmatter.github.io/sol/>**
+
 A deterministic, math-first **solar-cycle / space-weather** simulation engine and a
 **layered learning + research web app** built on top of it. *Sol* is Latin for the Sun —
 this is not a file explorer.
@@ -20,11 +25,13 @@ ever *consumes* those snapshots. The UI never invents physical values.
      assimilation primitive), `solar-ingest`, `solar-cli`.
    - Python tooling for deterministic fixtures, public-data ingest (NOAA/SWPC,
      Helioviewer, JPL Horizons), snapshot-series generation, and validation.
-   - Versioned JSON contracts: `solar-state-snapshot.v1`, `observation-frame.v1`,
-     `model-run-manifest.v1`, `operational-readiness.v1`, plus `series-manifest.v1`.
-     The `solar-state-snapshot.v1` shape is defined once in
-     [`docs/solar-state-snapshot-v1.schema.json`](docs/solar-state-snapshot-v1.schema.json)
-     and enforced across Rust, Python, and the browser via `tools/validate_snapshot.py`.
+   - Versioned JSON contracts: `solar-state-snapshot.v2`, `ephemeris-snapshot.v2`,
+     `observation-frame.v1`, `model-run-manifest.v1`, `operational-readiness.v1`, plus
+     `series-manifest.v1`. The snapshot shapes are each defined once —
+     [`docs/solar-state-snapshot-v2.schema.json`](docs/solar-state-snapshot-v2.schema.json)
+     and [`docs/ephemeris-snapshot-v2.schema.json`](docs/ephemeris-snapshot-v2.schema.json) —
+     and enforced across Rust, Python, and the browser via `tools/validate_snapshot.py`
+     and `tools/validate_ephemeris_snapshot.py`.
 
 2. **Web app** (`apps/web/`) — a dependency-free, no-build static app that renders the
    snapshots (the redesign is merged; `master` is the only branch and deploys to
@@ -58,6 +65,16 @@ SkyView, grounded in facts" — is specced in **[docs/SOLAR_SYSTEM_SPEC.md](docs
 # Serve it (required — the app is native ES modules, which browsers block over file://)
 python -m http.server 8000 --directory apps/web
 # then open http://localhost:8000
+```
+
+**My Sky**, **Solar System**, and the "Run the engine live" control run the real Rust
+engines compiled to WebAssembly. The `.wasm` binaries are **not committed** (they are
+built from source at deploy); build them once locally or those surfaces will explain
+they're unavailable and fall back:
+
+```bash
+rustup target add wasm32-unknown-unknown   # one-time
+python tools/build_wasm.py                 # stages apps/web/pkg/*.wasm
 ```
 
 The **3-D View** wraps real planetary maps (NASA Blue Marble + Solar System Scope, CC-BY) onto its
@@ -120,8 +137,11 @@ A reproducible solar-maximum state from a solar-cycle activity index, a bipolar
 active-region birth model, differential rotation, surface flux transport, and
 probabilistic flare/CME hazard fields.
 
-### Assimilation mode
-The same forecast model, corrected by observation frames with a diagonal Kalman-style update:
+### Assimilation primitive (mode not yet wired)
+A diagonal Kalman-style update primitive ships in `solar-core` with the contract's
+`Assimilation` mode reserved for it, but **no production path calls it yet** — the CLI
+cannot attach observation frames to a run, and every emitted snapshot is honest about
+being synthetic. Wiring observations → grid → this update is the next engine milestone:
 
 ```text
 forecast  x_f = M(x_t)
