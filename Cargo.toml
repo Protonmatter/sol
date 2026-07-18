@@ -6,6 +6,10 @@ members = [
   "crates/solar-wasm",
   "crates/solar-ephemeris"
 ]
+# The fuzz harness lives OUTSIDE the workspace on purpose: libfuzzer-sys is the one
+# accepted external dependency, and excluding it keeps this workspace's Cargo.lock
+# zero-third-party and auditable. See .github/workflows/fuzz.yml.
+exclude = ["crates/solar-ephemeris/fuzz"]
 resolver = "2"
 
 [workspace.package]

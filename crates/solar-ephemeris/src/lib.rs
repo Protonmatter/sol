@@ -5,6 +5,7 @@
 //! motion, and Earth-orientation quality explicitly.
 
 mod binread;
+pub mod blob_validate;
 pub mod coords;
 pub mod earth_orientation;
 pub mod elpmpp02;

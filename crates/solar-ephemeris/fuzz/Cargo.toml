@@ -1,0 +1,43 @@
+# Fuzz harness for the packed-blob validators (cargo-fuzz layout). This crate is
+# EXCLUDED from the workspace: libfuzzer-sys is the one place the project accepts an
+# external dependency, and keeping it out of the workspace keeps the runtime
+# Cargo.lock's zero-third-party-crates property intact and auditable.
+#
+# Run (nightly): cargo +nightly fuzz run vsop2013 -- -max_total_time=120
+[package]
+name = "solar-ephemeris-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+# Its own workspace root (paired with the parent's `exclude`), so this crate and its
+# lockfile never join the zero-dependency runtime workspace.
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+solar-ephemeris = { path = ".." }
+
+[[bin]]
+name = "vsop2013"
+path = "fuzz_targets/vsop2013.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "top2013"
+path = "fuzz_targets/top2013.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "elpmpp02"
+path = "fuzz_targets/elpmpp02.rs"
+test = false
+doc = false
+bench = false

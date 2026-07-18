@@ -19,6 +19,10 @@ struct Tables {
 fn tables() -> &'static Tables {
     static TABLES: OnceLock<Tables> = OnceLock::new();
     TABLES.get_or_init(|| {
+        // Structural validation first — see blob_validate.rs (clean panic, no OOM).
+        if let Err(e) = crate::blob_validate::validate_elpmpp02(BLOB) {
+            panic!("data/elpmpp02.bin is corrupt: {e}");
+        }
         let mut r = Reader::new(BLOB);
         let mut w0 = [0.0f64; 5];
         for x in w0.iter_mut() {
