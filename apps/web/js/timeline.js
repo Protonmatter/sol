@@ -1,8 +1,8 @@
 // Timeline scrubber / cycle playback + the in-browser (WASM) live engine run.
 
-import { store } from "./store.js?v=cc9af050a1";
-import { renderAll } from "./view.js?v=cc9af050a1";
-import { loadEngine, simulateSnapshot } from "../engine.js?v=cc9af050a1";
+import { store } from "./store.js?v=d47a263346";
+import { renderAll } from "./view.js?v=d47a263346";
+import { loadEngine, simulateSnapshot } from "../engine.js?v=d47a263346";
 
 // Monotonic counter bumped whenever the displayed state changes (scrub, Now, or a
 // new live run). runLiveEngine() captures it before awaiting the WASM load and

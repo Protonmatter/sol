@@ -13,24 +13,24 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=cc9af050a1";
-import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=cc9af050a1";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=cc9af050a1";
-import { buildCelestial } from "./celestial.js?v=cc9af050a1";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=cc9af050a1";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=cc9af050a1";
+import { store } from "./store.js?v=d47a263346";
+import { loadSkyEngine, systemSnapshot } from "./skyEngine.js?v=d47a263346";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=d47a263346";
+import { buildCelestial } from "./celestial.js?v=d47a263346";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=d47a263346";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=d47a263346";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=cc9af050a1";
+} from "./orreryMath.js?v=d47a263346";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=cc9af050a1";
+} from "./orreryShaders.js?v=d47a263346";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
-} from "./orreryGalaxy.js?v=cc9af050a1";
-import { renderDetail } from "./orreryDetail.js?v=cc9af050a1";
+} from "./orreryGalaxy.js?v=d47a263346";
+import { renderDetail } from "./orreryDetail.js?v=d47a263346";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -112,19 +112,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=cc9af050a1"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=d47a263346"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=cc9af050a1";
+  ring.src = "textures/saturn_ring.png?v=d47a263346";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=cc9af050a1";
+  sun.src = "textures/sun.jpg?v=d47a263346";
 }
 
 function compile(type, src) {
