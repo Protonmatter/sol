@@ -84,7 +84,9 @@ jobs:
           exit $status
 
       - name: JS unit tests (node --test)
-        run: node --test tests/web/
+        # Explicit file list (shell glob): this runner rejects a bare directory argument.
+        shell: bash
+        run: node --test tests/web/*.test.mjs
 
       # Advisory until the pre-existing JSDoc baseline is clean, then flip to blocking
       # (delete continue-on-error). The ?v= specifiers are stripped in a temp copy —
