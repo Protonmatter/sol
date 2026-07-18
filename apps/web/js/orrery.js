@@ -13,24 +13,24 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=3b7d0d5283";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=3b7d0d5283";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=3b7d0d5283";
-import { buildCelestial } from "./celestial.js?v=3b7d0d5283";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=3b7d0d5283";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=3b7d0d5283";
+import { store } from "./store.js?v=8a19107712";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=8a19107712";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=8a19107712";
+import { buildCelestial } from "./celestial.js?v=8a19107712";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=8a19107712";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=8a19107712";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=3b7d0d5283";
+} from "./orreryMath.js?v=8a19107712";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=3b7d0d5283";
+} from "./orreryShaders.js?v=8a19107712";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
-} from "./orreryGalaxy.js?v=3b7d0d5283";
-import { renderDetail } from "./orreryDetail.js?v=3b7d0d5283";
+} from "./orreryGalaxy.js?v=8a19107712";
+import { renderDetail } from "./orreryDetail.js?v=8a19107712";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -83,7 +83,7 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 
 // ---------------------------------------------------------------- WebGL2 renderer
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
-let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [];
+let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
 let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, texturesStarted = false;
 let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3-D Sun's surface
 let galaxy = null;
@@ -112,19 +112,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=3b7d0d5283"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=8a19107712"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=3b7d0d5283";
+  ring.src = "textures/saturn_ring.png?v=8a19107712";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=3b7d0d5283";
+  sun.src = "textures/sun.jpg?v=8a19107712";
 }
 
 function compile(type, src) {
@@ -141,7 +141,9 @@ function program(vs, fs) {
 function uloc(p, names) { const m = {}; for (const n of names) m[n] = gl.getUniformLocation(p, n); return m; }
 
 function initGL(canvas) {
-  gl = canvas.getContext("webgl2", { antialias: true, depth: true, alpha: false, premultipliedAlpha: false, preserveDrawingBuffer: true });
+  // No preserveDrawingBuffer: nothing reads the framebuffer back, and keeping it costs
+  // a full-framebuffer copy per composite on many GPUs.
+  gl = canvas.getContext("webgl2", { antialias: true, depth: true, alpha: false, premultipliedAlpha: false });
   if (!gl) return null;
   try {
     P.sphere = program(SPHERE_VS, SPHERE_FS);
@@ -171,6 +173,7 @@ function initGL(canvas) {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
 
   sceneLineBuf = gl.createBuffer();
+  dropLineBuf = gl.createBuffer();
   bodyBuf = gl.createBuffer();
   for (const name of ["bg", "mw", "bright", "marker", "wind", "galaxy", "galGuide", "galTrail", "beltA", "beltK", "smallMark", "galObj"]) celBufs[name] = gl.createBuffer();
 
@@ -365,9 +368,11 @@ function rebuildPositions() {
       const snap = systemSnapshot(state.renderUnix);
       state.bodies = snap.bodies || [];
       lastFullSnapshot = performance.now();
+      // Orbit ellipses depend on the osculating elements, which only refresh here.
+      buildSceneLines();
     }
   } catch (e) { console.error("orrery snapshot failed:", e); }
-  buildSceneLines();
+  buildDropLines();
   rebuildSmallBodies();
   // Refresh the text "Positions" list (a11y), throttled so animation doesn't thrash the DOM.
   const now = performance.now();
@@ -390,6 +395,9 @@ function updateOrreryPositions() {
   }
 }
 
+// STATIC line geometry: orbit ellipses (fixed per element refresh, ~1 Hz at most),
+// the ecliptic grid, and the Sun-equator rings. The per-frame animation path never
+// re-tessellates any of this — see buildDropLines for the only true per-frame lines.
 function buildSceneLines() {
   if (!gl) return; // context lost mid-animation — tick()/handlers survive until restore
   const v = []; sceneRanges = [];
@@ -416,8 +424,6 @@ function buildSceneLines() {
     push(ring, G, "strip");
   }
   for (let s = 0; s < 12; s++) { const a = (s / 12) * 2 * Math.PI; push([[0, 0, 0], [Math.cos(a) * 31, Math.sin(a) * 31, 0]], G, "lines"); }
-  // drop-lines from each planet to the ecliptic
-  for (const b of state.bodies) { if (b.x_au == null) continue; push([[b.x_au, b.y_au, b.z_au], [b.x_au, b.y_au, 0]], [0.42, 0.47, 0.58], "lines"); }
 
   // The Sun's equatorial plane — tilted 7.25° to the ecliptic (its spin axis is the real IAU pole).
   // Gold rings + the spin axis make the offset between the Sun's equator and the planets' plane explicit.
@@ -437,7 +443,25 @@ function buildSceneLines() {
     push([[-pole[0] * 1.7, -pole[1] * 1.7, -pole[2] * 1.7], [pole[0] * 1.7, pole[1] * 1.7, pole[2] * 1.7]], [0.85, 0.62, 0.22], "lines");
   }
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, sceneLineBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER, sceneLineBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+}
+
+// The ONLY per-frame line geometry: one drop-line per body from its position to the
+// ecliptic plane (2 points each — trivial next to the ~2k vertices the old combined
+// rebuild re-tessellated and re-uploaded every animation frame).
+function buildDropLines() {
+  if (!gl) return;
+  const v = []; dropRanges = [];
+  let first = 0;
+  for (const b of state.bodies) {
+    if (b.x_au == null) continue;
+    for (const pt of [[b.x_au, b.y_au, b.z_au], [b.x_au, b.y_au, 0]]) {
+      v.push(pt[0], pt[1], pt[2], 0.42, 0.47, 0.58);
+    }
+    dropRanges.push({ first, count: 2, mode: "lines" });
+    first += 2;
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, dropLineBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STREAM_DRAW);
 }
 
 function displayRadiusAU(name) {
@@ -569,6 +593,8 @@ function paint() {
   gl.useProgram(P.line); gl.uniformMatrix4fv(P.lineU.u_vp, false, new Float32Array(vp)); gl.uniform1f(P.lineU.u_alpha, 0.55);
   bindLine(sceneLineBuf);
   for (const r of sceneRanges) gl.drawArrays(r.mode === "lines" ? gl.LINES : gl.LINE_STRIP, r.first, r.count);
+  bindLine(dropLineBuf);
+  for (const r of dropRanges) gl.drawArrays(gl.LINES, r.first, r.count);
   gl.depthMask(true);
 
   // ---- small bodies: the asteroid + Kuiper belts and the dwarf/comet/probe markers ----
@@ -1156,6 +1182,7 @@ function showFallback(msg) {
     initParticles();
     loadTextures();
     rebuildPositions();
+    buildSceneLines(); // the static geometry died with the old context
     paint();
     startLoop(); // the tick loop may have stopped while gl was null; re-arm it
   });
