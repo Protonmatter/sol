@@ -1,0 +1,101 @@
+name: Daily data ingest
+
+# Closes the freshness loop the app promises: fetch today's public SWPC/Helioviewer
+# context, regenerate + validate apps/web/data/, and commit the result to master.
+# The commit triggers CI, and the Pages deploy runs only off a green CI on that SHA
+# (deploy-pages.yml is workflow_run-gated), so fresh data reaches the live site with
+# the same integrity gates as any code change.
+#
+# Before this workflow existed the only scheduler was a per-user Scheduled Task on a
+# dev machine that updated a local checkout and committed nothing — the deployed
+# "today" snapshot silently froze (it sat at 2026-07-02 for 16 days while the UI
+# said "feed: daily ok"). The client now also recomputes staleness on its own
+# (selectors.js feedOverdueHours), so even a broken scheduler can no longer present
+# frozen health as current — this workflow is what keeps that pill green honestly.
+#
+# NOTE (branch protection): master requires PRs + green checks for humans. For this
+# push to land, allow GitHub Actions to bypass required PRs (Settings -> Branches ->
+# master -> "Allow specified actors to bypass required pull requests" -> add
+# github-actions[bot]), or flip PUSH_MODE below to "pr" to open an auto-merge PR
+# instead. The data files it touches are generated artifacts validated in-run.
+
+on:
+  schedule:
+    # 05:40 UTC, daily: after SWPC's daily-product rollover, before US mornings.
+    - cron: "40 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: daily-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    name: Fetch, regenerate, validate, publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: master
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Run the daily ingest (fetch + regenerate + validate)
+        # --fail-on-degraded: a partial fetch must fail loudly here rather than
+        # publish quietly degraded data — the committed feed-status records per-source
+        # health either way, and the run_daily_ingest validators gate the artifacts.
+        run: python tools/run_daily_ingest.py --fail-on-degraded
+
+      - name: Validate the regenerated artifacts once more, standalone
+        run: |
+          python tools/validate_snapshot.py apps/web/data/latest-state.json
+          python tools/validate_operational_readiness.py apps/web/data/latest-state.json
+          python tools/validate_web_static.py --root apps/web
+
+      - name: Commit and push refreshed data (no-op when nothing changed)
+        env:
+          PUSH_MODE: direct   # "direct" pushes to master; "pr" opens an auto-merge PR
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git status --porcelain -- apps/web/data | grep -q .; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add apps/web/data
+            STAMP="$(date -u +%Y-%m-%dT%H:%MZ)"
+            git commit -m "data: daily ingest ${STAMP}" \
+                       -m "Automated refresh of apps/web/data from public sources (SWPC, Helioviewer). Validated by run_daily_ingest + standalone validators in this run."
+            if [ "${PUSH_MODE}" = "direct" ]; then
+              git push origin HEAD:master
+            else
+              BRANCH="data/daily-ingest-$(date -u +%Y%m%d%H%M)"
+              git push origin "HEAD:refs/heads/${BRANCH}"
+              gh pr create --base master --head "${BRANCH}" \
+                --title "data: daily ingest ${STAMP}" \
+                --body "Automated daily data refresh. Artifacts validated in the ingest run; CI must still pass before auto-merge."
+              gh pr merge --auto --squash "${BRANCH}"
+            fi
+          else
+            echo "Data unchanged since the last run; nothing to publish."
+          fi
+
+      - name: Open/refresh a tracking issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="Daily ingest is failing"
+          BODY="The scheduled data ingest failed on $(date -u +%Y-%m-%d). See the run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Until this is fixed the live site serves its last committed snapshot, and the app's feed pill will read overdue/stale on its own."
+          EXISTING="$(gh issue list --state open --search "in:title \"${TITLE}\"" --json number --jq '.[0].number // empty')"
+          if [ -n "${EXISTING}" ]; then
+            gh issue comment "${EXISTING}" --body "${BODY}"
+          else
+            gh issue create --title "${TITLE}" --body "${BODY}"
+          fi

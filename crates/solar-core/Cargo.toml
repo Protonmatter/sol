@@ -3,6 +3,9 @@ name = "solar-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Reduced solar flux-transport model with a diagonal Kalman assimilation primitive, emitting versioned solar-state snapshots"
 
 [lib]
 name = "solar_core"

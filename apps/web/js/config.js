@@ -95,6 +95,7 @@ export const GLOSSARY = {
   "continuum": ["Continuum", "Ordinary visible (white) light from the Sun's surface. Sunspots look dark in continuum because they are cooler than their surroundings."],
   "magnetogram": ["Magnetogram", "A map of the surface magnetic field. Opposite magnetic polarities (north/south) are drawn as opposite colors."],
   "kp": ["Kp index", "A 0–9 scale of global geomagnetic activity. Higher Kp means stronger geomagnetic storms and aurora visible farther from the poles."],
+  "geomagnetic-latitude": ["Geomagnetic latitude", "Your latitude measured from Earth's magnetic pole instead of the geographic one. Aurora follows the magnetic pole, so this — not your map latitude — decides whether the auroral oval can reach you."],
   "f107": ["F10.7", "The Sun's radio brightness at 10.7 cm wavelength — a long-running, reliable proxy for overall solar activity."],
   "goes-xray": ["GOES X-ray flux", "Solar X-ray brightness measured by the GOES satellites. Spikes mark solar flares, graded C, M, and X by strength."],
   "solar-wind": ["Solar wind", "The constant stream of charged particles flowing off the Sun. Faster, denser wind can drive geomagnetic storms at Earth."],

@@ -5,6 +5,7 @@
 //! motion, and Earth-orientation quality explicitly.
 
 mod binread;
+pub mod blob_validate;
 pub mod coords;
 pub mod earth_orientation;
 pub mod elpmpp02;
@@ -166,6 +167,17 @@ fn topocentric_sky_at_time(
     }
 }
 
+/// Catalogue (J2000) place of a star advanced by proper motion to `years` past J2000.
+/// μα is stored as μα·cosδ (the SIMBAD/Hipparcos convention), so the RA rate is divided
+/// back by cosδ — the clamp keeps Polaris (δ ≈ 89.26°, cosδ ≈ 0.013) finite; its RA
+/// legitimately moves fast near the pole and the great-circle motion stays correct.
+fn star_catalog_place_of_date(star: &stars::Star, years: f64) -> (f64, f64) {
+    let dec = star.dec_deg + star.pm_dec_mas_yr * years / 3.6e6;
+    let cos_dec = (star.dec_deg.to_radians()).cos().abs().max(1e-6);
+    let ra = star.ra_deg + star.pm_ra_mas_yr * years / 3.6e6 / cos_dec;
+    (ra, dec)
+}
+
 /// Apparent topocentric place of a catalogue star. At infinite distance its
 /// geocentric and topocentric right ascension/declination are identical.
 fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _elev: f64) -> Topo {
@@ -174,7 +186,10 @@ fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _e
     let (dpsi, deps) = time::nutation_deg(t);
     let eps_true = time::mean_obliquity_deg(t) + deps;
     let eps0 = time::mean_obliquity_deg(0.0);
-    let (lon0, lat0) = coords::equ_to_ecl(star.ra_deg, star.dec_deg, eps0);
+    // Proper motion first (in the J2000 frame), then the standard reduction.
+    let years = (astro.jd_tt - time::J2000) / 365.25;
+    let (ra_cat, dec_cat) = star_catalog_place_of_date(star, years);
+    let (lon0, lat0) = coords::equ_to_ecl(ra_cat, dec_cat, eps0);
     let (lon_d, lat_d) = coords::precess_ecliptic_from_j2000(lon0, lat0, t);
     let (ra, dec) = coords::ecl_to_equ(lon_d + dpsi, lat_d, eps_true);
     let (observer_lat, observer_lon) = earth_orientation::corrected_observer_geodetic(
@@ -491,11 +506,10 @@ fn compass(az_deg: f64) -> &'static str {
     PTS[(((az_deg + 11.25).rem_euclid(360.0)) / 22.5) as usize % 16]
 }
 
-/// Heliocentric ecliptic-J2000 positions (AU) of the planets for the top-down orbit view.
-pub fn system_snapshot_json(jd_utc: f64) -> String {
-    let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
-    let jy2k = (jd_tt - time::J2000) / 365.25;
-    let bodies: [(&str, &vsop2013::Planet); 8] = [
+/// The system view's planet table, in the ONE canonical order shared by the JSON
+/// snapshot and the raw `system_positions` fast path (the browser indexes by position).
+fn system_planet_table() -> [(&'static str, &'static vsop2013::Planet); 8] {
+    [
         ("Mercury", vsop2013_data::mer()),
         ("Venus", vsop2013_data::ven()),
         ("Earth", vsop2013_data::emb()),
@@ -504,7 +518,26 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
         ("Saturn", vsop2013_data::sat()),
         ("Uranus", vsop2013_data::ura()),
         ("Neptune", vsop2013_data::nep()),
-    ];
+    ]
+}
+
+/// One body's heliocentric position on the system view's canonical model split:
+/// Earth's centre (not the EMB), TOP2013 for the giants, VSOP2013 for the rest.
+fn system_helio_xyz(name: &str, planet: &vsop2013::Planet, jy2k: f64) -> [f64; 3] {
+    if name == "Earth" {
+        return planets::earth_center(jy2k);
+    }
+    match top2013::outer_index(name) {
+        Some(idx) => top2013::helio_xyz(idx, jy2k),
+        None => vsop2013::helio_xyz(planet, jy2k),
+    }
+}
+
+/// Heliocentric ecliptic-J2000 positions (AU) of the planets for the top-down orbit view.
+pub fn system_snapshot_json(jd_utc: f64) -> String {
+    let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
+    let jy2k = (jd_tt - time::J2000) / 365.25;
+    let bodies = system_planet_table();
     const AU_PER_YEAR_KMS: f64 = 4.740_57; // 1 AU/yr in km/s
                                            // Earth's CENTRE, not the Earth-Moon barycentre: VSOP2013's EMB sits ~4671 km toward the
                                            // Moon. Using it as "Earth" also overstated the Earth→Moon separation by the same amount
@@ -518,15 +551,7 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
     out.push_str(&format!("  \"jd_utc\": {:.6},\n  \"bodies\": [\n", jd_utc));
     // Jupiter–Neptune use TOP2013 (sub-arcsec for the giants over ±6000 yr, where VSOP2013 drifts to
     // hundreds of arcsec); the inner planets stay on VSOP2013. Same equinoctial frame, so they mix.
-    let helio = |name: &str, planet: &vsop2013::Planet, t: f64| -> [f64; 3] {
-        if name == "Earth" {
-            return planets::earth_center(t);
-        }
-        match top2013::outer_index(name) {
-            Some(idx) => top2013::helio_xyz(idx, t),
-            None => vsop2013::helio_xyz(planet, t),
-        }
-    };
+    let helio = system_helio_xyz;
     for (i, (name, planet)) in bodies.iter().enumerate() {
         let xyz = helio(name, planet, jy2k);
         let r = (xyz[0] * xyz[0] + xyz[1] * xyz[1] + xyz[2] * xyz[2]).sqrt();
@@ -635,6 +660,47 @@ thread_local! {
     static RESULT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
+// --- Raw-ABI input sanitizing -------------------------------------------------------------
+//
+// These entry points take raw f64s straight from JS. A NaN latitude (an empty input box
+// coerced by a caller) otherwise flows into format!("{:.n}") sites, which render the literal
+// `NaN` — invalid JSON that throws at JSON.parse in the browser. Clamp ranges are physical,
+// not cosmetic: |lat| ≤ 90, longitude wrapped to (-180, 180] (wrapping, unlike clamping,
+// leaves any valid input's meaning unchanged), elevation Dead Sea..Everest, and time held to
+// ±≈12,700 years around the epoch — beyond the model's stated ±5000 yr envelope but small
+// enough that every downstream polynomial stays finite.
+
+const UNIX_ABS_MAX: f64 = 4.0e11;
+
+fn sanitize_unix(unix_seconds: f64) -> f64 {
+    if unix_seconds.is_finite() {
+        unix_seconds.clamp(-UNIX_ABS_MAX, UNIX_ABS_MAX)
+    } else {
+        0.0
+    }
+}
+
+fn sanitize_observer(lat_deg: f64, lon_deg_east: f64, elev_m: f64) -> (f64, f64, f64) {
+    let lat = if lat_deg.is_finite() {
+        lat_deg.clamp(-90.0, 90.0)
+    } else {
+        0.0
+    };
+    let lon = if lon_deg_east.is_finite() {
+        // Wrap into (-180, 180] so a valid longitude round-trips unchanged in the
+        // snapshot's echoed observer block.
+        -((-lon_deg_east + 180.0).rem_euclid(360.0) - 180.0)
+    } else {
+        0.0
+    };
+    let elev = if elev_m.is_finite() {
+        elev_m.clamp(-430.0, 9000.0)
+    } else {
+        0.0
+    };
+    (lat, lon, elev)
+}
+
 /// Compute a sky snapshot for a Unix time + observer; returns a pointer to UTF-8 JSON bytes.
 #[no_mangle]
 pub extern "C" fn sky_snapshot(
@@ -643,7 +709,8 @@ pub extern "C" fn sky_snapshot(
     lon_deg_east: f64,
     elev_m: f64,
 ) -> *const u8 {
-    let jd_utc = time::jd_from_unix(unix_seconds);
+    let (lat_deg, lon_deg_east, elev_m) = sanitize_observer(lat_deg, lon_deg_east, elev_m);
+    let jd_utc = time::jd_from_unix(sanitize_unix(unix_seconds));
     let json = sky_snapshot_json(jd_utc, lat_deg, lon_deg_east, elev_m);
     RESULT.with(|cell| {
         *cell.borrow_mut() = json.into_bytes();
@@ -654,12 +721,48 @@ pub extern "C" fn sky_snapshot(
 /// Heliocentric positions of the planets for the orbit view; pointer to UTF-8 JSON.
 #[no_mangle]
 pub extern "C" fn system_snapshot(unix_seconds: f64) -> *const u8 {
-    let jd_utc = time::jd_from_unix(unix_seconds);
+    let jd_utc = time::jd_from_unix(sanitize_unix(unix_seconds));
     let json = system_snapshot_json(jd_utc);
     RESULT.with(|cell| {
         *cell.borrow_mut() = json.into_bytes();
         cell.borrow().as_ptr()
     })
+}
+
+thread_local! {
+    static POSITIONS: RefCell<Vec<f64>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Per-frame animation fast path: heliocentric ecliptic-J2000 positions ONLY, as raw
+/// f64 triples in `system_snapshot_json`'s exact body order (the eight planets, then the
+/// Moon). Identical body math to the JSON path — `system_planet_table` +
+/// `system_helio_xyz` are shared, so the two paths cannot drift — but it skips the
+/// phase/magnitude/element work and, crucially, the JSON serialize→parse round-trip
+/// that made a 60 fps animation loop the app's hottest path. The buffer stays valid
+/// until the next `system_positions` call; read length via `system_positions_len`.
+#[no_mangle]
+pub extern "C" fn system_positions(unix_seconds: f64) -> *const f64 {
+    let jd_utc = time::jd_from_unix(sanitize_unix(unix_seconds));
+    let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
+    let jy2k = (jd_tt - time::J2000) / 365.25;
+    let earth = planets::earth_center(jy2k);
+    POSITIONS.with(|cell| {
+        let mut values = cell.borrow_mut();
+        values.clear();
+        for (name, planet) in system_planet_table().iter() {
+            let xyz = system_helio_xyz(name, planet, jy2k);
+            values.extend_from_slice(&xyz);
+        }
+        let mg = elpmpp02::moon_xyz(jy2k);
+        values.extend_from_slice(&[earth[0] + mg[0], earth[1] + mg[1], earth[2] + mg[2]]);
+        values.as_ptr()
+    })
+}
+
+/// Number of f64 values behind the most recent `system_positions` pointer.
+#[no_mangle]
+pub extern "C" fn system_positions_len() -> usize {
+    POSITIONS.with(|cell| cell.borrow().len())
 }
 
 /// Topocentric alt/az track of a single body over `n` samples (no rise/set events, so it is cheap
@@ -668,6 +771,53 @@ pub extern "C" fn system_snapshot(unix_seconds: f64) -> *const u8 {
 /// Samples start at `unix0` and step by `dt_seconds`. Returns JSON `[{"alt":..,"az":..,"up":bool},..]`
 /// (refracted altitude). Unlike a fixed-RA sweep, this re-solves the body's position at every sample,
 /// so it is exact for the fast-moving Moon as well as the Sun and planets.
+fn body_track_json(
+    body_idx: u32,
+    lat_deg: f64,
+    lon_deg_east: f64,
+    elev_m: f64,
+    unix0: f64,
+    dt_seconds: f64,
+    n: u32,
+) -> String {
+    let body = ALL_BODIES[(body_idx as usize) % ALL_BODIES.len()];
+    let (lat_deg, lon_deg_east, elev_m) = sanitize_observer(lat_deg, lon_deg_east, elev_m);
+    let unix0 = sanitize_unix(unix0);
+    // Non-finite dt collapses to the app's own 60 s default; the magnitude cap keeps
+    // unix0 + i*dt inside the sanitized time envelope for every sample.
+    let dt_seconds = if dt_seconds.is_finite() {
+        dt_seconds.clamp(-1.0e9, 1.0e9)
+    } else {
+        60.0
+    };
+    let count = n.min(2000) as usize;
+    let mut out = String::with_capacity(16 + 36 * count);
+    out.push('[');
+    let mut emitted = false;
+    for i in 0..count {
+        let unix = sanitize_unix(unix0 + (i as f64) * dt_seconds);
+        let jd = time::jd_from_unix(unix);
+        let s = topocentric_sky(body, jd, lat_deg, lon_deg_east, elev_m);
+        // A sample the solver can't produce finitely is simply omitted: the JSON stays
+        // valid and the arc just has a gap, instead of a literal NaN killing JSON.parse.
+        if !(s.alt_refracted.is_finite() && s.az.is_finite()) {
+            continue;
+        }
+        if emitted {
+            out.push(',');
+        }
+        emitted = true;
+        out.push_str(&format!(
+            "{{\"alt\":{:.4},\"az\":{:.4},\"up\":{}}}",
+            s.alt_refracted,
+            s.az,
+            s.alt_refracted > 0.0
+        ));
+    }
+    out.push(']');
+    out
+}
+
 #[no_mangle]
 pub extern "C" fn body_track(
     body_idx: u32,
@@ -678,25 +828,15 @@ pub extern "C" fn body_track(
     dt_seconds: f64,
     n: u32,
 ) -> *const u8 {
-    let body = ALL_BODIES[(body_idx as usize) % ALL_BODIES.len()];
-    let count = n.min(2000) as usize;
-    let mut out = String::with_capacity(16 + 36 * count);
-    out.push('[');
-    for i in 0..count {
-        let unix = unix0 + (i as f64) * dt_seconds;
-        let jd = time::jd_from_unix(unix);
-        let s = topocentric_sky(body, jd, lat_deg, lon_deg_east, elev_m);
-        if i > 0 {
-            out.push(',');
-        }
-        out.push_str(&format!(
-            "{{\"alt\":{:.4},\"az\":{:.4},\"up\":{}}}",
-            s.alt_refracted,
-            s.az,
-            s.alt_refracted > 0.0
-        ));
-    }
-    out.push(']');
+    let out = body_track_json(
+        body_idx,
+        lat_deg,
+        lon_deg_east,
+        elev_m,
+        unix0,
+        dt_seconds,
+        n,
+    );
     RESULT.with(|cell| {
         *cell.borrow_mut() = out.into_bytes();
         cell.borrow().as_ptr()
@@ -761,5 +901,108 @@ mod tests {
         assert!(rise.is_finite() && set.is_finite() && transit.is_finite());
         assert!(transit_alt > 29.9);
         assert!((transit - (day_start + 0.25)).abs() < 1.0e-4);
+    }
+
+    #[test]
+    fn abi_observer_sanitizing_preserves_valid_inputs() {
+        // Every already-valid observer must round-trip unchanged (New York's -74.01°E
+        // must NOT come back as 285.99): wrapping, not clamping, for longitude.
+        let (lat, lon, elev) = sanitize_observer(40.71, -74.01, 10.0);
+        assert!((lat - 40.71).abs() < 1.0e-12);
+        assert!((lon - -74.01).abs() < 1.0e-12);
+        assert!((elev - 10.0).abs() < 1.0e-12);
+        let (_, lon_wrapped, _) = sanitize_observer(0.0, 190.0, 0.0);
+        assert!((lon_wrapped - -170.0).abs() < 1.0e-9);
+        let (_, lon_edge, _) = sanitize_observer(0.0, 180.0, 0.0);
+        assert!((lon_edge - 180.0).abs() < 1.0e-9);
+    }
+
+    #[test]
+    fn abi_hostile_observer_inputs_are_neutralized() {
+        let (lat, lon, elev) = sanitize_observer(f64::NAN, f64::INFINITY, f64::NEG_INFINITY);
+        assert_eq!((lat, lon, elev), (0.0, 0.0, 0.0));
+        let (lat_hi, _, elev_hi) = sanitize_observer(1.0e6, 0.0, 1.0e9);
+        assert_eq!(lat_hi, 90.0);
+        assert_eq!(elev_hi, 9000.0);
+        assert_eq!(sanitize_unix(f64::NAN), 0.0);
+        assert_eq!(sanitize_unix(1.0e30), UNIX_ABS_MAX);
+    }
+
+    #[test]
+    fn abi_snapshot_with_hostile_inputs_stays_valid_json() {
+        // The exact path the extern wrappers take: NaN/∞ from JS must never reach a
+        // format! site — a literal `NaN` in the output throws at JSON.parse in the app.
+        let (lat, lon, elev) = sanitize_observer(f64::NAN, f64::INFINITY, f64::NAN);
+        let jd = time::jd_from_unix(sanitize_unix(f64::NAN));
+        let json = sky_snapshot_json(jd, lat, lon, elev);
+        assert!(json.contains("\"schema_version\""));
+        assert!(!json.contains("NaN") && !json.contains("inf"));
+    }
+
+    #[test]
+    fn system_positions_fast_path_matches_the_json_snapshot_exactly() {
+        // The raw fast path and the JSON path must be the SAME numbers: every fast-path
+        // coordinate, formatted with the JSON path's own {:.8}, must appear verbatim in
+        // the snapshot for the same instant. If the two model splits ever diverge
+        // (e.g. one path switches Earth back to the EMB), this fails.
+        let unix = 1.7e9;
+        let _ = system_positions(unix);
+        let values = POSITIONS.with(|cell| cell.borrow().clone());
+        assert_eq!(values.len(), 27, "8 planets + Moon, xyz each");
+        assert_eq!(system_positions_len(), 27);
+        let json = system_snapshot_json(time::jd_from_unix(unix));
+        for (i, chunk) in values.chunks(3).enumerate() {
+            for (axis, value) in ["x_au", "y_au", "z_au"].iter().zip(chunk) {
+                let needle = format!("\"{}\":{:.8}", axis, value);
+                assert!(json.contains(&needle), "body {i}: {needle} not in snapshot");
+            }
+        }
+    }
+
+    #[test]
+    fn proper_motion_moves_alpha_cen_a_full_arcminute_but_leaves_deneb_still() {
+        // α Cen (μ ≈ 3.7″/yr) accumulates ~1.6′ in the 26 years since J2000 — the exact
+        // drift the catalogue carried as error before proper motion was applied. Deneb
+        // (μ ≈ 2.7 mas/yr) must stay put at this scale.
+        let alpha_cen = stars::STARS
+            .iter()
+            .find(|s| s.name == "Rigil Kentaurus")
+            .unwrap();
+        let (ra, dec) = star_catalog_place_of_date(alpha_cen, 26.0);
+        let dra_arc = (ra - alpha_cen.ra_deg) * alpha_cen.dec_deg.to_radians().cos();
+        let ddec = dec - alpha_cen.dec_deg;
+        let shift_deg = (dra_arc * dra_arc + ddec * ddec).sqrt();
+        assert!(
+            (0.025..0.028).contains(&shift_deg),
+            "alpha Cen 26-yr shift {shift_deg}"
+        );
+
+        let deneb = stars::STARS.iter().find(|s| s.name == "Deneb").unwrap();
+        let (ra_d, dec_d) = star_catalog_place_of_date(deneb, 26.0);
+        let dra_d = (ra_d - deneb.ra_deg) * deneb.dec_deg.to_radians().cos();
+        let shift_d = (dra_d * dra_d + (dec_d - deneb.dec_deg).powi(2)).sqrt();
+        assert!(shift_d < 1e-4, "Deneb 26-yr shift {shift_d}");
+
+        // Zero elapsed time is the identity — the catalogue place itself.
+        let (ra0, dec0) = star_catalog_place_of_date(alpha_cen, 0.0);
+        assert!(ra0 == alpha_cen.ra_deg && dec0 == alpha_cen.dec_deg);
+    }
+
+    #[test]
+    fn abi_body_track_with_hostile_inputs_stays_valid_json() {
+        let json = body_track_json(
+            9999,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NAN,
+            f64::NAN,
+            f64::NAN,
+            5,
+        );
+        assert!(json.starts_with('[') && json.ends_with(']'));
+        assert!(!json.contains("NaN") && !json.contains("inf"));
+        // Sane inputs still produce the full sample count.
+        let ok = body_track_json(0, 40.71, -74.01, 10.0, 1.7e9, 600.0, 5);
+        assert_eq!(ok.matches("\"alt\"").count(), 5);
     }
 }

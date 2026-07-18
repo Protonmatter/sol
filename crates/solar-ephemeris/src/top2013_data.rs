@@ -18,6 +18,10 @@ pub struct TopPlanet {
 fn all() -> &'static [TopPlanet; 4] {
     static PLANETS: OnceLock<[TopPlanet; 4]> = OnceLock::new();
     PLANETS.get_or_init(|| {
+        // Structural validation first — see blob_validate.rs (clean panic, no OOM).
+        if let Err(e) = crate::blob_validate::validate_top2013(BLOB) {
+            panic!("data/top2013.bin is corrupt: {e}");
+        }
         let mut r = Reader::new(BLOB);
         let count = r.u32();
         let mut planets = Vec::with_capacity(count);

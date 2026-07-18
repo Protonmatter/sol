@@ -1,15 +1,16 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js?v=9b90a76ff4";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=9b90a76ff4";
-import { text, textWithTitle, setPill } from "./dom.js?v=9b90a76ff4";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=9b90a76ff4";
+import { store } from "./store.js?v=8a19107712";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=8a19107712";
+import { text, textWithTitle, setPill } from "./dom.js?v=8a19107712";
+import { auroraAssessment } from "./aurora.js?v=8a19107712";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=8a19107712";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
-  dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass,
+  dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass, feedOverdueHours,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js?v=9b90a76ff4";
+} from "./selectors.js?v=8a19107712";
 
 export function updateText() {
   const run = store.state.run || {};
@@ -138,6 +139,44 @@ function updateApplicationPanel() {
     }
     target.appendChild(chip);
   });
+  renderAuroraOutlook();
+}
+
+// "Will I see the aurora tonight?" — joins the snapshot's Kp with the My Sky observer
+// (or the default location) into one plain-language verdict. Copy comes fully formed
+// from aurora.js; this only writes DOM and adds the data-freshness caveat.
+function renderAuroraOutlook() {
+  const target = document.getElementById("auroraOutlook");
+  if (!target) return;
+  const weather = store.state.observed_context?.space_weather_signals || {};
+  const observer = store.sky?.observer || { lat: 40.71, lon: -74.01, label: "New York (default)" };
+  const outlook = auroraAssessment({
+    latDeg: observer.lat,
+    lonEastDeg: observer.lon,
+    kp: weather.latest_kp != null ? Number(weather.latest_kp) : NaN,
+    unixSeconds: Date.now() / 1000,
+    locationLabel: observer.label,
+  });
+  target.textContent = "";
+  target.className = `aurora-outlook aurora-${outlook.status}`;
+  const headline = document.createElement("strong");
+  headline.textContent = outlook.headline;
+  const detail = document.createElement("span");
+  let detailText = outlook.detail;
+  // A verdict from stale Kp must say so — same honesty rule as the feed pill.
+  // (latest_kp != null guard first: Number(null) is 0, which is finite — the caveat
+  // would otherwise attach to the "no Kp reading" message too.)
+  if (weather.latest_kp != null && Number.isFinite(Number(weather.latest_kp)) && feedOverdueHours() !== null) {
+    detailText += " (Kp is from the last completed feed run — it may have changed since.)";
+  }
+  detail.textContent = ` ${detailText}`;
+  const term = document.createElement("button");
+  term.className = "term";
+  term.type = "button";
+  term.textContent = "?";
+  term.setAttribute("data-term", "geomagnetic-latitude");
+  term.setAttribute("aria-label", "What is geomagnetic latitude?");
+  target.append(headline, detail, term);
 }
 
 function signalLabels(signals) {
@@ -285,7 +324,15 @@ function feedHealthSummary() {
   const lastRun = formatUtc(store.feedStatus.last_run_utc);
   const nextRun = formatUtc(store.feedStatus.next_recommended_run_utc);
   const failureText = failed.length ? ` Failed sources: ${failed.join(", ")}.` : " No source failures are reported.";
-  return `Daily feed status is ${store.feedStatus.status || "unknown"}. ${okCount} of ${sources.length} public sources are available. Last run: ${lastRun}. Next suggested run: ${nextRun}.${failureText}`;
+  const overdue = feedOverdueHours();
+  // The status file's "ok" was true when it was written; if the next recommended run
+  // never happened, say so instead of presenting frozen health as current.
+  const staleness = overdue === null ? "" : (
+    overdue >= 48
+      ? ` The daily feed is ${Math.floor(overdue / 24)} days overdue — everything shown is from that last run.`
+      : " The daily feed is overdue; values are from the last completed run."
+  );
+  return `Daily feed status is ${store.feedStatus.status || "unknown"}${overdue !== null ? " (at last run)" : ""}. ${okCount} of ${sources.length} public sources are available. Last run: ${lastRun}. Next suggested run: ${nextRun}.${staleness}${failureText}`;
 }
 
 export function updateModeButtons() {

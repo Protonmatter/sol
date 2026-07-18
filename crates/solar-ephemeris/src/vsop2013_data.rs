@@ -15,6 +15,12 @@ static BLOB: &[u8] = include_bytes!("../data/vsop2013.bin");
 fn all() -> &'static [Planet; 8] {
     static PLANETS: OnceLock<[Planet; 8]> = OnceLock::new();
     PLANETS.get_or_init(|| {
+        // Structural validation FIRST (zero-allocation): a corrupt checkout dies here
+        // with a positioned message instead of an OOM inside Vec::with_capacity or a
+        // wrapped bounds panic deep inside the evaluator.
+        if let Err(e) = crate::blob_validate::validate_vsop2013(BLOB) {
+            panic!("data/vsop2013.bin is corrupt: {e}");
+        }
         let mut r = Reader::new(BLOB);
         let count = r.u32();
         let mut planets = Vec::with_capacity(count);

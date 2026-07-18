@@ -1,0 +1,48 @@
+name: Fuzz (blob validators)
+
+# Weekly fuzzing of the packed-ephemeris blob validators (the zero-allocation fuzz
+# surface in crates/solar-ephemeris/src/blob_validate.rs). Scheduled rather than
+# per-PR: libFuzzer time is wasted on unchanged parsers, and the harness crate sits
+# outside the workspace so the runtime Cargo.lock stays zero-third-party.
+
+on:
+  schedule:
+    - cron: "15 6 * * 1" # Mondays 06:15 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [vsop2013, top2013, elpmpp02]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: crates/solar-ephemeris/fuzz
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: Seed corpus with the committed blob
+        working-directory: crates/solar-ephemeris
+        run: |
+          mkdir -p fuzz/corpus/${{ matrix.target }}
+          cp data/${{ matrix.target }}.bin fuzz/corpus/${{ matrix.target }}/seed.bin
+      - name: Fuzz for 5 minutes
+        working-directory: crates/solar-ephemeris
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=300 -rss_limit_mb=1024
+      - name: Keep any crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: fuzz-crash-${{ matrix.target }}
+          path: crates/solar-ephemeris/fuzz/artifacts/

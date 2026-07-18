@@ -12,10 +12,13 @@ pub mod differential_rotation;
 pub mod field;
 pub mod flux_transport;
 pub mod grid;
+pub mod json_read;
 pub mod synthetic;
 
 pub use active_region::{ActiveRegion, Polarity};
-pub use assimilation::{assimilate_scalar_field, AssimilationInput};
+pub use assimilation::{
+    assimilate_activity, assimilate_scalar_field, ActivityObservation, AssimilationInput,
+};
 pub use contracts::{solar_state_snapshot_json, SnapshotRequest};
 pub use coordinates::{
     LongitudeDirection, SolarCoordinateFrame, SolarCoordinates, SolarLatitudeType,
@@ -23,6 +26,7 @@ pub use coordinates::{
 pub use field::Field2D;
 pub use flux_transport::{advance_flux_transport, FluxTransportConfig};
 pub use grid::SolarGrid;
+pub use json_read::{parse as parse_json, JsonValue};
 pub use synthetic::{SyntheticConfig, SyntheticSolarModel};
 
 #[derive(Clone, Debug)]

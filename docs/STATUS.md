@@ -88,7 +88,8 @@ Implemented:
 - Solar cycle playback and idealized latitude-vs-time butterfly diagram.
 - Wavelength views, active-region inspection, space-weather learning context, and provenance/readiness display.
 - My Sky observer view with geolocation/manual coordinates, time selection, share links, and JSON export.
-- Solar System 3-D and top-down views with WebGL2/WebGPU-compatible rendering paths.
+- Solar System 3-D and top-down views rendered with WebGL2 (the earlier WebGPU path was
+  retired during the orrery rewrite; see SOLAR_SYSTEM_SPEC P5 note).
 - Keyboard-accessible region/body lists and canvas alternatives.
 - Focus-trapped onboarding dialog with focus restoration.
 - Reduced-motion CSS and 3-D auto-animation gating.

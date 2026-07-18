@@ -3,6 +3,14 @@ name = "solar-ephemeris"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Zero-dependency VSOP2013 + ELP-MPP02 + TOP2013 ephemeris and topocentric sky engine, validated against JPL Horizons to arcsecond class"
+readme = "README.md"
+keywords = ["ephemeris", "astronomy", "vsop2013", "moon", "wasm"]
+categories = ["science", "aerospace", "wasm"]
+# The fuzz harness is a nested, workspace-excluded crate — keep it out of the package.
+exclude = ["fuzz/"]
 
 # Deterministic ephemeris + topocentric sky engine. Pure math, zero deps.
 # cdylib for the browser (raw extern "C" ABI, no wasm-bindgen); rlib for tests/CLI.

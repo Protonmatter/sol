@@ -1,0 +1,18 @@
+{
+  "name": "Solar Maximum Engine",
+  "short_name": "Sol",
+  "description": "Today's real Sun, your local sky, and a 3-D solar system — a deterministic solar-cycle engine with honest provenance.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

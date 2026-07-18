@@ -1184,6 +1184,22 @@ body[data-surface="orrery"] .timeline-band {
   font-size: 0.85rem;
 }
 
+/* Aurora outlook — the location-aware verdict inside the space-weather drawer. The left
+   accent encodes the verdict tier without relying on color alone (the headline says it). */
+.aurora-outlook {
+  margin: 0.5rem 0 0.65rem;
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.aurora-outlook strong { display: block; margin-bottom: 0.15rem; }
+.aurora-outlook.aurora-overhead { border-left-color: #6fd08c; }
+.aurora-outlook.aurora-horizon { border-left-color: var(--gold); }
+.aurora-outlook.aurora-unlikely { border-left-color: var(--line-strong); }
+.aurora-outlook.aurora-unknown { border-left-color: var(--muted); color: var(--muted); }
+
 /* Glossary term affordance + tooltip (plain-language help on hover/focus/tap). */
 .term {
   display: inline-flex;

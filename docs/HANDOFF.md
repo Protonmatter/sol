@@ -7,9 +7,7 @@ For the next engineer or agent picking this up. Read this, then
 ## 1. What this project actually is
 
 "Sol" = the **Solar Maximum Engine**, a deterministic solar-cycle / space-weather
-simulation engine (Sol = the Sun), **not** a file explorer. Code lives at
-`C:\Users\mkang\Documents\Sol`. The window titled "Sol - File Explorer" is just Windows
-Explorer showing the folder.
+simulation engine (Sol = the Sun), **not** a file explorer.
 
 The engine produces immutable, versioned JSON snapshots; the web app only renders them.
 That separation is the core architectural invariant — **do not compute physics in the
@@ -84,28 +82,25 @@ scans `js/*.js` for required JS bindings — keep both in sync when you add/rena
   It stamps a single content-hash `?v=<hash>` across every HTML/JS reference, so the token changes
   only when content changes and all references move together — no more hand-bumping `?v=N` per file
   (which risked a stale-module mismatch if one was missed).
-- **Node AND Cargo are installed on this machine** (Node v24 at `C:\Program Files\nodejs`;
-  cargo/rustup at `~/.cargo/bin` — on the PowerShell PATH, not Bash). Data is generated
-  with Python; `node --check` is the zero-dep JS syntax gate. The web app still
-  deliberately needs no build/bundler.
+- **Toolchains**: data is generated with Python (stdlib only); `node --check` is the
+  zero-dep JS syntax gate in CI; cargo builds the engines. The web app itself deliberately
+  needs no build/bundler.
 - **SDO images** load without `crossOrigin` (display-only draw; canvas is never read back).
   If you ever need `getImageData`, you'll need a CORS-enabled source.
 - **Cycle frames drop `observed_context`** to stay small, so Space-Weather chips read "n/a"
   while scrubbing. Live mode is unaffected.
-- **Local dev server** is currently running on `http://localhost:8765` (a `python -m
-  http.server`), not the 8000 in the docs — either works.
-- Line-ending warnings on commit (LF→CRLF) are harmless on Windows.
-- **WASM**: `apps/web/pkg/solar_wasm.wasm` is a committed build artifact. After changing
-  `solar-core` or `solar-wasm`, rerun `tools/build_wasm.ps1` (needs `cargo` +
-  `rustup target add wasm32-unknown-unknown`). The wasm ABI returns a pointer + length into
+- Line-ending warnings on commit (LF→CRLF) are harmless on Windows; `.gitattributes`
+  pins the files that must stay LF.
+- **WASM**: the modules under `apps/web/pkg/` are **not committed** — the deploy workflow
+  builds them from source, and locally you run `python tools/build_wasm.py` after cloning
+  or after changing any engine crate. The wasm ABI returns a pointer + length into
   linear memory; `engine.js` must read the bytes immediately, before any other wasm call.
-- `cargo` is on the PATH in PowerShell (`~/.cargo/bin`), not in the Bash tool's PATH.
 
 ## 6. Migration decision — RESOLVED: Rust → WASM + ES modules
 
 **Outcome:** we took the low-level path — compile the real Rust engine to WebAssembly and
 run it client-side (see "Migration" in [STATUS.md](STATUS.md)). `crates/solar-wasm` is a raw
-`cdylib` (no wasm-bindgen) built with `tools/build_wasm.ps1` to `apps/web/pkg/solar_wasm.wasm`;
+`cdylib` (no wasm-bindgen) built with `tools/build_wasm.py` to `apps/web/pkg/solar_wasm.wasm`;
 `apps/web/engine.js` loads it and `app.js` is now an ES module. Rebuild the wasm whenever
 `solar-core` or `solar-wasm` changes. The next step is splitting the rest of `app.js` into
 modules + `// @ts-check`. **Vite was not adopted** — it needs Node (not installed) and is

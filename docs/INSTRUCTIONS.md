@@ -1,16 +1,15 @@
 # Instructions — running & developing Sol
 
-Practical commands for the web app and its data. Paths are relative to the repo root
-(`C:\Users\mkang\Documents\Sol` on the current machine — note the session working dir
-`C:\Users\mkang\.claude\Sol` is **not** the project).
+Practical commands for the web app and its data. Paths are relative to the repo root.
 
 ## Prerequisites
 
 - **Python 3** — required for the data generators and validators (standard library only).
 - **A browser** — to run the app.
-- **Rust/cargo** — optional, only for the engine crates. *Not installed on this machine*, so
-  the Python generators are the supported path here.
-- **Node** — *not installed*; only needed if/when the migration adds a typecheck/build step.
+- **Rust/cargo** — needed to build the engine crates and the WebAssembly modules that power
+  My Sky, Solar System, and "Run the engine live". Without it the Sun surface still works
+  fully and the other surfaces fall back gracefully.
+- **Node** — optional; used by CI for the JS syntax/typecheck gates, never for a build.
 
 ## Run the web app
 
@@ -64,14 +63,17 @@ add/rename a required DOM id, update `REQUIRED_IDS` in that file.**
 
 ## Build the in-browser engine (WebAssembly)
 
-The web app can run the real `solar-core` engine client-side. The compiled module
-`apps/web/pkg/solar_wasm.wasm` is committed, so you only rebuild it after changing
-`solar-core` or `solar-wasm`:
+The web app runs the real `solar-core` and `solar-ephemeris` engines client-side. The
+compiled modules under `apps/web/pkg/` are **not committed** (`.gitignore` excludes them);
+the deploy workflow builds them from source, and locally you build them yourself after
+cloning or after changing any engine crate:
 
-```powershell
+```bash
 rustup target add wasm32-unknown-unknown   # one-time
-./tools/build_wasm.ps1                       # builds + stages apps/web/pkg/solar_wasm.wasm
+python tools/build_wasm.py                 # builds + stages apps/web/pkg/*.wasm
 ```
+
+(`tools/build_wasm.ps1` is the same thing for a PowerShell-only environment.)
 
 No wasm-bindgen / wasm-pack / Node is needed — `solar-wasm` is a raw `cdylib` and the app
 marshals the JSON snapshot through linear memory itself. In the app: scroll to the timeline

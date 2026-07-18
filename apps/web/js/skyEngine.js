@@ -1,7 +1,7 @@
 // ES module: loads the solar-ephemeris engine (WebAssembly) and validates
 // provider-neutral ephemeris-snapshot.v2 responses from both local and server tiers.
 
-import { assertEphemerisSnapshotV2 } from "./ephemerisContract.js?v=9b90a76ff4";
+import { assertEphemerisSnapshotV2 } from "./ephemerisContract.js?v=8a19107712";
 
 let wasmExports = null;
 let loadPromise = null;
@@ -9,7 +9,10 @@ let loadPromise = null;
 export function loadSkyEngine() {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
-    const response = await fetch("pkg/solar_ephemeris.wasm?v=9b90a76ff4", { cache: "no-store" });
+    // no-cache (revalidate, reuse on 304) rather than no-store: this module embeds the
+    // packed VSOP2013/ELP/TOP tables (~0.5 MB) — re-downloading it on every visit was
+    // the single largest repeat-load cost in the app.
+    const response = await fetch("pkg/solar_ephemeris.wasm?v=8a19107712", { cache: "no-cache" });
     if (!response.ok) throw new Error(`ephemeris wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});
@@ -39,6 +42,23 @@ export function systemSnapshot(unixSeconds) {
   const ptr = wasmExports.system_snapshot(unixSeconds);
   const len = wasmExports.result_len();
   return readResult(ptr, len);
+}
+
+// Body order of the raw positions fast path — must match system_snapshot_json's
+// bodies array (the Rust side derives both from one shared table).
+export const SYSTEM_POSITIONS_ORDER = [
+  "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Moon",
+];
+
+// Per-frame fast path: raw f64 heliocentric positions straight out of linear memory —
+// no JSON serialize/parse. Returns null when the loaded wasm predates the export
+// (deploy-safe feature detection: the caller falls back to systemSnapshot), and COPIES
+// the values out because the view dies if wasm memory grows.
+export function systemPositions(unixSeconds) {
+  if (!wasmExports || typeof wasmExports.system_positions !== "function") return null;
+  const ptr = wasmExports.system_positions(unixSeconds);
+  const len = wasmExports.system_positions_len();
+  return new Float64Array(wasmExports.memory.buffer, ptr, len).slice();
 }
 
 export const BODY_INDEX = {
