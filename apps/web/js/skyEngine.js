@@ -9,7 +9,10 @@ let loadPromise = null;
 export function loadSkyEngine() {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
-    const response = await fetch("pkg/solar_ephemeris.wasm?v=9b90a76ff4", { cache: "no-store" });
+    // no-cache (revalidate, reuse on 304) rather than no-store: this module embeds the
+    // packed VSOP2013/ELP/TOP tables (~0.5 MB) — re-downloading it on every visit was
+    // the single largest repeat-load cost in the app.
+    const response = await fetch("pkg/solar_ephemeris.wasm?v=9b90a76ff4", { cache: "no-cache" });
     if (!response.ok) throw new Error(`ephemeris wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});

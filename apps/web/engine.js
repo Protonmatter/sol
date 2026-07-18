@@ -11,7 +11,10 @@ export function loadEngine() {
   loadPromise = (async () => {
     // Use instantiate(arrayBuffer) rather than instantiateStreaming so it works
     // even when the static server doesn't send the application/wasm MIME type.
-    const response = await fetch("pkg/solar_wasm.wasm?v=9b90a76ff4", { cache: "no-store" });
+    // cache:"no-cache" (NOT no-store): the wasm is built at deploy and is not folded
+    // into the ?v= content hash (it's gitignored), so we must revalidate — but a 304
+    // lets the browser reuse the cached bytes instead of re-downloading every visit.
+    const response = await fetch("pkg/solar_wasm.wasm?v=9b90a76ff4", { cache: "no-cache" });
     if (!response.ok) throw new Error(`wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});

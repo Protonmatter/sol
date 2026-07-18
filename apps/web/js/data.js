@@ -50,7 +50,9 @@ export function currentBaseImage() {
 
 export async function loadState() {
   try {
-    const response = await fetch("data/latest-state.json", { cache: "no-store" });
+    // no-cache = always revalidate but reuse on 304. The data changes at most daily;
+    // no-store forced a full ~450 KB re-download of snapshot + series every visit.
+    const response = await fetch("data/latest-state.json", { cache: "no-cache" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     store.state = await response.json();
   } catch (error) {
@@ -65,7 +67,7 @@ export async function loadState() {
 
 async function loadFeedStatus() {
   try {
-    const response = await fetch("data/feed-status.json", { cache: "no-store" });
+    const response = await fetch("data/feed-status.json", { cache: "no-cache" });
     if (!response.ok) return null;
     return await response.json();
   } catch (error) {
@@ -75,12 +77,16 @@ async function loadFeedStatus() {
 
 export async function loadSeries() {
   try {
-    const response = await fetch("data/series/manifest.json", { cache: "no-store" });
+    const response = await fetch("data/series/manifest.json", { cache: "no-cache" });
     if (!response.ok) return;
     store.seriesManifest = await response.json();
+    // Per-frame .catch: one dropped connection must not reject the whole Promise.all
+    // and discard the frames that DID load (Play/scrub would be dead for the session).
     const frames = await Promise.all(
       (store.seriesManifest.frames || []).map((entry) =>
-        fetch(`data/series/${entry.file}`, { cache: "no-store" }).then((res) => (res.ok ? res.json() : null))
+        fetch(`data/series/${entry.file}`, { cache: "no-cache" })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null)
       )
     );
     store.seriesFrames = frames.filter(Boolean);

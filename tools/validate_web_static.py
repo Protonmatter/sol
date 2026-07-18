@@ -40,6 +40,7 @@ class WebAppParser(HTMLParser):
         super().__init__()
         self.ids: set[str] = set()
         self.asset_refs: list[str] = []
+        self.modulepreloads: set[str] = set()
         self.open_research_panel = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -49,6 +50,8 @@ class WebAppParser(HTMLParser):
             self.ids.add(element_id)
         if tag == "link" and values.get("href"):
             self.asset_refs.append(values["href"] or "")
+            if (values.get("rel") or "") == "modulepreload":
+                self.modulepreloads.add(urlsplit(values["href"] or "").path)
         if tag == "script" and values.get("src"):
             self.asset_refs.append(values["src"] or "")
         classes = (values.get("class") or "").split()
@@ -88,6 +91,16 @@ def validate(root: Path) -> list[str]:
         path_part = urlsplit(ref).path
         if path_part and not (root / path_part).is_file():
             errors.append(f"missing asset referenced by index.html: {ref}")
+    # Every ES module must have a modulepreload hint (and none may dangle): a module
+    # missing from the list silently re-serializes part of the import graph, which is
+    # invisible in testing and only shows up as first-load latency in production.
+    expected_modules = {"engine.js"} | {f"js/{p.name}" for p in (root / "js").glob("*.js")}
+    missing_preloads = sorted(expected_modules - parser.modulepreloads)
+    if missing_preloads:
+        errors.append(f"index.html missing modulepreload for: {', '.join(missing_preloads)}")
+    stale_preloads = sorted(parser.modulepreloads - expected_modules)
+    if stale_preloads:
+        errors.append(f"index.html modulepreload for nonexistent module: {', '.join(stale_preloads)}")
     css = root / "styles.css"
     js = root / "app.js"
     if not css.is_file():
