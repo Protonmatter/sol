@@ -132,12 +132,18 @@ jobs:
           done
           exit $status
 
-      - name: Series regeneration is byte-stable
+      - name: Series regeneration is byte-stable AND matches the committed frames
         shell: bash
         run: |
           cp -a apps/web/data/series /tmp/series-a
           python tools/generate_series.py
           diff -qr /tmp/series-a apps/web/data/series
+          # Regen-vs-regen alone let committed frames drift from the generator for two
+          # PRs (the audit's determinism blind spot #16) — also require regen == committed.
+          if ! git diff --exit-code --stat -- apps/web/data/series; then
+            echo "::error::committed series frames drifted from generate_series.py — regenerate and commit"
+            exit 1
+          fi
 
       - name: Deterministic solar fixture regeneration
         shell: bash
@@ -252,7 +258,9 @@ jobs:
           # The COMMITTED token must match the content hash. The idempotence diff below
           # can't see a stale committed token (deploy restamps, so production hides it),
           # and one already slipped through — see the chore/launch-hardening restamp.
-          if ! git diff --exit-code --stat -- apps/web; then
+          # Pathspec covers exactly what build_web.py stamps/hashes — data/ is excluded
+          # because earlier steps in this job legitimately regenerate it.
+          if ! git diff --exit-code --stat -- apps/web/index.html 'apps/web/*.js' apps/web/js 'apps/web/*.css'; then
             echo "::error::committed ?v= cache token is stale — run 'python tools/build_web.py' and commit the restamp"
             exit 1
           fi
