@@ -3,13 +3,23 @@
   "cache_manifest_status": "ok",
   "commands": [
     {
+      "command": [
+        "python3.12",
+        "tools/fetch_public_data.py",
+        "--cache",
+        ".cache/solar-data",
+        "--timeout-seconds",
+        "20",
+        "--archive-history"
+      ],
+      "exit_code": 0,
       "name": "fetch_public_data",
-      "reason": "skip-fetch",
-      "skipped": true
+      "stderr_tail": "INFO: wrote cache=.cache/solar-data\nINFO: manifest=.cache/solar-data/manifest.json status=ok\n",
+      "stdout_tail": ""
     },
     {
       "command": [
-        "python.exe",
+        "python3.12",
         "tools/generate_fixture_snapshot.py",
         "--cache",
         ".cache/solar-data",
@@ -23,22 +33,22 @@
       "exit_code": 0,
       "name": "generate_fixture_snapshot",
       "stderr_tail": "",
-      "stdout_tail": "wrote snapshot=apps\\web\\data\\latest-state.json\nwrote observations=apps\\web\\data\\latest-observations.json\n"
+      "stdout_tail": "wrote snapshot=apps/web/data/latest-state.json\nwrote observations=apps/web/data/latest-observations.json\n"
     },
     {
       "command": [
-        "python.exe",
+        "python3.12",
         "tools/validate_snapshot.py",
         "apps/web/data/latest-state.json"
       ],
       "exit_code": 0,
       "name": "validate_snapshot",
       "stderr_tail": "",
-      "stdout_tail": "OK: apps\\web\\data\\latest-state.json is solar-state-snapshot.v1\n"
+      "stdout_tail": "OK: apps/web/data/latest-state.json is solar-state-snapshot.v2\n"
     },
     {
       "command": [
-        "python.exe",
+        "python3.12",
         "tools/validate_operational_readiness.py",
         "apps/web/data/latest-state.json"
       ],
@@ -49,34 +59,34 @@
     },
     {
       "command": [
-        "python.exe",
+        "python3.12",
         "tools/validate_web_static.py",
         "--root",
         "apps/web"
       ],
       "exit_code": 0,
       "name": "validate_web_static",
-      "stderr_tail": "INFO: apps\\web passed static web checks\n",
+      "stderr_tail": "INFO: apps/web passed static web checks\n",
       "stdout_tail": ""
     }
   ],
   "critical_failures": [],
   "generated_by": "tools/run_daily_ingest.py",
-  "last_run_utc": "2026-07-02T03:29:46.834078+00:00",
-  "next_recommended_run_utc": "2026-07-03T03:29:46.834078+00:00",
+  "last_run_utc": "2026-07-19T00:52:40.371660+00:00",
+  "next_recommended_run_utc": "2026-07-20T00:52:40.371660+00:00",
   "observations": "apps/web/data/latest-observations.json",
   "optional_failures": [],
   "schema_version": "daily-ingest-status.v1",
   "snapshot": "apps/web/data/latest-state.json",
   "sources": [
     {
-      "bytes": 1602395,
+      "bytes": 1600830,
       "cadence": "1 minute",
       "critical": true,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "rtsw_mag_1m.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/rtsw_mag_1m.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/rtsw_mag_1m.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/rtsw_mag_1m.json",
       "ok": true,
@@ -90,13 +100,13 @@
       "url": "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
     },
     {
-      "bytes": 2793134,
+      "bytes": 2835987,
       "cadence": "1 minute",
       "critical": true,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "rtsw_wind_1m.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/rtsw_wind_1m.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/rtsw_wind_1m.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/rtsw_wind_1m.json",
       "ok": true,
@@ -110,13 +120,13 @@
       "url": "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
     },
     {
-      "bytes": 1057616,
+      "bytes": 1020751,
       "cadence": "1 hour",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "rtsw_ephemerides_1h.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/rtsw_ephemerides_1h.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/rtsw_ephemerides_1h.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/rtsw_ephemerides_1h.json",
       "ok": true,
@@ -134,9 +144,9 @@
       "cadence": "monthly",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "observed-solar-cycle-indices.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/observed-solar-cycle-indices.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/observed-solar-cycle-indices.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/observed-solar-cycle-indices.json",
       "ok": true,
@@ -150,13 +160,13 @@
       "url": "https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json"
     },
     {
-      "bytes": 18830,
+      "bytes": 18832,
       "cadence": "monthly",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "predicted-solar-cycle.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/predicted-solar-cycle.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/predicted-solar-cycle.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/predicted-solar-cycle.json",
       "ok": true,
@@ -170,13 +180,13 @@
       "url": "https://services.swpc.noaa.gov/json/solar-cycle/predicted-solar-cycle.json"
     },
     {
-      "bytes": 152092,
+      "bytes": 122292,
       "cadence": "daily",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "solar_regions.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/solar_regions.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/solar_regions.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/solar_regions.json",
       "ok": true,
@@ -190,13 +200,13 @@
       "url": "https://services.swpc.noaa.gov/json/solar_regions.json"
     },
     {
-      "bytes": 220976,
+      "bytes": 157758,
       "cadence": "daily",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "sunspot_report.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/sunspot_report.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/sunspot_report.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/sunspot_report.json",
       "ok": true,
@@ -214,9 +224,9 @@
       "cadence": "1 minute",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "planetary_k_index_1m.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/planetary_k_index_1m.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/planetary_k_index_1m.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/planetary_k_index_1m.json",
       "ok": true,
@@ -234,9 +244,9 @@
       "cadence": "daily",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "f107_cm_flux.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/f107_cm_flux.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/f107_cm_flux.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/f107_cm_flux.json",
       "ok": true,
@@ -250,13 +260,13 @@
       "url": "https://services.swpc.noaa.gov/json/f107_cm_flux.json"
     },
     {
-      "bytes": 653793,
+      "bytes": 655300,
       "cadence": "1 minute",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "goes_xrays_1_day.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/goes_xrays_1_day.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/goes_xrays_1_day.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/goes_xrays_1_day.json",
       "ok": true,
@@ -270,13 +280,13 @@
       "url": "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
     },
     {
-      "bytes": 29823,
+      "bytes": 10017,
       "cadence": "event",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "goes_xray_flares_7_day.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/goes_xray_flares_7_day.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/goes_xray_flares_7_day.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/goes_xray_flares_7_day.json",
       "ok": true,
@@ -294,9 +304,9 @@
       "cadence": "daily metadata",
       "critical": false,
       "error": null,
-      "fetched_at_utc": "2026-07-02T03:29:00.350898+00:00",
+      "fetched_at_utc": "2026-07-19T00:52:40.424030+00:00",
       "file": "helioviewer_datasources.json",
-      "history_path": ".cache/solar-data/history/2026-07-02/helioviewer_datasources.json",
+      "history_path": ".cache/solar-data/history/2026-07-19/helioviewer_datasources.json",
       "layer_kind": "observed",
       "local_path": ".cache/solar-data/helioviewer_datasources.json",
       "ok": true,
