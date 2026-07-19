@@ -179,6 +179,20 @@ def main() -> int:
 def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict[str, Any]) -> dict[str, Any]:
     rng = random.Random(seed)
     observed_context = observations.get("observed_context") or {}
+    # Only frames with attributable provenance qualify as snapshot-embedded evidence —
+    # the snapshot schema requires provenance.source on every attached frame (the same
+    # rule solar-cli applies): evidence you cannot attribute is not evidence. The full
+    # frame set still ships in the observations report file; the snapshot counts and
+    # discloses what it left out. (A real 12-feed ingest embeds only the RTSW frames;
+    # the schema tightening had previously only ever met the 2-frame fixture fallback,
+    # so the first live daily run after it broke here.)
+    all_frames = observations.get("frames") or []
+    attributable_frames = [
+        frame for frame in all_frames
+        if str((frame.get("provenance") or {}).get("source") or "").strip()
+    ]
+    unattributed_count = len(all_frames) - len(attributable_frames)
+    snapshot_observations = {**observations, "frames": attributable_frames}
     activity_index = clamp_float(observed_context.get("activity_index", 0.9), 0.2, 1.0)
     region_count = int(clamp_float(observed_context.get("synthetic_region_count", 34), 8, 44))
     active_regions = build_regions(rng, count=region_count)
@@ -249,11 +263,20 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
             "plain_language_insight": insight_from_context(observed_context),
         },
         "observed_context": observed_context,
-        "observations": [observations],
+        "observations": [snapshot_observations],
         "warnings": [
             "Static deterministic fixture in normalized magnetic units (not a flux-transport run).",
             "Coordinates are west-positive heliographic Carrington coordinates.",
             observation_warning(observations),
+            *(
+                [
+                    f"{unattributed_count} of {len(all_frames)} observation frames lacked "
+                    "attributable provenance and are not embedded as snapshot evidence "
+                    "(they still informed the observed context; see the observations report)."
+                ]
+                if unattributed_count
+                else []
+            ),
             *(
                 [
                     "Stale cached feeds: "
