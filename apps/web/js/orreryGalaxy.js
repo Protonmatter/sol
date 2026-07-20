@@ -8,9 +8,12 @@
 // Scale: 1 world unit ≈ 0.326 kpc (≈1,063 ly); disc radius ~15 kpc. Logarithmic spiral
 // arms + a central bar/bulge.
 
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=8a19107712";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=78434029fa";
+import { bvToRGB, equToGal } from "./starphysics.js?v=78434029fa";
 
 const D2R = Math.PI / 180;
+const LY_PER_PC = 3.2615637772;
+const LY_PER_KPC = 3261.5637772;
 
 export const GAL_UNIT_KPC = 0.326;           // kpc per world unit
 export const GAL_SUN_R = 8.178 / GAL_UNIT_KPC; // Sun's galactocentric distance (GRAVITY Collab. 2019)
@@ -113,6 +116,100 @@ export function buildGalaxyModel() {
       { name: "Sagittarius Arm", p: [18, -22, 0] },
       { name: "Sun's orbit ≈ 26,700 ly", p: [GAL_SUN_R * Math.cos(-0.5), GAL_SUN_R * Math.sin(-0.5), 0] },
     ],
+  };
+}
+
+// The REAL naked-eye star catalogue (starcatalog.js — Hipparcos positions, parallax
+// distances, B−V colours) placed at its true galactic positions for the galaxy view.
+// Honest scale note: nearly every naked-eye star lies within ~2,000 ly of the Sun —
+// under 2 world units here — so this layer renders as a compact bright halo around the
+// Sun's marker. That is the point: it shows how LOCAL the visible night sky is. The
+// solar-neighbourhood view below is the zoomed-in version where it resolves.
+// `starCat` = the lazily-imported starcatalog.js namespace (see orrery.js enterOrrery).
+export function buildCatalogStarsGalactic(starCat) {
+  const { STAR_COUNT, STAR_STRIDE, STARS_PACKED } = starCat;
+  const pts = [];
+  for (let i = 0; i < STAR_COUNT; i++) {
+    const ra = STARS_PACKED[i * STAR_STRIDE];
+    const dec = STARS_PACKED[i * STAR_STRIDE + 1];
+    const mag = STARS_PACKED[i * STAR_STRIDE + 2];
+    const bv = STARS_PACKED[i * STAR_STRIDE + 3];
+    const dist = STARS_PACKED[i * STAR_STRIDE + 4];
+    if (dist == null || !(dist > 0)) continue;
+    const [l, b] = equToGal(ra, dec);
+    const p = galacticToWorld(l, b, dist / LY_PER_KPC);
+    const [r, g, bl] = bvToRGB(bv);
+    pts.push(p[0], p[1], p[2], Math.max(0.8, 1.8 - 0.16 * mag), r, g, bl, 0.8);
+  }
+  return { points: new Float32Array(pts), count: pts.length / 8 };
+}
+
+// ---- The solar neighbourhood: a light-year-scale view of the same catalogue ----
+// Heliocentric galactic frame, Sun at the origin: +x toward the galactic centre (l = 0),
+// +y along galactic rotation (l = 90°), +z toward the north galactic pole. Positions are
+// Hipparcos parallax distances — real 3-D star places, not a projection. Static at the
+// J2000 epoch: proper motion is not animated here (over the scrubber's ±5000 yr even
+// Barnard's Star moves under a pixel at this scale).
+export const LOCAL_UNIT_LY = 10; // 1 world unit = 10 light-years
+
+export function buildNeighbourhoodModel(starCat) {
+  const { STAR_COUNT, STAR_STRIDE, STARS_PACKED, NAMED_STARS } = starCat;
+  const pts = [];
+  for (let i = 0; i < STAR_COUNT; i++) {
+    const ra = STARS_PACKED[i * STAR_STRIDE];
+    const dec = STARS_PACKED[i * STAR_STRIDE + 1];
+    const mag = STARS_PACKED[i * STAR_STRIDE + 2];
+    const bv = STARS_PACKED[i * STAR_STRIDE + 3];
+    const dist = STARS_PACKED[i * STAR_STRIDE + 4];
+    if (dist == null || !(dist > 0)) continue;
+    const [l, b] = equToGal(ra, dec);
+    const d = dist / LOCAL_UNIT_LY, cb = Math.cos(b * D2R);
+    const x = d * cb * Math.cos(l * D2R), y = d * cb * Math.sin(l * D2R), z = d * Math.sin(b * D2R);
+    // Size by ABSOLUTE magnitude: at true 3-D positions, intrinsic luminosity is the
+    // honest visual weight (a red dwarf 8 ly away must not outshine Deneb at 2,600 ly).
+    const absM = mag - 5 * Math.log10(dist / LY_PER_PC / 10);
+    const size = Math.max(0.7, Math.min(6.0, 3.6 - 0.42 * absM));
+    const [r, g, bl] = bvToRGB(bv);
+    pts.push(x, y, z, size, r, g, bl, 0.9);
+  }
+
+  // Distance rings in the galactic plane, labelled — the scale ladder of the view.
+  const guide = [], ranges = [], ringLabels = [];
+  const RINGS = [10, 25, 50, 100, 250];
+  for (const ly of RINGS) {
+    const rad = ly / LOCAL_UNIT_LY, first = guide.length / 6;
+    for (let k = 0; k <= 128; k++) {
+      const a = (k / 128) * 2 * Math.PI;
+      guide.push(Math.cos(a) * rad, Math.sin(a) * rad, 0, 0.25, 0.3, 0.42);
+    }
+    ranges.push({ first, count: 129 });
+    ringLabels.push({ name: `${ly} ly`, p: [rad * Math.cos(-0.6), rad * Math.sin(-0.6), 0] });
+  }
+
+  // Label layer: named stars, nearest-and-brightest first. Text carries the measured
+  // distance so the view doubles as a reference chart.
+  const named = [];
+  for (const s of NAMED_STARS) {
+    if (s.dist == null) continue;
+    if (!(s.dist <= 120 || s.mag <= 1.7)) continue;
+    const [l, b] = equToGal(s.ra, s.dec);
+    const d = s.dist / LOCAL_UNIT_LY, cb = Math.cos(b * D2R);
+    named.push({
+      name: `${s.name} · ${s.dist < 100 ? s.dist.toFixed(1) : Math.round(s.dist)} ly`,
+      p: [d * cb * Math.cos(l * D2R), d * cb * Math.sin(l * D2R), d * Math.sin(b * D2R)],
+      distLy: s.dist,
+      mag: s.mag,
+    });
+  }
+  named.sort((a, b) => a.distLy - b.distLy);
+
+  return {
+    points: new Float32Array(pts),
+    count: pts.length / 8,
+    guide: new Float32Array(guide),
+    ranges,
+    ringLabels,
+    named,
   };
 }
 

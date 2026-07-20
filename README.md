@@ -42,6 +42,11 @@ ever *consumes* those snapshots. The UI never invents physical values.
    - **Real NASA SDO/HMI imagery** as the observed photosphere, with the model's
      active-regions / magnetic field / confidence composited on top (observed-vs-model
      always labelled).
+   - **A real star catalogue everywhere stars appear**: the naked-eye Hipparcos
+     catalogue (8,867 stars, V ≤ 6.5 — true positions, parallax distances, B−V colours)
+     backs the Solar-System view's sky, the Milky-Way view, and a light-year-scale
+     **Solar neighbourhood** view; the on-device engine reduces 108 bright stars with
+     proper motion for My Sky.
    - **Three destinations** (**The Sun · My Sky · Solar System**), with the Sun surface
      layered through progressive-disclosure drawers (layers & region inspection →
      space-weather impact → the model under the hood); a beginner "glance" by default,
