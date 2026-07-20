@@ -1,0 +1,29 @@
+name: Docs external links
+
+# Network-dependent: checks that external URLs in the Markdown docs are still reachable.
+# Deliberately NOT part of PR-gating CI — a flaky or rate-limited host must never redden an
+# unrelated PR — so it runs weekly and on demand, the same pattern as ephemeris-accuracy.yml.
+# It fails only on definitively dead links (HTTP 404/410 or a domain that does not resolve);
+# timeouts, bot-blocks (401/403/405/429), and other 5xx are reported as warnings only.
+# See tools/check_external_links.py.
+
+on:
+  schedule:
+    - cron: "43 9 * * 1" # Mondays 09:43 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    name: External link check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Check external links in Markdown
+        run: python tools/check_external_links.py
