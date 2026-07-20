@@ -15,16 +15,19 @@ jobs:
   horizons:
     name: Validate + Moon syzygy stress vs JPL Horizons
     runs-on: ubuntu-latest
+    # Network-dependent (live Horizons queries): cap the run so a hung/rate-limited API
+    # can't tie up a runner indefinitely.
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
 
       - name: Build the sky CLI
-        run: cargo build --release -p solar-ephemeris --bin sky
+        run: cargo build --release --locked -p solar-ephemeris --bin sky
 
       - name: Apparent alt/az vs Horizons (4-site envelope)
         run: python tools/validate_ephemeris.py
