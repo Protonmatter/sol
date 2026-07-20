@@ -1,0 +1,60 @@
+name: Publish solar-ephemeris to crates.io
+
+# Publishes the solar-ephemeris crate to crates.io on a weekly schedule (and on demand).
+# The crate already carries the crates.io-ready metadata (description, keywords,
+# categories, license, readme) — this closes the release loop.
+#
+# Publishing a version that already exists on crates.io is a hard error, so the guard
+# step skips the publish when the current workspace version is already live. That keeps
+# the scheduled run green between releases: bump the workspace version (Cargo.toml) and
+# the next scheduled (or manually dispatched) run pushes it.
+#
+# Requires a crates.io API token in the repository secret CARGO_REGISTRY_TOKEN
+# (Settings -> Secrets and variables -> Actions -> New repository secret).
+
+on:
+  schedule:
+    - cron: "30 7 * * 1" # Mondays 07:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-solar-ephemeris
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: cargo publish -p solar-ephemeris
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+
+      - name: Skip if this version is already on crates.io
+        id: guard
+        run: |
+          set -euo pipefail
+          name="solar-ephemeris"
+          version="$(cargo metadata --format-version 1 --no-deps \
+            | jq -r --arg name "$name" '.packages[] | select(.name == $name) | .version')"
+          echo "Resolved ${name} version: ${version}"
+          # crates.io requires a User-Agent; -f makes a 404 (not yet published) a clean skip.
+          if curl -sSfL -o /dev/null \
+              -A "solar-ephemeris-publish (github actions; https://github.com/Protonmatter/sol)" \
+              "https://crates.io/api/v1/crates/${name}/${version}"; then
+            echo "already-published=true" >> "$GITHUB_OUTPUT"
+            echo "${name} ${version} is already on crates.io — skipping publish."
+          else
+            echo "already-published=false" >> "$GITHUB_OUTPUT"
+            echo "${name} ${version} is not on crates.io — will publish."
+          fi
+
+      - name: cargo publish -p solar-ephemeris
+        if: steps.guard.outputs.already-published == 'false'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish -p solar-ephemeris --locked
