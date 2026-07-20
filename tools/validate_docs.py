@@ -1,25 +1,29 @@
 #!/usr/bin/env python3
 """Validate repository Markdown against the actual build state — offline.
 
-Two deterministic, network-free checks so documentation can't silently drift
-from the tree it describes:
+Two families of deterministic, network-free checks so documentation can't
+silently drift from the tree it describes or rot stylistically:
 
+REFERENCE INTEGRITY
   1. Local links & images resolve. Every ``[text](path)`` / ``![alt](path)`` /
      reference definition ``[label]: path`` that points at a repo-local file
-     (not http/https/mailto/anchor-only) must exist. Catches docs that reference
-     a moved, renamed, or deleted file/script.
-
+     (not http/https/mailto/anchor-only) must exist.
   2. Workflow badges point at real workflows. Every
-     ``actions/workflows/<name>.yml`` reference (README status badges, etc.)
-     must have a matching file under ``.github/workflows/``. Catches a badge for
-     a workflow that was renamed or removed, or a workflow added without a badge
-     mention going stale the other way.
+     ``actions/workflows/<name>.yml`` reference must have a matching file under
+     ``.github/workflows/``.
 
-Links inside fenced code blocks are ignored (they are examples, not references).
-External URLs and pure ``#anchor`` fragments are not checked (no network).
+STYLE (offline markdown lint; code fences excluded where noted)
+  3. no-hard-tabs        — literal tab characters in prose.
+  4. no-trailing-space   — trailing whitespace (two spaces = an allowed line break).
+  5. heading-space       — ATX heading needs a space after the ``#`` run.
+  6. heading-increment   — heading level must not jump by more than one.
+  7. fenced-code-lang    — every opening ``` code fence needs a language label.
+  8. fence-closed        — every opened code fence must be closed.
 
-Exit status is non-zero if any Markdown file has a broken local reference, so
-this is safe to gate every PR. Standard library only.
+External URLs and pure ``#anchor`` fragments are never fetched (no network).
+
+Exit status is non-zero if any file has a broken reference or style violation,
+so this is safe to gate every PR. Standard library only.
 
 Usage:
     python tools/validate_docs.py                # scan the whole repo
@@ -39,6 +43,8 @@ LINK_RE = re.compile(r"!?\[[^\]]*\]\(\s*(<[^>]+>|[^)\s]+)(?:\s+\"[^\"]*\")?\s*\)
 REFDEF_RE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>]+>|\S+)")
 # Workflow references (badges / links): actions/workflows/<file>.yml
 WORKFLOW_RE = re.compile(r"actions/workflows/([A-Za-z0-9._-]+\.ya?ml)")
+# ATX heading: leading #'s (up to 3 spaces of indent allowed by CommonMark).
+HEADING_RE = re.compile(r"^ {0,3}(#{1,6})(.*)$")
 
 SKIP_DIRS = {".git", "target", "node_modules", "pkg", "textures"}
 
@@ -48,7 +54,6 @@ def is_external(target: str) -> bool:
 
 
 def clean_target(raw: str) -> str:
-    # Strip optional <...> angle brackets and any #fragment / ?query, decode %20.
     t = raw.strip()
     if t.startswith("<") and t.endswith(">"):
         t = t[1:-1]
@@ -56,40 +61,80 @@ def clean_target(raw: str) -> str:
     return t.replace("%20", " ").strip()
 
 
+def fence_marker(stripped: str) -> str | None:
+    """Return the fence marker (``` or ~~~) if the line opens/closes a fence."""
+    if stripped.startswith("```"):
+        return "```"
+    if stripped.startswith("~~~"):
+        return "~~~"
+    return None
+
+
 def check_file(md_path: Path, repo_root: Path) -> list[str]:
     errors: list[str] = []
     text = md_path.read_text(encoding="utf-8", errors="replace")
+
     in_fence = False
-    fence_marker = ""
+    open_marker = ""
+    last_heading_level = 0
+
+    def err(lineno: int, rule: str, msg: str) -> None:
+        errors.append(f"{md_path}:{lineno}: [{rule}] {msg}")
 
     for lineno, line in enumerate(text.splitlines(), 1):
         stripped = line.lstrip()
-        # Toggle fenced code blocks (``` or ~~~), honoring the marker length.
-        if stripped.startswith(("```", "~~~")):
-            marker = stripped[:3]
-            if not in_fence:
-                in_fence, fence_marker = True, marker
-            elif stripped.startswith(fence_marker):
-                in_fence, fence_marker = False, ""
-            continue
+        marker = fence_marker(stripped)
 
-        # Workflow badges are checked even outside prose (they live in link URLs).
+        # Fence open/close bookkeeping (honoring the marker that opened it).
+        if marker:
+            if not in_fence:
+                info = stripped[len(marker):].strip()
+                if not info:
+                    err(lineno, "fenced-code-lang", "opening code fence has no language label")
+                in_fence, open_marker = True, marker
+            elif stripped.startswith(open_marker):
+                in_fence, open_marker = False, ""
+            continue  # the fence line itself is not prose
+
+        # Workflow badges live in link URLs; check them regardless of fence state.
         for m in WORKFLOW_RE.finditer(line):
             wf = m.group(1)
             if not (repo_root / ".github" / "workflows" / wf).exists():
-                errors.append(
-                    f"{md_path}:{lineno}: badge/link references missing workflow "
-                    f".github/workflows/{wf}"
-                )
+                err(lineno, "workflow-badge", f"references missing workflow .github/workflows/{wf}")
 
         if in_fence:
             continue
 
+        # ---- style checks (prose only) ----
+        if "\t" in line:
+            err(lineno, "no-hard-tabs", "line contains a hard tab")
+        trailing = line[len(line.rstrip()):]
+        if line.strip() != "" and trailing and trailing != "  ":
+            # Exactly two trailing spaces are an intentional Markdown line break
+            # (MD009 br_spaces=2); anything else (1, 3+, or a tab) is accidental.
+            err(lineno, "no-trailing-space",
+                "trailing whitespace (only exactly two spaces, as a line break, are allowed)")
+
+        heading = HEADING_RE.match(line)
+        if heading:
+            hashes, rest = heading.group(1), heading.group(2)
+            if rest and not rest.startswith(" "):
+                err(lineno, "heading-space", "missing space after '#' in heading")
+            else:
+                level = len(hashes)
+                if last_heading_level and level > last_heading_level + 1:
+                    err(
+                        lineno,
+                        "heading-increment",
+                        f"heading jumps from h{last_heading_level} to h{level} (skips a level)",
+                    )
+                last_heading_level = level
+
+        # ---- reference integrity (prose only) ----
         targets = [m.group(1) for m in LINK_RE.finditer(line)]
         ref = REFDEF_RE.match(line)
         if ref:
             targets.append(ref.group(1))
-
         for raw in targets:
             target = clean_target(raw)
             if not target or target.startswith("#") or is_external(target):
@@ -97,7 +142,10 @@ def check_file(md_path: Path, repo_root: Path) -> list[str]:
             base = repo_root if target.startswith("/") else md_path.parent
             resolved = (base / target.lstrip("/")).resolve()
             if not resolved.exists():
-                errors.append(f"{md_path}:{lineno}: broken local link -> {target}")
+                err(lineno, "broken-link", f"broken local link -> {target}")
+
+    if in_fence:
+        err(len(text.splitlines()), "fence-closed", "unclosed code fence at end of file")
 
     return errors
 
@@ -129,13 +177,12 @@ def main(argv: list[str] | None = None) -> int:
         for err in all_errors:
             print(f"ERROR: {err}", file=sys.stderr)
         print(
-            f"\n{len(all_errors)} broken reference(s) across "
-            f"{len(md_files)} Markdown file(s).",
+            f"\n{len(all_errors)} problem(s) across {len(md_files)} Markdown file(s).",
             file=sys.stderr,
         )
         return 1
 
-    print(f"OK: {len(md_files)} Markdown file(s) — all local links and workflow badges resolve.")
+    print(f"OK: {len(md_files)} Markdown file(s) — references resolve and style checks pass.")
     return 0
 
 
