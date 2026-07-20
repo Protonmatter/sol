@@ -8,9 +8,8 @@
 // Scale: 1 world unit ≈ 0.326 kpc (≈1,063 ly); disc radius ~15 kpc. Logarithmic spiral
 // arms + a central bar/bulge.
 
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=11ffac3b2b";
-import { STAR_COUNT, STAR_STRIDE, STARS_PACKED, NAMED_STARS } from "./starcatalog.js?v=11ffac3b2b";
-import { bvToRGB, equToGal } from "./starphysics.js?v=11ffac3b2b";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=adefd395e5";
+import { bvToRGB, equToGal } from "./starphysics.js?v=adefd395e5";
 
 const D2R = Math.PI / 180;
 const LY_PER_PC = 3.2615637772;
@@ -126,7 +125,9 @@ export function buildGalaxyModel() {
 // under 2 world units here — so this layer renders as a compact bright halo around the
 // Sun's marker. That is the point: it shows how LOCAL the visible night sky is. The
 // solar-neighbourhood view below is the zoomed-in version where it resolves.
-export function buildCatalogStarsGalactic() {
+// `starCat` = the lazily-imported starcatalog.js namespace (see orrery.js enterOrrery).
+export function buildCatalogStarsGalactic(starCat) {
+  const { STAR_COUNT, STAR_STRIDE, STARS_PACKED } = starCat;
   const pts = [];
   for (let i = 0; i < STAR_COUNT; i++) {
     const ra = STARS_PACKED[i * STAR_STRIDE];
@@ -151,7 +152,8 @@ export function buildCatalogStarsGalactic() {
 // Barnard's Star moves under a pixel at this scale).
 export const LOCAL_UNIT_LY = 10; // 1 world unit = 10 light-years
 
-export function buildNeighbourhoodModel() {
+export function buildNeighbourhoodModel(starCat) {
+  const { STAR_COUNT, STAR_STRIDE, STARS_PACKED, NAMED_STARS } = starCat;
   const pts = [];
   for (let i = 0; i < STAR_COUNT; i++) {
     const ra = STARS_PACKED[i * STAR_STRIDE];

@@ -1,4 +1,7 @@
 // GENERATED FILE — do not edit. Regenerate: python tools/generate_star_catalog.py
+// @lazy-module: loaded on demand via dynamic import (orrery.js) when the 3-D view
+// opens — must NOT be modulepreloaded or statically imported (validate_web_static
+// enforces both), so the Sun / My Sky first paint never pays for this data.
 //
 // Naked-eye Hipparcos star catalogue (V ≤ 6.5) for the 3-D views.
 // Positions/distances/photometry: ESA Hipparcos (1997) via the committed extract in

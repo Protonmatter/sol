@@ -13,25 +13,25 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=11ffac3b2b";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=11ffac3b2b";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=11ffac3b2b";
-import { buildCelestial } from "./celestial.js?v=11ffac3b2b";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=11ffac3b2b";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=11ffac3b2b";
+import { store } from "./store.js?v=adefd395e5";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=adefd395e5";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=adefd395e5";
+import { buildCelestial } from "./celestial.js?v=adefd395e5";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=adefd395e5";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=adefd395e5";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=11ffac3b2b";
+} from "./orreryMath.js?v=adefd395e5";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=11ffac3b2b";
+} from "./orreryShaders.js?v=adefd395e5";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel,
-} from "./orreryGalaxy.js?v=11ffac3b2b";
-import { renderDetail } from "./orreryDetail.js?v=11ffac3b2b";
+} from "./orreryGalaxy.js?v=adefd395e5";
+import { renderDetail } from "./orreryDetail.js?v=adefd395e5";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -114,19 +114,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=11ffac3b2b"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=adefd395e5"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=11ffac3b2b";
+  ring.src = "textures/saturn_ring.png?v=adefd395e5";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=11ffac3b2b";
+  sun.src = "textures/sun.jpg?v=adefd395e5";
 }
 
 function compile(type, src) {
@@ -195,7 +195,7 @@ function initGL(canvas) {
 }
 
 function buildCelestialBuffers() {
-  cel = buildCelestial();
+  cel = buildCelestial(starCat);
   // Background stars arrive pre-packed in the point-shader layout [x,y,z,size,r,g,b,a] —
   // the real Hipparcos naked-eye catalogue with per-star B−V colour (see celestial.js).
   gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.bg); gl.bufferData(gl.ARRAY_BUFFER, cel.bgStars.packed, gl.STATIC_DRAW);
@@ -258,6 +258,10 @@ function updateGalaxySun() {
 // landmark objects — generation is pure and lives in orreryGalaxy.js.
 let galObjects = [];
 let nbhd = null; // solar-neighbourhood model (points + rings + named labels)
+// The 370 KB star-catalogue data module, loaded ON DEMAND when this view first opens
+// (in parallel with the WASM engine fetch) — deliberately NOT a static import, so the
+// Sun / My Sky surfaces never pay for it at first paint. Cached for the session.
+let starCat = null;
 function buildGalaxyBuffers() {
   const model = buildGalaxyModel();
   gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galaxy);
@@ -274,10 +278,10 @@ function buildGalaxyBuffers() {
 
   // The real naked-eye catalogue at true galactic positions (clusters at the Sun — honest
   // scale), plus the light-year-scale solar-neighbourhood model where it resolves.
-  const cat = buildCatalogStarsGalactic();
+  const cat = buildCatalogStarsGalactic(starCat);
   gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.catStars); gl.bufferData(gl.ARRAY_BUFFER, cat.points, gl.STATIC_DRAW);
   celBufs.catStarsCount = cat.count;
-  nbhd = buildNeighbourhoodModel();
+  nbhd = buildNeighbourhoodModel(starCat);
   gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.nbhd); gl.bufferData(gl.ARRAY_BUFFER, nbhd.points, gl.STATIC_DRAW);
   celBufs.nbhdCount = nbhd.count;
   gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.nbhdGuide); gl.bufferData(gl.ARRAY_BUFFER, nbhd.guide, gl.STATIC_DRAW);
@@ -1015,7 +1019,11 @@ async function enterOrreryInner() {
   // frame corrupting the Sun surface's layout for the rest of the session.
   canvas.style.display = "";
   try {
+    // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
+    // needed only by this surface, neither on the app's first-paint path.
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=adefd395e5");
     await loadSkyEngine();
+    if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
       const res = initGL(canvas);
       if (!res) { showFallback("WebGL2 is unavailable — try a recent Chrome, Edge, Firefox, or Safari."); return; }

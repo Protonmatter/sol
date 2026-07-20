@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -95,13 +96,40 @@ def validate(root: Path) -> list[str]:
     # Every ES module must have a modulepreload hint (and none may dangle): a module
     # missing from the list silently re-serializes part of the import graph, which is
     # invisible in testing and only shows up as first-load latency in production.
-    expected_modules = {"engine.js"} | {f"js/{p.name}" for p in (root / "js").glob("*.js")}
+    # EXCEPTION: a module whose header carries "@lazy-module" is deliberately loaded via
+    # dynamic import() off the first-paint path (e.g. the ~370 KB star catalogue, needed
+    # only by the 3-D view). For those the rules invert: they must NOT be preloaded, and
+    # nothing may statically import them — either would silently front-load the payload.
+    all_js = {f"js/{p.name}": p for p in (root / "js").glob("*.js")}
+    lazy_modules = {
+        name for name, path in all_js.items()
+        if "@lazy-module" in "\n".join(path.read_text(encoding="utf-8").splitlines()[:6])
+    }
+    expected_modules = ({"engine.js"} | set(all_js)) - lazy_modules
     missing_preloads = sorted(expected_modules - parser.modulepreloads)
     if missing_preloads:
         errors.append(f"index.html missing modulepreload for: {', '.join(missing_preloads)}")
     stale_preloads = sorted(parser.modulepreloads - expected_modules)
     if stale_preloads:
         errors.append(f"index.html modulepreload for nonexistent module: {', '.join(stale_preloads)}")
+    static_import = re.compile(r"""(?:^|\n)\s*import\s+(?:[^()]*?from\s+)?["'](?:\./|\.\./|/)?(?:js/)?([A-Za-z0-9_.-]+\.js)""")
+    for name in sorted(lazy_modules):
+        base = name.split("/", 1)[1]
+        importers = [
+            other for other, path in all_js.items()
+            if other != name and base in {m for m in static_import.findall(path.read_text(encoding="utf-8"))}
+        ]
+        for top in ("app.js", "engine.js", "sw.js"):
+            top_path = root / top
+            if top_path.is_file() and base in set(static_import.findall(top_path.read_text(encoding="utf-8"))):
+                importers.append(top)
+        if importers:
+            errors.append(
+                f"lazy module {name} is statically imported by {', '.join(sorted(importers))} — "
+                "that front-loads it; use dynamic import()"
+            )
+        if name in parser.modulepreloads:
+            errors.append(f"lazy module {name} must not be modulepreloaded")
     css = root / "styles.css"
     js = root / "app.js"
     if not css.is_file():

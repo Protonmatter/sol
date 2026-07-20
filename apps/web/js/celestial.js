@@ -11,9 +11,8 @@
 // clock-grade timing), they pin the celestial frame. The galactic-centre and -anticentre markers
 // plus the Milky Way band show where the Sun sits in the Galaxy (~26,000 ly out, toward Sagittarius).
 
-import { equToEcl } from "./bodyData.js?v=11ffac3b2b";
-import { STAR_COUNT, STAR_STRIDE, STARS_PACKED } from "./starcatalog.js?v=11ffac3b2b";
-import { bvToRGB } from "./starphysics.js?v=11ffac3b2b";
+import { equToEcl } from "./bodyData.js?v=adefd395e5";
+import { bvToRGB } from "./starphysics.js?v=adefd395e5";
 
 // ---- bright stars (J2000), enough to draw the headline constellations + name the brightest ----
 // name, RA°, Dec°, V-mag, optional constellation tag for grouping.
@@ -139,9 +138,15 @@ function galToEqu(lDeg, bDeg) {
 function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
 
 // Build all backdrop geometry as flat Float32Arrays on a unit sphere (world ecliptic-J2000).
-// Returns { bgStars:{pos,size,bright}, brightStars:[{name,pos,m}], constLines:Float32(x,y,z..),
+// Returns { bgStars:{packed,count}, brightStars:[{name,pos,m}], constLines:Float32(x,y,z..),
 //           pulsars:[{name,pos,note}], deepsky:[{name,pos,kind,note}], milkyWay:Float32 (band points) }
-export function buildCelestial() {
+//
+// `starCat` is the starcatalog.js module namespace, passed in by the caller: that 370 KB
+// data module is deliberately LAZY (dynamic import when the 3-D view opens) so it never
+// costs the Sun/My-Sky first paint anything — see enterOrrery() in orrery.js.
+export function buildCelestial(starCat) {
+  if (!starCat) throw new Error("buildCelestial requires the star catalogue module (lazy-loaded by orrery.js)");
+  const { STAR_COUNT, STAR_STRIDE, STARS_PACKED } = starCat;
   const dir = (ra, dec) => equToEcl(ra, dec);
 
   // Background stars: the REAL naked-eye Hipparcos catalogue (V ≤ 6.5, see starcatalog.js)

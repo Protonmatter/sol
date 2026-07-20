@@ -17,6 +17,10 @@ crate follows [SemVer](https://semver.org/).
   rings and "name · distance" labels. Derived physics (luminosity, temperature, radius,
   and a clearly-labelled mass estimate) lives in `apps/web/js/starphysics.js`; sources,
   licenses, and honest-accuracy notes in `tools/ephemeris-data/stars/README.md`.
+  The ~370 KB catalogue module is **lazy-loaded** (dynamic import, in parallel with the
+  WASM fetch) only when the 3-D view opens — the Sun / My Sky first paint pays nothing,
+  and `validate_web_static.py` now enforces that lazy modules are never preloaded or
+  statically imported.
 - **Engine bright-star catalogue 26 → 107** (`solar-ephemeris`): the original 26
   SIMBAD-verified entries are frozen verbatim; the extension adds the PyEphem/Yale-BSC
   bright set with real proper motions. My Sky's dome and "Up now" list see all 107.
