@@ -105,6 +105,12 @@ jobs:
         # main(), so importing the modules is offline and safe.
         run: PYTHONPATH=tools python -c "import validate_ephemeris, stress_moon_syzygy"
 
+      - name: Star catalogue regen-stable + physics spot-checks
+        # Regenerates starcatalog.js + stars.rs from the committed pristine sources and
+        # requires byte-identity with what's committed, then spot-checks derived physics
+        # (Sirius/Vega/… distances, temperatures, luminosities) against literature values.
+        run: python tools/validate_star_catalog.py
+
       - name: EOP prediction coverage
         run: python tools/check_eop_freshness.py --minimum-days 90
 

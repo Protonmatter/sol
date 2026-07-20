@@ -13,24 +13,25 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=8a19107712";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=8a19107712";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=8a19107712";
-import { buildCelestial } from "./celestial.js?v=8a19107712";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=8a19107712";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=8a19107712";
+import { store } from "./store.js?v=11ffac3b2b";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=11ffac3b2b";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=11ffac3b2b";
+import { buildCelestial } from "./celestial.js?v=11ffac3b2b";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=11ffac3b2b";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=11ffac3b2b";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=8a19107712";
+} from "./orreryMath.js?v=11ffac3b2b";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=8a19107712";
+} from "./orreryShaders.js?v=11ffac3b2b";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
-} from "./orreryGalaxy.js?v=8a19107712";
-import { renderDetail } from "./orreryDetail.js?v=8a19107712";
+  buildCatalogStarsGalactic, buildNeighbourhoodModel,
+} from "./orreryGalaxy.js?v=11ffac3b2b";
+import { renderDetail } from "./orreryDetail.js?v=11ffac3b2b";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -69,6 +70,7 @@ const state = (store.orrery = {
   showOrbits: true, showSky: true, showConst: true, showLabels: true, showSunEq: true, useTextures: true, galaxy: false,
   showSmall: true, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   galDeepSky: true, // nebulae / pulsars / black holes / nearby stars in the Milky-Way view
+  localView: false, // light-year-scale solar-neighbourhood sub-view of the galaxy mode
   topDown: false, preTopRadius: 0, // "Top-down map" view — folds in the former standalone 2-D Solar System surface
   // Camera: orbit around `anchor` (a body name; "Sun" = origin) or a free-fly camera (WASD + look).
   anchor: "Sun", freeFly: false, freePos: [18, 18, 12], yaw: -2.3, pitch: -0.4, flySpeed: 4, keys: new Set(),
@@ -112,19 +114,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=8a19107712"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=11ffac3b2b"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=8a19107712";
+  ring.src = "textures/saturn_ring.png?v=11ffac3b2b";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=8a19107712";
+  sun.src = "textures/sun.jpg?v=11ffac3b2b";
 }
 
 function compile(type, src) {
@@ -175,7 +177,7 @@ function initGL(canvas) {
   sceneLineBuf = gl.createBuffer();
   dropLineBuf = gl.createBuffer();
   bodyBuf = gl.createBuffer();
-  for (const name of ["bg", "mw", "bright", "marker", "wind", "galaxy", "galGuide", "galTrail", "beltA", "beltK", "smallMark", "galObj"]) celBufs[name] = gl.createBuffer();
+  for (const name of ["bg", "mw", "bright", "marker", "wind", "galaxy", "galGuide", "galTrail", "beltA", "beltK", "smallMark", "galObj", "catStars", "nbhd", "nbhdGuide"]) celBufs[name] = gl.createBuffer();
 
   // 1×1 white fallback so the sphere/ring sampler always has a valid texture bound.
   whiteTex = gl.createTexture();
@@ -194,18 +196,9 @@ function initGL(canvas) {
 
 function buildCelestialBuffers() {
   cel = buildCelestial();
-  // background stars → [x,y,z,size,r,g,b,a]. (buildCelestial reports the count as `.count`.)
-  const pack = (items, color) => {
-    const n = items.count;
-    const a = new Float32Array(n * 8);
-    for (let i = 0; i < n; i++) {
-      a.set([items.pos[i * 3], items.pos[i * 3 + 1], items.pos[i * 3 + 2], items.size[i],
-        color[0], color[1], color[2], items.bright[i]], i * 8);
-    }
-    return a;
-  };
-  const bg = pack(cel.bgStars, [0.86, 0.90, 1.0]);
-  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.bg); gl.bufferData(gl.ARRAY_BUFFER, bg, gl.STATIC_DRAW);
+  // Background stars arrive pre-packed in the point-shader layout [x,y,z,size,r,g,b,a] —
+  // the real Hipparcos naked-eye catalogue with per-star B−V colour (see celestial.js).
+  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.bg); gl.bufferData(gl.ARRAY_BUFFER, cel.bgStars.packed, gl.STATIC_DRAW);
   celBufs.bgCount = cel.bgStars.count;
 
   // Milky Way band points: cel.milkyWay = [x,y,z,w]*
@@ -264,6 +257,7 @@ function updateGalaxySun() {
 // Upload the procedural galaxy model (points, guide rings, labels) and the deep-sky
 // landmark objects — generation is pure and lives in orreryGalaxy.js.
 let galObjects = [];
+let nbhd = null; // solar-neighbourhood model (points + rings + named labels)
 function buildGalaxyBuffers() {
   const model = buildGalaxyModel();
   gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galaxy);
@@ -277,6 +271,16 @@ function buildGalaxyBuffers() {
   galObjects = list.objects;
   gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.galObj); gl.bufferData(gl.ARRAY_BUFFER, list.packed, gl.STATIC_DRAW);
   celBufs.galObjCount = galObjects.length;
+
+  // The real naked-eye catalogue at true galactic positions (clusters at the Sun — honest
+  // scale), plus the light-year-scale solar-neighbourhood model where it resolves.
+  const cat = buildCatalogStarsGalactic();
+  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.catStars); gl.bufferData(gl.ARRAY_BUFFER, cat.points, gl.STATIC_DRAW);
+  celBufs.catStarsCount = cat.count;
+  nbhd = buildNeighbourhoodModel();
+  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.nbhd); gl.bufferData(gl.ARRAY_BUFFER, nbhd.points, gl.STATIC_DRAW);
+  celBufs.nbhdCount = nbhd.count;
+  gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.nbhdGuide); gl.bufferData(gl.ARRAY_BUFFER, nbhd.guide, gl.STATIC_DRAW);
 }
 
 // ---------------------------------------------------------------- small bodies (belts, dwarfs, comets, probes)
@@ -780,6 +784,7 @@ function drawGalaxyTrail(vp) {
 }
 
 function paintGalaxy(w, h, dpr, vp, eye) {
+  if (state.localView) { paintNeighbourhood(w, h, dpr, vp, eye); return; }
   gl.viewport(0, 0, w, h);
   gl.clearColor(0.003, 0.004, 0.011, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND);
@@ -792,6 +797,10 @@ function paintGalaxy(w, h, dpr, vp, eye) {
   // ~8,600 disc/arm/bulge stars, additive — sheared by differential rotation over the galactic clock.
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
   drawPoints(celBufs.galaxy, celBufs.galaxyCount, vp, dpr, 0.9, state.galYears);
+  // The REAL naked-eye catalogue at its true galactic positions: a compact bright halo
+  // hugging the Sun's marker, because nearly every star you can see by eye is within
+  // ~2,000 ly. It rides the sheared disc like everything else.
+  drawPoints(celBufs.catStars, celBufs.catStarsCount || 0, vp, dpr, 0.85, state.galYears);
   // deep-sky landmarks (nebulae, pulsars, black holes, nearby stars…), colour-coded by type
   if (state.galDeepSky) {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -806,6 +815,26 @@ function paintGalaxy(w, h, dpr, vp, eye) {
   gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND);
 }
 
+// The solar neighbourhood: the same real catalogue at light-year scale, Sun at the
+// origin. Every star sits at its Hipparcos-parallax 3-D position (heliocentric galactic
+// frame, +x toward the galactic centre); size encodes intrinsic luminosity, colour B−V.
+// No differential-rotation shear here — at this scale the neighbourhood co-moves.
+function paintNeighbourhood(w, h, dpr, vp, eye) {
+  gl.viewport(0, 0, w, h);
+  gl.clearColor(0.003, 0.004, 0.011, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(P.line); gl.uniformMatrix4fv(P.lineU.u_vp, false, new Float32Array(vp)); gl.uniform1f(P.lineU.u_alpha, 0.45);
+  bindLine(celBufs.nbhdGuide);
+  for (const r of nbhd.ranges) gl.drawArrays(gl.LINE_STRIP, r.first, r.count);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+  drawPoints(celBufs.nbhd, celBufs.nbhdCount || 0, vp, dpr, 0.85);
+  drawGalaxyMarker(vp, eye, [0, 0, 0], [0.55, 0.95, 1.0], 0.16);
+  const canvas = document.getElementById("orreryCanvas");
+  updateLabels(canvas, vp, vp);
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND);
+}
+
 // ---------------------------------------------------------------- DOM labels
 const labelEls = [];
 function updateLabels(canvas, vp, skyVp) {
@@ -814,7 +843,13 @@ function updateLabels(canvas, vp, skyVp) {
   host.style.left = canvas.offsetLeft + "px"; host.style.top = canvas.offsetTop + "px";
   host.style.width = cw + "px"; host.style.height = ch + "px";
   const items = [];
-  if (state.galaxy) {
+  if (state.galaxy && state.localView) {
+    items.push({ name: "☉ Sun — 0 ly", p: [0, 0, 0], cls: "orrery-label sky-star" });
+    for (const r of nbhd.ringLabels) items.push({ name: r.name, p: r.p, cls: "orrery-label sky-galaxy" });
+    // Named stars, nearest first; cap by zoom so close-in exploration stays readable.
+    const maxLabels = state.radius < 4 ? 40 : state.radius < 12 ? 26 : 16;
+    for (const s of nbhd.named.slice(0, maxLabels)) items.push({ name: s.name, p: s.p, cls: "orrery-label sky-star" });
+  } else if (state.galaxy) {
     for (const it of galaxy.labels) items.push({ name: it.name, p: it.p, cls: it.name.startsWith("☉") ? "orrery-label sky-star" : "orrery-label sky-galaxy" });
     // Deep-sky landmark labels appear once you zoom in toward the Sun's region (they cluster near it).
     if (state.galDeepSky && state.radius < 70) {
@@ -1147,6 +1182,7 @@ function showFallback(msg) {
   bind("orreryFreeFly", "change", (e) => setFreeFly(e.target.checked));
   bind("orreryGalaxy", "click", () => {
     state.galaxy = !state.galaxy;
+    if (state.localView) { state.localView = false; const lb = document.getElementById("orreryLocal"); if (lb) lb.textContent = "Solar neighbourhood (ly scale)"; }
     if (state.freeFly) { state.freeFly = false; const ff = document.getElementById("orreryFreeFly"); if (ff) ff.checked = false; }
     const btn = document.getElementById("orreryGalaxy");
     const insight = document.getElementById("orreryInsight");
@@ -1161,6 +1197,25 @@ function showFallback(msg) {
       if (btn) btn.textContent = "Zoom out to the Milky Way";
       if (insight) insight.textContent = "Lit, textured worlds at their true VSOP2013 positions — real NASA surface maps, correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
       rebuildPositions();
+    }
+    paint();
+  });
+  bind("orreryLocal", "click", () => {
+    state.localView = !state.localView;
+    if (state.freeFly) { state.freeFly = false; const ff = document.getElementById("orreryFreeFly"); if (ff) ff.checked = false; }
+    const lb = document.getElementById("orreryLocal");
+    const gb = document.getElementById("orreryGalaxy");
+    const insight = document.getElementById("orreryInsight");
+    if (state.localView) {
+      if (!state.galaxy) { state.galaxy = true; state.savedRadius = state.radius; setSpeedSliderMode(true); if (gb) gb.textContent = "← Back to the Solar System"; }
+      state.radius = 28; state.el = 0.5;
+      if (lb) lb.textContent = "← Back to the Milky Way disc";
+      if (insight) insight.textContent = "The solar neighbourhood at light-year scale — every naked-eye star (Hipparcos catalogue) at its REAL 3-D position from its measured parallax distance, Sun at the centre. +x points at the galactic centre; rings mark 10 / 25 / 50 / 100 / 250 light-years; size encodes intrinsic luminosity, colour the measured B−V temperature. Labels read “star · distance.” Positions are the J2000 epoch (proper motion is real but sub-pixel over the scrubber's ±5000 yr). Drag to rotate, scroll to zoom — Alpha Centauri is the label nearest the Sun.";
+    } else {
+      state.radius = 118; state.el = 0.95; // back out to the galaxy disc
+      if (lb) lb.textContent = "Solar neighbourhood (ly scale)";
+      updateGalaxySun();
+      if (insight) insight.textContent = "The Milky Way, face-on — the Sun's real catalogued neighbours cluster in the bright halo around its marker (nearly everything you can see by eye is within ~2,000 ly). Zoom back into the Solar neighbourhood to resolve them, or press Animate to run galactic time.";
     }
     paint();
   });

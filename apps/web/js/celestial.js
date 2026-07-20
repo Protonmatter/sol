@@ -1,5 +1,8 @@
 // The celestial backdrop: real-sky reference objects placed on a sphere around the solar system,
-// so the orrery is oriented correctly with respect to the actual sky.
+// so the orrery is oriented correctly with respect to the actual sky. The background starfield
+// is the real naked-eye Hipparcos catalogue (starcatalog.js, V ≤ 6.5) — true directions,
+// measured magnitudes, and B−V colours — while the Milky Way band stays procedural (its glow
+// comes from stars far fainter than the naked-eye cut).
 //
 // Every direction here is given in ICRS / J2000 equatorial (RA°, Dec°) and converted to the
 // renderer's ecliptic-J2000 world frame via bodyData.equToEcl. Pulsars and galaxies carry their
@@ -8,7 +11,9 @@
 // clock-grade timing), they pin the celestial frame. The galactic-centre and -anticentre markers
 // plus the Milky Way band show where the Sun sits in the Galaxy (~26,000 ly out, toward Sagittarius).
 
-import { equToEcl } from "./bodyData.js?v=8a19107712";
+import { equToEcl } from "./bodyData.js?v=11ffac3b2b";
+import { STAR_COUNT, STAR_STRIDE, STARS_PACKED } from "./starcatalog.js?v=11ffac3b2b";
+import { bvToRGB } from "./starphysics.js?v=11ffac3b2b";
 
 // ---- bright stars (J2000), enough to draw the headline constellations + name the brightest ----
 // name, RA°, Dec°, V-mag, optional constellation tag for grouping.
@@ -139,23 +144,22 @@ function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.f
 export function buildCelestial() {
   const dir = (ra, dec) => equToEcl(ra, dec);
 
-  // Background stars: ~1700, denser toward the galactic plane so the Milky Way reads as a band.
-  const N = 1700;
-  const pos = [], size = [], bright = [];
+  // Background stars: the REAL naked-eye Hipparcos catalogue (V ≤ 6.5, see starcatalog.js)
+  // — every star at its true J2000 direction, tinted by its measured B−V colour and sized
+  // by its measured magnitude. Packed straight into the point-shader layout
+  // [x,y,z,size,r,g,b,a]; a mild deterministic twinkle keeps the sky alive.
+  const N = STAR_COUNT;
+  const packed = new Float32Array(N * 8);
   for (let i = 0; i < N; i++) {
-    // Sample roughly uniformly on the sphere via galactic coords, then concentrate near b≈0.
-    const l = hash(i + 1) * 360;
-    const u = hash(i + 7) * 2 - 1;
-    let b = Math.asin(u) * 180 / Math.PI;          // uniform in sin(b)
-    const band = hash(i + 13);
-    if (band > 0.45) b *= 0.18 + 0.82 * hash(i + 19) * hash(i + 23); // pull a fraction toward the plane
-    const [ra, dec] = galToEqu(l, b);
+    const ra = STARS_PACKED[i * STAR_STRIDE];
+    const dec = STARS_PACKED[i * STAR_STRIDE + 1];
+    const mag = STARS_PACKED[i * STAR_STRIDE + 2];
+    const bv = STARS_PACKED[i * STAR_STRIDE + 3];
     const d = dir(ra, dec);
-    pos.push(d[0], d[1], d[2]);
-    const mag = 2.5 + hash(i + 29) * 4.0;
-    size.push(Math.max(0.6, 2.4 - 0.28 * mag));
-    const tw = 0.45 + 0.55 * hash(i + 31);
-    bright.push(tw);
+    const [r, g, b] = bvToRGB(bv);
+    const size = Math.max(0.55, 2.9 - 0.36 * mag);
+    const alpha = Math.max(0.26, Math.min(1.0, 1.28 - 0.15 * mag)) * (0.82 + 0.18 * hash(i + 31));
+    packed.set([d[0], d[1], d[2], size, r, g, b, alpha], i * 8);
   }
 
   const brightStars = STARS.map((s) => ({ name: s.n, pos: dir(s.ra, s.dec), m: s.m }));
@@ -187,7 +191,7 @@ export function buildCelestial() {
   const deepsky = DEEPSKY.map((g) => ({ name: g.n, pos: dir(g.ra, g.dec), kind: g.kind, note: g.note }));
 
   return {
-    bgStars: { pos: new Float32Array(pos), size: new Float32Array(size), bright: new Float32Array(bright), count: N },
+    bgStars: { packed, count: N },
     brightStars,
     constLines: new Float32Array(constLines),
     milkyWay: new Float32Array(milkyWay),

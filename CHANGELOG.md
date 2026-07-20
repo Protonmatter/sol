@@ -6,6 +6,24 @@ crate follows [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Real star catalogue across the 3-D views.** The Solar-System view's background
+  starfield is now the actual naked-eye Hipparcos catalogue — 8,867 stars (V ≤ 6.5) at
+  true J2000 directions with measured magnitudes and B−V colours — replacing the
+  procedural fake starfield. The Milky-Way view gains the same catalogue at its true
+  galactic positions, plus a new light-year-scale **Solar neighbourhood** sub-view:
+  every star at its real parallax-derived 3-D position around the Sun, with distance
+  rings and "name · distance" labels. Derived physics (luminosity, temperature, radius,
+  and a clearly-labelled mass estimate) lives in `apps/web/js/starphysics.js`; sources,
+  licenses, and honest-accuracy notes in `tools/ephemeris-data/stars/README.md`.
+- **Engine bright-star catalogue 26 → 107** (`solar-ephemeris`): the original 26
+  SIMBAD-verified entries are frozen verbatim; the extension adds the PyEphem/Yale-BSC
+  bright set with real proper motions. My Sky's dome and "Up now" list see all 107.
+- `tools/generate_star_catalog.py` + `tools/validate_star_catalog.py`: deterministic,
+  offline generation from committed pristine sources, with regeneration byte-stability
+  and physics spot-checks (Sirius, Vega, …) gated in PR CI.
+
 ### CI / tooling
 
 - Extend `tools/validate_docs.py` with offline Markdown **style** lint — heading

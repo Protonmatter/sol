@@ -12,7 +12,7 @@ A **zero-dependency** Rust ephemeris and topocentric sky engine:
   nutation, refraction, polar motion, and a complete Espenak–Meeus ΔT era table
   (−500 … +2150, continuous to ≤0.26 s at every seam) spliced with measured IERS
   values near the present
-- Rise / transit / set with body-specific thresholds, a 26-star bright-star catalogue
+- Rise / transit / set with body-specific thresholds, a 107-star bright-star catalogue
   with proper motion applied, phase/illumination, and apparent magnitudes
 - A provider-neutral, versioned JSON contract (`ephemeris-snapshot.v2`) shared with the
   Python tooling and the browser

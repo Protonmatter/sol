@@ -8,7 +8,8 @@
 // ACCURACY: positions are real to within their catalogue distance uncertainties (distances to nebulae
 // can be ±10–20%). This is a reference/landmark layer, not an ephemeris. Objects within a few light-
 // years of the Sun (Alpha Centauri, Sirius…) sit essentially ON the Sun's marker at galaxy scale —
-// resolving them needs a light-year-scale "solar neighbourhood" view.
+// the light-year-scale "Solar neighbourhood" sub-view (orreryGalaxy.js buildNeighbourhoodModel)
+// is where they resolve, with the full naked-eye Hipparcos catalogue at true 3-D positions.
 
 // type → { color [r,g,b], label tag, base marker size }
 export const GAL_TYPES = {
