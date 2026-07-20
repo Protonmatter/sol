@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "solar-cli"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "solar-core",
  "solar-ingest",
@@ -12,19 +12,19 @@ dependencies = [
 
 [[package]]
 name = "solar-core"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "solar-ephemeris"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "solar-ingest"
-version = "0.1.1"
+version = "0.2.0"
 
 [[package]]
 name = "solar-wasm"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "solar-core",
 ]

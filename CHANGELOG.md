@@ -6,6 +6,10 @@ crate follows [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+- Nothing yet.
+
+## [0.2.0] — 2026-07-20
+
 ### Added
 
 - **Real star catalogue across the 3-D views.** The Solar-System view's background
@@ -58,4 +62,5 @@ crate follows [SemVer](https://semver.org/).
 - Document the crates.io release process in `BUILD_NOTES.md`.
 
 [Unreleased]: https://github.com/Protonmatter/sol/compare/master...HEAD
+[0.2.0]: https://crates.io/crates/solar-ephemeris/0.2.0
 [0.1.1]: https://crates.io/crates/solar-ephemeris/0.1.1
