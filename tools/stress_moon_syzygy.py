@@ -24,9 +24,27 @@ import datetime as dt
 import math
 
 from validate_ephemeris import (
-    engine_altaz, horizons_altaz, angular_sep, find_binary,
-    TOL_SEP_DEG, TOL_ALT_DEG, BODIES,
+    engine_snapshot, horizons_observation, angular_sep, find_binary, BODIES,
 )
+
+
+# validate_ephemeris exposes the full snapshot / a Horizons observation dict; this
+# test wants name-keyed alt/az and an (az, el) tuple, so adapt at the seam.
+def engine_altaz(binary, when, lat, lon, elev):
+    snapshot = engine_snapshot(binary, when, lat, lon, elev)
+    return {body["name"]: body for body in snapshot["bodies"]}
+
+
+def horizons_altaz(command, when, lat, lon, elev):
+    obs = horizons_observation(command, when, lat, lon, elev)
+    return obs["az_deg"], obs["el_deg"]
+
+
+# Tighter than the 60" Moon gate in validate_ephemeris on purpose: at syzygy the Moon
+# matches Horizons to a few arcsec without an annual-aberration term and regresses to
+# ~20-25" with one, so ~15" cleanly separates correct from regressed.
+TOL_SEP_DEG = 15.0 / 3600.0
+TOL_ALT_DEG = 15.0 / 3600.0
 
 SYNODIC = 29.530588861          # mean synodic month (days)
 NEWMOON0_JD = 2451550.09766     # Meeus mean new moon, k=0 (~2000-01-06)

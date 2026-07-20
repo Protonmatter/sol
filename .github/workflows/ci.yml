@@ -98,6 +98,13 @@ jobs:
       - name: Python syntax
         run: python -m compileall -q tools services/ephemeris-server
 
+      - name: Python tool imports resolve (offline)
+        # compileall only checks syntax; it does not execute imports. This catches
+        # cross-module drift (e.g. a renamed helper) before it reaches the scheduled,
+        # non-PR-gated ephemeris-accuracy workflow. Network lives in each script's
+        # main(), so importing the modules is offline and safe.
+        run: PYTHONPATH=tools python -c "import validate_ephemeris, stress_moon_syzygy"
+
       - name: EOP prediction coverage
         run: python tools/check_eop_freshness.py --minimum-days 90
 
