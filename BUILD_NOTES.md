@@ -65,3 +65,41 @@ Patched after reviewing NWS Service Change Notice 26-21:
 - Added `tools/install_daily_ingest_task.ps1` for optional per-user Windows daily scheduling.
 - Extended cached snapshots with `observed-context.v1` so SWPC solar regions, sunspot rows, GOES flare rows, and cycle indices can tune the research fixture while preserving provenance and normalized-unit caveats.
 - Updated the web UI to show daily feed status separately from snapshot readiness.
+
+## Publishing `solar-ephemeris` to crates.io
+
+The `solar-ephemeris` crate is released to crates.io by the
+`.github/workflows/publish-crate.yml` workflow. It runs on a weekly schedule
+(Mondays 07:30 UTC) and on demand via **workflow_dispatch**. A guard step queries
+crates.io and skips the publish when the current workspace version is already
+live, so scheduled runs stay green between releases — publishing is driven by
+version bumps, not by the clock.
+
+### One-time setup: the `CARGO_REGISTRY_TOKEN` secret
+
+The publish step authenticates with a crates.io API token stored in the repository
+secret `CARGO_REGISTRY_TOKEN`. Without it the workflow still runs, but the publish
+step fails to authenticate.
+
+1. On crates.io, go to **Account Settings -> API Tokens -> New Token**.
+   - Scopes: `publish-new` (needed for the first-ever publish of the crate name)
+     and `publish-update` (later version bumps).
+   - Crate scope: restrict the token to `solar-ephemeris` (least privilege).
+   - Optionally set an expiry, and copy the token (shown only once).
+2. Add it to the repo at **Settings -> Secrets and variables -> Actions ->
+   New repository secret**: name it exactly `CARGO_REGISTRY_TOKEN`, value = the
+   token. (Or locally: `gh secret set CARGO_REGISTRY_TOKEN --repo Protonmatter/sol`.)
+
+The token owner must be an owner of the `solar-ephemeris` crate on crates.io once
+it is published, or later version-bump publishes return 403.
+
+### Cutting a release
+
+1. Bump `version` in the workspace `[workspace.package]` table in the root
+   `Cargo.toml` (the crate inherits it via `version.workspace = true`), and update
+   `Cargo.lock`.
+2. Land it on `master` through the normal CI-gated PR flow.
+3. Either wait for the next weekly run or trigger it now: **Actions -> "Publish
+   solar-ephemeris to crates.io" -> Run workflow**. The guard detects the new
+   version is not yet on crates.io and publishes it with `cargo publish -p
+   solar-ephemeris --locked`.
