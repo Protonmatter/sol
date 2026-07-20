@@ -99,7 +99,7 @@ asteroids/comets later (orbital elements from the IAU MPC).
   light-time + precession; nutation/aberration added in the accuracy phase.
 
 ### 3.3 Coordinate transform chain (the sky-view)
-```
+```text
 heliocentric ecliptic (theory)
   → geocentric ecliptic (− Earth vector)
   → geocentric equatorial RA/Dec  (rotate by obliquity ε)

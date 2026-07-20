@@ -132,7 +132,7 @@ Full developer instructions: **[docs/INSTRUCTIONS.md](docs/INSTRUCTIONS.md)**.
 
 ## Repository layout
 
-```
+```text
 apps/web/            Static web app (index.html, app.js, styles.css)
 apps/web/data/       Snapshots the app reads: latest-state.json, feed-status.json,
                      latest-observations.json, series/ (cycle frames + manifest)

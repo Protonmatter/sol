@@ -3,8 +3,9 @@ name: Docs
 # Keeps documentation honest against the tree it describes. Offline and deterministic
 # (no network), so it gates every PR the same way the rest of PR CI does — see
 # tools/validate_docs.py. It checks that every local Markdown link/reference resolves and
-# that every workflow badge points at a real .github/workflows/*.yml, so docs can't
-# silently drift as files are renamed, moved, or removed.
+# that every workflow badge points at a real .github/workflows/*.yml, plus offline style
+# lint (heading hierarchy, trailing whitespace, hard tabs, labeled/closed code fences),
+# so docs can't silently drift as files are renamed, moved, or removed.
 
 on:
   push:
@@ -16,7 +17,7 @@ permissions:
 
 jobs:
   markdown:
-    name: Markdown links + workflow badges
+    name: Markdown links, badges + style
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -24,5 +25,5 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
-      - name: Validate Markdown (offline link + workflow-badge integrity)
+      - name: Validate Markdown (offline links, badges + style lint)
         run: python tools/validate_docs.py

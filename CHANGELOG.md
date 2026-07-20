@@ -6,7 +6,11 @@ crate follows [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
-- Nothing yet.
+### CI / tooling
+
+- Extend `tools/validate_docs.py` with offline Markdown **style** lint — heading
+  hierarchy, trailing whitespace (two-space line breaks allowed), hard tabs, and
+  labeled/closed code fences — gated on every PR via `docs.yml`.
 
 ## [0.1.1] — 2026-07-20
 
