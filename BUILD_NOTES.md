@@ -68,6 +68,10 @@ Patched after reviewing NWS Service Change Notice 26-21:
 
 ## Publishing `solar-ephemeris` to crates.io
 
+> **Status:** `solar-ephemeris` **0.1.1** was first published to crates.io on
+> **2026-07-20** — <https://crates.io/crates/solar-ephemeris>. The steps below now
+> drive subsequent version bumps; the guard skips 0.1.1 since it is already live.
+
 The `solar-ephemeris` crate is released to crates.io by the
 `.github/workflows/publish-crate.yml` workflow. It runs on a weekly schedule
 (Mondays 07:30 UTC) and on demand via **workflow_dispatch**. A guard step queries

@@ -1,5 +1,8 @@
 # solar-ephemeris
 
+[![crates.io](https://img.shields.io/crates/v/solar-ephemeris.svg)](https://crates.io/crates/solar-ephemeris)
+[![docs.rs](https://docs.rs/solar-ephemeris/badge.svg)](https://docs.rs/solar-ephemeris)
+
 A **zero-dependency** Rust ephemeris and topocentric sky engine:
 
 - **VSOP2013** heliocentric positions for the Sun and eight planets (packed binary
@@ -17,6 +20,24 @@ A **zero-dependency** Rust ephemeris and topocentric sky engine:
 **Validated against JPL Horizons (DE441) to arcsecond class** — a scheduled CI workflow
 re-checks RA/Dec, alt/az, and ΔT against live Horizons weekly. `Cargo.lock` contains no
 third-party crates: everything, including the WASM path, is auditable in one sitting.
+
+## Install
+
+```toml
+[dependencies]
+solar-ephemeris = "0.1"
+```
+
+or `cargo add solar-ephemeris`. Published on
+[crates.io](https://crates.io/crates/solar-ephemeris); rendered API docs on
+[docs.rs](https://docs.rs/solar-ephemeris). Zero dependencies — it pulls in nothing else.
+
+The engine emits a versioned `ephemeris-snapshot.v2` JSON document for a given time and
+observer. The runnable `snapshot` example shows end-to-end usage:
+
+```bash
+cargo run --example snapshot
+```
 
 ## WebAssembly
 

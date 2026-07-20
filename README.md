@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Protonmatter/sol/actions/workflows/ci.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/ci.yml)
 [![Ephemeris accuracy](https://github.com/Protonmatter/sol/actions/workflows/ephemeris-accuracy.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/ephemeris-accuracy.yml)
+[![crates.io](https://img.shields.io/crates/v/solar-ephemeris.svg)](https://crates.io/crates/solar-ephemeris)
 
 **Live app: <https://protonmatter.github.io/sol/>**
 
@@ -22,7 +23,9 @@ ever *consumes* those snapshots. The UI never invents physical values.
 
 1. **Engine + data pipeline** (Rust + Python)
    - Rust workspace: `solar-core` (reduced flux-transport model + diagonal Kalman-style
-     assimilation primitive), `solar-ingest`, `solar-cli`.
+     assimilation primitive), `solar-ingest`, `solar-cli`, and `solar-ephemeris` — a
+     zero-dependency VSOP2013 / ELP-MPP02 / TOP2013 ephemeris + topocentric sky engine,
+     [published on crates.io](https://crates.io/crates/solar-ephemeris).
    - Python tooling for deterministic fixtures, public-data ingest (NOAA/SWPC,
      Helioviewer, JPL Horizons), snapshot-series generation, and validation.
    - Versioned JSON contracts: `solar-state-snapshot.v2`, `ephemeris-snapshot.v2`,
@@ -111,6 +114,18 @@ cargo run -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 \
   --out apps/web/data/latest-state.json
 ```
 
+### Use the ephemeris as a library
+
+The `solar-ephemeris` engine (zero-dependency positions + topocentric sky) is published
+on crates.io:
+
+```bash
+cargo add solar-ephemeris    # https://crates.io/crates/solar-ephemeris
+```
+
+See **[crates/solar-ephemeris/README.md](crates/solar-ephemeris/README.md)** for install
+and usage.
+
 Full developer instructions: **[docs/INSTRUCTIONS.md](docs/INSTRUCTIONS.md)**.
 
 ---
@@ -123,7 +138,7 @@ apps/web/data/       Snapshots the app reads: latest-state.json, feed-status.jso
                      latest-observations.json, series/ (cycle frames + manifest)
 crates/              Rust workspace (solar-core, solar-ingest, solar-cli, …)
 python/              Runnable prototype (synthetic solar maximum image)
-tools/               Python: fixture + series generators, ingest, validators
+tools/               Python generators, ingest, validators + shell helpers (watch-ci.sh)
 docs/                Spec, status, handoff, instructions, data-source + ops notes
 tests/               Fixtures and golden snapshots
 ```
