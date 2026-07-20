@@ -883,4 +883,12 @@ pub static STARS: &[Star] = &[
         pm_ra_mas_yr: 92.78,
         pm_dec_mas_yr: -53.73,
     },
+    Star {
+        name: "Taygeta",
+        ra_deg: 56.302060,
+        dec_deg: 24.467278,
+        mag: 4.30,
+        pm_ra_mas_yr: 19.35,
+        pm_dec_mas_yr: -41.63,
+    },
 ];

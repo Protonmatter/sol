@@ -21,9 +21,9 @@ crate follows [SemVer](https://semver.org/).
   WASM fetch) only when the 3-D view opens — the Sun / My Sky first paint pays nothing,
   and `validate_web_static.py` now enforces that lazy modules are never preloaded or
   statically imported.
-- **Engine bright-star catalogue 26 → 107** (`solar-ephemeris`): the original 26
+- **Engine bright-star catalogue 26 → 108** (`solar-ephemeris`): the original 26
   SIMBAD-verified entries are frozen verbatim; the extension adds the PyEphem/Yale-BSC
-  bright set with real proper motions. My Sky's dome and "Up now" list see all 107.
+  bright set with real proper motions. My Sky's dome and "Up now" list see all 108.
 - `tools/generate_star_catalog.py` + `tools/validate_star_catalog.py`: deterministic,
   offline generation from committed pristine sources, with regeneration byte-stability
   and physics spot-checks (Sirius, Vega, …) gated in PR CI.

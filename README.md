@@ -45,7 +45,7 @@ ever *consumes* those snapshots. The UI never invents physical values.
    - **A real star catalogue everywhere stars appear**: the naked-eye Hipparcos
      catalogue (8,867 stars, V ≤ 6.5 — true positions, parallax distances, B−V colours)
      backs the Solar-System view's sky, the Milky-Way view, and a light-year-scale
-     **Solar neighbourhood** view; the on-device engine reduces 107 bright stars with
+     **Solar neighbourhood** view; the on-device engine reduces 108 bright stars with
      proper motion for My Sky.
    - **Three destinations** (**The Sun · My Sky · Solar System**), with the Sun surface
      layered through progressive-disclosure drawers (layers & region inspection →

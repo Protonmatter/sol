@@ -184,15 +184,24 @@ def load_pyephem() -> list[dict]:
 
 
 def build_engine_catalog(pyephem: list[dict]) -> list[dict]:
-    """FROZEN_SIMBAD verbatim + PyEphem stars not already covered (coordinate match)."""
-    catalog = [
+    """FROZEN_SIMBAD verbatim + PyEphem stars not already covered by a frozen row.
+
+    The 0.2-degree proximity match runs against the FROZEN table only — its job is to
+    recognise PyEphem's variant of a star the frozen table already carries (possibly
+    under another spelling) so the SIMBAD row wins. It must NOT run against previously
+    appended PyEphem stars: real neighbours can sit closer than 0.2 degrees (Maia and
+    Taygeta in the Pleiades are ~0.17 degrees apart) and would be silently lost. True
+    alias duplicates were already collapsed by exact-coordinate key in load_pyephem().
+    """
+    frozen = [
         {"name": n, "ra": ra, "dec": dec, "mag": mag, "pm_ra": pra, "pm_dec": pdc, "frozen": True}
         for n, ra, dec, mag, pra, pdc in FROZEN_SIMBAD
     ]
+    catalog = list(frozen)
     for star in pyephem:
         if any(
             abs(star["ra"] - c["ra"]) < 0.2 and abs(star["dec"] - c["dec"]) < 0.2
-            for c in catalog
+            for c in frozen
         ):
             continue
         catalog.append({**star, "frozen": False})

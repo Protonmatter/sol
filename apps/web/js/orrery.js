@@ -13,25 +13,25 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=adefd395e5";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=adefd395e5";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=adefd395e5";
-import { buildCelestial } from "./celestial.js?v=adefd395e5";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=adefd395e5";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=adefd395e5";
+import { store } from "./store.js?v=78434029fa";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=78434029fa";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=78434029fa";
+import { buildCelestial } from "./celestial.js?v=78434029fa";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=78434029fa";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=78434029fa";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=adefd395e5";
+} from "./orreryMath.js?v=78434029fa";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=adefd395e5";
+} from "./orreryShaders.js?v=78434029fa";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel,
-} from "./orreryGalaxy.js?v=adefd395e5";
-import { renderDetail } from "./orreryDetail.js?v=adefd395e5";
+} from "./orreryGalaxy.js?v=78434029fa";
+import { renderDetail } from "./orreryDetail.js?v=78434029fa";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -114,19 +114,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=adefd395e5"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=78434029fa"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=adefd395e5";
+  ring.src = "textures/saturn_ring.png?v=78434029fa";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=adefd395e5";
+  sun.src = "textures/sun.jpg?v=78434029fa";
 }
 
 function compile(type, src) {
@@ -909,8 +909,14 @@ function tick(now) {
   state.lastTick = now;
   if (state.animate) {
     if (state.galaxy) {
-      state.galYears += dt * galYearsPerSec(); // the Sun travels its galactic orbit as time runs
-      updateGalaxySun();
+      // The galactic clock only runs while the disc view is showing it. The Solar
+      // neighbourhood is static (co-moving, J2000 epoch) and ignores galYears — letting
+      // the clock tick invisibly there would jump the Sun/trail/disc by tens of Myr the
+      // moment the user returns to the disc.
+      if (!state.localView) {
+        state.galYears += dt * galYearsPerSec(); // the Sun travels its galactic orbit as time runs
+        updateGalaxySun();
+      }
     } else {
       state.simElapsed += dt * state.yearsPerSec * YR; // YR seconds per sim-year ⇒ visible outer-planet motion
       state.renderUnix = effectiveBaseUnix() + state.simElapsed;
@@ -1021,7 +1027,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=adefd395e5");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=78434029fa");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
