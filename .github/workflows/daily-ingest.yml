@@ -31,9 +31,16 @@ on:
     - cron: "40 5 * * *"
   workflow_dispatch:
 
+# An explicit block makes every UNLISTED scope `none`, so each one here is load-bearing:
+#   contents      — commit + push the refreshed data (both the direct and branch paths)
+#   issues        — open/refresh the failure tracking issue
+#   pull-requests — `gh pr create` / `gh pr merge --auto` on the protection fallback
+#   actions       — `gh workflow run ci.yml` to dispatch CI at the data branch
 permissions:
   contents: write
   issues: write
+  pull-requests: write
+  actions: write
 
 concurrency:
   group: daily-ingest
