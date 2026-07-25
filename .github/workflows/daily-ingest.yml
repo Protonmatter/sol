@@ -13,17 +13,23 @@ name: Daily data ingest
 # (selectors.js feedOverdueHours), so even a broken scheduler can no longer present
 # frozen health as current — this workflow is what keeps that pill green honestly.
 #
-# NOTE (branch protection): master requires PRs + green checks. The publish step tries a
-# direct push first and FALLS BACK to opening a data PR when protection refuses it, so the
-# run stays green either way and the refresh is never lost. The data files it touches are
-# generated artifacts validated in-run.
+# NOTE (branch protection): master requires PRs + green checks, and on THIS repo the PR path
+# below is the permanent steady state, not a degraded mode. The publish step tries a direct
+# push, protection refuses it, and it falls back to opening a data PR, dispatching CI at that
+# branch, and setting auto-merge — which lands the refresh unattended. The run stays green
+# either way. The data files it touches are generated artifacts validated in-run.
 #
-# For the direct (no-PR) path — the smoother one — allow the bot to bypass the required-PR
-# rule: Settings -> Branches -> master -> "Allow specified actors to bypass required pull
-# requests" -> add github-actions[bot]. Without that, expect one data PR per changed day;
-# enabling Settings -> General -> Pull Requests -> "Allow auto-merge" lets those self-merge
-# on green. Note that a bot push/PR does not itself trigger CI (GitHub's recursion guard),
-# which is why the fallback dispatches ci.yml explicitly at the data branch.
+# Why the direct push can't be made to work here (verified 2026-07-25, don't go hunting again):
+#   * The classic-protection option "Allow specified actors to bypass required pull requests"
+#     is an organization/Team feature and is simply not offered on this personal repo.
+#   * Even with it, "Require status checks to pass" would still refuse the push: a freshly
+#     pushed commit has no check runs yet, which is the "N of N expected" half of the GH006.
+# The direct-push attempt is kept because it costs one command and is the right behaviour on
+# repos/plans where a bypass IS available.
+#
+# A bot push or PR does not itself trigger CI (GitHub's recursion guard), which is why the
+# fallback dispatches ci.yml explicitly at the data branch; those check runs attach to the
+# branch SHA, satisfy the PR's required checks, and let auto-merge complete.
 
 on:
   schedule:
@@ -108,9 +114,10 @@ jobs:
           Artifacts were validated inside the ingest run by \`run_daily_ingest\` plus the standalone
           snapshot / operational-readiness / static-web validators, and CI must still pass here.
 
-          Opened automatically because a direct push to \`master\` was refused by branch protection.
-          To land these daily refreshes without a PR, allow \`github-actions[bot]\` to bypass the
-          required-PR rule (Settings → Branches → master)."
+          This PR is how the daily refresh is meant to land: \`master\` requires pull requests plus
+          green checks, so the ingest publishes through one. CI was dispatched against this branch
+          (a bot-opened PR does not trigger it automatically), and auto-merge will land this once
+          the required checks pass — no action needed."
 
           # A PR opened with the default GITHUB_TOKEN does not trigger workflows, so CI
           # would never report and the required checks could never go green. Dispatch is
