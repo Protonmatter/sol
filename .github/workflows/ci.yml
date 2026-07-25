@@ -4,6 +4,13 @@ on:
   push:
     branches: [master, "precision/**", "redesign/**"]
   pull_request:
+  # Manual/API dispatch. Load-bearing for daily-ingest.yml: a PR opened with the
+  # default GITHUB_TOKEN does not trigger workflows (GitHub's recursion guard), so
+  # CI would never report on an automated data PR and its required checks could
+  # never go green. workflow_dispatch is an explicit exception to that rule, so the
+  # ingest job dispatches CI at the data branch; the check runs attach to that SHA
+  # and satisfy the PR. Also useful for re-running CI on a branch by hand.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
