@@ -13,11 +13,17 @@ name: Daily data ingest
 # (selectors.js feedOverdueHours), so even a broken scheduler can no longer present
 # frozen health as current — this workflow is what keeps that pill green honestly.
 #
-# NOTE (branch protection): master requires PRs + green checks for humans. For this
-# push to land, allow GitHub Actions to bypass required PRs (Settings -> Branches ->
-# master -> "Allow specified actors to bypass required pull requests" -> add
-# github-actions[bot]), or flip PUSH_MODE below to "pr" to open an auto-merge PR
-# instead. The data files it touches are generated artifacts validated in-run.
+# NOTE (branch protection): master requires PRs + green checks. The publish step tries a
+# direct push first and FALLS BACK to opening a data PR when protection refuses it, so the
+# run stays green either way and the refresh is never lost. The data files it touches are
+# generated artifacts validated in-run.
+#
+# For the direct (no-PR) path — the smoother one — allow the bot to bypass the required-PR
+# rule: Settings -> Branches -> master -> "Allow specified actors to bypass required pull
+# requests" -> add github-actions[bot]. Without that, expect one data PR per changed day;
+# enabling Settings -> General -> Pull Requests -> "Allow auto-merge" lets those self-merge
+# on green. Note that a bot push/PR does not itself trigger CI (GitHub's recursion guard),
+# which is why the fallback dispatches ci.yml explicitly at the data branch.
 
 on:
   schedule:
@@ -58,31 +64,57 @@ jobs:
           python tools/validate_operational_readiness.py apps/web/data/latest-state.json
           python tools/validate_web_static.py --root apps/web
 
-      - name: Commit and push refreshed data (no-op when nothing changed)
+      - name: Commit and publish refreshed data (no-op when nothing changed)
         env:
-          PUSH_MODE: direct   # "direct" pushes to master; "pr" opens an auto-merge PR
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if git status --porcelain -- apps/web/data | grep -q .; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add apps/web/data
-            STAMP="$(date -u +%Y-%m-%dT%H:%MZ)"
-            git commit -m "data: daily ingest ${STAMP}" \
-                       -m "Automated refresh of apps/web/data from public sources (SWPC, Helioviewer). Validated by run_daily_ingest + standalone validators in this run."
-            if [ "${PUSH_MODE}" = "direct" ]; then
-              git push origin HEAD:master
-            else
-              BRANCH="data/daily-ingest-$(date -u +%Y%m%d%H%M)"
-              git push origin "HEAD:refs/heads/${BRANCH}"
-              gh pr create --base master --head "${BRANCH}" \
-                --title "data: daily ingest ${STAMP}" \
-                --body "Automated daily data refresh. Artifacts validated in the ingest run; CI must still pass before auto-merge."
-              gh pr merge --auto --squash "${BRANCH}"
-            fi
-          else
+          if ! git status --porcelain -- apps/web/data | grep -q .; then
             echo "Data unchanged since the last run; nothing to publish."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/data
+          STAMP="$(date -u +%Y-%m-%dT%H:%MZ)"
+          git commit -m "data: daily ingest ${STAMP}" \
+                     -m "Automated refresh of apps/web/data from public sources (SWPC, Helioviewer). Validated by run_daily_ingest + standalone validators in this run."
+
+          # Fast path: straight to master. This succeeds only when github-actions[bot]
+          # is allowed to bypass the required-PR rule. If branch protection refuses,
+          # that is a repo-configuration state, NOT a pipeline error — fall through to
+          # the PR path instead of failing the run and paging via the issue below.
+          if git push origin HEAD:master 2>push.err; then
+            echo "Published refreshed data directly to master."
+            exit 0
+          fi
+          sed 's/^/    /' push.err
+          echo "::warning::Direct push to master was refused (branch protection); publishing via a data PR instead."
+
+          BRANCH="data/daily-ingest-$(date -u +%Y%m%d%H%M)"
+          git push origin "HEAD:refs/heads/${BRANCH}"
+          gh pr create --base master --head "${BRANCH}" \
+            --title "data: daily ingest ${STAMP}" \
+            --body "Automated daily data refresh of \`apps/web/data\` from public sources (SWPC, Helioviewer).
+
+          Artifacts were validated inside the ingest run by \`run_daily_ingest\` plus the standalone
+          snapshot / operational-readiness / static-web validators, and CI must still pass here.
+
+          Opened automatically because a direct push to \`master\` was refused by branch protection.
+          To land these daily refreshes without a PR, allow \`github-actions[bot]\` to bypass the
+          required-PR rule (Settings → Branches → master)."
+
+          # A PR opened with the default GITHUB_TOKEN does not trigger workflows, so CI
+          # would never report and the required checks could never go green. Dispatch is
+          # the documented exception, so kick CI at the branch: those check runs attach
+          # to this SHA and satisfy the PR. (Needs workflow_dispatch on ci.yml.)
+          gh workflow run ci.yml --ref "${BRANCH}"
+
+          # Merge on green where the repo allows it; otherwise leave the PR ready to click.
+          if ! gh pr merge --auto --squash "${BRANCH}" 2>merge.err; then
+            sed 's/^/    /' merge.err
+            echo "::warning::Auto-merge is unavailable (enable it in Settings → General → Pull Requests); merge the data PR once CI is green."
           fi
 
       - name: Open/refresh a tracking issue on failure
