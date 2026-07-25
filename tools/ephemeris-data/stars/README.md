@@ -10,6 +10,13 @@ is reproducible offline forever; do not edit these by hand.
 | `hipparcos_names.json` | same crate (`names.json`, unmodified) | MIT OR Apache-2.0 | `e227dcd897c7a67b06e6b4640f850b050ca0a0119bcdd08e8694d721d2a50017` |
 | `d3celestial_starnames.json` | [`d3-celestial` npm v0.7.35](https://www.npmjs.com/package/d3-celestial) (`data/starnames.json`, unmodified) | BSD-3-Clause | `044a73db97f45c51e194db64e2555dc295be57897bf9da90bc3781dcd17ba216` |
 | `pyephem_bright_stars.edb` | [`ephem` PyPI v4.2.1](https://pypi.org/project/ephem/) — the 116-line bright-star `db` block from `ephem/stars.py`, extracted verbatim | package LGPL-3.0+; entries are XEphem-format catalogue facts compiled from the Yale Bright Star Catalogue | `900c4c434144f0a03802ec6fa299e613736e18dd1dd2c8646ca3c050692e8c9d` |
+| `d3celestial_constellation_lines.json` | `d3-celestial` v0.7.35 (`data/constellations.lines.json`, unmodified) | BSD-3-Clause | `294f66bef5d5cf50b1e17f16d2efa1d97a15131612c68dd935adef6e7373e13c` |
+| `d3celestial_constellations.json` | same package (`data/constellations.json`) — **field subset**, see note | BSD-3-Clause | `19edeeadc64a2581900b0c91495a6bfadefd04c7a3dc4cd3ed0ea814a047f20b` |
+
+> `d3celestial_constellations.json` is the one file here that is **not** byte-verbatim: the
+> upstream entry for each constellation carries ~20 language translations we do not use, so
+> it is reduced to `{abbr: {name, gen, rank}}`. Regenerate it by taking `data/constellations.json`
+> from the package and keeping those three properties per feature.
 
 ## Field semantics
 
@@ -20,6 +27,13 @@ Spot-verified against the published catalogue (e.g. HIP 3: RA 0.00501°, Dec +38
 V 6.61, B−V −0.019, d ≈ 1161 ly). `hipparcos_names.json` maps HIP → IAU proper name
 (96 entries); `d3celestial_starnames.json` maps HIP → Bayer/Flamsteed designation and
 constellation (4,870 entries).
+
+`d3celestial_constellation_lines.json` is GeoJSON: one `MultiLineString` feature per IAU
+constellation, keyed by its three-letter abbreviation, with coordinates as `[RA, Dec]` in
+degrees — note **RA arrives as −180…180** and `tools/generate_constellations.py` normalises
+it to `[0, 360)`. Serpens appears as two features sharing the id `Ser` (Caput and Cauda are
+disjoint on the sky); the generator merges them into one constellation with two polyline
+groups, and asserts the final count is exactly 88.
 
 `pyephem_bright_stars.edb` is XEphem "edb" format:
 `Name,f|S|<spectral>,<RA_hours>|<pmRA mas/yr>,<Dec_deg>|<pmDec mas/yr>,<Vmag>[,epoch]`.

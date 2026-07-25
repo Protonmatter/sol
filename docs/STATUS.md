@@ -101,6 +101,9 @@ Implemented:
 - Star rendering is catalogue-backed, not procedural: real positions, magnitudes, and B−V
   colours. Derived physics (luminosity, temperature, radius, and a labelled main-sequence
   mass estimate) lives in `apps/web/js/starphysics.js`.
+- All 88 IAU constellation figures on both the 3-D sky and the My Sky dome, generated from
+  committed IAU line data as RA/Dec polylines (`tools/generate_constellations.py`) rather
+  than joined by star name.
 - Named stars are clickable in both the sky and the neighbourhood view, opening a facts
   card that separates measured catalogue rows from derived ones, names the method for each,
   and withholds what it cannot honestly compute — everything distance-dependent when a star

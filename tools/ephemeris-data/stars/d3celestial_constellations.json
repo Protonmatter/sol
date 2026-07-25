@@ -1,0 +1,442 @@
+{
+ "And": {
+  "gen": "Andromedae",
+  "name": "Andromeda",
+  "rank": 1
+ },
+ "Ant": {
+  "gen": "Antliae",
+  "name": "Antlia",
+  "rank": 3
+ },
+ "Aps": {
+  "gen": "Apodis",
+  "name": "Apus",
+  "rank": 3
+ },
+ "Aql": {
+  "gen": "Aquilae",
+  "name": "Aquila",
+  "rank": 1
+ },
+ "Aqr": {
+  "gen": "Aquarii",
+  "name": "Aquarius",
+  "rank": 2
+ },
+ "Ara": {
+  "gen": "Arae",
+  "name": "Ara",
+  "rank": 3
+ },
+ "Ari": {
+  "gen": "Arietis",
+  "name": "Aries",
+  "rank": 1
+ },
+ "Aur": {
+  "gen": "Aurigae",
+  "name": "Auriga",
+  "rank": 1
+ },
+ "Boo": {
+  "gen": "Boötis",
+  "name": "Boötes",
+  "rank": 1
+ },
+ "CMa": {
+  "gen": "Canis Majoris",
+  "name": "Canis Major",
+  "rank": 1
+ },
+ "CMi": {
+  "gen": "Canis Minoris",
+  "name": "Canis Minor",
+  "rank": 2
+ },
+ "CVn": {
+  "gen": "Canum Venaticorum",
+  "name": "Canes Venatici",
+  "rank": 2
+ },
+ "Cae": {
+  "gen": "Caeli",
+  "name": "Caelum",
+  "rank": 3
+ },
+ "Cam": {
+  "gen": "Camelopardalis",
+  "name": "Camelopardalis",
+  "rank": 2
+ },
+ "Cap": {
+  "gen": "Capricorni",
+  "name": "Capricornus",
+  "rank": 2
+ },
+ "Car": {
+  "gen": "Carinae",
+  "name": "Carina",
+  "rank": 1
+ },
+ "Cas": {
+  "gen": "Cassiopeiae",
+  "name": "Cassiopeia",
+  "rank": 1
+ },
+ "Cen": {
+  "gen": "Centauri",
+  "name": "Centaurus",
+  "rank": 1
+ },
+ "Cep": {
+  "gen": "Cephei",
+  "name": "Cepheus",
+  "rank": 2
+ },
+ "Cet": {
+  "gen": "Ceti",
+  "name": "Cetus",
+  "rank": 1
+ },
+ "Cha": {
+  "gen": "Chamaeleontis",
+  "name": "Chamaeleon",
+  "rank": 3
+ },
+ "Cir": {
+  "gen": "Circini",
+  "name": "Circinus",
+  "rank": 3
+ },
+ "Cnc": {
+  "gen": "Cancri",
+  "name": "Cancer",
+  "rank": 2
+ },
+ "Col": {
+  "gen": "Columbae",
+  "name": "Columba",
+  "rank": 3
+ },
+ "Com": {
+  "gen": "Comae Berenices",
+  "name": "Coma Berenices",
+  "rank": 3
+ },
+ "CrA": {
+  "gen": "Coronae Austrini",
+  "name": "Corona Austrina",
+  "rank": 3
+ },
+ "CrB": {
+  "gen": "Coronae Borealis",
+  "name": "Corona Borealis",
+  "rank": 2
+ },
+ "Crt": {
+  "gen": "Crateris",
+  "name": "Crater",
+  "rank": 3
+ },
+ "Cru": {
+  "gen": "Crux",
+  "name": "Crux",
+  "rank": 2
+ },
+ "Crv": {
+  "gen": "Corvi",
+  "name": "Corvus",
+  "rank": 3
+ },
+ "Cyg": {
+  "gen": "Cygni",
+  "name": "Cygnus",
+  "rank": 1
+ },
+ "Del": {
+  "gen": "Delphini",
+  "name": "Delphinus",
+  "rank": 3
+ },
+ "Dor": {
+  "gen": "Doradus",
+  "name": "Dorado",
+  "rank": 3
+ },
+ "Dra": {
+  "gen": "Draconis",
+  "name": "Draco",
+  "rank": 2
+ },
+ "Equ": {
+  "gen": "Equulei",
+  "name": "Equuleus",
+  "rank": 3
+ },
+ "Eri": {
+  "gen": "Eridani",
+  "name": "Eridanus",
+  "rank": 1
+ },
+ "For": {
+  "gen": "Fornacis",
+  "name": "Fornax",
+  "rank": 3
+ },
+ "Gem": {
+  "gen": "Geminorum",
+  "name": "Gemini",
+  "rank": 1
+ },
+ "Gru": {
+  "gen": "Gruis",
+  "name": "Grus",
+  "rank": 3
+ },
+ "Her": {
+  "gen": "Herculis",
+  "name": "Hercules",
+  "rank": 2
+ },
+ "Hor": {
+  "gen": "Horologii",
+  "name": "Horologium",
+  "rank": 3
+ },
+ "Hya": {
+  "gen": "Hydrae",
+  "name": "Hydra",
+  "rank": 2
+ },
+ "Hyi": {
+  "gen": "Hydri",
+  "name": "Hydrus",
+  "rank": 3
+ },
+ "Ind": {
+  "gen": "Indi",
+  "name": "Indus",
+  "rank": 3
+ },
+ "LMi": {
+  "gen": "Leonis Minoris",
+  "name": "Leo Minor",
+  "rank": 3
+ },
+ "Lac": {
+  "gen": "Lacertae",
+  "name": "Lacerta",
+  "rank": 3
+ },
+ "Leo": {
+  "gen": "Leonis",
+  "name": "Leo",
+  "rank": 1
+ },
+ "Lep": {
+  "gen": "Leporis",
+  "name": "Lepus",
+  "rank": 3
+ },
+ "Lib": {
+  "gen": "Librae",
+  "name": "Libra",
+  "rank": 2
+ },
+ "Lup": {
+  "gen": "Lupi",
+  "name": "Lupus",
+  "rank": 3
+ },
+ "Lyn": {
+  "gen": "Lyncis",
+  "name": "Lynx",
+  "rank": 3
+ },
+ "Lyr": {
+  "gen": "Lyrae",
+  "name": "Lyra",
+  "rank": 2
+ },
+ "Men": {
+  "gen": "Mensae",
+  "name": "Mensa",
+  "rank": 3
+ },
+ "Mic": {
+  "gen": "Microscopii",
+  "name": "Microscopium",
+  "rank": 3
+ },
+ "Mon": {
+  "gen": "Monocerotis",
+  "name": "Monoceros",
+  "rank": 2
+ },
+ "Mus": {
+  "gen": "Muscae",
+  "name": "Musca",
+  "rank": 3
+ },
+ "Nor": {
+  "gen": "Normae",
+  "name": "Norma",
+  "rank": 3
+ },
+ "Oct": {
+  "gen": "Octantis",
+  "name": "Octans",
+  "rank": 3
+ },
+ "Oph": {
+  "gen": "Ophiuchi",
+  "name": "Ophiuchus",
+  "rank": 2
+ },
+ "Ori": {
+  "gen": "Orionis",
+  "name": "Orion",
+  "rank": 1
+ },
+ "Pav": {
+  "gen": "Pavonis",
+  "name": "Pavo",
+  "rank": 2
+ },
+ "Peg": {
+  "gen": "Pegasi",
+  "name": "Pegasus",
+  "rank": 1
+ },
+ "Per": {
+  "gen": "Persei",
+  "name": "Perseus",
+  "rank": 1
+ },
+ "Phe": {
+  "gen": "Phoenicis",
+  "name": "Phoenix",
+  "rank": 2
+ },
+ "Pic": {
+  "gen": "Pictoris",
+  "name": "Pictor",
+  "rank": 3
+ },
+ "PsA": {
+  "gen": "Piscis Austrini",
+  "name": "Piscis Austrinus",
+  "rank": 2
+ },
+ "Psc": {
+  "gen": "Piscium",
+  "name": "Pisces",
+  "rank": 2
+ },
+ "Pup": {
+  "gen": "Puppis",
+  "name": "Puppis",
+  "rank": 2
+ },
+ "Pyx": {
+  "gen": "Pyxidis",
+  "name": "Pyxis",
+  "rank": 3
+ },
+ "Ret": {
+  "gen": "Reticuli",
+  "name": "Reticulum",
+  "rank": 3
+ },
+ "Scl": {
+  "gen": "Sculptoris",
+  "name": "Sculptor",
+  "rank": 3
+ },
+ "Sco": {
+  "gen": "Scorpii",
+  "name": "Scorpius",
+  "rank": 1
+ },
+ "Sct": {
+  "gen": "Scuti",
+  "name": "Scutum",
+  "rank": 3
+ },
+ "Ser": {
+  "gen": "Serpentis",
+  "name": "Serpens Cauda",
+  "rank": 3
+ },
+ "Sex": {
+  "gen": "Sextantis",
+  "name": "Sextans",
+  "rank": 3
+ },
+ "Sge": {
+  "gen": "Sagittae",
+  "name": "Sagitta",
+  "rank": 3
+ },
+ "Sgr": {
+  "gen": "Sagittarii",
+  "name": "Sagittarius",
+  "rank": 1
+ },
+ "Tau": {
+  "gen": "Tauri",
+  "name": "Taurus",
+  "rank": 1
+ },
+ "Tel": {
+  "gen": "Telescopii",
+  "name": "Telescopium",
+  "rank": 3
+ },
+ "TrA": {
+  "gen": "Trianguli Australis",
+  "name": "Triangulum Australe",
+  "rank": 2
+ },
+ "Tri": {
+  "gen": "Trianguli",
+  "name": "Triangulum",
+  "rank": 3
+ },
+ "Tuc": {
+  "gen": "Tucanae",
+  "name": "Tucana",
+  "rank": 3
+ },
+ "UMa": {
+  "gen": "Ursae Majoris",
+  "name": "Ursa Major",
+  "rank": 1
+ },
+ "UMi": {
+  "gen": "Ursae Minoris",
+  "name": "Ursa Minor",
+  "rank": 2
+ },
+ "Vel": {
+  "gen": "Velorum",
+  "name": "Vela",
+  "rank": 2
+ },
+ "Vir": {
+  "gen": "Virginis",
+  "name": "Virgo",
+  "rank": 1
+ },
+ "Vol": {
+  "gen": "Volantis",
+  "name": "Volans",
+  "rank": 3
+ },
+ "Vul": {
+  "gen": "Vulpeculae",
+  "name": "Vulpecula",
+  "rank": 3
+ }
+}

@@ -8,6 +8,16 @@ crate follows [SemVer](https://semver.org/).
 
 ### Added
 
+- **All 88 constellations, up from 7.** The figures were a hand-written array that joined
+  stars by NAME, so a figure could only use stars that happened to be in a curated list —
+  which is why the sky showed Orion, Ursa Major, Cassiopeia, Crux, Cygnus, Scorpius, and
+  Leo and nothing else. They are now generated from the IAU line data as RA/Dec polylines
+  (`tools/generate_constellations.py` -> `apps/web/js/constellations.js`, 88 figures / 150
+  polylines / 743 segments), which drops the star-name lookup entirely. Both the
+  Solar-System 3-D sky and the My Sky dome draw the full set; Serpens is correctly one
+  constellation with two disjoint halves. Regeneration byte-stability and the 88-count are
+  gated in CI, and `tests/web/constellations.test.mjs` checks the shape the renderers rely
+  on plus known sky positions.
 - **Click a star to inspect it.** Named catalogue stars are now pickable in the
   Solar-System sky and the Solar-neighbourhood view, opening a facts card that finally
   surfaces the physics the app was already computing: distance, apparent and absolute

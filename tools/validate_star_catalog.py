@@ -69,13 +69,36 @@ def main() -> int:
     errors: list[str] = []
 
     # -- 1. regeneration byte-stability -------------------------------------
-    check = subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "generate_star_catalog.py"), "--check"],
-        capture_output=True,
-        text=True,
-    )
-    if check.returncode != 0:
-        errors.append("regeneration check failed:\n" + check.stdout + check.stderr)
+    for gen in ("generate_star_catalog.py", "generate_constellations.py"):
+        check = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / gen), "--check"],
+            capture_output=True,
+            text=True,
+        )
+        if check.returncode != 0:
+            errors.append(f"{gen} regeneration check failed:\n" + check.stdout + check.stderr)
+
+    # -- 1b. constellation figures ------------------------------------------
+    # The IAU count is fixed at 88; a source change that dropped or merged figures would
+    # otherwise show up only as quietly missing constellations on the sky.
+    con = (ROOT / "apps" / "web" / "js" / "constellations.js").read_text(encoding="utf-8")
+    n_con = int(re.search(r"CONSTELLATION_COUNT = (\d+);", con).group(1))
+    if n_con != 88:
+        errors.append(f"expected 88 IAU constellations, module has {n_con}")
+    if con.count("{ abbr:") != 88:
+        errors.append(f"CONSTELLATION_COUNT says {n_con} but {con.count('{ abbr:')} entries are present")
+    for abbr, ra_lo, ra_hi, dec_lo, dec_hi in (
+        ("Ori", 70, 95, -12, 25),      # Orion straddles the celestial equator
+        ("Cru", 180, 195, -65, -55),   # Crux is deep south
+        ("UMa", 150, 210, 40, 65),     # Ursa Major is far north
+    ):
+        m = re.search(rf'\{{ abbr: "{abbr}".*?center: \[([-\d.]+),([-\d.]+)\]', con)
+        if not m:
+            errors.append(f"constellation {abbr} missing from the module")
+            continue
+        ra, dec = float(m.group(1)), float(m.group(2))
+        if not (ra_lo <= ra <= ra_hi and dec_lo <= dec <= dec_hi):
+            errors.append(f"{abbr} centre ({ra:.1f}, {dec:.1f}) is outside its known sky region")
 
     # -- 2. structural sanity ------------------------------------------------
     text = JS.read_text(encoding="utf-8")
