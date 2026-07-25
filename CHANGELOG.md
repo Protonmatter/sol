@@ -8,6 +8,43 @@ crate follows [SemVer](https://semver.org/).
 
 ### Added
 
+- **Earth has real geography.** `apps/web/textures/` is `.gitignore`d and is populated only by the
+  optional `tools/fetch_textures.py`, so every deployment — GitHub Pages included — fell through
+  to the procedural shader, where Earth's "continents" were value noise (`fbm(p*2.3)` thresholded
+  into land). Real coastlines, lakes and permanent ice now ship with the repository: Natural Earth
+  1:110m vectors (public domain) committed under `tools/ephemeris-data/geography/`, turned into a
+  compact delta-encoded module by `tools/generate_geography.py`, and rasterised into an
+  equirectangular WebGL texture in the browser by `apps/web/js/surfacemap.js`. No binary assets, no
+  network, and the module is lazy-loaded behind the 3-D view so first paint is untouched.
+- **The Moon's maria are the real ones**, at their IAU/USGS gazetteer coordinates and diameters,
+  multiplied over the procedural surface rather than replacing it so crater detail survives
+  underneath. Only the Moon gets this treatment, and the reason is in
+  `tools/fetch_geography.py`: mare/oceanus/lacus/sinus/palus name a *rock* — flood basalt, dark by
+  definition — whereas nothing in the catalogue says which Martian or Mercurian units are dark. A
+  "lowlands are darker" rule would get Acidalia and Utopia Planitia right and Hellas, Amazonis,
+  Elysium and Arcadia backwards, so Mars and Mercury keep the procedural shader instead of a guess.
+
+### Fixed
+
+- **Planetary axes no longer freeze at J2000.** The IAU WGCCRE elements carry secular rates in
+  α0/δ0 that were simply absent, so every body's spin axis was pinned to its J2000 orientation
+  while the date slider ranged over ±5000 years. All ten bodies now carry their published rates.
+- **Earth's axis precesses properly instead of drifting in a straight line.** Earth's IAU rates
+  (−0.641°/cty in RA, −0.557°/cty in declination) are the *tangent* to a ~25,770-year precession
+  cone, intended for use near J2000. Applied literally over the slider's range they return δ0 =
+  95.6° at −1000 yr and 117.9° at −5000 yr, which are not declinations; `iauRotation` builds the
+  equator's node from α0, so the effect would have been a **180° prime-meridian error across the
+  entire BCE half of the slider** — Greenwich where the dateline belongs. Earth now models the cone
+  directly. It agrees with the IAU rates to 0.001° over the first few centuries, and at −4800 yr it
+  puts the celestial pole 0.26° from Thuban, which was the pole star then.
+- Sub-solar longitude, checked against Sun apparent RA − Greenwich apparent sidereal time, improves
+  from 0.172° to 0.144° worst-case, and the old error grew with epoch where the new one does not.
+- `tests/web/rotation.test.mjs` and `tests/web/geography.test.mjs` (15 tests) pin all of the above:
+  sub-solar longitude across five epochs, the 15°/hour sweep, δ0 staying a real declination across
+  the full slider, the pole landing on Polaris and Thuban, coastlines putting Paris and Cairo on
+  land and the mid-Atlantic at sea, the antimeridian and polar-cap seams, and the maria coming out
+  overwhelmingly near-side.
+
 - **The Moon's card now explains that it is tidally locked.** It previously listed
   "Rotation (sidereal): 655.72 h" and left the reader to notice that this is *exactly* the
   27.322 d orbital period — so the 3-D view, which correctly shows the Moon turning, read

@@ -118,6 +118,13 @@ jobs:
         # (Sirius/Vega/… distances, temperatures, luminosities) against literature values.
         run: python tools/validate_star_catalog.py
 
+      - name: Surface geography regen-stable
+        # Regenerates apps/web/js/geography.js from the committed pristine sources
+        # (tools/ephemeris-data/geography/) and requires byte-identity with what's committed,
+        # so the shipped coastlines and lunar maria always match their provenance. Offline —
+        # tools/fetch_geography.py is the only networked step and is never run here.
+        run: python tools/generate_geography.py --check
+
       - name: EOP prediction coverage
         run: python tools/check_eop_freshness.py --minimum-days 90
 

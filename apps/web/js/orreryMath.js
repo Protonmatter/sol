@@ -3,7 +3,7 @@
 // no module state — extracted from orrery.js along the same data+pure-function lines as
 // celestial.js and smallbodies.js, so it is reviewable (and testable) in isolation.
 
-import { rotationPhase } from "./bodyData.js?v=3f238fdfd4";
+import { rotationPhase, poleAt } from "./bodyData.js?v=419de7192c";
 
 // ---------------------------------------------------------------- mat/vec (column-major)
 export function perspective(fovy, aspect, near, far) {
@@ -44,7 +44,11 @@ function eclFromEqu(v) {
 // (RA = α0 + 90°). This fixes the ABSOLUTE phase — so the right meridian/hemisphere faces the Sun at
 // any time t — rather than spinning from an arbitrary reference. Ẇ<0 (Venus, Uranus) → retrograde.
 export function iauRotation(phys, unixSeconds) {
-  const a0 = phys.poleRaDeg * D2R, d0 = phys.poleDecDeg * D2R, w = rotationPhase(phys, unixSeconds);
+  // The pole drifts: α0/δ0 carry secular rates in Julian centuries (poleAt), which for Earth are
+  // axial precession. Holding them at J2000 tilts the axis by tens of degrees at the ±5000-year
+  // ends of the date slider.
+  const pole0 = poleAt(phys, unixSeconds);
+  const a0 = pole0[0] * D2R, d0 = pole0[1] * D2R, w = rotationPhase(phys, unixSeconds);
   const pole = norm(eclFromEqu([Math.cos(d0) * Math.cos(a0), Math.cos(d0) * Math.sin(a0), Math.sin(d0)]));
   const node = norm(eclFromEqu([-Math.sin(a0), Math.cos(a0), 0])); // ascending node of the equator (RA=α0+90°)
   const pxn = cross(pole, node);                                    // node rotated +90° about the pole (eastward)

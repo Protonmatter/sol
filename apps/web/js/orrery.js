@@ -13,26 +13,27 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=3f238fdfd4";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=3f238fdfd4";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=3f238fdfd4";
-import { buildCelestial } from "./celestial.js?v=3f238fdfd4";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=3f238fdfd4";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=3f238fdfd4";
+import { store } from "./store.js?v=419de7192c";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=419de7192c";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=419de7192c";
+import { buildCelestial } from "./celestial.js?v=419de7192c";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=419de7192c";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=419de7192c";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=3f238fdfd4";
+} from "./orreryMath.js?v=419de7192c";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=3f238fdfd4";
+} from "./orreryShaders.js?v=419de7192c";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=3f238fdfd4";
-import { renderDetail } from "./orreryDetail.js?v=3f238fdfd4";
-import { renderStarDetail } from "./starDetail.js?v=3f238fdfd4";
+} from "./orreryGalaxy.js?v=419de7192c";
+import { renderDetail } from "./orreryDetail.js?v=419de7192c";
+import { renderStarDetail } from "./starDetail.js?v=419de7192c";
+import { buildEarthMap, buildFeatureMap } from "./surfacemap.js?v=419de7192c";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -93,6 +94,12 @@ let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3
 let galaxy = null;
 let smallBodies = []; // per-frame small-body markers: {name, pos, col, kind, note}
 
+// Surface maps rasterised from the committed geography (geography.js -> surfacemap.js). These
+// are what ships: apps/web/textures/ is .gitignore'd, so without them every deployment fell back
+// to the procedural shader and Earth's "continents" were value noise. A real fetched photo map
+// still wins where one exists — see drawBody.
+let genTex = {}, genStarted = false;
+
 function makeTexture(img, repeatS) {
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
@@ -116,19 +123,52 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=3f238fdfd4"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=419de7192c"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=3f238fdfd4";
+  ring.src = "textures/saturn_ring.png?v=419de7192c";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=3f238fdfd4";
+  sun.src = "textures/sun.jpg?v=419de7192c";
+}
+
+// Build the generated surface maps from the committed geography. One body per idle slice: the
+// Earth map is 2048x1024 with a per-pixel tint pass, and doing all four in one go would drop
+// frames on the very first render of the view.
+async function buildGeneratedMaps() {
+  if (genStarted || !gl) return;
+  genStarted = true;
+  try {
+    const geo = await import("./geography.js?v=419de7192c");
+    // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
+    // in that catalogue says which of them are dark — see tools/fetch_geography.py — so they
+    // keep the procedural shader rather than a guess. fetch_textures.py still supplies real
+    // photographic maps for every body to anyone who wants them locally.
+    const jobs = [
+      ["Earth", () => buildEarthMap(geo.EARTH, geo.decodeRing), 0],
+      ["Moon", () => buildFeatureMap(geo.FEATURES.Moon, BODY.Moon.radiusKm), 1],
+    ];
+    const idle = typeof requestIdleCallback === "function"
+      ? (fn) => requestIdleCallback(fn, { timeout: 500 })
+      : (fn) => setTimeout(fn, 0);
+    for (const [name, build, texMode] of jobs) {
+      await new Promise((resolve) => idle(() => {
+        // The context can die (or the view close) between slices; bail rather than throw.
+        if (!gl || gl.isContextLost()) { resolve(); return; }
+        try {
+          genTex[name] = { tex: makeTexture(build(), true), ready: true, texMode };
+          if (state.active && !state.animate) paint();
+        } catch (e) { console.warn("surface map", name, e.message); }
+        resolve();
+      }));
+    }
+  } catch (e) { console.warn("geography unavailable:", e.message); }
 }
 
 function compile(type, src) {
@@ -162,7 +202,7 @@ function initGL(canvas) {
     gl = null; P = {};
     return null;
   }
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_tex"]);
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_useTex", "u_tex"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
@@ -438,7 +478,7 @@ function buildSceneLines() {
   // The Sun's equatorial plane — tilted 7.25° to the ecliptic (its spin axis is the real IAU pole).
   // Gold rings + the spin axis make the offset between the Sun's equator and the planets' plane explicit.
   if (state.showSunEq) {
-    const pole = norm(poleVector(BODY.Sun));
+    const pole = norm(poleVector(BODY.Sun, state.renderUnix));
     let u = norm(cross([0, 0, 1], pole)); if (!isFinite(u[0]) || u[0] * u[0] + u[1] * u[1] + u[2] * u[2] < 1e-9) u = [1, 0, 0];
     const vv = cross(pole, u);
     const GOLD = [0.52, 0.40, 0.13];
@@ -666,14 +706,20 @@ function drawBody(b, vp, eye) {
   gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
   gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(atmo));
   gl.uniform1f(P.sphereU.u_atmoStr, atmoStr);
+  // Surface-map priority: a real fetched photographic map (fetch_textures.py) beats the map we
+  // generate from the committed vectors, which in turn beats the procedural shader. Only the
+  // generated maps can ask to MODULATE rather than replace.
   const isSun = b.name === "Sun";
   const sunTexd = isSun && state.useTextures && sunTex.ready;
-  const planetTexd = !isSun && state.useTextures && textures[b.name] && textures[b.name].ready;
-  const useTex = sunTexd || planetTexd;
+  const photoTexd = !isSun && state.useTextures && textures[b.name] && textures[b.name].ready;
+  const gen = !isSun && !photoTexd && state.useTextures && genTex[b.name] && genTex[b.name].ready
+    ? genTex[b.name] : null;
+  const useTex = sunTexd || photoTexd || !!gen;
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, sunTexd ? sunTex.tex : (planetTexd ? textures[b.name].tex : whiteTex));
+  gl.bindTexture(gl.TEXTURE_2D, sunTexd ? sunTex.tex : (photoTexd ? textures[b.name].tex : (gen ? gen.tex : whiteTex)));
   gl.uniform1i(P.sphereU.u_tex, 0);
   gl.uniform1i(P.sphereU.u_useTex, useTex ? 1 : 0);
+  gl.uniform1i(P.sphereU.u_texMode, gen ? gen.texMode : 0);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
@@ -871,7 +917,7 @@ function updateLabels(canvas, vp, skyVp) {
       for (const s of smallBodies) items.push({ name: s.name, p: s.pos, cls: s.kind === "probe" ? "orrery-label sky-pulsar" : "orrery-label sky-galaxy" });
     }
     if (state.showSunEq) {
-      const pole = norm(poleVector(BODY.Sun));
+      const pole = norm(poleVector(BODY.Sun, state.renderUnix));
       items.push({ name: "Sun's axis · 7.25° tilt", p: [pole[0] * 1.7, pole[1] * 1.7, pole[2] * 1.7], cls: "orrery-label sky-galaxy" });
     }
     if (state.showLabels && state.showSky) {
@@ -1056,7 +1102,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=3f238fdfd4");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=419de7192c");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
@@ -1068,6 +1114,7 @@ async function enterOrreryInner() {
       initParticles();
     }
     loadTextures();
+    buildGeneratedMaps(); // not awaited: the view paints immediately, maps appear as they build
     setSpeedSliderMode(state.galaxy);
     state.renderUnix = effectiveBaseUnix() + state.simElapsed;
     rebuildPositions();
@@ -1291,6 +1338,7 @@ function showFallback(msg) {
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
     whiteTex = null; ringBufs = {}; texturesStarted = false; particles = null;
+    genTex = {}; genStarted = false; // generated surface maps died with the context too
   });
   canvas.addEventListener("webglcontextrestored", () => {
     if (!state.active) return;
@@ -1298,6 +1346,7 @@ function showFallback(msg) {
     if (!initGL(c)) return;
     initParticles();
     loadTextures();
+    buildGeneratedMaps();
     rebuildPositions();
     buildSceneLines(); // the static geometry died with the old context
     paint();
