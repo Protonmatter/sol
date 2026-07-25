@@ -1,7 +1,11 @@
 # Solar System & Sky Engine — Spec (v0.3 "Orrery + My Sky")
 
-Status: Draft for review (build gated on sign-off)
-Date: 2026-06-28
+Status: **Historical design intent — built and shipped.** Kept as the record of why the
+solar-system/sky engine is shaped the way it is. Where this document and the code disagree,
+the code wins: the contract shipped as `ephemeris-snapshot.v2` (see ADR 0002), not the
+`ephemeris-snapshot.v1` drafted below, and current normative decisions live in `SPEC.md`,
+`RFC_ALIGNMENT.md`, and `docs/adr/`. Implemented behaviour is reported in `STATUS.md`.
+Date: 2026-06-28 (status note updated 2026-07-25)
 Relationship: extends the Solar Maximum Engine. Reuses the Rust→WASM deterministic
 engine pattern, the snapshot/provenance contracts, the operational-honesty discipline,
 and the ES-module web shell. The existing solar-surface app becomes the **Sun** object.
@@ -214,7 +218,9 @@ navigation accuracy.
 - **P0 — Ephemeris foundation. ✅ DONE (2026-06-29).** `solar-ephemeris` crate: time systems
   (JD, ΔT, nutation, obliquity, GMST/GAST/LST), Sun (Meeus 25) + Moon (Meeus 47 principal terms),
   full apparent-place + topocentric chain (parallax via WGS84, refraction), rise/transit/set,
-  `ephemeris-snapshot.v1` JSON, raw-ABI WASM (`apps/web/pkg/solar_ephemeris.wasm`, ~80 KB), a `sky`
+  `ephemeris-snapshot.v1` JSON (shipped as v2), raw-ABI WASM (`apps/web/pkg/solar_ephemeris.wasm`;
+  ~80 KB at the time of writing, ~490 KB today now that the packed VSOP2013/ELP-MPP02/TOP2013
+  coefficient tables and the 108-star catalogue are compiled in), a `sky`
   CLI, Meeus worked-example unit tests, and `tools/validate_ephemeris.py`. **Validated vs JPL
   Horizons DE441** across Boston (day/night) + Sydney: worst alt/az error **37.5″**, most < 15″ —
   arcsecond class, well inside §8.

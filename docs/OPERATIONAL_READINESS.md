@@ -10,7 +10,7 @@ It is not an operational space-weather warning or mission-safety system.
 
 Required passing gates:
 
-- `solar-state-snapshot.v1` validates.
+- `solar-state-snapshot.v2` validates.
 - `operational-readiness.v1` is present.
 - Deterministic fixture replay is available.
 - Public-data provenance is retained for observed or cached context.

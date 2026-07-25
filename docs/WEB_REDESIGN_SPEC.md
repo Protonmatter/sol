@@ -1,7 +1,10 @@
 # Solar Maximum Engine — Web Redesign Spec (v0.2 "Sol")
 
-Status: Draft for implementation
-Date: 2026-06-28
+Status: **Historical design intent — implemented.** Phases 1–3 shipped; kept as the record of
+the redesign's reasoning. Where this document and the code disagree, the code wins (e.g. the
+snapshot contract shipped as `solar-state-snapshot.v2`, not the `.v1` drafted below).
+Implemented behaviour is reported in `STATUS.md`; normative decisions in `SPEC.md` and `docs/adr/`.
+Date: 2026-06-28 (status note updated 2026-07-25)
 Supersedes: the in-session "UI Redesign Plan" (Codex), which it extends from a UX-architecture
 correction into a fundamental rebuild.
 
