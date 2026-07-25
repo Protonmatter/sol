@@ -100,9 +100,15 @@ Implemented:
   catalogue stars at their true parallax-derived 3-D positions around the Sun.
 - Star rendering is catalogue-backed, not procedural: real positions, magnitudes, and B−V
   colours. Derived physics (luminosity, temperature, radius, and a labelled main-sequence
-  mass estimate) lives in `apps/web/js/starphysics.js`. The ~370 KB catalogue module is
-  lazy-loaded only when the 3-D view opens, so the Sun and My Sky first paint are unaffected —
-  enforced by the `@lazy-module` rule in `tools/validate_web_static.py`.
+  mass estimate) lives in `apps/web/js/starphysics.js`.
+- Named stars are clickable in both the sky and the neighbourhood view, opening a facts
+  card that separates measured catalogue rows from derived ones, names the method for each,
+  and withholds what it cannot honestly compute — everything distance-dependent when a star
+  has no usable parallax, and the mass of an evolved star, where the main-sequence
+  mass–luminosity relation does not apply.
+- The ~370 KB catalogue module is lazy-loaded only when the 3-D view opens, so the Sun and
+  My Sky first paint are unaffected — enforced by the `@lazy-module` rule in
+  `tools/validate_web_static.py`.
 - Keyboard-accessible region/body lists and canvas alternatives.
 - Focus-trapped onboarding dialog with focus restoration.
 - Reduced-motion CSS and 3-D auto-animation gating.

@@ -6,7 +6,23 @@ crate follows [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
-- Nothing yet.
+### Added
+
+- **Click a star to inspect it.** Named catalogue stars are now pickable in the
+  Solar-System sky and the Solar-neighbourhood view, opening a facts card that finally
+  surfaces the physics the app was already computing: distance, apparent and absolute
+  magnitude, B−V colour, spectral type, effective temperature, luminosity, radius, and a
+  mass estimate. The card separates **measured** rows (Hipparcos) from **derived** ones
+  and names the method for each. Two honesty guards: a star with no usable parallax shows
+  "—" for everything distance-dependent rather than a number built on a guess, and an
+  evolved star's mass row declines to answer, because the main-sequence mass–luminosity
+  relation does not apply to giants and supergiants.
+- Glossary entries for parallax distance, colour index, spectral type, absolute magnitude,
+  effective temperature, luminosity, and stellar mass, so every new term has its `?`.
+- `tests/web/starphysics.test.mjs` — the shipped JS physics is now tested directly against
+  published values. `validate_star_catalog.py` only ever checked a Python mirror of these
+  formulas, so an edit to `starphysics.js` could previously change what users see while
+  that gate stayed green.
 
 ## [0.2.0] — 2026-07-20
 

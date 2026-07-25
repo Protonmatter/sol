@@ -13,25 +13,26 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=78434029fa";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=78434029fa";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector } from "./bodyData.js?v=78434029fa";
-import { buildCelestial } from "./celestial.js?v=78434029fa";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=78434029fa";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=78434029fa";
+import { store } from "./store.js?v=658b334e69";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=658b334e69";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=658b334e69";
+import { buildCelestial } from "./celestial.js?v=658b334e69";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=658b334e69";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=658b334e69";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=78434029fa";
+} from "./orreryMath.js?v=658b334e69";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=78434029fa";
+} from "./orreryShaders.js?v=658b334e69";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
-  buildCatalogStarsGalactic, buildNeighbourhoodModel,
-} from "./orreryGalaxy.js?v=78434029fa";
-import { renderDetail } from "./orreryDetail.js?v=78434029fa";
+  buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
+} from "./orreryGalaxy.js?v=658b334e69";
+import { renderDetail } from "./orreryDetail.js?v=658b334e69";
+import { renderStarDetail } from "./starDetail.js?v=658b334e69";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -71,6 +72,7 @@ const state = (store.orrery = {
   showSmall: true, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   galDeepSky: true, // nebulae / pulsars / black holes / nearby stars in the Milky-Way view
   localView: false, // light-year-scale solar-neighbourhood sub-view of the galaxy mode
+  selectedStar: null, // catalogue star pinned in the detail panel (null = show the body card)
   topDown: false, preTopRadius: 0, // "Top-down map" view — folds in the former standalone 2-D Solar System surface
   // Camera: orbit around `anchor` (a body name; "Sun" = origin) or a free-fly camera (WASD + look).
   anchor: "Sun", freeFly: false, freePos: [18, 18, 12], yaw: -2.3, pitch: -0.4, flySpeed: 4, keys: new Set(),
@@ -114,19 +116,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=78434029fa"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=658b334e69"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=78434029fa";
+  ring.src = "textures/saturn_ring.png?v=658b334e69";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=78434029fa";
+  sun.src = "textures/sun.jpg?v=658b334e69";
 }
 
 function compile(type, src) {
@@ -898,7 +900,33 @@ function updateLabels(canvas, vp, skyVp) {
 // (The facts card itself is built by orreryDetail.js; this wrapper just supplies the
 // body's live snapshot row.)
 function showDetail(name) {
+  // A picked star wins the panel until something else is picked; otherwise fall back to
+  // the body card (which also renders the "click something" placeholder).
+  if (state.selectedStar) { renderStarDetail(state.selectedStar); return; }
   renderDetail(name, state.bodies.find((b) => b.name === name));
+}
+
+// Screen-space nearest named star to (px, py). `m` is the matrix the stars were drawn
+// with — skyVp on the unit sky sphere, plain vp for the neighbourhood's true 3-D places.
+// Only NAMED_STARS are pickable: they are the ~500 with a proper name and the metadata
+// the card needs, and it keeps the hit test to one short loop per click.
+function pickStar(px, py, w, h, m, project) {
+  if (!starCat) return null;
+  let best = null;
+  for (const s of starCat.NAMED_STARS) {
+    const p = project(s);
+    if (!p) continue;
+    const x = m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12];
+    const y = m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13];
+    const wv = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15];
+    if (wv <= 0) continue;
+    const sx = (x / wv * 0.5 + 0.5) * w, sy = (1 - (y / wv * 0.5 + 0.5)) * h;
+    const d = Math.hypot(sx - px, sy - py);
+    // Brighter stars get a slightly larger hit radius so the recognisable ones win ties.
+    const reach = Math.max(12, 26 - 2.2 * s.mag);
+    if (d < reach && (!best || d < best.d)) best = { d, star: s };
+  }
+  return best ? best.star : null;
 }
 
 // ---------------------------------------------------------------- animation loop
@@ -960,6 +988,7 @@ function flyStep(dt) {
 // Switch the orbit anchor (focus). Re-frames the camera at a distance suited to that body's size.
 function setAnchor(name) {
   state.anchor = name;
+  state.selectedStar = null; // an explicit body choice unpins any star card
   if (name !== "Sun") { state.radius = Math.max(1.2, displayRadiusAU(name) * 14); state.selected = name; showDetail(name); }
   else state.radius = 26;
   paint();
@@ -1027,7 +1056,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=78434029fa");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=658b334e69");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
@@ -1145,11 +1174,22 @@ function showFallback(msg) {
   canvas.addEventListener("blur", () => state.keys.clear());
 
   function pick(e) {
-    if (state.galaxy) return;
     const rect = canvas.getBoundingClientRect();
     const px = (e.clientX - rect.left), py = (e.clientY - rect.top);
     const [w, h] = [canvas.clientWidth, canvas.clientHeight];
-    const { vp } = cameraMatrices(canvas.width, canvas.height);
+    const { vp, skyVp } = cameraMatrices(canvas.width, canvas.height);
+
+    // Solar neighbourhood: stars are the only thing to inspect, at true 3-D places.
+    if (state.galaxy) {
+      if (state.localView) {
+        state.selectedStar = pickStar(px, py, w, h, vp,
+          (s) => (s.dist == null ? null : neighbourhoodPos(s.ra, s.dec, s.dist)));
+        showDetail(state.selected);
+        if (!state.animate) paint();
+      }
+      return; // the galaxy disc has no per-object picking
+    }
+
     let best = null;
     for (const name of DRAW_LIST) {
       const b = name === "Sun" ? { name: "Sun" } : state.bodies.find((x) => x.name === name);
@@ -1163,7 +1203,13 @@ function showFallback(msg) {
       const d = Math.hypot(sx - px, sy - py);
       if (d < 34 && (!best || d < best.d)) best = { d, name };
     }
+    // Solar-system bodies win: they are the subject of this view, and a star behind one
+    // must not steal the click. Only an empty patch of sky falls through to the stars,
+    // which live on the backdrop sphere and so project with skyVp, not vp.
     state.selected = best ? best.name : null;
+    state.selectedStar = best || !state.showSky
+      ? null
+      : pickStar(px, py, w, h, skyVp, (s) => equToEcl(s.ra, s.dec));
     showDetail(state.selected);
     if (!state.animate) paint();
   }
@@ -1196,6 +1242,7 @@ function showFallback(msg) {
   bind("orreryFreeFly", "change", (e) => setFreeFly(e.target.checked));
   bind("orreryGalaxy", "click", () => {
     state.galaxy = !state.galaxy;
+    state.selectedStar = null;
     if (state.localView) { state.localView = false; const lb = document.getElementById("orreryLocal"); if (lb) lb.textContent = "Solar neighbourhood (ly scale)"; }
     if (state.freeFly) { state.freeFly = false; const ff = document.getElementById("orreryFreeFly"); if (ff) ff.checked = false; }
     const btn = document.getElementById("orreryGalaxy");
@@ -1216,6 +1263,7 @@ function showFallback(msg) {
   });
   bind("orreryLocal", "click", () => {
     state.localView = !state.localView;
+    state.selectedStar = null;
     if (state.freeFly) { state.freeFly = false; const ff = document.getElementById("orreryFreeFly"); if (ff) ff.checked = false; }
     const lb = document.getElementById("orreryLocal");
     const gb = document.getElementById("orreryGalaxy");
