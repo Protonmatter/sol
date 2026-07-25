@@ -1,10 +1,10 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { store } from "./store.js?v=419de7192c";
-import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=419de7192c";
-import { CONSTELLATIONS } from "./celestial.js?v=419de7192c";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=419de7192c";
+import { store } from "./store.js?v=2313f632ec";
+import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=2313f632ec";
+import { CONSTELLATIONS } from "./celestial.js?v=2313f632ec";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=2313f632ec";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;

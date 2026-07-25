@@ -125,6 +125,13 @@ jobs:
         # tools/fetch_geography.py is the only networked step and is never run here.
         run: python tools/generate_geography.py --check
 
+      - name: Moon orbits regen-stable + validated vs JPL Horizons
+        # Regenerates apps/web/js/moons.js from the committed Horizons elements and requires
+        # byte-identity, then Kepler-propagates every moon and compares against committed
+        # Horizons state vectors on dates held out from the mean-motion fit. Offline —
+        # tools/fetch_moons.py is the only networked step and is never run here.
+        run: python tools/validate_moons.py
+
       - name: EOP prediction coverage
         run: python tools/check_eop_freshness.py --minimum-days 90
 

@@ -13,27 +13,28 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=419de7192c";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=419de7192c";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=419de7192c";
-import { buildCelestial } from "./celestial.js?v=419de7192c";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=419de7192c";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=419de7192c";
+import { store } from "./store.js?v=2313f632ec";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=2313f632ec";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=2313f632ec";
+import { buildCelestial } from "./celestial.js?v=2313f632ec";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=2313f632ec";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=2313f632ec";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=419de7192c";
+} from "./orreryMath.js?v=2313f632ec";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=419de7192c";
+} from "./orreryShaders.js?v=2313f632ec";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=419de7192c";
-import { renderDetail } from "./orreryDetail.js?v=419de7192c";
-import { renderStarDetail } from "./starDetail.js?v=419de7192c";
-import { buildEarthMap, buildFeatureMap } from "./surfacemap.js?v=419de7192c";
+} from "./orreryGalaxy.js?v=2313f632ec";
+import { renderDetail, renderMoonDetail } from "./orreryDetail.js?v=2313f632ec";
+import { renderStarDetail } from "./starDetail.js?v=2313f632ec";
+import { buildEarthMap, buildFeatureMap } from "./surfacemap.js?v=2313f632ec";
+import { moonOffsetAU, moonOrbitPath, systemScale } from "./moonorbits.js?v=2313f632ec";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -71,6 +72,7 @@ const state = (store.orrery = {
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: true, showLabels: true, showSunEq: true, useTextures: true, galaxy: false,
   showSmall: true, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
+  showMoons: true, // the 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune
   galDeepSky: true, // nebulae / pulsars / black holes / nearby stars in the Milky-Way view
   localView: false, // light-year-scale solar-neighbourhood sub-view of the galaxy mode
   selectedStar: null, // catalogue star pinned in the detail panel (null = show the body card)
@@ -100,6 +102,13 @@ let smallBodies = []; // per-frame small-body markers: {name, pos, col, kind, no
 // still wins where one exists — see drawBody.
 let genTex = {}, genStarted = false;
 
+// The 21 major moons (apps/web/js/moons.js), lazy-loaded with the rest of the 3-D payload.
+// `moonSet` is null until it arrives; every moon path below tolerates that.
+let moonSet = null;
+// Per-frame moon markers, rebuilt during the body pass so labels and picking agree with what
+// was actually drawn — including the zoom cut-off, so you cannot click an invisible moon.
+let moonMarkers = [];
+
 function makeTexture(img, repeatS) {
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
@@ -123,19 +132,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=419de7192c"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=2313f632ec"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=419de7192c";
+  ring.src = "textures/saturn_ring.png?v=2313f632ec";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=419de7192c";
+  sun.src = "textures/sun.jpg?v=2313f632ec";
 }
 
 // Build the generated surface maps from the committed geography. One body per idle slice: the
@@ -145,7 +154,12 @@ async function buildGeneratedMaps() {
   if (genStarted || !gl) return;
   genStarted = true;
   try {
-    const geo = await import("./geography.js?v=419de7192c");
+    const [geo, moons] = await Promise.all([
+      import("./geography.js?v=2313f632ec"),
+      import("./moons.js?v=2313f632ec"),
+    ]);
+    moonSet = moons;
+    if (state.active && !state.animate) paint();
     // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
     // in that catalogue says which of them are dark — see tools/fetch_geography.py — so they
     // keep the procedural shader rather than a guess. fetch_textures.py still supplies real
@@ -651,6 +665,7 @@ function paint() {
   drawSmallBodies(vp, dpr);
 
   // ---- bodies (lit spheres) ----
+  moonMarkers = []; // rebuilt by drawMoons as each planet is drawn
   for (const name of DRAW_LIST) {
     const b = name === "Sun" ? { name: "Sun" } : state.bodies.find((x) => x.name === name);
     if (!b) continue;
@@ -744,6 +759,72 @@ function drawBody(b, vp, eye) {
 
   // rings
   if (phys.rings) drawRing(b.name, phys, pos, rEq, rot, vp);
+
+  // moons
+  drawMoons(b.name, pos, rEq, vp, eye);
+}
+
+// A moon's drawn radius. Planets in this view are already enlarged so the small ones stay
+// visible; moons need the same treatment or Phobos (11 km beside a 3,396 km Mars) is a
+// sub-pixel speck. The ratio to the parent is preserved and then boosted, with a floor so the
+// smallest are still findable — the same bargain the planet sizes already make, and the panel
+// says so. True-scale mode gets the honest ratio.
+function moonDisplayRadius(m, parentRadiusKm, parentDisplayAU) {
+  const ratio = m.r / parentRadiusKm;
+  if (state.trueScale) return parentDisplayAU * ratio;
+  return Math.min(parentDisplayAU * 0.42, Math.max(parentDisplayAU * 0.055, parentDisplayAU * ratio * 4));
+}
+
+// Draw the moons of one planet. Returns quietly when the catalogue has not loaded, when the
+// planet has none, or when the camera is too far out for them to be anything but clutter.
+function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
+  if (!moonSet || !state.showMoons) return;
+  const moons = moonSet.moonsOf(parentName);
+  if (!moons.length) return;
+  const phys = BODY[parentName];
+  const scale = systemScale(moons, parentDisplayAU, state.trueScale);
+  // Beyond this the whole system is a few pixels wide; drawing it just speckles the planet.
+  const outermost = (moons[moons.length - 1].a / AU_KM) * scale;
+  const dist = Math.hypot(eye[0] - parentPos[0], eye[1] - parentPos[1], eye[2] - parentPos[2]);
+  if (outermost / Math.max(dist, 1e-9) < 0.012) return;
+
+  for (const m of moons) {
+    const off = moonOffsetAU(m, state.renderUnix, moonSet.MOON_EPOCH_JD);
+    const pos = [parentPos[0] + off[0] * scale, parentPos[1] + off[1] * scale, parentPos[2] + off[2] * scale];
+    const r = moonDisplayRadius(m, phys.radiusKm, parentDisplayAU);
+    const model = mul(translate(pos), scaleM([r, r, r]));
+    const light = norm([-pos[0], -pos[1], -pos[2]]);
+
+    gl.useProgram(P.sphere);
+    gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, model)));
+    gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
+    gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]));
+    // Titan is the one moon with a real atmosphere, so it gets the cloud shader rather than
+    // the cratered one; everything else is a rock or an iceball.
+    gl.uniform1i(P.sphereU.u_style, m.n === "Titan" ? STYLE_ID.venus : STYLE_ID.cratered);
+    gl.uniform1i(P.sphereU.u_mode, 0);
+    gl.uniform1f(P.sphereU.u_time, state.renderUnix * 0.0002);
+    gl.uniform3fv(P.sphereU.u_base, new Float32Array(m.col));
+    gl.uniform3fv(P.sphereU.u_light, new Float32Array(light));
+    gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
+    gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(m.n === "Titan" ? [0.85, 0.6, 0.3] : [0, 0, 0]));
+    gl.uniform1f(P.sphereU.u_atmoStr, m.n === "Titan" ? 0.5 : 0);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, whiteTex);
+    gl.uniform1i(P.sphereU.u_tex, 0);
+    gl.uniform1i(P.sphereU.u_useTex, 0);
+    gl.uniform1i(P.sphereU.u_texMode, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+    gl.disableVertexAttribArray(2);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphere.idx);
+    gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
+    gl.drawElements(gl.TRIANGLES, sphere.count, gl.UNSIGNED_SHORT, 0);
+    gl.disable(gl.CULL_FACE);
+
+    moonMarkers.push({ name: m.n, pos, moon: m });
+  }
 }
 
 function drawRing(name, phys, pos, rEq, rot, vp) {
@@ -916,6 +997,9 @@ function updateLabels(canvas, vp, skyVp) {
     if (state.showSmall) {
       for (const s of smallBodies) items.push({ name: s.name, p: s.pos, cls: s.kind === "probe" ? "orrery-label sky-pulsar" : "orrery-label sky-galaxy" });
     }
+    // Only the moons actually drawn this frame — drawMoons drops whole systems that are too
+    // small on screen to be worth it, and a label for an undrawn moon would be a lie.
+    for (const mk of moonMarkers) items.push({ name: mk.name, p: mk.pos, cls: "orrery-label sky-star" });
     if (state.showSunEq) {
       const pole = norm(poleVector(BODY.Sun, state.renderUnix));
       items.push({ name: "Sun's axis · 7.25° tilt", p: [pole[0] * 1.7, pole[1] * 1.7, pole[2] * 1.7], cls: "orrery-label sky-galaxy" });
@@ -949,6 +1033,8 @@ function showDetail(name) {
   // A picked star wins the panel until something else is picked; otherwise fall back to
   // the body card (which also renders the "click something" placeholder).
   if (state.selectedStar) { renderStarDetail(state.selectedStar); return; }
+  const moon = moonSet && name ? moonSet.MOONS.find((m) => m.n === name) : null;
+  if (moon) { renderMoonDetail(moon); return; }
   renderDetail(name, state.bodies.find((b) => b.name === name));
 }
 
@@ -1102,7 +1188,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=419de7192c");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=2313f632ec");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
@@ -1250,6 +1336,17 @@ function showFallback(msg) {
       const d = Math.hypot(sx - px, sy - py);
       if (d < 34 && (!best || d < best.d)) best = { d, name };
     }
+    // Moons compete on the same footing, with a tighter radius so a moon close to its planet
+    // does not steal clicks aimed at the planet itself.
+    for (const mk of moonMarkers) {
+      const p = mk.pos;
+      const wv = vp[3] * p[0] + vp[7] * p[1] + vp[11] * p[2] + vp[15];
+      if (wv <= 0) continue;
+      const sx = ((vp[0] * p[0] + vp[4] * p[1] + vp[8] * p[2] + vp[12]) / wv * 0.5 + 0.5) * w;
+      const sy = (1 - ((vp[1] * p[0] + vp[5] * p[1] + vp[9] * p[2] + vp[13]) / wv * 0.5 + 0.5)) * h;
+      const d = Math.hypot(sx - px, sy - py);
+      if (d < 18 && (!best || d < best.d)) best = { d, name: mk.name };
+    }
     // Solar-system bodies win: they are the subject of this view, and a star behind one
     // must not steal the click. Only an empty patch of sky falls through to the stars,
     // which live on the backdrop sphere and so project with skyVp, not vp.
@@ -1277,6 +1374,7 @@ function showFallback(msg) {
   bind("orreryShowLabels", "change", (e) => { state.showLabels = e.target.checked; paint(); });
   bind("orreryShowSunEq", "change", (e) => { state.showSunEq = e.target.checked; buildSceneLines(); paint(); });
   bind("orreryShowSmall", "change", (e) => { state.showSmall = e.target.checked; buildSceneLines(); rebuildSmallBodies(); paint(); });
+  bind("orreryShowMoons", "change", (e) => { state.showMoons = e.target.checked; paint(); });
   bind("orreryDeepSky", "change", (e) => { state.galDeepSky = e.target.checked; paint(); });
   bind("orreryTextures", "change", (e) => { state.useTextures = e.target.checked; paint(); });
   bind("orreryTopDown", "change", (e) => {

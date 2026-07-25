@@ -8,6 +8,29 @@ crate follows [SemVer](https://semver.org/).
 
 ### Added
 
+- **The major moons.** Twenty-one of them — Mars's two, the four Galileans, seven Saturnian
+  including Titan, the five Uranian, and Triton, Nereid and Proteus — drawn in their real orbits
+  around the planets they belong to, lit, labelled, and clickable for a facts card. Every
+  satellite with a mean radius of at least 150 km, plus Phobos and Deimos.
+  Orbits come from JPL Horizons via `tools/fetch_moons.py`, and accuracy is gated in CI by
+  `tools/validate_moons.py` against committed Horizons state vectors: **worst 4.09°** across 105
+  checks spanning 2025-04 to 2027-02, on dates held out from the fit.
+  Because planets are drawn oversized, each satellite system is inflated by ONE factor so its
+  innermost moon clears the planet's disc while the spacing between moons stays true — Callisto
+  still sits 4.46× farther out than Io.
+
+  Two things had to be got right, and both are recorded in `tools/ephemeris-data/moons/README.md`:
+
+  - **JPL's satellite mean-elements table cannot be used.** It is the obvious source and it does
+    not work: its angles are referred to three different planes depending on the satellite, and
+    even with all three implemented and all 18 node/apsis sign conventions searched, it reproduces
+    Mars's and Jupiter's moons to ~0.1° while missing Saturn's and Uranus's by 24–165° **at its own
+    epoch**. Horizons osculating elements requested in the ecliptic frame have no such ambiguity.
+  - **Osculating mean motion is not the rate a moon keeps.** Satellite orbits are perturbed hard
+    enough that Kepler-propagating the instantaneous rate puts Mimas on the wrong side of Saturn
+    within weeks (178°). The fetcher refits the mean motion against Horizons across a ±1-year
+    window: Enceladus 177.58° → 0.84°, Phobos 177.26° → 2.15°, Io 84.79° → 0.77°.
+
 - **Earth has real geography.** `apps/web/textures/` is `.gitignore`d and is populated only by the
   optional `tools/fetch_textures.py`, so every deployment — GitHub Pages included — fell through
   to the procedural shader, where Earth's "continents" were value noise (`fbm(p*2.3)` thresholded

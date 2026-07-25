@@ -2,9 +2,49 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY } from "./bodyData.js?v=419de7192c";
+import { BODY } from "./bodyData.js?v=2313f632ec";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
+
+/**
+ * Facts card for a moon. Separate from the planet card because the honest content differs: a
+ * moon's card leads with what it orbits, and its position carries an accuracy caveat the
+ * planets' VSOP2013/TOP2013 positions do not need.
+ */
+export function renderMoonDetail(m) {
+  const host = document.getElementById("orreryDetail"); if (!host) return;
+  host.textContent = "";
+  const card = document.createElement("div"); card.className = "sky-row system-detail";
+  const h = document.createElement("strong"); h.textContent = m.n; card.appendChild(h);
+  const blurb = document.createElement("p"); blurb.className = "time-frame-label";
+  blurb.textContent = m.note; card.appendChild(blurb);
+  const dl = document.createElement("dl"); dl.className = "detail-grid";
+  const add = (k, v) => {
+    if (v == null) return;
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd);
+  };
+  add("Orbits", m.p);
+  add("Mean radius", `${fmt(m.r, 1)} km${m.r * 2 > 3000 ? " — larger than Pluto" : ""}`);
+  add("Orbital radius", `${fmt(m.a)} km from ${m.p}'s centre`);
+  add("Orbital period", m.P < 1
+    ? `${fmt(m.P * 24, 2)} h`
+    : `${fmt(m.P, 3)} d${m.P > 60 ? ` (${fmt(m.P / 365.25, 2)} yr)` : ""}`);
+  add("Eccentricity", m.e < 0.001 ? "≈ 0 — very nearly circular" : m.e.toFixed(4));
+  add("Inclination", `${m.i.toFixed(2)}° to the ecliptic${m.i > 90 ? " · retrograde — it orbits backwards" : ""}`);
+  if (m.rho != null) add("Mean density", `${m.rho.toFixed(3)} g/cm³`);
+  if (m.gm != null) add("GM", `${m.gm.toPrecision(5)} km³/s²`);
+  card.appendChild(dl);
+  // The caveat belongs on the card, not only in a source file nobody reading this will open.
+  const note = document.createElement("p");
+  note.className = "time-frame-label";
+  note.textContent = "Orbit from JPL Horizons; the position along it is Kepler-propagated and "
+    + "good to a few degrees — enough to show which side of its planet it is on, not enough for "
+    + "an occultation. Distances from the planet are scaled up with the planet's own exaggerated "
+    + "size, so the spacing between moons stays true. Colour is illustrative.";
+  card.appendChild(note);
+  host.appendChild(card);
+}
 
 // Render the facts card for `name` into #orreryDetail. `live` is the body's row from the
 // current system snapshot (distances/speed/phase/magnitude/equilibrium temp), or undefined.
