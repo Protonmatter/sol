@@ -8,6 +8,17 @@ crate follows [SemVer](https://semver.org/).
 
 ### Added
 
+- **The Moon's card now explains that it is tidally locked.** It previously listed
+  "Rotation (sidereal): 655.72 h" and left the reader to notice that this is *exactly* the
+  27.322 d orbital period — so the 3-D view, which correctly shows the Moon turning, read
+  as a contradiction of tidal locking rather than a demonstration of it. The rotation row
+  now says so outright, a Libration row gives the ±7.9°/±6.7° monthly wobble and the 59%
+  of the surface it reveals, and two glossary entries spell out that a locked body still
+  turns once per orbit in an inertial frame. `tests/web/moonlock.test.mjs` pins the
+  invariant behind the claim: locking is emergent here, not a stored flag — it holds only
+  because the IAU rotation elements match the orbit — so the test projects the Moon→Earth
+  direction into the body frame across two synodic months and fails if the sub-Earth point
+  ever winds away from the prime meridian, or if the libration is flattened out.
 - **All 88 constellations, up from 7.** The figures were a hand-written array that joined
   stars by NAME, so a figure could only use stars that happened to be in a curated list —
   which is why the sky showed Orion, Ursa Major, Cassiopeia, Crux, Cygnus, Scorpius, and

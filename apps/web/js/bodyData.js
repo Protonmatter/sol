@@ -116,6 +116,12 @@ export const BODY = {
     gravity: 1.62, escapeKms: 2.38, rotationHours: 655.72 /* synchronous, 27.322 d */, tiltDeg: 6.68,
     poleRaDeg: 269.9949, poleDecDeg: 66.5392, w0Deg: 38.3213, wDotDegPerDay: 13.17635815,
     magDipoleEarth: 0, magnetosphere: false,
+    // Synchronous rotation: the spin period above EQUALS the orbital period, which is what
+    // "tidally locked" means — the same hemisphere faces Earth. It does not mean the Moon is
+    // motionless: it still turns once per orbit in an inertial frame, which is why it visibly
+    // rotates in this view. The libration figures are the real monthly wobble (eccentric orbit
+    // -> longitude; 6.68° axial tilt -> latitude) that exposes 59% of the surface over time.
+    tidalLock: { orbitalPeriodDays: 27.322, librationLonDeg: 7.9, librationLatDeg: 6.7, visibleFraction: 0.59 },
     atmosphere: { pressureBar: 3e-15, composition: "tenuous exosphere (He, Ar, Na)" },
     albedo: 0.136, meanTempK: 250, style: "moon", color: [0.55, 0.54, 0.52],
     blurb: "Earth's tidally-locked companion: dark basaltic maria, bright cratered highlands, no atmosphere or global field.",

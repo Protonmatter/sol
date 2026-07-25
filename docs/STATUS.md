@@ -104,6 +104,11 @@ Implemented:
 - All 88 IAU constellation figures on both the 3-D sky and the My Sky dome, generated from
   committed IAU line data as RA/Dec polylines (`tools/generate_constellations.py`) rather
   than joined by star name.
+- Clicking a body in the 3-D view opens a facts card built from `apps/web/js/bodyData.js`.
+  The Moon's card states that its rotation is synchronous with its orbit and reports
+  libration, so that the Moon visibly turning in the view reads as tidal locking rather
+  than as a contradiction of it. Locking is emergent from the IAU rotation elements, not a
+  stored flag, and `tests/web/moonlock.test.mjs` gates the sub-Earth point against winding.
 - Named stars are clickable in both the sky and the neighbourhood view, opening a facts
   card that separates measured catalogue rows from derived ones, names the method for each,
   and withholds what it cannot honestly compute — everything distance-dependent when a star

@@ -2,7 +2,7 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY } from "./bodyData.js?v=c8dc738669";
+import { BODY } from "./bodyData.js?v=3f238fdfd4";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 
@@ -40,7 +40,22 @@ export function renderDetail(name, live) {
   add("Surface gravity", `${phys.gravity.toFixed(2)} m/s² · escape ${phys.escapeKms.toFixed(1)} km/s`, "escape-velocity");
   add("Mean density", `${phys.densityGcm3.toFixed(3)} g/cm³`);
   const rh = phys.rotationHours, retro = rh < 0;
-  add("Rotation (sidereal)", `${fmt(Math.abs(rh), 2)} h${Math.abs(rh) > 48 ? ` (${(Math.abs(rh) / 24).toFixed(2)} d)` : ""}${retro ? " · retrograde" : ""}`, "sidereal");
+  const lock = phys.tidalLock;
+  add(
+    "Rotation (sidereal)",
+    `${fmt(Math.abs(rh), 2)} h${Math.abs(rh) > 48 ? ` (${(Math.abs(rh) / 24).toFixed(2)} d)` : ""}`
+    + `${retro ? " · retrograde" : ""}`
+    + (lock ? ` · synchronous — equal to its ${lock.orbitalPeriodDays} d orbit, so the same face stays toward Earth` : ""),
+    lock ? "tidal-locking" : "sidereal",
+  );
+  if (lock) {
+    add(
+      "Libration",
+      `±${lock.librationLonDeg}° longitude, ±${lock.librationLatDeg}° latitude — the monthly wobble that reveals `
+      + `${Math.round(lock.visibleFraction * 100)}% of the surface from Earth, not just half`,
+      "libration",
+    );
+  }
   add("Axial tilt", `${phys.tiltDeg.toFixed(2)}°`, "axial-tilt");
   add("Magnetic field", phys.magnetosphere ? (phys.magDipoleEarth >= 1 ? `global dipole ~${fmt(phys.magDipoleEarth)}× Earth` : phys.magDipoleEarth > 0 ? `weak dipole (~${(phys.magDipoleEarth).toExponential(1)}× Earth)` : "intrinsic field") : "no global field", "magnetic-dipole");
   add("Atmosphere", isFinite(phys.atmosphere.pressureBar) && phys.atmosphere.pressureBar > 0 ? `${phys.atmosphere.pressureBar < 0.001 ? phys.atmosphere.pressureBar.toExponential(1) : fmt(phys.atmosphere.pressureBar, 3)} bar — ${phys.atmosphere.composition}` : phys.atmosphere.composition);
