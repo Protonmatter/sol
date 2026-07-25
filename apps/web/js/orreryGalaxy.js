@@ -8,8 +8,8 @@
 // Scale: 1 world unit ≈ 0.326 kpc (≈1,063 ly); disc radius ~15 kpc. Logarithmic spiral
 // arms + a central bar/bulge.
 
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=78434029fa";
-import { bvToRGB, equToGal } from "./starphysics.js?v=78434029fa";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=658b334e69";
+import { bvToRGB, equToGal } from "./starphysics.js?v=658b334e69";
 
 const D2R = Math.PI / 180;
 const LY_PER_PC = 3.2615637772;
@@ -152,6 +152,15 @@ export function buildCatalogStarsGalactic(starCat) {
 // Barnard's Star moves under a pixel at this scale).
 export const LOCAL_UNIT_LY = 10; // 1 world unit = 10 light-years
 
+// Equatorial (J2000) + parallax distance -> the neighbourhood view's world position.
+// The single definition: the point cloud, the labels, and orrery.js's click picking all
+// call this, so a star can never be drawn in one place and hit-tested in another.
+export function neighbourhoodPos(raDeg, decDeg, distLy) {
+  const [l, b] = equToGal(raDeg, decDeg);
+  const d = distLy / LOCAL_UNIT_LY, cb = Math.cos(b * D2R);
+  return [d * cb * Math.cos(l * D2R), d * cb * Math.sin(l * D2R), d * Math.sin(b * D2R)];
+}
+
 export function buildNeighbourhoodModel(starCat) {
   const { STAR_COUNT, STAR_STRIDE, STARS_PACKED, NAMED_STARS } = starCat;
   const pts = [];
@@ -162,9 +171,7 @@ export function buildNeighbourhoodModel(starCat) {
     const bv = STARS_PACKED[i * STAR_STRIDE + 3];
     const dist = STARS_PACKED[i * STAR_STRIDE + 4];
     if (dist == null || !(dist > 0)) continue;
-    const [l, b] = equToGal(ra, dec);
-    const d = dist / LOCAL_UNIT_LY, cb = Math.cos(b * D2R);
-    const x = d * cb * Math.cos(l * D2R), y = d * cb * Math.sin(l * D2R), z = d * Math.sin(b * D2R);
+    const [x, y, z] = neighbourhoodPos(ra, dec, dist);
     // Size by ABSOLUTE magnitude: at true 3-D positions, intrinsic luminosity is the
     // honest visual weight (a red dwarf 8 ly away must not outshine Deneb at 2,600 ly).
     const absM = mag - 5 * Math.log10(dist / LY_PER_PC / 10);
@@ -192,11 +199,9 @@ export function buildNeighbourhoodModel(starCat) {
   for (const s of NAMED_STARS) {
     if (s.dist == null) continue;
     if (!(s.dist <= 120 || s.mag <= 1.7)) continue;
-    const [l, b] = equToGal(s.ra, s.dec);
-    const d = s.dist / LOCAL_UNIT_LY, cb = Math.cos(b * D2R);
     named.push({
       name: `${s.name} · ${s.dist < 100 ? s.dist.toFixed(1) : Math.round(s.dist)} ly`,
-      p: [d * cb * Math.cos(l * D2R), d * cb * Math.sin(l * D2R), d * Math.sin(b * D2R)],
+      p: neighbourhoodPos(s.ra, s.dec, s.dist),
       distLy: s.dist,
       mag: s.mag,
     });
