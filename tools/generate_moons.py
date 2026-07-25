@@ -66,6 +66,11 @@ def die(msg: str) -> None:
     raise SystemExit(2)
 
 
+def positive(v: float | None) -> float | None:
+    """None unless v is a real positive measurement — see the GM note in build()."""
+    return v if v is not None and v > 0 else None
+
+
 def num(v: str, default: float | None = None) -> float | None:
     v = (v or "").strip().rstrip(".")
     if not v or v == "-":
@@ -109,8 +114,11 @@ def build() -> str:
             "M0": round(num(r["M_deg"], 0.0), 5), "nd": round(n, 8),
             "P": round(360.0 / n, 6),
             "r": round(num(p["mean_radius_km"], 0.0), 1),
-            "rho": num(p["mean_density_g_cm3"], None),
-            "gm": num(p["GM_km3_s2"], None),
+            "rho": positive(num(p["mean_density_g_cm3"], None)),
+            # JPL writes 0.00000 where a satellite's GM has never been measured — Nereid is one.
+            # Carrying that through as a number would put "0.0000 km³/s²" on the card, presenting
+            # a missing measurement as a physical fact about a 170 km moon.
+            "gm": positive(num(p["GM_km3_s2"], None)),
             "col": look[0], "note": look[1],
         })
     moons.sort(key=lambda m: m["code"])

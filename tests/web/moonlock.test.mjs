@@ -18,7 +18,9 @@ import { iauRotation } from "../../apps/web/js/orreryMath.js";
 const D2R = Math.PI / 180;
 const OBLIQUITY = 23.43928 * D2R;
 
-// Every 4 days from 2026-07-14, covering >2 synodic months.
+// Every 4 days from 2026-07-14, 16 samples spanning 60 days — two synodic months (59.1 d),
+// so the invariant is checked across two full lunations rather than one. Generated from
+// this repo's own engine; never hand-written.
 const MOON = [
   { unix: 1784000000, ra: 110.1444, dec: 25.6553 },
   { unix: 1784345600, ra: 166.4317, dec: 4.2837 },
@@ -29,6 +31,13 @@ const MOON = [
   { unix: 1786073600, ra: 54.9489, dec: 24.9450 },
   { unix: 1786419200, ra: 119.5288, dec: 23.5933 },
   { unix: 1786764800, ra: 173.5751, dec: 0.4217 },
+  { unix: 1787110400, ra: 221.3278, dec: -21.3376 },
+  { unix: 1787456000, ra: 273.6685, dec: -27.8092 },
+  { unix: 1787801600, ra: 324.4736, dec: -14.9166 },
+  { unix: 1788147200, ra: 11.3251, dec: 8.8545 },
+  { unix: 1788492800, ra: 66.7073, dec: 26.9763 },
+  { unix: 1788838400, ra: 129.3263, dec: 20.7075 },
+  { unix: 1789184000, ra: 180.7827, dec: -3.3992 },
 ];
 
 // Equatorial-J2000 -> ecliptic-J2000, matching orreryMath's internal transform.

@@ -142,6 +142,8 @@ export const PLANET_ORDER = ["Mercury", "Venus", "Earth", "Mars", "Jupiter", "Sa
 export const STYLE_ID = {
   sun: 0, cratered: 1, venus: 2, earth: 3, mars: 4,
   jupiter: 5, saturn: 6, uranus: 7, neptune: 8, moon: 9,
+  // Moon styles that modulate the body's own colour rather than replacing it (orreryShaders).
+  moonRock: 10, moonHaze: 11,
 };
 
 const D2R = Math.PI / 180;

@@ -10,9 +10,11 @@ import { lonToX, latToY, unwrapColumns } from "../../apps/web/js/surfacemap.js";
 const wrap = (d) => ((d % 360) + 540) % 360 - 180;
 
 /** Even-odd point-in-polygon over the decoded rings. */
-function inAnyRing(rings, lon, lat) {
-  for (const r of rings) {
-    const p = decodeRing(r);
+function inAnyRing(polys, lon, lat) {
+  // Outer rings only — a point inside a HOLE is not inside the polygon, and every probe below
+  // is chosen to be unambiguous either way.
+  for (const poly of polys) {
+    const p = decodeRing(poly[0]);
     let inside = false;
     for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
       const [xi, yi] = p[i], [xj, yj] = p[j];
@@ -39,6 +41,17 @@ test("the coastlines put land where land is", () => {
   }
 });
 
+test("GeoJSON holes are kept as holes, not painted solid", () => {
+  // Inner rings are gaps. Flattening them into the outer rings made the rasteriser fill each
+  // independently, so a lake inside an island and a gap in an ice sheet came out as ground.
+  const holes = [...EARTH.land, ...EARTH.lakes, ...EARTH.ice].filter((poly) => poly.length > 1);
+  assert.ok(holes.length > 0, "the committed data does contain interior rings — they must survive");
+  for (const poly of [...EARTH.land, ...EARTH.lakes, ...EARTH.ice]) {
+    assert.ok(Array.isArray(poly[0]) && typeof poly[0][0] === "number",
+      "each polygon must be [outerRing, ...holes] with rings as flat int arrays");
+  }
+});
+
 test("permanent ice covers Antarctica and Greenland, and nothing tropical", () => {
   assert.ok(inAnyRing(EARTH.ice, 0, -85), "Antarctic interior should be ice");
   assert.ok(inAnyRing(EARTH.ice, -42, 72), "the Greenland ice sheet should be ice");
@@ -48,7 +61,7 @@ test("permanent ice covers Antarctica and Greenland, and nothing tropical", () =
 test("ring decoding round-trips within the quantisation step", () => {
   // Delta-encoded integers are the compact wire format; a sign or accumulation slip here would
   // scramble coastlines subtly enough to look like a rendering bug.
-  for (const r of [EARTH.land[0], EARTH.lakes[0], EARTH.ice[0]]) {
+  for (const r of [EARTH.land[0][0], EARTH.lakes[0][0], EARTH.ice[0][0]]) {
     const p = decodeRing(r);
     assert.ok(p.length >= 4);
     for (const [lon, lat] of p) {
@@ -90,10 +103,10 @@ test("a pole-encircling ring is recognised as going all the way round", () => {
   // through-the-pole closure off exactly this signature; if unwrapping collapsed it, the cap
   // would be closed by a chord straight across the map and filled on the wrong side.
   const w = 1000;
-  const anta = decodeRing(EARTH.land.find((r) => {
-    const p = decodeRing(r);
+  const anta = decodeRing(EARTH.land.find((poly) => {
+    const p = decodeRing(poly[0]);
     return p.some(([, lat]) => lat <= -89.9);
-  }));
+  })[0]);
   const xs = unwrapColumns(anta, w);
   assert.ok(Math.abs(xs[xs.length - 1] - xs[0]) > w * 0.99,
     "Antarctica should unwrap to a full turn");

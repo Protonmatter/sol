@@ -45,7 +45,7 @@ export const MOONS = [
   {n:"Oberon",p:"Uranus",code:704,a:583607.4,e:0.0021005,i:97.90559,node:167.70976,argp:156.6162,M0:322.38554,nd:26.73942852,P:13.463265,r:761.4,rho:1.664,gm:205.3,col:[0.68,0.65,0.62],note:"The outermost large Uranian moon, its crater floors filled with dark material."},
   {n:"Miranda",p:"Uranus",code:705,a:129879.2,e:0.0013306,i:99.18608,node:163.42299,argp:55.85907,M0:96.53505,nd:254.6932941,P:1.413465,r:235.8,rho:1.178,gm:4.3,col:[0.7,0.71,0.72],note:"Cliffs up to 20 km high \u2014 the tallest known anywhere."},
   {n:"Triton",p:"Neptune",code:801,a:354766.2,e:0.0001383,i:129.14813,node:222.66204,argp:102.17055,M0:307.47587,nd:61.2573817,P:5.876843,r:1352.6,rho:2.0649,gm:1428.49546,col:[0.84,0.8,0.8],note:"Orbits BACKWARDS \u2014 a captured Kuiper-belt object with nitrogen geysers and the coldest measured surface."},
-  {n:"Nereid",p:"Neptune",code:802,a:5509318.3,e:0.7456081,i:5.03372,node:319.29813,argp:296.83568,M0:350.04895,nd:0.99966248,P:360.121548,r:170.0,rho:null,gm:0.0,col:[0.7,0.7,0.72],note:"One of the most eccentric orbits of any moon: 1.4 to 9.7 million km."},
+  {n:"Nereid",p:"Neptune",code:802,a:5509318.3,e:0.7456081,i:5.03372,node:319.29813,argp:296.83568,M0:350.04895,nd:0.99966248,P:360.121548,r:170.0,rho:null,gm:null,col:[0.7,0.7,0.72],note:"One of the most eccentric orbits of any moon: 1.4 to 9.7 million km."},
   {n:"Proteus",p:"Neptune",code:808,a:117674.0,e:0.0005789,i:29.05946,node:48.71128,argp:28.68417,M0:52.21291,nd:320.76572932,P:1.122314,r:208.0,rho:1.0269,gm:2.58342,col:[0.52,0.52,0.53],note:"About as large as a body can get without gravity pulling it round."},
 ];
 

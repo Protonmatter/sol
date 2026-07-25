@@ -35,9 +35,16 @@ scale *is* the world-view scale), it is public domain with no attribution requir
 ### Natural Earth GeoJSON
 
 Standard GeoJSON `Polygon`/`MultiPolygon` in WGS84 degrees, `[longitude, latitude]`, longitude
-east-positive in −180…180. Rings are closed. `land` is the coastline fill; `lakes` are the major
-inland water bodies; `glaciated_areas` is permanent ice (Antarctica, the Greenland ice sheet),
-which is why the poles can be drawn from data rather than from a latitude cut-off.
+east-positive in −180…180. Rings are closed.
+
+**A polygon's second and later rings are HOLES.** Both `land` and `glaciated_areas` contain one,
+and flattening them in with the outer rings makes a rasteriser fill each independently — painting
+the gap solid. `generate_geography.py` keeps the grouping (`[outerRing, ...holes]`) and
+`surfacemap.js` fills each polygon in a single path with the even-odd rule, so holes subtract.
+
+`land` is the coastline fill; `lakes` are the major inland water bodies; `glaciated_areas` is
+permanent ice (Antarctica, the Greenland ice sheet), which is why the poles can be drawn from
+data rather than from a latitude cut-off.
 
 ### `iau_surface_features.csv`
 

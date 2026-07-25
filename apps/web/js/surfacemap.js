@@ -70,8 +70,9 @@ export function unwrapColumns(pts, w) {
   return xs;
 }
 
-// Draw one decoded ring as a closed path, three times at ±one full width, so a polygon
-// straddling the seam is continuous.
+// Append one decoded ring to the current path, three times at ±one full width so a polygon
+// straddling the seam is continuous. Filling is left to the caller, which fills a whole
+// polygon (outer + holes) at once with the even-odd rule.
 function ringPath(ctx, pts, w, h) {
   if (pts.length < 3) return;
   let xs = unwrapColumns(pts, w);
@@ -102,7 +103,6 @@ function ringPath(ctx, pts, w, h) {
   }
 
   for (const shift of [-w, 0, w]) {
-    ctx.beginPath();
     for (let i = 0; i < n; i++) {
       const y = latToY(pts[i][1], h);
       if (i === 0) ctx.moveTo(xs[i] + shift, y); else ctx.lineTo(xs[i] + shift, y);
@@ -112,8 +112,20 @@ function ringPath(ctx, pts, w, h) {
       ctx.lineTo(xs[0] + shift, poleY);
     }
     ctx.closePath();
-    ctx.fill();
   }
+}
+
+/**
+ * Fill one polygon — [outerRing, ...holes] — with the even-odd rule.
+ *
+ * The holes matter: GeoJSON's inner rings are gaps, and filling every ring independently paints
+ * them solid. Even-odd is what makes an enclosed ring subtract from its parent rather than add
+ * to it, and it is why the rings are collected into ONE path before a single fill.
+ */
+function fillPolygon(ctx, poly, decodeRing, w, h) {
+  ctx.beginPath();
+  for (const ring of poly) ringPath(ctx, decodeRing(ring), w, h);
+  ctx.fill("evenodd");
 }
 
 /**
@@ -123,7 +135,7 @@ function ringPath(ctx, pts, w, h) {
  * a dataset. What is real here is the SHAPE: every coastline, lake, and ice margin comes from
  * the committed vectors. Callers surface that distinction to the user.
  */
-export function buildEarthMap(EARTH, decodeRing, size = EARTH_SIZE) {
+export function* buildEarthMapSliced(EARTH, decodeRing, size = EARTH_SIZE) {
   const { w, h } = size;
   const cv = makeCanvas(w, h);
   const ctx = cv.getContext("2d", { willReadFrequently: false });
@@ -138,22 +150,42 @@ export function buildEarthMap(EARTH, decodeRing, size = EARTH_SIZE) {
   ctx.fillStyle = ocean; ctx.fillRect(0, 0, w, h);
 
   ctx.fillStyle = "#3f6b32";
-  for (const r of EARTH.land) ringPath(ctx, decodeRing(r), w, h);
+  for (const poly of EARTH.land) fillPolygon(ctx, poly, decodeRing, w, h);
   ctx.fillStyle = "#0d3b66";
-  for (const r of EARTH.lakes) ringPath(ctx, decodeRing(r), w, h);
+  for (const poly of EARTH.lakes) fillPolygon(ctx, poly, decodeRing, w, h);
 
   // Tint the land by latitude band (tropics green, subtropics arid, high latitudes taiga) and
   // mottle it, painting only where land was drawn.
+  //
+  // COST. This is the one genuinely expensive step here and it cannot yield once started, so it
+  // is bounded rather than merely deferred: the noise is evaluated on a coarse lattice and
+  // bilinearly interpolated across TINT_STEP-pixel blocks instead of per pixel. At 2048x1024
+  // that is ~16x fewer fbm evaluations for mottling whose whole purpose is to be low-frequency,
+  // and it takes the pass from the dominant cost of entering the 3-D view to a minor one.
+  // The caller still runs it inside requestIdleCallback, but no longer relies on that alone.
+  const TINT_STEP = 4;
+  const noiseAt = new Float32Array(Math.ceil(w / TINT_STEP) + 2);
   const img = ctx.getImageData(0, 0, w, h), d = img.data;
+  // Yield every BAND rows. requestIdleCallback alone cannot help here: it defers the START of
+  // the work, but once a single loop over two million pixels begins nothing can interrupt it,
+  // so input and animation stall for the whole pass. Handing control back between bands is
+  // what actually keeps the frame budget.
+  const BAND = 128;
   for (let y = 0; y < h; y++) {
+    if (y > 0 && y % BAND === 0) yield;
     const lat = 90 - (y + 0.5) / h * 180, alat = Math.abs(lat);
     // Bands chosen to read plausibly at a glance; not a biome dataset.
     const arid = Math.exp(-((alat - 24) ** 2) / 90);       // ~15–33°: desert belts
     const cold = Math.max(0, (alat - 48) / 42);            // toward the poles
+    // One row of noise samples every TINT_STEP px, reused across the block below.
+    if (y % TINT_STEP === 0) {
+      for (let k = 0; k < noiseAt.length; k++) noiseAt[k] = fbm2((k * TINT_STEP) / w * 48, y / h * 24);
+    }
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       if (d[i] !== 0x3f || d[i + 1] !== 0x6b || d[i + 2] !== 0x32) continue; // ocean/lake/ice
-      const n = fbm2(x / w * 48, y / h * 24);
+      const k = x / TINT_STEP, k0 = k | 0, f = k - k0;
+      const n = noiseAt[k0] + (noiseAt[k0 + 1] - noiseAt[k0]) * f;
       let r = 0x3f + arid * 96 + n * 34 - 12;
       let g = 0x6b + arid * 28 + n * 30 - 14;
       let b = 0x32 + arid * 10 + n * 22 - 8;
@@ -164,12 +196,26 @@ export function buildEarthMap(EARTH, decodeRing, size = EARTH_SIZE) {
     }
   }
   ctx.putImageData(img, 0, 0);
+  yield;
 
   // Permanent ice last, so Antarctica and the Greenland sheet cover the land tint.
   ctx.fillStyle = "#eef3f7";
-  for (const r of EARTH.ice) ringPath(ctx, decodeRing(r), w, h);
+  for (const poly of EARTH.ice) fillPolygon(ctx, poly, decodeRing, w, h);
 
   return cv;
+}
+
+/**
+ * Run buildEarthMapSliced to completion without yielding.
+ *
+ * For callers that are not on a frame budget — tests and offline harnesses. The renderer uses
+ * the generator directly so it can hand control back between bands.
+ */
+export function buildEarthMap(EARTH, decodeRing, size = EARTH_SIZE) {
+  const it = buildEarthMapSliced(EARTH, decodeRing, size);
+  let r = it.next();
+  while (!r.done) r = it.next();
+  return r.value;
 }
 
 /**

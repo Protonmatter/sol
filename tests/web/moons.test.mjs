@@ -5,7 +5,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { MOONS, MOON_EPOCH_JD, MOON_PARENTS, moonsOf } from "../../apps/web/js/moons.js";
-import { moonOffsetAU, moonOrbitPath, systemScale, jdFromUnix } from "../../apps/web/js/moonorbits.js";
+import { moonOffsetAU, moonOrbitPath, systemScale, jdFromUnix, isRetrograde,
+  withinMoonValidity, aliasedByClock, MOON_VALID_YEARS } from "../../apps/web/js/moonorbits.js";
 import { BODY, poleVector } from "../../apps/web/js/bodyData.js";
 
 const AU_KM = 149597870.7;
@@ -82,22 +83,9 @@ test("Triton is the only genuinely retrograde moon", () => {
   // Uranus is exactly that case (wDotDegPerDay = −501.16), which means its moons' angular
   // momentum is ANTI-parallel to its IAU pole while still going the way Uranus turns. Comparing
   // against the pole would report all five as retrograde; comparing against the spin does not.
-  const spinAxis = (phys, t) => {
-    const pole = poleVector(phys, t);
-    const s = phys.wDotDegPerDay < 0 ? -1 : 1;
-    return [pole[0] * s, pole[1] * s, pole[2] * s];
-  };
-  const retro = [];
-  for (const m of MOONS) {
-    const t0 = 1767225600;
-    const a = moonOffsetAU(m, t0, MOON_EPOCH_JD);
-    const b = moonOffsetAU(m, t0 + m.P * 86400 * 0.05, MOON_EPOCH_JD);
-    const h = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-    const spin = spinAxis(BODY[m.p], t0);
-    const cos = (h[0] * spin[0] + h[1] * spin[1] + h[2] * spin[2])
-      / (Math.hypot(...h) * Math.hypot(...spin));
-    if (cos < 0) retro.push(m.n);
-  }
+  const t0 = 1767225600;
+  const retro = MOONS.filter((m) => isRetrograde(m, BODY[m.p], poleVector, t0, MOON_EPOCH_JD))
+    .map((m) => m.n);
   assert.deepEqual(retro, ["Triton"],
     `only Triton orbits against its planet's spin; got ${JSON.stringify(retro)}`);
   // And Uranus's moons must NOT be mistaken for retrograde despite their ecliptic inclination.
@@ -170,4 +158,63 @@ test("the epoch is a real Julian date and jdFromUnix agrees with it", () => {
   assert.ok(MOON_EPOCH_JD > 2451545 && MOON_EPOCH_JD < 2500000, `epoch ${MOON_EPOCH_JD}`);
   // 2000-01-01 12:00 UTC is JD 2451545.0 by definition.
   assert.ok(Math.abs(jdFromUnix(946728000) - 2451545.0) < 1e-6);
+});
+
+test("orbits are not drawn outside the window they were validated in", () => {
+  // The date slider spans ±5000 years; these elements are checked against Horizons across about
+  // ±1 year. Propagating regardless would put confident dots at arbitrary points, so the
+  // renderer asks first. Without this guard the moons silently become fiction.
+  const epochUnix = (MOON_EPOCH_JD - 2440587.5) * 86400;
+  assert.ok(withinMoonValidity(epochUnix, MOON_EPOCH_JD), "the epoch itself must be valid");
+  const nearEdge = epochUnix + (MOON_VALID_YEARS * 0.9) * 365.25 * 86400;
+  assert.ok(withinMoonValidity(nearEdge, MOON_EPOCH_JD), "just inside the window must be valid");
+  for (const years of [MOON_VALID_YEARS + 0.5, 50, 5000, -5000]) {
+    const t = epochUnix + years * 365.25 * 86400;
+    assert.ok(!withinMoonValidity(t, MOON_EPOCH_JD), `${years} yr from epoch must be rejected`);
+  }
+});
+
+test("a moon is dropped when the clock outruns its orbit", () => {
+  // At the default 0.5 simulated years per second, one 60 fps frame covers ~3 days — more than a
+  // full orbit for Io, Mimas and Phobos. Individual positions stay correct; what breaks is the
+  // apparent motion, which below the Nyquist rate can run visibly backwards. The cut is set just
+  // above Nyquist, so a moon is dropped only when the view would mislead, not merely stutter.
+  const io = MOONS.find((m) => m.n === "Io");
+  const callisto = MOONS.find((m) => m.n === "Callisto");
+  assert.equal(aliasedByClock(io, 0), false, "paused: every position is exact");
+  const threeDays = 3 * 86400;
+  assert.equal(aliasedByClock(io, threeDays), true, "Io orbits in 1.77 d — 3 d/frame is aliasing");
+  assert.equal(aliasedByClock(callisto, threeDays), false, "Callisto's 16.7 d orbit still samples");
+  // The threshold is a fraction of the period, so it scales with the moon rather than a constant.
+  assert.equal(aliasedByClock(io, (io.P * 86400) / 6), false);
+  assert.equal(aliasedByClock(io, (io.P * 86400) / 2), true);
+});
+
+test("an unmeasured GM is absent, not zero", () => {
+  // JPL writes 0.00000 where a satellite's GM has never been measured. Carried through as a
+  // number it printed "0.0000 km³/s²" on Nereid's card — a missing measurement dressed as a
+  // physical fact about a 170 km moon.
+  const nereid = MOONS.find((m) => m.n === "Nereid");
+  assert.equal(nereid.gm, null, "Nereid's GM is unmeasured and must be null");
+  for (const m of MOONS) {
+    assert.ok(m.gm === null || m.gm > 0, `${m.n}: GM must be null or positive, got ${m.gm}`);
+    assert.ok(m.rho === null || m.rho > 0, `${m.n}: density must be null or positive`);
+  }
+  assert.ok(MOONS.find((m) => m.n === "Titan").gm > 0, "Titan's GM is well measured");
+});
+
+test("satellite systems are lifted clear of their planet's rings", () => {
+  // Saturn's rings are drawn from their own km radii against the same exaggerated disc, so they
+  // reach ~2.3 planet radii. Clearing only the planet put Mimas inside them — inverting a real
+  // relationship, since every moon here orbits beyond its planet's outer ring.
+  const cases = [["Saturn", 0.140, 60268, 136780], ["Uranus", 0.100, 25559, 51150],
+    ["Neptune", 0.100, 24764, 62930]];
+  for (const [planet, displayR, radiusKm, ringKm] of cases) {
+    const ms = moonsOf(planet);
+    const ringAU = (ringKm / radiusKm) * displayR;
+    const k = systemScale(ms, displayR, false, ringAU);
+    const innermost = (ms[0].a * (1 - ms[0].e)) / AU_KM * k;
+    assert.ok(innermost > ringAU,
+      `${ms[0].n} is drawn at ${innermost.toFixed(4)} AU, inside ${planet}'s rings at ${ringAU.toFixed(4)}`);
+  }
 });

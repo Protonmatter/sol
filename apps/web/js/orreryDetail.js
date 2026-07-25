@@ -2,7 +2,8 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY } from "./bodyData.js?v=2313f632ec";
+import { BODY, poleVector } from "./bodyData.js?v=e1f941f1c0";
+import { isRetrograde } from "./moonorbits.js?v=e1f941f1c0";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 
@@ -11,7 +12,7 @@ function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleSt
  * moon's card leads with what it orbits, and its position carries an accuracy caveat the
  * planets' VSOP2013/TOP2013 positions do not need.
  */
-export function renderMoonDetail(m) {
+export function renderMoonDetail(m, unixSeconds, epochJd) {
   const host = document.getElementById("orreryDetail"); if (!host) return;
   host.textContent = "";
   const card = document.createElement("div"); card.className = "sky-row system-detail";
@@ -31,7 +32,14 @@ export function renderMoonDetail(m) {
     ? `${fmt(m.P * 24, 2)} h`
     : `${fmt(m.P, 3)} d${m.P > 60 ? ` (${fmt(m.P / 365.25, 2)} yr)` : ""}`);
   add("Eccentricity", m.e < 0.001 ? "≈ 0 — very nearly circular" : m.e.toFixed(4));
-  add("Inclination", `${m.i.toFixed(2)}° to the ecliptic${m.i > 90 ? " · retrograde — it orbits backwards" : ""}`);
+  // Inclination is quoted against the ecliptic because that is the frame the elements are in,
+  // but retrograde is decided against the PLANET'S SPIN — see isRetrograde. Reading it off the
+  // ecliptic inclination instead would label all five Uranian moons "retrograde", which is
+  // false: they are prograde around a planet that is tipped over.
+  const retro = isRetrograde(m, BODY[m.p], poleVector, unixSeconds, epochJd);
+  add("Inclination", `${m.i.toFixed(2)}° to the ecliptic`
+    + (retro ? ` · retrograde — it orbits against ${m.p}'s spin` : "")
+    + (!retro && m.i > 90 ? ` · prograde around ${m.p}, which is itself tipped past 90°` : ""));
   if (m.rho != null) add("Mean density", `${m.rho.toFixed(3)} g/cm³`);
   if (m.gm != null) add("GM", `${m.gm.toPrecision(5)} km³/s²`);
   card.appendChild(dl);

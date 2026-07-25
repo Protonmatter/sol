@@ -1583,3 +1583,19 @@ body[data-surface="orrery"] .timeline-band {
     display: none !important;
   }
 }
+
+/* Text-alternative rows for the 3-D view are buttons so keyboard users can select a body;
+   they must still read as list rows, not as chunky form controls. */
+#orreryPositions .sky-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+#orreryPositions .sky-row:hover,
+#orreryPositions .sky-row:focus-visible { background: rgba(255, 255, 255, 0.06); }
+#orreryPositions .orrery-pos-moon { padding-left: 1.1rem; opacity: 0.85; }

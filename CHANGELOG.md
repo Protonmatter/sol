@@ -49,6 +49,45 @@ crate follows [SemVer](https://semver.org/).
 
 ### Fixed
 
+Review round (all findings from the Codex PR reviewer, each verified before acting on it):
+
+- **The Moon layer now stops where its evidence stops.** The elements are validated across about
+  ±1 year of their epoch, but the date slider spans ±5000 years and would happily propagate them
+  the whole way. Outside the validated window the moons are withheld and the accuracy line says
+  why. Separately, at the default 0.5 simulated years per second one frame covers ~3 days — past
+  the Nyquist rate for Io, Mimas and Phobos, where apparent motion can visibly run backwards — so
+  moons the clock has outrun are dropped until it slows.
+- **Retrograde is decided against the planet's spin, not ecliptic inclination.** The card called
+  all five Uranian moons retrograde because they sit near 98°. They are prograde; *Uranus* is
+  tipped. Worse, the spin axis is not the IAU pole either — Uranus turns backwards about its own
+  north pole — so the test and the card now share one `isRetrograde` helper that gets it right.
+  Only Triton qualifies.
+- **Unticking "NASA textures" no longer replaces real coastlines with noise.** The generated
+  geography was gated behind the same flag as the optional photographic downloads, so the control
+  silently undid the headline change of this release. It now governs only the downloads it names.
+- **Per-moon colours are visible.** Moons reused the Mercury and Venus shader branches, both of
+  which overwrite the base colour, so every catalogue colour was discarded — Io rendered
+  Mercury-grey. Two moon styles now modulate the body's own colour instead of replacing it.
+- **An unmeasured GM reads as unknown.** JPL writes `0.00000` where a satellite's GM has never
+  been measured; Nereid's card was printing "0.0000 km³/s²" as though a 170 km moon were massless.
+- **GeoJSON holes subtract instead of filling.** Inner rings were flattened in with outer ones and
+  each filled independently, painting gaps solid. Polygons keep their grouping and are filled with
+  the even-odd rule.
+- **Moons are lifted clear of their planet's rings.** Clearance was measured against the planet
+  alone, so Mimas was drawn inside Saturn's rendered rings — inverting a real relationship, since
+  every moon here orbits beyond its planet's outer ring.
+- **Moon orbit paths are drawn** under the Orbits overlay, at the same system scale as the markers.
+  `moonOrbitPath` had been imported and never called.
+- **Moons are reachable without a mouse.** The positions panel is the canvas's text alternative but
+  listed only planets, and the label overlay is `aria-hidden` — so the moons existed for pointer
+  users only. Rows are now buttons, with each planet's moons nested beneath it.
+- **The Earth map no longer blocks the frame.** Its per-pixel tint pass could not yield once
+  started, so `requestIdleCallback` only delayed the stall. The noise is now evaluated on a coarse
+  lattice and interpolated (900 ms → 441 ms median) and the pass yields every 128 rows.
+- `tests/web/moonlock.test.mjs` claimed two synodic months but its fixtures spanned 32 days. It now
+  has 16 engine-generated samples covering 60 days, so the locking invariant really is checked
+  across two lunations.
+
 - **Planetary axes no longer freeze at J2000.** The IAU WGCCRE elements carry secular rates in
   α0/δ0 that were simply absent, so every body's spin axis was pinned to its J2000 orientation
   while the date slider ranged over ±5000 years. All ten bodies now carry their published rates.

@@ -2,7 +2,7 @@
 // an imported binding, so cross-module state lives as properties on this object:
 // every module imports `store` and reads/writes `store.x`.
 
-import { FALLBACK_STATE } from "./config.js?v=2313f632ec";
+import { FALLBACK_STATE } from "./config.js?v=e1f941f1c0";
 
 export const store = {
   /** @type {import('./config.js').Snapshot} */

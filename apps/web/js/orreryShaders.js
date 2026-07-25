@@ -64,6 +64,13 @@ void main(){
   else if(u_style==1){ col=vec3(0.55,0.51,0.46)*(0.75+0.5*fbm(p*6.0)); col+=craters(p,7.0); }       // Mercury
   else if(u_style==9){ float mare=smoothstep(0.52,0.46,fbm(p*2.4+vec3(3.0)));                   // Moon
         col=mix(vec3(0.62,0.61,0.58),vec3(0.30,0.30,0.31),mare); col+=craters(p,8.0); }
+  // Styles 10/11 exist because 1 (Mercury) and 2 (Venus) OVERWRITE col with their own hard-coded
+  // colours. Reusing them for moons silently discarded every per-moon colour from the catalogue —
+  // Io came out Mercury-grey rather than sulphur-yellow. These modulate u_base instead of
+  // replacing it, so the texture is shared but the colour is the body's own.
+  else if(u_style==10){ col=u_base*(0.78+0.44*fbm(p*6.0)); col+=craters(p,7.0)*0.85; }           // rocky/icy moon
+  else if(u_style==11){ float c=fbm(p*4.0+vec3(u_time*0.03,0,0));                                // hazy moon (Titan)
+        col=u_base*(0.82+0.36*c); }
   else if(u_style==2){ float c=fbm(p*4.0+vec3(u_time*0.03,0,0));                                // Venus
         col=mix(vec3(0.86,0.78,0.55),vec3(0.97,0.93,0.78),c); }
   else if(u_style==3){ float cont=fbm(p*2.3+vec3(11.0));                                        // Earth

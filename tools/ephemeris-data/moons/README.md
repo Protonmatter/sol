@@ -10,6 +10,11 @@ Raw upstream data for `tools/generate_moons.py`. Committed so the derived module
 | `horizons_satellite_elements.csv` | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) osculating elements, planetocentric, ecliptic J2000 — **mean motion refitted**, see below | public domain (US Government) | `a866df1383c21506c53802acb49563d51c14f22077fe067eeed35ce310cc161b` |
 | `horizons_satellite_vectors.csv` | JPL Horizons state vectors on five held-out dates, the ground truth `tools/validate_moons.py` gates against | public domain (US Government) | `0fb6a170bd105efee5f8d6da50c8be43f2e28a0b2dd69c011856167b2abbac90` |
 
+> A `0.00000` GM or an `n/a` density in the physical-parameters file means **not measured**, not
+> zero. Nereid is the case here: carried through as a number it put "0.0000 km³/s²" on the facts
+> card, which reads as a physical claim about a 170 km moon. `generate_moons.py` normalises
+> non-positive values to `null` so the row is omitted instead.
+
 Which moons: every satellite with a mean radius of at least 150 km — roughly "large enough to
 have relaxed into a sphere" — plus Phobos and Deimos, which are famous enough that their absence
 would be conspicuous. That is 21 moons: Mars 2, Jupiter 4, Saturn 7, Uranus 5, Neptune 3. Earth's
@@ -73,6 +78,11 @@ from those eight, so `validate_moons.py` measures prediction rather than self-ag
 
 Held-out validation: **worst 4.09°** (Phobos) and **2.61%** in radius across 105 checks spanning
 2025-04 to 2027-02. Every other moon is under ~1.5°.
+
+The renderer takes that seriously rather than treating it as a footnote: `moonorbits.js` exports
+`MOON_VALID_YEARS = 1.25` and the 3-D view **withholds the moons entirely** outside that window,
+explaining itself in the accuracy line. The date slider reaches ±5000 years, where these elements
+mean nothing at all.
 
 This is a budget for a **view**: which side of its planet a moon is on, how the system is laid
 out, how fast things go round. It is not an ephemeris. Do not use it for an occultation, a mutual
