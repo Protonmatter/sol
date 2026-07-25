@@ -20,11 +20,12 @@ browser.**
   former `redesign/web-v0.2` branch was fully merged (PR #1) and deleted.
 - Repo: github.com/Protonmatter/sol. Workflows under `.github/workflows/`:
   `ci.yml` (tests, blocking fmt+clippy, wasm build, web validators, determinism gate,
-  cache-bust sync), `docs.yml` (offline Markdown link/badge/style validation), `deploy-pages.yml`
-  (Pages deploy), `daily-ingest.yml` (public-data refresh), `eop-freshness.yml` and
-  `ephemeris-accuracy.yml` (weekly network checks vs IERS / JPL Horizons), `fuzz.yml`
-  (weekly blob-validator fuzzing), and `publish-crate.yml` (scheduled
-  `cargo publish -p solar-ephemeris` to crates.io).
+  cache-bust sync, star-catalogue regen gate), `docs.yml` (offline Markdown link/badge/style
+  validation), `deploy-pages.yml` (Pages deploy), `daily-ingest.yml` (public-data refresh —
+  publishes via an auto-merged data PR, see its header), `eop-freshness.yml`,
+  `ephemeris-accuracy.yml` and `docs-links.yml` (weekly network checks vs IERS / JPL Horizons /
+  external doc links), `fuzz.yml` (weekly blob-validator fuzzing), and `publish-crate.yml`
+  (scheduled `cargo publish -p solar-ephemeris` to crates.io).
 - Redesign Phases 1–3 plus the Solar-System/My-Sky engine work are **done and verified
   in-browser**. See STATUS.md for the current done/left detail.
 

@@ -1,8 +1,8 @@
 # Sol status
 
-Updated: 2026-07-10  
-Release branch under review: `precision/p0-hardening` (PR #7)  
-Production branch: `master`
+Updated: 2026-07-25  
+Production branch: `master` (the only branch; all release work is merged)  
+Published crate: [`solar-ephemeris` 0.2.0](https://crates.io/crates/solar-ephemeris)
 
 This document reports implemented behavior. Historical design intent remains in `WEB_REDESIGN_SPEC.md` and `SOLAR_SYSTEM_SPEC.md`; current normative decisions are in `SPEC.md`, `RFC_ALIGNMENT.md`, and `docs/adr/`.
 
@@ -17,6 +17,11 @@ This document reports implemented behavior. Historical design intent remains in 
   - `solar-state-snapshot.v2`
   - `ephemeris-snapshot.v2`
   - `system-snapshot.v1`
+- Real star catalogue behind every surface that draws stars: the naked-eye Hipparcos
+  set (8,867 stars, V ≤ 6.5 — true J2000 positions, parallax distances, B−V colours)
+  generated deterministically from committed sources by `tools/generate_star_catalog.py`
+  and gated by `tools/validate_star_catalog.py`. The on-device engine reduces the
+  108-star bright subset with proper motion.
 - Python generators and validators for deterministic fixtures, public-data normalization, schemas, semantic invariants, and external evidence.
 
 ## Precision-hardening status
@@ -90,6 +95,14 @@ Implemented:
 - My Sky observer view with geolocation/manual coordinates, time selection, share links, and JSON export.
 - Solar System 3-D and top-down views rendered with WebGL2 (the earlier WebGPU path was
   retired during the orrery rewrite; see SOLAR_SYSTEM_SPEC P5 note).
+- Milky-Way (galactic-scale) view with the Sun's orbit, differential-rotation shear, and
+  deep-sky landmarks, plus a light-year-scale **Solar neighbourhood** sub-view placing the
+  catalogue stars at their true parallax-derived 3-D positions around the Sun.
+- Star rendering is catalogue-backed, not procedural: real positions, magnitudes, and B−V
+  colours. Derived physics (luminosity, temperature, radius, and a labelled main-sequence
+  mass estimate) lives in `apps/web/js/starphysics.js`. The ~370 KB catalogue module is
+  lazy-loaded only when the 3-D view opens, so the Sun and My Sky first paint are unaffected —
+  enforced by the `@lazy-module` rule in `tools/validate_web_static.py`.
 - Keyboard-accessible region/body lists and canvas alternatives.
 - Focus-trapped onboarding dialog with focus restoration.
 - Reduced-motion CSS and 3-D auto-animation gating.

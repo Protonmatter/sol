@@ -1,5 +1,17 @@
 # Roadmap
 
+## v0.2.0 Published ephemeris + real star catalogue — shipped 2026-07-20
+
+- Publish `solar-ephemeris` to crates.io (0.1.1 first release, 0.2.0 current) via a
+  scheduled, guarded `publish-crate.yml`
+- Replace every procedural/hand-written star list with the naked-eye Hipparcos catalogue
+  (8,867 stars) behind the Solar-System and Milky-Way views, generated deterministically
+  from committed sources and gated in CI
+- Extend the on-device engine catalogue 26 → 108 bright stars with real proper motion
+- Add the light-year-scale Solar neighbourhood view (true parallax 3-D positions)
+- Lazy-load the catalogue so first paint of the Sun / My Sky surfaces is unaffected
+- Docs CI: offline Markdown link/badge/style gate on every PR, weekly external-link check
+
 ## v0.1 CPU reference
 
 - Deterministic state model
