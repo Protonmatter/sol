@@ -1,10 +1,10 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { store } from "./store.js?v=658b334e69";
-import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=658b334e69";
-import { STARS, CONSTELLATIONS } from "./celestial.js?v=658b334e69";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=658b334e69";
+import { store } from "./store.js?v=c8dc738669";
+import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=c8dc738669";
+import { CONSTELLATIONS } from "./celestial.js?v=c8dc738669";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=c8dc738669";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
@@ -26,8 +26,6 @@ const BODY_STYLE = {
   Neptune: { color: "#7da7ff", size: 0.011 }
 };
 
-// Name → J2000 (RA°, Dec°) for the constellation stars (used to draw the figures + compute arcs).
-const STAR_RADEC = (() => { const m = {}; for (const s of STARS) m[s.n] = s; return m; })();
 
 // Topocentric altitude/azimuth (degrees, az from North through East) for a J2000 RA/Dec at a given
 // local sidereal time and latitude. Precession/nutation/refraction are dropped — sub-degree at the
@@ -417,27 +415,32 @@ function drawDome(snap) {
   }
 }
 
+// All 88 IAU figures as RA/Dec polylines (constellations.js). Each vertex is projected
+// independently, so nothing here needs to know about the 0h RA seam; a segment is skipped
+// only when BOTH ends are well below the horizon.
 function drawConstellations(ctx, g, lst, lat) {
   ctx.strokeStyle = "rgba(208,224,255,0.5)"; // bright enough to read over the daytime sky too
   ctx.lineWidth = Math.max(1, g.r * 0.0019);
+  const vertices = [];
   for (const c of CONSTELLATIONS) {
-    for (const [n1, n2] of c.lines) {
-      const s1 = STAR_RADEC[n1], s2 = STAR_RADEC[n2]; if (!s1 || !s2) continue;
-      const p1 = altAz(s1.ra, s1.dec, lst, lat), p2 = altAz(s2.ra, s2.dec, lst, lat);
-      if (p1.alt < -2 && p2.alt < -2) continue;
-      const [x1, y1] = project(Math.max(p1.alt, -2), p1.az, g);
-      const [x2, y2] = project(Math.max(p2.alt, -2), p2.az, g);
-      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    for (const poly of c.lines) {
+      for (let i = 0; i + 3 < poly.length; i += 2) {
+        const p1 = altAz(poly[i], poly[i + 1], lst, lat);
+        const p2 = altAz(poly[i + 2], poly[i + 3], lst, lat);
+        if (p1.alt < -2 && p2.alt < -2) continue;
+        const [x1, y1] = project(Math.max(p1.alt, -2), p1.az, g);
+        const [x2, y2] = project(Math.max(p2.alt, -2), p2.az, g);
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        if (p1.alt >= 0) vertices.push([x1, y1]);
+        if (p2.alt >= 0) vertices.push([x2, y2]);
+      }
     }
   }
+  // The figure vertices are real stars; a dot on each keeps the shapes readable.
   ctx.fillStyle = "rgba(228,236,255,0.8)";
-  const seen = new Set();
-  for (const c of CONSTELLATIONS) for (const pair of c.lines) for (const n of pair) {
-    if (seen.has(n)) continue; seen.add(n);
-    const s = STAR_RADEC[n]; if (!s) continue;
-    const p = altAz(s.ra, s.dec, lst, lat); if (p.alt < 0) continue;
-    const [x, y] = project(p.alt, p.az, g);
-    ctx.beginPath(); ctx.arc(x, y, Math.max(0.9, g.r * 0.003), 0, Math.PI * 2); ctx.fill();
+  const r = Math.max(0.9, g.r * 0.003);
+  for (const [x, y] of vertices) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
 }
 

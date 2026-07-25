@@ -11,8 +11,9 @@
 // clock-grade timing), they pin the celestial frame. The galactic-centre and -anticentre markers
 // plus the Milky Way band show where the Sun sits in the Galaxy (~26,000 ly out, toward Sagittarius).
 
-import { equToEcl } from "./bodyData.js?v=658b334e69";
-import { bvToRGB } from "./starphysics.js?v=658b334e69";
+import { equToEcl } from "./bodyData.js?v=c8dc738669";
+import { bvToRGB } from "./starphysics.js?v=c8dc738669";
+import { CONSTELLATIONS as FIGURES } from "./constellations.js?v=c8dc738669";
 
 // ---- bright stars (J2000), enough to draw the headline constellations + name the brightest ----
 // name, RA°, Dec°, V-mag, optional constellation tag for grouping.
@@ -83,18 +84,11 @@ export const STARS = [
   { n: "Polaris", ra: 37.954, dec: 89.264, m: 1.98 },
 ];
 
-const SI = (() => { const m = {}; STARS.forEach((s, i) => (m[s.n] = i)); return m; })();
-
-// Constellation stick figures — index pairs into STARS.
-export const CONSTELLATIONS = [
-  { name: "Orion", lines: [["Betelgeuse", "Bellatrix"], ["Bellatrix", "Mintaka"], ["Betelgeuse", "Alnitak"], ["Mintaka", "Alnilam"], ["Alnilam", "Alnitak"], ["Mintaka", "Rigel"], ["Alnitak", "Saiph"], ["Rigel", "Saiph"]] },
-  { name: "Ursa Major", lines: [["Dubhe", "Merak"], ["Merak", "Phecda"], ["Phecda", "Megrez"], ["Megrez", "Dubhe"], ["Megrez", "Alioth"], ["Alioth", "Mizar"], ["Mizar", "Alkaid"]] },
-  { name: "Cassiopeia", lines: [["Caph", "Schedar"], ["Schedar", "Gamma Cas"], ["Gamma Cas", "Ruchbah"], ["Ruchbah", "Segin"]] },
-  { name: "Crux", lines: [["Acrux", "Gacrux"], ["Mimosa", "Imai"]] },
-  { name: "Cygnus", lines: [["Deneb", "Sadr"], ["Sadr", "Gienah Cyg"], ["Sadr", "Delta Cyg"], ["Sadr", "Albireo"]] },
-  { name: "Scorpius", lines: [["Dschubba", "Antares"], ["Antares", "Sargas"], ["Sargas", "Shaula"]] },
-  { name: "Leo", lines: [["Regulus", "Algieba"], ["Algieba", "Denebola"]] },
-];
+// Constellation stick figures now come from constellations.js — all 88 IAU figures as
+// RA/Dec polylines. The list that used to live here joined stars by NAME, so a figure
+// could only use stars that happened to be in the curated array above, which is why the
+// app drew 7 of 88. Re-exported so importers have one place to get them.
+export { CONSTELLATIONS, CONSTELLATION_COUNT } from "./constellations.js?v=c8dc738669";
 
 // Pulsars (J2000) — the reference markers the brief asks for. RA/Dec from the ATNF catalogue.
 export const PULSARS = [
@@ -169,13 +163,16 @@ export function buildCelestial(starCat) {
 
   const brightStars = STARS.map((s) => ({ name: s.n, pos: dir(s.ra, s.dec), m: s.m }));
 
+  // Figures as GL_LINES: every consecutive pair of a polyline becomes one segment. The
+  // vertices are directions on the unit sphere, so a figure spanning the 0h RA seam draws
+  // correctly without any wrap handling.
   const constLines = [];
-  for (const c of CONSTELLATIONS) {
-    for (const [a, b] of c.lines) {
-      const A = STARS[SI[a]], B = STARS[SI[b]];
-      if (!A || !B) continue;
-      const pa = dir(A.ra, A.dec), pb = dir(B.ra, B.dec);
-      constLines.push(pa[0], pa[1], pa[2], pb[0], pb[1], pb[2]);
+  for (const c of FIGURES) {
+    for (const poly of c.lines) {
+      for (let i = 0; i + 3 < poly.length; i += 2) {
+        const pa = dir(poly[i], poly[i + 1]), pb = dir(poly[i + 2], poly[i + 3]);
+        constLines.push(pa[0], pa[1], pa[2], pb[0], pb[1], pb[2]);
+      }
     }
   }
 
