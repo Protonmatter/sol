@@ -104,8 +104,9 @@ The **3-D View** draws its surfaces from three sources, in priority order:
 
 The view also draws the **21 major moons** of Mars, Jupiter, Saturn, Uranus and Neptune from JPL
 Horizons elements (`tools/ephemeris-data/moons/`), validated in CI against Horizons state vectors
-to within ~4°. They are shown only within about a year of the element epoch, since that is the
-range the orbits are checked over.
+to within 0.089° angular and 0.19% radial error across 2,392 interleaved checks. They are shown
+only from March 2025 through February 2027, the exact interval independently checked for every
+moon.
 
 ### Regenerate the data the app reads (Python stdlib only)
 

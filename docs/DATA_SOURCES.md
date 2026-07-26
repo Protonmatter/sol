@@ -16,7 +16,7 @@ The core data sources for this project are public/free to access, but they are n
 | NOAA WSA-Enlil product | Public product page | No | Public operational-model family for education and future comparison | Do not claim this app reproduces WSA-Enlil. |
 | Natural Earth 1:110m vectors | Free/public domain | No | Earth's coastlines, lakes and permanent ice in the 3-D view | Cartographic scale — 1:110m is a whole-globe generalisation, not a survey. |
 | IAU/USGS Gazetteer of Planetary Nomenclature | Free/public domain (US Gov) | No | Named surface features (the Moon's maria) with centre and extent | Records position and size, **never albedo** — see the geography README. |
-| JPL Horizons | Free/public domain (US Gov) | No | Satellite osculating elements + validation state vectors | Osculating ≠ mean: the mean motion is refitted, and positions are only checked ±1 yr of epoch. |
+| JPL Horizons | Free/public domain (US Gov) | No | Multi-epoch satellite osculating elements + interleaved validation state vectors | Interpolated positions are supported only inside the March 2025–February 2027 checked interval. |
 | JPL SSD satellite physical parameters | Free/public domain (US Gov) | No | Moon radii, GM, densities | `0.00000` means unmeasured, not zero — normalise it away. |
 
 ## Static reference data (committed, not fetched at runtime)

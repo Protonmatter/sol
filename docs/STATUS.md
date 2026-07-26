@@ -105,14 +105,15 @@ Implemented:
   committed IAU line data as RA/Dec polylines (`tools/generate_constellations.py`) rather
   than joined by star name.
 - The 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune are drawn in their real
-  orbits, lit and clickable. Orbits are JPL Horizons osculating elements with the mean motion
-  refitted against Horizons vectors; `tools/validate_moons.py` gates the result in CI at worst
-  4.09° across 105 held-out checks. Satellite systems are inflated by one factor each so the
-  inner moons clear their planet's disc *and rings* without distorting the spacing between them.
+  orbits, lit and clickable. Orbits interpolate multi-epoch JPL Horizons osculating elements;
+  `tools/validate_moons.py` gates the result in CI at worst 0.0887° angular and 0.1891% radial
+  error across 2,392 interleaved, held-out checks. Satellite systems are inflated by one factor
+  each so the inner moons clear their planet's disc *and rings* without distorting the spacing.
   This is a view, not a satellite ephemeris — not for occultations or mutual events, and the
-  layer withholds itself rather than extrapolate: moons are drawn only within ±1.25 yr of the
-  element epoch, and a moon is dropped when the animation clock outruns its orbit past the
-  Nyquist rate. Both suppressions are explained in the accuracy line rather than left silent.
+  layer withholds itself rather than extrapolate: moons are drawn only inside the shared
+  March 2025–February 2027 validation interval, and a moon is dropped when the animation clock
+  outruns its orbit past the Nyquist rate. Both suppressions are explained in the accuracy line
+  rather than left silent.
   Moons appear in the keyboard/screen-reader positions list, nested under their planet.
 - Real surface geography ships with the repository rather than depending on the optional,
   gitignored texture download: Earth's coastlines, lakes and permanent ice come from committed

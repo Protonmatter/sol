@@ -127,8 +127,8 @@ jobs:
 
       - name: Moon orbits regen-stable + validated vs JPL Horizons
         # Regenerates apps/web/js/moons.js from the committed Horizons elements and requires
-        # byte-identity, then Kepler-propagates every moon and compares against committed
-        # Horizons state vectors on dates held out from the mean-motion fit. Offline —
+        # byte-identity, then interpolates every moon and compares against committed Horizons
+        # state vectors at times interleaved between the element knots. Offline —
         # tools/fetch_moons.py is the only networked step and is never run here.
         run: python tools/validate_moons.py
 
@@ -305,7 +305,7 @@ jobs:
       - name: Static web validation after build stamping
         run: python tools/validate_web_static.py
 
-      - name: Headless browser smoke (Sun + My Sky)
+      - name: Headless browser smoke (Sun + My Sky + 3-D Solar System)
         run: python tools/browser_smoke.py
 
   # The engine's determinism and the wasm "byte-compatible snapshots" claim both rest on

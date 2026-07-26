@@ -9,7 +9,7 @@
 // even with all three implemented it missed Saturn's and Uranus's moons by tens to 165° at their
 // own epoch. tools/ephemeris-data/moons/README.md records that in full.
 
-import { eccentricAnomaly } from "./smallbodies.js?v=939e4357e1";
+import { eccentricAnomaly } from "./smallbodies.js?v=82b4db3ea4";
 
 const AU_KM = 149597870.7;
 const D2R = Math.PI / 180;
@@ -22,17 +22,52 @@ export function jdFromUnix(unixSeconds) {
 }
 
 /**
+ * Interpolate one moon's modified-equinoctial element knots.
+ *
+ * Interpolating classical node/argument-of-periapsis directly is not safe: either angle can
+ * jump by 180° for a nearly circular or low-inclination orbit while the physical orbit remains
+ * continuous. The generated table therefore stores [a,h,k,p,q,L] knots, where h/k describe the
+ * eccentricity vector, p/q describe the orbital plane, and L is unwrapped mean longitude.
+ */
+export function moonElementsAt(m, unixSeconds) {
+  const jd = jdFromUnix(unixSeconds);
+  const count = m.el.length / 6;
+  let index = Math.floor((jd - m.t0) / m.step);
+  index = Math.max(0, Math.min(count - 2, index));
+  const fraction = (jd - (m.t0 + index * m.step)) / m.step;
+  const at = (field) => {
+    const left = m.el[index * 6 + field];
+    return left + (m.el[(index + 1) * 6 + field] - left) * fraction;
+  };
+  const a = at(0), h = at(1), k = at(2), p = at(3), q = at(4), longitude = at(5);
+  const node = Math.atan2(p, q);
+  const varpi = Math.atan2(h, k);
+  return {
+    a,
+    e: Math.hypot(h, k),
+    i: 2 * Math.atan(Math.hypot(p, q)) / D2R,
+    node: node / D2R,
+    argp: (varpi - node) / D2R,
+    M: longitude - varpi / D2R,
+  };
+}
+
+/**
  * Planetocentric position of a moon in AU, in the ecliptic-J2000 world frame. Add the parent
  * planet's heliocentric position to place it in the scene.
  */
-export function moonOffsetAU(m, unixSeconds, epochJd) {
-  const days = jdFromUnix(unixSeconds) - epochJd;
-  const M = (m.M0 + m.nd * days) * D2R;
-  const E = eccentricAnomaly(M, m.e);
-  const a = m.a / AU_KM;
-  const xp = a * (Math.cos(E) - m.e);
-  const yp = a * Math.sqrt(1 - m.e * m.e) * Math.sin(E);
-  const inc = m.i * D2R, node = m.node * D2R, argp = m.argp * D2R;
+export function moonOffsetAU(m, unixSeconds) {
+  const el = moonElementsAt(m, unixSeconds);
+  return offsetFromElements(el, el.M);
+}
+
+function offsetFromElements(el, meanAnomalyDeg) {
+  const M = meanAnomalyDeg * D2R;
+  const E = eccentricAnomaly(M, el.e);
+  const a = el.a / AU_KM;
+  const xp = a * (Math.cos(E) - el.e);
+  const yp = a * Math.sqrt(1 - el.e * el.e) * Math.sin(E);
+  const inc = el.i * D2R, node = el.node * D2R, argp = el.argp * D2R;
   const co = Math.cos(argp), so = Math.sin(argp);
   const cn = Math.cos(node), sn = Math.sin(node);
   const ci = Math.cos(inc), si = Math.sin(inc);
@@ -44,19 +79,11 @@ export function moonOffsetAU(m, unixSeconds, epochJd) {
 }
 
 /**
- * How far either side of the element epoch these orbits are worth drawing, in Julian years.
- *
- * The committed elements are validated against Horizons from 2025-04 to 2027-02 (see
- * tools/validate_moons.py). Beyond that nothing re-anchors them: the plane is fixed, the mean
- * motion is a constant fit, and neither nodal nor apsidal precession is modelled, so the phase
- * degrades without limit. The date slider spans ±5000 years, so this is not a hypothetical —
- * the moon layer must stop claiming to know where a moon is long before then.
+ * Is `unixSeconds` inside the exact interval independently validated for every moon?
  */
-export const MOON_VALID_YEARS = 1.25;
-
-/** Is `unixSeconds` close enough to the element epoch for the positions to mean anything? */
-export function withinMoonValidity(unixSeconds, epochJd) {
-  return Math.abs(jdFromUnix(unixSeconds) - epochJd) <= MOON_VALID_YEARS * 365.25;
+export function withinMoonValidity(unixSeconds, minJd, maxJd) {
+  const jd = jdFromUnix(unixSeconds);
+  return jd >= minJd && jd <= maxJd;
 }
 
 /**
@@ -91,10 +118,16 @@ export function aliasedByClock(m, simStepSeconds) {
  *
  * `poleFn` is bodyData's poleVector, passed in so this module keeps no imports of its own.
  */
-export function isRetrograde(m, parentPhys, poleFn, unixSeconds, epochJd) {
-  const a = moonOffsetAU(m, unixSeconds, epochJd);
-  const b = moonOffsetAU(m, unixSeconds + m.P * DAY * 0.05, epochJd);
-  const h = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+export function isRetrograde(m, parentPhys, poleFn, unixSeconds) {
+  const el = moonElementsAt(m, unixSeconds);
+  const inc = el.i * D2R, node = el.node * D2R;
+  // Unit orbital-angular-momentum vector for the same Rz(node)·Rx(i) frame used above.
+  // Deriving it from the interpolated plane avoids sampling beyond the validated interval.
+  const h = [
+    Math.sin(inc) * Math.sin(node),
+    -Math.sin(inc) * Math.cos(node),
+    Math.cos(inc),
+  ];
   const pole = poleFn(parentPhys, unixSeconds);
   const s = parentPhys.wDotDegPerDay < 0 ? -1 : 1;
   const dot = h[0] * pole[0] * s + h[1] * pole[1] * s + h[2] * pole[2] * s;
@@ -102,10 +135,13 @@ export function isRetrograde(m, parentPhys, poleFn, unixSeconds, epochJd) {
 }
 
 /** One full orbit as world-frame planetocentric points (AU), for drawing the path. */
-export function moonOrbitPath(m, unixSeconds, epochJd, steps = 72) {
+export function moonOrbitPath(m, unixSeconds, steps = 72) {
+  const el = moonElementsAt(m, unixSeconds);
   const pts = [];
   for (let k = 0; k <= steps; k++) {
-    pts.push(moonOffsetAU(m, unixSeconds + (k / steps) * m.P * DAY, epochJd));
+    // Draw the instantaneous osculating ellipse. Advancing clock time here would also evolve
+    // the interpolated elements and could sample beyond their validated interval for slow moons.
+    pts.push(offsetFromElements(el, el.M + (k / steps) * 360));
   }
   return pts;
 }

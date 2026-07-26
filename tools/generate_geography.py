@@ -5,7 +5,7 @@ Inputs (tools/ephemeris-data/geography/, see its README for provenance and licen
   ne_110m_land.geojson             Natural Earth coastlines (public domain)
   ne_110m_lakes.geojson            major inland water
   ne_110m_glaciated_areas.geojson  permanent ice
-  iau_surface_features.csv         IAU/USGS named features for the Moon, Mars, Mercury
+  iau_surface_features.csv         IAU/USGS named lunar maria
 
 Output (committed; CI verifies regeneration is byte-identical):
   apps/web/js/geography.js

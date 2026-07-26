@@ -7,8 +7,8 @@ Raw upstream data for `tools/generate_moons.py`. Committed so the derived module
 | File | Upstream | License | sha256 |
 |---|---|---|---|
 | `jpl_satellite_physical.csv` | [JPL SSD satellite physical parameters](https://ssd.jpl.nasa.gov/sats/phys_par/) — GM, mean radius, mean density; row subset | public domain (US Government) | `03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99` |
-| `horizons_satellite_elements.csv` | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) osculating elements, planetocentric, ecliptic J2000 — **mean motion refitted**, see below | public domain (US Government) | `a866df1383c21506c53802acb49563d51c14f22077fe067eeed35ce310cc161b` |
-| `horizons_satellite_vectors.csv` | JPL Horizons state vectors on five held-out dates, the ground truth `tools/validate_moons.py` gates against | public domain (US Government) | `0fb6a170bd105efee5f8d6da50c8be43f2e28a0b2dd69c011856167b2abbac90` |
+| `horizons_satellite_elements.csv` | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) osculating elements, planetocentric, ecliptic J2000, sampled across the supported interval | public domain (US Government) | `da120c34abac6de490bfebba5d85613d4a6e8fe3cb3ef0e8f96d38bb99221e26` |
+| `horizons_satellite_vectors.csv` | JPL Horizons state vectors at times interleaved between the element knots, the ground truth `tools/validate_moons.py` gates against | public domain (US Government) | `a0b5f8884f8d4eae5a594903a8356ed36c3664ec8d173c8132f8192c20546508` |
 
 > A `0.00000` GM or an `n/a` density in the physical-parameters file means **not measured**, not
 > zero. Nereid is the case here: carried through as a number it put "0.0000 km³/s²" on the facts
@@ -52,40 +52,35 @@ Horizons osculating elements have none of this ambiguity: ask for `REF_PLANE='EC
 arrive in the renderer's own frame in the textbook convention, and can be checked directly against
 Horizons vectors.
 
-## Why the mean motion is refitted
+## Why the model uses multiple epochs
 
-The one value in `horizons_satellite_elements.csv` that is not verbatim Horizons output is
-`n_deg_per_day`. Horizons reports the **osculating** mean motion — the rate a moon has at that
-instant, on the orbit it is instantaneously on. Satellite orbits are perturbed hard enough that
-this is not the rate they keep, and the error compounds once per orbit. Mimas laps Saturn about
-195 times in six months, so being 0.25% fast puts it on the wrong side of the planet:
+One osculating element set is only a snapshot. Satellite orbits are perturbed hard enough that
+Kepler-propagating it for months compounds both phase and radius error. Mimas laps Saturn about
+195 times in six months, so even a small instantaneous-rate mismatch eventually puts it on the
+wrong side of the planet.
 
-| Moon | worst error over ±1 yr, osculating `n` | refitted `n` |
-|---|---|---|
-| Enceladus | 177.58° | 0.84° |
-| Phobos | 177.26° | 2.15° |
-| Mimas | 127.98° | 4.34° |
-| Io | 84.79° | 0.77° |
-| Proteus | 49.25° | 0.02° |
-| Titan | 0.98° | 0.02° |
+`tools/fetch_moons.py` therefore records fresh Horizons elements every seven days from 2025-03-01
+through 2027-03-01. Mimas and Enceladus use 84-hour knots because their short, strongly perturbed
+orbits need the finer cadence. The generator converts the classical elements to modified
+equinoctial values `[a,h,k,p,q,L]` before interpolation. That avoids the meaningless 180° jumps in
+node and argument of periapsis that occur for nearly circular or low-inclination orbits.
 
-`tools/fetch_moons.py` scans for the mean motion that best predicts real Horizons positions across
-eight **fit** dates spanning ±1 year, coarse-to-fine because the number of whole revolutions
-between samples is itself unknown. The five dates in `horizons_satellite_vectors.csv` are disjoint
-from those eight, so `validate_moons.py` measures prediction rather than self-agreement.
+Validation vectors are requested halfway between element knots — never at a knot — so the gate
+measures interpolation against independent Horizons positions rather than reproducing its inputs.
 
 ## Accuracy, stated plainly
 
-Held-out validation: **worst 4.09°** (Phobos) and **2.61%** in radius across 105 checks spanning
-2025-04 to 2027-02. Every other moon is under ~1.5°.
+Held-out validation: **worst 0.0887°** (Nereid) and **0.1891%** in radius (Enceladus) across
+2,392 checks spanning 2025-03-04 12:00 to 2027-02-23 12:00 TDB. CI fails above 0.15° angular
+or 0.25% radial error, if any check coincides with an element knot, or if a moon has fewer than
+100 independent checks.
 
-The renderer takes that seriously rather than treating it as a footnote: `moonorbits.js` exports
-`MOON_VALID_YEARS = 1.25` and the 3-D view **withholds the moons entirely** outside that window,
-explaining itself in the accuracy line. The date slider reaches ±5000 years, where these elements
-mean nothing at all.
+The generated module exports the exact intersection of the per-moon validation intervals, and the
+3-D view **withholds the moons entirely** outside it, explaining itself in the accuracy line. The
+date slider reaches ±5000 years, where these elements mean nothing at all.
 
 This is a budget for a **view**: which side of its planet a moon is on, how the system is laid
 out, how fast things go round. It is not an ephemeris. Do not use it for an occultation, a mutual
-event, an eclipse timing, or anything that must be right to the arcminute. Error grows away from
-the epoch, fastest for the short-period inner moons; re-running `tools/fetch_moons.py` moves the
-epoch forward, which is a deliberate act with a visible diff rather than a silent drift.
+event, an eclipse timing, or anything that must be right to the arcminute. Re-running
+`tools/fetch_moons.py` moves the supported interval forward, which is a deliberate act with a
+visible diff rather than a silent drift.

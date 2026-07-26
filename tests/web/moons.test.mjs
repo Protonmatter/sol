@@ -4,9 +4,11 @@
 // helpers behave.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MOONS, MOON_EPOCH_JD, MOON_PARENTS, moonsOf } from "../../apps/web/js/moons.js";
-import { moonOffsetAU, moonOrbitPath, systemScale, jdFromUnix, isRetrograde,
-  withinMoonValidity, aliasedByClock, MOON_VALID_YEARS } from "../../apps/web/js/moonorbits.js";
+import { readFileSync } from "node:fs";
+import { MOONS, MOON_EPOCH_JD, MOON_VALID_MIN_JD, MOON_VALID_MAX_JD,
+  MOON_PARENTS, moonsOf } from "../../apps/web/js/moons.js";
+import { moonElementsAt, moonOffsetAU, moonOrbitPath, systemScale, jdFromUnix, isRetrograde,
+  withinMoonValidity, aliasedByClock } from "../../apps/web/js/moonorbits.js";
 import { BODY, poleVector } from "../../apps/web/js/bodyData.js";
 
 const AU_KM = 149597870.7;
@@ -23,8 +25,8 @@ test("every planet with moons is one the renderer actually draws", () => {
 test("Kepler's third law holds within each satellite system", () => {
   // The strongest check available with no external data: for moons of the same planet,
   // a³/P² is proportional to that planet's mass and must be the same for all of them. It
-  // ties the REFITTED mean motions to the semi-major axes — if a refit had locked onto the
-  // wrong number of revolutions, that moon's ratio would stand out immediately.
+  // ties the representative periods to the semi-major axes — if longitude unwrapping had
+  // locked onto the wrong number of revolutions, that moon's ratio would stand out immediately.
   for (const planet of MOON_PARENTS) {
     const ms = moonsOf(planet);
     if (ms.length < 2) continue;
@@ -84,7 +86,7 @@ test("Triton is the only genuinely retrograde moon", () => {
   // momentum is ANTI-parallel to its IAU pole while still going the way Uranus turns. Comparing
   // against the pole would report all five as retrograde; comparing against the spin does not.
   const t0 = 1767225600;
-  const retro = MOONS.filter((m) => isRetrograde(m, BODY[m.p], poleVector, t0, MOON_EPOCH_JD))
+  const retro = MOONS.filter((m) => isRetrograde(m, BODY[m.p], poleVector, t0))
     .map((m) => m.n);
   assert.deepEqual(retro, ["Triton"],
     `only Triton orbits against its planet's spin; got ${JSON.stringify(retro)}`);
@@ -110,7 +112,7 @@ test("propagated positions stay on the stated ellipse", () => {
   // Independent of any ephemeris: whatever the phase, the distance must stay between
   // periapsis and apoapsis for the committed a and e.
   for (const m of MOONS) {
-    const path = moonOrbitPath(m, MOON_EPOCH_JD * 0 + 1767225600, MOON_EPOCH_JD, 40);
+    const path = moonOrbitPath(m, 1767225600, 40);
     let lo = Infinity, hi = 0;
     for (const p of path) {
       const r = Math.hypot(p[0], p[1], p[2]) * AU_KM;
@@ -119,19 +121,45 @@ test("propagated positions stay on the stated ellipse", () => {
     const peri = m.a * (1 - m.e), apo = m.a * (1 + m.e);
     assert.ok(lo > peri * 0.999 - 1, `${m.n}: got ${lo.toFixed(0)} km inside periapsis ${peri.toFixed(0)}`);
     assert.ok(hi < apo * 1.001 + 1, `${m.n}: got ${hi.toFixed(0)} km beyond apoapsis ${apo.toFixed(0)}`);
-    // And one full period must actually close the loop.
-    const a0 = moonOffsetAU(m, 1767225600, MOON_EPOCH_JD);
-    const a1 = moonOffsetAU(m, 1767225600 + m.P * 86400, MOON_EPOCH_JD);
+    // And the instantaneous osculating path must actually close the loop.
+    const a0 = path[0], a1 = path[path.length - 1];
     const drift = Math.hypot(a0[0] - a1[0], a0[1] - a1[1], a0[2] - a1[2]) * AU_KM;
     assert.ok(drift < m.a * 0.01, `${m.n}: one period leaves a ${drift.toFixed(0)} km gap`);
   }
+});
+
+test("the shipped JavaScript model meets the held-out Horizons error budget", () => {
+  // The Python validator checks the source model; this independently exercises the generated,
+  // rounded table and the exact interpolation/Kepler implementation the browser imports.
+  const csv = readFileSync(new URL(
+    "../../tools/ephemeris-data/moons/horizons_satellite_vectors.csv", import.meta.url,
+  ), "utf8").trim().split("\n");
+  const moons = new Map(MOONS.map((m) => [m.n, m]));
+  let worstAngle = 0, worstRadial = 0;
+  for (const line of csv.slice(1)) {
+    const [name, , jdText, xText, yText, zText] = line.split(",");
+    const truth = [Number(xText), Number(yText), Number(zText)];
+    const unix = (Number(jdText) - 2440587.5) * 86400;
+    const got = moonOffsetAU(moons.get(name), unix).map((value) => value * AU_KM);
+    const truthR = Math.hypot(...truth), gotR = Math.hypot(...got);
+    const cosine = got.reduce((sum, value, index) => sum + value * truth[index], 0)
+      / (gotR * truthR);
+    const angular = Math.acos(Math.max(-1, Math.min(1, cosine))) * 180 / Math.PI;
+    const radial = Math.abs(gotR - truthR) / truthR;
+    worstAngle = Math.max(worstAngle, angular);
+    worstRadial = Math.max(worstRadial, radial);
+  }
+  assert.equal(csv.length - 1, 2392);
+  assert.ok(worstAngle <= 0.15, `worst browser-model angular error ${worstAngle.toFixed(4)}°`);
+  assert.ok(worstRadial <= 0.0025,
+    `worst browser-model radial error ${(worstRadial * 100).toFixed(4)}%`);
 });
 
 test("Nereid's eccentricity actually shows up as a stretched orbit", () => {
   // The most eccentric orbit in the set — a flat check that e is being applied, not stored.
   const n = MOONS.find((m) => m.n === "Nereid");
   assert.ok(n.e > 0.7, `Nereid's e is ${n.e}`);
-  const path = moonOrbitPath(n, 1767225600, MOON_EPOCH_JD, 60);
+  const path = moonOrbitPath(n, 1767225600, 60);
   const rs = path.map((p) => Math.hypot(p[0], p[1], p[2]) * AU_KM);
   assert.ok(Math.max(...rs) / Math.min(...rs) > 5,
     "Nereid's distance should vary by more than 5× over an orbit");
@@ -160,17 +188,31 @@ test("the epoch is a real Julian date and jdFromUnix agrees with it", () => {
   assert.ok(Math.abs(jdFromUnix(946728000) - 2451545.0) < 1e-6);
 });
 
-test("orbits are not drawn outside the window they were validated in", () => {
-  // The date slider spans ±5000 years; these elements are checked against Horizons across about
-  // ±1 year. Propagating regardless would put confident dots at arbitrary points, so the
-  // renderer asks first. Without this guard the moons silently become fiction.
-  const epochUnix = (MOON_EPOCH_JD - 2440587.5) * 86400;
-  assert.ok(withinMoonValidity(epochUnix, MOON_EPOCH_JD), "the epoch itself must be valid");
-  const nearEdge = epochUnix + (MOON_VALID_YEARS * 0.9) * 365.25 * 86400;
-  assert.ok(withinMoonValidity(nearEdge, MOON_EPOCH_JD), "just inside the window must be valid");
-  for (const years of [MOON_VALID_YEARS + 0.5, 50, 5000, -5000]) {
-    const t = epochUnix + years * 365.25 * 86400;
-    assert.ok(!withinMoonValidity(t, MOON_EPOCH_JD), `${years} yr from epoch must be rejected`);
+test("orbits are drawn only inside the exact held-out validation interval", () => {
+  const unix = (jd) => (jd - 2440587.5) * 86400;
+  assert.ok(MOON_VALID_MAX_JD > MOON_VALID_MIN_JD, "validation interval must be non-empty");
+  assert.ok(withinMoonValidity(unix(MOON_VALID_MIN_JD), MOON_VALID_MIN_JD, MOON_VALID_MAX_JD));
+  assert.ok(withinMoonValidity(unix(MOON_VALID_MAX_JD), MOON_VALID_MIN_JD, MOON_VALID_MAX_JD));
+  assert.ok(!withinMoonValidity(
+    unix(MOON_VALID_MIN_JD - 0.001), MOON_VALID_MIN_JD, MOON_VALID_MAX_JD,
+  ), "a time before the first checked instant must be rejected");
+  assert.ok(!withinMoonValidity(
+    unix(MOON_VALID_MAX_JD + 0.001), MOON_VALID_MIN_JD, MOON_VALID_MAX_JD,
+  ), "a time after the last checked instant must be rejected");
+});
+
+test("multi-epoch knots cover the validated interval without extrapolation", () => {
+  for (const m of MOONS) {
+    assert.equal(m.el.length % 6, 0, `${m.n}: malformed equinoctial table`);
+    assert.ok(m.el.length / 6 >= 100, `${m.n}: element table is too sparse`);
+    assert.ok(m.step <= 7, `${m.n}: ${m.step} d cadence exceeds the weekly ceiling`);
+    const lastJd = m.t0 + (m.el.length / 6 - 1) * m.step;
+    assert.ok(m.t0 < MOON_VALID_MIN_JD, `${m.n}: no knot before validation starts`);
+    assert.ok(lastJd > MOON_VALID_MAX_JD, `${m.n}: no knot after validation ends`);
+    const middle = (MOON_VALID_MIN_JD + MOON_VALID_MAX_JD) / 2;
+    const el = moonElementsAt(m, (middle - 2440587.5) * 86400);
+    assert.ok(el.a > BODY[m.p].radiusKm, `${m.n}: interpolated orbit is inside ${m.p}`);
+    assert.ok(el.e >= 0 && el.e < 1, `${m.n}: interpolated eccentricity ${el.e}`);
   }
 });
 

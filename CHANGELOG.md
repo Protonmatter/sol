@@ -13,8 +13,9 @@ crate follows [SemVer](https://semver.org/).
   around the planets they belong to, lit, labelled, and clickable for a facts card. Every
   satellite with a mean radius of at least 150 km, plus Phobos and Deimos.
   Orbits come from JPL Horizons via `tools/fetch_moons.py`, and accuracy is gated in CI by
-  `tools/validate_moons.py` against committed Horizons state vectors: **worst 4.09°** across 105
-  checks spanning 2025-04 to 2027-02, on dates held out from the fit.
+  `tools/validate_moons.py` against committed Horizons state vectors: **worst 0.0887° angular
+  and 0.1891% radial error** across 2,392 checks spanning 2025-03 to 2027-02, at times
+  interleaved between the element knots.
   Because planets are drawn oversized, each satellite system is inflated by ONE factor so its
   innermost moon clears the planet's disc while the spacing between moons stays true — Callisto
   still sits 4.46× farther out than Io.
@@ -26,10 +27,11 @@ crate follows [SemVer](https://semver.org/).
     even with all three implemented and all 18 node/apsis sign conventions searched, it reproduces
     Mars's and Jupiter's moons to ~0.1° while missing Saturn's and Uranus's by 24–165° **at its own
     epoch**. Horizons osculating elements requested in the ecliptic frame have no such ambiguity.
-  - **Osculating mean motion is not the rate a moon keeps.** Satellite orbits are perturbed hard
-    enough that Kepler-propagating the instantaneous rate puts Mimas on the wrong side of Saturn
-    within weeks (178°). The fetcher refits the mean motion against Horizons across a ±1-year
-    window: Enceladus 177.58° → 0.84°, Phobos 177.26° → 2.15°, Io 84.79° → 0.77°.
+  - **One osculating epoch is not a long-lived orbit.** Satellite orbits are perturbed hard
+    enough that Kepler-propagating a snapshot puts fast inner moons on the wrong side of their
+    planet. The fetcher now samples fresh elements weekly (every 84 hours for Mimas and
+    Enceladus), and the renderer interpolates modified equinoctial elements so circular-orbit
+    angle singularities cannot introduce jumps.
 
 - **Earth has real geography.** `apps/web/textures/` is `.gitignore`d and is populated only by the
   optional `tools/fetch_textures.py`, so every deployment — GitHub Pages included — fell through
@@ -51,12 +53,20 @@ crate follows [SemVer](https://semver.org/).
 
 Review round (all findings from the Codex PR reviewer, each verified before acting on it):
 
-- **The Moon layer now stops where its evidence stops.** The elements are validated across about
-  ±1 year of their epoch, but the date slider spans ±5000 years and would happily propagate them
-  the whole way. Outside the validated window the moons are withheld and the accuracy line says
-  why. Separately, at the default 0.5 simulated years per second one frame covers ~3 days — past
+- **The Moon layer now stops where its evidence stops.** The elements are validated from March
+  2025 through February 2027, but the date slider spans ±5000 years and would happily propagate
+  them the whole way. Outside the exact shared validation interval the moons are withheld and the
+  accuracy line says why. Separately, at the default 0.5 simulated years per second one frame
+  covers ~3 days — past
   the Nyquist rate for Io, Mimas and Phobos, where apparent motion can visibly run backwards — so
   moons the clock has outrun are dropped until it slows.
+- **Moon suppression notices now follow the frame they describe.** The accuracy line is updated
+  after painting computes visibility, fast moons return immediately when animation is paused,
+  and hidden counts are accumulated across all five parent systems instead of being overwritten
+  by the last one drawn.
+- **Moon phases and ring occlusion now use physical geometry.** Inflated display spacing no longer
+  rotates a moon's terminator, and transparent rings are composed after opaque moons so the
+  foreground half of a ring correctly covers a moon behind it.
 - **Retrograde is decided against the planet's spin, not ecliptic inclination.** The card called
   all five Uranian moons retrograde because they sit near 98°. They are prograde; *Uranus* is
   tipped. Worse, the spin axis is not the IAU pole either — Uranus turns backwards about its own

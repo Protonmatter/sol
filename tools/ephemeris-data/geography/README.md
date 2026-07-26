@@ -50,37 +50,26 @@ data rather than from a latitude cut-off.
 
 | Column | Meaning |
 |---|---|
-| `target` | `Moon`, `Mars`, or `Mercury` |
+| `target` | `Moon` in the committed subset |
 | `name` | IAU-approved feature name |
 | `feature_type` | gazetteer descriptor term (`Mare, maria`, `Terra, terrae`, …) |
 | `diameter_km` | mean diameter |
-| `center_lat_deg`, `center_lon_deg` | feature centre, **in that body's own convention** |
-| `north_lat_deg`, `south_lat_deg`, `east_lon_deg`, `west_lon_deg` | bounding box, same convention |
-| `coordinate_system` | the convention string, verbatim — read it, do not assume |
+| `center_lat_deg`, `center_lon_deg` | feature centre in the Moon's planetographic, east-positive convention |
+| `north_lat_deg`, `south_lat_deg`, `east_lon_deg`, `west_lon_deg` | bounding box in the same convention |
+| `coordinate_system` | the source convention string, preserved verbatim |
 
-**The three bodies do not share a longitude convention**, and this is the single most
-error-prone fact in this dataset:
-
-| Body | Coordinate system |
-|---|---|
-| Moon | Planetographic, **+East**, −180 … 180 |
-| Mars | Planetocentric, **+East**, 0 … 360 |
-| Mercury | Planetographic, **+West**, 0 … 360 |
-
-Mercury's longitudes are **west-positive**. Feeding them into an east-positive renderer without
-negating them mirrors the planet — Caloris Planitia lands at 198°E instead of its true 162°E, a
-36° error that still *looks* plausible. `tools/generate_geography.py` normalises everything to
-east-positive `[0, 360)` and `tests/web/geography.test.mjs` pins Caloris to prove it.
+The committed subset contains lunar maria only. `tools/generate_geography.py` normalises their
+longitudes to east-positive `[0, 360)`, and `tests/web/geography.test.mjs` pins named near-side
+maria so a sign or seam regression cannot silently mirror the map.
 
 ## What is *not* in here, and why
 
-The gazetteer's own **`Albedo Feature`** type — the classical telescopic markings (Syrtis Major,
-Mare Acidalium, Aeria …) — is deliberately excluded. Those entries are stored as bare points:
+The gazetteer's own **`Albedo Feature`** type — classical telescopic markings — is deliberately
+excluded. Those entries are stored as bare points:
 `diameter_km` is `0.00` and all four bounding-box values equal the centre. They record *where* a
 marking is named, not how large it is, so rendering them as regions would mean inventing every
-extent. The mapped geological units are used instead, and on Mars those units *are* the visible
-markings (Syrtis Major Planum, Acidalia and Utopia Planitia, Arabia Terra, Hellas Planitia), so
-only the guesswork is lost.
+extent. The lunar mare entries used here have real non-zero diameters and bounds, so they can be
+rendered without inventing an extent.
 
 Contrast (which units read dark and which read bright) is **not** in this data. The generator
 assigns it from feature type, which is a stated approximation rather than photometry — see the

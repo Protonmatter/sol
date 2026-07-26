@@ -13,28 +13,28 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=939e4357e1";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=939e4357e1";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=939e4357e1";
-import { buildCelestial } from "./celestial.js?v=939e4357e1";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=939e4357e1";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=939e4357e1";
+import { store } from "./store.js?v=82b4db3ea4";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=82b4db3ea4";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=82b4db3ea4";
+import { buildCelestial } from "./celestial.js?v=82b4db3ea4";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=82b4db3ea4";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=82b4db3ea4";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=939e4357e1";
+} from "./orreryMath.js?v=82b4db3ea4";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=939e4357e1";
+} from "./orreryShaders.js?v=82b4db3ea4";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=939e4357e1";
-import { renderDetail, renderMoonDetail } from "./orreryDetail.js?v=939e4357e1";
-import { renderStarDetail } from "./starDetail.js?v=939e4357e1";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=939e4357e1";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock, MOON_VALID_YEARS } from "./moonorbits.js?v=939e4357e1";
+} from "./orreryGalaxy.js?v=82b4db3ea4";
+import { renderDetail, renderMoonDetail } from "./orreryDetail.js?v=82b4db3ea4";
+import { renderStarDetail } from "./starDetail.js?v=82b4db3ea4";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=82b4db3ea4";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=82b4db3ea4";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -86,6 +86,7 @@ const state = (store.orrery = {
   renderUnix: Date.now() / 1000, simElapsed: 0, galYears: 0, selected: null, backend: "",
   simStepSeconds: 0, // simulated seconds covered by the last frame (0 when paused)
   moonsHiddenReason: "", // why the moon layer is suppressed, surfaced in the accuracy line
+  moonsAliasedCount: 0, // accumulated across every visible parent system in one paint
   bodies: [], lastTick: 0,
 });
 
@@ -139,19 +140,19 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=939e4357e1"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=82b4db3ea4"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=939e4357e1";
+  ring.src = "textures/saturn_ring.png?v=82b4db3ea4";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=939e4357e1";
+  sun.src = "textures/sun.jpg?v=82b4db3ea4";
 }
 
 // Build the generated surface maps from the committed geography. One body per idle slice: the
@@ -175,8 +176,8 @@ async function buildGeneratedMaps() {
   genStarted = true;
   try {
     const [geo, moons] = await Promise.all([
-      import("./geography.js?v=939e4357e1"),
-      import("./moons.js?v=939e4357e1"),
+      import("./geography.js?v=82b4db3ea4"),
+      import("./moons.js?v=82b4db3ea4"),
     ]);
     moonSet = moons;
     if (state.active && !state.animate) paint();
@@ -504,7 +505,9 @@ function updateOrreryPositions() {
     addRow(b.name, `${b.name}: ${b.dist_au.toFixed(2)} AU from the Sun, ecliptic longitude ${lon.toFixed(0)}°`, false);
     // Its moons directly beneath it, so the hierarchy is audible in reading order.
     if (!moonSet || !state.showMoons) continue;
-    if (!withinMoonValidity(state.renderUnix, moonSet.MOON_EPOCH_JD)) continue;
+    if (!withinMoonValidity(
+      state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD,
+    )) continue;
     for (const m of moonSet.moonsOf(b.name)) {
       const period = m.P < 1 ? `${(m.P * 24).toFixed(1)} h` : `${m.P.toFixed(2)} d`;
       addRow(m.n, `↳ ${m.n}: moon of ${b.name}, ${Math.round(m.a).toLocaleString()} km out, `
@@ -721,10 +724,16 @@ function paint() {
   // ---- bodies (lit spheres) ----
   moonMarkers = []; // rebuilt by drawMoons as each planet is drawn
   state.moonsHiddenReason = ""; // ...as is the explanation for any it declines to draw
+  state.moonsAliasedCount = 0;
   for (const name of DRAW_LIST) {
     const b = name === "Sun" ? { name: "Sun" } : state.bodies.find((x) => x.name === name);
     if (!b) continue;
     drawBody(b, vp, eye);
+  }
+  if (!state.moonsHiddenReason && state.moonsAliasedCount) {
+    const count = state.moonsAliasedCount;
+    state.moonsHiddenReason = `${count} inner moon${count > 1 ? "s" : ""} hidden — the clock is `
+      + "advancing faster than they orbit. Slow the speed or untick Animate to see them.";
   }
 
   // ---- Sun corona + solar wind ----
@@ -816,11 +825,11 @@ function drawBody(b, vp, eye) {
     gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   }
 
-  // rings
-  if (phys.rings) drawRing(b.name, phys, pos, rEq, rot, vp);
-
-  // moons
+  // Opaque moons first, transparent rings second. drawRing disables depth writes, so drawing it
+  // first left no ring depth for a later moon to test against and made moons behind a foreground
+  // ring appear on top of it.
   drawMoons(b.name, pos, rEq, vp, eye);
+  if (phys.rings) drawRing(b.name, phys, pos, rEq, rot, vp);
 }
 
 // A moon's drawn radius. Planets in this view are already enlarged so the small ones stay
@@ -842,9 +851,11 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
   // moons are — the phase drifts without bound and the date slider reaches ±5000 years. Drawing
   // them anyway would put confident-looking dots at arbitrary points, which is worse than an
   // empty orbit. The reason is surfaced in the accuracy line rather than left as a mystery.
-  if (!withinMoonValidity(state.renderUnix, moonSet.MOON_EPOCH_JD)) {
-    state.moonsHiddenReason = `Moons hidden — outside the ±${MOON_VALID_YEARS} yr window their `
-      + "orbits are validated in. Press Now to bring them back.";
+  if (!withinMoonValidity(
+    state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD,
+  )) {
+    state.moonsHiddenReason = "Moons hidden — outside their March 2025–February 2027 "
+      + "validated window. Press Now to bring them back.";
     return;
   }
   const moons = moonSet.moonsOf(parentName);
@@ -868,7 +879,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
     const pts = [];
     for (const m of moons) {
       if (aliasedByClock(m, state.simStepSeconds)) continue;
-      const path = moonOrbitPath(m, state.renderUnix, moonSet.MOON_EPOCH_JD, 64);
+      const path = moonOrbitPath(m, state.renderUnix, 64);
       for (let i = 0; i + 1 < path.length; i++) {
         for (const q of [path[i], path[i + 1]]) {
           pts.push(parentPos[0] + q[0] * scale, parentPos[1] + q[1] * scale, parentPos[2] + q[2] * scale,
@@ -897,11 +908,15 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
     // can even reverse. Fast-forwarding therefore thins the inner moons out first and keeps
     // the outer ones, which is exactly which of them the clock is still resolving.
     if (aliasedByClock(m, state.simStepSeconds)) { aliased++; continue; }
-    const off = moonOffsetAU(m, state.renderUnix, moonSet.MOON_EPOCH_JD);
+    const off = moonOffsetAU(m, state.renderUnix);
     const pos = [parentPos[0] + off[0] * scale, parentPos[1] + off[1] * scale, parentPos[2] + off[2] * scale];
     const r = moonDisplayRadius(m, phys.radiusKm, parentDisplayAU);
     const model = mul(translate(pos), scaleM([r, r, r]));
-    const light = norm([-pos[0], -pos[1], -pos[2]]);
+    // Draw with the inflated offset, but light from the physical position. Using `pos` here
+    // moved an outer moon several rendered AU from its parent and rotated its terminator by
+    // tens of degrees even though its real planetocentric offset is tiny on the solar scale.
+    const physicalPos = [parentPos[0] + off[0], parentPos[1] + off[1], parentPos[2] + off[2]];
+    const light = norm([-physicalPos[0], -physicalPos[1], -physicalPos[2]]);
 
     gl.useProgram(P.sphere);
     gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, model)));
@@ -934,10 +949,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
 
     moonMarkers.push({ name: m.n, pos, moon: m });
   }
-  if (aliased) {
-    state.moonsHiddenReason = `${aliased} inner moon${aliased > 1 ? "s" : ""} hidden — the clock is `
-      + "advancing faster than they orbit. Slow the speed or untick Animate to see them.";
-  }
+  state.moonsAliasedCount += aliased;
 }
 
 function drawRing(name, phys, pos, rEq, rot, vp) {
@@ -1147,7 +1159,7 @@ function showDetail(name) {
   // the body card (which also renders the "click something" placeholder).
   if (state.selectedStar) { renderStarDetail(state.selectedStar); return; }
   const moon = moonSet && name ? moonSet.MOONS.find((m) => m.n === name) : null;
-  if (moon) { renderMoonDetail(moon, state.renderUnix, moonSet.MOON_EPOCH_JD); return; }
+  if (moon) { renderMoonDetail(moon, state.renderUnix); return; }
   renderDetail(name, state.bodies.find((b) => b.name === name));
 }
 
@@ -1306,7 +1318,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=939e4357e1");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=82b4db3ea4");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
@@ -1477,14 +1489,22 @@ function showFallback(msg) {
   }
 
   const bind = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
-  bind("orreryTime", "input", (e) => { state.offsetYears = Number(e.target.value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); updateOrreryAccuracy(); paint(); });
-  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = document.getElementById("orreryTime"); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); updateOrreryAccuracy(); paint(); });
+  bind("orreryTime", "input", (e) => { state.offsetYears = Number(e.target.value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
+  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = document.getElementById("orreryTime"); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
   // drawRing already detects a radius change and re-uploads into the SAME buffer, so no
   // ringBufs reset here — nuking the map on every slider input orphaned up to three ~1.3 MB
   // GPU buffers per event without gl.deleteBuffer.
   bind("orrerySize", "input", (e) => { state.exaggeration = Number(e.target.value); paint(); });
   bind("orreryTrueScale", "change", (e) => { state.trueScale = e.target.checked; paint(); });
-  bind("orreryAnimate", "change", (e) => { state.animate = e.target.checked; if (state.animate) startLoop(); else paint(); });
+  bind("orreryAnimate", "change", (e) => {
+    state.animate = e.target.checked;
+    if (state.animate) startLoop();
+    else {
+      state.simStepSeconds = 0;
+      paint();
+      updateOrreryAccuracy();
+    }
+  });
   bind("orrerySpeed", "input", (e) => { const v = Number(e.target.value); if (state.galaxy) state.galSpeed = v; else state.yearsPerSec = v; });
   bind("orreryShowOrbits", "change", (e) => { state.showOrbits = e.target.checked; buildSceneLines(); paint(); });
   bind("orreryShowSky", "change", (e) => { state.showSky = e.target.checked; paint(); });
@@ -1492,7 +1512,7 @@ function showFallback(msg) {
   bind("orreryShowLabels", "change", (e) => { state.showLabels = e.target.checked; paint(); });
   bind("orreryShowSunEq", "change", (e) => { state.showSunEq = e.target.checked; buildSceneLines(); paint(); });
   bind("orreryShowSmall", "change", (e) => { state.showSmall = e.target.checked; buildSceneLines(); rebuildSmallBodies(); paint(); });
-  bind("orreryShowMoons", "change", (e) => { state.showMoons = e.target.checked; paint(); });
+  bind("orreryShowMoons", "change", (e) => { state.showMoons = e.target.checked; paint(); updateOrreryAccuracy(); });
   bind("orreryDeepSky", "change", (e) => { state.galDeepSky = e.target.checked; paint(); });
   bind("orreryTextures", "change", (e) => { state.useTextures = e.target.checked; paint(); });
   bind("orreryTopDown", "change", (e) => {

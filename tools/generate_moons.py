@@ -23,9 +23,12 @@ import json
 import sys
 from pathlib import Path
 
+from moon_model import equinoctial_knots, interpolate, knot_step_days, load_element_groups
+
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "tools" / "ephemeris-data" / "moons"
 OUT = ROOT / "apps" / "web" / "js" / "moons.js"
+REFERENCE_JD = 2461041.5
 
 # Appearance and one-line context. These are ILLUSTRATIVE, exactly like the `col` values in
 # smallbodies.js: JPL publishes GM, radius and density, never colour. The module header says so,
@@ -82,37 +85,61 @@ def num(v: str, default: float | None = None) -> float | None:
 
 
 def build() -> str:
-    elems = list(csv.DictReader((SRC / "horizons_satellite_elements.csv").open(encoding="utf-8", newline="")))
+    groups = load_element_groups(SRC / "horizons_satellite_elements.csv")
     phys = {r["Code"]: r for r in
             csv.DictReader((SRC / "jpl_satellite_physical.csv").open(encoding="utf-8", newline=""))}
-    if not elems:
+    if not groups:
         die("no satellite elements found")
 
-    epochs = {r["epoch_jd_tdb"] for r in elems}
-    if len(epochs) != 1:
-        die(f"elements span more than one epoch: {sorted(epochs)}")
-    epoch_jd = float(epochs.pop())
+    check_dates: dict[str, list[float]] = {}
+    with (SRC / "horizons_satellite_vectors.csv").open(encoding="utf-8", newline="") as fh:
+        for row in csv.DictReader(fh):
+            check_dates.setdefault(row["Satellite"], []).append(float(row["jd_tdb"]))
+    if set(check_dates) != set(groups):
+        die("element and held-out-vector moon sets differ")
+    # Intersection, not union: every moon is independently checked across this whole interval.
+    valid_min_jd = max(min(dates) for dates in check_dates.values())
+    valid_max_jd = min(max(dates) for dates in check_dates.values())
+    if valid_max_jd <= valid_min_jd:
+        die("held-out validation intervals do not overlap")
 
     moons = []
-    for r in elems:
-        name, code, planet = r["Satellite"], r["Code"], r["Planet"]
+    for name, rows in groups.items():
+        first = rows[0]
+        code, planet = str(first["code"]), str(first["planet"])
         p = phys.get(code) or die(f"no physical parameters for {name}")
         look = LOOK.get(name) or die(f"{name}: no appearance entry — add one to LOOK")
-        inc = num(r["i_deg"], 0.0)
+        knots = equinoctial_knots(rows)
+        step_days = knot_step_days(knots)
+        representative = interpolate(knots, REFERENCE_JD)
+        inc = representative["i"]
         lo, hi = EXPECTED_INC.get(planet, (0, 180))
         if not (lo <= inc <= hi):
             die(f"{name}: inclination {inc}° is outside the {lo}–{hi}° expected for a "
                 f"{planet} satellite in the ecliptic frame — wrong reference plane?")
-        a_km = num(r["a_km"])
-        n = num(r["n_deg_per_day"])
-        if not a_km or not n:
+        mean_motion = (knots[-1]["L"] - knots[0]["L"]) / (knots[-1]["jd"] - knots[0]["jd"])
+        if representative["a"] <= 0 or mean_motion <= 0:
             die(f"{name}: missing semi-major axis or mean motion")
+        flat_elements: list[float] = []
+        for knot in knots:
+            flat_elements.extend([
+                round(knot["a"], 4),
+                round(knot["h"], 12),
+                round(knot["k"], 12),
+                round(knot["p"], 12),
+                round(knot["q"], 12),
+                round(knot["L"], 6),
+            ])
         moons.append({
             "n": name, "p": planet, "code": int(code),
-            "a": round(a_km, 1), "e": round(num(r["e"], 0.0), 7), "i": round(inc, 5),
-            "node": round(num(r["node_deg"], 0.0), 5), "argp": round(num(r["argp_deg"], 0.0), 5),
-            "M0": round(num(r["M_deg"], 0.0), 5), "nd": round(n, 8),
-            "P": round(360.0 / n, 6),
+            "a": round(representative["a"], 1),
+            "e": round(representative["e"], 7),
+            "i": round(inc, 5),
+            "node": round(representative["node"] % 360.0, 5),
+            "argp": round(representative["argp"] % 360.0, 5),
+            "M0": round(representative["M"] % 360.0, 5),
+            "nd": round(mean_motion, 8),
+            "P": round(360.0 / mean_motion, 6),
             "r": round(num(p["mean_radius_km"], 0.0), 1),
             "rho": positive(num(p["mean_density_g_cm3"], None)),
             # JPL writes 0.00000 where a satellite's GM has never been measured — Nereid is one.
@@ -120,6 +147,9 @@ def build() -> str:
             # a missing measurement as a physical fact about a 170 km moon.
             "gm": positive(num(p["GM_km3_s2"], None)),
             "col": look[0], "note": look[1],
+            "t0": round(knots[0]["jd"], 6),
+            "step": round(step_days, 6),
+            "el": flat_elements,
         })
     moons.sort(key=lambda m: m["code"])
 
@@ -139,21 +169,24 @@ def build() -> str:
         "// the renderer's own frame. See tools/ephemeris-data/moons/README.md for why the elements\n",
         "// come from Horizons rather than from JPL's satellite mean-elements table.\n",
         "//\n",
-        "// ACCURACY — read this before trusting a position. Osculating elements describe the orbit\n",
-        "// a moon is on AT THE EPOCH; Kepler-propagating them ignores every perturbation that\n",
-        "// changes it afterwards, and satellite orbits are strongly perturbed. Measured against\n",
-        "// Horizons by tools/validate_moons.py, which gates the error in CI. Positions are for\n",
+        "// ACCURACY — the renderer linearly interpolates weekly modified-equinoctial element knots\n",
+        "// (3.5-day knots for Mimas and Enceladus), then solves Kepler at the requested instant.\n",
+        "// tools/validate_moons.py gates the result against Horizons vectors halfway between knots,\n",
+        "// so the checks are predictions rather than training-row lookups. Positions are for\n",
         "// showing which side of its planet a moon is on and how the system is arranged — never for\n",
         "// an occultation, a mutual event, or anything that has to be right to the arcminute.\n",
         "//\n",
         "// `col` and `note` are illustrative — JPL publishes GM, radius and density, never colour.\n",
         "\n",
-        f"/** Epoch of every element set below: JD {epoch_jd:.1f} TDB. */\n",
-        f"export const MOON_EPOCH_JD = {epoch_jd:.6f};\n",
+        f"/** Reference epoch used for representative facts: JD {REFERENCE_JD:.1f} TDB. */\n",
+        f"export const MOON_EPOCH_JD = {REFERENCE_JD:.6f};\n",
+        "/** Every moon is independently validated throughout this exact interval. */\n",
+        f"export const MOON_VALID_MIN_JD = {valid_min_jd:.6f};\n",
+        f"export const MOON_VALID_MAX_JD = {valid_max_jd:.6f};\n",
         "\n",
         "/** @typedef {{n:string,p:string,code:number,a:number,e:number,i:number,node:number,\n",
         " *  argp:number,M0:number,nd:number,P:number,r:number,rho:number|null,gm:number|null,\n",
-        " *  col:[number,number,number],note:string}} Moon */\n",
+        " *  col:[number,number,number],note:string,t0:number,step:number,el:number[]}} Moon */\n",
         "\n",
         "/** @type {Moon[]} */\n",
         "export const MOONS = [\n",
@@ -165,7 +198,9 @@ def build() -> str:
             f'  {{n:{json.dumps(m["n"])},p:{json.dumps(m["p"])},code:{m["code"]},'
             f'a:{m["a"]},e:{m["e"]},i:{m["i"]},node:{m["node"]},argp:{m["argp"]},'
             f'M0:{m["M0"]},nd:{m["nd"]},P:{m["P"]},r:{m["r"]},rho:{rho},gm:{gm},'
-            f'col:[{m["col"][0]},{m["col"][1]},{m["col"][2]}],note:{json.dumps(m["note"])}}},\n'
+            f'col:[{m["col"][0]},{m["col"][1]},{m["col"][2]}],note:{json.dumps(m["note"])},'
+            f't0:{m["t0"]},step:{m["step"]},'
+            f'el:{json.dumps(m["el"], separators=(",", ":"))}}},\n'
         )
     lines.append("];\n\n")
     lines.append("/** Moons of a given planet, innermost first. */\n")

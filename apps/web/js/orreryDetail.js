@@ -2,8 +2,8 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY, poleVector } from "./bodyData.js?v=939e4357e1";
-import { isRetrograde } from "./moonorbits.js?v=939e4357e1";
+import { BODY, poleVector } from "./bodyData.js?v=82b4db3ea4";
+import { isRetrograde } from "./moonorbits.js?v=82b4db3ea4";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 
@@ -12,7 +12,7 @@ function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleSt
  * moon's card leads with what it orbits, and its position carries an accuracy caveat the
  * planets' VSOP2013/TOP2013 positions do not need.
  */
-export function renderMoonDetail(m, unixSeconds, epochJd) {
+export function renderMoonDetail(m, unixSeconds) {
   const host = document.getElementById("orreryDetail"); if (!host) return;
   host.textContent = "";
   const card = document.createElement("div"); card.className = "sky-row system-detail";
@@ -36,7 +36,7 @@ export function renderMoonDetail(m, unixSeconds, epochJd) {
   // but retrograde is decided against the PLANET'S SPIN — see isRetrograde. Reading it off the
   // ecliptic inclination instead would label all five Uranian moons "retrograde", which is
   // false: they are prograde around a planet that is tipped over.
-  const retro = isRetrograde(m, BODY[m.p], poleVector, unixSeconds, epochJd);
+  const retro = isRetrograde(m, BODY[m.p], poleVector, unixSeconds);
   add("Inclination", `${m.i.toFixed(2)}° to the ecliptic`
     + (retro ? ` · retrograde — it orbits against ${m.p}'s spin` : "")
     + (!retro && m.i > 90 ? ` · prograde around ${m.p}, which is itself tipped past 90°` : ""));
