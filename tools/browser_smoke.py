@@ -58,13 +58,16 @@ addEventListener("load", async () => {
   const animate = document.getElementById("orreryAnimate");
   animate.checked = false;
   animate.dispatchEvent(new Event("change", { bubbles: true }));
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  // The app stops its animation loop when Animate is unticked. Headless Chrome's virtual-time
+  // controller may then leave requestAnimationFrame callbacks pending indefinitely, so wait on
+  // a bounded timer instead. The change handler paints and updates the accuracy line synchronously.
+  await new Promise(resolve => setTimeout(resolve, 100));
   body.dataset.smokePaused =
     !accuracy?.textContent.includes("inner moon") ? "yes" : "no";
   const time = document.getElementById("orreryTime");
   time.value = "10";
   time.dispatchEvent(new Event("input", { bubbles: true }));
-  await new Promise(resolve => requestAnimationFrame(resolve));
+  await new Promise(resolve => setTimeout(resolve, 100));
   body.dataset.smokeValidity =
     accuracy?.textContent.includes("Moons hidden — outside") ? "yes" : "no";
   body.dataset.smokeDone = "yes";
