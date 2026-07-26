@@ -13,33 +13,39 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=c8dc738669";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=c8dc738669";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=c8dc738669";
-import { buildCelestial } from "./celestial.js?v=c8dc738669";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=c8dc738669";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=c8dc738669";
+import { store } from "./store.js?v=82b4db3ea4";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=82b4db3ea4";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=82b4db3ea4";
+import { buildCelestial } from "./celestial.js?v=82b4db3ea4";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=82b4db3ea4";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=82b4db3ea4";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=c8dc738669";
+} from "./orreryMath.js?v=82b4db3ea4";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=c8dc738669";
+} from "./orreryShaders.js?v=82b4db3ea4";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=c8dc738669";
-import { renderDetail } from "./orreryDetail.js?v=c8dc738669";
-import { renderStarDetail } from "./starDetail.js?v=c8dc738669";
+} from "./orreryGalaxy.js?v=82b4db3ea4";
+import { renderDetail, renderMoonDetail } from "./orreryDetail.js?v=82b4db3ea4";
+import { renderStarDetail } from "./starDetail.js?v=82b4db3ea4";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=82b4db3ea4";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=82b4db3ea4";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
   const node = document.getElementById("orreryAccuracy"); if (!node) return;
   const a = epochAccuracy(state.offsetYears, "helio");
   node.className = "epoch-accuracy acc-" + a.level;
-  node.textContent = `${epochLabel(state.offsetYears)} — ${a.text}`;
+  // Append the moon layer's own caveat when it is declining to draw. The planets here stay
+  // arcsecond-class across the whole slider; the moons do not, and silently vanishing moons
+  // would read as a bug rather than as the honest answer.
+  const moonNote = state.showMoons && state.moonsHiddenReason ? ` ${state.moonsHiddenReason}` : "";
+  node.textContent = `${epochLabel(state.offsetYears)} — ${a.text}${moonNote}`;
 }
 
 const FOVY = (42 * Math.PI) / 180;
@@ -70,6 +76,7 @@ const state = (store.orrery = {
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: true, showLabels: true, showSunEq: true, useTextures: true, galaxy: false,
   showSmall: true, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
+  showMoons: true, // the 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune
   galDeepSky: true, // nebulae / pulsars / black holes / nearby stars in the Milky-Way view
   localView: false, // light-year-scale solar-neighbourhood sub-view of the galaxy mode
   selectedStar: null, // catalogue star pinned in the detail panel (null = show the body card)
@@ -77,6 +84,9 @@ const state = (store.orrery = {
   // Camera: orbit around `anchor` (a body name; "Sun" = origin) or a free-fly camera (WASD + look).
   anchor: "Sun", freeFly: false, freePos: [18, 18, 12], yaw: -2.3, pitch: -0.4, flySpeed: 4, keys: new Set(),
   renderUnix: Date.now() / 1000, simElapsed: 0, galYears: 0, selected: null, backend: "",
+  simStepSeconds: 0, // simulated seconds covered by the last frame (0 when paused)
+  moonsHiddenReason: "", // why the moon layer is suppressed, surfaced in the accuracy line
+  moonsAliasedCount: 0, // accumulated across every visible parent system in one paint
   bodies: [], lastTick: 0,
 });
 
@@ -92,6 +102,20 @@ let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, textu
 let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3-D Sun's surface
 let galaxy = null;
 let smallBodies = []; // per-frame small-body markers: {name, pos, col, kind, note}
+
+// Surface maps rasterised from the committed geography (geography.js -> surfacemap.js). These
+// are what ships: apps/web/textures/ is .gitignore'd, so without them every deployment fell back
+// to the procedural shader and Earth's "continents" were value noise. A real fetched photo map
+// still wins where one exists — see drawBody.
+let genTex = {}, genStarted = false;
+
+// The 21 major moons (apps/web/js/moons.js), lazy-loaded with the rest of the 3-D payload.
+// `moonSet` is null until it arrives; every moon path below tolerates that.
+let moonSet = null;
+// Per-frame moon markers, rebuilt during the body pass so labels and picking agree with what
+// was actually drawn — including the zoom cut-off, so you cannot click an invisible moon.
+let moonMarkers = [];
+let moonPathBuf = null; // GL buffer for the moon orbit polylines (rebuilt per frame; they move)
 
 function makeTexture(img, repeatS) {
   const t = gl.createTexture();
@@ -116,19 +140,82 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => {};
-    img.src = "textures/" + file + "?v=c8dc738669"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=82b4db3ea4"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=c8dc738669";
+  ring.src = "textures/saturn_ring.png?v=82b4db3ea4";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=c8dc738669";
+  sun.src = "textures/sun.jpg?v=82b4db3ea4";
+}
+
+// Build the generated surface maps from the committed geography. One body per idle slice: the
+// Earth map is 2048x1024 with a per-pixel tint pass, and doing all four in one go would drop
+// frames on the very first render of the view.
+// Drive a slice-yielding generator to completion, returning to the event loop between slices
+// so a long pixel pass cannot hold the frame.
+function runSliced(it, idle) {
+  return new Promise((resolve) => {
+    const pump = () => {
+      const r = it.next();
+      if (r.done) { resolve(r.value); return; }
+      idle(pump);
+    };
+    pump();
+  });
+}
+
+async function buildGeneratedMaps() {
+  if (genStarted || !gl) return;
+  genStarted = true;
+  try {
+    const [geo, moons] = await Promise.all([
+      import("./geography.js?v=82b4db3ea4"),
+      import("./moons.js?v=82b4db3ea4"),
+    ]);
+    moonSet = moons;
+    if (state.active && !state.animate) paint();
+    // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
+    // in that catalogue says which of them are dark — see tools/fetch_geography.py — so they
+    // keep the procedural shader rather than a guess. fetch_textures.py still supplies real
+    // photographic maps for every body to anyone who wants them locally.
+    const jobs = [
+      ["Earth", () => buildEarthMapSliced(geo.EARTH, geo.decodeRing), 0],
+      ["Moon", () => buildFeatureMap(geo.FEATURES.Moon, BODY.Moon.radiusKm), 1],
+    ];
+    const idle = typeof requestIdleCallback === "function"
+      ? (fn) => requestIdleCallback(fn, { timeout: 500 })
+      : (fn) => setTimeout(fn, 0);
+    for (const [name, build, texMode] of jobs) {
+      await new Promise((resolve) => idle(() => {
+        // The context can die (or the view close) between slices; bail rather than throw.
+        if (!gl || gl.isContextLost()) { resolve(); return; }
+        try {
+          // Earth's builder is a generator that hands control back every few hundred rows;
+          // the feature maps are cheap enough to return a canvas outright.
+          const made = build();
+          const canvas = made && typeof made.next === "function" ? runSliced(made, idle) : made;
+          if (canvas && typeof canvas.then === "function") {
+            canvas.then((cv) => {
+              try { genTex[name] = { tex: makeTexture(cv, true), ready: true, texMode }; } catch (e) { console.warn("surface map", name, e.message); }
+              if (state.active && !state.animate) paint();
+              resolve();
+            });
+            return;
+          }
+          genTex[name] = { tex: makeTexture(canvas, true), ready: true, texMode };
+          if (state.active && !state.animate) paint();
+        } catch (e) { console.warn("surface map", name, e.message); }
+        resolve();
+      }));
+    }
+  } catch (e) { console.warn("geography unavailable:", e.message); }
 }
 
 function compile(type, src) {
@@ -162,7 +249,7 @@ function initGL(canvas) {
     gl = null; P = {};
     return null;
   }
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_tex"]);
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_useTex", "u_tex"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
@@ -395,13 +482,37 @@ function updateOrreryPositions() {
   const list = document.getElementById("orreryPositions");
   if (!list) return;
   list.textContent = "";
+  // Rows are BUTTONS, not text. This panel is the canvas's stated text alternative, so anything
+  // you can click in the 3-D view has to be reachable here too — otherwise the moons would exist
+  // only for pointer users, since the label overlay is aria-hidden and hit-testing is by cursor.
+  const select = (name) => {
+    state.selectedStar = null;
+    state.selected = name;
+    showDetail(name);
+    if (!state.animate) paint();
+  };
+  const addRow = (name, text, indent) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = indent ? "sky-row orrery-pos-moon" : "sky-row";
+    row.textContent = text;
+    row.addEventListener("click", () => select(name));
+    list.appendChild(row);
+  };
   for (const b of state.bodies) {
     if (b.x_au == null || b.dist_au == null) continue;
     const lon = (((Math.atan2(b.y_au, b.x_au) * 180) / Math.PI) + 360) % 360;
-    const row = document.createElement("div");
-    row.className = "sky-row";
-    row.textContent = `${b.name}: ${b.dist_au.toFixed(2)} AU from the Sun, ecliptic longitude ${lon.toFixed(0)}°`;
-    list.appendChild(row);
+    addRow(b.name, `${b.name}: ${b.dist_au.toFixed(2)} AU from the Sun, ecliptic longitude ${lon.toFixed(0)}°`, false);
+    // Its moons directly beneath it, so the hierarchy is audible in reading order.
+    if (!moonSet || !state.showMoons) continue;
+    if (!withinMoonValidity(
+      state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD,
+    )) continue;
+    for (const m of moonSet.moonsOf(b.name)) {
+      const period = m.P < 1 ? `${(m.P * 24).toFixed(1)} h` : `${m.P.toFixed(2)} d`;
+      addRow(m.n, `↳ ${m.n}: moon of ${b.name}, ${Math.round(m.a).toLocaleString()} km out, `
+        + `orbit ${period}, radius ${Math.round(m.r).toLocaleString()} km`, true);
+    }
   }
 }
 
@@ -438,7 +549,7 @@ function buildSceneLines() {
   // The Sun's equatorial plane — tilted 7.25° to the ecliptic (its spin axis is the real IAU pole).
   // Gold rings + the spin axis make the offset between the Sun's equator and the planets' plane explicit.
   if (state.showSunEq) {
-    const pole = norm(poleVector(BODY.Sun));
+    const pole = norm(poleVector(BODY.Sun, state.renderUnix));
     let u = norm(cross([0, 0, 1], pole)); if (!isFinite(u[0]) || u[0] * u[0] + u[1] * u[1] + u[2] * u[2] < 1e-9) u = [1, 0, 0];
     const vv = cross(pole, u);
     const GOLD = [0.52, 0.40, 0.13];
@@ -611,10 +722,18 @@ function paint() {
   drawSmallBodies(vp, dpr);
 
   // ---- bodies (lit spheres) ----
+  moonMarkers = []; // rebuilt by drawMoons as each planet is drawn
+  state.moonsHiddenReason = ""; // ...as is the explanation for any it declines to draw
+  state.moonsAliasedCount = 0;
   for (const name of DRAW_LIST) {
     const b = name === "Sun" ? { name: "Sun" } : state.bodies.find((x) => x.name === name);
     if (!b) continue;
     drawBody(b, vp, eye);
+  }
+  if (!state.moonsHiddenReason && state.moonsAliasedCount) {
+    const count = state.moonsAliasedCount;
+    state.moonsHiddenReason = `${count} inner moon${count > 1 ? "s" : ""} hidden — the clock is `
+      + "advancing faster than they orbit. Slow the speed or untick Animate to see them.";
   }
 
   // ---- Sun corona + solar wind ----
@@ -666,14 +785,24 @@ function drawBody(b, vp, eye) {
   gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
   gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(atmo));
   gl.uniform1f(P.sphereU.u_atmoStr, atmoStr);
+  // Surface-map priority: a real fetched photographic map (fetch_textures.py) beats the map we
+  // generate from the committed vectors, which in turn beats the procedural shader. Only the
+  // generated maps can ask to MODULATE rather than replace.
   const isSun = b.name === "Sun";
   const sunTexd = isSun && state.useTextures && sunTex.ready;
-  const planetTexd = !isSun && state.useTextures && textures[b.name] && textures[b.name].ready;
-  const useTex = sunTexd || planetTexd;
+  const photoTexd = !isSun && state.useTextures && textures[b.name] && textures[b.name].ready;
+  // NOT gated on state.useTextures. That checkbox is labelled "NASA textures" and its job is the
+  // OPTIONAL photographic downloads; the generated maps are committed public-domain geography that
+  // ships with the app. Gating them too meant unticking it replaced real coastlines with the
+  // procedural noise continents — the exact thing this release exists to remove.
+  const gen = !isSun && !photoTexd && genTex[b.name] && genTex[b.name].ready
+    ? genTex[b.name] : null;
+  const useTex = sunTexd || photoTexd || !!gen;
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, sunTexd ? sunTex.tex : (planetTexd ? textures[b.name].tex : whiteTex));
+  gl.bindTexture(gl.TEXTURE_2D, sunTexd ? sunTex.tex : (photoTexd ? textures[b.name].tex : (gen ? gen.tex : whiteTex)));
   gl.uniform1i(P.sphereU.u_tex, 0);
   gl.uniform1i(P.sphereU.u_useTex, useTex ? 1 : 0);
+  gl.uniform1i(P.sphereU.u_texMode, gen ? gen.texMode : 0);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
@@ -696,8 +825,131 @@ function drawBody(b, vp, eye) {
     gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   }
 
-  // rings
+  // Opaque moons first, transparent rings second. drawRing disables depth writes, so drawing it
+  // first left no ring depth for a later moon to test against and made moons behind a foreground
+  // ring appear on top of it.
+  drawMoons(b.name, pos, rEq, vp, eye);
   if (phys.rings) drawRing(b.name, phys, pos, rEq, rot, vp);
+}
+
+// A moon's drawn radius. Planets in this view are already enlarged so the small ones stay
+// visible; moons need the same treatment or Phobos (11 km beside a 3,396 km Mars) is a
+// sub-pixel speck. The ratio to the parent is preserved and then boosted, with a floor so the
+// smallest are still findable — the same bargain the planet sizes already make, and the panel
+// says so. True-scale mode gets the honest ratio.
+function moonDisplayRadius(m, parentRadiusKm, parentDisplayAU) {
+  const ratio = m.r / parentRadiusKm;
+  if (state.trueScale) return parentDisplayAU * ratio;
+  return Math.min(parentDisplayAU * 0.42, Math.max(parentDisplayAU * 0.055, parentDisplayAU * ratio * 4));
+}
+
+// Draw the moons of one planet. Returns quietly when the catalogue has not loaded, when the
+// planet has none, or when the camera is too far out for them to be anything but clutter.
+function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
+  if (!moonSet || !state.showMoons) return;
+  // Outside the window the committed elements were validated in, we do not know where these
+  // moons are — the phase drifts without bound and the date slider reaches ±5000 years. Drawing
+  // them anyway would put confident-looking dots at arbitrary points, which is worse than an
+  // empty orbit. The reason is surfaced in the accuracy line rather than left as a mystery.
+  if (!withinMoonValidity(
+    state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD,
+  )) {
+    state.moonsHiddenReason = "Moons hidden — outside their March 2025–February 2027 "
+      + "validated window. Press Now to bring them back.";
+    return;
+  }
+  const moons = moonSet.moonsOf(parentName);
+  if (!moons.length) return;
+  const phys = BODY[parentName];
+  // Rings are drawn out to (outerKm / radiusKm) x the planet's display radius; feed that in so
+  // the moons are lifted clear of them rather than into them.
+  const ringOuterAU = phys.rings ? (phys.rings.outerKm / phys.radiusKm) * parentDisplayAU : 0;
+  const scale = systemScale(moons, parentDisplayAU, state.trueScale, ringOuterAU);
+  // Beyond this the whole system is a few pixels wide; drawing it just speckles the planet.
+  const outermost = (moons[moons.length - 1].a / AU_KM) * scale;
+  const dist = Math.hypot(eye[0] - parentPos[0], eye[1] - parentPos[1], eye[2] - parentPos[2]);
+  if (outermost / Math.max(dist, 1e-9) < 0.012) return;
+
+  let aliased = 0;
+
+  // Orbit paths, when the Orbits overlay is on. Same scale factor as the markers, so the moon
+  // always sits ON its drawn path. Without these the markers float with none of the context the
+  // overlay promises for every other body in the scene.
+  if (state.showOrbits) {
+    const pts = [];
+    for (const m of moons) {
+      if (aliasedByClock(m, state.simStepSeconds)) continue;
+      const path = moonOrbitPath(m, state.renderUnix, 64);
+      for (let i = 0; i + 1 < path.length; i++) {
+        for (const q of [path[i], path[i + 1]]) {
+          pts.push(parentPos[0] + q[0] * scale, parentPos[1] + q[1] * scale, parentPos[2] + q[2] * scale,
+            m.col[0] * 0.55, m.col[1] * 0.55, m.col[2] * 0.55);
+        }
+      }
+    }
+    if (pts.length) {
+      if (!moonPathBuf) moonPathBuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, moonPathBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pts), gl.DYNAMIC_DRAW);
+      gl.useProgram(P.line);
+      gl.uniformMatrix4fv(P.lineU.u_vp, false, new Float32Array(vp));
+      gl.uniform1f(P.lineU.u_alpha, 0.55);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+      gl.depthMask(false);
+      gl.drawArrays(gl.LINES, 0, pts.length / 6);
+      gl.depthMask(true);
+    }
+  }
+
+  for (const m of moons) {
+    // A frame that samples this moon's orbit below the Nyquist rate (aliasedByClock: fewer
+    // than ~3 samples per revolution) cannot draw its motion, only alias it — apparent travel
+    // can even reverse. Fast-forwarding therefore thins the inner moons out first and keeps
+    // the outer ones, which is exactly which of them the clock is still resolving.
+    if (aliasedByClock(m, state.simStepSeconds)) { aliased++; continue; }
+    const off = moonOffsetAU(m, state.renderUnix);
+    const pos = [parentPos[0] + off[0] * scale, parentPos[1] + off[1] * scale, parentPos[2] + off[2] * scale];
+    const r = moonDisplayRadius(m, phys.radiusKm, parentDisplayAU);
+    const model = mul(translate(pos), scaleM([r, r, r]));
+    // Draw with the inflated offset, but light from the physical position. Using `pos` here
+    // moved an outer moon several rendered AU from its parent and rotated its terminator by
+    // tens of degrees even though its real planetocentric offset is tiny on the solar scale.
+    const physicalPos = [parentPos[0] + off[0], parentPos[1] + off[1], parentPos[2] + off[2]];
+    const light = norm([-physicalPos[0], -physicalPos[1], -physicalPos[2]]);
+
+    gl.useProgram(P.sphere);
+    gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, model)));
+    gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
+    gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]));
+    // Titan is the one moon with a real atmosphere, so it gets the hazy shader rather than the
+    // cratered one; everything else is a rock or an iceball. Both styles MODULATE u_base — the
+    // planet styles would overwrite it and throw away the catalogue's per-moon colour.
+    gl.uniform1i(P.sphereU.u_style, m.n === "Titan" ? STYLE_ID.moonHaze : STYLE_ID.moonRock);
+    gl.uniform1i(P.sphereU.u_mode, 0);
+    gl.uniform1f(P.sphereU.u_time, state.renderUnix * 0.0002);
+    gl.uniform3fv(P.sphereU.u_base, new Float32Array(m.col));
+    gl.uniform3fv(P.sphereU.u_light, new Float32Array(light));
+    gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
+    gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(m.n === "Titan" ? [0.85, 0.6, 0.3] : [0, 0, 0]));
+    gl.uniform1f(P.sphereU.u_atmoStr, m.n === "Titan" ? 0.5 : 0);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, whiteTex);
+    gl.uniform1i(P.sphereU.u_tex, 0);
+    gl.uniform1i(P.sphereU.u_useTex, 0);
+    gl.uniform1i(P.sphereU.u_texMode, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+    gl.disableVertexAttribArray(2);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphere.idx);
+    gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
+    gl.drawElements(gl.TRIANGLES, sphere.count, gl.UNSIGNED_SHORT, 0);
+    gl.disable(gl.CULL_FACE);
+
+    moonMarkers.push({ name: m.n, pos, moon: m });
+  }
+  state.moonsAliasedCount += aliased;
 }
 
 function drawRing(name, phys, pos, rEq, rot, vp) {
@@ -870,8 +1122,11 @@ function updateLabels(canvas, vp, skyVp) {
     if (state.showSmall) {
       for (const s of smallBodies) items.push({ name: s.name, p: s.pos, cls: s.kind === "probe" ? "orrery-label sky-pulsar" : "orrery-label sky-galaxy" });
     }
+    // Only the moons actually drawn this frame — drawMoons drops whole systems that are too
+    // small on screen to be worth it, and a label for an undrawn moon would be a lie.
+    for (const mk of moonMarkers) items.push({ name: mk.name, p: mk.pos, cls: "orrery-label sky-star" });
     if (state.showSunEq) {
-      const pole = norm(poleVector(BODY.Sun));
+      const pole = norm(poleVector(BODY.Sun, state.renderUnix));
       items.push({ name: "Sun's axis · 7.25° tilt", p: [pole[0] * 1.7, pole[1] * 1.7, pole[2] * 1.7], cls: "orrery-label sky-galaxy" });
     }
     if (state.showLabels && state.showSky) {
@@ -903,6 +1158,8 @@ function showDetail(name) {
   // A picked star wins the panel until something else is picked; otherwise fall back to
   // the body card (which also renders the "click something" placeholder).
   if (state.selectedStar) { renderStarDetail(state.selectedStar); return; }
+  const moon = moonSet && name ? moonSet.MOONS.find((m) => m.n === name) : null;
+  if (moon) { renderMoonDetail(moon, state.renderUnix); return; }
   renderDetail(name, state.bodies.find((b) => b.name === name));
 }
 
@@ -946,6 +1203,9 @@ function tick(now) {
         updateGalaxySun();
       }
     } else {
+      // How much simulated time one frame covers. The moon layer needs it: at the default
+      // 0.5 yr/s this is ~3 days per frame, which is more than a full orbit for several moons.
+      state.simStepSeconds = dt * state.yearsPerSec * YR;
       state.simElapsed += dt * state.yearsPerSec * YR; // YR seconds per sim-year ⇒ visible outer-planet motion
       state.renderUnix = effectiveBaseUnix() + state.simElapsed;
       rebuildPositions();
@@ -953,7 +1213,9 @@ function tick(now) {
     }
   }
   if (state.freeFly) flyStep(dt);
+  const moonNoteBefore = state.moonsHiddenReason;
   paint();
+  if (state.moonsHiddenReason !== moonNoteBefore) updateOrreryAccuracy();
   // Idle when nothing advances frame-to-frame: with Animate off (and no free-fly) the loop
   // used to keep re-tessellating and repainting the full scene at 60 fps forever. All the
   // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
@@ -1056,7 +1318,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=c8dc738669");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=82b4db3ea4");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
@@ -1068,6 +1330,7 @@ async function enterOrreryInner() {
       initParticles();
     }
     loadTextures();
+    buildGeneratedMaps(); // not awaited: the view paints immediately, maps appear as they build
     setSpeedSliderMode(state.galaxy);
     state.renderUnix = effectiveBaseUnix() + state.simElapsed;
     rebuildPositions();
@@ -1203,6 +1466,17 @@ function showFallback(msg) {
       const d = Math.hypot(sx - px, sy - py);
       if (d < 34 && (!best || d < best.d)) best = { d, name };
     }
+    // Moons compete on the same footing, with a tighter radius so a moon close to its planet
+    // does not steal clicks aimed at the planet itself.
+    for (const mk of moonMarkers) {
+      const p = mk.pos;
+      const wv = vp[3] * p[0] + vp[7] * p[1] + vp[11] * p[2] + vp[15];
+      if (wv <= 0) continue;
+      const sx = ((vp[0] * p[0] + vp[4] * p[1] + vp[8] * p[2] + vp[12]) / wv * 0.5 + 0.5) * w;
+      const sy = (1 - ((vp[1] * p[0] + vp[5] * p[1] + vp[9] * p[2] + vp[13]) / wv * 0.5 + 0.5)) * h;
+      const d = Math.hypot(sx - px, sy - py);
+      if (d < 18 && (!best || d < best.d)) best = { d, name: mk.name };
+    }
     // Solar-system bodies win: they are the subject of this view, and a star behind one
     // must not steal the click. Only an empty patch of sky falls through to the stars,
     // which live on the backdrop sphere and so project with skyVp, not vp.
@@ -1215,14 +1489,22 @@ function showFallback(msg) {
   }
 
   const bind = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
-  bind("orreryTime", "input", (e) => { state.offsetYears = Number(e.target.value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); updateOrreryAccuracy(); paint(); });
-  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = document.getElementById("orreryTime"); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); updateOrreryAccuracy(); paint(); });
+  bind("orreryTime", "input", (e) => { state.offsetYears = Number(e.target.value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
+  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = document.getElementById("orreryTime"); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
   // drawRing already detects a radius change and re-uploads into the SAME buffer, so no
   // ringBufs reset here — nuking the map on every slider input orphaned up to three ~1.3 MB
   // GPU buffers per event without gl.deleteBuffer.
   bind("orrerySize", "input", (e) => { state.exaggeration = Number(e.target.value); paint(); });
   bind("orreryTrueScale", "change", (e) => { state.trueScale = e.target.checked; paint(); });
-  bind("orreryAnimate", "change", (e) => { state.animate = e.target.checked; if (state.animate) startLoop(); else paint(); });
+  bind("orreryAnimate", "change", (e) => {
+    state.animate = e.target.checked;
+    if (state.animate) startLoop();
+    else {
+      state.simStepSeconds = 0;
+      paint();
+      updateOrreryAccuracy();
+    }
+  });
   bind("orrerySpeed", "input", (e) => { const v = Number(e.target.value); if (state.galaxy) state.galSpeed = v; else state.yearsPerSec = v; });
   bind("orreryShowOrbits", "change", (e) => { state.showOrbits = e.target.checked; buildSceneLines(); paint(); });
   bind("orreryShowSky", "change", (e) => { state.showSky = e.target.checked; paint(); });
@@ -1230,6 +1512,7 @@ function showFallback(msg) {
   bind("orreryShowLabels", "change", (e) => { state.showLabels = e.target.checked; paint(); });
   bind("orreryShowSunEq", "change", (e) => { state.showSunEq = e.target.checked; buildSceneLines(); paint(); });
   bind("orreryShowSmall", "change", (e) => { state.showSmall = e.target.checked; buildSceneLines(); rebuildSmallBodies(); paint(); });
+  bind("orreryShowMoons", "change", (e) => { state.showMoons = e.target.checked; paint(); updateOrreryAccuracy(); });
   bind("orreryDeepSky", "change", (e) => { state.galDeepSky = e.target.checked; paint(); });
   bind("orreryTextures", "change", (e) => { state.useTextures = e.target.checked; paint(); });
   bind("orreryTopDown", "change", (e) => {
@@ -1291,6 +1574,8 @@ function showFallback(msg) {
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
     whiteTex = null; ringBufs = {}; texturesStarted = false; particles = null;
+    genTex = {}; genStarted = false; // generated surface maps died with the context too
+    moonPathBuf = null;
   });
   canvas.addEventListener("webglcontextrestored", () => {
     if (!state.active) return;
@@ -1298,6 +1583,7 @@ function showFallback(msg) {
     if (!initGL(c)) return;
     initParticles();
     loadTextures();
+    buildGeneratedMaps();
     rebuildPositions();
     buildSceneLines(); // the static geometry died with the old context
     paint();

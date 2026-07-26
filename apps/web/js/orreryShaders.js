@@ -27,7 +27,11 @@ precision highp float;
 in vec3 v_obj; in vec3 v_world; in vec3 v_nrm; out vec4 o;
 uniform int u_style; uniform int u_mode; uniform float u_time;
 uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_atmo; uniform float u_atmoStr;
-uniform int u_useTex; uniform sampler2D u_tex;
+// u_useTex: is a surface map bound at all. u_texMode: 0 = REPLACE (a real photographic map from
+// tools/fetch_textures.py, or Earth's generated coastline map — the texture IS the surface);
+// 1 = MODULATE (the generated IAU albedo map, mid-grey = unchanged), which multiplies over the
+// procedural shading so crater and granulation detail survives beneath real macro-geography.
+uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
 ${NOISE}
 void main(){
   vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
@@ -52,11 +56,21 @@ void main(){
     c=mix(c,vec3(0.30,0.13,0.05),spot*0.9);
     float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); c*=0.55+0.7*limb;
     o=vec4(c,1.0); return; }
+  // Equirectangular lookup: centre column = prime meridian (the body frame's +x), top row =
+  // north pole. Matches surfacemap.js's lonToX/latToY exactly.
+  float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862;
   vec3 col=u_base;
-  if(u_useTex==1){ float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862; col=texture(u_tex,vec2(uu,vv)).rgb; }
+  if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
   else if(u_style==1){ col=vec3(0.55,0.51,0.46)*(0.75+0.5*fbm(p*6.0)); col+=craters(p,7.0); }       // Mercury
   else if(u_style==9){ float mare=smoothstep(0.52,0.46,fbm(p*2.4+vec3(3.0)));                   // Moon
         col=mix(vec3(0.62,0.61,0.58),vec3(0.30,0.30,0.31),mare); col+=craters(p,8.0); }
+  // Styles 10/11 exist because 1 (Mercury) and 2 (Venus) OVERWRITE col with their own hard-coded
+  // colours. Reusing them for moons silently discarded every per-moon colour from the catalogue —
+  // Io came out Mercury-grey rather than sulphur-yellow. These modulate u_base instead of
+  // replacing it, so the texture is shared but the colour is the body's own.
+  else if(u_style==10){ col=u_base*(0.78+0.44*fbm(p*6.0)); col+=craters(p,7.0)*0.85; }           // rocky/icy moon
+  else if(u_style==11){ float c=fbm(p*4.0+vec3(u_time*0.03,0,0));                                // hazy moon (Titan)
+        col=u_base*(0.82+0.36*c); }
   else if(u_style==2){ float c=fbm(p*4.0+vec3(u_time*0.03,0,0));                                // Venus
         col=mix(vec3(0.86,0.78,0.55),vec3(0.97,0.93,0.78),c); }
   else if(u_style==3){ float cont=fbm(p*2.3+vec3(11.0));                                        // Earth
@@ -80,6 +94,15 @@ void main(){
   else if(u_style==8){ float warp=fbm(p*vec3(3.0,6.0,3.0));                                     // Neptune
         float b=sin(lat*9.0+1.2*warp); col=mix(vec3(0.18,0.34,0.78),vec3(0.30,0.46,0.88),0.5+0.5*b);
         float lon=atan(p.y,p.x); col=mix(col,vec3(0.10,0.16,0.40),smoothstep(0.14,0.0,length(vec2(lon+1.0,(lat-0.3)*2.0)))); }
+  // Real IAU albedo units multiplied over the procedural detail. 0.5 is the neutral level, so
+  // an empty map is a no-op; 2.0 maps a fully bright patch to double and a dark one to zero.
+  // The procedural crater field is deliberately damped toward the base colour first: on its own
+  // it is high-contrast enough to swamp the maria, and where real mapped geography exists it
+  // should lead, with the noise surviving only as surface texture under it.
+  if(u_useTex==1&&u_texMode==1){
+    col=mix(col,u_base,0.55);
+    col*=texture(u_tex,vec2(uu,vv)).rgb*2.0;
+  }
   float lambert=max(dot(N,normalize(u_light)),0.0);
   float shade=0.05+0.95*lambert;
   col*=shade;

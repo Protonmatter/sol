@@ -118,6 +118,20 @@ jobs:
         # (Sirius/Vega/… distances, temperatures, luminosities) against literature values.
         run: python tools/validate_star_catalog.py
 
+      - name: Surface geography regen-stable
+        # Regenerates apps/web/js/geography.js from the committed pristine sources
+        # (tools/ephemeris-data/geography/) and requires byte-identity with what's committed,
+        # so the shipped coastlines and lunar maria always match their provenance. Offline —
+        # tools/fetch_geography.py is the only networked step and is never run here.
+        run: python tools/generate_geography.py --check
+
+      - name: Moon orbits regen-stable + validated vs JPL Horizons
+        # Regenerates apps/web/js/moons.js from the committed Horizons elements and requires
+        # byte-identity, then interpolates every moon and compares against committed Horizons
+        # state vectors at times interleaved between the element knots. Offline —
+        # tools/fetch_moons.py is the only networked step and is never run here.
+        run: python tools/validate_moons.py
+
       - name: EOP prediction coverage
         run: python tools/check_eop_freshness.py --minimum-days 90
 
@@ -291,7 +305,7 @@ jobs:
       - name: Static web validation after build stamping
         run: python tools/validate_web_static.py
 
-      - name: Headless browser smoke (Sun + My Sky)
+      - name: Headless browser smoke (Sun + My Sky + 3-D Solar System)
         run: python tools/browser_smoke.py
 
   # The engine's determinism and the wasm "byte-compatible snapshots" claim both rest on
