@@ -1,10 +1,10 @@
 // All canvas rendering: the solar disk, its overlays, and the butterfly diagram.
 
-import { store } from "./store.js?v=e8844e92f6";
-import { controls, text } from "./dom.js?v=e8844e92f6";
-import { clamp, hash01 } from "./format.js?v=e8844e92f6";
-import { selectedRegion } from "./selectors.js?v=e8844e92f6";
-import { currentBaseImage } from "./data.js?v=e8844e92f6";
+import { store } from "./store.js?v=9f1426a7dc";
+import { controls, text } from "./dom.js?v=9f1426a7dc";
+import { clamp, hash01 } from "./format.js?v=9f1426a7dc";
+import { selectedRegion } from "./selectors.js?v=9f1426a7dc";
+import { currentBaseImage } from "./data.js?v=9f1426a7dc";
 
 export function drawSolarDisk() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("solarCanvas"));
