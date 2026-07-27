@@ -13,28 +13,28 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=82b4db3ea4";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=82b4db3ea4";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=82b4db3ea4";
-import { buildCelestial } from "./celestial.js?v=82b4db3ea4";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=82b4db3ea4";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=82b4db3ea4";
+import { store } from "./store.js?v=1f188ecb07";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=1f188ecb07";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=1f188ecb07";
+import { buildCelestial } from "./celestial.js?v=1f188ecb07";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=1f188ecb07";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=1f188ecb07";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=82b4db3ea4";
+} from "./orreryMath.js?v=1f188ecb07";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=82b4db3ea4";
+} from "./orreryShaders.js?v=1f188ecb07";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=82b4db3ea4";
-import { renderDetail, renderMoonDetail } from "./orreryDetail.js?v=82b4db3ea4";
-import { renderStarDetail } from "./starDetail.js?v=82b4db3ea4";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=82b4db3ea4";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=82b4db3ea4";
+} from "./orreryGalaxy.js?v=1f188ecb07";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=1f188ecb07";
+import { renderStarDetail } from "./starDetail.js?v=1f188ecb07";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=1f188ecb07";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=1f188ecb07";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -132,6 +132,20 @@ function makeTexture(img, repeatS) {
 
 // Kick off async loads of the real surface maps; each appears as soon as it decodes. Missing files
 // (fetch_textures.py not run) just leave the body on its procedural shader.
+// A missing map used to vanish into an empty onerror while the UI kept promising photographic
+// surfaces. Say so — once in the console per file, and once in the panel for the whole build.
+let texNoteShown = false;
+function texMissing(file) {
+  console.warn(`textures/${file} missing — using the procedural fallback (run tools/fetch_textures.py for photographic maps)`);
+  if (texNoteShown) return;
+  texNoteShown = true;
+  const insight = document.getElementById("orreryInsight");
+  if (insight) {
+    insight.textContent += " (Photographic surface maps aren't present in this build — surfaces"
+      + " shown are procedural approximations.)";
+  }
+}
+
 function loadTextures() {
   if (texturesStarted || !gl) return;
   texturesStarted = true;
@@ -139,20 +153,20 @@ function loadTextures() {
   for (const [name, file] of Object.entries(TEXTURE_FILES)) {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
-    img.onerror = () => {};
-    img.src = "textures/" + file + "?v=82b4db3ea4"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.onerror = () => texMissing(file);
+    img.src = "textures/" + file + "?v=1f188ecb07"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
-  ring.onerror = () => {};
-  ring.src = "textures/saturn_ring.png?v=82b4db3ea4";
+  ring.onerror = () => texMissing("saturn_ring.png");
+  ring.src = "textures/saturn_ring.png?v=1f188ecb07";
   // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
-  sun.onerror = () => {};
-  sun.src = "textures/sun.jpg?v=82b4db3ea4";
+  sun.onerror = () => texMissing("sun.jpg");
+  sun.src = "textures/sun.jpg?v=1f188ecb07";
 }
 
 // Build the generated surface maps from the committed geography. One body per idle slice: the
@@ -176,10 +190,11 @@ async function buildGeneratedMaps() {
   genStarted = true;
   try {
     const [geo, moons] = await Promise.all([
-      import("./geography.js?v=82b4db3ea4"),
-      import("./moons.js?v=82b4db3ea4"),
+      import("./geography.js?v=1f188ecb07"),
+      import("./moons.js?v=1f188ecb07"),
     ]);
     moonSet = moons;
+    populateAnchorSelect(); // the Focus dropdown can now offer the 21 moons
     if (state.active && !state.animate) paint();
     // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
     // in that catalogue says which of them are dark — see tools/fetch_geography.py — so they
@@ -249,7 +264,7 @@ function initGL(canvas) {
     gl = null; P = {};
     return null;
   }
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex"]);
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_useTex", "u_tex"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
@@ -390,9 +405,10 @@ function rebuildSmallBodies() {
   smallBodies = [];
   if (!state.showSmall) { celBufs.smallMarkCount = 0; return; }
   const jy2k = timeJy2k(state.renderUnix);
-  for (const b of DWARFS) smallBodies.push({ name: b.n, pos: bodyXYZ(b, jy2k), col: b.col, kind: "dwarf", note: b.note });
-  for (const c of COMETS) smallBodies.push({ name: c.n, pos: bodyXYZ(c, jy2k), col: c.col, kind: "comet", note: c.note });
-  for (const p of PROBES) smallBodies.push({ name: p.n, pos: probeXYZ(p), col: p.col, kind: "probe", note: p.note });
+  // `el` carries the source record so the detail card can show the orbit (a, e, i, period).
+  for (const b of DWARFS) smallBodies.push({ name: b.n, pos: bodyXYZ(b, jy2k), col: b.col, kind: "dwarf", note: b.note, el: b });
+  for (const c of COMETS) smallBodies.push({ name: c.n, pos: bodyXYZ(c, jy2k), col: c.col, kind: "comet", note: c.note, el: c });
+  for (const p of PROBES) smallBodies.push({ name: p.n, pos: probeXYZ(p), col: p.col, kind: "probe", note: p.note, el: p });
   const a = new Float32Array(smallBodies.length * 8);
   smallBodies.forEach((s, i) => a.set([s.pos[0], s.pos[1], s.pos[2], s.kind === "probe" ? 6 : 7, s.col[0], s.col[1], s.col[2], 1.0], i * 8));
   gl.bindBuffer(gl.ARRAY_BUFFER, celBufs.smallMark); gl.bufferData(gl.ARRAY_BUFFER, a, gl.DYNAMIC_DRAW);
@@ -622,12 +638,35 @@ function ensureSized(canvas) {
   return [w, h];
 }
 
-// The point the orbit camera looks at: the Sun (origin), the selected anchor body, or the origin in
-// galaxy mode. In galaxy mode the solar anchors don't apply.
+// A moon's DISPLAYED world position — the same parent + offset·systemScale arithmetic drawMoons
+// uses, so the camera can anchor a moon before (and regardless of whether) its markers were built
+// this frame. Returns null when the catalogue hasn't loaded, the epoch is outside the validated
+// window, or the parent is missing.
+function moonWorldPos(name) {
+  if (!moonSet) return null;
+  const m = moonSet.MOONS.find((x) => x.n === name);
+  if (!m) return null;
+  if (!withinMoonValidity(state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD)) return null;
+  const parent = state.bodies.find((x) => x.name === m.p);
+  if (!parent || parent.x_au == null) return null;
+  const phys = BODY[m.p];
+  const parentDisplayAU = displayRadiusAU(m.p);
+  const ringOuterAU = phys.rings ? (phys.rings.outerKm / phys.radiusKm) * parentDisplayAU : 0;
+  const scale = systemScale(moonSet.moonsOf(m.p), parentDisplayAU, state.trueScale, ringOuterAU);
+  const off = moonOffsetAU(m, state.renderUnix);
+  return [parent.x_au + off[0] * scale, parent.y_au + off[1] * scale, parent.z_au + off[2] * scale];
+}
+
+// The point the orbit camera looks at: the Sun (origin), the selected anchor body — a planet,
+// a moon, or a small-body marker — or the origin in galaxy mode, where solar anchors don't apply.
 function anchorPos() {
   if (state.galaxy || state.anchor === "Sun" || !state.anchor) return [0, 0, 0];
   const b = state.bodies.find((x) => x.name === state.anchor);
-  return b ? bodyWorldPos(b) : [0, 0, 0];
+  if (b) return bodyWorldPos(b);
+  const mp = moonWorldPos(state.anchor);
+  if (mp) return mp;
+  const sb = smallBodies.find((s) => s.name === state.anchor);
+  return sb ? sb.pos : [0, 0, 0];
 }
 
 // Free-fly forward direction from yaw (about world +z) and pitch.
@@ -763,6 +802,39 @@ function drawPoints(buf, count, vp, dpr, soft, shearT = 0) {
   gl.drawArrays(gl.POINTS, 0, count);
 }
 
+// The SDO disk is the Earth-facing hemisphere as of (approximately) the moment this session
+// loaded — fetch_textures.py mirrors "latest", and a few hours of solar rotation is under a
+// degree. Freeze that Sun→Earth direction ONCE, expressed in the Sun's rotating body frame, so
+// the shader keeps the image glued to the surface: it co-rotates with the real IAU spin, and
+// sunspots stay put as the camera orbits (the old camera-locked basis dragged them around, and
+// its cross([0,0,1], camera) degenerated to NaN in the top-down view).
+let sunBasisA = null;
+function sunDiskBasis() {
+  if (sunBasisA) return sunBasisA;
+  const nowUnix = Date.now() / 1000; // capture epoch: real now, not the scrubbed sim time
+  let d = null;
+  try {
+    const positions = systemPositions(nowUnix);
+    const i = SYSTEM_POSITIONS_ORDER.indexOf("Earth");
+    if (positions && i >= 0 && positions.length >= (i + 1) * 3) {
+      d = norm([positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]]);
+    }
+  } catch (_) { /* engine hiccup — fall back below */ }
+  if (!d) {
+    const earth = state.bodies.find((x) => x.name === "Earth");
+    if (!earth || earth.x_au == null) return [1, 0, 0]; // no positions yet: harmless placeholder
+    d = norm([earth.x_au, earth.y_au, earth.z_au]);
+  }
+  const rot = iauRotation(BODY.Sun, nowUnix);
+  // Body-frame components are Rᵀ·d — rot's upper-left 3×3 is orthonormal, column-major.
+  sunBasisA = [
+    rot[0] * d[0] + rot[1] * d[1] + rot[2] * d[2],
+    rot[4] * d[0] + rot[5] * d[1] + rot[6] * d[2],
+    rot[8] * d[0] + rot[9] * d[1] + rot[10] * d[2],
+  ];
+  return sunBasisA;
+}
+
 function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
@@ -803,6 +875,7 @@ function drawBody(b, vp, eye) {
   gl.uniform1i(P.sphereU.u_tex, 0);
   gl.uniform1i(P.sphereU.u_useTex, useTex ? 1 : 0);
   gl.uniform1i(P.sphereU.u_texMode, gen ? gen.texMode : 0);
+  gl.uniform3fv(P.sphereU.u_sunA, new Float32Array(sunTexd ? sunDiskBasis() : [1, 0, 0]));
 
   gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
@@ -983,13 +1056,17 @@ function drawSun(vp, eye, w, h) {
   gl.useProgram(P.glow); gl.uniformMatrix4fv(P.glowU.u_vp, false, new Float32Array(vp));
   gl.uniform3fv(P.glowU.u_center, new Float32Array([0, 0, 0]));
   gl.uniform3fv(P.glowU.u_right, new Float32Array(right)); gl.uniform3fv(P.glowU.u_up, new Float32Array(up));
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false); gl.disable(gl.DEPTH_TEST);
+  // Depth TEST stays ON (only writes are off): a planet nearer the camera must silhouette the
+  // glow. Disabling the test painted the corona over Mercury and Venus from every angle — the
+  // outer quad reached most of the way to Earth's orbit. The sizes are trimmed for the same
+  // reason: this is the visual halo, not a physical corona extent.
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false);
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.disableVertexAttribArray(1); gl.disableVertexAttribArray(2);
-  gl.uniform3fv(P.glowU.u_color, new Float32Array([1.0, 0.85, 0.5])); gl.uniform1f(P.glowU.u_size, rSun * 2.6); gl.uniform1f(P.glowU.u_pow, 2.8);
+  gl.uniform3fv(P.glowU.u_color, new Float32Array([1.0, 0.85, 0.5])); gl.uniform1f(P.glowU.u_size, rSun * 2.2); gl.uniform1f(P.glowU.u_pow, 2.8);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
-  gl.uniform3fv(P.glowU.u_color, new Float32Array([1.0, 0.55, 0.2])); gl.uniform1f(P.glowU.u_size, rSun * 4.8); gl.uniform1f(P.glowU.u_pow, 4.2);
+  gl.uniform3fv(P.glowU.u_color, new Float32Array([1.0, 0.55, 0.2])); gl.uniform1f(P.glowU.u_size, rSun * 3.4); gl.uniform1f(P.glowU.u_pow, 4.2);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   // solar wind particles
@@ -1108,7 +1185,16 @@ function updateLabels(canvas, vp, skyVp) {
     const maxLabels = state.radius < 4 ? 40 : state.radius < 12 ? 26 : 16;
     for (const s of nbhd.named.slice(0, maxLabels)) items.push({ name: s.name, p: s.p, cls: "orrery-label sky-star" });
   } else if (state.galaxy) {
-    for (const it of galaxy.labels) items.push({ name: it.name, p: it.p, cls: it.name.startsWith("☉") ? "orrery-label sky-star" : "orrery-label sky-galaxy" });
+    // Disc-feature labels (arms, the bar, the spur) shear with the differentially-rotating
+    // points they name — a static label detaches from its arm within a few hundred Myr of
+    // animation. The Sun (updated by updateGalaxySun) and the static rings stay unsheared.
+    for (const it of galaxy.labels) {
+      items.push({
+        name: it.name,
+        p: it.shear ? galShear(it.p, state.galYears) : it.p,
+        cls: it.name.startsWith("☉") ? "orrery-label sky-star" : "orrery-label sky-galaxy",
+      });
+    }
     // Deep-sky landmark labels appear once you zoom in toward the Sun's region (they cluster near it).
     if (state.galDeepSky && state.radius < 70) {
       for (const o of galObjects) items.push({ name: o.name, p: galShear(o.pos, state.galYears), cls: "orrery-label sky-galaxy" });
@@ -1160,6 +1246,8 @@ function showDetail(name) {
   if (state.selectedStar) { renderStarDetail(state.selectedStar); return; }
   const moon = moonSet && name ? moonSet.MOONS.find((m) => m.n === name) : null;
   if (moon) { renderMoonDetail(moon, state.renderUnix); return; }
+  const small = name ? smallBodies.find((s) => s.name === name) : null;
+  if (small) { renderSmallDetail(small); return; }
   renderDetail(name, state.bodies.find((b) => b.name === name));
 }
 
@@ -1247,13 +1335,72 @@ function flyStep(dt) {
   }
 }
 
-// Switch the orbit anchor (focus). Re-frames the camera at a distance suited to that body's size.
+// Switch the orbit anchor (focus). Re-frames the camera at a distance suited to that body's
+// size, and approaches from the SUNLIT side: the old camera kept its previous azimuth, which as
+// often as not framed the night hemisphere — a black disc is a broken-looking first impression.
 function setAnchor(name) {
   state.anchor = name;
   state.selectedStar = null; // an explicit body choice unpins any star card
-  if (name !== "Sun") { state.radius = Math.max(1.2, displayRadiusAU(name) * 14); state.selected = name; showDetail(name); }
-  else state.radius = 26;
+  if (name === "Sun") { state.radius = 26; paint(); return; }
+  const moon = moonSet ? moonSet.MOONS.find((m) => m.n === name) : null;
+  const small = smallBodies.find((s) => s.name === name);
+  if (moon) {
+    const r = moonDisplayRadius(moon, BODY[moon.p].radiusKm, displayRadiusAU(moon.p));
+    state.radius = Math.max(0.28, r * 16); // close enough that the moon reads, parent in frame
+  } else if (small) {
+    state.radius = 4; // point markers have no display radius; 4 AU keeps the orbit in context
+  } else if (BODY[name]) {
+    state.radius = Math.max(1.2, displayRadiusAU(name) * 14);
+  }
+  state.selected = name;
+  showDetail(name);
+  const t = anchorPos();
+  if (t[0] || t[1]) {
+    state.az = Math.atan2(-t[1], -t[0]) + 0.5; // eye toward the Sun, offset for a gibbous phase
+    state.el = 0.3;
+  }
   paint();
+}
+
+// Fill the Focus dropdown from the data rather than hard-coding it: Sun + planets (+ Earth's
+// Moon) first, then each planet's moons as a group, then the dwarf planets, comets and
+// spacecraft from the small-body layer. Re-run when the lazy moon catalogue arrives.
+function populateAnchorSelect() {
+  const sel = /** @type {HTMLSelectElement|null} */ (document.getElementById("orreryAnchor"));
+  if (!sel) return;
+  const cur = state.anchor;
+  sel.textContent = "";
+  const add = (parentEl, value, label) => {
+    const o = document.createElement("option");
+    o.value = value; o.textContent = label || value;
+    parentEl.appendChild(o);
+  };
+  add(sel, "Sun");
+  for (const p of PLANET_ORDER) {
+    add(sel, p);
+    if (p === "Earth") add(sel, "Moon", "  · Moon");
+  }
+  if (moonSet) {
+    for (const parent of moonSet.MOON_PARENTS) {
+      const og = document.createElement("optgroup");
+      og.label = `${parent} — moons`;
+      for (const m of moonSet.moonsOf(parent)) add(og, m.n);
+      sel.appendChild(og);
+    }
+  }
+  const groups = [
+    ["Dwarf planets & asteroids", DWARFS],
+    ["Comets", COMETS],
+    ["Spacecraft", PROBES],
+  ];
+  for (const [label, list] of groups) {
+    const og = document.createElement("optgroup");
+    og.label = label;
+    for (const b of list) add(og, b.n);
+    sel.appendChild(og);
+  }
+  sel.value = cur;
+  if (sel.value !== cur) sel.value = "Sun"; // the previous anchor no longer exists
 }
 
 // The Time-speed slider serves both views at very different scales, so reconfigure it per mode:
@@ -1288,7 +1435,7 @@ function setFreeFly(on) {
     startLoop(); // free-fly integrates held keys per frame, so the loop must run even with Animate off
     if (hint) hint.textContent = "Free-fly camera: click the view, then W/A/S/D to move, R/F (or E/Q) for up/down, Shift to boost, drag to look, scroll to thrust forward. Untick Free fly to return to orbit.";
   } else if (hint) {
-    hint.textContent = "Lit, textured worlds at their true VSOP2013 positions — real NASA surface maps, correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
+    hint.textContent = "Lit, textured worlds at their true VSOP2013 positions — real photographic surface maps (NASA & CC-BY sources), correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
   }
   paint();
 }
@@ -1318,7 +1465,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=82b4db3ea4");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=1f188ecb07");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
@@ -1467,8 +1614,11 @@ function showFallback(msg) {
       if (d < 34 && (!best || d < best.d)) best = { d, name };
     }
     // Moons compete on the same footing, with a tighter radius so a moon close to its planet
-    // does not steal clicks aimed at the planet itself.
-    for (const mk of moonMarkers) {
+    // does not steal clicks aimed at the planet itself. Small-body markers (dwarf planets,
+    // comets, spacecraft) join at the same tight radius — they used to be drawn and labelled
+    // but unclickable, which left their facts unreachable.
+    const extra = state.showSmall ? smallBodies : [];
+    for (const mk of [...moonMarkers, ...extra]) {
       const p = mk.pos;
       const wv = vp[3] * p[0] + vp[7] * p[1] + vp[11] * p[2] + vp[15];
       if (wv <= 0) continue;
@@ -1522,6 +1672,7 @@ function showFallback(msg) {
     paint();
   });
   bind("orreryAnchor", "change", (e) => { if (!state.freeFly) setAnchor(e.target.value); else state.anchor = e.target.value; });
+  populateAnchorSelect(); // replace the static planet list with the full data-driven one
   bind("orreryFreeFly", "change", (e) => setFreeFly(e.target.checked));
   bind("orreryGalaxy", "click", () => {
     state.galaxy = !state.galaxy;
@@ -1535,11 +1686,11 @@ function showFallback(msg) {
       state.savedRadius = state.radius; state.radius = 118; state.el = 0.95;
       updateGalaxySun();
       if (btn) btn.textContent = "← Back to the Solar System";
-      if (insight) insight.textContent = "The Milky Way, face-on. The Sun (cyan) orbits the galactic centre (gold) at ~8.2 kpc — about 26,700 light-years out, in the Orion Spur between the Sagittarius and Perseus arms. One lap is a ~220-million-year “galactic year.” Press Animate: the Time-speed slider runs galactic time, the gold trail marks the Sun's path, and the disc rotates DIFFERENTIALLY — inner stars orbit faster than outer ones, so over a few hundred Myr the arms shear and wind up. That “winding problem” is exactly why real spiral arms must be density waves, not fixed clumps of stars. (At this scale the ±5000-yr scrubber is a sub-pixel nudge.) Drag to rotate, scroll to zoom.";
+      if (insight) insight.textContent = "The Milky Way, face-on. Two dominant stellar arms (Scutum–Centaurus and Perseus) spring from the ends of the central bar, tilted ~28° to our line to the centre, with the fainter Sagittarius–Carina and Norma–Outer arms between them. The Sun (cyan) sits INSIDE the short Orion Spur, ~8.2 kpc (26,700 ly) out — Sagittarius–Carina is the next arm inward, Perseus the next outward. One lap is a ~220-million-year “galactic year.” Press Animate: the disc rotates DIFFERENTIALLY — inner stars lap outer ones, so over a few hundred Myr the arms shear and wind up. That “winding problem” is exactly why real spiral arms must be density waves, not fixed clumps of stars. Drag to rotate, scroll to zoom.";
     } else {
       state.radius = state.savedRadius; state.el = 0.45;
       if (btn) btn.textContent = "Zoom out to the Milky Way";
-      if (insight) insight.textContent = "Lit, textured worlds at their true VSOP2013 positions — real NASA surface maps, correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
+      if (insight) insight.textContent = "Lit, textured worlds at their true VSOP2013 positions — real photographic surface maps (NASA & CC-BY sources), correct sizes, axial tilts, sidereal spin, rings, the Moon beside Earth, an animated Sun, and the real sky behind them. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
       rebuildPositions();
     }
     paint();

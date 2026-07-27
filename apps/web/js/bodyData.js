@@ -66,7 +66,7 @@ export const BODY = {
     precession: { obliquityDeg: 23.43928, rateArcsecPerYear: 50.2879, lon0Deg: 90 },
     magDipoleEarth: 1.0, magnetosphere: true,
     atmosphere: { pressureBar: 1.0, composition: "78% N₂, 21% O₂, 1% Ar + H₂O" },
-    albedo: 0.367, meanTempK: 288, style: "earth", color: [0.30, 0.52, 0.86],
+    albedo: 0.434, meanTempK: 288, style: "earth", color: [0.30, 0.52, 0.86], // geometric albedo, like every other row (0.367 was neither the geometric 0.434 nor the Bond 0.306)
     blurb: "Liquid-water oceans, a nitrogen–oxygen atmosphere, and a strong dipole field (the reference, 8×10²² A·m²) driving a protective magnetosphere and aurorae.",
   },
   Mars: {
@@ -94,7 +94,7 @@ export const BODY = {
     magDipoleEarth: 580, magnetosphere: true,
     atmosphere: { pressureBar: NaN, composition: "96% H₂, 3% He; NH₃ haze" },
     albedo: 0.499, meanTempK: 134, style: "saturn", color: [0.91, 0.83, 0.58],
-    // Ring radii (km from Saturn's centre): D/C inner edge to the A-ring outer edge, with the
+    // Ring radii (km from Saturn's centre): C-ring inner edge to the A-ring outer edge, with the
     // Cassini Division as a gap. (Saturn radius 60,268 km → rings span ~1.24–2.27 R.)
     rings: { innerKm: 74500, outerKm: 136780, gaps: [[117580, 122170]] },
     blurb: "Less dense than water. The most spectacular ring system — ice and rock from 1.2 to 2.3 Saturn-radii, split by the Cassini Division. Most oblate planet (flattening 9.8%).",

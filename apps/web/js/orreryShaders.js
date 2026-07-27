@@ -12,8 +12,10 @@ float craters(vec3 p,float sc){ p*=sc; vec3 ip=floor(p); float best=1e9,rnd=0.0;
   for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++)for(int z=-1;z<=1;z++){ vec3 c=ip+vec3(x,y,z);
     vec3 o=vec3(h31(c),h31(c+11.0),h31(c+23.0)); float rad=0.32+0.5*h31(c+37.0);
     float d=length(p-(c+o))/rad; if(d<best){ best=d; rnd=h31(c+53.0);} }
-  float rim=smoothstep(1.05,0.92,best)-smoothstep(0.92,0.6,best); // bright rim, dark floor
-  float floor_=smoothstep(0.9,0.0,best); return rim*0.5 - floor_*0.28*rnd; }
+  // NOTE: smoothstep edges must be increasing — reversed edges are undefined in GLSL (they
+  // only "worked" through ANGLE's clamp fallback). These are the defined-form equivalents.
+  float rim=smoothstep(0.6,0.92,best)-smoothstep(0.92,1.05,best); // bright rim, dark floor
+  float floor_=1.0-smoothstep(0.0,0.9,best); return rim*0.5 - floor_*0.28*rnd; }
 `;
 
 export const SPHERE_VS = `#version 300 es
@@ -32,29 +34,49 @@ uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_at
 // 1 = MODULATE (the generated IAU albedo map, mid-grey = unchanged), which multiplies over the
 // procedural shading so crater and granulation detail survives beneath real macro-geography.
 uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
+// u_sunA: the SDO disk-centre direction (Sun→Earth at capture time) in the SUN'S BODY FRAME —
+// see sunDiskBasis() in orrery.js. Body-frame, not camera: the image must co-rotate with the
+// Sun's real spin, not follow the eye around.
+uniform vec3 u_sunA;
 ${NOISE}
 void main(){
   vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
   float lat=p.z; float fres=pow(1.0-clamp(dot(N,V),0.0,1.0),3.0);
-  if(u_mode==2){ // atmosphere limb halo (additive shell)
-    o=vec4(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4, 1.0); return; }
+  if(u_mode==2){ // atmosphere limb halo (additive shell) — SUNLIT SIDE ONLY. The glow is sunlight
+    // scattered through the limb, so it has to die on the night side: an unmasked shell drew a
+    // bright full-circumference ring that made every planet look like an annular eclipse.
+    float day=smoothstep(-0.32,0.22,dot(N,normalize(u_light)));
+    o=vec4(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4*(0.04+0.96*day), 1.0); return; }
   if(u_mode==1){ // Sun
-    if(u_useTex==1){ // the real, latest SDO disk — projected orthographically toward the camera so the
-      // visible hemisphere always shows the genuine solar disk (sunspots, granulation) from any angle.
-      vec3 ax=normalize(u_cam);
-      vec3 R=normalize(cross(vec3(0.0,0.0,1.0),ax));
-      vec3 U=cross(ax,R);
-      vec2 d=vec2(dot(N,R),dot(N,U))*0.4565;                 // 0.4565 = disk radius / SDO frame width
-      vec3 sc=texture(u_tex, vec2(0.5+d.x, 0.5-d.y)).rgb;
-      float lb=pow(clamp(dot(N,ax),0.0,1.0),0.45);           // gentle limb darkening to read as a sphere
-      o=vec4(sc*(0.65+0.5*lb), 1.0); return; }
-    // procedural fallback: emissive granulation + sunspots + limb darkening
+    // procedural granulation + sunspots + limb darkening — the whole sphere when no SDO frame
+    // is available, and always the far side (the SDO image only covers one hemisphere).
     float g=fbm(p*9.0+vec3(u_time*0.06)); float fac=fbm(p*22.0+vec3(u_time*0.1));
-    float spot=smoothstep(0.60,0.55,fbm(p*3.2+vec3(5.0)));
-    vec3 c=mix(vec3(1.0,0.50,0.10),vec3(1.0,0.92,0.55),0.45+0.6*g);
-    c+=vec3(0.25,0.18,0.05)*smoothstep(0.6,0.95,fac); // faculae
+    // Small, sparse dark spots where a mid-frequency field dips into its rare low tail. The
+    // old reversed-edge smoothstep(0.60,0.55,…) was undefined GLSL that ANGLE evaluated as
+    // "1 below 0.55" — i.e. "sunspot umbra" over half the star, which painted the whole
+    // procedural Sun brown with cream blotches.
+    float spot=1.0-smoothstep(0.235,0.27,fbm(p*6.0+vec3(5.0)));
+    vec3 c=mix(vec3(1.0,0.66,0.26),vec3(1.0,0.95,0.70),0.45+0.6*g);
+    c+=vec3(0.10,0.07,0.02)*smoothstep(0.6,0.95,fac); // faculae — subtle, not cream blotches
     c=mix(c,vec3(0.30,0.13,0.05),spot*0.9);
-    float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); c*=0.55+0.7*limb;
+    float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); c*=0.72+0.45*limb;
+    if(u_useTex==1){ // the real, latest SDO disk, wrapped SUN-FIXED on the u_sunA hemisphere.
+      // Basis lives in the body frame (p, not N), so it needs no per-frame camera input and
+      // cannot degenerate in the top-down view. Solar north is the body frame's +z; Earth
+      // never nears the Sun's pole (b0 ≤ 7.25°), so the cross product is always well-formed.
+      vec3 a=normalize(u_sunA);
+      vec3 R=normalize(cross(vec3(0.0,0.0,1.0),a));
+      vec3 U=cross(a,R);
+      float vis=dot(p,a);
+      vec2 d=vec2(dot(p,R),dot(p,U))*0.4565;                 // 0.4565 = disk radius / SDO frame width
+      vec3 sc=texture(u_tex, vec2(0.5+d.x, 0.5-d.y)).rgb;
+      // The HMI frame carries its own limb darkening — add only a whisper of view-angle
+      // shading so the sphere still reads, not a second full limb law on top.
+      sc*=0.88+0.18*limb;
+      // Wide blend band: it hides the image's own limb-darkened rim (which otherwise reads as
+      // a dark ring around the SDO hemisphere) under the brighter procedural surface.
+      c=mix(c, sc, smoothstep(0.05,0.45,vis));
+    }
     o=vec4(c,1.0); return; }
   // Equirectangular lookup: centre column = prime meridian (the body frame's +x), top row =
   // north pole. Matches surfacemap.js's lonToX/latToY exactly.
@@ -62,7 +84,7 @@ void main(){
   vec3 col=u_base;
   if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
   else if(u_style==1){ col=vec3(0.55,0.51,0.46)*(0.75+0.5*fbm(p*6.0)); col+=craters(p,7.0); }       // Mercury
-  else if(u_style==9){ float mare=smoothstep(0.52,0.46,fbm(p*2.4+vec3(3.0)));                   // Moon
+  else if(u_style==9){ float mare=1.0-smoothstep(0.46,0.52,fbm(p*2.4+vec3(3.0)));               // Moon
         col=mix(vec3(0.62,0.61,0.58),vec3(0.30,0.30,0.31),mare); col+=craters(p,8.0); }
   // Styles 10/11 exist because 1 (Mercury) and 2 (Venus) OVERWRITE col with their own hard-coded
   // colours. Reusing them for moons silently discarded every per-moon colour from the catalogue —
