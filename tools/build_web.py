@@ -27,7 +27,26 @@ TOKEN = re.compile(r"\?v=[0-9a-zA-Z]+")
 # token bump busts them); the wasm is additionally fetched cache:"no-store", so a browser always
 # pulls the freshly deployed engine regardless of its query token. The daily-changing data/ JSON is
 # excluded for the same no-store reason. Re-add a glob here ONLY for assets that are committed.
-ASSET_GLOBS: tuple[str, ...] = ()
+# Committed baseline textures ARE hashed: the service worker treats tokened URLs as
+# immutable and cache-first, so a texture update must roll the token or clients keep the
+# old bytes forever. EXPLICIT names, not a directory glob — only committed files may feed
+# the hash (a fresh CI checkout has to reproduce the committed token byte-for-byte, and
+# the gitignored local Sun-channel extras under textures/ would break that).
+ASSET_GLOBS: tuple[str, ...] = (
+    "textures/ATTRIBUTION.txt",
+    "textures/earth.jpg",
+    "textures/jupiter.jpg",
+    "textures/mars.jpg",
+    "textures/mercury.jpg",
+    "textures/moon.jpg",
+    "textures/neptune.jpg",
+    "textures/saturn.jpg",
+    "textures/saturn_ring.png",
+    "textures/sun.jpg",
+    "textures/sun.jpg.json",
+    "textures/uranus.jpg",
+    "textures/venus.jpg",
+)
 
 
 def main() -> int:

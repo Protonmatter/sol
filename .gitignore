@@ -8,8 +8,13 @@ tmp-solar-web-server.pid
 synthetic_solar_maximum.ppm
 synthetic_solar_maximum.png
 
-# Downloaded planetary textures (run tools/fetch_textures.py to populate)
-apps/web/textures/
+# Committed baseline textures live in apps/web/textures/ (deploys must not depend on a
+# third-party host being up — solarsystemscope.com intermittently serves HTML block pages
+# to CI runners). tools/fetch_textures.py refreshes them; only the unused local Sun-channel
+# snapshots stay untracked.
+apps/web/textures/sun_0*.jpg
+apps/web/textures/sun_1700.jpg
+apps/web/textures/sun_hmib.jpg
 
 # Built WebAssembly engines (run tools/build_wasm.py to populate; built from source at deploy time)
 apps/web/pkg/*.wasm

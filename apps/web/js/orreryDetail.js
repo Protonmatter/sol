@@ -2,8 +2,9 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY, poleVector } from "./bodyData.js?v=32deafc09e";
-import { isRetrograde } from "./moonorbits.js?v=32deafc09e";
+import { BODY, poleVector } from "./bodyData.js?v=dec4c45ce0";
+import { isRetrograde } from "./moonorbits.js?v=dec4c45ce0";
+import { store } from "./store.js?v=dec4c45ce0";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 
@@ -173,6 +174,14 @@ export function renderDetail(name, live) {
   } else if (name === "Sun") {
     add("Luminosity", "3.828×10²⁶ W");
     add("Composition", "73% H, 25% He (by mass)");
+  }
+  if (name === "Sun") {
+    // Say what the 3-D surface actually is — a dated SDO observation or the procedural model —
+    // rather than letting an aging baseline frame pass silently as "today's Sun".
+    const t = store.orrery ? store.orrery.sunImageUnix : null;
+    add("Surface imagery", t
+      ? `NASA SDO/HMI continuum, captured ${new Date(t * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`
+      : "procedural model (no dated SDO frame available)");
   }
   card.appendChild(dl); host.appendChild(card);
 }
