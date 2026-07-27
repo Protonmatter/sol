@@ -13,28 +13,28 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=ce68304674";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=ce68304674";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=ce68304674";
-import { buildCelestial } from "./celestial.js?v=ce68304674";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=ce68304674";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=ce68304674";
+import { store } from "./store.js?v=ebbe92e1cf";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=ebbe92e1cf";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=ebbe92e1cf";
+import { buildCelestial } from "./celestial.js?v=ebbe92e1cf";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=ebbe92e1cf";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=ebbe92e1cf";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
-} from "./orreryMath.js?v=ce68304674";
+} from "./orreryMath.js?v=ebbe92e1cf";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=ce68304674";
+} from "./orreryShaders.js?v=ebbe92e1cf";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=ce68304674";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=ce68304674";
-import { renderStarDetail } from "./starDetail.js?v=ce68304674";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=ce68304674";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=ce68304674";
+} from "./orreryGalaxy.js?v=ebbe92e1cf";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=ebbe92e1cf";
+import { renderStarDetail } from "./starDetail.js?v=ebbe92e1cf";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=ebbe92e1cf";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=ebbe92e1cf";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -156,12 +156,15 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=ce68304674"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=ebbe92e1cf"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
-  ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
+  // The alpha profile rides with the photo ring: when the textured ring is what's drawn, its
+  // shadow must be cast from the SAME radial density, or toggling Photo textures would change
+  // the ring without changing its shadow (and the photo's fine gaps would not shadow at all).
+  ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true, alphaProfile: ringImageAlphaProfile(ring) }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=ce68304674";
+  ring.src = "textures/saturn_ring.png?v=ebbe92e1cf";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -170,14 +173,19 @@ function loadTextures() {
   // texture can render — a committed baseline frame may be days or months old, and mapping it
   // as if it were captured "now" would put its sunspots at the wrong solar longitudes.
   const sun = new Image();
-  sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
+  sun.onload = () => {
+    try {
+      sunTex = { tex: makeTexture(sun, false), ready: true, tint: sunDiscTint(sun) };
+      repaint();
+    } catch (e) { console.warn("sun texture", e.message); }
+  };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=ce68304674")
+  fetch("textures/sun.jpg.json?v=ebbe92e1cf")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=ce68304674";
+      sun.src = "textures/sun.jpg?v=ebbe92e1cf";
     });
 }
 
@@ -202,8 +210,8 @@ async function buildGeneratedMaps() {
   genStarted = true;
   try {
     const [geo, moons] = await Promise.all([
-      import("./geography.js?v=ce68304674"),
-      import("./moons.js?v=ce68304674"),
+      import("./geography.js?v=ebbe92e1cf"),
+      import("./moons.js?v=ebbe92e1cf"),
     ]);
     moonSet = moons;
     populateAnchorSelect(); // the Focus dropdown can now offer the 21 moons
@@ -276,7 +284,7 @@ function initGL(canvas) {
     gl = null; P = {};
     return null;
   }
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex"]);
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_sunTint", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
@@ -825,6 +833,34 @@ function drawPoints(buf, count, vp, dpr, soft, shearT = 0) {
   gl.drawArrays(gl.POINTS, 0, count);
 }
 
+// Average colour of the SDO disc (luminance-normalised), so the shader can tint the
+// procedural far side to match the frame's palette: SDO colourises HMI continuum orange,
+// while the procedural surface is cream — unmatched, the sphere read as an orange cap
+// glued onto a pale ball, with a glaring seam at the hemisphere boundary.
+function sunDiscTint(img) {
+  try {
+    const n = 64;
+    const cv = document.createElement("canvas");
+    cv.width = n; cv.height = n;
+    const ctx = cv.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, n, n);
+    const px = ctx.getImageData(0, 0, n, n).data;
+    let r = 0, g = 0, b = 0, count = 0;
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        // Central disc only: skip the black background and the limb-darkened rim.
+        if (Math.hypot(x - n / 2 + 0.5, y - n / 2 + 0.5) > n * 0.3) continue;
+        const i = (y * n + x) * 4;
+        r += px[i]; g += px[i + 1]; b += px[i + 2]; count++;
+      }
+    }
+    if (!count) return null;
+    r /= count * 255; g /= count * 255; b /= count * 255;
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    return lum > 0.05 ? [r / lum, g / lum, b / lum] : null;
+  } catch (_) { return null; } // canvas readback blocked — keep the untinted fallback
+}
+
 // The SDO disk is the Earth-facing hemisphere at its CAPTURE EPOCH — sun.jpg.json records when
 // fetch_textures.py actually downloaded the frame (a committed baseline may be months old, and
 // the mapping is only correct for the moment the image was taken). Freeze that Sun→Earth
@@ -860,11 +896,22 @@ function sunDiskBasis() {
   return sunBasisA;
 }
 
-// Lazily build (and cache) the 1-D ring-opacity texture the ring-shadow lookup samples —
-// R8, LINEAR-filtered so the shadow edges come out softly antialiased for free.
-function ringShadowProfileTex(name, phys) {
-  if (ringShadowTex[name]) return ringShadowTex[name];
-  const data = ringOpacityProfile(phys.rings);
+// Radial alpha profile of the ring photometry PNG (the same axis drawRing samples it on:
+// x = radial fraction inner→outer), for shadowing the photo ring by its own density.
+function ringImageAlphaProfile(img, n = 160) {
+  try {
+    const cv = document.createElement("canvas");
+    cv.width = n; cv.height = 1;
+    const ctx = cv.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, n, 1);
+    const px = ctx.getImageData(0, 0, n, 1).data;
+    const out = new Uint8Array(n);
+    for (let i = 0; i < n; i++) out[i] = px[i * 4 + 3];
+    return out;
+  } catch (_) { return null; } // canvas readback blocked — the model profile still applies
+}
+
+function makeProfileTex(data) {
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -874,15 +921,44 @@ function ringShadowProfileTex(name, phys) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  ringShadowTex[name] = t;
   return t;
 }
+
+// Lazily build (and cache) the 1-D ring-opacity texture the ring-shadow lookup samples —
+// R8, LINEAR-filtered so the shadow edges come out softly antialiased for free. The source
+// mirrors what drawRing actually renders: the photometry PNG's own alpha when the textured
+// Saturn ring is showing, the ringColorAt model otherwise — so ring and shadow always agree,
+// including when the Photo textures checkbox flips between them.
+function ringShadowProfileTex(name, phys) {
+  const photo = name === "Saturn" && state.useTextures && ringTex.ready && ringTex.alphaProfile;
+  const key = photo ? name + "#photo" : name;
+  if (ringShadowTex[key]) return ringShadowTex[key];
+  const data = photo ? ringTex.alphaProfile : ringOpacityProfile(phys.rings);
+  ringShadowTex[key] = makeProfileTex(data);
+  return ringShadowTex[key];
+}
+
+// Bodies whose spin phase is currently frozen (name → the unix second it froze at).
+let rotFreeze = {};
 
 function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
   const rEq = displayRadiusAU(b.name), rPol = rEq * (phys.polarKm / phys.radiusKm);
-  const rot = iauRotation(phys, state.renderUnix);
+  // Rotation phase is unresolvable once one frame covers more than about a third of the spin
+  // period — the moons' aliasedByClock Nyquist doctrine, applied to spin. A moon can be
+  // hidden; a planet cannot, so its PHASE freezes while the clock outpaces it (orbital motion
+  // continues; pause or slow down and the true IAU phase snaps back). Without this, at the
+  // default 0.5 yr/s the Sun turns ~7 times per real second and its Earth-facing SDO
+  // hemisphere strobed around the globe at ~45° per frame.
+  let rotUnix = state.renderUnix;
+  if (state.animate && state.simStepSeconds > (Math.abs(phys.rotationHours) * 3600) / 3) {
+    if (rotFreeze[b.name] == null) rotFreeze[b.name] = state.renderUnix;
+    rotUnix = rotFreeze[b.name];
+  } else if (rotFreeze[b.name] != null) {
+    delete rotFreeze[b.name];
+  }
+  const rot = iauRotation(phys, rotUnix);
   const model = mul(translate(pos), mul(rot, scaleM([rEq, rEq, rPol])));
   const mvp = mul(vp, model);
   const light = b.name === "Sun" ? [0, 0, 1] : norm([-pos[0], -pos[1], -pos[2]]);
@@ -919,6 +995,7 @@ function drawBody(b, vp, eye) {
   gl.uniform1i(P.sphereU.u_useTex, useTex ? 1 : 0);
   gl.uniform1i(P.sphereU.u_texMode, gen ? gen.texMode : 0);
   gl.uniform3fv(P.sphereU.u_sunA, new Float32Array(sunTexd ? sunDiskBasis() : [1, 0, 0]));
+  gl.uniform3fv(P.sphereU.u_sunTint, new Float32Array(sunTexd && sunTex.tint ? sunTex.tint : [0, 0, 0]));
   // Ring-shadow inputs: the light direction expressed in the BODY frame (Rᵀ·light — rot's
   // upper 3×3 is orthonormal, column-major), the annulus radii in equatorial-radius units, the
   // oblateness ratio, and the radial opacity-profile texture on unit 1. Zeroed for ringless
@@ -1538,7 +1615,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=ce68304674");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=ebbe92e1cf");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {

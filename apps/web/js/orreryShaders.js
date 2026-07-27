@@ -38,6 +38,10 @@ uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
 // see sunDiskBasis() in orrery.js. Body-frame, not camera: the image must co-rotate with the
 // Sun's real spin, not follow the eye around.
 uniform vec3 u_sunA;
+// Luminance-normalised average colour of the loaded SDO disc ((0,0,0) = no frame): the
+// procedural far side is re-tinted to this palette so the two hemispheres match — SDO
+// colourises HMI orange, and an untinted cream far side made the boundary a glaring seam.
+uniform vec3 u_sunTint;
 // Ring-shadow inputs: light direction in the body frame, the annulus radii in units of the
 // equatorial radius ((0,0) = the body has no rings), the polar/equatorial ratio (the ray must
 // start from the OBLATE surface, not the unit sphere), and the 1-D radial opacity profile
@@ -67,6 +71,9 @@ void main(){
     c+=vec3(0.10,0.07,0.02)*smoothstep(0.6,0.95,fac); // faculae — subtle, not cream blotches
     c=mix(c,vec3(0.30,0.13,0.05),spot*0.9);
     float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); c*=0.72+0.45*limb;
+    if(u_sunTint.r>0.0){ // recolour the procedural surface to the SDO frame's own palette
+      c=dot(c,vec3(0.299,0.587,0.114))*u_sunTint;
+    }
     if(u_useTex==1){ // the real, latest SDO disk, wrapped SUN-FIXED on the u_sunA hemisphere.
       // Basis lives in the body frame (p, not N), so it needs no per-frame camera input and
       // cannot degenerate in the top-down view. Solar north is the body frame's +z; Earth
@@ -149,7 +156,10 @@ void main(){
         float rr=length(q.xy+lo.xy*s);
         float f=(rr-u_ringRad.x)/(u_ringRad.y-u_ringRad.x);
         if(f>0.0&&f<1.0){
-          col*=1.0-0.72*texture(u_ringTex,vec2(f,0.5)).r;
+          // Soft annulus mask: CLAMP_TO_EDGE LINEAR cannot interpolate toward transparency
+          // past the first/last texel, so without this the shadow cut on at the boundary.
+          float m=smoothstep(0.0,0.015,f)*(1.0-smoothstep(0.985,1.0,f));
+          col*=1.0-0.72*m*texture(u_ringTex,vec2(f,0.5)).r;
         }
       }
     }
