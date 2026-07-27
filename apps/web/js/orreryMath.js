@@ -3,7 +3,7 @@
 // no module state — extracted from orrery.js along the same data+pure-function lines as
 // celestial.js and smallbodies.js, so it is reviewable (and testable) in isolation.
 
-import { rotationPhase, poleAt } from "./bodyData.js?v=dec4c45ce0";
+import { rotationPhase, poleAt } from "./bodyData.js?v=481714bf23";
 
 // ---------------------------------------------------------------- mat/vec (column-major)
 export function perspective(fovy, aspect, near, far) {
@@ -83,6 +83,7 @@ export function buildRing(rings, rEqAU, radiusKm) {
   const inner = (rings.innerKm / radiusKm) * rEqAU;
   const outer = (rings.outerKm / radiusKm) * rEqAU;
   const RAD = 56, ANG = 120, v = [];
+  const kmToAU = (km) => (km / radiusKm) * rEqAU;
   const colorAt = (rAU) => {
     const km = (rAU / rEqAU) * radiusKm;
     if (rings.gaps) for (const [g0, g1] of rings.gaps) if (km > g0 && km < g1) return [0, 0, 0, 0];
@@ -93,16 +94,28 @@ export function buildRing(rings, rEqAU, radiusKm) {
     else { a = 0.5; tint = [0.78, 0.72, 0.56]; }                    // A ring
     return [tint[0], tint[1], tint[2], a];
   };
-  for (let i = 0; i < RAD; i++) {
-    const f0 = i / RAD, f1 = (i + 1) / RAD;
-    const r0 = inner + (outer - inner) * f0;
-    const r1 = inner + (outer - inner) * f1;
-    const c0 = colorAt(r0), c1 = colorAt(r1);
+  // Radial breakpoints: the uniform grid PLUS the exact section and gap radii, with each
+  // band coloured from its midpoint. Sampling colour at uniform band edges quantised every
+  // boundary to 1/56 of the span — the Cassini Division's edges could land ~±1,100 km off.
+  const anchors = new Set([inner, outer]);
+  for (let i = 1; i < RAD; i++) anchors.add(inner + (outer - inner) * (i / RAD));
+  if (rings.gaps) {
+    for (const [g0, g1] of rings.gaps) { anchors.add(kmToAU(g0)); anchors.add(kmToAU(g1)); }
+    for (const km of [92000, 117580]) { // the C/B and B/A section boundaries in colorAt
+      const r = kmToAU(km);
+      if (r > inner && r < outer) anchors.add(r);
+    }
+  }
+  const radii = [...anchors].sort((a, b) => a - b);
+  for (let i = 0; i + 1 < radii.length; i++) {
+    const r0 = radii[i], r1 = radii[i + 1];
+    const f0 = (r0 - inner) / (outer - inner), f1 = (r1 - inner) / (outer - inner);
+    const c = colorAt((r0 + r1) / 2);
     for (let j = 0; j < ANG; j++) {
       const t0 = (j / ANG) * 2 * Math.PI, t1 = ((j + 1) / ANG) * 2 * Math.PI;
-      const p = (r, t, c, f) => v.push(r * Math.cos(t), r * Math.sin(t), 0, c[0], c[1], c[2], c[3], f);
-      p(r0, t0, c0, f0); p(r1, t0, c1, f1); p(r1, t1, c1, f1);
-      p(r0, t0, c0, f0); p(r1, t1, c1, f1); p(r0, t1, c0, f0);
+      const p = (r, t, f) => v.push(r * Math.cos(t), r * Math.sin(t), 0, c[0], c[1], c[2], c[3], f);
+      p(r0, t0, f0); p(r1, t0, f1); p(r1, t1, f1);
+      p(r0, t0, f0); p(r1, t1, f1); p(r0, t1, f0);
     }
   }
   return new Float32Array(v);

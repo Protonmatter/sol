@@ -13,28 +13,28 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=dec4c45ce0";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=dec4c45ce0";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=dec4c45ce0";
-import { buildCelestial } from "./celestial.js?v=dec4c45ce0";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=dec4c45ce0";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=dec4c45ce0";
+import { store } from "./store.js?v=481714bf23";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=481714bf23";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=481714bf23";
+import { buildCelestial } from "./celestial.js?v=481714bf23";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=481714bf23";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=481714bf23";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=dec4c45ce0";
+} from "./orreryMath.js?v=481714bf23";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=dec4c45ce0";
+} from "./orreryShaders.js?v=481714bf23";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=dec4c45ce0";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=dec4c45ce0";
-import { renderStarDetail } from "./starDetail.js?v=dec4c45ce0";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dec4c45ce0";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=dec4c45ce0";
+} from "./orreryGalaxy.js?v=481714bf23";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=481714bf23";
+import { renderStarDetail } from "./starDetail.js?v=481714bf23";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=481714bf23";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=481714bf23";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -155,12 +155,12 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=dec4c45ce0"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=481714bf23"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=dec4c45ce0";
+  ring.src = "textures/saturn_ring.png?v=481714bf23";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -171,12 +171,12 @@ function loadTextures() {
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=dec4c45ce0")
+  fetch("textures/sun.jpg.json?v=481714bf23")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=dec4c45ce0";
+      sun.src = "textures/sun.jpg?v=481714bf23";
     });
 }
 
@@ -201,8 +201,8 @@ async function buildGeneratedMaps() {
   genStarted = true;
   try {
     const [geo, moons] = await Promise.all([
-      import("./geography.js?v=dec4c45ce0"),
-      import("./moons.js?v=dec4c45ce0"),
+      import("./geography.js?v=481714bf23"),
+      import("./moons.js?v=481714bf23"),
     ]);
     moonSet = moons;
     populateAnchorSelect(); // the Focus dropdown can now offer the 21 moons
@@ -275,9 +275,9 @@ function initGL(canvas) {
     gl = null; P = {};
     return null;
   }
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA"]);
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_ringGap"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
-  P.ringU = uloc(P.ring, ["u_mvp", "u_useTex", "u_tex"]);
+  P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
 
@@ -900,6 +900,21 @@ function drawBody(b, vp, eye) {
   gl.uniform1i(P.sphereU.u_useTex, useTex ? 1 : 0);
   gl.uniform1i(P.sphereU.u_texMode, gen ? gen.texMode : 0);
   gl.uniform3fv(P.sphereU.u_sunA, new Float32Array(sunTexd ? sunDiskBasis() : [1, 0, 0]));
+  // Ring-shadow inputs: the light direction expressed in the BODY frame (Rᵀ·light — rot's
+  // upper 3×3 is orthonormal, column-major) plus the annulus/gap radii in equatorial-radius
+  // units. Zeroed for ringless bodies, and re-zeroed by drawMoons (same program, stale state).
+  gl.uniform3fv(P.sphereU.u_lightObj, new Float32Array([
+    rot[0] * light[0] + rot[1] * light[1] + rot[2] * light[2],
+    rot[4] * light[0] + rot[5] * light[1] + rot[6] * light[2],
+    rot[8] * light[0] + rot[9] * light[1] + rot[10] * light[2],
+  ]));
+  gl.uniform2fv(P.sphereU.u_ringRad, new Float32Array(
+    phys.rings ? [phys.rings.innerKm / phys.radiusKm, phys.rings.outerKm / phys.radiusKm] : [0, 0],
+  ));
+  gl.uniform2fv(P.sphereU.u_ringGap, new Float32Array(
+    phys.rings && phys.rings.gaps
+      ? [phys.rings.gaps[0][0] / phys.radiusKm, phys.rings.gaps[0][1] / phys.radiusKm] : [0, 0],
+  ));
 
   gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
@@ -1034,6 +1049,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
     gl.uniform1i(P.sphereU.u_tex, 0);
     gl.uniform1i(P.sphereU.u_useTex, 0);
     gl.uniform1i(P.sphereU.u_texMode, 0);
+    gl.uniform2fv(P.sphereU.u_ringRad, new Float32Array([0, 0])); // no ring shadow on moons — clear the parent's state
 
     gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
@@ -1060,6 +1076,11 @@ function drawRing(name, phys, pos, rEq, rot, vp) {
   const useTex = state.useTextures && name === "Saturn" && ringTex.ready;
   const model = mul(translate(pos), rot);
   gl.useProgram(P.ring); gl.uniformMatrix4fv(P.ringU.u_mvp, false, new Float32Array(mul(vp, model)));
+  gl.uniformMatrix4fv(P.ringU.u_model, false, new Float32Array(model));
+  // Planet-shadow inputs: world centre, unit direction toward the Sun, display radius.
+  gl.uniform3fv(P.ringU.u_center, new Float32Array(pos));
+  gl.uniform3fv(P.ringU.u_light, new Float32Array(norm([-pos[0], -pos[1], -pos[2]])));
+  gl.uniform1f(P.ringU.u_prad, rEq);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, useTex ? ringTex.tex : whiteTex);
   gl.uniform1i(P.ringU.u_tex, 0); gl.uniform1i(P.ringU.u_useTex, useTex ? 1 : 0);
   gl.bindBuffer(gl.ARRAY_BUFFER, ringBufs[name].buf);
@@ -1496,7 +1517,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=dec4c45ce0");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=481714bf23");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {

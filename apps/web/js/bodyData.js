@@ -41,7 +41,7 @@ export const BODY = {
     magDipoleEarth: 0.0006, magnetosphere: true,
     atmosphere: { pressureBar: 1e-15, composition: "trace exosphere (O, Na, H, He, K)" },
     albedo: 0.142, meanTempK: 440, style: "cratered", color: [0.62, 0.57, 0.50],
-    blurb: "Airless, heavily cratered, 3:2 spin–orbit resonance. A weak global dipole (~1% of Earth's) sustains a small magnetosphere.",
+    blurb: "Airless, heavily cratered, 3:2 spin–orbit resonance. A weak global dipole — surface field ~1% of Earth's, dipole moment ~0.06% — sustains a small magnetosphere.",
   },
   Venus: {
     radiusKm: 6051.8, polarKm: 6051.8, massKg: 4.867e24, densityGcm3: 5.243,
