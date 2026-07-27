@@ -121,7 +121,7 @@ void main(){
   else if(u_style==5){ float warp=fbm(p*vec3(3.0,8.0,3.0));                                     // Jupiter
         float b=sin(lat*22.0+1.6*warp); vec3 zone=vec3(0.92,0.85,0.70),belt=vec3(0.72,0.52,0.36);
         col=mix(belt,zone,smoothstep(-0.3,0.3,b)); col*=0.9+0.2*fbm(p*vec3(10.0,3.0,10.0));
-        float lon=atan(p.y,p.x); float grs=smoothstep(0.16,0.0,length(vec2((lon-2.2),(lat+0.34)*2.0)));
+        float lon=atan(p.y,p.x); float grs=1.0-smoothstep(0.0,0.16,length(vec2((lon-2.2),(lat+0.34)*2.0)));
         col=mix(col,vec3(0.80,0.34,0.22),grs); }
   else if(u_style==6){ float warp=fbm(p*vec3(3.0,7.0,3.0));                                     // Saturn
         float b=sin(lat*18.0+1.4*warp); col=mix(vec3(0.80,0.72,0.52),vec3(0.95,0.90,0.72),smoothstep(-0.3,0.3,b)); }
@@ -129,7 +129,7 @@ void main(){
         col=mix(vec3(0.58,0.83,0.86),vec3(0.72,0.92,0.93),0.5+0.5*b); }
   else if(u_style==8){ float warp=fbm(p*vec3(3.0,6.0,3.0));                                     // Neptune
         float b=sin(lat*9.0+1.2*warp); col=mix(vec3(0.18,0.34,0.78),vec3(0.30,0.46,0.88),0.5+0.5*b);
-        float lon=atan(p.y,p.x); col=mix(col,vec3(0.10,0.16,0.40),smoothstep(0.14,0.0,length(vec2(lon+1.0,(lat-0.3)*2.0)))); }
+        float lon=atan(p.y,p.x); col=mix(col,vec3(0.10,0.16,0.40),1.0-smoothstep(0.0,0.14,length(vec2(lon+1.0,(lat-0.3)*2.0)))); }
   // Real IAU albedo units multiplied over the procedural detail. 0.5 is the neutral level, so
   // an empty map is a no-op; 2.0 maps a fully bright patch to double and a dark one to zero.
   // The procedural crater field is deliberately damped toward the base colour first: on its own
@@ -219,7 +219,7 @@ void main(){
 export const PT_FS = `#version 300 es
 precision highp float; in vec4 v_col; out vec4 o; uniform float u_soft;
 void main(){ float d=length(gl_PointCoord-vec2(0.5))*2.0; if(d>1.0) discard;
-  float a=mix(step(d,1.0), smoothstep(1.0,0.0,d), u_soft); o=vec4(v_col.rgb, v_col.a*a); }`;
+  float a=mix(step(d,1.0), 1.0-smoothstep(0.0,1.0,d), u_soft); o=vec4(v_col.rgb, v_col.a*a); }`;
 
 export const GLOW_VS = `#version 300 es
 layout(location=0) in vec2 a_corner;
