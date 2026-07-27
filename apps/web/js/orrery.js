@@ -13,28 +13,28 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=32deafc09e";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=32deafc09e";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=32deafc09e";
-import { buildCelestial } from "./celestial.js?v=32deafc09e";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=32deafc09e";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=32deafc09e";
+import { store } from "./store.js?v=e8844e92f6";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=e8844e92f6";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=e8844e92f6";
+import { buildCelestial } from "./celestial.js?v=e8844e92f6";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=e8844e92f6";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=e8844e92f6";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ellipse3d,
-} from "./orreryMath.js?v=32deafc09e";
+} from "./orreryMath.js?v=e8844e92f6";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=32deafc09e";
+} from "./orreryShaders.js?v=e8844e92f6";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=32deafc09e";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=32deafc09e";
-import { renderStarDetail } from "./starDetail.js?v=32deafc09e";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=32deafc09e";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=32deafc09e";
+} from "./orreryGalaxy.js?v=e8844e92f6";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=e8844e92f6";
+import { renderStarDetail } from "./starDetail.js?v=e8844e92f6";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=e8844e92f6";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=e8844e92f6";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -86,6 +86,7 @@ const state = (store.orrery = {
   renderUnix: Date.now() / 1000, simElapsed: 0, galYears: 0, selected: null, backend: "",
   simStepSeconds: 0, // simulated seconds covered by the last frame (0 when paused)
   moonsHiddenReason: "", // why the moon layer is suppressed, surfaced in the accuracy line
+  sunImageUnix: null, // capture epoch of textures/sun.jpg (from sun.jpg.json); null = unknown/procedural
   moonsAliasedCount: 0, // accumulated across every visible parent system in one paint
   bodies: [], lastTick: 0,
 });
@@ -154,19 +155,29 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=32deafc09e"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=e8844e92f6"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=32deafc09e";
-  // The real, latest Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
+  ring.src = "textures/saturn_ring.png?v=e8844e92f6";
+  // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
+  // Its capture-epoch metadata (sun.jpg.json, written by the same script) must resolve FIRST:
+  // sunDiskBasis freezes the disk basis on first use, so the epoch has to be known before the
+  // texture can render — a committed baseline frame may be days or months old, and mapping it
+  // as if it were captured "now" would put its sunspots at the wrong solar longitudes.
   const sun = new Image();
   sun.onload = () => { try { sunTex = { tex: makeTexture(sun, false), ready: true }; repaint(); } catch (e) { console.warn("sun texture", e.message); } };
   sun.onerror = () => texMissing("sun.jpg");
-  sun.src = "textures/sun.jpg?v=32deafc09e";
+  fetch("textures/sun.jpg.json?v=e8844e92f6")
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null)
+    .then((meta) => {
+      state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
+      sun.src = "textures/sun.jpg?v=e8844e92f6";
+    });
 }
 
 // Build the generated surface maps from the committed geography. One body per idle slice: the
@@ -190,8 +201,8 @@ async function buildGeneratedMaps() {
   genStarted = true;
   try {
     const [geo, moons] = await Promise.all([
-      import("./geography.js?v=32deafc09e"),
-      import("./moons.js?v=32deafc09e"),
+      import("./geography.js?v=e8844e92f6"),
+      import("./moons.js?v=e8844e92f6"),
     ]);
     moonSet = moons;
     populateAnchorSelect(); // the Focus dropdown can now offer the 21 moons
@@ -813,16 +824,18 @@ function drawPoints(buf, count, vp, dpr, soft, shearT = 0) {
   gl.drawArrays(gl.POINTS, 0, count);
 }
 
-// The SDO disk is the Earth-facing hemisphere as of (approximately) the moment this session
-// loaded — fetch_textures.py mirrors "latest", and a few hours of solar rotation is under a
-// degree. Freeze that Sun→Earth direction ONCE, expressed in the Sun's rotating body frame, so
-// the shader keeps the image glued to the surface: it co-rotates with the real IAU spin, and
-// sunspots stay put as the camera orbits (the old camera-locked basis dragged them around, and
-// its cross([0,0,1], camera) degenerated to NaN in the top-down view).
+// The SDO disk is the Earth-facing hemisphere at its CAPTURE EPOCH — sun.jpg.json records when
+// fetch_textures.py actually downloaded the frame (a committed baseline may be months old, and
+// the mapping is only correct for the moment the image was taken). Freeze that Sun→Earth
+// direction ONCE, expressed in the Sun's rotating body frame, so the shader keeps the image
+// glued to the surface: it co-rotates with the real IAU spin, and sunspots stay put as the
+// camera orbits (the old camera-locked basis dragged them around, and its
+// cross([0,0,1], camera) degenerated to NaN in the top-down view). Without metadata we fall
+// back to "now" — right for a freshly fetched frame, the pre-metadata behaviour otherwise.
 let sunBasisA = null;
 function sunDiskBasis() {
   if (sunBasisA) return sunBasisA;
-  const nowUnix = Date.now() / 1000; // capture epoch: real now, not the scrubbed sim time
+  const nowUnix = state.sunImageUnix || Date.now() / 1000; // the frame's capture epoch, never the scrubbed sim time
   let d = null;
   try {
     const positions = systemPositions(nowUnix);
@@ -1483,7 +1496,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=32deafc09e");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=e8844e92f6");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {

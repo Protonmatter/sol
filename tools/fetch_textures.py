@@ -18,7 +18,9 @@ Usage:  python tools/fetch_textures.py [--force]
 
 from __future__ import annotations
 
+import json
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
@@ -66,16 +68,31 @@ def fetch(key: str, url: str) -> tuple[str, int]:
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     total, ok = 0, 0
-    attribution = ["Planetary texture maps used by the 3-D View (apps/web/js/orrery.js).", ""]
     for key, (url, src) in TEXTURES.items():
         try:
             msg, n = fetch(key, url)
             print(f"  {msg}  ({n // 1024} KB)")
             total += n
             ok += 1
-            attribution.append(f"{key}: {src}\n    {url}")
+            if key == "sun" and msg.startswith("saved"):
+                # The Sun frame is a dated observation, not a static map: record its capture
+                # epoch so the renderer can build the disk basis for the moment the image was
+                # actually taken (apps/web/js/orrery.js sunDiskBasis) and label its age
+                # honestly, instead of assuming "now" as a committed baseline ages.
+                (OUT / "sun.jpg.json").write_text(
+                    json.dumps({"fetched_unix": int(time.time()), "source": url}) + "\n",
+                    encoding="utf-8",
+                )
         except Exception as e:  # noqa: BLE001 — best-effort; missing files fall back to procedural
             print(f"  FAILED {key}: {e}")
+    # Attribution covers every catalogued file PRESENT on disk, not just this run's successes:
+    # a failed refresh retains the committed baseline image, so it must retain that image's
+    # attribution line too — a partial fetch must never strip credits for files still shipped.
+    attribution = ["Planetary texture maps used by the 3-D View (apps/web/js/orrery.js).", ""]
+    for key, (url, src) in TEXTURES.items():
+        ext = ".png" if url.endswith(".png") else ".jpg"
+        if (OUT / f"{key}{ext}").exists():
+            attribution.append(f"{key}: {src}\n    {url}")
     (OUT / "ATTRIBUTION.txt").write_text("\n".join(attribution) + "\n", encoding="utf-8")
     print(f"{ok}/{len(TEXTURES)} textures in {OUT}  ({total // 1024} KB total)")
     return 0
