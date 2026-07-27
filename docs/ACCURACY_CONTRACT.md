@@ -2,19 +2,23 @@
 
 This document is the binding statement of what "correct" means for every physical quantity
 the app renders, which source of truth defines it, what tolerance is acceptable, and which
-automated gate enforces it. **A PR that changes any governed quantity without updating the
-matching pin and citing a source edition must fail CI.** The procedure for intentional
-changes is in [DATA_UPDATE_PLAYBOOK.md](DATA_UPDATE_PLAYBOOK.md).
+automated gate enforces it. **What CI machine-enforces:** a PR that changes a governed value
+in only one place — code without pin, or pin without code — fails. **What review enforces:**
+a PR that changes value and pin together must cite the source edition in its description;
+no gate can verify a citation's truth, so that remains a human check, aided by the per-value
+provenance comments the pins carry. The procedure for intentional changes is in
+[DATA_UPDATE_PLAYBOOK.md](DATA_UPDATE_PLAYBOOK.md).
 
 ## 1. Governed quantities, sources, tolerances, gates
 
 | Quantity | Source of truth | Tolerance | Enforced by | When |
 | --- | --- | --- | --- | --- |
-| Heliocentric planet positions | VSOP2013 (inner) / TOP2013 (giants) vs JPL Horizons **DE441** | ≤ ~4″ near-present pointing (`sep`), sub-arcsec vs theory sources at ±5000 yr | `cargo test --workspace`; `tools/validate_ephemeris.py` (gate: sep ≤ 6″, d_alt ≤ 6″) | every PR (cargo); weekly + manual (Horizons, networked) |
-| Moon (Luna) topocentric position | ELP-MPP02 vs JPL Horizons DE441 | ≤ ~1.5″ near-present; syzygy ≤ ~5″ | `tools/validate_ephemeris.py`, `tools/stress_moon_syzygy.py` | weekly + manual (networked) |
+| Heliocentric planet positions | VSOP2013 (inner) / TOP2013 (giants) vs JPL Horizons **DE441** | measured ≤ ~4″ near-present pointing (`sep`); **enforced gate 10″** (≈2× measured worst, so a real regression can never hide in the margin); sub-arcsec vs theory sources at ±5000 yr | `cargo test --workspace`; `tools/validate_ephemeris.py` | every PR (cargo); weekly + manual (Horizons, networked) |
+| Moon (Luna) topocentric position | ELP-MPP02 vs JPL Horizons DE441 | measured ≤ ~5.2″ near-present, syzygy ≤ ~5″; **enforced gates 12″ (general) / 10″ (syzygy)** — the historical +20″ aberration mistake must always fail | `tools/validate_ephemeris.py`, `tools/stress_moon_syzygy.py` | weekly + manual (networked) |
 | The 21 major-moon orbits | JPL Horizons osculating elements, weekly knots (3.5-day for Mimas/Enceladus) | validated against committed Horizons state vectors between knots; positions honest to “which side of the planet”, never occultation-grade | `tools/validate_moons.py` (regen-stable + byte-identity + interpolation check, offline) | every PR |
 | Moon validity window | elements are only trusted where validated | outside the window moons are hidden, never guessed | `MOON_VALID_MIN_JD`/`MAX_JD` runtime guard + browser smoke `data-smoke-validity` | every PR |
-| Rotational elements (pole α₀/δ₀ + rates, W₀, Ẇ) | **IAU WGCCRE 2015** (Archinal et al. 2018 + 2019 correction), as distributed in NAIF `pck00011.tpc` | exact transcription (rel. 1e-12) | `tools/validate_body_constants.py` | every PR |
+| Rotational elements (pole α₀/δ₀ + rates, W₀, Ẇ, periodic terms) | **IAU WGCCRE 2015** (Archinal et al. 2018 + 2019 correction), as distributed in NAIF `pck00011.tpc` | exact transcription (rel. 1e-12) of everything the renderer applies — including Neptune's single-term `poleNut` correction and Earth's rendered `precession` model; a `poleNut`/`precession` object present in code but absent from the pin fails | `tools/validate_body_constants.py` | every PR |
+| Rotation-model truncations | series terms the linear model deliberately omits | Mars: 2015 multi-term series omitted (kept self-consistent 2009 constants; §2.1); Moon: IAU libration series omitted (~1–3° meridian; libration shown numerically on the card); Jupiter: sub-millidegree nut-prec terms omitted | documented here; Mars additionally pinned + comment-guarded | — |
 | Sidereal periods shown in UI (`rotationHours`) | must agree with the Ẇ actually rendered | ≤ 0.15 h of 360/\|Ẇ\| (fact-sheet rounding), same sign as Ẇ | `tools/validate_body_constants.py` | every PR |
 | Radii, oblateness, masses, axial tilts | NASA planetary fact sheets (NSSDC) | exact transcription; polar ≤ equatorial | `tools/validate_body_constants.py` | every PR |
 | Ring radii + Cassini Division | NASA/Cassini ring structure | exact transcription; gap strictly inside the annulus; drawn edges land on the true radii (midpoint-coloured breakpoint bands) | `tools/validate_body_constants.py` (radii); geometry by construction in `orreryMath.buildRing` | every PR |
@@ -22,7 +26,8 @@ changes is in [DATA_UPDATE_PLAYBOOK.md](DATA_UPDATE_PLAYBOOK.md).
 | Surface geography (coastlines, maria) | committed pristine sources | regen byte-identity | `tools/generate_geography.py --check` | every PR |
 | Earth orientation (ΔT / EOP) | measured IERS knots + plateau | prediction coverage ≥ 90 days | `tools/check_eop_freshness.py` | every PR |
 | GLSL hygiene | GLSL ES 3.00 spec | `smoothstep` literal edges strictly increasing (reversed edges are undefined and have shipped visible bugs) | `tools/validate_body_constants.py` | every PR |
-| Sun surface imagery epoch | SDO/HMI frame + its recorded capture time | disk basis computed for the capture epoch in `sun.jpg.json`, never assumed “now”; capture date shown on the Sun card | code path (`sunDiskBasis`); metadata written by `tools/fetch_textures.py` | every deploy |
+| True-scale unit | IAU 2012 AU definition (149,597,870.7 km) | `AU_KM` pinned exactly — true-scale mode divides real radii by it | `tools/validate_body_constants.py` | every PR |
+| Sun surface imagery epoch | SDO/HMI frame + `sun.jpg.json` `fetched_unix` | the disk basis is computed for the recorded FETCH epoch — an upper bound on capture time; SDO's "latest" endpoint lags by up to ~1 h (≤ ~0.6° of solar rotation), which is the accepted error. If the metadata is absent (pre-metadata builds), the load time is the documented fallback | code path (`sunDiskBasis`); metadata written by `tools/fetch_textures.py` | every deploy |
 
 ## 2. Documented exceptions — do not "fix" these
 
@@ -63,5 +68,7 @@ protected by a comment in the code and (where applicable) by the constants gate.
 
 To change any governed value: update the code, update the pin in
 `tools/validate_body_constants.py` (or the relevant regen source), and cite the new source
-edition in the PR — all in the same PR, so the gate turns red on half-updates. Details and
-current source editions: [DATA_UPDATE_PLAYBOOK.md](DATA_UPDATE_PLAYBOOK.md).
+edition in the PR — all in the same PR. The gate turns red on half-updates automatically;
+the citation is verified by review (see the header note on what is machine- vs
+human-enforced). Details and current source editions:
+[DATA_UPDATE_PLAYBOOK.md](DATA_UPDATE_PLAYBOOK.md).

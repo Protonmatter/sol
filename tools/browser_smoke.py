@@ -61,6 +61,25 @@ const smokeWait = (test) => new Promise(resolve => {
 });
 addEventListener("load", async () => {
   const body = document.body;
+  // Live sim-state trace: the last frame's rate / step / aliased-count / frozen-count /
+  // moon-note flag land in the dump, so a starved wait shows WHAT the simulation was doing
+  // instead of just which marker went missing.
+  try {
+    const href = document.querySelector('link[href^="js/store.js"]').getAttribute("href");
+    const { store } = await import("./" + href);
+    const trace = () => {
+      const o = store.orrery || {};
+      body.dataset.smokeSim = [
+        "yps=" + Number(o.yearsPerSec).toPrecision(3),
+        "stepD=" + (o.simStepSeconds / 86400).toPrecision(3),
+        "aliased=" + o.moonsAliasedCount,
+        "frozen=" + o.spinFrozenCount,
+        "note=" + (o.moonsHiddenReason ? o.moonsHiddenReason.slice(0, 40) : "-"),
+      ].join(" ");
+      requestAnimationFrame(trace);
+    };
+    trace();
+  } catch (e) { smokeErr("trace: " + e.message); }
   const ready = await smokeWait(() =>
     document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21
     && document.getElementById("orreryBackend")?.textContent.includes("WebGL2"));

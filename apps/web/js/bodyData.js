@@ -123,6 +123,11 @@ export const BODY = {
     // all describe the same rotation.
     gravity: 11.15, escapeKms: 23.5, rotationHours: 15.9663, tiltDeg: 28.32,
     poleRaDeg: 299.36, poleDecDeg: 43.46, poleRaDotDegPerCty: 0.0, poleDecDotDegPerCty: 0.0, w0Deg: 249.978, wDotDegPerDay: 541.1397757,
+    // pck00011 BODY899_NUT_PREC: +0.70° sin N (RA), −0.51° cos N (Dec), −0.48° sin N (W),
+    // N = 357.85° + 52.316°·T — Neptune's pole precesses about Triton's orbit normal, and this
+    // single term is the entire published correction (unlike Mars's ~10-term series). Dropping
+    // it put the rendered pole up to 0.7° off while the constants gate reported a source match.
+    poleNut: { n0Deg: 357.85, nDotDegPerCty: 52.316, raAmpDeg: 0.70, decAmpDeg: -0.51, wAmpDeg: -0.48 },
     magDipoleEarth: 27, magnetosphere: true,
     atmosphere: { pressureBar: NaN, composition: "80% H₂, 19% He, 1.5% CH₄" },
     albedo: 0.442, meanTempK: 72, style: "neptune", color: [0.26, 0.40, 0.84],
@@ -212,8 +217,19 @@ export function poleAt(phys, unixSeconds) {
   }
   // Everyone else: the IAU linear rates. Their magnitudes are small enough (Mars, the largest at
   // −0.061°/cty in declination, moves 3° over the slider's full range) that the tangent stays a
-  // good approximation and δ0 never leaves range.
+  // good approximation and δ0 never leaves range. Bodies with a single dominant periodic term
+  // (Neptune: ±0.70° in RA / ∓0.51° in Dec on N = 357.85° + 52.316°·T) carry it as `poleNut` —
+  // dropping it would render a pole up to 0.7° off while the constants gate reported an exact
+  // source match. Multi-term series (Mars 2015, the Moon's libration series) remain truncations
+  // documented in docs/ACCURACY_CONTRACT.md.
   const T = days / 36525;
+  if (phys.poleNut) {
+    const n = (phys.poleNut.n0Deg + phys.poleNut.nDotDegPerCty * T) * D2R;
+    return [
+      phys.poleRaDeg + phys.poleRaDotDegPerCty * T + phys.poleNut.raAmpDeg * Math.sin(n),
+      phys.poleDecDeg + phys.poleDecDotDegPerCty * T + phys.poleNut.decAmpDeg * Math.cos(n),
+    ];
+  }
   return [
     phys.poleRaDeg + (phys.poleRaDotDegPerCty || 0) * T,
     phys.poleDecDeg + (phys.poleDecDotDegPerCty || 0) * T,
@@ -230,5 +246,11 @@ export function poleVector(phys, unixSeconds) {
 // The IAU prime-meridian rotation angle W (radians) at a Unix time — drives the visible spin.
 export function rotationPhase(phys, unixSeconds) {
   const d = daysFromJ2000(unixSeconds);
-  return ((phys.w0Deg + phys.wDotDegPerDay * d) % 360) * Math.PI / 180;
+  let w = phys.w0Deg + phys.wDotDegPerDay * d;
+  if (phys.poleNut && phys.poleNut.wAmpDeg) {
+    // The same periodic argument corrects W (Neptune: −0.48°·sin N per pck00011).
+    const n = (phys.poleNut.n0Deg + phys.poleNut.nDotDegPerCty * (d / 36525)) * D2R;
+    w += phys.poleNut.wAmpDeg * Math.sin(n);
+  }
+  return (w % 360) * Math.PI / 180;
 }

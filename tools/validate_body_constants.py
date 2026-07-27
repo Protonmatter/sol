@@ -70,11 +70,15 @@ REFERENCE: dict[str, dict] = {
         "poleRaDotDegPerCty": 0, "poleDecDotDegPerCty": 0,
         "w0Deg": 160.2, "wDotDegPerDay": -1.4813688, "rings": None,
     },
+    # Earth's RENDERED axis comes from the `precession` branch of poleAt() (a great-circle
+    # walk about the ecliptic pole), not the four linear pole fields — so that object is
+    # pinned too: 50.2879″/yr is the IAU general precession in longitude at J2000.
     "Earth": {
         "radiusKm": 6378.14, "polarKm": 6356.75, "massKg": 5.972e24, "tiltDeg": 23.44,
         "rotationHours": 23.9345, "poleRaDeg": 0, "poleDecDeg": 90,
         "poleRaDotDegPerCty": -0.641, "poleDecDotDegPerCty": -0.557,
         "w0Deg": 190.147, "wDotDegPerDay": 360.9856235, "rings": None,
+        "precession": {"obliquityDeg": 23.43928, "rateArcsecPerYear": 50.2879, "lon0Deg": 90},
     },
     # IAU 2009 ON PURPOSE — see the module docstring. Do not update to the 2015 constants
     # without implementing the 2015 trigonometric series in poleAt()/rotationPhase().
@@ -106,12 +110,16 @@ REFERENCE: dict[str, dict] = {
     },
     # WGCCRE 2015: W = 249.978 + 541.1397757·d (15.9663 h). The 2009 values
     # (253.18 + 536.3128492·d, 16.11 h — still on NASA's fact sheet) are RETIRED.
+    # poleNut is pck00011's single-term periodic correction — Neptune's whole published
+    # series, and the renderer applies it (poleAt/rotationPhase), so it is pinned too.
     "Neptune": {
         "radiusKm": 24764, "polarKm": 24341, "massKg": 1.024e26, "tiltDeg": 28.32,
         "rotationHours": 15.9663, "poleRaDeg": 299.36, "poleDecDeg": 43.46,
         "poleRaDotDegPerCty": 0, "poleDecDotDegPerCty": 0,
         "w0Deg": 249.978, "wDotDegPerDay": 541.1397757,
         "rings": {"innerKm": 41900, "outerKm": 62930},
+        "poleNut": {"n0Deg": 357.85, "nDotDegPerCty": 52.316,
+                    "raAmpDeg": 0.70, "decAmpDeg": -0.51, "wAmpDeg": -0.48},
     },
     "Moon": {
         "radiusKm": 1737.4, "polarKm": 1736, "massKg": 7.342e22, "tiltDeg": 6.68,
@@ -128,11 +136,14 @@ MARS_GUARD_CONTEXT = "trigonometric series"
 ROTATION_HOURS_TOLERANCE_H = 0.15  # published sidereal periods are fact-sheet-rounded
 
 
+AU_KM_PINNED = 149597870.7  # IAU 2012 definition; true-scale mode divides real radii by this
+
+
 def dump_body_module() -> dict:
     node = shutil.which("node") or r"C:\Program Files\nodejs\node.exe"
     script = (
         "import(process.argv[1]).then(m => "
-        "console.log(JSON.stringify(m.BODY)))"
+        "console.log(JSON.stringify({ BODY: m.BODY, AU_KM: m.AU_KM })))"
         ".catch(e => { console.error(e); process.exit(1); })"
     )
     url = BODY_DATA.resolve().as_uri()
@@ -152,8 +163,25 @@ def close(a: float, b: float) -> bool:
     return math.isclose(a, b, rel_tol=1e-12, abs_tol=1e-12)
 
 
-def check_bodies(body: dict) -> list[str]:
+def check_nested(name: str, field: str, want: dict, have) -> list[str]:
+    if not isinstance(have, dict):
+        return [f"{name}.{field}: have {have!r}, pinned {want!r}"]
+    errs = []
+    for k, w in want.items():
+        h = have.get(k)
+        if h is None or not close(float(h), float(w)):
+            errs.append(f"{name}.{field}.{k}: have {h!r}, pinned {w!r}")
+    for k in have:
+        if k not in want:
+            errs.append(f"{name}.{field}.{k}: unexpected unpinned key {have[k]!r}")
+    return errs
+
+
+def check_bodies(dump: dict) -> list[str]:
     errors: list[str] = []
+    body = dump["BODY"]
+    if not close(float(dump.get("AU_KM") or -1), AU_KM_PINNED):
+        errors.append(f"AU_KM: have {dump.get('AU_KM')!r}, pinned {AU_KM_PINNED!r} — true-scale rendering divides by this")
     for name, ref in REFERENCE.items():
         got = body.get(name)
         if got is None:
@@ -163,9 +191,16 @@ def check_bodies(body: dict) -> list[str]:
             if field == "rings":
                 continue
             have = got.get(field)
-            if have is None or not close(float(have), float(want)):
+            if isinstance(want, dict):
+                errors += check_nested(name, field, want, have)
+            elif have is None or not close(float(have), float(want)):
                 errors.append(f"{name}.{field}: have {have!r}, pinned {want!r}")
-        # Ring geometry, pinned exactly.
+        # A rendered-orientation model added without a pin must fail, not slide by.
+        for model_field in ("poleNut", "precession"):
+            if got.get(model_field) and model_field not in ref:
+                errors.append(f"{name}.{model_field}: present in BODY but not pinned here")
+        # Ring geometry, pinned exactly — including the ABSENCE of gaps: an unpinned new
+        # division would silently change both the drawn ring and its shadow.
         want_rings, have_rings = ref["rings"], got.get("rings")
         if want_rings is None:
             if have_rings:
@@ -176,17 +211,16 @@ def check_bodies(body: dict) -> list[str]:
             for k in ("innerKm", "outerKm"):
                 if not close(float(have_rings.get(k, -1)), float(want_rings[k])):
                     errors.append(f"{name}.rings.{k}: have {have_rings.get(k)!r}, pinned {want_rings[k]!r}")
-            want_gaps = want_rings.get("gaps")
-            have_gaps = have_rings.get("gaps")
-            if want_gaps:
-                if not have_gaps or len(have_gaps) != len(want_gaps):
-                    errors.append(f"{name}.rings.gaps: have {have_gaps!r}, pinned {want_gaps!r}")
-                else:
-                    for (w0, w1), (h0, h1) in zip(want_gaps, have_gaps):
-                        if not (close(h0, w0) and close(h1, w1)):
-                            errors.append(f"{name}.rings.gaps: have {have_gaps!r}, pinned {want_gaps!r}")
-                        if not (have_rings["innerKm"] < h0 < h1 < have_rings["outerKm"]):
-                            errors.append(f"{name}.rings.gaps: gap [{h0}, {h1}] outside ring span")
+            want_gaps = want_rings.get("gaps") or []
+            have_gaps = have_rings.get("gaps") or []
+            if len(have_gaps) != len(want_gaps):
+                errors.append(f"{name}.rings.gaps: have {have_gaps!r}, pinned {want_gaps!r}")
+            else:
+                for (w0, w1), (h0, h1) in zip(want_gaps, have_gaps):
+                    if not (close(h0, w0) and close(h1, w1)):
+                        errors.append(f"{name}.rings.gaps: have {have_gaps!r}, pinned {want_gaps!r}")
+                    if not (have_rings["innerKm"] < h0 < h1 < have_rings["outerKm"]):
+                        errors.append(f"{name}.rings.gaps: gap [{h0}, {h1}] outside ring span")
         # Internal coherence, independent of the pins.
         rot_h, w_dot = got.get("rotationHours"), got.get("wDotDegPerDay")
         if rot_h and w_dot:
@@ -218,19 +252,27 @@ def check_mars_guard() -> list[str]:
     ]
 
 
+GLSL_NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+
+
 def check_shader_smoothstep() -> list[str]:
+    # Scan the comment-stripped source AS A WHOLE (calls may wrap across lines), accepting
+    # every GLSL literal form (`1.`, `.5`, exponents); comments may legitimately DESCRIBE
+    # the bug pattern. Line numbers are recovered from match offsets for diagnostics.
     errors = []
     src = SHADERS.read_text(encoding="utf-8")
-    for line_no, line in enumerate(src.splitlines(), 1):
-        code = line.split("//", 1)[0]  # comments may legitimately DESCRIBE the bug pattern
-        for m in re.finditer(r"smoothstep\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,", code):
-            e0, e1 = float(m.group(1)), float(m.group(2))
-            if e0 >= e1:
-                errors.append(
-                    f"orreryShaders.js:{line_no}: smoothstep({e0}, {e1}, …) has non-increasing "
-                    "edges — undefined GLSL (this class of bug once painted the Sun brown). "
-                    "Use 1.0 - smoothstep(lo, hi, x) instead."
-                )
+    stripped = re.sub(r"//[^\n]*", lambda m: " " * len(m.group(0)), src)  # keep offsets stable
+    for m in re.finditer(
+        rf"smoothstep\(\s*({GLSL_NUM})\s*,\s*({GLSL_NUM})\s*,", stripped, flags=re.S,
+    ):
+        e0, e1 = float(m.group(1)), float(m.group(2))
+        if e0 >= e1:
+            line_no = src.count("\n", 0, m.start()) + 1
+            errors.append(
+                f"orreryShaders.js:{line_no}: smoothstep({e0}, {e1}, …) has non-increasing "
+                "edges — undefined GLSL (this class of bug once painted the Sun brown). "
+                "Use 1.0 - smoothstep(lo, hi, x) instead."
+            )
     return errors
 
 

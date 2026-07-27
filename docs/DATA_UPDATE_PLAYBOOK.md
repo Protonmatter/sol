@@ -53,22 +53,29 @@ measured numbers — claims follow measurements, never the reverse.
 
 ### 2.3 Extending the moons' validity window
 
-Run `python tools/fetch_moons.py` (networked) to fetch fresh Horizons element knots and
-validation vectors, commit the regenerated `apps/web/js/moons.js`, and let
-`tools/validate_moons.py` prove regen byte-identity and interpolation accuracy. The window
-constants (`MOON_VALID_MIN_JD`/`MAX_JD`) ride along automatically.
+1. **First edit the interval constants** `MODEL_START` / `MODEL_STOP` at the top of
+   `tools/fetch_moons.py` — they are hard-coded, and re-running the fetch without moving
+   them refetches the same window and leaves the shipped validity range exactly where it
+   was (the UI would still hide every moon after the old end date).
+2. Run `python tools/fetch_moons.py` (networked) to fetch fresh Horizons element knots and
+   validation vectors, and commit the regenerated `apps/web/js/moons.js`.
+3. `tools/validate_moons.py` proves regen byte-identity and interpolation accuracy; the
+   shipped window constants (`MOON_VALID_MIN_JD`/`MAX_JD`) ride along automatically.
 
 ### 2.4 ΔT / EOP refresh
 
-Update the measured IERS knots in `crates/solar-core` time handling (see the comment block
-there — do **not** revert to the E&M polynomial, it runs ~6 s hot near-present) and keep
-`tools/check_eop_freshness.py` green.
+Update the measured IERS knots in `crates/solar-ephemeris/src/earth_orientation.rs` (the
+file `tools/check_eop_freshness.py` inspects), with the near-present ΔT handling in that
+same crate's `time.rs` (see the comment block there — do **not** revert to the E&M
+polynomial, it runs ~6 s hot near-present), and keep `check_eop_freshness.py` green.
 
 ### 2.5 Textures
 
 `python tools/fetch_textures.py --force` refreshes all maps and writes
-`textures/sun.jpg.json` (the Sun frame's capture epoch — required; the renderer maps the
-disk for the moment it was taken). Failed downloads never clobber committed files, and
+`textures/sun.jpg.json` (`fetched_unix` — the download time, an upper bound on the frame's
+capture time; SDO's "latest" endpoint lags by up to ~1 h ≈ ≤0.6° of solar rotation, the
+accepted error. The renderer maps the disk for this epoch). Failed downloads never clobber
+committed files, and
 attribution is rebuilt from what is present on disk. Commit the changed files; they feed
 the cache token, so clients refetch automatically.
 
