@@ -57,10 +57,19 @@ addEventListener("load", async () => {
   body.dataset.smokeReady = ready ? "yes" : "no";
   body.dataset.smokeMoonRows =
     String(document.querySelectorAll("#orreryPositions .orrery-pos-moon").length);
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Aliasing is speed-dependent, and the app now DEFAULTS to the slowest rate (1 day/s),
+  // where nothing outruns the clock. Step the speed up to ~1 month/sec — enough that Phobos
+  // aliases even on the smallest virtual-time frame deltas, while the sim epoch stays well
+  // inside the moons' validity window (cranking to maximum raced ~90 days per frame and left
+  // the window before the check could see the message). The message appears on whichever
+  // frame first ticks with the new rate, so WAIT for it frame-by-frame rather than sampling
+  // one instant — a single sample after a fixed delay was the flake.
   const accuracy = document.getElementById("orreryAccuracy");
-  body.dataset.smokeAliasing =
-    accuracy?.textContent.includes("inner moon") ? "yes" : "no";
+  const speed = document.getElementById("orrerySpeed");
+  speed.value = "0.455"; // log slider → ~30 days/sec
+  speed.dispatchEvent(new Event("input", { bubbles: true }));
+  await smokeWait(() => accuracy?.textContent.includes("inner moon"));
+  body.dataset.smokeAliasing = "yes";
   const animate = document.getElementById("orreryAnimate");
   animate.checked = false;
   animate.dispatchEvent(new Event("change", { bubbles: true }));

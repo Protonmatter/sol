@@ -11,9 +11,9 @@
 // clock-grade timing), they pin the celestial frame. The galactic-centre and -anticentre markers
 // plus the Milky Way band show where the Sun sits in the Galaxy (~26,000 ly out, toward Sagittarius).
 
-import { equToEcl } from "./bodyData.js?v=a35b99fa20";
-import { bvToRGB } from "./starphysics.js?v=a35b99fa20";
-import { CONSTELLATIONS as FIGURES } from "./constellations.js?v=a35b99fa20";
+import { equToEcl } from "./bodyData.js?v=90cbd4968b";
+import { bvToRGB } from "./starphysics.js?v=90cbd4968b";
+import { CONSTELLATIONS as FIGURES } from "./constellations.js?v=90cbd4968b";
 
 // ---- bright stars (J2000), enough to draw the headline constellations + name the brightest ----
 // name, RA°, Dec°, V-mag, optional constellation tag for grouping.
@@ -88,7 +88,7 @@ export const STARS = [
 // RA/Dec polylines. The list that used to live here joined stars by NAME, so a figure
 // could only use stars that happened to be in the curated array above, which is why the
 // app drew 7 of 88. Re-exported so importers have one place to get them.
-export { CONSTELLATIONS, CONSTELLATION_COUNT } from "./constellations.js?v=a35b99fa20";
+export { CONSTELLATIONS, CONSTELLATION_COUNT } from "./constellations.js?v=90cbd4968b";
 
 // Pulsars (J2000) — the reference markers the brief asks for. RA/Dec from the ATNF catalogue.
 export const PULSARS = [
