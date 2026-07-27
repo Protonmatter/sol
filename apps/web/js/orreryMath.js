@@ -3,7 +3,7 @@
 // no module state — extracted from orrery.js along the same data+pure-function lines as
 // celestial.js and smallbodies.js, so it is reviewable (and testable) in isolation.
 
-import { rotationPhase, poleAt } from "./bodyData.js?v=481714bf23";
+import { rotationPhase, poleAt } from "./bodyData.js?v=ce68304674";
 
 // ---------------------------------------------------------------- mat/vec (column-major)
 export function perspective(fovy, aspect, near, far) {
@@ -79,21 +79,38 @@ export function buildSphere(stacks, slices) {
 
 // A ring annulus in the body's equatorial (xy) plane, radii in AU, vertex-coloured from the real
 // km structure (C/B/A brightness + the Cassini Division gap). Returns interleaved [x,y,z,r,g,b,a,frac].
+// The ring's radial colour/opacity model at a radius in km — shared by the ring mesh
+// (buildRing) and the planet's ring-shadow profile (ringOpacityProfile), so the shadow a
+// band casts always matches the band that is drawn.
+function ringColorAt(rings, km) {
+  if (rings.gaps) for (const [g0, g1] of rings.gaps) if (km > g0 && km < g1) return [0, 0, 0, 0];
+  if (!rings.gaps) return [0.62, 0.64, 0.66, 0.16]; // faint Uranus/Neptune rings
+  let a, tint;
+  if (km < 92000) { a = 0.18; tint = [0.55, 0.50, 0.42]; }        // C ring (dim)
+  else if (km < 117580) { a = 0.78; tint = [0.86, 0.78, 0.60]; }  // B ring (bright)
+  else { a = 0.5; tint = [0.78, 0.72, 0.56]; }                    // A ring
+  return [tint[0], tint[1], tint[2], a];
+}
+
+// 1-D radial opacity profile (inner→outer, 0..255) for the ring-shadow lookup texture: the
+// shadow a ring casts on its planet is only as dark as the ring is optically thick, so the C
+// ring throws a faint shadow, the B ring a deep one, the Cassini Division none, and the faint
+// Uranus/Neptune rings barely any.
+export function ringOpacityProfile(rings, n = 160) {
+  const out = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const km = rings.innerKm + ((i + 0.5) / n) * (rings.outerKm - rings.innerKm);
+    out[i] = Math.round(ringColorAt(rings, km)[3] * 255);
+  }
+  return out;
+}
+
 export function buildRing(rings, rEqAU, radiusKm) {
   const inner = (rings.innerKm / radiusKm) * rEqAU;
   const outer = (rings.outerKm / radiusKm) * rEqAU;
   const RAD = 56, ANG = 120, v = [];
   const kmToAU = (km) => (km / radiusKm) * rEqAU;
-  const colorAt = (rAU) => {
-    const km = (rAU / rEqAU) * radiusKm;
-    if (rings.gaps) for (const [g0, g1] of rings.gaps) if (km > g0 && km < g1) return [0, 0, 0, 0];
-    if (!rings.gaps) return [0.62, 0.64, 0.66, 0.16]; // faint Uranus/Neptune rings
-    let a, tint;
-    if (km < 92000) { a = 0.18; tint = [0.55, 0.50, 0.42]; }        // C ring (dim)
-    else if (km < 117580) { a = 0.78; tint = [0.86, 0.78, 0.60]; }  // B ring (bright)
-    else { a = 0.5; tint = [0.78, 0.72, 0.56]; }                    // A ring
-    return [tint[0], tint[1], tint[2], a];
-  };
+  const colorAt = (rAU) => ringColorAt(rings, (rAU / rEqAU) * radiusKm);
   // Radial breakpoints: the uniform grid PLUS the exact section and gap radii, with each
   // band coloured from its midpoint. Sampling colour at uniform band edges quantised every
   // boundary to 1/56 of the span — the Cassini Division's edges could land ~±1,100 km off.

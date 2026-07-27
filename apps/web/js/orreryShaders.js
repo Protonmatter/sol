@@ -38,9 +38,13 @@ uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
 // see sunDiskBasis() in orrery.js. Body-frame, not camera: the image must co-rotate with the
 // Sun's real spin, not follow the eye around.
 uniform vec3 u_sunA;
-// Ring-shadow inputs: light direction in the body frame, and the ring annulus / main gap radii
-// in units of the equatorial radius ((0,0) = the body has no rings).
-uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform vec2 u_ringGap;
+// Ring-shadow inputs: light direction in the body frame, the annulus radii in units of the
+// equatorial radius ((0,0) = the body has no rings), the polar/equatorial ratio (the ray must
+// start from the OBLATE surface, not the unit sphere), and the 1-D radial opacity profile
+// baked from the same model that colours the drawn ring (ringOpacityProfile) — so each band's
+// shadow is exactly as dark as the band is optically thick, and the Cassini Division lets
+// sunlight through for free.
+uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform sampler2D u_ringTex;
 ${NOISE}
 void main(){
   vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
@@ -132,21 +136,21 @@ void main(){
   float shade=0.05+0.95*lambert;
   col*=shade;
   // Ring shadow on the planet: march from this surface point toward the Sun in the BODY frame
-  // (the rings live in the equatorial z=0 plane there) and darken where the ray crosses the
-  // annulus. u_ringRad/u_ringGap are in units of the equatorial radius; (0,0) = no rings.
+  // (the rings live in the equatorial z=0 plane there) and darken by the ring's own optical
+  // depth where the ray crosses the annulus. The march starts from the OBLATE surface point —
+  // p is the unit-sphere coordinate, but the rendered surface is squashed by rPol/rEq along z,
+  // and starting a Saturn ray ~10% too high shifted every shadow boundary on the globe.
   if(u_ringRad.y>0.0){
+    vec3 q=vec3(p.xy,p.z*u_oblate);
     vec3 lo=normalize(u_lightObj);
     if(abs(lo.z)>1e-4){
-      float s=-p.z/lo.z;
+      float s=-q.z/lo.z;
       if(s>0.0){
-        float rr=length(p.xy+lo.xy*s);
-        float in0=smoothstep(u_ringRad.x-0.01,u_ringRad.x+0.01,rr)
-                 *(1.0-smoothstep(u_ringRad.y-0.01,u_ringRad.y+0.01,rr));
-        if(u_ringGap.y>0.0){
-          in0*=1.0-smoothstep(u_ringGap.x-0.005,u_ringGap.x+0.005,rr)
-                  *(1.0-smoothstep(u_ringGap.y-0.005,u_ringGap.y+0.005,rr));
+        float rr=length(q.xy+lo.xy*s);
+        float f=(rr-u_ringRad.x)/(u_ringRad.y-u_ringRad.x);
+        if(f>0.0&&f<1.0){
+          col*=1.0-0.72*texture(u_ringTex,vec2(f,0.5)).r;
         }
-        col*=1.0-0.55*in0;
       }
     }
   }
