@@ -54,18 +54,24 @@ SHADERS = ROOT / "apps" / "web" / "js" / "orreryShaders.js"
 REFERENCE: dict[str, dict] = {
     "Sun": {
         "radiusKm": 695700, "polarKm": 695700, "massKg": 1.9885e30, "tiltDeg": 7.25,
+        "gravity": 274, "escapeKms": 617.5, "densityGcm3": 1.408,
+        "meanTempK": 5772, "albedo": 0, "magDipoleEarth": 0,
         "rotationHours": 609.12, "poleRaDeg": 286.13, "poleDecDeg": 63.87,
         "poleRaDotDegPerCty": 0, "poleDecDotDegPerCty": 0,
         "w0Deg": 84.176, "wDotDegPerDay": 14.1844, "rings": None,
     },
     "Mercury": {
-        "radiusKm": 2439.7, "polarKm": 2439.7, "massKg": 3.301e23, "tiltDeg": 0.034,
+        "radiusKm": 2439.7, "polarKm": 2439.7, "massKg": 3.3010e23, "tiltDeg": 0.034,
+        "gravity": 3.7, "escapeKms": 4.25, "densityGcm3": 5.427,
+        "meanTempK": 440, "albedo": 0.142, "magDipoleEarth": 0.0006,
         "rotationHours": 1407.6, "poleRaDeg": 281.0103, "poleDecDeg": 61.4155,
         "poleRaDotDegPerCty": -0.0328, "poleDecDotDegPerCty": -0.0049,
         "w0Deg": 329.5988, "wDotDegPerDay": 6.1385108, "rings": None,
     },
     "Venus": {
-        "radiusKm": 6051.8, "polarKm": 6051.8, "massKg": 4.867e24, "tiltDeg": 177.36,
+        "radiusKm": 6051.8, "polarKm": 6051.8, "massKg": 4.8673e24, "tiltDeg": 177.36,
+        "gravity": 8.87, "escapeKms": 10.36, "densityGcm3": 5.243,
+        "meanTempK": 737, "albedo": 0.689, "magDipoleEarth": 0,
         "rotationHours": -5832.5, "poleRaDeg": 272.76, "poleDecDeg": 67.16,
         "poleRaDotDegPerCty": 0, "poleDecDotDegPerCty": 0,
         "w0Deg": 160.2, "wDotDegPerDay": -1.4813688, "rings": None,
@@ -74,7 +80,9 @@ REFERENCE: dict[str, dict] = {
     # walk about the ecliptic pole), not the four linear pole fields — so that object is
     # pinned too: 50.2879″/yr is the IAU general precession in longitude at J2000.
     "Earth": {
-        "radiusKm": 6378.14, "polarKm": 6356.75, "massKg": 5.972e24, "tiltDeg": 23.44,
+        "radiusKm": 6378.14, "polarKm": 6356.75, "massKg": 5.9722e24, "tiltDeg": 23.44,
+        "gravity": 9.8, "escapeKms": 11.19, "densityGcm3": 5.514,
+        "meanTempK": 288, "albedo": 0.434, "magDipoleEarth": 1.0,
         "rotationHours": 23.9345, "poleRaDeg": 0, "poleDecDeg": 90,
         "poleRaDotDegPerCty": -0.641, "poleDecDotDegPerCty": -0.557,
         "w0Deg": 190.147, "wDotDegPerDay": 360.9856235, "rings": None,
@@ -83,26 +91,34 @@ REFERENCE: dict[str, dict] = {
     # IAU 2009 ON PURPOSE — see the module docstring. Do not update to the 2015 constants
     # without implementing the 2015 trigonometric series in poleAt()/rotationPhase().
     "Mars": {
-        "radiusKm": 3396.2, "polarKm": 3376.2, "massKg": 6.417e23, "tiltDeg": 25.19,
+        "radiusKm": 3396.2, "polarKm": 3376.2, "massKg": 6.4169e23, "tiltDeg": 25.19,
+        "gravity": 3.71, "escapeKms": 5.03, "densityGcm3": 3.933,
+        "meanTempK": 210, "albedo": 0.17, "magDipoleEarth": 0,
         "rotationHours": 24.6229, "poleRaDeg": 317.681, "poleDecDeg": 52.887,
         "poleRaDotDegPerCty": -0.1061, "poleDecDotDegPerCty": -0.0609,
         "w0Deg": 176.63, "wDotDegPerDay": 350.89198226, "rings": None,
     },
     "Jupiter": {
-        "radiusKm": 71492, "polarKm": 66854, "massKg": 1.898e27, "tiltDeg": 3.13,
+        "radiusKm": 71492, "polarKm": 66854, "massKg": 1.89813e27, "tiltDeg": 3.13,
+        "gravity": 24.79, "escapeKms": 59.5, "densityGcm3": 1.326,
+        "meanTempK": 165, "albedo": 0.538, "magDipoleEarth": 20000,
         "rotationHours": 9.9259, "poleRaDeg": 268.056595, "poleDecDeg": 64.495303,
         "poleRaDotDegPerCty": -0.006499, "poleDecDotDegPerCty": 0.002413,
         "w0Deg": 284.95, "wDotDegPerDay": 870.536, "rings": None,
     },
     "Saturn": {
-        "radiusKm": 60268, "polarKm": 54364, "massKg": 5.683e26, "tiltDeg": 26.73,
+        "radiusKm": 60268, "polarKm": 54364, "massKg": 5.6832e26, "tiltDeg": 26.73,
+        "gravity": 10.44, "escapeKms": 35.5, "densityGcm3": 0.687,
+        "meanTempK": 134, "albedo": 0.499, "magDipoleEarth": 580,
         "rotationHours": 10.656, "poleRaDeg": 40.589, "poleDecDeg": 83.537,
         "poleRaDotDegPerCty": -0.036, "poleDecDotDegPerCty": -0.004,
         "w0Deg": 38.9, "wDotDegPerDay": 810.7939024,
         "rings": {"innerKm": 74500, "outerKm": 136780, "gaps": [[117580, 122170]]},
     },
     "Uranus": {
-        "radiusKm": 25559, "polarKm": 24973, "massKg": 8.681e25, "tiltDeg": 97.77,
+        "radiusKm": 25559, "polarKm": 24973, "massKg": 8.6811e25, "tiltDeg": 97.77,
+        "gravity": 8.69, "escapeKms": 21.3, "densityGcm3": 1.27,
+        "meanTempK": 76, "albedo": 0.488, "magDipoleEarth": 50,
         "rotationHours": -17.24, "poleRaDeg": 257.311, "poleDecDeg": -15.175,
         "poleRaDotDegPerCty": 0, "poleDecDotDegPerCty": 0,
         "w0Deg": 203.81, "wDotDegPerDay": -501.1600928,
@@ -113,7 +129,9 @@ REFERENCE: dict[str, dict] = {
     # poleNut is pck00011's single-term periodic correction — Neptune's whole published
     # series, and the renderer applies it (poleAt/rotationPhase), so it is pinned too.
     "Neptune": {
-        "radiusKm": 24764, "polarKm": 24341, "massKg": 1.024e26, "tiltDeg": 28.32,
+        "radiusKm": 24764, "polarKm": 24341, "massKg": 1.02409e26, "tiltDeg": 28.32,
+        "gravity": 11.15, "escapeKms": 23.5, "densityGcm3": 1.638,
+        "meanTempK": 72, "albedo": 0.442, "magDipoleEarth": 27,
         "rotationHours": 15.9663, "poleRaDeg": 299.36, "poleDecDeg": 43.46,
         "poleRaDotDegPerCty": 0, "poleDecDotDegPerCty": 0,
         "w0Deg": 249.978, "wDotDegPerDay": 541.1397757,
@@ -122,7 +140,9 @@ REFERENCE: dict[str, dict] = {
                     "raAmpDeg": 0.70, "decAmpDeg": -0.51, "wAmpDeg": -0.48},
     },
     "Moon": {
-        "radiusKm": 1737.4, "polarKm": 1736, "massKg": 7.342e22, "tiltDeg": 6.68,
+        "radiusKm": 1737.4, "polarKm": 1736, "massKg": 7.346e22, "tiltDeg": 6.68,
+        "gravity": 1.62, "escapeKms": 2.38, "densityGcm3": 3.344,
+        "meanTempK": 250, "albedo": 0.136, "magDipoleEarth": 0,
         "rotationHours": 655.72, "poleRaDeg": 269.9949, "poleDecDeg": 66.5392,
         "poleRaDotDegPerCty": 0.0031, "poleDecDotDegPerCty": 0.013,
         "w0Deg": 38.3213, "wDotDegPerDay": 13.17635815, "rings": None,
