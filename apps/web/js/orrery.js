@@ -13,28 +13,28 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=ebbe92e1cf";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=ebbe92e1cf";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=ebbe92e1cf";
-import { buildCelestial } from "./celestial.js?v=ebbe92e1cf";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=ebbe92e1cf";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=ebbe92e1cf";
+import { store } from "./store.js?v=a35b99fa20";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=a35b99fa20";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=a35b99fa20";
+import { buildCelestial } from "./celestial.js?v=a35b99fa20";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=a35b99fa20";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=a35b99fa20";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
-} from "./orreryMath.js?v=ebbe92e1cf";
+} from "./orreryMath.js?v=a35b99fa20";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=ebbe92e1cf";
+} from "./orreryShaders.js?v=a35b99fa20";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=ebbe92e1cf";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=ebbe92e1cf";
-import { renderStarDetail } from "./starDetail.js?v=ebbe92e1cf";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=ebbe92e1cf";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=ebbe92e1cf";
+} from "./orreryGalaxy.js?v=a35b99fa20";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=a35b99fa20";
+import { renderStarDetail } from "./starDetail.js?v=a35b99fa20";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=a35b99fa20";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=a35b99fa20";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -156,7 +156,7 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=ebbe92e1cf"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=a35b99fa20"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   // The alpha profile rides with the photo ring: when the textured ring is what's drawn, its
@@ -164,7 +164,7 @@ function loadTextures() {
   // the ring without changing its shadow (and the photo's fine gaps would not shadow at all).
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true, alphaProfile: ringImageAlphaProfile(ring) }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=ebbe92e1cf";
+  ring.src = "textures/saturn_ring.png?v=a35b99fa20";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -180,12 +180,12 @@ function loadTextures() {
     } catch (e) { console.warn("sun texture", e.message); }
   };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=ebbe92e1cf")
+  fetch("textures/sun.jpg.json?v=a35b99fa20")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=ebbe92e1cf";
+      sun.src = "textures/sun.jpg?v=a35b99fa20";
     });
 }
 
@@ -210,8 +210,8 @@ async function buildGeneratedMaps() {
   genStarted = true;
   try {
     const [geo, moons] = await Promise.all([
-      import("./geography.js?v=ebbe92e1cf"),
-      import("./moons.js?v=ebbe92e1cf"),
+      import("./geography.js?v=a35b99fa20"),
+      import("./moons.js?v=a35b99fa20"),
     ]);
     moonSet = moons;
     populateAnchorSelect(); // the Focus dropdown can now offer the 21 moons
@@ -945,14 +945,15 @@ function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
   const rEq = displayRadiusAU(b.name), rPol = rEq * (phys.polarKm / phys.radiusKm);
-  // Rotation phase is unresolvable once one frame covers more than about a third of the spin
-  // period — the moons' aliasedByClock Nyquist doctrine, applied to spin. A moon can be
-  // hidden; a planet cannot, so its PHASE freezes while the clock outpaces it (orbital motion
-  // continues; pause or slow down and the true IAU phase snaps back). Without this, at the
-  // default 0.5 yr/s the Sun turns ~7 times per real second and its Earth-facing SDO
-  // hemisphere strobed around the globe at ~45° per frame.
+  // Freeze the rotation PHASE while the clock spins the body faster than the eye can track:
+  // one frame advancing more than ~15° of spin (P/24) reads as strobing, not rotation. The
+  // moons' aliasedByClock hides what it cannot resolve; a planet cannot be hidden, so its
+  // phase holds instead (orbital motion continues; pause or slow down and the true IAU phase
+  // snaps back). The bound is on the VISIBLE per-frame advance — a plain Nyquist P/3 test
+  // left the default 0.5 yr/s Sun strobing its SDO hemisphere ~43° per 60 Hz frame, because
+  // a 3-day step resolves a 25-day period on paper while looking like a flickering mess.
   let rotUnix = state.renderUnix;
-  if (state.animate && state.simStepSeconds > (Math.abs(phys.rotationHours) * 3600) / 3) {
+  if (state.animate && state.simStepSeconds > (Math.abs(phys.rotationHours) * 3600) / 24) {
     if (rotFreeze[b.name] == null) rotFreeze[b.name] = state.renderUnix;
     rotUnix = rotFreeze[b.name];
   } else if (rotFreeze[b.name] != null) {
@@ -1615,7 +1616,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=ebbe92e1cf");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=a35b99fa20");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {

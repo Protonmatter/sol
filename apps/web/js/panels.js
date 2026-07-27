@@ -1,16 +1,16 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js?v=ebbe92e1cf";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=ebbe92e1cf";
-import { text, textWithTitle, setPill } from "./dom.js?v=ebbe92e1cf";
-import { auroraAssessment } from "./aurora.js?v=ebbe92e1cf";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=ebbe92e1cf";
+import { store } from "./store.js?v=a35b99fa20";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=a35b99fa20";
+import { text, textWithTitle, setPill } from "./dom.js?v=a35b99fa20";
+import { auroraAssessment } from "./aurora.js?v=a35b99fa20";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=a35b99fa20";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
   dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass, feedOverdueHours,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js?v=ebbe92e1cf";
+} from "./selectors.js?v=a35b99fa20";
 
 export function updateText() {
   const run = store.state.run || {};

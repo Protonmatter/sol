@@ -35,25 +35,19 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         index = (Path(self.directory) / "index.html").read_text(encoding="utf-8")
         setup = """<script>
 localStorage.setItem("sol-surface", "orrery");
-// Event-driven, NOT timer-polled: under --virtual-time-budget Chrome fast-forwards timers,
-// so a "20 s" poll loop can expire in about a second of real time — before the lazily
-// imported moons module has actually finished loading. That race was this smoke's recurring
-// flake (ready=no, rows<21 while the later aliasing/validity markers passed fine). A
-// MutationObserver resolves the moment the rows exist; the bound is the browser's own
+// Frame-driven, NOT timer-polled: under --virtual-time-budget Chrome fast-forwards timers,
+// so a "20 s" setTimeout poll loop expires in about a second of real time — before the
+// lazily imported moons module has actually finished loading. That race was this smoke's
+// recurring flake (ready=no, rows<21 while the later aliasing/validity markers passed
+// fine). Polling once per requestAnimationFrame ties the wait to the app's own render loop
+// instead of wall-or-virtual time: frames keep coming while the app is alive, each frame
+// re-tests, and there is no timeout for virtual time to burn — the bound is the browser's
 // virtual-time budget + the harness subprocess timeout, and a genuine failure still dumps
-// with the markers missing.
+// with the markers missing. (A MutationObserver variant was tried first; its callbacks
+// never delivered under headless virtual time.)
 const smokeWait = (test) => new Promise(resolve => {
-  if (test()) { resolve(true); return; }
-  // Scope tightly and coalesce: observing the whole document with attributes:true fires on
-  // every per-frame label-style mutation and the re-tests themselves bog the page down.
-  let scheduled = false;
-  let mo;
-  const check = () => { scheduled = false; if (test()) { mo.disconnect(); resolve(true); } };
-  mo = new MutationObserver(() => { if (!scheduled) { scheduled = true; queueMicrotask(check); } });
-  for (const id of ["orreryPositions", "orreryBackend"]) {
-    const node = document.getElementById(id);
-    if (node) mo.observe(node, { subtree: true, childList: true, characterData: true });
-  }
+  const tick = () => { if (test()) { resolve(true); return; } requestAnimationFrame(tick); };
+  tick();
 });
 addEventListener("load", async () => {
   const body = document.body;
