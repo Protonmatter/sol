@@ -1,0 +1,42 @@
+Planetary texture maps used by the 3-D View (apps/web/js/orrery.js).
+
+mercury: Solar System Scope (CC-BY 4.0) · NASA/MESSENGER
+    https://www.solarsystemscope.com/textures/download/2k_mercury.jpg
+venus: Solar System Scope (CC-BY 4.0) · NASA/Magellan + Pioneer Venus
+    https://www.solarsystemscope.com/textures/download/2k_venus_atmosphere.jpg
+earth: NASA Visible Earth — Blue Marble (public domain)
+    https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg
+mars: Solar System Scope (CC-BY 4.0) · NASA/Viking + MGS/MOLA
+    https://www.solarsystemscope.com/textures/download/2k_mars.jpg
+jupiter: Solar System Scope (CC-BY 4.0) · NASA/Cassini + Juno
+    https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg
+saturn: Solar System Scope (CC-BY 4.0) · NASA/Cassini
+    https://www.solarsystemscope.com/textures/download/2k_saturn.jpg
+uranus: Solar System Scope (CC-BY 4.0) · NASA/Voyager 2
+    https://www.solarsystemscope.com/textures/download/2k_uranus.jpg
+neptune: Solar System Scope (CC-BY 4.0) · NASA/Voyager 2
+    https://www.solarsystemscope.com/textures/download/2k_neptune.jpg
+moon: Solar System Scope (CC-BY 4.0) · NASA/LRO + Clementine
+    https://www.solarsystemscope.com/textures/download/2k_moon.jpg
+saturn_ring: Solar System Scope (CC-BY 4.0) · NASA/Cassini ring photometry
+    https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png
+sun: NASA SDO/HMI continuum — today's real Sun (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg
+sun_hmib: NASA SDO/HMI magnetogram (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIB.jpg
+sun_1700: NASA SDO/AIA 1700 Å (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_1700.jpg
+sun_0304: NASA SDO/AIA 304 Å (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0304.jpg
+sun_0171: NASA SDO/AIA 171 Å (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0171.jpg
+sun_0193: NASA SDO/AIA 193 Å (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0193.jpg
+sun_0211: NASA SDO/AIA 211 Å (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0211.jpg
+sun_0335: NASA SDO/AIA 335 Å (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0335.jpg
+sun_0131: NASA SDO/AIA 131 Å (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0131.jpg
+sun_0094: NASA SDO/AIA 94 Å (public domain, NASA/SDO)
+    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0094.jpg
