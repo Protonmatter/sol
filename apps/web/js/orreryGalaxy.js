@@ -4,12 +4,17 @@
 // uploads the returned arrays and draws them (the same split as celestial.js/smallbodies.js).
 //
 // A face-on model of our Galaxy showing where the Sun sits: the Sun orbits ~8.18 kpc
-// (≈26,700 ly) from the centre, in the Orion Spur between the Sagittarius and Perseus arms.
-// Scale: 1 world unit ≈ 0.326 kpc (≈1,063 ly); disc radius ~15 kpc. Logarithmic spiral
-// arms + a central bar/bulge.
+// (≈26,700 ly) from the centre, in the Orion Spur between the Sagittarius–Carina and
+// Perseus arms — and the model actually PUTS it there: the spur ridge passes through the
+// Sun's position by construction, Sagittarius–Carina crosses the Sun's azimuth ~6.1 kpc
+// out and Perseus ~9.6 kpc out. Structure follows the modern consensus picture: TWO
+// dominant stellar arms (Scutum–Centaurus and Perseus) rooted at the ends of a central
+// bar inclined ~28° to the Sun–centre line, two fainter arms (Sagittarius–Carina,
+// Norma–Outer), and the local Orion Spur. Scale: 1 world unit ≈ 0.326 kpc (≈1,063 ly);
+// disc radius ~15 kpc.
 
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=82b4db3ea4";
-import { bvToRGB, equToGal } from "./starphysics.js?v=82b4db3ea4";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=1f188ecb07";
+import { bvToRGB, equToGal } from "./starphysics.js?v=1f188ecb07";
 
 const D2R = Math.PI / 180;
 const LY_PER_PC = 3.2615637772;
@@ -31,7 +36,11 @@ export const GAL_OMEGA = (2 * Math.PI) / GAL_PERIOD_YR;                 // rad p
 // disc turns the same (clockwise) sense as the Sun, and at the Sun's radius Ω = GAL_OMEGA exactly, so
 // the Sun stays embedded in its neighbourhood while the inner disc laps it and the arms wind up.
 export const GAL_SHEAR_K = -(GAL_OMEGA * GAL_SUN_R);                    // V_circ in world·rad/yr (Ω·r is constant)
-export const GAL_SHEAR_RC = 6.0;                                        // ≈2 kpc: rigid inner rotation below this
+// Rigid rotation inside the bar radius (~3.4 kpc): a real bar is a PATTERN that turns as a unit;
+// letting the flat-curve shear act inside it wound the bar itself into a spiral within a few
+// hundred Myr of animation. (This also stands in for the rising inner rotation curve and avoids
+// the r→0 singularity, as before.)
+export const GAL_SHEAR_RC = 10.4;
 
 // CPU twin of the point shader's differential rotation — so discrete objects (deep-sky landmarks) and
 // their text labels orbit the galactic centre in lockstep with the sheared disc.
@@ -58,39 +67,96 @@ export function galacticToWorld(lDeg, bDeg, dKpc) {
   return [S[0] + d * (e0 * gc[0] + e1 * rot[0]), S[1] + d * (e0 * gc[1] + e1 * rot[1]), S[2] + d * Math.sin(b)];
 }
 
-// Build the procedural galaxy: disc/arm/bulge/haze stars packed as the point-shader layout
-// [x,y,z,size,r,g,b,a], the galactocentric guide rings as line-strip data, and the fixed labels.
+// Build the procedural galaxy: disc/arm/bar/bulge/haze stars packed as the point-shader layout
+// [x,y,z,size,r,g,b,a], the galactocentric guide rings as line-strip data, and the labels.
+//
+// GEOMETRY (all radii in kpc here, converted to world units on emission):
+//   • Bar: half-length ~3.4 kpc, long axis inclined BAR_TILT ≈ 28° to the Sun–centre line
+//     (Wegg & Gerhard 2013 give 27–33°).
+//   • Four log-spiral arms rooted at the bar radius, 90° apart, pitch 16°: the two rooted at
+//     the bar ENDS are the dominant stellar arms (Scutum–Centaurus, Perseus), the two between
+//     are fainter (Sagittarius–Carina, Norma–Outer) — the two-major + two-minor consensus
+//     picture (GLIMPSE star counts; Churchwell et al. 2009). The pitch is at the steep end of
+//     published fits (10–16°) because with the arms rooted at the bar it is what lands the
+//     crossings of the SUN'S azimuth in the right places: Sagittarius–Carina ~6.1 kpc out,
+//     the Sun 8.178, Perseus ~9.6 — the ordering every "you are here" diagram must get right.
+//   • Orion (Local) Spur: a short, flatter spiral segment BETWEEN those two arms whose ridge
+//     passes through the Sun's position by construction.
+// Arm labels are computed from the same formulas that generate the points, so they cannot
+// detach from the features they name (the old hard-coded label coordinates did).
 export function buildGalaxyModel() {
   const rng = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(99173);
+  const gauss = () => { // Box–Muller, driven by the same seeded rng so builds stay deterministic
+    const u = Math.max(rng(), 1e-9), v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+  const KPC = 1 / GAL_UNIT_KPC; // world units per kpc
   const pts = [];
-  const ARMS = 4, PITCH = 12.5 * Math.PI / 180, B = 1 / Math.tan(PITCH), RMAX = 46;
-  // Spiral-arm stars
-  for (let i = 0; i < 5200; i++) {
-    const arm = i % ARMS;
-    const t = Math.pow(rng(), 0.5);
-    const r = 3 + t * (RMAX - 3);
-    const theta = arm * (2 * Math.PI / ARMS) + Math.log(r / 3) * B + (rng() - 0.5) * 0.5;
-    const spread = 1.2 + r * 0.10;
-    const rx = (rng() - 0.5) * spread, ry = (rng() - 0.5) * spread;
-    const x = r * Math.cos(theta) + rx, y = r * Math.sin(theta) + ry;
-    const z = (rng() - 0.5) * (1.4 - 0.9 * Math.min(1, r / RMAX)) * 1.6;
-    const hii = rng() > 0.93;
-    const col = hii ? [1.0, 0.5, 0.6] : (rng() > 0.5 ? [0.8, 0.86, 1.0] : [0.95, 0.95, 0.92]);
-    const a = 0.5 + 0.5 * rng();
-    pts.push(x, y, z, hii ? 2.6 : 1.5 + rng(), col[0], col[1], col[2], a);
+  const RMAX = 46;                       // ~15 kpc disc edge
+  const PITCH = 16 * D2R, B = 1 / Math.tan(PITCH);
+  const BAR_TILT = 28 * D2R;
+  const BAR_ANG = GAL_THETA0 - BAR_TILT; // bar long-axis azimuth (near end on the Sun's side)
+  const R_START = 3.4 * KPC;             // arms take over where the bar ends
+  // Arm azimuth at radius r (world units): the log spiral through (R_START, base).
+  const armTheta = (base, r) => base + Math.log(r / R_START) * B;
+  const ARMS = [
+    { name: "Scutum–Centaurus Arm", base: BAR_ANG, major: true },
+    { name: "Norma–Outer Arm", base: BAR_ANG + Math.PI / 2, major: false },
+    { name: "Perseus Arm", base: BAR_ANG + Math.PI, major: true },
+    { name: "Sagittarius–Carina Arm", base: BAR_ANG + 1.5 * Math.PI, major: false },
+  ];
+  // Spiral-arm stars: gaussian across-arm profile, blue-white young stars on the ridge, pink
+  // HII knots, yellower field stars in the wings. Majors get twice the stars of the minors.
+  for (const arm of ARMS) {
+    const N = arm.major ? 3300 : 1550;
+    for (let i = 0; i < N; i++) {
+      const r = R_START + (RMAX - R_START) * Math.pow(rng(), 0.8);
+      const sigma = 0.9 + 0.022 * r; // across-arm σ in world units: ≈0.3 kpc, widening outward
+      const across = gauss() * sigma;
+      const theta = armTheta(arm.base, r) + gauss() * 0.03;
+      const rr = r + across;
+      const x = rr * Math.cos(theta), y = rr * Math.sin(theta);
+      const z = gauss() * 0.55 * (1.1 - 0.5 * Math.min(1, r / RMAX));
+      const core = Math.exp(-(across * across) / (2 * sigma * sigma));
+      const hii = rng() > (arm.major ? 0.92 : 0.95);
+      const col = hii ? [1.0, 0.55, 0.62]
+        : core > 0.6 && rng() > 0.35 ? [0.72, 0.82, 1.0]   // OB associations trace the ridge
+          : [0.95, 0.93, 0.86];
+      const a = (arm.major ? 0.55 : 0.4) + 0.4 * rng();
+      pts.push(x, y, z, hii ? 2.8 : 1.5 + rng() * (arm.major ? 1.2 : 0.8), col[0], col[1], col[2], a);
+    }
   }
-  // Central bulge / bar
-  for (let i = 0; i < 2000; i++) {
-    const u = rng(), r = Math.pow(u, 1.6) * 9;
-    const th = rng() * 2 * Math.PI;
-    const bar = 1 + 0.8 * Math.abs(Math.cos(th)); // slight bar elongation
-    const x = r * bar * Math.cos(th), y = r * Math.sin(th), z = (rng() - 0.5) * (3.2 - r * 0.2);
-    pts.push(x, y, z, 1.4 + rng() * 1.2, 1.0, 0.86, 0.62, 0.5 + 0.5 * rng());
+  // The Orion (Local) Spur: a short, flat segment between Sagittarius–Carina and Perseus.
+  // Ridge: r(s) = R_SPUR·exp(s / (2B)) through azimuth GAL_THETA0 + s — half the arms' pitch
+  // (spurs run more azimuthally), ~2.5 kpc long, ridge 0.17 kpc outside the Sun at s = 0 so
+  // the Sun sits INSIDE the spur's width, just like the real one.
+  const R_SPUR = 8.35 * KPC;
+  for (let i = 0; i < 750; i++) {
+    const s = -0.6 + 1.3 * rng();
+    const rr = R_SPUR * Math.exp(s / (2 * B)) + gauss() * 0.86; // ±0.28 kpc radial scatter
+    const theta = GAL_THETA0 + s + gauss() * 0.012;
+    const hii = rng() > 0.94;
+    const col = hii ? [1.0, 0.55, 0.62] : rng() > 0.5 ? [0.75, 0.84, 1.0] : [0.95, 0.93, 0.88];
+    pts.push(rr * Math.cos(theta), rr * Math.sin(theta), gauss() * 0.4, hii ? 2.5 : 1.4 + rng(), col[0], col[1], col[2], 0.45 + 0.4 * rng());
+  }
+  // Central bar: a coherent elongated distribution along BAR_ANG (not a bulge stretch) —
+  // half-length R_START, ~1.1 kpc across, golden older population.
+  for (let i = 0; i < 1300; i++) {
+    const along = (rng() * 2 - 1) * R_START * (0.55 + 0.45 * rng());
+    const acrossB = gauss() * 1.15, zB = gauss() * 0.9;
+    const x = along * Math.cos(BAR_ANG) - acrossB * Math.sin(BAR_ANG);
+    const y = along * Math.sin(BAR_ANG) + acrossB * Math.cos(BAR_ANG);
+    pts.push(x, y, zB, 1.5 + rng() * 1.1, 1.0, 0.85, 0.6, 0.55 + 0.4 * rng());
+  }
+  // Inner bulge: compact spheroid under the bar.
+  for (let i = 0; i < 1400; i++) {
+    const r = Math.pow(rng(), 1.8) * 6.4, th = rng() * 2 * Math.PI;
+    pts.push(r * Math.cos(th), r * Math.sin(th), gauss() * (1.6 - r * 0.12), 1.4 + rng() * 1.2, 1.0, 0.88, 0.66, 0.5 + 0.5 * rng());
   }
   // Diffuse disc haze
-  for (let i = 0; i < 1400; i++) {
+  for (let i = 0; i < 1600; i++) {
     const r = Math.sqrt(rng()) * RMAX, th = rng() * 2 * Math.PI;
-    pts.push(r * Math.cos(th), r * Math.sin(th), (rng() - 0.5) * 2.0, 0.9, 0.7, 0.75, 0.95, 0.18 + 0.2 * rng());
+    pts.push(r * Math.cos(th), r * Math.sin(th), gauss() * 0.7, 0.9, 0.75, 0.78, 0.95, 0.14 + 0.16 * rng());
   }
 
   // Reference rings at the Sun's orbit + galactocentric radii, as line strips.
@@ -103,19 +169,43 @@ export function buildGalaxyModel() {
   for (const kpc of [4, 8.178, 12, 16]) ring(kpc / GAL_UNIT_KPC, kpc === 8.178 ? [0.95, 0.78, 0.30] : [0.25, 0.3, 0.42]);
 
   const sunPos = sunGalacticPos(0);
+  // Each arm label sits ON its generated curve (same formula as the points), at an azimuth
+  // offset from the Sun's line chosen so the four don't stack; `shear: true` makes orrery.js
+  // move them with the differentially-rotating disc, in lockstep with the points.
+  const solveCrossing = (base) => { // arm's radius where it crosses the Sun's azimuth:
+    // r = R_START·exp((GAL_THETA0 − base + 2πn)/B); pick the crossing nearest the Sun's radius.
+    let bestR = null;
+    for (let n = -2; n <= 3; n++) {
+      const r = R_START * Math.exp((GAL_THETA0 - base + 2 * Math.PI * n) / B);
+      if (r < R_START * 0.9 || r > RMAX * 1.05) continue;
+      if (!bestR || Math.abs(Math.log(r / GAL_SUN_R)) < Math.abs(Math.log(bestR / GAL_SUN_R))) bestR = r;
+    }
+    return bestR;
+  };
+  const armLabel = (arm, dTheta) => {
+    const rc = solveCrossing(arm.base);
+    if (!rc) return null;
+    const r = rc * Math.exp(dTheta / B), th = GAL_THETA0 + dTheta;
+    return { name: arm.name, p: [r * Math.cos(th), r * Math.sin(th), 0], shear: true };
+  };
+  const labels = [
+    { name: "◎ Galactic Centre (Sgr A*)", p: [0, 0, 0] },
+    { name: "☉ Sun — you are here (~26,700 ly out)", p: sunPos, sun: true },
+    armLabel(ARMS[0], 1.5),    // Scutum–Centaurus, well along its arc
+    armLabel(ARMS[1], -1.6),   // Norma–Outer crosses far out; label it back along the curve
+    armLabel(ARMS[2], 0.9),    // Perseus
+    armLabel(ARMS[3], -0.9),   // Sagittarius–Carina
+    { name: "Orion Spur — the Sun's arm segment", p: [R_SPUR * Math.exp(0.38 / (2 * B)) * Math.cos(GAL_THETA0 + 0.38), R_SPUR * Math.exp(0.38 / (2 * B)) * Math.sin(GAL_THETA0 + 0.38), 0], shear: true },
+    { name: "Central bar", p: [R_START * 0.7 * Math.cos(BAR_ANG), R_START * 0.7 * Math.sin(BAR_ANG), 0], shear: true },
+    { name: "Sun's orbit ≈ 26,700 ly", p: [GAL_SUN_R * Math.cos(GAL_THETA0 - 2.4), GAL_SUN_R * Math.sin(GAL_THETA0 - 2.4), 0] },
+  ].filter(Boolean);
   return {
     points: new Float32Array(pts),
     count: pts.length / 8,
     guide: new Float32Array(guide),
     ranges,
     sunPos,
-    labels: [
-      { name: "◎ Galactic Centre (Sgr A*)", p: [0, 0, 0] },
-      { name: "☉ Sun — you are here (~26,700 ly out)", p: sunPos, sun: true },
-      { name: "Perseus Arm", p: [-30, 14, 0] },
-      { name: "Sagittarius Arm", p: [18, -22, 0] },
-      { name: "Sun's orbit ≈ 26,700 ly", p: [GAL_SUN_R * Math.cos(-0.5), GAL_SUN_R * Math.sin(-0.5), 0] },
-    ],
+    labels,
   };
 }
 

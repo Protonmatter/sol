@@ -2,10 +2,19 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY, poleVector } from "./bodyData.js?v=82b4db3ea4";
-import { isRetrograde } from "./moonorbits.js?v=82b4db3ea4";
+import { BODY, poleVector } from "./bodyData.js?v=1f188ecb07";
+import { isRetrograde } from "./moonorbits.js?v=1f188ecb07";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
+
+// 5.972e24 → "5.972 × 10²⁴" — scientific notation with a real superscript exponent, for masses.
+const SUPERSCRIPTS = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
+function sci(n) {
+  if (n == null || !isFinite(n) || n <= 0) return null;
+  const e = Math.floor(Math.log10(n));
+  const sup = String(e).split("").map((ch) => SUPERSCRIPTS[ch] || ch).join("");
+  return `${(n / 10 ** e).toFixed(3)} × 10${sup}`;
+}
 
 /**
  * Facts card for a moon. Separate from the planet card because the honest content differs: a
@@ -54,6 +63,49 @@ export function renderMoonDetail(m, unixSeconds) {
   host.appendChild(card);
 }
 
+/**
+ * Facts card for a small-body marker (dwarf planet, comet, or spacecraft) — the layer that used
+ * to be drawn and labelled but had no card at all, so its `note` strings were unreachable.
+ * `s` is the marker from orrery.js: {name, pos, kind, note, el} with `el` the source record
+ * (osculating elements for dwarfs/comets, distance+heading for probes).
+ */
+export function renderSmallDetail(s) {
+  const host = document.getElementById("orreryDetail"); if (!host) return;
+  host.textContent = "";
+  const card = document.createElement("div"); card.className = "sky-row system-detail";
+  const h = document.createElement("strong"); h.textContent = s.name; card.appendChild(h);
+  const kindLabel = { dwarf: "Dwarf planet / asteroid", comet: "Comet", probe: "Spacecraft" }[s.kind] || s.kind;
+  const blurb = document.createElement("p"); blurb.className = "time-frame-label";
+  blurb.textContent = `${kindLabel} — ${s.note}`; card.appendChild(blurb);
+  const dl = document.createElement("dl"); dl.className = "detail-grid";
+  const add = (k, v) => {
+    if (v == null) return;
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd);
+  };
+  const distAU = Math.hypot(s.pos[0], s.pos[1], s.pos[2]);
+  add("Distance from Sun", `${distAU.toFixed(2)} AU · light ${(distAU * 8.317 / 60).toFixed(1)} h`);
+  const el = s.el || {};
+  if (s.kind !== "probe" && el.a != null) {
+    add("Semi-major axis", `${el.a.toFixed(2)} AU`);
+    add("Perihelion → aphelion", `${(el.a * (1 - el.e)).toFixed(2)} → ${(el.a * (1 + el.e)).toFixed(1)} AU`);
+    add("Eccentricity", el.e.toFixed(4));
+    add("Inclination", `${el.i.toFixed(2)}° to the ecliptic${el.i > 90 ? " · retrograde orbit" : ""}`);
+    add("Orbital period", `${Math.pow(el.a, 1.5).toFixed(el.a > 20 ? 0 : 2)} yr`);
+  }
+  card.appendChild(dl);
+  const note = document.createElement("p");
+  note.className = "time-frame-label";
+  note.textContent = s.kind === "probe"
+    ? "Placed from its approximate current distance and heading — spacecraft recede ~3 AU per "
+      + "year, so the marker only means anything near the present."
+    : "Orbit geometry from published J2000 osculating elements (accurate); the position along "
+      + "it is a two-body Kepler propagation with no planetary perturbations — good to about a "
+      + "degree, for orientation rather than navigation.";
+  card.appendChild(note);
+  host.appendChild(card);
+}
+
 // Render the facts card for `name` into #orreryDetail. `live` is the body's row from the
 // current system snapshot (distances/speed/phase/magnitude/equilibrium temp), or undefined.
 export function renderDetail(name, live) {
@@ -63,7 +115,7 @@ export function renderDetail(name, live) {
   if (!phys) {
     const row = document.createElement("div");
     row.className = "sky-row";
-    row.textContent = "Click the Sun, a planet, or a named star to inspect its facts.";
+    row.textContent = "Click the Sun, a planet, a moon, a dwarf planet, a comet, or a named star to inspect its facts.";
     host.appendChild(row);
     return;
   }
@@ -85,6 +137,8 @@ export function renderDetail(name, live) {
     const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd);
   };
   add("Equatorial radius", `${fmt(phys.radiusKm)} km${phys.polarKm !== phys.radiusKm ? ` · oblate (polar ${fmt(phys.polarKm)} km)` : ""}`, phys.polarKm !== phys.radiusKm ? "oblateness" : null);
+  // massKg has been in the table since day one but was never rendered anywhere.
+  if (phys.massKg) add("Mass", `${sci(phys.massKg)} kg${name !== "Earth" && BODY.Earth ? ` (${(phys.massKg / BODY.Earth.massKg).toPrecision(3)} × Earth)` : ""}`);
   add("Surface gravity", `${phys.gravity.toFixed(2)} m/s² · escape ${phys.escapeKms.toFixed(1)} km/s`, "escape-velocity");
   add("Mean density", `${phys.densityGcm3.toFixed(3)} g/cm³`);
   const rh = phys.rotationHours, retro = rh < 0;
