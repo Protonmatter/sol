@@ -35,7 +35,7 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         index = (Path(self.directory) / "index.html").read_text(encoding="utf-8")
         setup = """<script>
 localStorage.setItem("sol-surface", "orrery");
-const smokeWait = async (test, timeout = 8000) => {
+const smokeWait = async (test, timeout = 20000) => {
   const end = performance.now() + timeout;
   while (performance.now() < end) {
     if (test()) return true;
@@ -138,7 +138,11 @@ def browser_args(profile: str) -> list[str]:
         "--use-angle=swiftshader",
         "--use-gl=angle",
         "--run-all-compositor-stages-before-draw",
-        "--virtual-time-budget=15000",
+        # Generous budget: the moons module + Earth surface map load lazily after first paint,
+        # and on a slow shared runner the old 15 s budget expired before the 21 moon rows
+        # rendered — the recurring "moon smoke timing" flake (ready=no, rows<21) on master
+        # pushes that had passed identical content on the PR minutes earlier.
+        "--virtual-time-budget=40000",
         f"--user-data-dir={profile}",
     ]
 
