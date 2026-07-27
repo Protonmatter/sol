@@ -1,20 +1,20 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js?v=a35b99fa20";
-import { TOUR_STEPS } from "./js/config.js?v=a35b99fa20";
-import { controls } from "./js/dom.js?v=a35b99fa20";
-import { clamp } from "./js/format.js?v=a35b99fa20";
-import { renderAll } from "./js/view.js?v=a35b99fa20";
-import { updateModeButtons } from "./js/panels.js?v=a35b99fa20";
-import { loadState } from "./js/data.js?v=a35b99fa20";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=a35b99fa20";
-import { startTour, endTour, showTourStep } from "./js/tour.js?v=a35b99fa20";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=a35b99fa20";
-import { enterSky, leaveSky, resizeSky } from "./js/sky.js?v=a35b99fa20";
-import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=a35b99fa20";
-import { buildWavelengthBar } from "./js/wavelength.js?v=a35b99fa20";
-import { buildSunCutaway } from "./js/sunlayers.js?v=a35b99fa20";
+import { store } from "./js/store.js?v=4d10c5ae8a";
+import { TOUR_STEPS } from "./js/config.js?v=4d10c5ae8a";
+import { controls } from "./js/dom.js?v=4d10c5ae8a";
+import { clamp } from "./js/format.js?v=4d10c5ae8a";
+import { renderAll } from "./js/view.js?v=4d10c5ae8a";
+import { updateModeButtons } from "./js/panels.js?v=4d10c5ae8a";
+import { loadState } from "./js/data.js?v=4d10c5ae8a";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay } from "./js/timeline.js?v=4d10c5ae8a";
+import { startTour, endTour, showTourStep } from "./js/tour.js?v=4d10c5ae8a";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=4d10c5ae8a";
+import { enterSky, leaveSky, resizeSky } from "./js/sky.js?v=4d10c5ae8a";
+import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=4d10c5ae8a";
+import { buildWavelengthBar } from "./js/wavelength.js?v=4d10c5ae8a";
+import { buildSunCutaway } from "./js/sunlayers.js?v=4d10c5ae8a";
 
 // --- Layer toggles ---
 for (const input of Object.values(controls)) {
@@ -217,5 +217,5 @@ loadState();
 // change a new worker (a forced, clean update path); registration failure is simply the
 // online-only behavior the app always had, so it is deliberately silent.
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js?v=a35b99fa20").catch(() => { /* online-only */ });
+  navigator.serviceWorker.register("sw.js?v=4d10c5ae8a").catch(() => { /* online-only */ });
 }

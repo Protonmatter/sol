@@ -13,28 +13,28 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=a35b99fa20";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=a35b99fa20";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=a35b99fa20";
-import { buildCelestial } from "./celestial.js?v=a35b99fa20";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=a35b99fa20";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=a35b99fa20";
+import { store } from "./store.js?v=4d10c5ae8a";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=4d10c5ae8a";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=4d10c5ae8a";
+import { buildCelestial } from "./celestial.js?v=4d10c5ae8a";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=4d10c5ae8a";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=4d10c5ae8a";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
-} from "./orreryMath.js?v=a35b99fa20";
+} from "./orreryMath.js?v=4d10c5ae8a";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=a35b99fa20";
+} from "./orreryShaders.js?v=4d10c5ae8a";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=a35b99fa20";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=a35b99fa20";
-import { renderStarDetail } from "./starDetail.js?v=a35b99fa20";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=a35b99fa20";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=a35b99fa20";
+} from "./orreryGalaxy.js?v=4d10c5ae8a";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=4d10c5ae8a";
+import { renderStarDetail } from "./starDetail.js?v=4d10c5ae8a";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=4d10c5ae8a";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=4d10c5ae8a";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -45,7 +45,12 @@ function updateOrreryAccuracy() {
   // arcsecond-class across the whole slider; the moons do not, and silently vanishing moons
   // would read as a bug rather than as the honest answer.
   const moonNote = state.showMoons && state.moonsHiddenReason ? ` ${state.moonsHiddenReason}` : "";
-  node.textContent = `${epochLabel(state.offsetYears)} — ${a.text}${moonNote}`;
+  // Same honesty for spin: at high time speeds a body may turn faster than frames can show,
+  // so its rotation phase holds still rather than strobing — say so instead of looking stuck.
+  const spinNote = state.animate && !state.galaxy && state.spinFrozenCount
+    ? " Rotation display frozen — the clock outpaces spin at this speed; slow down to see it."
+    : "";
+  node.textContent = `${epochLabel(state.offsetYears)} — ${a.text}${moonNote}${spinNote}`;
 }
 
 const FOVY = (42 * Math.PI) / 180;
@@ -72,7 +77,12 @@ const TEXTURE_FILES = {
 const state = (store.orrery = {
   az: 0.7, el: 0.45, radius: 26, savedRadius: 26, offsetYears: 0,
   active: false, entering: false, exaggeration: 1, trueScale: false, animate: true,
-  yearsPerSec: 0.5, // solar-system animation rate (sim years per real second) — fast enough to see the giants orbit
+  // Solar-system animation rate (sim years per real second). Defaults to the SLOWEST speed —
+  // one day per second — so rotation is resolvable out of the box: Earth turns once per real
+  // second and the terminator visibly sweeps. The old 0.5 yr/s default meant Earth "should"
+  // spin 182 times a second, which forced the spin-freeze guard on from the first frame and
+  // read as planets mysteriously not rotating.
+  yearsPerSec: 1 / 365.25,
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: true, showLabels: true, showSunEq: true, useTextures: true, galaxy: false,
   showSmall: true, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
@@ -86,6 +96,7 @@ const state = (store.orrery = {
   renderUnix: Date.now() / 1000, simElapsed: 0, galYears: 0, selected: null, backend: "",
   simStepSeconds: 0, // simulated seconds covered by the last frame (0 when paused)
   moonsHiddenReason: "", // why the moon layer is suppressed, surfaced in the accuracy line
+  spinFrozenCount: 0, // bodies whose rotation display is frozen this frame (accuracy-line note)
   sunImageUnix: null, // capture epoch of textures/sun.jpg (from sun.jpg.json); null = unknown/procedural
   moonsAliasedCount: 0, // accumulated across every visible parent system in one paint
   bodies: [], lastTick: 0,
@@ -156,7 +167,7 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=a35b99fa20"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=4d10c5ae8a"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   // The alpha profile rides with the photo ring: when the textured ring is what's drawn, its
@@ -164,7 +175,7 @@ function loadTextures() {
   // the ring without changing its shadow (and the photo's fine gaps would not shadow at all).
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true, alphaProfile: ringImageAlphaProfile(ring) }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=a35b99fa20";
+  ring.src = "textures/saturn_ring.png?v=4d10c5ae8a";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -180,12 +191,12 @@ function loadTextures() {
     } catch (e) { console.warn("sun texture", e.message); }
   };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=a35b99fa20")
+  fetch("textures/sun.jpg.json?v=4d10c5ae8a")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=a35b99fa20";
+      sun.src = "textures/sun.jpg?v=4d10c5ae8a";
     });
 }
 
@@ -210,8 +221,8 @@ async function buildGeneratedMaps() {
   genStarted = true;
   try {
     const [geo, moons] = await Promise.all([
-      import("./geography.js?v=a35b99fa20"),
-      import("./moons.js?v=a35b99fa20"),
+      import("./geography.js?v=4d10c5ae8a"),
+      import("./moons.js?v=4d10c5ae8a"),
     ]);
     moonSet = moons;
     populateAnchorSelect(); // the Focus dropdown can now offer the 21 moons
@@ -800,6 +811,7 @@ function paint() {
     if (!b) continue;
     drawBody(b, vp, eye);
   }
+  state.spinFrozenCount = Object.keys(rotFreeze).length;
   if (!state.moonsHiddenReason && state.moonsAliasedCount) {
     const count = state.moonsAliasedCount;
     state.moonsHiddenReason = `${count} inner moon${count > 1 ? "s" : ""} hidden — the clock is `
@@ -1435,8 +1447,9 @@ function tick(now) {
         updateGalaxySun();
       }
     } else {
-      // How much simulated time one frame covers. The moon layer needs it: at the default
-      // 0.5 yr/s this is ~3 days per frame, which is more than a full orbit for several moons.
+      // How much simulated time one frame covers — the moon layer's aliasing guard and the
+      // spin-freeze guard both key off it. At the 1 day/s default it is ~24 sim-minutes per
+      // frame; at 5 yr/s it is ~30 days, more than a full orbit for several moons.
       state.simStepSeconds = dt * state.yearsPerSec * YR;
       state.simElapsed += dt * state.yearsPerSec * YR; // YR seconds per sim-year ⇒ visible outer-planet motion
       state.renderUnix = effectiveBaseUnix() + state.simElapsed;
@@ -1446,8 +1459,9 @@ function tick(now) {
   }
   if (state.freeFly) flyStep(dt);
   const moonNoteBefore = state.moonsHiddenReason;
+  const spinBefore = state.spinFrozenCount;
   paint();
-  if (state.moonsHiddenReason !== moonNoteBefore) updateOrreryAccuracy();
+  if (state.moonsHiddenReason !== moonNoteBefore || state.spinFrozenCount !== spinBefore) updateOrreryAccuracy();
   // Idle when nothing advances frame-to-frame: with Animate off (and no free-fly) the loop
   // used to keep re-tessellating and repainting the full scene at 60 fps forever. All the
   // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
@@ -1554,20 +1568,64 @@ function populateAnchorSelect() {
   if (sel.value !== cur) sel.value = "Sun"; // the previous anchor no longer exists
 }
 
+// ---- Time-speed model. One rate, three synchronized controls (log slider, preset buttons,
+// manual value+unit entry) — changing any updates the others; none overrides another.
+const SPEED_MIN_DPS = 1;            // slider floor: 1 day per second (also the default)
+const SPEED_MAX_DPS = 5 * 365.25;   // slider ceiling: 5 years per second
+const SPEED_LOG_SPAN = Math.log(SPEED_MAX_DPS / SPEED_MIN_DPS);
+const speedFromSlider = (t) => (SPEED_MIN_DPS * Math.exp(t * SPEED_LOG_SPAN)) / 365.25;
+const sliderFromSpeed = (yps) => Math.min(1, Math.max(0,
+  Math.log((yps * 365.25) / SPEED_MIN_DPS) / SPEED_LOG_SPAN));
+
+// Push state.yearsPerSec back out to every speed control. `source` names the control the user
+// is currently typing/dragging in, which is left alone so we never fight their input.
+function updateSpeedUI(source) {
+  if (state.galaxy) return; // the slider is lent to the galactic clock in galaxy mode
+  const s = /** @type {HTMLInputElement|null} */ (document.getElementById("orrerySpeed"));
+  const entry = /** @type {HTMLInputElement|null} */ (document.getElementById("orrerySpeedEntry"));
+  const unit = /** @type {HTMLSelectElement|null} */ (document.getElementById("orrerySpeedUnit"));
+  const presets = document.getElementById("orrerySpeedPresets");
+  const dps = state.yearsPerSec * 365.25;
+  if (s && source !== "slider") s.value = String(sliderFromSpeed(state.yearsPerSec));
+  if (entry && unit && source !== "entry") {
+    entry.value = String(parseFloat((dps / Number(unit.value)).toPrecision(4)));
+  }
+  if (presets) {
+    for (const b of presets.querySelectorAll("button[data-dps]")) {
+      const on = Math.abs(Number(b.dataset.dps) - dps) / dps < 0.02;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.classList.toggle("active", on);
+    }
+  }
+}
+
+function setSolarSpeed(yps, source) {
+  // Manual entry may go beyond the slider's range; keep it physical and finite. If the cap
+  // bites, the source control is rewritten too — no control may display a rate the
+  // simulation is not actually running.
+  const clamped = Math.min(50, Math.max(0.0001 / 365.25, yps));
+  state.yearsPerSec = clamped;
+  updateSpeedUI(clamped === yps ? source : undefined);
+}
+
 // The Time-speed slider serves both views at very different scales, so reconfigure it per mode:
-// solar-system = years/sec (orbital motion); galaxy = millions of years/sec (the galactic clock).
+// solar-system = log-mapped 1 day/s … 5 yr/s; galaxy = linear millions of years per second.
 function setSpeedSliderMode(galaxy) {
   const s = /** @type {HTMLInputElement|null} */ (document.getElementById("orrerySpeed"));
   const lbl = document.getElementById("orrerySpeedLabel");
+  const extras = document.getElementById("orrerySpeedExtras");
   if (!s) return;
   if (galaxy) {
     s.min = "0.1"; s.max = "50"; s.step = "0.1"; s.value = String(state.galSpeed);
     s.setAttribute("aria-label", "galactic time speed (millions of years per second)");
     if (lbl) lbl.textContent = "Galactic time (Myr / sec)";
+    if (extras) extras.style.display = "none";
   } else {
-    s.min = "0.02"; s.max = "5"; s.step = "0.02"; s.value = String(state.yearsPerSec);
-    s.setAttribute("aria-label", "animation time speed (years per second)");
-    if (lbl) lbl.textContent = "Time speed (years / sec)";
+    s.min = "0"; s.max = "1"; s.step = "0.001"; s.value = String(sliderFromSpeed(state.yearsPerSec));
+    s.setAttribute("aria-label", "animation time speed");
+    if (lbl) lbl.textContent = "Time speed";
+    if (extras) extras.style.display = "";
+    updateSpeedUI();
   }
 }
 
@@ -1616,7 +1674,7 @@ async function enterOrreryInner() {
   try {
     // Fetch the star catalogue alongside the WASM engine — two parallel loads, both
     // needed only by this surface, neither on the app's first-paint path.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=a35b99fa20");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=4d10c5ae8a");
     await loadSkyEngine();
     if (starCatPromise) starCat = await starCatPromise;
     if (!gl) {
@@ -1806,7 +1864,25 @@ function showFallback(msg) {
       updateOrreryAccuracy();
     }
   });
-  bind("orrerySpeed", "input", (e) => { const v = Number(e.target.value); if (state.galaxy) state.galSpeed = v; else state.yearsPerSec = v; });
+  bind("orrerySpeed", "input", (e) => {
+    const v = Number(e.target.value);
+    if (state.galaxy) state.galSpeed = v;
+    else setSolarSpeed(speedFromSlider(v), "slider");
+  });
+  bind("orrerySpeedPresets", "click", (e) => {
+    const btn = e.target.closest("button[data-dps]");
+    if (btn && !state.galaxy) setSolarSpeed(Number(btn.dataset.dps) / 365.25);
+  });
+  const entrySpeed = () => {
+    const entry = /** @type {HTMLInputElement} */ (document.getElementById("orrerySpeedEntry"));
+    const unit = /** @type {HTMLSelectElement} */ (document.getElementById("orrerySpeedUnit"));
+    const v = Number(entry.value);
+    if (Number.isFinite(v) && v > 0 && !state.galaxy) setSolarSpeed((v * Number(unit.value)) / 365.25, "entry");
+  };
+  bind("orrerySpeedEntry", "input", entrySpeed);
+  // A unit switch re-expresses the current rate, it does not change it.
+  bind("orrerySpeedUnit", "change", () => { if (!state.galaxy) updateSpeedUI(); });
+  updateSpeedUI();
   bind("orreryShowOrbits", "change", (e) => { state.showOrbits = e.target.checked; buildSceneLines(); paint(); });
   bind("orreryShowSky", "change", (e) => { state.showSky = e.target.checked; paint(); });
   bind("orreryShowConst", "change", (e) => { state.showConst = e.target.checked; paint(); });

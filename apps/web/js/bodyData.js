@@ -72,6 +72,11 @@ export const BODY = {
   Mars: {
     radiusKm: 3396.2, polarKm: 3376.2, massKg: 6.417e23, densityGcm3: 3.933,
     gravity: 3.71, escapeKms: 5.03, rotationHours: 24.6229, tiltDeg: 25.19,
+    // Deliberately the IAU 2009 constants, NOT 2015's (α0 317.269202, δ0 54.432516, W0
+    // 176.049863): the 2015 Mars model is only valid WITH its ~10-term trigonometric series,
+    // whose J2000 sum shifts the pole back near (317.68, 52.89). Taking the 2015 constant
+    // terms alone into this linear poleAt() model would put the pole ~1.5° off. Do not
+    // "upgrade" these without also implementing the series.
     poleRaDeg: 317.681, poleDecDeg: 52.887, poleRaDotDegPerCty: -0.1061, poleDecDotDegPerCty: -0.0609, w0Deg: 176.630, wDotDegPerDay: 350.89198226,
     magDipoleEarth: 0, magnetosphere: false,
     atmosphere: { pressureBar: 0.00636, composition: "95% CO₂, 2.7% N₂, 1.6% Ar" },
@@ -111,8 +116,13 @@ export const BODY = {
   },
   Neptune: {
     radiusKm: 24764, polarKm: 24341, massKg: 1.024e26, densityGcm3: 1.638,
-    gravity: 11.15, escapeKms: 23.5, rotationHours: 16.11, tiltDeg: 28.32,
-    poleRaDeg: 299.36, poleDecDeg: 43.46, poleRaDotDegPerCty: 0.0, poleDecDotDegPerCty: 0.0, w0Deg: 253.18, wDotDegPerDay: 536.3128492,
+    // Rotation per IAU WGCCRE 2015 (pck00011): W = 249.978 + 541.1397757·d, sidereal period
+    // 15.9663 h — the 2015 report adopted Karkoschka's updated rate over the Voyager radio
+    // period (16.11 h) that NASA's fact sheet still quotes and the old 2009 constants used.
+    // rotationHours matches Ẇ so the card, the spin-freeze threshold and the rendered spin
+    // all describe the same rotation.
+    gravity: 11.15, escapeKms: 23.5, rotationHours: 15.9663, tiltDeg: 28.32,
+    poleRaDeg: 299.36, poleDecDeg: 43.46, poleRaDotDegPerCty: 0.0, poleDecDotDegPerCty: 0.0, w0Deg: 249.978, wDotDegPerDay: 541.1397757,
     magDipoleEarth: 27, magnetosphere: true,
     atmosphere: { pressureBar: NaN, composition: "80% H₂, 19% He, 1.5% CH₄" },
     albedo: 0.442, meanTempK: 72, style: "neptune", color: [0.26, 0.40, 0.84],
