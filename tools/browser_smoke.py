@@ -35,6 +35,16 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         index = (Path(self.directory) / "index.html").read_text(encoding="utf-8")
         setup = """<script>
 localStorage.setItem("sol-surface", "orrery");
+// Diagnostics for the assertion message: page errors and rejections land in body.dataset so
+// a CI failure names the exception instead of just which marker went missing.
+const smokeErr = (msg) => {
+  document.body.dataset.smokeErrs =
+    ((document.body.dataset.smokeErrs || "") + " || " + msg).slice(0, 1500);
+};
+addEventListener("error", e =>
+  smokeErr(String(e.message) + " @ " + String(e.filename).split("/").pop() + ":" + e.lineno));
+addEventListener("unhandledrejection", e =>
+  smokeErr("REJECTION: " + String((e.reason && e.reason.message) || e.reason)));
 // Frame-driven, NOT timer-polled: under --virtual-time-budget Chrome fast-forwards timers,
 // so a "20 s" setTimeout poll loop expires in about a second of real time — before the
 // lazily imported moons module has actually finished loading. That race was this smoke's
@@ -51,6 +61,25 @@ const smokeWait = (test) => new Promise(resolve => {
 });
 addEventListener("load", async () => {
   const body = document.body;
+  // Live sim-state trace: the last frame's rate / step / aliased-count / frozen-count /
+  // moon-note flag land in the dump, so a starved wait shows WHAT the simulation was doing
+  // instead of just which marker went missing.
+  try {
+    const href = document.querySelector('link[href^="js/store.js"]').getAttribute("href");
+    const { store } = await import("./" + href);
+    const trace = () => {
+      const o = store.orrery || {};
+      body.dataset.smokeSim = [
+        "yps=" + Number(o.yearsPerSec).toPrecision(3),
+        "stepD=" + (o.simStepSeconds / 86400).toPrecision(3),
+        "aliased=" + o.moonsAliasedCount,
+        "frozen=" + o.spinFrozenCount,
+        "note=" + (o.moonsHiddenReason ? o.moonsHiddenReason.slice(0, 40) : "-"),
+      ].join(" ");
+      requestAnimationFrame(trace);
+    };
+    trace();
+  } catch (e) { smokeErr("trace: " + e.message); }
   const ready = await smokeWait(() =>
     document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21
     && document.getElementById("orreryBackend")?.textContent.includes("WebGL2"));
@@ -58,18 +87,22 @@ addEventListener("load", async () => {
   body.dataset.smokeMoonRows =
     String(document.querySelectorAll("#orreryPositions .orrery-pos-moon").length);
   // Aliasing is speed-dependent, and the app now DEFAULTS to the slowest rate (1 day/s),
-  // where nothing outruns the clock. Step the speed up to ~1 month/sec — enough that Phobos
-  // aliases even on the smallest virtual-time frame deltas, while the sim epoch stays well
-  // inside the moons' validity window (cranking to maximum raced ~90 days per frame and left
-  // the window before the check could see the message). The message appears on whichever
-  // frame first ticks with the new rate, so WAIT for it frame-by-frame rather than sampling
-  // one instant — a single sample after a fixed delay was the flake.
+  // where nothing outruns the clock. Crank to ~190 days/sec: Phobos (P/3 ≈ 0.106 d) then
+  // aliases even at the few-millisecond frame deltas slow CI runners produce under virtual
+  // time (at ~30 d/s the step could stay under the threshold there and the wait starved the
+  // whole rest of the script). ~190 d/s drifts only a few sim-days per frame, so the epoch
+  // stays far inside the moons' validity window; the wait resolves on the aliasing message
+  // OR the out-of-window message so a drift regression reports as "drifted" rather than a
+  // hang at the virtual-time budget.
   const accuracy = document.getElementById("orreryAccuracy");
   const speed = document.getElementById("orrerySpeed");
-  speed.value = "0.455"; // log slider → ~30 days/sec
+  speed.value = "0.7"; // log slider → ~190 days/sec
   speed.dispatchEvent(new Event("input", { bubbles: true }));
-  await smokeWait(() => accuracy?.textContent.includes("inner moon"));
-  body.dataset.smokeAliasing = "yes";
+  await smokeWait(() =>
+    accuracy?.textContent.includes("inner moon")
+    || accuracy?.textContent.includes("outside their"));
+  body.dataset.smokeAliasing =
+    accuracy?.textContent.includes("inner moon") ? "yes" : "drifted";
   const animate = document.getElementById("orreryAnimate");
   animate.checked = false;
   animate.dispatchEvent(new Event("change", { bubbles: true }));
@@ -271,8 +304,15 @@ def run_smoke(base: str, browser: str) -> None:
     )
     missing = [marker for marker in expected if marker not in orrery_dom]
     if missing:
+        # Surface the page's own diagnostics: trapped errors, the actual marker values, and
+        # the accuracy line — a missing marker alone says nothing about WHY.
+        import re as _re
+        body_tag = _re.search(r"<body[^>]*>", orrery_dom)
+        acc = _re.search(r'id="orreryAccuracy"[^>]*>([^<]*)<', orrery_dom)
         raise AssertionError(
             "Solar System: 3-D/moon interaction assertions failed: " + ", ".join(missing)
+            + "\n  body: " + (body_tag.group(0)[:900] if body_tag else "<none>")
+            + "\n  accuracy: " + (acc.group(1)[:300] if acc else "<none>")
         )
     screenshot = capture_screenshot(browser, orrery_url)
     if not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or len(screenshot) < 20_000:

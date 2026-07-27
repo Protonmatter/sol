@@ -43,8 +43,10 @@ def horizons_altaz(command, when, lat, lon, elev):
 # Tighter than the 60" Moon gate in validate_ephemeris on purpose: at syzygy the Moon
 # matches Horizons to a few arcsec without an annual-aberration term and regresses to
 # ~20-25" with one, so ~15" cleanly separates correct from regressed.
-TOL_SEP_DEG = 15.0 / 3600.0
-TOL_ALT_DEG = 15.0 / 3600.0
+# Regression budget at ~2× the measured worst (syzygy Moon ≤ ~5″ vs Horizons) — the
+# annual-aberration mistake this suite caught measured ~23″ and must always fail.
+TOL_SEP_DEG = 10.0 / 3600.0
+TOL_ALT_DEG = 10.0 / 3600.0
 
 SYNODIC = 29.530588861          # mean synodic month (days)
 NEWMOON0_JD = 2451550.09766     # Meeus mean new moon, k=0 (~2000-01-06)

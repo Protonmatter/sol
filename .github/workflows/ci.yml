@@ -125,6 +125,13 @@ jobs:
         # tools/fetch_geography.py is the only networked step and is never run here.
         run: python tools/generate_geography.py --check
 
+      - name: Body constants pinned to sources (WGCCRE 2015 / fact sheets) + GLSL hygiene
+        # docs/ACCURACY_CONTRACT.md enforcement: every pole/W/spin/radius/mass/ring number in
+        # bodyData.js must match its pinned source edition; rotationHours must agree with the
+        # Ẇ actually rendered; Mars's deliberate IAU-2009 exception keeps its warning comment;
+        # literal smoothstep edges must be increasing (reversed edges are undefined GLSL).
+        run: python tools/validate_body_constants.py
+
       - name: Moon orbits regen-stable + validated vs JPL Horizons
         # Regenerates apps/web/js/moons.js from the committed Horizons elements and requires
         # byte-identity, then interpolates every moon and compares against committed Horizons

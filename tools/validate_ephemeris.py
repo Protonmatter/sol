@@ -38,8 +38,11 @@ BODIES = {
 }
 # The headline gate is the great-circle POINTING error (`sep`), which — unlike raw d_az —
 # does not blow up near the zenith/nadir. d_alt is also gated; d_az is reported for context.
-DEFAULT_TOL_ARCSEC = 30.0
-MOON_TOL_ARCSEC = 60.0
+# Tolerances are REGRESSION budgets pinned at ~2× the measured worst (Sun/planets ≤ ~4″,
+# Moon ≤ ~5.2″ vs Horizons DE441) — see docs/ACCURACY_CONTRACT.md. The old 30″/60″ values
+# would have waved through the +20″ Moon-aberration regression this suite exists to catch.
+DEFAULT_TOL_ARCSEC = 10.0
+MOON_TOL_ARCSEC = 12.0
 DUT1_TOL_SECONDS = 0.003
 
 
