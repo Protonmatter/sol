@@ -35,14 +35,26 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         index = (Path(self.directory) / "index.html").read_text(encoding="utf-8")
         setup = """<script>
 localStorage.setItem("sol-surface", "orrery");
-const smokeWait = async (test, timeout = 20000) => {
-  const end = performance.now() + timeout;
-  while (performance.now() < end) {
-    if (test()) return true;
-    await new Promise(resolve => setTimeout(resolve, 100));
+// Event-driven, NOT timer-polled: under --virtual-time-budget Chrome fast-forwards timers,
+// so a "20 s" poll loop can expire in about a second of real time — before the lazily
+// imported moons module has actually finished loading. That race was this smoke's recurring
+// flake (ready=no, rows<21 while the later aliasing/validity markers passed fine). A
+// MutationObserver resolves the moment the rows exist; the bound is the browser's own
+// virtual-time budget + the harness subprocess timeout, and a genuine failure still dumps
+// with the markers missing.
+const smokeWait = (test) => new Promise(resolve => {
+  if (test()) { resolve(true); return; }
+  // Scope tightly and coalesce: observing the whole document with attributes:true fires on
+  // every per-frame label-style mutation and the re-tests themselves bog the page down.
+  let scheduled = false;
+  let mo;
+  const check = () => { scheduled = false; if (test()) { mo.disconnect(); resolve(true); } };
+  mo = new MutationObserver(() => { if (!scheduled) { scheduled = true; queueMicrotask(check); } });
+  for (const id of ["orreryPositions", "orreryBackend"]) {
+    const node = document.getElementById(id);
+    if (node) mo.observe(node, { subtree: true, childList: true, characterData: true });
   }
-  return false;
-};
+});
 addEventListener("load", async () => {
   const body = document.body;
   const ready = await smokeWait(() =>
@@ -160,7 +172,7 @@ def dump_dom(browser: str, url: str) -> tuple[str, str]:
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=45,
+            timeout=120,
             check=False,
         )
     if result.returncode != 0:
@@ -185,7 +197,7 @@ def capture_screenshot(browser: str, url: str) -> bytes:
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=45,
+            timeout=120,
             check=False,
         )
         image = screenshot_path.read_bytes() if screenshot_path.is_file() else b""

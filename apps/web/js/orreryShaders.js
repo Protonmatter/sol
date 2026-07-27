@@ -38,6 +38,9 @@ uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
 // see sunDiskBasis() in orrery.js. Body-frame, not camera: the image must co-rotate with the
 // Sun's real spin, not follow the eye around.
 uniform vec3 u_sunA;
+// Ring-shadow inputs: light direction in the body frame, and the ring annulus / main gap radii
+// in units of the equatorial radius ((0,0) = the body has no rings).
+uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform vec2 u_ringGap;
 ${NOISE}
 void main(){
   vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
@@ -128,6 +131,25 @@ void main(){
   float lambert=max(dot(N,normalize(u_light)),0.0);
   float shade=0.05+0.95*lambert;
   col*=shade;
+  // Ring shadow on the planet: march from this surface point toward the Sun in the BODY frame
+  // (the rings live in the equatorial z=0 plane there) and darken where the ray crosses the
+  // annulus. u_ringRad/u_ringGap are in units of the equatorial radius; (0,0) = no rings.
+  if(u_ringRad.y>0.0){
+    vec3 lo=normalize(u_lightObj);
+    if(abs(lo.z)>1e-4){
+      float s=-p.z/lo.z;
+      if(s>0.0){
+        float rr=length(p.xy+lo.xy*s);
+        float in0=smoothstep(u_ringRad.x-0.01,u_ringRad.x+0.01,rr)
+                 *(1.0-smoothstep(u_ringRad.y-0.01,u_ringRad.y+0.01,rr));
+        if(u_ringGap.y>0.0){
+          in0*=1.0-smoothstep(u_ringGap.x-0.005,u_ringGap.x+0.005,rr)
+                  *(1.0-smoothstep(u_ringGap.y-0.005,u_ringGap.y+0.005,rr));
+        }
+        col*=1.0-0.55*in0;
+      }
+    }
+  }
   col+=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert); // atmospheric scattering on the disc rim
   o=vec4(col,1.0);
 }`;
@@ -141,11 +163,25 @@ void main(){ o=vec4(v_col,u_alpha); }`;
 
 export const RING_VS = `#version 300 es
 layout(location=0) in vec3 a_pos; layout(location=1) in vec4 a_col; layout(location=2) in float a_frac;
-uniform mat4 u_mvp; out vec4 v_col; out float v_frac;
-void main(){ v_col=a_col; v_frac=a_frac; gl_Position=u_mvp*vec4(a_pos,1.0); }`;
+uniform mat4 u_mvp; uniform mat4 u_model; out vec4 v_col; out float v_frac; out vec3 v_world;
+void main(){ v_col=a_col; v_frac=a_frac; v_world=(u_model*vec4(a_pos,1.0)).xyz; gl_Position=u_mvp*vec4(a_pos,1.0); }`;
 export const RING_FS = `#version 300 es
-precision highp float; in vec4 v_col; in float v_frac; out vec4 o; uniform int u_useTex; uniform sampler2D u_tex;
-void main(){ vec4 c=v_col; if(u_useTex==1){ vec4 t=texture(u_tex, vec2(v_frac,0.5)); c=vec4(t.rgb*1.05, t.a); } if(c.a<0.02) discard; o=c; }`;
+precision highp float; in vec4 v_col; in float v_frac; in vec3 v_world; out vec4 o;
+uniform int u_useTex; uniform sampler2D u_tex;
+// u_center/u_light/u_prad: the planet's world position, the unit direction from it toward the
+// Sun, and its display radius — for the planet's shadow across the rings.
+uniform vec3 u_center; uniform vec3 u_light; uniform float u_prad;
+void main(){ vec4 c=v_col; if(u_useTex==1){ vec4 t=texture(u_tex, vec2(v_frac,0.5)); c=vec4(t.rgb*1.05, t.a); } if(c.a<0.02) discard;
+  // The planet blocks sunlight over the part of the ring behind it (sun at infinity → a
+  // shadow cylinder along -u_light). Soft-edged, strongly darkened but not black — the rings
+  // scatter light into the shadow in reality, and a hint of structure should survive.
+  vec3 d=v_world-u_center;
+  float t=dot(d,-u_light);
+  if(t>0.0){
+    float axis=length(d+u_light*t);
+    c.rgb*=1.0-0.82*(1.0-smoothstep(u_prad*0.97,u_prad*1.06,axis));
+  }
+  o=c; }`;
 
 export const PT_VS = `#version 300 es
 layout(location=0) in vec3 a_pos; layout(location=1) in float a_size; layout(location=2) in vec4 a_col;
