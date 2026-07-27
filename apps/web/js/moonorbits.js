@@ -9,7 +9,7 @@
 // even with all three implemented it missed Saturn's and Uranus's moons by tens to 165° at their
 // own epoch. tools/ephemeris-data/moons/README.md records that in full.
 
-import { eccentricAnomaly } from "./smallbodies.js?v=ce68304674";
+import { eccentricAnomaly } from "./smallbodies.js?v=a35b99fa20";
 
 const AU_KM = 149597870.7;
 const D2R = Math.PI / 180;
