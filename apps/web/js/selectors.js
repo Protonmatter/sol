@@ -1,12 +1,12 @@
 // Derived reads over the current snapshot in `store`. No DOM writes.
 
-import { store } from "./store.js?v=1f188ecb07";
-import { controls } from "./dom.js?v=1f188ecb07";
-import { BASE_IMAGES } from "./config.js?v=1f188ecb07";
+import { store } from "./store.js?v=32deafc09e";
+import { controls } from "./dom.js?v=32deafc09e";
+import { BASE_IMAGES } from "./config.js?v=32deafc09e";
 import {
   number, numberOrNa, compactNumberOrNa, plural, countBy, formatCounts,
   readableMode, humanizeId, complexityLabel
-} from "./format.js?v=1f188ecb07";
+} from "./format.js?v=32deafc09e";
 
 export function fieldValues(id) {
   return store.state.fields?.[id]?.values || [];
