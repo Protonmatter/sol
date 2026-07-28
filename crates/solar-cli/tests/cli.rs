@@ -8,10 +8,7 @@ fn temp_dir(label: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let path = std::env::temp_dir().join(format!(
-        "sol-cli-{label}-{}-{nonce}",
-        std::process::id()
-    ));
+    let path = std::env::temp_dir().join(format!("sol-cli-{label}-{}-{nonce}", std::process::id()));
     fs::create_dir_all(&path).expect("create temp directory");
     path
 }
@@ -50,8 +47,17 @@ fn simulate_ingest_and_replay_form_an_end_to_end_offline_pipeline() {
     let root = temp_dir("pipeline");
     let snapshot = root.join("snapshot.json");
     let simulated = cli(&[
-        "simulate", "--steps", "0", "--dt-hours", "1", "--seed", "42",
-        "--activity", "0.9", "--out", snapshot.to_str().unwrap(),
+        "simulate",
+        "--steps",
+        "0",
+        "--dt-hours",
+        "1",
+        "--seed",
+        "42",
+        "--activity",
+        "0.9",
+        "--out",
+        snapshot.to_str().unwrap(),
     ]);
     assert!(simulated.status.success(), "{}", text(&simulated.stderr));
     let snapshot_text = fs::read_to_string(&snapshot).unwrap();
@@ -60,29 +66,44 @@ fn simulate_ingest_and_replay_form_an_end_to_end_offline_pipeline() {
 
     let replay = root.join("web-data");
     let replayed = cli(&[
-        "replay", "--snapshot", snapshot.to_str().unwrap(),
-        "--out", replay.to_str().unwrap(),
+        "replay",
+        "--snapshot",
+        snapshot.to_str().unwrap(),
+        "--out",
+        replay.to_str().unwrap(),
     ]);
     assert!(replayed.status.success(), "{}", text(&replayed.stderr));
-    assert_eq!(fs::read_to_string(replay.join("latest-state.json")).unwrap(), snapshot_text);
+    assert_eq!(
+        fs::read_to_string(replay.join("latest-state.json")).unwrap(),
+        snapshot_text
+    );
     assert!(fs::read_to_string(replay.join("replay-manifest.json"))
         .unwrap()
         .contains("model-run-manifest.v1"));
 
     let observations = root.join("observations.json");
     let ingested = cli(&[
-        "ingest", "swpc", "--out", observations.to_str().unwrap(),
-        "--fallback-fixtures", "tests/swpc_scn26_21",
+        "ingest",
+        "swpc",
+        "--out",
+        observations.to_str().unwrap(),
+        "--fallback-fixtures",
+        "tests/swpc_scn26_21",
     ]);
     assert!(ingested.status.success(), "{}", text(&ingested.stderr));
-    let report = fs::read_to_string(observations).unwrap();
+    let report = fs::read_to_string(&observations).unwrap();
     assert!(report.contains("\"schema_version\": \"observation-frame.v1\""));
     assert!(report.contains("\"source_mode\": \"fixture\""));
 
     let assimilated = root.join("assimilated.json");
     let run = cli(&[
-        "simulate", "--steps", "0", "--out", assimilated.to_str().unwrap(),
-        "--observations", observations.to_str().unwrap(),
+        "simulate",
+        "--steps",
+        "0",
+        "--out",
+        assimilated.to_str().unwrap(),
+        "--observations",
+        observations.to_str().unwrap(),
     ]);
     assert!(run.status.success(), "{}", text(&run.stderr));
     assert!(assimilated.is_file());
@@ -107,8 +128,11 @@ fn malformed_arguments_and_replay_inputs_fail_closed() {
     let wrong_schema = root.join("wrong.json");
     fs::write(&wrong_schema, r#"{"schema_version":"other.v1"}"#).unwrap();
     let output = cli(&[
-        "replay", "--snapshot", wrong_schema.to_str().unwrap(),
-        "--out", root.join("out").to_str().unwrap(),
+        "replay",
+        "--snapshot",
+        wrong_schema.to_str().unwrap(),
+        "--out",
+        root.join("out").to_str().unwrap(),
     ]);
     assert_eq!(output.status.code(), Some(2));
     assert!(text(&output.stderr).contains("not a solar-state-snapshot.v2"));
@@ -116,8 +140,11 @@ fn malformed_arguments_and_replay_inputs_fail_closed() {
     let no_frame = root.join("no-frame.json");
     fs::write(&no_frame, r#"{"schema_version":"solar-state-snapshot.v2"}"#).unwrap();
     let output = cli(&[
-        "replay", "--snapshot", no_frame.to_str().unwrap(),
-        "--out", root.join("out").to_str().unwrap(),
+        "replay",
+        "--snapshot",
+        no_frame.to_str().unwrap(),
+        "--out",
+        root.join("out").to_str().unwrap(),
     ]);
     assert_eq!(output.status.code(), Some(2));
     assert!(text(&output.stderr).contains("Carrington"));
