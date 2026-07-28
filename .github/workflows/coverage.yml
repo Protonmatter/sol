@@ -25,9 +25,8 @@ jobs:
           toolchain: "1.96.0"
           components: llvm-tools-preview
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-      - uses: taiki-e/install-action@0ab7633f495f0917bc9b92e01814f043f48e9f39 # v2
-        with:
-          tool: cargo-llvm-cov
+      - name: Install pinned cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --version 0.6.16 --locked
       - name: Workspace tests and line-coverage gate
         run: |
           mkdir -p coverage
