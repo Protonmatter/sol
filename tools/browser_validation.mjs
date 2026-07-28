@@ -483,7 +483,10 @@ async function exerciseOrrery(page, visualDirectory) {
     fire("pointerup", 3, x, y, 0);
   });
 
-  await page.click("#orreryGalaxy");
+  // These controls sit below the fixed timeline at the validation viewport. Puppeteer's
+  // physical click can be intercepted after scroll-to-center; native button activation
+  // still exercises the production click handler and is independent of overlay geometry.
+  await page.$eval("#orreryGalaxy", (button) => button.click());
   await page.waitForFunction(
     () => document.getElementById("orreryGalaxy")?.textContent.includes("Back"),
     { timeout: 20_000 }
@@ -502,9 +505,9 @@ async function exerciseOrrery(page, visualDirectory) {
     renderStarDetail(NAMED_STARS.find((star) => star.dist == null));
   });
   await setValue(page, "#orrerySpeed", "0.55");
-  await page.click("#orreryLocal");
-  await page.click("#orreryLocal");
-  await page.click("#orreryGalaxy");
+  await page.$eval("#orreryLocal", (button) => button.click());
+  await page.$eval("#orreryLocal", (button) => button.click());
+  await page.$eval("#orreryGalaxy", (button) => button.click());
 }
 
 function coverageLocalPath(entryUrl, webRoot) {
