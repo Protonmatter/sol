@@ -601,7 +601,7 @@ async function main() {
     await page.emulateMediaFeatures([
       { name: "prefers-reduced-motion", value: "reduce" },
     ]);
-    await page.evaluateOnNewDocument((fixedNow) => {
+    await page.evaluateOnNewDocument(({ fixedNow, serverBase }) => {
       const NativeDate = Date;
       class FixedDate extends NativeDate {
         constructor(...args) {
@@ -610,8 +610,17 @@ async function main() {
         static now() { return fixedNow; }
       }
       globalThis.Date = FixedDate;
-      try { localStorage.setItem("sol-tour-seen", "1"); } catch {}
-    }, FIXED_UNIX_MS);
+      // Configure a same-origin endpoint which the static server deliberately answers
+      // with 404. This keeps the production default private/offline while making the
+      // optional-provider fallback executable in CI. Pre-grant only this disposable test
+      // endpoint so a modal consent prompt cannot suspend the headless run.
+      const ephemerisBase = `${serverBase}/__missing_ephemeris`;
+      globalThis.SOL_EPHEMERIS_SERVER = ephemerisBase;
+      try {
+        localStorage.setItem("sol-tour-seen", "1");
+        localStorage.setItem(`sol-ephemeris-server-consent:${ephemerisBase}`, "granted");
+      } catch {}
+    }, { fixedNow: FIXED_UNIX_MS, serverBase: server.base });
 
     const failures = [];
     page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
