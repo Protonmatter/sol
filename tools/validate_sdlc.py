@@ -15,9 +15,13 @@ RFC_FILE = re.compile(r"^\d{4}-[a-z0-9-]+\.md$")
 RFC_STATUSES = {"Draft", "Accepted", "Implemented", "Rejected", "Superseded"}
 REQUIREMENT_STATUSES = {"planned", "implemented", "deprecated"}
 ACTION_USE = re.compile(
-    r"^\s*-\s+uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([^\s#]+)",
+    r"^\s*(?:-\s*)?uses:\s+([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)@([^\s#]+)",
     re.MULTILINE,
 )
+WORKFLOW_WRITE_SCOPE_ALLOWLIST = {
+    "daily-ingest.yml": {"actions", "contents", "issues", "pull-requests"},
+    "deploy-pages.yml": {"id-token", "pages"},
+}
 
 REQUIRED_DOCS = (
     "README.md",
@@ -200,10 +204,36 @@ def validate_rfc(path: Path, known_ids: set[str], root: Path) -> list[str]:
 def validate_action_pins(path: Path, text: str, root: Path) -> list[str]:
     errors: list[str] = []
     relative = path.relative_to(root)
-    if "permissions:" not in text:
+    if not re.search(r"^permissions:", text, re.MULTILINE):
         errors.append(f"{relative}: workflow must declare permissions")
     if re.search(r"^\s*permissions:\s+write-all\s*$", text, re.MULTILINE):
         errors.append(f"{relative}: write-all permissions are forbidden")
+    allowed_writes = WORKFLOW_WRITE_SCOPE_ALLOWLIST.get(path.name, set())
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        match = re.match(r"^(\s*)permissions:\s*(.*?)\s*(?:#.*)?$", line)
+        if not match or match.group(2):
+            continue
+        indent = len(match.group(1))
+        for child in lines[index + 1 :]:
+            if not child.strip() or child.lstrip().startswith("#"):
+                continue
+            child_indent = len(child) - len(child.lstrip())
+            if child_indent <= indent:
+                break
+            field = re.match(
+                r"^\s+([a-z-]+):\s*(read|write|none)\s*(?:#.*)?$",
+                child,
+            )
+            if not field:
+                errors.append(f"{relative}: malformed permissions entry: {child.strip()}")
+                continue
+            scope, access = field.groups()
+            if access == "write" and scope not in allowed_writes:
+                errors.append(
+                    f"{relative}: unnecessary write permission {scope!r}; "
+                    f"allowed write scopes are {sorted(allowed_writes)}"
+                )
     for action, ref in ACTION_USE.findall(text):
         if not re.fullmatch(r"[0-9a-fA-F]{40}", ref):
             errors.append(f"{relative}: {action}@{ref} is not pinned to a full commit SHA")

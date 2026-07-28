@@ -44,6 +44,17 @@ class SdlcContractTests(unittest.TestCase):
         )
         self.assertTrue(any("not pinned to a full commit SHA" in error for error in errors))
 
+    def test_mutable_action_tag_in_named_step_is_rejected(self) -> None:
+        text = (
+            "permissions:\n  contents: read\nsteps:\n"
+            "  - name: Checkout\n"
+            "    uses: actions/checkout@v4\n"
+        )
+        errors = validate_sdlc.validate_action_pins(
+            ROOT / ".github" / "workflows" / "synthetic.yml", text, ROOT
+        )
+        self.assertTrue(any("not pinned to a full commit SHA" in error for error in errors))
+
     def test_missing_source_anchor_is_rejected(self) -> None:
         errors = validate_sdlc.validate_source_reference(
             "docs/SPEC.md#not-a-real-section", ROOT, "SOL-TEST-999"
@@ -170,6 +181,21 @@ class SdlcContractTests(unittest.TestCase):
             ROOT,
         )
         self.assertTrue(any("must declare permissions" in error for error in errors))
+        errors = validate_sdlc.validate_action_pins(
+            synthetic,
+            "permissions:\n  contents: write\n  issues: write\nsteps:\n",
+            ROOT,
+        )
+        self.assertEqual(
+            sum("unnecessary write permission" in error for error in errors),
+            2,
+        )
+        allowed = validate_sdlc.validate_action_pins(
+            ROOT / ".github" / "workflows" / "deploy-pages.yml",
+            "permissions:\n  contents: read\n  pages: write\n  id-token: write\nsteps:\n",
+            ROOT,
+        )
+        self.assertFalse(any("unnecessary write permission" in error for error in allowed))
         self.assertEqual(
             validate_sdlc.require_tokens("x", "alpha", ("alpha", "beta")),
             ["x: missing release contract token 'beta'"],
