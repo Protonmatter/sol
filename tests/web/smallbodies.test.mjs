@@ -3,7 +3,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  eccentricAnomaly, keplerXYZ, meanAnomaly, bodyXYZ, asOrbit, DWARFS, COMETS,
+  eccentricAnomaly, keplerXYZ, meanAnomaly, bodyXYZ, asOrbit, probeXYZ, buildBelts,
+  DWARFS, COMETS, PROBES,
 } from "../../apps/web/js/smallbodies.js";
 
 test("eccentricAnomaly satisfies Kepler's equation across the (M, e) plane", () => {
@@ -63,4 +64,31 @@ test("asOrbit adapts stored elements to the ellipse3d contract", () => {
   const o = asOrbit(DWARFS[0]);
   assert.deepEqual(Object.keys(o).sort(), ["a_au", "argp_deg", "ecc", "inc_deg", "node_deg"]);
   assert.equal(o.a_au, DWARFS[0].a);
+});
+
+test("probe vectors have their declared distance and latitude sign", () => {
+  for (const probe of PROBES) {
+    const xyz = probeXYZ(probe);
+    assert.ok(Math.abs(Math.hypot(...xyz) - probe.dist) < 1e-9);
+    assert.equal(Math.sign(xyz[2]), Math.sign(probe.lat));
+  }
+});
+
+test("procedural belts are deterministic, bounded, finite, and correctly sized", () => {
+  const a = buildBelts(), b = buildBelts();
+  for (const key of ["asteroid", "kuiper"]) {
+    assert.equal(a[key].data.length, a[key].count * 8);
+    assert.deepEqual(a[key].data, b[key].data);
+    for (const value of a[key].data) assert.ok(Number.isFinite(value));
+  }
+  for (let i = 0; i < a.asteroid.data.length; i += 8) {
+    const r = Math.hypot(a.asteroid.data[i], a.asteroid.data[i + 1]);
+    assert.ok(r >= 2.1 && r <= 3.3);
+    assert.ok(Math.abs(a.asteroid.data[i + 2]) <= 0.12);
+  }
+  for (let i = 0; i < a.kuiper.data.length; i += 8) {
+    const r = Math.hypot(a.kuiper.data[i], a.kuiper.data[i + 1]);
+    assert.ok(r >= 30 && r <= 48);
+    assert.ok(Math.abs(a.kuiper.data[i + 2]) <= 2.2);
+  }
 });
