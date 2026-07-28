@@ -3,7 +3,7 @@
 // no module state — extracted from orrery.js along the same data+pure-function lines as
 // celestial.js and smallbodies.js, so it is reviewable (and testable) in isolation.
 
-import { rotationPhase, poleAt } from "./bodyData.js?v=d78cbba4d4";
+import { rotationPhase, poleAt } from "./bodyData.js?v=d26fc7c93f";
 
 // ---------------------------------------------------------------- mat/vec (column-major)
 export function perspective(fovy, aspect, near, far) {
