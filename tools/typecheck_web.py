@@ -50,7 +50,15 @@ def main() -> int:
             (tmpdir / rel).write_text(text, encoding="utf-8")
         (tmpdir / "jsconfig.json").write_text(json.dumps(JSCONFIG, indent=2), encoding="utf-8")
         proc = subprocess.run(
-            ["npx", "--yes", "-p", f"typescript@{TSC_VERSION}", "tsc", "-p", str(tmpdir)],
+            [
+                "npx",
+                "--yes",
+                "-p",
+                f"typescript@{TSC_VERSION}",
+                "tsc",
+                "-p",
+                str(tmpdir / "jsconfig.json"),
+            ],
             capture_output=True,
             text=True,
         )
