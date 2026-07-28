@@ -35,8 +35,18 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         index = (Path(self.directory) / "index.html").read_text(encoding="utf-8")
         setup = """<script>
 localStorage.setItem("sol-surface", "orrery");
-// Diagnostics for the assertion message: page errors and rejections land in body.dataset so
-// a CI failure names the exception instead of just which marker went missing.
+// ---- Harness design notes (hard-won under --virtual-time-budget) ----
+// * No timeouts: virtual time fast-forwards them (a "20 s" poll expires in ~1 s real).
+// * No reliance on ANIMATION TIMING: virtual-time rAF deltas were observed from 50 ms down
+//   to 0.17 ms, so no crank rate can guarantee a per-frame step that trips the moons'
+//   Nyquist guard. Independently registered rAF chains and MutationObserver callbacks also
+//   starve nondeterministically.
+// * Instead: a synchronous state machine advanced by BOTH a setInterval(50) and a rAF pump
+//   (either driver alone suffices). Once ready, Animate is UNTICKED and every subsequent
+//   check runs a synchronous repaint with an INJECTED simStepSeconds — the real paint path,
+//   the real guards, zero scheduler dependence. The Nyquist boundary itself is additionally
+//   unit-tested in tests/web/moons.test.mjs.
+// * Diagnostics ride the dump: page errors, a live sim-state trace, per-phase markers.
 const smokeErr = (msg) => {
   document.body.dataset.smokeErrs =
     ((document.body.dataset.smokeErrs || "") + " || " + msg).slice(0, 1500);
@@ -45,81 +55,120 @@ addEventListener("error", e =>
   smokeErr(String(e.message) + " @ " + String(e.filename).split("/").pop() + ":" + e.lineno));
 addEventListener("unhandledrejection", e =>
   smokeErr("REJECTION: " + String((e.reason && e.reason.message) || e.reason)));
-// Frame-driven, NOT timer-polled: under --virtual-time-budget Chrome fast-forwards timers,
-// so a "20 s" setTimeout poll loop expires in about a second of real time — before the
-// lazily imported moons module has actually finished loading. That race was this smoke's
-// recurring flake (ready=no, rows<21 while the later aliasing/validity markers passed
-// fine). Polling once per requestAnimationFrame ties the wait to the app's own render loop
-// instead of wall-or-virtual time: frames keep coming while the app is alive, each frame
-// re-tests, and there is no timeout for virtual time to burn — the bound is the browser's
-// virtual-time budget + the harness subprocess timeout, and a genuine failure still dumps
-// with the markers missing. (A MutationObserver variant was tried first; its callbacks
-// never delivered under headless virtual time.)
-const smokeWait = (test) => new Promise(resolve => {
-  const tick = () => { if (test()) { resolve(true); return; } requestAnimationFrame(tick); };
-  tick();
+
+let smokeStore = null;
+addEventListener("load", () => {
+  const link = document.querySelector('link[href^="js/store.js"]');
+  if (link) {
+    import("./" + link.getAttribute("href"))
+      .then(m => { smokeStore = m.store; })
+      .catch(e => smokeErr("store import: " + e.message));
+  }
 });
-addEventListener("load", async () => {
-  const body = document.body;
-  // Live sim-state trace: the last frame's rate / step / aliased-count / frozen-count /
-  // moon-note flag land in the dump, so a starved wait shows WHAT the simulation was doing
-  // instead of just which marker went missing.
-  try {
-    const href = document.querySelector('link[href^="js/store.js"]').getAttribute("href");
-    const { store } = await import("./" + href);
-    const trace = () => {
-      const o = store.orrery || {};
-      body.dataset.smokeSim = [
-        "yps=" + Number(o.yearsPerSec).toPrecision(3),
-        "stepD=" + (o.simStepSeconds / 86400).toPrecision(3),
-        "aliased=" + o.moonsAliasedCount,
-        "frozen=" + o.spinFrozenCount,
-        "note=" + (o.moonsHiddenReason ? o.moonsHiddenReason.slice(0, 40) : "-"),
-      ].join(" ");
-      requestAnimationFrame(trace);
-    };
-    trace();
-  } catch (e) { smokeErr("trace: " + e.message); }
-  const ready = await smokeWait(() =>
-    document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21
-    && document.getElementById("orreryBackend")?.textContent.includes("WebGL2"));
-  body.dataset.smokeReady = ready ? "yes" : "no";
-  body.dataset.smokeMoonRows =
-    String(document.querySelectorAll("#orreryPositions .orrery-pos-moon").length);
-  // Aliasing is speed-dependent, and the app now DEFAULTS to the slowest rate (1 day/s),
-  // where nothing outruns the clock. Crank to ~190 days/sec: Phobos (P/3 ≈ 0.106 d) then
-  // aliases even at the few-millisecond frame deltas slow CI runners produce under virtual
-  // time (at ~30 d/s the step could stay under the threshold there and the wait starved the
-  // whole rest of the script). ~190 d/s drifts only a few sim-days per frame, so the epoch
-  // stays far inside the moons' validity window; the wait resolves on the aliasing message
-  // OR the out-of-window message so a drift regression reports as "drifted" rather than a
-  // hang at the virtual-time budget.
-  const accuracy = document.getElementById("orreryAccuracy");
-  const speed = document.getElementById("orrerySpeed");
-  speed.value = "0.7"; // log slider → ~190 days/sec
-  speed.dispatchEvent(new Event("input", { bubbles: true }));
-  await smokeWait(() =>
-    accuracy?.textContent.includes("inner moon")
-    || accuracy?.textContent.includes("outside their"));
-  body.dataset.smokeAliasing =
-    accuracy?.textContent.includes("inner moon") ? "yes" : "drifted";
-  const animate = document.getElementById("orreryAnimate");
-  animate.checked = false;
-  animate.dispatchEvent(new Event("change", { bubbles: true }));
-  // The app stops its animation loop when Animate is unticked. Headless Chrome's virtual-time
-  // controller may then leave requestAnimationFrame callbacks pending indefinitely, so wait on
-  // a bounded timer instead. The change handler paints and updates the accuracy line synchronously.
-  await new Promise(resolve => setTimeout(resolve, 100));
-  body.dataset.smokePaused =
-    !accuracy?.textContent.includes("inner moon") ? "yes" : "no";
+
+// Synchronous repaint with a chosen frame step. The time slider's real input handler
+// rebuilds positions, paints, and refreshes the user-visible accuracy line while Animate is
+// off, so the smoke verifies both renderer state and the warning presented to the user.
+const repaintWithStep = (stepSeconds) => {
+  smokeStore.orrery.simStepSeconds = stepSeconds;
   const time = document.getElementById("orreryTime");
-  time.value = "10";
   time.dispatchEvent(new Event("input", { bubbles: true }));
-  await new Promise(resolve => setTimeout(resolve, 100));
-  body.dataset.smokeValidity =
-    accuracy?.textContent.includes("Moons hidden — outside") ? "yes" : "no";
-  body.dataset.smokeDone = "yes";
-});
+};
+
+let phase = "ready";
+const advance = () => {
+  const body = document.body;
+  if (!body) return;
+  const acc = document.getElementById("orreryAccuracy");
+  const accText = acc ? acc.textContent : "";
+  const o = smokeStore ? smokeStore.orrery : null;
+  if (o) {
+    body.dataset.smokeSim = [
+      "phase=" + phase,
+      "stepD=" + (o.simStepSeconds / 86400).toPrecision(3),
+      "aliased=" + o.moonsAliasedCount,
+      "note=" + (o.moonsHiddenReason ? o.moonsHiddenReason.slice(0, 30) : "-"),
+    ].join(" ");
+  }
+  if (phase === "ready") {
+    const rows = document.querySelectorAll("#orreryPositions .orrery-pos-moon").length;
+    body.dataset.smokeMoonRows = String(rows);
+    const backend = document.getElementById("orreryBackend");
+    if (o && rows >= 21 && backend && backend.textContent.includes("WebGL2")) {
+      body.dataset.smokeReady = "yes";
+
+      // Exercise the real logarithmic time-speed control before using direct step injection.
+      // t=0.7 maps to exp(0.7 * log(5 * 365.25)) days/s by the application formula.
+      const speed = document.getElementById("orrerySpeed");
+      speed.value = "0.7";
+      speed.dispatchEvent(new Event("input", { bubbles: true }));
+      const expectedYps = Math.exp(0.7 * Math.log(5 * 365.25)) / 365.25;
+      if (Math.abs(o.yearsPerSec - expectedYps) / expectedYps < 1e-10) {
+        body.dataset.smokeSpeed = "yes";
+      } else {
+        smokeErr("speed: slider 0.7 produced yps=" + o.yearsPerSec
+          + " expected=" + expectedYps);
+        body.dataset.smokeSpeed = "no";
+      }
+
+      // Verify the real pause control before any harness-owned step assignment can mask it.
+      const animate = document.getElementById("orreryAnimate");
+      animate.checked = false;
+      animate.dispatchEvent(new Event("change", { bubbles: true }));
+      if (!o.animate && o.simStepSeconds === 0) {
+        body.dataset.smokePaused = "yes";
+      } else {
+        smokeErr("pause: animate=" + o.animate + " step=" + o.simStepSeconds);
+        body.dataset.smokePaused = "no";
+      }
+      phase = "alias";
+    }
+  } else if (phase === "alias") {
+    // A frame that covers 5 days must alias every inner moon (Phobos P/3 is 0.106 d)
+    // through the real drawMoons path, and the resulting warning must be rendered.
+    repaintWithStep(5 * 86400);
+    const rendered = acc ? acc.textContent : "";
+    if (o.moonsAliasedCount > 0
+        && o.moonsHiddenReason.includes("inner moon")
+        && rendered.includes("inner moon")) {
+      body.dataset.smokeAliasing = "yes";
+      phase = "reset";
+    } else {
+      smokeErr("alias: 5-day step produced aliased=" + o.moonsAliasedCount
+        + " reason=" + JSON.stringify(o.moonsHiddenReason)
+        + " rendered=" + JSON.stringify(rendered));
+      body.dataset.smokeAliasing = "no";
+      phase = "reset";
+    }
+  } else if (phase === "reset") {
+    // Direct step injection is used only for deterministic renderer coverage; pause behavior
+    // was already proven above through the actual Animate control.
+    repaintWithStep(0);
+    const rendered = acc ? acc.textContent : "";
+    if (o.moonsAliasedCount === 0 && !o.moonsHiddenReason
+        && !rendered.includes("inner moon")) {
+      body.dataset.smokeReset = "yes";
+    } else {
+      smokeErr("reset: zero step left aliased=" + o.moonsAliasedCount
+        + " reason=" + JSON.stringify(o.moonsHiddenReason)
+        + " rendered=" + JSON.stringify(rendered));
+      body.dataset.smokeReset = "no";
+    }
+    const time = document.getElementById("orreryTime");
+    time.value = "10";
+    time.dispatchEvent(new Event("input", { bubbles: true })); // sync: rebuild + paint + accuracy
+    phase = "validity";
+  } else if (phase === "validity") {
+    if (accText.includes("Moons hidden") && accText.includes("outside their")) {
+      body.dataset.smokeValidity = "yes";
+      body.dataset.smokeDone = "yes";
+      phase = "end";
+    }
+  }
+};
+setInterval(advance, 50);
+const rafPump = () => { advance(); requestAnimationFrame(rafPump); };
+requestAnimationFrame(rafPump);
 </script>"""
         index = index.replace('<script type="module" src="app.js', setup + '\n    <script type="module" src="app.js')
         payload = index.encode("utf-8")
@@ -291,29 +340,44 @@ def run_smoke(base: str, browser: str) -> None:
         raise AssertionError("My Sky: civil-time timezone disclosure is missing")
 
     orrery_url = f"{base}/__smoke_orrery.html"
-    orrery_dom, orrery_stderr = dump_dom(browser, orrery_url)
-    assert_no_runtime_failure(orrery_dom, orrery_stderr, "Solar System")
     expected = (
         'data-mode="orrery" aria-pressed="true"',
         'data-smoke-ready="yes"',
         'data-smoke-moon-rows="21"',
-        'data-smoke-aliasing="yes"',
+        'data-smoke-speed="yes"',
         'data-smoke-paused="yes"',
+        'data-smoke-aliasing="yes"',
+        'data-smoke-reset="yes"',
         'data-smoke-validity="yes"',
         'data-smoke-done="yes"',
     )
-    missing = [marker for marker in expected if marker not in orrery_dom]
-    if missing:
+    # Bounded retry for LOAD-scheduler roulette only: under --virtual-time-budget, headless
+    # Chrome occasionally starves the app's own lazy module imports (the moons catalogue
+    # never arrives, `ready` never fires) no matter what the harness does — measured at
+    # roughly one run in ten, uncorrelated with content. Once the page IS ready, every check
+    # is a synchronous injected-step repaint and deterministic, so a genuine regression
+    # fails identically on every attempt and retries cannot mask it.
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        orrery_dom, orrery_stderr = dump_dom(browser, orrery_url)
+        assert_no_runtime_failure(orrery_dom, orrery_stderr, "Solar System")
+        missing = [m for m in expected if m not in orrery_dom]
+        if not missing:
+            break
         # Surface the page's own diagnostics: trapped errors, the actual marker values, and
         # the accuracy line — a missing marker alone says nothing about WHY.
         import re as _re
         body_tag = _re.search(r"<body[^>]*>", orrery_dom)
         acc = _re.search(r'id="orreryAccuracy"[^>]*>([^<]*)<', orrery_dom)
-        raise AssertionError(
-            "Solar System: 3-D/moon interaction assertions failed: " + ", ".join(missing)
+        detail = (
+            "Solar System: 3-D/moon interaction assertions failed"
+            + f" (attempt {attempt}/{attempts}): " + ", ".join(missing)
             + "\n  body: " + (body_tag.group(0)[:900] if body_tag else "<none>")
             + "\n  accuracy: " + (acc.group(1)[:300] if acc else "<none>")
         )
+        if attempt == attempts:
+            raise AssertionError(detail)
+        print(f"RETRY: {detail}")
     screenshot = capture_screenshot(browser, orrery_url)
     if not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or len(screenshot) < 20_000:
         raise AssertionError(
