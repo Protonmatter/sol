@@ -1,10 +1,10 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { store } from "./store.js?v=8cef66da30";
-import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=8cef66da30";
-import { CONSTELLATIONS } from "./celestial.js?v=8cef66da30";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=8cef66da30";
+import { store } from "./store.js?v=487de6afab";
+import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=487de6afab";
+import { CONSTELLATIONS } from "./celestial.js?v=487de6afab";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=487de6afab";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
@@ -774,7 +774,7 @@ function showTooltip(b, clientX, clientY) {
 }
 function hideTooltip() { const t = document.getElementById("skyTooltip"); if (t) t.style.display = "none"; }
 function hitTest(ev) {
-  const canvas = document.getElementById("skyCanvas"); if (!canvas || !domeGeom) return null;
+  const canvas = /** @type {HTMLCanvasElement|null} */ (document.getElementById("skyCanvas")); if (!canvas || !domeGeom) return null;
   const rect = canvas.getBoundingClientRect();
   const x = (ev.clientX - rect.left) * (canvas.width / rect.width);
   const y = (ev.clientY - rect.top) * (canvas.height / rect.height);
@@ -807,5 +807,6 @@ if (skyCanvasEl) {
 // Minimal debug hook (used by verification + handy in the console): current snapshot, plotted hit-
 // boxes, dome geometry, and the alt/az helper.
 if (typeof window !== "undefined") {
-  window.__skyDebug = () => ({ snap: lastSnap, plotted, geom: domeGeom, altAz, bodyTrack, skySnapshot, BODY_INDEX, observer, currentUnix });
+  /** @type {any} */ (window).__skyDebug =
+    () => ({ snap: lastSnap, plotted, geom: domeGeom, altAz, bodyTrack, skySnapshot, BODY_INDEX, observer, currentUnix });
 }

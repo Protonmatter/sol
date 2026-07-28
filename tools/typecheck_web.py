@@ -6,8 +6,8 @@ TypeScript cannot resolve — so this stages the JS into a temp tree with the to
 stripped from import specifiers, writes a jsconfig there, and runs `tsc --noEmit`
 through npx (pinned). The app itself is untouched: this is a read-only gate.
 
-Advisory (continue-on-error) in CI until the pre-existing baseline is clean; run
-locally with Node installed:  python tools/typecheck_web.py
+This is a blocking CI gate. Run locally with Node installed:
+python tools/typecheck_web.py
 """
 
 from __future__ import annotations
@@ -50,7 +50,15 @@ def main() -> int:
             (tmpdir / rel).write_text(text, encoding="utf-8")
         (tmpdir / "jsconfig.json").write_text(json.dumps(JSCONFIG, indent=2), encoding="utf-8")
         proc = subprocess.run(
-            ["npx", "--yes", "-p", f"typescript@{TSC_VERSION}", "tsc", "-p", str(tmpdir)],
+            [
+                "npx",
+                "--yes",
+                "-p",
+                f"typescript@{TSC_VERSION}",
+                "tsc",
+                "-p",
+                str(tmpdir / "jsconfig.json"),
+            ],
             capture_output=True,
             text=True,
         )

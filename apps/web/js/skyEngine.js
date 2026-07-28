@@ -1,7 +1,7 @@
 // ES module: loads the solar-ephemeris engine (WebAssembly) and validates
 // provider-neutral ephemeris-snapshot.v2 responses from both local and server tiers.
 
-import { assertEphemerisSnapshotV2 } from "./ephemerisContract.js?v=8cef66da30";
+import { assertEphemerisSnapshotV2 } from "./ephemerisContract.js?v=487de6afab";
 
 let wasmExports = null;
 let loadPromise = null;
@@ -12,7 +12,7 @@ export function loadSkyEngine() {
     // no-cache (revalidate, reuse on 304) rather than no-store: this module embeds the
     // packed VSOP2013/ELP/TOP tables (~0.5 MB) — re-downloading it on every visit was
     // the single largest repeat-load cost in the app.
-    const response = await fetch("pkg/solar_ephemeris.wasm?v=8cef66da30", { cache: "no-cache" });
+    const response = await fetch("pkg/solar_ephemeris.wasm?v=487de6afab", { cache: "no-cache" });
     if (!response.ok) throw new Error(`ephemeris wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});
@@ -76,8 +76,8 @@ export function bodyTrack(bodyIndex, lat, lonEast, elev, unix0, dtSeconds, n) {
 // The optional provider must be explicitly configured by the deployment.
 // Never default to localhost: on a public site that targets the visitor's machine.
 const configuredBase =
-  typeof window !== "undefined" && typeof window.SOL_EPHEMERIS_SERVER === "string"
-    ? window.SOL_EPHEMERIS_SERVER.trim()
+  typeof window !== "undefined" && typeof /** @type {any} */ (window).SOL_EPHEMERIS_SERVER === "string"
+    ? /** @type {any} */ (window).SOL_EPHEMERIS_SERVER.trim()
     : "";
 
 export const SERVER_BASE = configuredBase.replace(/\/+$/, "");
@@ -85,7 +85,7 @@ export const SERVER_CONFIGURED = SERVER_BASE.length > 0;
 
 function configureServerControl() {
   if (typeof document === "undefined") return;
-  const button = document.getElementById("skyProviderServer");
+  const button = /** @type {HTMLButtonElement|null} */ (document.getElementById("skyProviderServer"));
   if (!button) return;
   if (!SERVER_CONFIGURED) {
     button.disabled = true;

@@ -3,10 +3,10 @@
 // selector doubles as a tour up through the Sun — surface → chromosphere → corona → flares. "Model"
 // shows the synthetic engine view instead.
 
-import { store } from "./store.js?v=8cef66da30";
-import { WAVELENGTHS, BASE_IMAGES } from "./config.js?v=8cef66da30";
-import { renderAll } from "./view.js?v=8cef66da30";
-import { baseImageState, retryBaseImage } from "./data.js?v=8cef66da30";
+import { store } from "./store.js?v=487de6afab";
+import { WAVELENGTHS, BASE_IMAGES } from "./config.js?v=487de6afab";
+import { renderAll } from "./view.js?v=487de6afab";
+import { baseImageState, retryBaseImage } from "./data.js?v=487de6afab";
 
 function updateWavelengthCaption() {
   const node = document.getElementById("wavelengthCaption");
@@ -41,7 +41,7 @@ export function setWavelength(id) {
   store.wavelength = id;
   retryBaseImage(id); // re-selecting a channel retries a previously failed live image
   document.querySelectorAll("#wavelengthBar .wl-chip").forEach((c) => {
-    const isActive = c.dataset.id === id;
+    const isActive = /** @type {HTMLElement} */ (c).dataset.id === id;
     c.classList.toggle("active", isActive);
     c.setAttribute("aria-pressed", String(isActive)); // class-only state was invisible to AT
   });

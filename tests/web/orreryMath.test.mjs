@@ -4,7 +4,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  mul, sub, add, cross, dot, norm, translate, iauRotation, buildSphere,
+  perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM,
+  normalMat3, iauRotation, buildSphere, ringOpacityProfile, buildRing, ellipse3d,
 } from "../../apps/web/js/orreryMath.js";
 import { BODY } from "../../apps/web/js/bodyData.js";
 
@@ -31,6 +32,17 @@ test("mat4 multiply: identity is neutral and translate composes additively", () 
   assert.deepEqual(mul(I, t), t);
   const t2 = mul(translate([1, 0, 0]), translate([0, 1, 0]));
   assert.deepEqual(t2.slice(12, 15), [1, 1, 0]);
+});
+
+test("camera and transform matrices preserve their geometric contracts", () => {
+  const p = perspective(Math.PI / 2, 2, 1, 101);
+  assert.ok(approx(p[0], 0.5) && approx(p[5], 1));
+  assert.equal(p[11], -1);
+  const view = lookAt([0, 0, 5], [0, 0, 0], [0, 1, 0]);
+  assert.deepEqual(view.slice(0, 12), [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]);
+  assert.ok(view.slice(12).every((value, i) => approx(value, [0, 0, -5, 1][i])));
+  const model = mul(translate([1, 2, 3]), scaleM([2, 3, 4]));
+  assert.deepEqual(normalMat3(model), [2, 0, 0, 0, 3, 0, 0, 0, 4]);
 });
 
 test("iauRotation returns a proper (right-handed, orthonormal) rotation for every body", () => {
@@ -67,4 +79,34 @@ test("buildSphere emits the documented vertex/index counts", () => {
   for (let i = 0; i < pos.length; i += 3) {
     assert.ok(approx(Math.hypot(pos[i], pos[i + 1], pos[i + 2]), 1, 1e-6));
   }
+});
+
+test("ring opacity and mesh agree on gaps and optical bands", () => {
+  const saturn = { innerKm: 74500, outerKm: 140220, gaps: [[117580, 122170]] };
+  const profile = ringOpacityProfile(saturn, 512);
+  assert.equal(profile.length, 512);
+  assert.ok(Math.max(...profile) > 190, "B ring should be optically thick");
+  assert.ok(profile.some((v) => v === 0), "Cassini Division should be transparent");
+
+  const mesh = buildRing(saturn, 1e-4, 60268);
+  assert.equal(mesh.length % 8, 0);
+  assert.ok(mesh.length > 120 * 6 * 8);
+  const alphas = [];
+  for (let i = 6; i < mesh.length; i += 8) alphas.push(mesh[i]);
+  assert.ok(alphas.some((a) => a === 0));
+  assert.ok(alphas.some((a) => a > 0.7));
+
+  const faint = ringOpacityProfile({ innerKm: 1, outerKm: 2 }, 4);
+  assert.deepEqual([...faint], [41, 41, 41, 41]);
+});
+
+test("ellipse3d closes, obeys periapsis/apoapsis radii, and inclines out of plane", () => {
+  const a = 5, e = 0.2;
+  const points = ellipse3d({ a_au: a, ecc: e, inc_deg: 30, node_deg: 40, argp_deg: 20 });
+  assert.equal(points.length, 161);
+  for (let i = 0; i < 3; i++) assert.ok(approx(points[0][i], points.at(-1)[i], 1e-9));
+  const radii = points.map((p) => Math.hypot(...p));
+  assert.ok(approx(Math.min(...radii), a * (1 - e), 1e-8));
+  assert.ok(approx(Math.max(...radii), a * (1 + e), 1e-8));
+  assert.ok(points.some((p) => Math.abs(p[2]) > 0.1));
 });

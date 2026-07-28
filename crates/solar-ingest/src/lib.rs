@@ -480,12 +480,27 @@ fn push_escaped(out: &mut String, value: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("sol-ingest-{label}-{}-{nonce}", std::process::id()));
+        fs::create_dir_all(&path).expect("create temp fixture directory");
+        path
+    }
 
     #[test]
     fn parses_old_quoted_and_new_numeric_values() {
         assert_eq!(normalize_numeric("\"456.7\""), Some(456.7));
         assert_eq!(normalize_numeric("456.7"), Some(456.7));
         assert_eq!(normalize_numeric("null"), None);
+        assert_eq!(normalize_numeric(" NAN "), None);
+        assert_eq!(normalize_numeric(""), None);
+        assert_eq!(normalize_numeric("not-a-number"), None);
     }
 
     #[test]
@@ -496,6 +511,7 @@ mod tests {
             canonical_wind_field_name("temperature"),
             "proton_temperature"
         );
+        assert_eq!(canonical_wind_field_name("source"), "source");
     }
 
     #[test]
@@ -519,6 +535,19 @@ mod tests {
             ),
             Some(SwpcEndpoint::RtswMag1m)
         );
+        assert_eq!(
+            replacement_for_deprecated_rtsw(
+                "https://services.swpc.noaa.gov/products/solar-wind/ephemerides.json"
+            ),
+            Some(SwpcEndpoint::RtswEphemerides1h)
+        );
+        assert_eq!(
+            replacement_for_deprecated_rtsw("https://example.invalid"),
+            None
+        );
+        assert!(requires_local_retention_for_window("3-day"));
+        assert!(requires_local_retention_for_window("7d"));
+        assert!(!requires_local_retention_for_window("1-day"));
     }
 
     #[test]
@@ -531,6 +560,32 @@ mod tests {
             SwpcEndpoint::RtswWind1m.schema_era(),
             SwpcSchemaEra::Scn26_21
         );
+        for endpoint in [
+            SwpcEndpoint::KyotoDst,
+            SwpcEndpoint::Summary10cmFlux,
+            SwpcEndpoint::Flux10cm30Day,
+            SwpcEndpoint::PlanetaryKIndex,
+            SwpcEndpoint::PlanetaryKIndexForecast,
+            SwpcEndpoint::SummarySolarWindMagField,
+            SwpcEndpoint::SummarySolarWindSpeed,
+            SwpcEndpoint::RtswEphemerides1h,
+            SwpcEndpoint::RtswMag1m,
+            SwpcEndpoint::RtswWind1m,
+        ] {
+            assert!(endpoint
+                .url()
+                .starts_with("https://services.swpc.noaa.gov/"));
+            assert_eq!(endpoint.schema_era(), SwpcSchemaEra::Scn26_21);
+        }
+        assert_eq!(SOURCES.len(), 3);
+        assert!(SOURCES.iter().all(|source| source.free_public));
+        assert!(PUBLIC_ADAPTERS.iter().all(|adapter| {
+            !adapter.id.is_empty()
+                && !adapter.name.is_empty()
+                && adapter.url.starts_with("https://")
+                && !adapter.layer_kind.is_empty()
+                && !adapter.default_quality.is_empty()
+        }));
     }
 
     #[test]
@@ -545,5 +600,85 @@ mod tests {
             Some("DSCOVR".to_string())
         );
         assert_eq!(extract_json_scalar(raw, "active"), Some("true".to_string()));
+        assert_eq!(extract_json_scalar(raw, "missing"), None);
+        assert_eq!(extract_json_scalar(r#"{"x" 1}"#, "x"), None);
+        assert_eq!(extract_json_scalar(r#"{"x":"unterminated}"#, "x"), None);
+    }
+
+    #[test]
+    fn report_uses_fixtures_then_prefers_cache_and_is_valid_json_shape() {
+        let fallback = temp_dir("fallback");
+        fs::write(
+            fallback.join("rtsw_mag_1m_new.json"),
+            r#"[{"time_tag":"2026-04-30T00:00:00Z","source":"DSCOVR","active":true}]"#,
+        )
+        .unwrap();
+        fs::write(
+            fallback.join("rtsw_wind_1m_new.json"),
+            r#"[{"time_tag":"2026-04-30T00:01:00Z","source":"ACE","active":false}]"#,
+        )
+        .unwrap();
+        let fixture = swpc_observation_report_json(None, Some(&fallback)).unwrap();
+        assert!(fixture.contains(r#""source_mode": "fixture""#));
+        assert!(fixture.contains("deterministic SWPC fixtures"));
+        assert!(fixture.contains(r#""active": true"#));
+        assert!(fixture.contains(r#""active": false"#));
+        for adapter in PUBLIC_ADAPTERS {
+            assert!(fixture.contains(adapter.id));
+        }
+
+        let cache = temp_dir("cache");
+        fs::write(
+            cache.join("rtsw_mag_1m.json"),
+            r#"[{"time_tag":"2026-05-01","source":"SOLAR1","active":null}]"#,
+        )
+        .unwrap();
+        fs::write(
+            cache.join("rtsw_wind_1m.json"),
+            r#"[{"time_tag":"2026-05-01","source":"DSCOVR"}]"#,
+        )
+        .unwrap();
+        let cached = swpc_observation_report_json(Some(&cache), Some(&fallback)).unwrap();
+        assert!(cached.contains(r#""source_mode": "cached""#));
+        assert!(cached.contains("Cached public data was used"));
+        assert!(cached.contains(r#""active": null"#));
+        assert!(cached.ends_with("}\n"));
+
+        fs::remove_dir_all(cache).unwrap();
+        fs::remove_dir_all(fallback).unwrap();
+    }
+
+    #[test]
+    fn report_errors_are_specific_and_fallback_layouts_are_supported() {
+        let empty = temp_dir("empty");
+        let error = swpc_observation_report_json(None, None).unwrap_err();
+        assert!(error.contains("no fallback fixture directory"));
+        let error = swpc_observation_report_json(None, Some(&empty)).unwrap_err();
+        assert!(error.contains("No SWPC source file found"));
+
+        let nested = empty.join("swpc_scn26_21");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(nested.join("rtsw_mag_1m_new.json"), "{}").unwrap();
+        fs::write(nested.join("rtsw_wind_1m_new.json"), "{}").unwrap();
+        assert!(swpc_observation_report_json(None, Some(&empty)).is_ok());
+
+        let directory = nested.join("rtsw_mag_1m.json");
+        fs::create_dir_all(&directory).unwrap();
+        assert!(read_source(directory, "fixture", SwpcEndpoint::RtswMag1m).is_err());
+        fs::remove_dir_all(empty).unwrap();
+    }
+
+    #[test]
+    fn escaping_and_excerpt_never_emit_raw_controls() {
+        let mut out = String::new();
+        json_string_field(&mut out, 1, "k\n", "\"\\\r\t\u{0001}", false);
+        assert_eq!(out, "  \"k\\n\": \"\\\"\\\\\\r\\t\\u0001\"\n");
+        let mut pair = String::new();
+        string_pair(&mut pair, "key", "value", true);
+        assert_eq!(pair, r#""key":"value","#);
+        let long = format!("{}\u{0000}tail", "x".repeat(300));
+        let excerpt = raw_excerpt(&long);
+        assert_eq!(excerpt.chars().count(), 240);
+        assert!(!excerpt.contains('\u{0000}'));
     }
 }

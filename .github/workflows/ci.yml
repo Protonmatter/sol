@@ -95,11 +95,10 @@ jobs:
         shell: bash
         run: node --test tests/web/*.test.mjs
 
-      # Advisory until the pre-existing JSDoc baseline is clean, then flip to blocking
-      # (delete continue-on-error). The ?v= specifiers are stripped in a temp copy —
-      # see tools/typecheck_web.py.
-      - name: JSDoc typecheck (tsc, advisory)
-        continue-on-error: true
+      # The ?v= specifiers are stripped in a temp copy — see tools/typecheck_web.py.
+      # This is blocking: a broken project-file handoff previously made the advisory
+      # check fail before it ever inspected application types.
+      - name: JSDoc typecheck (tsc)
         run: python tools/typecheck_web.py
 
       - name: Python syntax
@@ -288,6 +287,9 @@ jobs:
 
       - name: Validate optional DE441 provider contract offline
         run: python services/ephemeris-server/test_server.py -v
+
+      - name: Python schema and ephemeris semantic regression tests
+        run: PYTHONPATH=tools python -m unittest discover -s tests/python -p 'test_*.py' -v
 
       - name: Build browser WASM from source
         run: python tools/build_wasm.py
