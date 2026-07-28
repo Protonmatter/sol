@@ -76,8 +76,8 @@ export function bodyTrack(bodyIndex, lat, lonEast, elev, unix0, dtSeconds, n) {
 // The optional provider must be explicitly configured by the deployment.
 // Never default to localhost: on a public site that targets the visitor's machine.
 const configuredBase =
-  typeof window !== "undefined" && typeof window.SOL_EPHEMERIS_SERVER === "string"
-    ? window.SOL_EPHEMERIS_SERVER.trim()
+  typeof window !== "undefined" && typeof /** @type {any} */ (window).SOL_EPHEMERIS_SERVER === "string"
+    ? /** @type {any} */ (window).SOL_EPHEMERIS_SERVER.trim()
     : "";
 
 export const SERVER_BASE = configuredBase.replace(/\/+$/, "");
@@ -85,7 +85,7 @@ export const SERVER_CONFIGURED = SERVER_BASE.length > 0;
 
 function configureServerControl() {
   if (typeof document === "undefined") return;
-  const button = document.getElementById("skyProviderServer");
+  const button = /** @type {HTMLButtonElement|null} */ (document.getElementById("skyProviderServer"));
   if (!button) return;
   if (!SERVER_CONFIGURED) {
     button.disabled = true;
