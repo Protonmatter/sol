@@ -1,0 +1,312 @@
+{
+  "schema_version": "sol-requirements.v1",
+  "updated": "2026-07-28",
+  "requirements": [
+    {
+      "id": "SOL-ARCH-001",
+      "status": "implemented",
+      "statement": "The browser MUST render versioned immutable snapshots and MUST NOT invent or silently reinterpret physical values.",
+      "source": "docs/SPEC.md#architecture",
+      "implementation": [
+        "crates/solar-core/src/contracts.rs",
+        "apps/web/js/data.js",
+        "apps/web/js/ephemerisContract.js"
+      ],
+      "verification": [
+        "tools/validate_snapshot.py",
+        "tools/validate_ephemeris_snapshot.py",
+        "tools/test_ephemeris_contract.mjs"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-CONTRACT-001",
+      "status": "implemented",
+      "statement": "A contract change MUST version and update its schema, producers, consumers, fixtures, semantic validators, and compatibility tests in the same pull request.",
+      "source": "docs/SDLC.md#contract-and-schema-changes",
+      "implementation": [
+        "docs/solar-state-snapshot-v2.schema.json",
+        "docs/ephemeris-snapshot-v2.schema.json",
+        "crates/solar-core/src/contracts.rs",
+        "apps/web/js/ephemerisContract.js"
+      ],
+      "verification": [
+        "tools/validate_snapshot.py",
+        "tools/validate_ephemeris_snapshot.py",
+        "tests/python/test_contract_validators.py"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-SCI-001",
+      "status": "implemented",
+      "statement": "Scientific claims MUST state provenance, calibration, uncertainty, accuracy scope, and operational limits; normalized values MUST NOT be presented as calibrated units.",
+      "source": "docs/SPEC.md#operational-boundary",
+      "implementation": [
+        "crates/solar-core/src/contracts.rs",
+        "apps/web/js/panels.js",
+        "docs/ACCURACY_CONTRACT.md"
+      ],
+      "verification": [
+        "tools/validate_operational_readiness.py",
+        "tools/validate_snapshot.py",
+        "tools/validate_body_constants.py"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation",
+        "Ephemeris accuracy (JPL Horizons)"
+      ]
+    },
+    {
+      "id": "SOL-DATA-001",
+      "status": "implemented",
+      "statement": "Observed or cached data MUST retain source, time, freshness, quality, and finite-value evidence, and degraded data MUST fail closed or remain visibly degraded.",
+      "source": "docs/SPEC.md#snapshot-contracts",
+      "implementation": [
+        "tools/run_daily_ingest.py",
+        "tools/snapshot_semantics.py",
+        "apps/web/js/data.js"
+      ],
+      "verification": [
+        "tools/validate_snapshot.py",
+        "tools/validate_ephemeris_snapshot.py",
+        "tests/python/test_contract_validators.py"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation",
+        "Daily data ingest"
+      ]
+    },
+    {
+      "id": "SOL-DET-001",
+      "status": "implemented",
+      "statement": "Committed generated data and reference simulations MUST be reproducible, and the reference snapshot MUST remain byte-identical across supported CI operating systems.",
+      "source": "docs/VALIDATION_PLAN.md#determinism-and-generated-data",
+      "implementation": [
+        "tools/generate_fixture_snapshot.py",
+        "tools/generate_series.py",
+        ".github/workflows/ci.yml"
+      ],
+      "verification": [
+        "crates/solar-cli/tests/cli.rs",
+        ".github/workflows/ci.yml"
+      ],
+      "ci_gates": [
+        "CI / Engine determinism (cross-OS byte compare + schema)"
+      ]
+    },
+    {
+      "id": "SOL-UX-001",
+      "status": "implemented",
+      "statement": "The initial view MUST expose the primary learning task and current system state while advanced, rare, or research controls remain clearly labelled and disclosed on request.",
+      "source": "docs/UX_GUIDELINES.md#progressive-disclosure-contract",
+      "implementation": [
+        "apps/web/index.html",
+        "apps/web/styles.css",
+        "apps/web/js/view.js"
+      ],
+      "verification": [
+        "tools/validate_ux_contract.py",
+        "tools/browser_validation.mjs",
+        "tests/python/test_ux_contract.py"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts",
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-UX-002",
+      "status": "implemented",
+      "statement": "Interactive controls MUST have accessible names, keyboard-equivalent operation, visible focus, and non-canvas alternatives for material information.",
+      "source": "docs/UX_GUIDELINES.md#accessibility-and-input",
+      "implementation": [
+        "apps/web/index.html",
+        "apps/web/styles.css",
+        "apps/web/js/tour.js",
+        "apps/web/js/orrery.js"
+      ],
+      "verification": [
+        "tools/validate_ux_contract.py",
+        "tools/browser_smoke.py",
+        "tools/browser_validation.mjs"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts",
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-UX-003",
+      "status": "implemented",
+      "statement": "Asynchronous operations, provider changes, errors, and degraded modes MUST provide visible status, preserve user control, and offer a recovery or fallback path.",
+      "source": "docs/UX_GUIDELINES.md#feedback-errors-and-user-control",
+      "implementation": [
+        "apps/web/index.html",
+        "apps/web/js/data.js",
+        "apps/web/js/sky.js",
+        "apps/web/js/timeline.js"
+      ],
+      "verification": [
+        "tools/validate_ux_contract.py",
+        "tools/browser_validation.mjs"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-PRIV-001",
+      "status": "implemented",
+      "statement": "Observer computation MUST remain on-device by default, and a remote provider MUST require configuration and explicit consent before location and time are transmitted.",
+      "source": "docs/adr/0003-location-time-and-privacy.md#decision",
+      "implementation": [
+        "apps/web/js/sky.js",
+        "apps/web/js/config.js"
+      ],
+      "verification": [
+        "tools/browser_validation.mjs",
+        "tools/validate_web_static.py"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-TEST-001",
+      "status": "implemented",
+      "statement": "Every behavior change MUST include tests at the lowest useful layer and regression coverage for the user-visible or contract boundary it can break.",
+      "source": "docs/VALIDATION_PLAN.md#change-to-test-mapping",
+      "implementation": [
+        "tests/python",
+        "tests/web",
+        "crates/solar-core/src",
+        "crates/solar-ephemeris/src"
+      ],
+      "verification": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/coverage.yml"
+      ],
+      "ci_gates": [
+        "CI",
+        "Coverage"
+      ]
+    },
+    {
+      "id": "SOL-COV-001",
+      "status": "implemented",
+      "statement": "CI MUST enforce at least 90 percent line coverage for Rust, Python, and the denominator-complete hand-written web runtime, plus at least 90 percent Node line, branch, and function coverage.",
+      "source": "docs/VALIDATION_PLAN.md#coverage-policy",
+      "implementation": [
+        ".github/workflows/coverage.yml",
+        "tools/collect_node_coverage.mjs",
+        "tools/merge_web_coverage.mjs"
+      ],
+      "verification": [
+        "tests/web/jsCoverageScope.test.mjs",
+        ".github/workflows/coverage.yml"
+      ],
+      "ci_gates": [
+        "Coverage / Rust coverage (>= 90%)",
+        "Coverage / JavaScript coverage (Node + Chromium, >= 90%)",
+        "Coverage / Python coverage (>= 90%)"
+      ]
+    },
+    {
+      "id": "SOL-VIS-001",
+      "status": "implemented",
+      "statement": "Browser CI MUST validate WebGL behavior and semantic image properties for Sun colour, Earth visibility, and camera orbit continuity, and retain failure evidence.",
+      "source": "docs/VALIDATION_PLAN.md#browser-and-visual-regression",
+      "implementation": [
+        "tools/browser_validation.mjs",
+        "tools/visual_assertions.mjs"
+      ],
+      "verification": [
+        "tests/web/visualAssertions.test.mjs",
+        "tools/browser_validation.mjs"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation",
+        "Coverage / JavaScript coverage (Node + Chromium, >= 90%)"
+      ]
+    },
+    {
+      "id": "SOL-CI-001",
+      "status": "implemented",
+      "statement": "Third-party actions MUST be commit-SHA pinned, workflows MUST use least-privilege permissions, and production MUST deploy only the exact successful master CI SHA.",
+      "source": "docs/adr/0004-ci-and-deployment-integrity.md#decision",
+      "implementation": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/deploy-pages.yml",
+        ".github/workflows/coverage.yml"
+      ],
+      "verification": [
+        "tools/validate_sdlc.py",
+        "tests/python/test_sdlc_contract.py"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts"
+      ]
+    },
+    {
+      "id": "SOL-DOC-001",
+      "status": "implemented",
+      "statement": "A change MUST update the governing specification, requirement links, implementation plan, operator instructions, and user documentation when their claims or commands change.",
+      "source": "docs/SDLC.md#documentation-as-code",
+      "implementation": [
+        "CONTRIBUTING.md",
+        ".github/PULL_REQUEST_TEMPLATE.md",
+        "docs/IMPLEMENTATION_PLAN.md"
+      ],
+      "verification": [
+        "tools/validate_docs.py",
+        "tools/validate_sdlc.py"
+      ],
+      "ci_gates": [
+        "Docs / Markdown links, badges + style",
+        "CI / Governance and specification contracts"
+      ]
+    },
+    {
+      "id": "SOL-SUPPLY-001",
+      "status": "implemented",
+      "statement": "CI and production dependencies MUST be lockfile-controlled or immutable-SHA pinned, and automated dependency update review MUST be configured for each package ecosystem in use.",
+      "source": "docs/SDLC.md#secure-development-and-supply-chain",
+      "implementation": [
+        "Cargo.lock",
+        "package-lock.json",
+        ".github/dependabot.yml"
+      ],
+      "verification": [
+        "tools/validate_sdlc.py",
+        "tests/python/test_sdlc_contract.py"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts"
+      ]
+    },
+    {
+      "id": "SOL-REL-001",
+      "status": "implemented",
+      "statement": "A release MUST preserve test, coverage, deterministic snapshot, and browser visual evidence sufficient to identify the tested commit and reproduce a failure.",
+      "source": "docs/VALIDATION_PLAN.md#release-evidence",
+      "implementation": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/coverage.yml",
+        ".github/workflows/deploy-pages.yml"
+      ],
+      "verification": [
+        "tools/validate_sdlc.py",
+        "tests/python/test_sdlc_contract.py"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts",
+        "CI / Engine determinism (cross-OS byte compare + schema)"
+      ]
+    }
+  ]
+}

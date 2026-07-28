@@ -13,8 +13,8 @@
 // Norma–Outer), and the local Orion Spur. Scale: 1 world unit ≈ 0.326 kpc (≈1,063 ly);
 // disc radius ~15 kpc.
 
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=487de6afab";
-import { bvToRGB, equToGal } from "./starphysics.js?v=487de6afab";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=4a5f52993c";
+import { bvToRGB, equToGal } from "./starphysics.js?v=4a5f52993c";
 
 const D2R = Math.PI / 180;
 const LY_PER_PC = 3.2615637772;
@@ -217,7 +217,10 @@ export function buildGalaxyModel() {
 // solar-neighbourhood view below is the zoomed-in version where it resolves.
 // `starCat` = the lazily-imported starcatalog.js namespace (see orrery.js enterOrrery).
 export function buildCatalogStarsGalactic(starCat) {
-  const { STAR_COUNT, STAR_STRIDE, STARS_PACKED } = starCat;
+  // The full Hipparcos payload is deliberately lazy. Return a valid empty point layer
+  // during the first WebGL frame; buildGalaxyBuffers() replaces it when the catalogue
+  // resolves. This keeps optional galaxy enrichment out of core renderer readiness.
+  const { STAR_COUNT = 0, STAR_STRIDE = 0, STARS_PACKED = [] } = starCat || {};
   const pts = [];
   for (let i = 0; i < STAR_COUNT; i++) {
     const ra = STARS_PACKED[i * STAR_STRIDE];
@@ -252,7 +255,12 @@ export function neighbourhoodPos(raDeg, decDeg, distLy) {
 }
 
 export function buildNeighbourhoodModel(starCat) {
-  const { STAR_COUNT, STAR_STRIDE, STARS_PACKED, NAMED_STARS } = starCat;
+  const {
+    STAR_COUNT = 0,
+    STAR_STRIDE = 0,
+    STARS_PACKED = [],
+    NAMED_STARS = [],
+  } = starCat || {};
   const pts = [];
   for (let i = 0; i < STAR_COUNT; i++) {
     const ra = STARS_PACKED[i * STAR_STRIDE];

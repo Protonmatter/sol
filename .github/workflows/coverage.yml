@@ -41,21 +41,57 @@ jobs:
           retention-days: 14
 
   javascript:
-    name: JavaScript coverage (>= 90%)
+    name: JavaScript coverage (Node + Chromium, >= 90%)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "22"
-      - name: Production-module line, branch, and function gates
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        with:
+          toolchain: "1.96.0"
+          targets: wasm32-unknown-unknown
+      - name: Install locked browser-coverage tooling
+        run: npm ci --ignore-scripts
+      - name: Node-tested production-module line, branch, and function gates
         run: |
           node --test --experimental-test-coverage \
+            --test-coverage-include='apps/web/**/*.js' \
             --test-coverage-lines=90 \
             --test-coverage-branches=90 \
             --test-coverage-functions=90 \
             tests/web/*.test.mjs
+      - name: Collect denominator-complete Node coverage
+        # c8 --all seeds every hand-written runtime module at zero, including modules
+        # that Node cannot import because they require the DOM or WebGL. Chromium's
+        # execution coverage is merged into this map below.
+        run: node tools/collect_node_coverage.mjs
+      - name: Build browser engines and deterministic cache tokens
+        run: |
+          python tools/build_wasm.py
+          python tools/build_web.py
+      - name: Chromium execution coverage and WebGL visual assertions
+        run: node tools/browser_validation.mjs
+      - name: Whole-web Node + Chromium line gate
+        # Generated catalogues must load in the browser but are deliberately omitted
+        # from the percentage so declarative data rows cannot inflate application coverage.
+        run: node tools/merge_web_coverage.mjs --minimum-lines=90
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: javascript-coverage-and-visuals-${{ github.sha }}
+          path: |
+            coverage/browser
+            coverage/combined
+            coverage/node/coverage-final.json
+          if-no-files-found: ignore
+          retention-days: 14
 
   python:
     name: Python coverage (>= 90%)
@@ -79,11 +115,11 @@ jobs:
             --source=services/ephemeris-server,tools \
             -m unittest discover -s tests/python -p 'test_*.py' -v
           coverage report \
-            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py' \
+            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py' \
             --fail-under=90 --show-missing
           mkdir -p coverage
           coverage xml -o coverage/python.xml \
-            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py'
+            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py'
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:

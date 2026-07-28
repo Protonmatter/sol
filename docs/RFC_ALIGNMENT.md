@@ -1,8 +1,10 @@
 # RFC alignment matrix
 
-Updated: 2026-07-10
+Updated: 2026-07-28
 
-The original web and solar-system design documents remain useful implementation history. Where they conflict with the current system, this matrix and accepted ADRs are authoritative.
+The original web and solar-system design documents remain useful implementation history.
+Where they conflict with the current system, `SPEC.md`, accepted ADRs and repository RFCs,
+and the traced requirements are authoritative.
 
 | Earlier RFC statement | Current decision | Authority |
 |---|---|---|
@@ -16,14 +18,17 @@ The original web and solar-system design documents remain useful implementation 
 | Mutable remote textures fetched on every deployment | Deterministic procedural path is default; remote textures are reviewed opt-in assets | ADR 0004 |
 | Caller partition invariance implied by bounded substeps | Fixed-clock checkpoint/replay makes target state invariant to caller partitioning and is adversarially tested | `docs/SPEC.md` |
 | EOP data bundled without lifecycle enforcement | Coverage boundary is explicit; CI and weekly workflow require a 90-day refresh margin | `docs/SPEC.md` |
+| Progressive disclosure described only as historical design intent | Current initial/secondary UX rules are normative, statically validated, and exercised in Chromium | RFC 0001, `docs/UX_GUIDELINES.md` |
+| Validation documented as language-specific commands | One traced governance → unit → contract → integration → browser/visual → determinism → release plan | RFC 0001, `docs/VALIDATION_PLAN.md` |
 
 ## Acceptance-status interpretation
 
 A phase marked complete in an older RFC means its user-visible capability was delivered. It does not supersede current contract, accuracy, privacy, accessibility, or release gates. Those gates are defined by:
 
 1. `docs/SPEC.md`
-2. accepted files under `docs/adr/`
-3. checked-in JSON Schemas
-4. CI workflows and executable validators
+2. accepted files under `docs/adr/` and `docs/rfcs/`
+3. `docs/requirements.json`
+4. checked-in JSON Schemas
+5. CI workflows and executable validators
 
 Any future design change that contradicts these sources requires a new ADR and corresponding tests in the same pull request.

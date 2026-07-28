@@ -1,5 +1,15 @@
 # Roadmap
 
+## Engineering lifecycle and browser validation — shipped 2026-07-28
+
+- Specification-driven SDLC with stable `SOL-*` requirements and evidence traceability
+- Internal RFC template/process plus ADR alignment for durable architecture decisions
+- Contributor and pull-request review contracts
+- Progressive-disclosure and accessibility structure validator with real Chromium behavior
+- Denominator-complete Node + Chromium web coverage and semantic WebGL image assertions
+- CI enforcement of governance, immutable action pins, dependency updates, coverage, and
+  exact-tested-SHA Pages deployment
+
 ## v0.2.0 Published ephemeris + real star catalogue — shipped 2026-07-20
 
 - Publish `solar-ephemeris` to crates.io (0.1.1 first release, 0.2.0 current) via a

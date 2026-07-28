@@ -10,7 +10,26 @@ The workflow is anchored to public sources and methods: NOAA/SWPC data products,
 
 - Python 3.11+ for fixture generation, validation, notebooks, and public-data cache helpers.
 - Rust toolchain for `cargo test --workspace` and `solar-cli`.
+- Node.js 22 plus `npm ci --ignore-scripts` for the locked unit, browser-coverage, and visual-regression tooling.
+- Chromium plus built WASM engines for local end-to-end and WebGL validation.
 - Network access only when running `tools/fetch_public_data.py`.
+
+## Release governance preflight
+
+Before language or browser validation, verify that requirements, RFCs, evidence paths,
+dependency automation, workflow pins, coverage thresholds, deployment semantics, docs, and
+the UI disclosure structure remain internally consistent:
+
+```bash
+python tools/validate_sdlc.py
+python tools/validate_docs.py
+python tools/validate_ux_contract.py
+PYTHONPATH=tools python -m unittest tests.python.test_sdlc_contract tests.python.test_ux_contract -v
+```
+
+These checks run in the independent `Governance and specification contracts` CI job, so a
+governance failure prevents the complete `CI` workflow from succeeding and therefore
+prevents normal Pages deployment.
 
 ## Deterministic Offline Run
 
@@ -95,6 +114,48 @@ python tools/validate_operational_readiness.py apps/web/data/latest-state.json -
 
 That stricter command is expected to fail for v1 because calibrated physical units, historical validation, SWPC product comparison, and operational monitoring are not implemented.
 
+## Web coverage and visual validation
+
+The JavaScript coverage gate has two inputs. Native Node tests retain independent
+90% line, branch, and function thresholds. A denominator-complete c8 run seeds
+every hand-written page and service-worker module, then Chromium's execution
+coverage fills the DOM/WebGL modules Node cannot execute. The merged hand-written
+runtime is gated at 90% line coverage; generated star, moon, geography, and
+constellation catalogues must load but cannot inflate that percentage.
+
+After the WASM engines are built:
+
+```bash
+npm ci --ignore-scripts
+node tools/collect_node_coverage.mjs
+node tools/browser_validation.mjs
+node tools/merge_web_coverage.mjs --minimum-lines=90
+```
+
+The browser run saves its raw coverage plus focused Sun/Earth PNGs under
+`coverage/browser/`. It asserts a warm-white Sun, visible blue Earth oceans, and
+visual continuity after a complete 360° camera orbit. It also verifies initial and toggled
+progressive-disclosure states before exercising the full Sun, My Sky, Solar System, tour,
+provider-fallback, timeline, and camera flows. CI uploads those diagnostics even when a
+gate fails.
+
+## Release evidence and deployment
+
+The full release evidence is split across required workflows:
+
+- `CI`: governance, Rust, web/provider/browser integration, and cross-OS deterministic
+  snapshots;
+- `Coverage`: Rust, Python, Node, browser, and combined whole-web reports;
+- `Docs`: offline documentation and SDLC contract validation;
+- scheduled accuracy, EOP, external-link, ingest, and fuzz workflows for evidence that
+  depends on networks, time, or longer execution.
+
+Normal Pages deployment starts only after the complete `CI` workflow succeeds on `master`.
+It checks out `workflow_run.head_sha`, rebuilds the WASM/data/static artifact, validates it,
+and deploys through the `github-pages` environment. Coverage and Docs should remain required
+branch checks in repository settings; environment reviewers and branch protection are
+settings-owned controls and cannot be proven by files in this repository.
+
 ## Rollback
 
 Restore the deterministic fixture:
@@ -110,5 +171,6 @@ Delete `.cache/solar-data` to remove live public-data cache state.
 - Magnetic fields are normalized demonstration units, not calibrated Gauss or Mx.
 - Live public endpoints can change schema or availability.
 - Helioviewer quicklook imagery is useful for overlays, not calibrated FITS analysis.
-- The web app is static and renders snapshots; it does not run the physics model in the browser.
+- The static app runs audited Rust engines through WASM, but every view still consumes a
+  validated immutable snapshot and must not invent physics in JavaScript.
 - `operational_readiness` must remain visible in research tooling and must not be flipped to operational without evidence.

@@ -11,9 +11,9 @@
 // clock-grade timing), they pin the celestial frame. The galactic-centre and -anticentre markers
 // plus the Milky Way band show where the Sun sits in the Galaxy (~26,000 ly out, toward Sagittarius).
 
-import { equToEcl } from "./bodyData.js?v=487de6afab";
-import { bvToRGB } from "./starphysics.js?v=487de6afab";
-import { CONSTELLATIONS as FIGURES } from "./constellations.js?v=487de6afab";
+import { equToEcl } from "./bodyData.js?v=4a5f52993c";
+import { bvToRGB } from "./starphysics.js?v=4a5f52993c";
+import { CONSTELLATIONS as FIGURES } from "./constellations.js?v=4a5f52993c";
 
 // ---- bright stars (J2000), enough to draw the headline constellations + name the brightest ----
 // name, RA°, Dec°, V-mag, optional constellation tag for grouping.
@@ -88,7 +88,7 @@ export const STARS = [
 // RA/Dec polylines. The list that used to live here joined stars by NAME, so a figure
 // could only use stars that happened to be in the curated array above, which is why the
 // app drew 7 of 88. Re-exported so importers have one place to get them.
-export { CONSTELLATIONS, CONSTELLATION_COUNT } from "./constellations.js?v=487de6afab";
+export { CONSTELLATIONS, CONSTELLATION_COUNT } from "./constellations.js?v=4a5f52993c";
 
 // Pulsars (J2000) — the reference markers the brief asks for. RA/Dec from the ATNF catalogue.
 export const PULSARS = [
@@ -135,25 +135,30 @@ function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.f
 // Returns { bgStars:{packed,count}, brightStars:[{name,pos,m}], constLines:Float32(x,y,z..),
 //           pulsars:[{name,pos,note}], deepsky:[{name,pos,kind,note}], milkyWay:Float32 (band points) }
 //
-// `starCat` is the starcatalog.js module namespace, passed in by the caller: that 370 KB
-// data module is deliberately LAZY (dynamic import when the 3-D view opens) so it never
-// costs the Sun/My-Sky first paint anything — see enterOrrery() in orrery.js.
+// `starCat` is the optional starcatalog.js module namespace. The curated bright-star list
+// is a deterministic first-frame fallback; when the full catalogue arrives the renderer
+// rebuilds these buffers without blocking WebGL initialization.
 export function buildCelestial(starCat) {
-  if (!starCat) throw new Error("buildCelestial requires the star catalogue module (lazy-loaded by orrery.js)");
-  const { STAR_COUNT, STAR_STRIDE, STARS_PACKED } = starCat;
+  const fullCatalogue = starCat
+    && Number.isInteger(starCat.STAR_COUNT)
+    && Number.isInteger(starCat.STAR_STRIDE)
+    && starCat.STARS_PACKED;
   const dir = (ra, dec) => equToEcl(ra, dec);
 
   // Background stars: the REAL naked-eye Hipparcos catalogue (V ≤ 6.5, see starcatalog.js)
   // — every star at its true J2000 direction, tinted by its measured B−V colour and sized
   // by its measured magnitude. Packed straight into the point-shader layout
   // [x,y,z,size,r,g,b,a]; a mild deterministic twinkle keeps the sky alive.
-  const N = STAR_COUNT;
+  const N = fullCatalogue ? starCat.STAR_COUNT : STARS.length;
   const packed = new Float32Array(N * 8);
   for (let i = 0; i < N; i++) {
-    const ra = STARS_PACKED[i * STAR_STRIDE];
-    const dec = STARS_PACKED[i * STAR_STRIDE + 1];
-    const mag = STARS_PACKED[i * STAR_STRIDE + 2];
-    const bv = STARS_PACKED[i * STAR_STRIDE + 3];
+    const fallback = STARS[i];
+    const ra = fullCatalogue ? starCat.STARS_PACKED[i * starCat.STAR_STRIDE] : fallback.ra;
+    const dec = fullCatalogue ? starCat.STARS_PACKED[i * starCat.STAR_STRIDE + 1] : fallback.dec;
+    const mag = fullCatalogue ? starCat.STARS_PACKED[i * starCat.STAR_STRIDE + 2] : fallback.m;
+    // The compact landmark list has no measured B−V column; a Sun-like neutral colour
+    // keeps the fallback honest until the measured catalogue replaces it.
+    const bv = fullCatalogue ? starCat.STARS_PACKED[i * starCat.STAR_STRIDE + 3] : 0.65;
     const d = dir(ra, dec);
     const [r, g, b] = bvToRGB(bv);
     const size = Math.max(0.55, 2.9 - 0.36 * mag);
