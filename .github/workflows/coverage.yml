@@ -1,0 +1,29 @@
+name: Coverage
+
+on:
+  push:
+    branches: ["quality/full-regression-coverage"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: coverage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  source-snapshot:
+    name: Source snapshot for coverage audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Package audited source tree
+        run: tar --exclude=.git -czf /tmp/sol-source.tgz .
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: sol-source-${{ github.sha }}
+          path: /tmp/sol-source.tgz
+          retention-days: 1
