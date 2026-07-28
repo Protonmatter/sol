@@ -5,11 +5,14 @@
 
 // name, temperature, radius, note, swatch colour, and (for the interior) the outer radius as a
 // fraction of R☉ used to draw the nested circles. Atmosphere layers are thin shells above the surface.
+/** @typedef {{name:string,temp:string,rad:string,fill:string,note:string,frac?:number}} SolarLayer */
+/** @type {SolarLayer[]} */
 const INTERIOR = [
   { name: "Core",            temp: "~15,000,000 K",            rad: "0 – 0.25 R☉  (0 – 174,000 km)", frac: 0.25, fill: "#fff6cf", note: "Nuclear fusion — hydrogen fuses to helium, powering the Sun." },
   { name: "Radiative zone",  temp: "7,000,000 → 2,000,000 K",  rad: "0.25 – 0.7 R☉",                  frac: 0.70, fill: "#ffd277", note: "Energy crawls out as radiation — a photon needs ~170,000 years to escape." },
   { name: "Convective zone", temp: "2,000,000 → 5,500 K",      rad: "0.7 – 1 R☉",                     frac: 1.00, fill: "#ff9a3c", note: "Boiling cells of plasma carry heat to the surface (granulation)." },
 ];
+/** @type {SolarLayer[]} */
 const ATMOSPHERE = [
   { name: "Photosphere",  temp: "~5,500 K",            rad: "the visible surface, ~500 km thick", fill: "#ffe39a", note: "Where sunlight escapes; sunspots and granulation live here." },
   { name: "Chromosphere", temp: "~4,500 → 20,000 K",   rad: "~2,000 km above the surface",         fill: "#ff7a5c", note: "A reddish layer; seen at 304 Å and during total eclipses." },
