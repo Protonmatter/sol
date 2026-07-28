@@ -57,12 +57,20 @@ addEventListener("unhandledrejection", e =>
   smokeErr("REJECTION: " + String((e.reason && e.reason.message) || e.reason)));
 
 let smokeStore = null;
+let smokeTime = null;
 addEventListener("load", () => {
-  const link = document.querySelector('link[href^="js/store.js"]');
-  if (link) {
-    import("./" + link.getAttribute("href"))
-      .then(m => { smokeStore = m.store; })
-      .catch(e => smokeErr("store import: " + e.message));
+  const storeLink = document.querySelector('link[href^="js/store.js"]');
+  const timeLink = document.querySelector('link[href^="js/orreryTime.js"]');
+  if (storeLink && timeLink) {
+    Promise.all([
+      import("./" + storeLink.getAttribute("href")),
+      import("./" + timeLink.getAttribute("href")),
+    ])
+      .then(([storeModule, timeModule]) => {
+        smokeStore = storeModule.store;
+        smokeTime = timeModule;
+      })
+      .catch(e => smokeErr("smoke module import: " + e.message));
   }
 });
 
@@ -94,15 +102,37 @@ const advance = () => {
     const rows = document.querySelectorAll("#orreryPositions .orrery-pos-moon").length;
     body.dataset.smokeMoonRows = String(rows);
     const backend = document.getElementById("orreryBackend");
-    if (o && rows >= 21 && backend && backend.textContent.includes("WebGL2")) {
+    if (o && smokeTime && rows >= 21 && backend && backend.textContent.includes("WebGL2")) {
       body.dataset.smokeReady = "yes";
 
+      const expectedDefault = smokeTime.SOLAR_SPEED_DEFAULT_YPS;
+      if (Math.abs(o.yearsPerSec - expectedDefault) < 1e-15) {
+        body.dataset.smokeDefaultSpeed = "yes";
+      } else {
+        smokeErr("default speed: yps=" + o.yearsPerSec + " expected=" + expectedDefault);
+        body.dataset.smokeDefaultSpeed = "no";
+      }
+
+      // Exercise the live Sun facts card through the actual Focus control. A live ephemeris
+      // row used to suppress luminosity/composition because those facts sat in an else-if.
+      const anchor = document.getElementById("orreryAnchor");
+      anchor.value = "Sun";
+      anchor.dispatchEvent(new Event("change", { bubbles: true }));
+      const detail = document.getElementById("orreryDetail").textContent;
+      if (detail.includes("Luminosity") && detail.includes("Composition")
+          && detail.includes("Surface imagery")) {
+        body.dataset.smokeSunDetail = "yes";
+      } else {
+        smokeErr("Sun detail missing facts: " + JSON.stringify(detail.slice(0, 500)));
+        body.dataset.smokeSunDetail = "no";
+      }
+
       // Exercise the real logarithmic time-speed control before using direct step injection.
-      // t=0.7 maps to exp(0.7 * log(5 * 365.25)) days/s by the application formula.
+      // Import the production mapping rather than duplicating its formula in this harness.
       const speed = document.getElementById("orrerySpeed");
       speed.value = "0.7";
       speed.dispatchEvent(new Event("input", { bubbles: true }));
-      const expectedYps = Math.exp(0.7 * Math.log(5 * 365.25)) / 365.25;
+      const expectedYps = smokeTime.solarSpeedFromSlider(0.7);
       if (Math.abs(o.yearsPerSec - expectedYps) / expectedYps < 1e-10) {
         body.dataset.smokeSpeed = "yes";
       } else {
@@ -344,6 +374,8 @@ def run_smoke(base: str, browser: str) -> None:
         'data-mode="orrery" aria-pressed="true"',
         'data-smoke-ready="yes"',
         'data-smoke-moon-rows="21"',
+        'data-smoke-default-speed="yes"',
+        'data-smoke-sun-detail="yes"',
         'data-smoke-speed="yes"',
         'data-smoke-paused="yes"',
         'data-smoke-aliasing="yes"',

@@ -1,6 +1,8 @@
 # Solar Maximum Engine ("Sol")
 
 [![CI](https://github.com/Protonmatter/sol/actions/workflows/ci.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/ci.yml)
+[![Coverage](https://github.com/Protonmatter/sol/actions/workflows/coverage.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/coverage.yml)
+[![Docs](https://github.com/Protonmatter/sol/actions/workflows/docs.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/docs.yml)
 [![Ephemeris accuracy](https://github.com/Protonmatter/sol/actions/workflows/ephemeris-accuracy.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/ephemeris-accuracy.yml)
 [![crates.io](https://img.shields.io/crates/v/solar-ephemeris.svg)](https://crates.io/crates/solar-ephemeris)
 
@@ -149,6 +151,27 @@ and usage.
 
 Full developer instructions: **[docs/INSTRUCTIONS.md](docs/INSTRUCTIONS.md)**.
 
+### Validate a change
+
+Install the locked JavaScript validation tools, then run the fast cross-language contract:
+
+```bash
+npm ci --ignore-scripts
+python tools/validate_sdlc.py
+python tools/validate_docs.py
+python tools/validate_ux_contract.py
+PYTHONPATH=tools python -m unittest discover -s tests/python -p 'test_*.py' -v
+npm test
+python tools/typecheck_web.py
+python tools/validate_web_static.py
+```
+
+The full CI additionally builds/tests Rust and WASM, runs the real app in Chromium with
+WebGL visual assertions, compares deterministic snapshots across Linux/macOS/Windows, and
+enforces at least 90% Rust, Python, and denominator-complete web line coverage. See
+**[CONTRIBUTING.md](CONTRIBUTING.md)** and
+**[docs/VALIDATION_PLAN.md](docs/VALIDATION_PLAN.md)**.
+
 ---
 
 ## Repository layout
@@ -160,9 +183,25 @@ apps/web/data/       Snapshots the app reads: latest-state.json, feed-status.jso
 crates/              Rust workspace (solar-core, solar-ingest, solar-cli, …)
 python/              Runnable prototype (synthetic solar maximum image)
 tools/               Python generators, ingest, validators + shell helpers (watch-ci.sh)
-docs/                Spec, status, handoff, instructions, data-source + ops notes
+docs/                Specs, requirements, RFCs/ADRs, UX, validation, status + operations
 tests/               Fixtures and golden snapshots
 ```
+
+---
+
+## Specification-driven development
+
+Behavior starts with a stable requirement in
+[`docs/requirements.json`](docs/requirements.json), links to the governing specification,
+and ends with implementation, verification, and a named CI gate. Material contract,
+privacy, UX-workflow, architecture, or release-policy changes use the
+[`docs/rfcs/`](docs/rfcs/) process; durable architecture decisions use
+[`docs/adr/`](docs/adr/).
+
+The lifecycle is documented in [`docs/SDLC.md`](docs/SDLC.md), the standards boundary in
+[`docs/STANDARDS.md`](docs/STANDARDS.md), and the progressive-disclosure/accessibility
+contract in [`docs/UX_GUIDELINES.md`](docs/UX_GUIDELINES.md). CI validates all of them
+before the tested SHA can deploy.
 
 ---
 
@@ -208,6 +247,8 @@ Claims are anchored to public, inspectable products: [NOAA SWPC](https://www.swp
 browse imagery, [JPL/NAIF SPICE](https://naif.jpl.nasa.gov/naif/), and
 [NN/g progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/).
 No SpaceX equivalence or proprietary internal JPL/SpaceX algorithm is claimed.
+See [`docs/STANDARDS.md`](docs/STANDARDS.md) for exact IETF, W3C, NIST, OWASP, and
+usability-guidance scope; no blanket certification or conformance is claimed.
 
 ## License
 

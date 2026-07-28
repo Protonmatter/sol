@@ -20,6 +20,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent / "apps" / "web"
+REPO = ROOT.parent.parent
 TOKEN = re.compile(r"(\.js)\?v=[0-9a-zA-Z]+")
 TSC_VERSION = "5.9.3"
 
@@ -49,16 +50,22 @@ def main() -> int:
             text = TOKEN.sub(r"\1", src.read_text(encoding="utf-8"))
             (tmpdir / rel).write_text(text, encoding="utf-8")
         (tmpdir / "jsconfig.json").write_text(json.dumps(JSCONFIG, indent=2), encoding="utf-8")
-        proc = subprocess.run(
-            [
+        local_tsc = REPO / "node_modules" / ".bin" / (
+            "tsc.cmd" if sys.platform == "win32" else "tsc"
+        )
+        command = (
+            [str(local_tsc)]
+            if local_tsc.is_file()
+            else [
                 "npx",
                 "--yes",
                 "-p",
                 f"typescript@{TSC_VERSION}",
                 "tsc",
-                "-p",
-                str(tmpdir / "jsconfig.json"),
-            ],
+            ]
+        )
+        proc = subprocess.run(
+            [*command, "-p", str(tmpdir / "jsconfig.json")],
             capture_output=True,
             text=True,
         )

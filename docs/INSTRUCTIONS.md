@@ -9,7 +9,9 @@ Practical commands for the web app and its data. Paths are relative to the repo 
 - **Rust/cargo** — needed to build the engine crates and the WebAssembly modules that power
   My Sky, Solar System, and "Run the engine live". Without it the Sun surface still works
   fully and the other surfaces fall back gracefully.
-- **Node** — optional; used by CI for the JS syntax/typecheck gates, never for a build.
+- **Node 22** — required for JS unit/type/coverage/browser validation; never required by
+  the production static app at runtime. Install locked tooling with
+  `npm ci --ignore-scripts`.
 
 ## Run the web app
 
@@ -50,6 +52,13 @@ python tools/generate_fixture_snapshot.py --cache .cache/solar-data \
 ## Validate (run these before committing)
 
 ```bash
+python tools/validate_sdlc.py
+python tools/validate_docs.py
+python tools/validate_ux_contract.py
+PYTHONPATH=tools python -m unittest discover -s tests/python -p 'test_*.py' -v
+npm ci --ignore-scripts
+npm test
+python tools/typecheck_web.py
 python tools/validate_snapshot.py apps/web/data/latest-state.json
 python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 python tools/validate_web_static.py --root apps/web
@@ -60,6 +69,11 @@ for f in apps/web/data/series/frame-*.json; do python tools/validate_snapshot.py
 `validate_web_static.py` checks required element IDs, that referenced assets exist, that the
 responsive breakpoint is present, and that the research panel is closed by default. **If you
 add/rename a required DOM id, update `REQUIRED_IDS` in that file.**
+
+`validate_sdlc.py` checks requirements/RFC traceability, evidence paths, dependency-update
+configuration, action SHA pins, coverage thresholds, and tested-SHA deployment. The separate
+`validate_ux_contract.py` checks the initial progressive-disclosure structure, accessible
+names/states, canvas alternatives, dialog semantics, responsive behavior, and reduced motion.
 
 ## Build the in-browser engine (WebAssembly)
 
@@ -88,6 +102,24 @@ cargo run -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 \
 cargo run -p solar-cli -- replay --snapshot apps/web/data/latest-state.json --out apps/web/data
 ```
 
+## Full browser end-to-end validation
+
+Build the WASM engines and cache tokens first. A Chromium-compatible browser must be
+installed at a standard system path or named by `CHROME_BIN`.
+
+```bash
+python tools/build_wasm.py
+python tools/build_web.py
+python tools/browser_smoke.py
+node tools/browser_validation.mjs
+```
+
+The browser validation freezes time and external requests, checks the initial and toggled
+progressive-disclosure states, exercises every destination and important fallback, collects
+browser-side execution coverage, and writes semantic WebGL images under `coverage/browser/`.
+CI merges that result with denominator-complete Node coverage and enforces the 90% whole-web
+line threshold.
+
 ## Verifying changes in the browser (what "done" looks like)
 
 - **Today** shows the real Sun above the fold, the stage rail, one plain sentence; dense
@@ -107,6 +139,9 @@ cargo run -p solar-cli -- replay --snapshot apps/web/data/latest-state.json --ou
 - No frameworks, no bundler, no runtime dependencies in `apps/web`.
 - Render via `textContent` / DOM APIs — never `innerHTML` with data.
 - The JSON snapshot contract is the boundary between engine and UI; the UI only consumes it
-  and must not compute physical values. Keep `operational_use`/`space_weather_operational`
-  `false` and preserve layer-kind labels.
+  and must not invent physical values. Audited Rust physics may execute through WASM and
+  returns the same validated snapshot contract. Keep
+  `operational_use`/`space_weather_operational` `false` and preserve layer-kind labels.
 - Commit messages end with the `Co-Authored-By` trailer used across this branch.
+- Follow `CONTRIBUTING.md`, link affected `SOL-*` requirements, and update specifications,
+  tests, implementation plan, operations, and user documentation in the same change.

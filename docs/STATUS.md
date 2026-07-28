@@ -1,8 +1,8 @@
 # Sol status
 
-Updated: 2026-07-25  
-Production branch: `master` (the only branch; all release work is merged)  
-Published crate: [`solar-ephemeris` 0.2.0](https://crates.io/crates/solar-ephemeris)
+- Updated: 2026-07-28
+- Production branch: `master` (normal Pages deployment consumes its successful CI SHA)
+- Published crate: [`solar-ephemeris` 0.2.0](https://crates.io/crates/solar-ephemeris)
 
 This document reports implemented behavior. Historical design intent remains in `WEB_REDESIGN_SPEC.md` and `SOLAR_SYSTEM_SPEC.md`; current normative decisions are in `SPEC.md`, `RFC_ALIGNMENT.md`, and `docs/adr/`.
 
@@ -163,6 +163,13 @@ Known product limitations:
 
 Implemented:
 
+- Specification-driven SDLC with 16 stable `SOL-*` requirements mapped to governing
+  specifications, implementation, verification, and named CI gates.
+- Internal RFC process/template, ADR alignment, contributor guide, and pull-request evidence
+  checklist.
+- Independent governance CI job validating requirement/RFC structure, evidence paths,
+  dependency automation, immutable action pins, coverage thresholds, docs, UX structure,
+  and exact-SHA deployment semantics.
 - Rust workspace tests with locked dependencies.
 - rustfmt and Clippy with warnings denied.
 - WASM builds for both engines.
@@ -171,10 +178,25 @@ Implemented:
 - Offline local/server provider compatibility tests.
 - EOP freshness gate.
 - Native ES-module syntax checks.
-- Built-WASM headless Chromium smoke tests for the Sun and My Sky paths.
+- Built-WASM headless Chromium smoke tests for the Sun, My Sky, and 3-D Solar System paths.
+- Static and real-browser progressive-disclosure assertions, including initial state,
+  native keyboard toggling, destination state, panel state, and provider recovery.
+- Denominator-complete Node + Chromium JavaScript line coverage at 90% or higher, with
+  independent 90% Node line/branch/function gates.
+- WebGL visual assertions for Sun colour, Earth visibility, and camera-orbit continuity.
 - Immutable commit-SHA pins for external GitHub Actions.
 - Pages deployment only after successful CI on `master` and only for the exact tested SHA.
 - Procedural texture fallback by default; mutable remote texture fetching is reviewed opt-in behavior.
+
+Repository-setting follow-up:
+
+- Require CI, Coverage, and Docs checks and reviewed pull requests on `master`.
+- Configure `github-pages` environment reviewers if the repository's risk policy requires
+  human release approval.
+- Approve security scope, supported versions, reporting ownership, severity context, and
+  response expectations before adding a root `SECURITY.md`.
+- Complete a scoped manual WCAG 2.2 AA audit before making any accessibility-conformance
+  claim.
 
 ## Release boundary
 

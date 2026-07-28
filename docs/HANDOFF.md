@@ -1,8 +1,10 @@
 # Handoff — Sol web redesign (v0.2)
 
-For the next engineer or agent picking this up. Read this, then
-[STATUS.md](STATUS.md) (what's done/left) and [WEB_REDESIGN_SPEC.md](WEB_REDESIGN_SPEC.md)
-(the plan). [INSTRUCTIONS.md](INSTRUCTIONS.md) has the commands.
+For the next engineer or agent picking this up. Read
+[SDLC.md](SDLC.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
+[STATUS.md](STATUS.md) first. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) is the active
+plan, while [WEB_REDESIGN_SPEC.md](WEB_REDESIGN_SPEC.md) preserves historical design intent.
+[INSTRUCTIONS.md](INSTRUCTIONS.md) has the commands.
 
 ## 1. What this project actually is
 
@@ -15,17 +17,21 @@ browser.**
 
 ## 2. Where things stand
 
-- **`master` is the only branch** — default, protected (PRs + 4 CI checks required), and
-  deployed to GitHub Pages at https://protonmatter.github.io/sol/ on every push. The
-  former `redesign/web-v0.2` branch was fully merged (PR #1) and deleted.
+- **`master` is the release branch.** Normal GitHub Pages deployment occurs only after the
+  complete `CI` workflow succeeds and deploys its exact `head_sha`. Repository settings
+  should require CI, Coverage, and Docs checks and reviewed pull requests; those
+  settings-owned controls cannot be proven from this checkout.
 - Repo: github.com/Protonmatter/sol. Workflows under `.github/workflows/`:
-  `ci.yml` (tests, blocking fmt+clippy, wasm build, web validators, determinism gate,
-  cache-bust sync, star-catalogue regen gate), `docs.yml` (offline Markdown link/badge/style
-  validation), `deploy-pages.yml` (Pages deploy), `daily-ingest.yml` (public-data refresh —
-  publishes via an auto-merged data PR, see its header), `eop-freshness.yml`,
+  `ci.yml` (governance, tests, blocking fmt+clippy, WASM, browser/visual, determinism,
+  cache-bust sync, data regen gates), `coverage.yml` (90% Rust/Python/whole-web coverage),
+  `docs.yml` (offline Markdown and SDLC validation), `deploy-pages.yml` (tested-SHA Pages
+  deploy), `daily-ingest.yml` (public-data refresh — publishes via a data PR), `eop-freshness.yml`,
   `ephemeris-accuracy.yml` and `docs-links.yml` (weekly network checks vs IERS / JPL Horizons /
   external doc links), `fuzz.yml` (weekly blob-validator fuzzing), and `publish-crate.yml`
   (scheduled `cargo publish -p solar-ephemeris` to crates.io).
+- `docs/requirements.json` connects every current normative requirement to specification,
+  implementation, verification, and CI evidence. Material changes start from
+  `docs/rfcs/0000-template.md`; durable architecture decisions receive an ADR.
 - Redesign Phases 1–3 plus the Solar-System/My-Sky engine work are **done and verified
   in-browser**. See STATUS.md for the current done/left detail.
 
@@ -78,8 +84,10 @@ There are a few **runtime** import cycles (e.g. `view → render → data → vi
 ESM handles them because the cyclic functions are only *called* at runtime, never during module
 evaluation. Don't call an imported function at a module's top level.
 
-The `tools/validate_web_static.py` `REQUIRED_IDS` set is the de-facto DOM contract, and it now
-scans `js/*.js` for required JS bindings — keep both in sync when you add/rename ids or move code.
+The web contracts have three layers: `tools/validate_web_static.py` covers assets/modules and
+required bindings; `tools/validate_ux_contract.py` covers progressive-disclosure and
+accessible structure; `tools/browser_validation.mjs` covers runtime UX, WASM/WebGL, visual
+assertions, and browser execution coverage. Keep all three aligned when changing the DOM.
 
 ## 5. Gotchas
 
@@ -87,9 +95,9 @@ scans `js/*.js` for required JS bindings — keep both in sync when you add/rena
   It stamps a single content-hash `?v=<hash>` across every HTML/JS reference, so the token changes
   only when content changes and all references move together — no more hand-bumping `?v=N` per file
   (which risked a stale-module mismatch if one was missed).
-- **Toolchains**: data is generated with Python (stdlib only); `node --check` is the
-  zero-dep JS syntax gate in CI; cargo builds the engines. The web app itself deliberately
-  needs no build/bundler.
+- **Toolchains**: data is generated with Python; Node 22 installs locked development-only
+  validation tools; cargo builds the engines. The production web app itself deliberately
+  has no runtime package or bundler dependency.
 - **SDO images** load without `crossOrigin` (display-only draw; canvas is never read back).
   If you ever need `getImageData`, you'll need a CORS-enabled source.
 - **Cycle frames drop `observed_context`** to stay small, so Space-Weather chips read "n/a"
@@ -108,15 +116,16 @@ run it client-side (see "Migration" in [STATUS.md](STATUS.md)). `crates/solar-wa
 `cdylib` (no wasm-bindgen) built with `tools/build_wasm.py` to `apps/web/pkg/solar_wasm.wasm`;
 `apps/web/engine.js` loads it and `app.js` is now an ES module. Rebuild the wasm whenever
 `solar-core` or `solar-wasm` changes. The next step is splitting the rest of `app.js` into
-modules + `// @ts-check`. **Vite was not adopted** — it needs Node (not installed) and is
-orthogonal to the low-level win. The original trade-off analysis is kept below for context.
+modules + `// @ts-check`. **Vite was not adopted** because a runtime bundler was unnecessary
+and would change the static architecture. Node is now an explicit validation tool only.
+The original trade-off analysis is kept below for context.
 
 `app.js` was ~1,357 lines of single-file vanilla JS with global state. **Two paths were weighed:**
 
 | | **A. ES modules + `// @ts-check`** (recommended) | **B. Vite + TypeScript** |
 |---|---|---|
 | Build step | none — still open `index.html` / `http.server` | dev server + `npm run build` |
-| Dependencies | zero runtime; Node only for an optional CI `tsc --noEmit` | `node_modules` (Vite + plugins) |
+| Dependencies | zero runtime; locked Node development tools for required validation | `node_modules` (Vite + plugins) |
 | Type safety | JSDoc `@typedef` for the snapshot contract, checked by `tsc`/editor | full `.ts` |
 | Bundling/HMR | native ESM (fine for this size) | yes |
 | Fit with project's "dependency-free, no-build" value | **preserves it** | breaks "open index.html directly" |

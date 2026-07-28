@@ -45,6 +45,27 @@ test("camera and transform matrices preserve their geometric contracts", () => {
   assert.deepEqual(normalMat3(model), [2, 0, 0, 0, 3, 0, 0, 0, 4]);
 });
 
+test("orbit-camera basis remains right-handed and continuous across a full azimuth sweep", () => {
+  let previousRight = null;
+  for (const el of [-1.45, -0.8, 0, 0.8, 1.45]) {
+    previousRight = null;
+    for (let i = 0; i <= 720; i++) {
+      const az = -Math.PI + (i / 720) * Math.PI * 2;
+      const eye = [Math.cos(el) * Math.cos(az), Math.cos(el) * Math.sin(az), Math.sin(el)];
+      const view = lookAt(eye, [0, 0, 0], [0, 0, 1]);
+      const right = [view[0], view[4], view[8]];
+      const up = [view[1], view[5], view[9]];
+      const back = [view[2], view[6], view[10]];
+      assert.ok(approx(Math.hypot(...right), 1, 1e-8));
+      assert.ok(approx(dot(cross(right, up), back), 1, 1e-8), `right-handed at el=${el}, az=${az}`);
+      if (previousRight) {
+        assert.ok(dot(previousRight, right) > 0.9999, `no roll flip at el=${el}, az=${az}`);
+      }
+      previousRight = right;
+    }
+  }
+});
+
 test("iauRotation returns a proper (right-handed, orthonormal) rotation for every body", () => {
   const unix = 1_767_225_600; // 2026-01-01T00:00:00Z
   for (const [name, body] of Object.entries(BODY)) {

@@ -1,9 +1,11 @@
 # Solar Maximum Engine Specification
 
 Status: current architecture contract  
-Updated: 2026-07-10
+Updated: 2026-07-28
 
-Normative architectural decisions are recorded under `docs/adr/`.
+Normative architectural decisions are recorded under `docs/adr/`. Repository RFCs,
+standards scope, and requirement-to-evidence traceability are defined by `docs/rfcs/`,
+`docs/STANDARDS.md`, and `docs/requirements.json`.
 
 ## Design principle
 
@@ -173,6 +175,11 @@ Current top-level destinations are:
 
 Canvas views require keyboard-accessible or textual alternatives. The tour is modal, focus-trapped, and skippable. The remote ephemeris provider is disabled unless explicitly configured and requires location-sharing consent.
 
+The initial view exposes the primary task and current source/feed/readiness state. Advanced,
+rare, and research controls use clearly labelled disclosure controls and do not normally
+exceed two disclosure levels. Accuracy, privacy, degraded-state, and consent information
+must remain visible at the point a user needs it.
+
 ## Validation and release gates
 
 A releasable commit must pass:
@@ -186,6 +193,10 @@ A releasable commit must pass:
 - local/server ephemeris provider compatibility tests.
 - EOP prediction-window freshness.
 - static web/module validation and content-derived cache stamping.
+- SDLC requirements/RFC/evidence validation and progressive-disclosure structure checks.
+- real-browser progressive-disclosure, provider-fallback, WASM, and WebGL flows.
+- semantic Sun/Earth/camera visual assertions with retained diagnostics.
+- Rust, Python, Node, and denominator-complete Node+Chromium coverage gates.
 - independent external Horizons evidence workflow where network access is available.
 
 GitHub Pages deploys only the exact `master` SHA whose CI workflow succeeded.

@@ -38,10 +38,6 @@ uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
 // see sunDiskBasis() in orrery.js. Body-frame, not camera: the image must co-rotate with the
 // Sun's real spin, not follow the eye around.
 uniform vec3 u_sunA;
-// Luminance-normalised average colour of the loaded SDO disc ((0,0,0) = no frame): the
-// procedural far side is re-tinted to this palette so the two hemispheres match — SDO
-// colourises HMI orange, and an untinted cream far side made the boundary a glaring seam.
-uniform vec3 u_sunTint;
 // Ring-shadow inputs: light direction in the body frame, the annulus radii in units of the
 // equatorial radius ((0,0) = the body has no rings), the polar/equatorial ratio (the ray must
 // start from the OBLATE surface, not the unit sphere), and the 1-D radial opacity profile
@@ -67,13 +63,13 @@ void main(){
     // "1 below 0.55" — i.e. "sunspot umbra" over half the star, which painted the whole
     // procedural Sun brown with cream blotches.
     float spot=1.0-smoothstep(0.235,0.27,fbm(p*6.0+vec3(5.0)));
-    vec3 c=mix(vec3(1.0,0.66,0.26),vec3(1.0,0.95,0.70),0.45+0.6*g);
-    c+=vec3(0.10,0.07,0.02)*smoothstep(0.6,0.95,fac); // faculae — subtle, not cream blotches
-    c=mix(c,vec3(0.30,0.13,0.05),spot*0.9);
+    // Warm-white visible-light display. The photosphere is white in space; the slight warmth
+    // preserves surface contrast against the pure-white UI without presenting an observation
+    // palette as the Sun's natural colour.
+    vec3 c=mix(vec3(0.82,0.79,0.72),vec3(1.0,0.98,0.92),0.45+0.6*g);
+    c+=vec3(0.08,0.075,0.06)*smoothstep(0.6,0.95,fac); // faculae — subtle, not cream blotches
+    c=mix(c,vec3(0.20,0.18,0.15),spot*0.9);
     float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); c*=0.72+0.45*limb;
-    if(u_sunTint.r>0.0){ // recolour the procedural surface to the SDO frame's own palette
-      c=dot(c,vec3(0.299,0.587,0.114))*u_sunTint;
-    }
     if(u_useTex==1){ // the real, latest SDO disk, wrapped SUN-FIXED on the u_sunA hemisphere.
       // Basis lives in the body frame (p, not N), so it needs no per-frame camera input and
       // cannot degenerate in the top-down view. Solar north is the body frame's +z; Earth
@@ -84,6 +80,13 @@ void main(){
       float vis=dot(p,a);
       vec2 d=vec2(dot(p,R),dot(p,U))*0.4565;                 // 0.4565 = disk radius / SDO frame width
       vec3 sc=texture(u_tex, vec2(0.5+d.x, 0.5-d.y)).rgb;
+      // HMIIC's browse JPEG is orange-colourised observation data, not a natural-colour
+      // photograph. Retain its measured intensity/sunspot structure, discard the assigned
+      // palette, and render it in the same warm-white visible-light palette as the far side.
+      float solarLuma=dot(sc,vec3(0.299,0.587,0.114));
+      // 1.35 lifts the browse frame without flattening its bright photospheric detail:
+      // 1.45 clipped a material part of the committed HMI disk before final shading.
+      sc=vec3(clamp(solarLuma*1.35,0.0,1.0))*vec3(1.0,0.97,0.90);
       // The HMI frame carries its own limb darkening — add only a whisper of view-angle
       // shading so the sphere still reads, not a second full limb law on top.
       sc*=0.88+0.18*limb;

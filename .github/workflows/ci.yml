@@ -20,6 +20,26 @@ permissions:
   contents: read
 
 jobs:
+  governance:
+    name: Governance and specification contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Requirements, RFCs, evidence, dependencies, and release workflow contracts
+        run: python tools/validate_sdlc.py
+      - name: Documentation links, badges, and style
+        run: python tools/validate_docs.py
+      - name: Progressive disclosure and accessibility structure
+        run: python tools/validate_ux_contract.py
+      - name: Governance and UX validator regression tests
+        run: >-
+          PYTHONPATH=tools python -m unittest
+          tests.python.test_sdlc_contract tests.python.test_ux_contract -v
+
   test:
     name: Rust tests (workspace)
     runs-on: ubuntu-latest
@@ -71,12 +91,16 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: "22"
+          cache: npm
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
         with:
           targets: wasm32-unknown-unknown
+
+      - name: Install locked browser-validation tooling
+        run: npm ci --ignore-scripts
 
       - name: JavaScript syntax (native ESM)
         shell: bash
@@ -316,6 +340,17 @@ jobs:
 
       - name: Headless browser smoke (Sun + My Sky + 3-D Solar System)
         run: python tools/browser_smoke.py
+
+      - name: Browser runtime coverage probe + WebGL visual assertions
+        run: node tools/browser_validation.mjs --output-dir=coverage/browser-ci
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: browser-visual-regressions-${{ github.sha }}
+          path: coverage/browser-ci
+          if-no-files-found: ignore
+          retention-days: 14
 
   # The engine's determinism and the wasm "byte-compatible snapshots" claim both rest on
   # every float passing through platform libm before {:.6} rounding — plausible, never
