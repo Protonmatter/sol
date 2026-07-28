@@ -66,12 +66,13 @@ addEventListener("load", () => {
   }
 });
 
-// Synchronous repaint with a chosen frame step: sets simStepSeconds, then reuses the
-// Body-size slider's input handler, which repaints immediately while Animate is off.
+// Synchronous repaint with a chosen frame step. The time slider's real input handler
+// rebuilds positions, paints, and refreshes the user-visible accuracy line while Animate is
+// off, so the smoke verifies both renderer state and the warning presented to the user.
 const repaintWithStep = (stepSeconds) => {
   smokeStore.orrery.simStepSeconds = stepSeconds;
-  const size = document.getElementById("orrerySize");
-  size.dispatchEvent(new Event("input", { bubbles: true }));
+  const time = document.getElementById("orreryTime");
+  time.dispatchEvent(new Event("input", { bubbles: true }));
 };
 
 let phase = "ready";
@@ -91,38 +92,67 @@ const advance = () => {
   }
   if (phase === "ready") {
     const rows = document.querySelectorAll("#orreryPositions .orrery-pos-moon").length;
+    body.dataset.smokeMoonRows = String(rows);
     const backend = document.getElementById("orreryBackend");
     if (o && rows >= 21 && backend && backend.textContent.includes("WebGL2")) {
       body.dataset.smokeReady = "yes";
-      body.dataset.smokeMoonRows = String(rows);
-      // Stop the animation loop: from here on every check is a synchronous repaint.
+
+      // Exercise the real logarithmic time-speed control before using direct step injection.
+      // t=0.7 maps to exp(0.7 * log(5 * 365.25)) days/s by the application formula.
+      const speed = document.getElementById("orrerySpeed");
+      speed.value = "0.7";
+      speed.dispatchEvent(new Event("input", { bubbles: true }));
+      const expectedYps = Math.exp(0.7 * Math.log(5 * 365.25)) / 365.25;
+      if (Math.abs(o.yearsPerSec - expectedYps) / expectedYps < 1e-10) {
+        body.dataset.smokeSpeed = "yes";
+      } else {
+        smokeErr("speed: slider 0.7 produced yps=" + o.yearsPerSec
+          + " expected=" + expectedYps);
+        body.dataset.smokeSpeed = "no";
+      }
+
+      // Verify the real pause control before any harness-owned step assignment can mask it.
       const animate = document.getElementById("orreryAnimate");
       animate.checked = false;
       animate.dispatchEvent(new Event("change", { bubbles: true }));
+      if (!o.animate && o.simStepSeconds === 0) {
+        body.dataset.smokePaused = "yes";
+      } else {
+        smokeErr("pause: animate=" + o.animate + " step=" + o.simStepSeconds);
+        body.dataset.smokePaused = "no";
+      }
       phase = "alias";
     }
   } else if (phase === "alias") {
     // A frame that covers 5 days must alias every inner moon (Phobos P/3 is 0.106 d)
-    // through the real drawMoons path.
+    // through the real drawMoons path, and the resulting warning must be rendered.
     repaintWithStep(5 * 86400);
-    if (o.moonsAliasedCount > 0 && o.moonsHiddenReason.includes("inner moon")) {
+    const rendered = acc ? acc.textContent : "";
+    if (o.moonsAliasedCount > 0
+        && o.moonsHiddenReason.includes("inner moon")
+        && rendered.includes("inner moon")) {
       body.dataset.smokeAliasing = "yes";
-      phase = "paused";
+      phase = "reset";
     } else {
       smokeErr("alias: 5-day step produced aliased=" + o.moonsAliasedCount
-        + " reason=" + JSON.stringify(o.moonsHiddenReason));
+        + " reason=" + JSON.stringify(o.moonsHiddenReason)
+        + " rendered=" + JSON.stringify(rendered));
       body.dataset.smokeAliasing = "no";
-      phase = "paused";
+      phase = "reset";
     }
-  } else if (phase === "paused") {
-    // A stationary clock must resolve every moon again.
+  } else if (phase === "reset") {
+    // Direct step injection is used only for deterministic renderer coverage; pause behavior
+    // was already proven above through the actual Animate control.
     repaintWithStep(0);
-    if (o.moonsAliasedCount === 0 && !o.moonsHiddenReason) {
-      body.dataset.smokePaused = "yes";
+    const rendered = acc ? acc.textContent : "";
+    if (o.moonsAliasedCount === 0 && !o.moonsHiddenReason
+        && !rendered.includes("inner moon")) {
+      body.dataset.smokeReset = "yes";
     } else {
-      smokeErr("paused: zero step left aliased=" + o.moonsAliasedCount
-        + " reason=" + JSON.stringify(o.moonsHiddenReason));
-      body.dataset.smokePaused = "no";
+      smokeErr("reset: zero step left aliased=" + o.moonsAliasedCount
+        + " reason=" + JSON.stringify(o.moonsHiddenReason)
+        + " rendered=" + JSON.stringify(rendered));
+      body.dataset.smokeReset = "no";
     }
     const time = document.getElementById("orreryTime");
     time.value = "10";
@@ -314,8 +344,10 @@ def run_smoke(base: str, browser: str) -> None:
         'data-mode="orrery" aria-pressed="true"',
         'data-smoke-ready="yes"',
         'data-smoke-moon-rows="21"',
-        'data-smoke-aliasing="yes"',
+        'data-smoke-speed="yes"',
         'data-smoke-paused="yes"',
+        'data-smoke-aliasing="yes"',
+        'data-smoke-reset="yes"',
         'data-smoke-validity="yes"',
         'data-smoke-done="yes"',
     )
