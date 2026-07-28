@@ -41,7 +41,7 @@ export function setWavelength(id) {
   store.wavelength = id;
   retryBaseImage(id); // re-selecting a channel retries a previously failed live image
   document.querySelectorAll("#wavelengthBar .wl-chip").forEach((c) => {
-    const isActive = c.dataset.id === id;
+    const isActive = /** @type {HTMLElement} */ (c).dataset.id === id;
     c.classList.toggle("active", isActive);
     c.setAttribute("aria-pressed", String(isActive)); // class-only state was invisible to AT
   });
