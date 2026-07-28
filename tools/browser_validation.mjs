@@ -390,11 +390,21 @@ async function exerciseOrrery(page, visualDirectory) {
   // more than double their cold-start time on shared CI runners. Keep the assertion exact,
   // but allow the instrumented initialization the same bounded headroom as the standalone
   // browser smoke's retry budget.
-  await page.waitForFunction(
-    () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2")
-      && document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21,
-    { timeout: 75_000 }
-  );
+  try {
+    await page.waitForFunction(
+      () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2")
+        && document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21,
+      { timeout: 75_000 }
+    );
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      backend: document.getElementById("orreryBackend")?.textContent || "",
+      insight: document.getElementById("orreryInsight")?.textContent || "",
+      moonRows: document.querySelectorAll("#orreryPositions .orrery-pos-moon").length,
+      surface: document.body.dataset.surface || "",
+    }));
+    throw new Error(`3-D readiness timed out: ${JSON.stringify(state)}`, { cause: error });
+  }
   await setChecked(page, "#orreryAnimate", false);
   await page.waitForNetworkIdle({ idleTime: 400, timeout: 15_000 });
   await visualAssertions(page, visualDirectory);

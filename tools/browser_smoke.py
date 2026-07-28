@@ -71,9 +71,21 @@ addEventListener("load", () => {
       .then(async ([storeModule, timeModule, orreryModule]) => {
         smokeStore = storeModule.store;
         smokeTime = timeModule;
+        // Exercise the real destination control. The previous localStorage-only setup could
+        // initialize the renderer through this harness while leaving the application tab in
+        // its default state, which made the aggregate assertion both brittle and incomplete.
+        const tab = document.querySelector('.mode-button[data-mode="orrery"]');
+        tab?.click();
         // Join the app's in-flight lifecycle promise instead of guessing when lazy WASM
         // and moon initialization have completed under virtual time.
         await orreryModule.enterOrrery();
+        if (tab?.getAttribute("aria-pressed") === "true"
+            && document.body.dataset.surface === "orrery") {
+          document.body.dataset.smokeMode = "yes";
+        } else {
+          smokeErr("orrery destination did not activate");
+          document.body.dataset.smokeMode = "no";
+        }
       })
       .catch(e => smokeErr("smoke module import: " + e.message));
   }
@@ -376,7 +388,7 @@ def run_smoke(base: str, browser: str) -> None:
 
     orrery_url = f"{base}/__smoke_orrery.html"
     expected = (
-        'data-mode="orrery" aria-pressed="true"',
+        'data-smoke-mode="yes"',
         'data-smoke-ready="yes"',
         'data-smoke-moon-rows="21"',
         'data-smoke-default-speed="yes"',
