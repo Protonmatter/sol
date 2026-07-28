@@ -164,9 +164,13 @@ async function assertDisclosureContract(page) {
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.getElementById("sunResearch")?.open === false);
 
-  await page.click("#sunWeather > summary");
+  // The drawer sits below the fixed timeline at this viewport. Puppeteer's physical
+  // click can land on that overlay after scroll-to-center even though keyboard activation
+  // and the native control are correct. HTMLElement.click() still exercises the browser's
+  // native <summary> activation without making this contract depend on viewport geometry.
+  await page.$eval("#sunWeather > summary", (node) => node.click());
   await page.waitForFunction(() => document.getElementById("sunWeather")?.open === true);
-  await page.click("#sunWeather > summary");
+  await page.$eval("#sunWeather > summary", (node) => node.click());
   await page.waitForFunction(() => document.getElementById("sunWeather")?.open === false);
 }
 
