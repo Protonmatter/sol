@@ -15,7 +15,10 @@
 /**
  * @typedef {Object} Snapshot
  * @property {string} schema_version
+ * @property {string} [model_version]
  * @property {string} [source_mode]
+ * @property {boolean} [operational_use]
+ * @property {string} [calibration_state]
  * @property {Object} [run]
  * @property {Object} [grid]
  * @property {Array} [layers]
