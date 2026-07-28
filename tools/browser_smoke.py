@@ -61,14 +61,19 @@ let smokeTime = null;
 addEventListener("load", () => {
   const storeLink = document.querySelector('link[href^="js/store.js"]');
   const timeLink = document.querySelector('link[href^="js/orreryTime.js"]');
-  if (storeLink && timeLink) {
+  const orreryLink = document.querySelector('link[href^="js/orrery.js"]');
+  if (storeLink && timeLink && orreryLink) {
     Promise.all([
       import("./" + storeLink.getAttribute("href")),
       import("./" + timeLink.getAttribute("href")),
+      import("./" + orreryLink.getAttribute("href")),
     ])
-      .then(([storeModule, timeModule]) => {
+      .then(async ([storeModule, timeModule, orreryModule]) => {
         smokeStore = storeModule.store;
         smokeTime = timeModule;
+        // Join the app's in-flight lifecycle promise instead of guessing when lazy WASM
+        // and moon initialization have completed under virtual time.
+        await orreryModule.enterOrrery();
       })
       .catch(e => smokeErr("smoke module import: " + e.message));
   }

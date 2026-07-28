@@ -13,8 +13,8 @@
 // Norma–Outer), and the local Orion Spur. Scale: 1 world unit ≈ 0.326 kpc (≈1,063 ly);
 // disc radius ~15 kpc.
 
-import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=70cf73dc6e";
-import { bvToRGB, equToGal } from "./starphysics.js?v=70cf73dc6e";
+import { GAL_OBJECTS, GAL_TYPES } from "./galacticobjects.js?v=6ad2a13ce2";
+import { bvToRGB, equToGal } from "./starphysics.js?v=6ad2a13ce2";
 
 const D2R = Math.PI / 180;
 const LY_PER_PC = 3.2615637772;
