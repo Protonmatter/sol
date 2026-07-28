@@ -103,6 +103,22 @@ mod tests {
     }
 
     #[test]
+    fn exported_abi_stores_a_stable_result_buffer_and_length() {
+        let pointer = simulate(7, 0, 1.0, 0.5, 8, 4);
+        assert!(!pointer.is_null());
+        let len = result_len();
+        assert!(len > 100);
+        RESULT.with(|cell| {
+            let bytes = cell.borrow();
+            assert_eq!(pointer, bytes.as_ptr());
+            assert_eq!(len, bytes.len());
+            assert!(std::str::from_utf8(&bytes)
+                .unwrap()
+                .contains("\"schema_version\": \"solar-state-snapshot.v2\""));
+        });
+    }
+
+    #[test]
     fn activity_index_changes_cycle_stage() {
         assert!(run_simulation(42, 12, 1.0, 0.2, 72, 36).contains("solar minimum"));
         assert!(run_simulation(42, 12, 1.0, 0.9, 72, 36).contains("solar maximum"));
