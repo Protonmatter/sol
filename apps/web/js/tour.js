@@ -1,10 +1,10 @@
 // Onboarding tour: a short, skippable spotlight walkthrough for first-time visitors.
 
-import { store } from "./store.js?v=db2518988d";
-import { TOUR_STEPS } from "./config.js?v=db2518988d";
-import { text } from "./dom.js?v=db2518988d";
-import { renderAll } from "./view.js?v=db2518988d";
-import { updateModeButtons } from "./panels.js?v=db2518988d";
+import { store } from "./store.js?v=19db56fd16";
+import { TOUR_STEPS } from "./config.js?v=19db56fd16";
+import { text } from "./dom.js?v=19db56fd16";
+import { renderAll } from "./view.js?v=19db56fd16";
+import { updateModeButtons } from "./panels.js?v=19db56fd16";
 
 const tourLayer = document.getElementById("tourLayer");
 const tourSpot = document.getElementById("tourSpot");
