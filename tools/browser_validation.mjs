@@ -386,10 +386,14 @@ async function visualAssertions(page, visualDirectory) {
 
 async function exerciseOrrery(page, visualDirectory) {
   await clickMode(page, "orrery");
+  // V8 block-coverage collection instruments the large lazy star/moon catalogues and can
+  // more than double their cold-start time on shared CI runners. Keep the assertion exact,
+  // but allow the instrumented initialization the same bounded headroom as the standalone
+  // browser smoke's retry budget.
   await page.waitForFunction(
     () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2")
       && document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21,
-    { timeout: 30_000 }
+    { timeout: 75_000 }
   );
   await setChecked(page, "#orreryAnimate", false);
   await page.waitForNetworkIdle({ idleTime: 400, timeout: 15_000 });
