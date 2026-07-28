@@ -19,9 +19,14 @@ export const AU_KM = 149597870.7;
  *  radiusKm:number, polarKm:number, massKg:number, densityGcm3:number,
  *  gravity:number, escapeKms:number, rotationHours:number, tiltDeg:number,
  *  poleRaDeg:number, poleDecDeg:number, w0Deg:number, wDotDegPerDay:number,
+ *  poleRaDotDegPerCty:number, poleDecDotDegPerCty:number,
  *  magDipoleEarth:number, magnetosphere:boolean, atmosphere:{pressureBar:number,composition:string},
  *  albedo:number, meanTempK:number, style:string, color:[number,number,number],
- *  rings?:{innerKm:number, outerKm:number, gaps?:[number,number][]}, blurb:string }} BodyPhys */
+ *  rings?:{innerKm:number, outerKm:number, gaps?:[number,number][]},
+ *  precession?:{obliquityDeg:number,rateArcsecPerYear:number,lon0Deg:number},
+ *  poleNut?:{n0Deg:number,nDotDegPerCty:number,raAmpDeg:number,decAmpDeg:number,wAmpDeg:number},
+ *  tidalLock?:{orbitalPeriodDays:number,librationLonDeg:number,librationLatDeg:number,visibleFraction:number},
+ *  blurb:string }} BodyPhys */
 
 /** @type {Record<string, BodyPhys>} */
 export const BODY = {
