@@ -231,6 +231,7 @@ async function buildGeneratedMaps() {
     // in that catalogue says which of them are dark — see tools/fetch_geography.py — so they
     // keep the procedural shader rather than a guess. fetch_textures.py still supplies real
     // photographic maps for every body to anyone who wants them locally.
+    /** @type {[string, () => any, number][]} */
     const jobs = [
       ["Earth", () => buildEarthMapSliced(geo.EARTH, geo.decodeRing), 0],
       ["Moon", () => buildFeatureMap(geo.FEATURES.Moon, BODY.Moon.radiusKm), 1],
@@ -1553,6 +1554,7 @@ function populateAnchorSelect() {
       sel.appendChild(og);
     }
   }
+  /** @type {[string, Array<{n:string}>][]} */
   const groups = [
     ["Dwarf planets & asteroids", DWARFS],
     ["Comets", COMETS],
@@ -1592,7 +1594,8 @@ function updateSpeedUI(source) {
   }
   if (presets) {
     for (const b of presets.querySelectorAll("button[data-dps]")) {
-      const on = Math.abs(Number(b.dataset.dps) - dps) / dps < 0.02;
+      const button = /** @type {HTMLElement} */ (b);
+      const on = Math.abs(Number(button.dataset.dps) - dps) / dps < 0.02;
       b.setAttribute("aria-pressed", on ? "true" : "false");
       b.classList.toggle("active", on);
     }
@@ -1714,7 +1717,7 @@ function showFallback(msg) {
 
 // ---------------------------------------------------------------- interaction
 (function attach() {
-  const canvas = document.getElementById("orreryCanvas"); if (!canvas) return;
+  const canvas = /** @type {HTMLCanvasElement|null} */ (document.getElementById("orreryCanvas")); if (!canvas) return;
   canvas.tabIndex = 0;
   // Respect the OS motion preference: the 3-D surface must not auto-animate full-viewport
   // for users who asked for reduced motion. The Animate checkbox re-enables it explicitly.
@@ -1848,15 +1851,17 @@ function showFallback(msg) {
   }
 
   const bind = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
-  bind("orreryTime", "input", (e) => { state.offsetYears = Number(e.target.value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
-  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = document.getElementById("orreryTime"); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
+  /** @param {Event} e */
+  const inputTarget = (e) => /** @type {HTMLInputElement} */ (e.currentTarget);
+  bind("orreryTime", "input", (e) => { state.offsetYears = Number(inputTarget(e).value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
+  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryTime")); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
   // drawRing already detects a radius change and re-uploads into the SAME buffer, so no
   // ringBufs reset here — nuking the map on every slider input orphaned up to three ~1.3 MB
   // GPU buffers per event without gl.deleteBuffer.
-  bind("orrerySize", "input", (e) => { state.exaggeration = Number(e.target.value); paint(); });
-  bind("orreryTrueScale", "change", (e) => { state.trueScale = e.target.checked; paint(); });
+  bind("orrerySize", "input", (e) => { state.exaggeration = Number(inputTarget(e).value); paint(); });
+  bind("orreryTrueScale", "change", (e) => { state.trueScale = inputTarget(e).checked; paint(); });
   bind("orreryAnimate", "change", (e) => {
-    state.animate = e.target.checked;
+    state.animate = inputTarget(e).checked;
     if (state.animate) startLoop();
     else {
       state.simStepSeconds = 0;
@@ -1865,13 +1870,15 @@ function showFallback(msg) {
     }
   });
   bind("orrerySpeed", "input", (e) => {
-    const v = Number(e.target.value);
+    const v = Number(inputTarget(e).value);
     if (state.galaxy) state.galSpeed = v;
     else setSolarSpeed(speedFromSlider(v), "slider");
   });
   bind("orrerySpeedPresets", "click", (e) => {
-    const btn = e.target.closest("button[data-dps]");
-    if (btn && !state.galaxy) setSolarSpeed(Number(btn.dataset.dps) / 365.25);
+    const btn = /** @type {Element} */ (e.target).closest("button[data-dps]");
+    if (btn && !state.galaxy) {
+      setSolarSpeed(Number(/** @type {HTMLElement} */ (btn).dataset.dps) / 365.25);
+    }
   });
   const entrySpeed = () => {
     const entry = /** @type {HTMLInputElement} */ (document.getElementById("orrerySpeedEntry"));
@@ -1883,29 +1890,29 @@ function showFallback(msg) {
   // A unit switch re-expresses the current rate, it does not change it.
   bind("orrerySpeedUnit", "change", () => { if (!state.galaxy) updateSpeedUI(); });
   updateSpeedUI();
-  bind("orreryShowOrbits", "change", (e) => { state.showOrbits = e.target.checked; buildSceneLines(); paint(); });
-  bind("orreryShowSky", "change", (e) => { state.showSky = e.target.checked; paint(); });
-  bind("orreryShowConst", "change", (e) => { state.showConst = e.target.checked; paint(); });
-  bind("orreryShowLabels", "change", (e) => { state.showLabels = e.target.checked; paint(); });
-  bind("orreryShowSunEq", "change", (e) => { state.showSunEq = e.target.checked; buildSceneLines(); paint(); });
-  bind("orreryShowSmall", "change", (e) => { state.showSmall = e.target.checked; buildSceneLines(); rebuildSmallBodies(); paint(); });
-  bind("orreryShowMoons", "change", (e) => { state.showMoons = e.target.checked; paint(); updateOrreryAccuracy(); });
-  bind("orreryDeepSky", "change", (e) => { state.galDeepSky = e.target.checked; paint(); });
-  bind("orreryTextures", "change", (e) => { state.useTextures = e.target.checked; paint(); });
+  bind("orreryShowOrbits", "change", (e) => { state.showOrbits = inputTarget(e).checked; buildSceneLines(); paint(); });
+  bind("orreryShowSky", "change", (e) => { state.showSky = inputTarget(e).checked; paint(); });
+  bind("orreryShowConst", "change", (e) => { state.showConst = inputTarget(e).checked; paint(); });
+  bind("orreryShowLabels", "change", (e) => { state.showLabels = inputTarget(e).checked; paint(); });
+  bind("orreryShowSunEq", "change", (e) => { state.showSunEq = inputTarget(e).checked; buildSceneLines(); paint(); });
+  bind("orreryShowSmall", "change", (e) => { state.showSmall = inputTarget(e).checked; buildSceneLines(); rebuildSmallBodies(); paint(); });
+  bind("orreryShowMoons", "change", (e) => { state.showMoons = inputTarget(e).checked; paint(); updateOrreryAccuracy(); });
+  bind("orreryDeepSky", "change", (e) => { state.galDeepSky = inputTarget(e).checked; paint(); });
+  bind("orreryTextures", "change", (e) => { state.useTextures = inputTarget(e).checked; paint(); });
   bind("orreryTopDown", "change", (e) => {
-    state.topDown = e.target.checked;
+    state.topDown = inputTarget(e).checked;
     if (state.topDown) { state.preTopRadius = state.radius; state.radius = 78; } // frame the whole system from above
     else if (state.preTopRadius) { state.radius = state.preTopRadius; }
     paint();
   });
-  bind("orreryAnchor", "change", (e) => { if (!state.freeFly) setAnchor(e.target.value); else state.anchor = e.target.value; });
+  bind("orreryAnchor", "change", (e) => { if (!state.freeFly) setAnchor(inputTarget(e).value); else state.anchor = inputTarget(e).value; });
   populateAnchorSelect(); // replace the static planet list with the full data-driven one
   bind("orreryFreeFly", "change", (e) => setFreeFly(e.target.checked));
   bind("orreryGalaxy", "click", () => {
     state.galaxy = !state.galaxy;
     state.selectedStar = null;
     if (state.localView) { state.localView = false; const lb = document.getElementById("orreryLocal"); if (lb) lb.textContent = "Solar neighbourhood (ly scale)"; }
-    if (state.freeFly) { state.freeFly = false; const ff = document.getElementById("orreryFreeFly"); if (ff) ff.checked = false; }
+    if (state.freeFly) { state.freeFly = false; const ff = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryFreeFly")); if (ff) ff.checked = false; }
     const btn = document.getElementById("orreryGalaxy");
     const insight = document.getElementById("orreryInsight");
     setSpeedSliderMode(state.galaxy);
@@ -1925,7 +1932,7 @@ function showFallback(msg) {
   bind("orreryLocal", "click", () => {
     state.localView = !state.localView;
     state.selectedStar = null;
-    if (state.freeFly) { state.freeFly = false; const ff = document.getElementById("orreryFreeFly"); if (ff) ff.checked = false; }
+    if (state.freeFly) { state.freeFly = false; const ff = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryFreeFly")); if (ff) ff.checked = false; }
     const lb = document.getElementById("orreryLocal");
     const gb = document.getElementById("orreryGalaxy");
     const insight = document.getElementById("orreryInsight");
