@@ -13,8 +13,17 @@ fn temp_dir(label: &str) -> PathBuf {
     path
 }
 
+fn workspace_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("solar-cli is inside the workspace crates directory")
+        .to_path_buf()
+}
+
 fn cli(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_solar-cli"))
+        .current_dir(workspace_root())
         .args(args)
         .output()
         .expect("run solar-cli")
