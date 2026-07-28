@@ -2,10 +2,18 @@
 // Run: node --test tests/web/
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
+import { readFileSync } from "node:fs";
+
+// Use the same cache token as production imports. Importing format.js both with and
+// without ?v= creates two module identities and makes native coverage incorrectly
+// report the production instance as untouched.
+const selectorsUrl = new URL("../../apps/web/js/selectors.js", import.meta.url);
+const tokenMatch = readFileSync(selectorsUrl, "utf8").match(/\.\/format\.js\?v=([0-9a-zA-Z]+)/);
+const q = tokenMatch ? `?v=${tokenMatch[1]}` : "";
+const {
   clamp, hash01, number, numberOrNa, compactNumberOrNa, plural, countBy,
   formatCounts, readableMode, humanizeId, formatUtc, stageFromActivity, complexityLabel,
-} from "../../apps/web/js/format.js";
+} = await import(`../../apps/web/js/format.js${q}`);
 
 test("clamp bounds both sides", () => {
   assert.equal(clamp(5, 0, 1), 1);
