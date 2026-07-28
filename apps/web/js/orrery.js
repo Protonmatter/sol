@@ -13,32 +13,32 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=6ad2a13ce2";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=6ad2a13ce2";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=6ad2a13ce2";
-import { buildCelestial } from "./celestial.js?v=6ad2a13ce2";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=6ad2a13ce2";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=6ad2a13ce2";
+import { store } from "./store.js?v=db2518988d";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=db2518988d";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=db2518988d";
+import { buildCelestial } from "./celestial.js?v=db2518988d";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=db2518988d";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=db2518988d";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
-} from "./orreryMath.js?v=6ad2a13ce2";
+} from "./orreryMath.js?v=db2518988d";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=6ad2a13ce2";
+} from "./orreryShaders.js?v=db2518988d";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=6ad2a13ce2";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=6ad2a13ce2";
-import { renderStarDetail } from "./starDetail.js?v=6ad2a13ce2";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=6ad2a13ce2";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=6ad2a13ce2";
+} from "./orreryGalaxy.js?v=db2518988d";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=db2518988d";
+import { renderStarDetail } from "./starDetail.js?v=db2518988d";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=db2518988d";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=db2518988d";
 import {
   DAYS_PER_YEAR, SOLAR_SPEED_DEFAULT_YPS, solarSpeedFromSlider, solarSliderFromSpeed,
   solarStepSeconds,
-} from "./orreryTime.js?v=6ad2a13ce2";
+} from "./orreryTime.js?v=db2518988d";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -173,7 +173,7 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=6ad2a13ce2"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=db2518988d"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   // The alpha profile rides with the photo ring: when the textured ring is what's drawn, its
@@ -181,7 +181,7 @@ function loadTextures() {
   // the ring without changing its shadow (and the photo's fine gaps would not shadow at all).
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true, alphaProfile: ringImageAlphaProfile(ring) }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=6ad2a13ce2";
+  ring.src = "textures/saturn_ring.png?v=db2518988d";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -197,12 +197,12 @@ function loadTextures() {
     } catch (e) { console.warn("sun texture", e.message); }
   };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=6ad2a13ce2")
+  fetch("textures/sun.jpg.json?v=db2518988d")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=6ad2a13ce2";
+      sun.src = "textures/sun.jpg?v=db2518988d";
     });
 }
 
@@ -230,7 +230,7 @@ async function buildGeneratedMaps() {
     // resolves. Waiting for the much larger geography module first made Focus/moon controls
     // appear broken during cold starts and under coverage instrumentation.
     const [geo] = await Promise.all([
-      import("./geography.js?v=6ad2a13ce2"),
+      import("./geography.js?v=db2518988d"),
       loadMoonCatalogue(),
     ]);
     // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
@@ -274,10 +274,12 @@ async function buildGeneratedMaps() {
 function loadMoonCatalogue() {
   if (moonSet) return Promise.resolve(moonSet);
   if (!moonLoadPromise) {
-    moonLoadPromise = import("./moons.js?v=6ad2a13ce2").then((moons) => {
+    moonLoadPromise = import("./moons.js?v=db2518988d").then((moons) => {
       moonSet = moons;
       populateAnchorSelect(); // the Focus dropdown can now offer the 21 moons
-      if (state.active && !state.animate) paint();
+      // Data arrival is a state transition, not an animation tick. Paint once even while
+      // Animate is enabled so moon rows/controls never wait on rAF scheduling.
+      if (state.active) paint();
       return moons;
     });
   }
@@ -1672,7 +1674,7 @@ async function enterOrreryInner() {
     // Fetch the star catalogue alongside the WASM engine. WebGL and the planetary system
     // do not depend on it, so never hold the first interactive frame behind catalogue
     // parsing/instrumentation; stars appear on the next repaint when ready.
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=6ad2a13ce2");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=db2518988d");
     await loadSkyEngine();
     if (!gl) {
       const res = initGL(canvas);
