@@ -487,10 +487,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("clock")
             .as_nanos();
-        let path = std::env::temp_dir().join(format!(
-            "sol-ingest-{label}-{}-{nonce}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("sol-ingest-{label}-{}-{nonce}", std::process::id()));
         fs::create_dir_all(&path).expect("create temp fixture directory");
         path
     }
@@ -543,7 +541,10 @@ mod tests {
             ),
             Some(SwpcEndpoint::RtswEphemerides1h)
         );
-        assert_eq!(replacement_for_deprecated_rtsw("https://example.invalid"), None);
+        assert_eq!(
+            replacement_for_deprecated_rtsw("https://example.invalid"),
+            None
+        );
         assert!(requires_local_retention_for_window("3-day"));
         assert!(requires_local_retention_for_window("7d"));
         assert!(!requires_local_retention_for_window("1-day"));
@@ -571,7 +572,9 @@ mod tests {
             SwpcEndpoint::RtswMag1m,
             SwpcEndpoint::RtswWind1m,
         ] {
-            assert!(endpoint.url().starts_with("https://services.swpc.noaa.gov/"));
+            assert!(endpoint
+                .url()
+                .starts_with("https://services.swpc.noaa.gov/"));
             assert_eq!(endpoint.schema_era(), SwpcSchemaEra::Scn26_21);
         }
         assert_eq!(SOURCES.len(), 3);
