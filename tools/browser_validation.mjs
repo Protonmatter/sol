@@ -14,6 +14,7 @@ import {
 } from "./js_coverage_scope.mjs";
 import {
   assertBlueEarth,
+  assertFrameChanged,
   assertOrbitRoundTrip,
   assertWarmWhiteSun,
 } from "./visual_assertions.mjs";
@@ -376,11 +377,32 @@ async function visualAssertions(page, visualDirectory) {
   });
   const earthAfter = await canvasScreenshot(page, path.join(visualDirectory, "earth-after-orbit.png"));
   const orbitStats = assertOrbitRoundTrip(earthBefore, earthAfter);
+
+  // At one simulated week per real second the old renderer froze every planet's rotation.
+  // Compare two settled frames while the real production clock is running: the focused Earth
+  // must continue turning, while the accuracy line keeps one stable rate-limit disclosure.
+  await page.$eval('#orrerySpeedPresets button[data-dps="7"]', (button) => button.click());
+  await setChecked(page, "#orreryAnimate", true);
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const highSpeedBefore = await canvasScreenshot(
+    page, path.join(visualDirectory, "earth-week-per-second-before.png")
+  );
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  const highSpeedAfter = await canvasScreenshot(
+    page, path.join(visualDirectory, "earth-week-per-second-after.png")
+  );
+  const rotationStats = assertFrameChanged(highSpeedBefore, highSpeedAfter);
+  const spinDisclosure = await page.$eval("#orreryAccuracy", (node) => node.textContent);
+  if (!spinDisclosure.includes("Rotation display rate-limited")) {
+    throw new Error(`high-speed rotation disclosure is missing: ${JSON.stringify(spinDisclosure)}`);
+  }
+  await setChecked(page, "#orreryAnimate", false);
   console.log(
     "visual assertions:",
     `Sun G/R=${sunStats.greenRed.toFixed(3)} B/R=${sunStats.blueRed.toFixed(3)};`,
     `Earth blue pixels=${earthStats.bluePixels};`,
-    `orbit mean delta=${orbitStats.meanDifference.toFixed(3)}`
+    `orbit mean delta=${orbitStats.meanDifference.toFixed(3)};`,
+    `high-speed rotation delta=${rotationStats.meanDifference.toFixed(3)}`
   );
 }
 
