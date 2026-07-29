@@ -13,33 +13,33 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=c87fc00662";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=c87fc00662";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=c87fc00662";
-import { buildCelestial } from "./celestial.js?v=c87fc00662";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=c87fc00662";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=c87fc00662";
+import { store } from "./store.js?v=061ea4f22a";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=061ea4f22a";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=061ea4f22a";
+import { buildCelestial } from "./celestial.js?v=061ea4f22a";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=061ea4f22a";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=061ea4f22a";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
-} from "./orreryMath.js?v=c87fc00662";
+} from "./orreryMath.js?v=061ea4f22a";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=c87fc00662";
+} from "./orreryShaders.js?v=061ea4f22a";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=c87fc00662";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=c87fc00662";
-import { renderStarDetail } from "./starDetail.js?v=c87fc00662";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=c87fc00662";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=c87fc00662";
-import * as moonCatalogue from "./moons.js?v=c87fc00662";
+} from "./orreryGalaxy.js?v=061ea4f22a";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=061ea4f22a";
+import { renderStarDetail } from "./starDetail.js?v=061ea4f22a";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=061ea4f22a";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=061ea4f22a";
+import * as moonCatalogue from "./moons.js?v=061ea4f22a";
 import {
   DAYS_PER_YEAR, SOLAR_SPEED_DEFAULT_YPS, solarSpeedFromSlider, solarSliderFromSpeed,
-  rotationDisplayStepSeconds, solarStepSeconds,
-} from "./orreryTime.js?v=c87fc00662";
+  rotationDisplayIsLimited, rotationDisplayStepSeconds, solarStepSeconds,
+} from "./orreryTime.js?v=061ea4f22a";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -53,7 +53,7 @@ function updateOrreryAccuracy() {
   // Same honesty for spin: at high time speeds physical rotation outpaces a display's sampling
   // rate. Keep the bodies moving continuously, but disclose the visible-rate cap.
   const spinNote = state.animate && !state.galaxy && state.spinLimitedCount
-    ? " Rotation display rate-limited to one visible turn/s; orbital time remains exact."
+    ? " Rotation display rate-limited to one visible turn/5s; orbital time remains exact."
     : "";
   node.textContent = `${epochLabel(state.offsetYears)} — ${a.text}${moonNote}${spinNote}`;
 }
@@ -174,7 +174,7 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=c87fc00662"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=061ea4f22a"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   // The alpha profile rides with the photo ring: when the textured ring is what's drawn, its
@@ -182,7 +182,7 @@ function loadTextures() {
   // the ring without changing its shadow (and the photo's fine gaps would not shadow at all).
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true, alphaProfile: ringImageAlphaProfile(ring) }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=c87fc00662";
+  ring.src = "textures/saturn_ring.png?v=061ea4f22a";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -198,12 +198,12 @@ function loadTextures() {
     } catch (e) { console.warn("sun texture", e.message); }
   };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=c87fc00662")
+  fetch("textures/sun.jpg.json?v=061ea4f22a")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=c87fc00662";
+      sun.src = "textures/sun.jpg?v=061ea4f22a";
     });
 }
 
@@ -231,7 +231,7 @@ async function buildGeneratedMaps() {
     // resolves. Waiting for the much larger geography module first made Focus/moon controls
     // appear broken during cold starts and under coverage instrumentation.
     const [geo] = await Promise.all([
-      import("./geography.js?v=c87fc00662"),
+      import("./geography.js?v=061ea4f22a"),
       loadMoonCatalogue(),
     ]);
     // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
@@ -933,8 +933,8 @@ function ringShadowProfileTex(name, phys) {
   return ringShadowTex[key];
 }
 
-// Per-body presentation clocks used only while true spin exceeds one visible turn per real
-// second. Orbital positions and the underlying simulation epoch always remain exact.
+// Per-body presentation clocks used only while true spin exceeds one visible turn per five
+// real seconds. Orbital positions and the underlying simulation epoch always remain exact.
 let rotationDisplayUnix = {};
 const rotationLimitedBodies = new Set();
 
@@ -946,14 +946,18 @@ function resetRotationDisplay() {
 
 function updateRotationDisplay(realStepSeconds) {
   rotationLimitedBodies.clear();
+  const simulatedSecondsPerRealSecond = state.yearsPerSec * DAYS_PER_YEAR * 86400;
   for (const name of DRAW_LIST) {
     const phys = BODY[name];
     if (!phys) continue;
     const visibleStep = rotationDisplayStepSeconds(
       realStepSeconds, state.simStepSeconds, phys.rotationHours,
     );
+    // Decide from the selected simulation rate, not this frame's duration. Browsers may
+    // deliver a zero/duplicate rAF timestamp or a long throttled frame; neither may toggle
+    // the disclosure and change the navigation panel's height.
     const limited = state.animate
-      && Math.abs(visibleStep) + 1e-9 < Math.abs(state.simStepSeconds);
+      && rotationDisplayIsLimited(simulatedSecondsPerRealSecond, phys.rotationHours);
     if (limited) {
       const previous = rotationDisplayUnix[name] ?? (state.renderUnix - state.simStepSeconds);
       rotationDisplayUnix[name] = previous + visibleStep;
@@ -1701,7 +1705,7 @@ async function enterOrreryInner() {
     // starve the readiness path under cold-cache parsing or V8 coverage instrumentation.
     await loadMoonCatalogue();
     buildGeneratedMaps(); // not awaited: generated maps appear progressively
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=c87fc00662");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=061ea4f22a");
     if (starCatPromise) {
       void starCatPromise.then((catalogue) => {
         starCat = catalogue;
