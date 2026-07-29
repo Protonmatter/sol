@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   DAYS_PER_YEAR, SOLAR_SPEED_MIN_DPS, SOLAR_SPEED_MAX_DPS, SOLAR_SPEED_DEFAULT_YPS,
-  MAX_DISPLAY_ROTATION_TPS, rotationDisplayStepSeconds,
+  MAX_DISPLAY_ROTATION_TPS, rotationDisplayIsLimited, rotationDisplayStepSeconds,
   solarSpeedFromSlider, solarSliderFromSpeed, solarStepSeconds,
 } from "../../apps/web/js/orreryTime.js";
 
@@ -32,19 +32,35 @@ test("solar speed slider maps its endpoints and round-trips logarithmically", ()
 });
 
 test("high clock rates keep bodies rotating at a stable visible rate", () => {
-  assert.equal(MAX_DISPLAY_ROTATION_TPS, 1);
+  assert.equal(MAX_DISPLAY_ROTATION_TPS, 0.2);
   const earthPeriodSeconds = 24 * 3600;
-  for (const dt of [1 / 120, 1 / 60, 1 / 30, 0.05]) {
+  for (const dt of [1 / 120, 1 / 60, 1 / 30, 0.05, 0.25, 1]) {
     const oneDayStep = solarStepSeconds(dt, 1 / DAYS_PER_YEAR);
     assert.equal(
       rotationDisplayStepSeconds(dt, oneDayStep, 24),
-      earthPeriodSeconds * dt,
+      earthPeriodSeconds * MAX_DISPLAY_ROTATION_TPS * dt,
     );
     const oneWeekStep = solarStepSeconds(dt, 7 / DAYS_PER_YEAR);
     const visible = rotationDisplayStepSeconds(dt, oneWeekStep, 24);
-    assert.equal(visible, earthPeriodSeconds * dt);
+    assert.equal(visible, earthPeriodSeconds * MAX_DISPLAY_ROTATION_TPS * dt);
     assert.ok(visible > 0 && visible < oneWeekStep);
+    // Even at a throttled 1 FPS the capped step is not a whole revolution, which
+    // would reproduce the same image and make the body appear frozen.
+    assert.notEqual(visible % earthPeriodSeconds, 0);
   }
+});
+
+test("rotation limiter status is independent of frame duration", () => {
+  const oneDayPerSecond = 86400;
+  const oneWeekPerSecond = 7 * 86400;
+  for (const simulatedRate of [oneDayPerSecond, oneWeekPerSecond]) {
+    const decisions = [0, 1 / 240, 1 / 120, 1 / 60, 0.05, 0.25, 1]
+      .map(() => rotationDisplayIsLimited(simulatedRate, 24));
+    assert.deepEqual(decisions, Array(decisions.length).fill(true));
+  }
+  assert.equal(rotationDisplayIsLimited(60, 24), false);
+  assert.equal(rotationDisplayIsLimited(Number.NaN, 24), false);
+  assert.equal(rotationDisplayIsLimited(86400, 0), false);
 });
 
 test("rotation display limiter preserves slow motion, direction, and invalid-input safety", () => {
