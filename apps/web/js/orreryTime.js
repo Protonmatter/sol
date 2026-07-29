@@ -7,8 +7,9 @@ export const SOLAR_SPEED_MAX_DPS = 5 * DAYS_PER_YEAR;
 export const SOLAR_SPEED_DEFAULT_YPS = SOLAR_SPEED_MIN_DPS / DAYS_PER_YEAR;
 // Faster physical spin cannot be sampled faithfully at ordinary display refresh rates.
 // Keep it moving in the correct direction, but cap the presentation at one visible turn
-// per real second instead of freezing or alternating between frozen/unfrozen frames.
-export const MAX_DISPLAY_ROTATION_TPS = 1;
+// every five real seconds. A one-turn-per-second cap aliases to an unchanged image when a
+// busy or backgrounded browser renders at roughly 1 FPS.
+export const MAX_DISPLAY_ROTATION_TPS = 0.2;
 
 const SPEED_LOG_SPAN = Math.log(SOLAR_SPEED_MAX_DPS / SOLAR_SPEED_MIN_DPS);
 
@@ -23,6 +24,14 @@ export function solarSliderFromSpeed(yearsPerSecond) {
 
 export function solarStepSeconds(realSeconds, yearsPerSecond) {
   return realSeconds * yearsPerSecond * DAYS_PER_YEAR * 86400;
+}
+
+export function rotationDisplayIsLimited(simulatedSecondsPerRealSecond, rotationHours) {
+  if (!Number.isFinite(simulatedSecondsPerRealSecond)
+      || !Number.isFinite(rotationHours) || rotationHours === 0) return false;
+  const periodSeconds = Math.abs(rotationHours) * 3600;
+  return Math.abs(simulatedSecondsPerRealSecond)
+    > periodSeconds * MAX_DISPLAY_ROTATION_TPS;
 }
 
 export function rotationDisplayStepSeconds(realSeconds, simulatedSeconds, rotationHours) {
