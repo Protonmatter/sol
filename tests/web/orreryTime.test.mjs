@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   DAYS_PER_YEAR, SOLAR_SPEED_MIN_DPS, SOLAR_SPEED_MAX_DPS, SOLAR_SPEED_DEFAULT_YPS,
+  MAX_DISPLAY_ROTATION_TPS, rotationDisplayStepSeconds,
   solarSpeedFromSlider, solarSliderFromSpeed, solarStepSeconds,
 } from "../../apps/web/js/orreryTime.js";
 
@@ -28,4 +29,28 @@ test("solar speed slider maps its endpoints and round-trips logarithmically", ()
   }
   assert.equal(solarSliderFromSpeed(0), 0);
   assert.equal(solarSliderFromSpeed(Number.POSITIVE_INFINITY), 1);
+});
+
+test("high clock rates keep bodies rotating at a stable visible rate", () => {
+  assert.equal(MAX_DISPLAY_ROTATION_TPS, 1);
+  const earthPeriodSeconds = 24 * 3600;
+  for (const dt of [1 / 120, 1 / 60, 1 / 30, 0.05]) {
+    const oneDayStep = solarStepSeconds(dt, 1 / DAYS_PER_YEAR);
+    assert.equal(
+      rotationDisplayStepSeconds(dt, oneDayStep, 24),
+      earthPeriodSeconds * dt,
+    );
+    const oneWeekStep = solarStepSeconds(dt, 7 / DAYS_PER_YEAR);
+    const visible = rotationDisplayStepSeconds(dt, oneWeekStep, 24);
+    assert.equal(visible, earthPeriodSeconds * dt);
+    assert.ok(visible > 0 && visible < oneWeekStep);
+  }
+});
+
+test("rotation display limiter preserves slow motion, direction, and invalid-input safety", () => {
+  assert.equal(rotationDisplayStepSeconds(1 / 60, 60, 24), 60);
+  assert.equal(rotationDisplayStepSeconds(1 / 60, -60, -24), -60);
+  assert.equal(rotationDisplayStepSeconds(0, 60, 24), 0);
+  assert.equal(rotationDisplayStepSeconds(1 / 60, Number.NaN, 24), 0);
+  assert.equal(rotationDisplayStepSeconds(1 / 60, 60, 0), 0);
 });

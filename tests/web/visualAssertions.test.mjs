@@ -3,6 +3,7 @@ import test from "node:test";
 import pngjs from "pngjs";
 import {
   assertBlueEarth,
+  assertFrameChanged,
   assertOrbitRoundTrip,
   assertWarmWhiteSun,
 } from "../../tools/visual_assertions.mjs";
@@ -48,4 +49,12 @@ test("visual camera assertion accepts a round trip and catches a flipped frame",
   const shifted = disc({ color: [35, 92, 168], offsetX: 24 });
   assert.equal(assertOrbitRoundTrip(initial, same).meanDifference, 0);
   assert.throws(() => assertOrbitRoundTrip(initial, shifted), /did not return/);
+});
+
+test("visual animation assertion rejects a frozen frame and accepts material motion", () => {
+  const initial = disc({ color: [35, 92, 168] });
+  const same = disc({ color: [35, 92, 168] });
+  const shifted = disc({ color: [35, 92, 168], offsetX: 24 });
+  assert.throws(() => assertFrameChanged(initial, same), /appears frozen/);
+  assert.ok(assertFrameChanged(initial, shifted).meanDifference > 1.5);
 });

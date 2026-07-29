@@ -13,33 +13,33 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=4a5f52993c";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=4a5f52993c";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=4a5f52993c";
-import { buildCelestial } from "./celestial.js?v=4a5f52993c";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=4a5f52993c";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=4a5f52993c";
+import { store } from "./store.js?v=c87fc00662";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=c87fc00662";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=c87fc00662";
+import { buildCelestial } from "./celestial.js?v=c87fc00662";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=c87fc00662";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=c87fc00662";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
-} from "./orreryMath.js?v=4a5f52993c";
+} from "./orreryMath.js?v=c87fc00662";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=4a5f52993c";
+} from "./orreryShaders.js?v=c87fc00662";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=4a5f52993c";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=4a5f52993c";
-import { renderStarDetail } from "./starDetail.js?v=4a5f52993c";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=4a5f52993c";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=4a5f52993c";
-import * as moonCatalogue from "./moons.js?v=4a5f52993c";
+} from "./orreryGalaxy.js?v=c87fc00662";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=c87fc00662";
+import { renderStarDetail } from "./starDetail.js?v=c87fc00662";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=c87fc00662";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=c87fc00662";
+import * as moonCatalogue from "./moons.js?v=c87fc00662";
 import {
   DAYS_PER_YEAR, SOLAR_SPEED_DEFAULT_YPS, solarSpeedFromSlider, solarSliderFromSpeed,
-  solarStepSeconds,
-} from "./orreryTime.js?v=4a5f52993c";
+  rotationDisplayStepSeconds, solarStepSeconds,
+} from "./orreryTime.js?v=c87fc00662";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -50,10 +50,10 @@ function updateOrreryAccuracy() {
   // arcsecond-class across the whole slider; the moons do not, and silently vanishing moons
   // would read as a bug rather than as the honest answer.
   const moonNote = state.showMoons && state.moonsHiddenReason ? ` ${state.moonsHiddenReason}` : "";
-  // Same honesty for spin: at high time speeds a body may turn faster than frames can show,
-  // so its rotation phase holds still rather than strobing — say so instead of looking stuck.
-  const spinNote = state.animate && !state.galaxy && state.spinFrozenCount
-    ? " Rotation display frozen — the clock outpaces spin at this speed; slow down to see it."
+  // Same honesty for spin: at high time speeds physical rotation outpaces a display's sampling
+  // rate. Keep the bodies moving continuously, but disclose the visible-rate cap.
+  const spinNote = state.animate && !state.galaxy && state.spinLimitedCount
+    ? " Rotation display rate-limited to one visible turn/s; orbital time remains exact."
     : "";
   node.textContent = `${epochLabel(state.offsetYears)} — ${a.text}${moonNote}${spinNote}`;
 }
@@ -99,7 +99,7 @@ const state = (store.orrery = {
   renderUnix: Date.now() / 1000, simElapsed: 0, galYears: 0, selected: null, backend: "",
   simStepSeconds: 0, // simulated seconds covered by the last frame (0 when paused)
   moonsHiddenReason: "", // why the moon layer is suppressed, surfaced in the accuracy line
-  spinFrozenCount: 0, // bodies whose rotation display is frozen this frame (accuracy-line note)
+  spinLimitedCount: 0, // bodies whose visible spin is capped this frame (accuracy-line note)
   // Fetch epoch of textures/sun.jpg (from sun.jpg.json), used as the documented upper-bound
   // approximation to the frame's capture epoch; null = unknown/procedural.
   sunImageUnix: null,
@@ -174,7 +174,7 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=4a5f52993c"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=c87fc00662"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   // The alpha profile rides with the photo ring: when the textured ring is what's drawn, its
@@ -182,7 +182,7 @@ function loadTextures() {
   // the ring without changing its shadow (and the photo's fine gaps would not shadow at all).
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true, alphaProfile: ringImageAlphaProfile(ring) }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=4a5f52993c";
+  ring.src = "textures/saturn_ring.png?v=c87fc00662";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -198,12 +198,12 @@ function loadTextures() {
     } catch (e) { console.warn("sun texture", e.message); }
   };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=4a5f52993c")
+  fetch("textures/sun.jpg.json?v=c87fc00662")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=4a5f52993c";
+      sun.src = "textures/sun.jpg?v=c87fc00662";
     });
 }
 
@@ -231,7 +231,7 @@ async function buildGeneratedMaps() {
     // resolves. Waiting for the much larger geography module first made Focus/moon controls
     // appear broken during cold starts and under coverage instrumentation.
     const [geo] = await Promise.all([
-      import("./geography.js?v=4a5f52993c"),
+      import("./geography.js?v=c87fc00662"),
       loadMoonCatalogue(),
     ]);
     // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
@@ -823,7 +823,6 @@ function paint() {
     if (!b) continue;
     drawBody(b, vp, eye);
   }
-  state.spinFrozenCount = Object.keys(rotFreeze).length;
   if (!state.moonsHiddenReason && state.moonsAliasedCount) {
     const count = state.moonsAliasedCount;
     state.moonsHiddenReason = `${count} inner moon${count > 1 ? "s" : ""} hidden — the clock is `
@@ -934,27 +933,45 @@ function ringShadowProfileTex(name, phys) {
   return ringShadowTex[key];
 }
 
-// Bodies whose spin phase is currently frozen (name → the unix second it froze at).
-let rotFreeze = {};
+// Per-body presentation clocks used only while true spin exceeds one visible turn per real
+// second. Orbital positions and the underlying simulation epoch always remain exact.
+let rotationDisplayUnix = {};
+const rotationLimitedBodies = new Set();
+
+function resetRotationDisplay() {
+  rotationDisplayUnix = {};
+  rotationLimitedBodies.clear();
+  state.spinLimitedCount = 0;
+}
+
+function updateRotationDisplay(realStepSeconds) {
+  rotationLimitedBodies.clear();
+  for (const name of DRAW_LIST) {
+    const phys = BODY[name];
+    if (!phys) continue;
+    const visibleStep = rotationDisplayStepSeconds(
+      realStepSeconds, state.simStepSeconds, phys.rotationHours,
+    );
+    const limited = state.animate
+      && Math.abs(visibleStep) + 1e-9 < Math.abs(state.simStepSeconds);
+    if (limited) {
+      const previous = rotationDisplayUnix[name] ?? (state.renderUnix - state.simStepSeconds);
+      rotationDisplayUnix[name] = previous + visibleStep;
+      rotationLimitedBodies.add(name);
+    } else {
+      delete rotationDisplayUnix[name];
+    }
+  }
+  state.spinLimitedCount = rotationLimitedBodies.size;
+}
 
 function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
   const rEq = displayRadiusAU(b.name), rPol = rEq * (phys.polarKm / phys.radiusKm);
-  // Freeze the rotation PHASE while the clock spins the body faster than the eye can track:
-  // one frame advancing more than ~15° of spin (P/24) reads as strobing, not rotation. The
-  // moons' aliasedByClock hides what it cannot resolve; a planet cannot be hidden, so its
-  // phase holds instead (orbital motion continues; pause or slow down and the true IAU phase
-  // snaps back). The bound is on the VISIBLE per-frame advance — a plain Nyquist P/3 test
-  // left the default 0.5 yr/s Sun strobing its SDO hemisphere ~43° per 60 Hz frame, because
-  // a 3-day step resolves a 25-day period on paper while looking like a flickering mess.
-  let rotUnix = state.renderUnix;
-  if (state.animate && state.simStepSeconds > (Math.abs(phys.rotationHours) * 3600) / 24) {
-    if (rotFreeze[b.name] == null) rotFreeze[b.name] = state.renderUnix;
-    rotUnix = rotFreeze[b.name];
-  } else if (rotFreeze[b.name] != null) {
-    delete rotFreeze[b.name];
-  }
+  // The display clock advances continuously when true spin would alias. It is updated once
+  // per animation tick, outside drawBody, so input-triggered repaints cannot advance it twice.
+  const rotUnix = rotationDisplayUnix[b.name] ?? state.renderUnix;
   const rot = iauRotation(phys, rotUnix);
   const model = mul(translate(pos), mul(rot, scaleM([rEq, rEq, rPol])));
   const mvp = mul(vp, model);
@@ -1419,6 +1436,7 @@ function tick(now) {
   if (!state.active) { rafId = 0; return; }
   const dt = state.lastTick ? Math.min(0.05, (now - state.lastTick) / 1000) : 0.016;
   state.lastTick = now;
+  const spinBefore = state.spinLimitedCount;
   if (state.animate) {
     if (state.galaxy) {
       // The galactic clock only runs while the disc view is showing it. The Solar
@@ -1430,9 +1448,9 @@ function tick(now) {
         updateGalaxySun();
       }
     } else {
-      // How much simulated time one frame covers — the moon layer's aliasing guard and the
-      // spin-freeze guard both key off it. At the 1 hour/s default it is ~1 sim-minute per
-      // frame; at 5 yr/s it is ~30 days, more than a full orbit for several moons.
+      // How much simulated time one frame covers — the moon aliasing guard and visible-spin
+      // limiter both key off it. At the 1 hour/s default it is ~1 sim-minute per frame; at
+      // 5 yr/s it is ~30 days, more than a full orbit for several moons.
       state.simStepSeconds = solarStepSeconds(dt, state.yearsPerSec);
       state.simElapsed += state.simStepSeconds;
       // Advance from the previous simulated epoch. Re-evaluating Date.now() here added one
@@ -1441,13 +1459,13 @@ function tick(now) {
       state.renderUnix += state.simStepSeconds;
       rebuildPositions();
       stepParticles(dt);
+      updateRotationDisplay(dt);
     }
   }
   if (state.freeFly) flyStep(dt);
   const moonNoteBefore = state.moonsHiddenReason;
-  const spinBefore = state.spinFrozenCount;
   paint();
-  if (state.moonsHiddenReason !== moonNoteBefore || state.spinFrozenCount !== spinBefore) updateOrreryAccuracy();
+  if (state.moonsHiddenReason !== moonNoteBefore || state.spinLimitedCount !== spinBefore) updateOrreryAccuracy();
   // Idle when nothing advances frame-to-frame: with Animate off (and no free-fly) the loop
   // used to keep re-tessellating and repainting the full scene at 60 fps forever. All the
   // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
@@ -1683,7 +1701,7 @@ async function enterOrreryInner() {
     // starve the readiness path under cold-cache parsing or V8 coverage instrumentation.
     await loadMoonCatalogue();
     buildGeneratedMaps(); // not awaited: generated maps appear progressively
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=4a5f52993c");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=c87fc00662");
     if (starCatPromise) {
       void starCatPromise.then((catalogue) => {
         starCat = catalogue;
@@ -1850,8 +1868,8 @@ function showFallback(msg) {
   const bind = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
   /** @param {Event} e */
   const inputTarget = (e) => /** @type {HTMLInputElement} */ (e.currentTarget);
-  bind("orreryTime", "input", (e) => { state.offsetYears = Number(inputTarget(e).value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
-  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryTime")); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
+  bind("orreryTime", "input", (e) => { state.offsetYears = Number(inputTarget(e).value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); resetRotationDisplay(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
+  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryTime")); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); resetRotationDisplay(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
   // drawRing already detects a radius change and re-uploads into the SAME buffer, so no
   // ringBufs reset here — nuking the map on every slider input orphaned up to three ~1.3 MB
   // GPU buffers per event without gl.deleteBuffer.
@@ -1862,6 +1880,7 @@ function showFallback(msg) {
     if (state.animate) startLoop();
     else {
       state.simStepSeconds = 0;
+      resetRotationDisplay();
       paint();
       updateOrreryAccuracy();
     }

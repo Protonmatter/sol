@@ -114,4 +114,42 @@ export function assertOrbitRoundTrip(beforeInput, afterInput) {
   return { meanDifference, changedFraction };
 }
 
+export function assertFrameChanged(beforeInput, afterInput) {
+  const before = decodePng(beforeInput);
+  const after = decodePng(afterInput);
+  if (before.width !== after.width || before.height !== after.height) {
+    throw new Error(
+      `animation frames differ in size: ${before.width}x${before.height} vs ${after.width}x${after.height}`
+    );
+  }
+  let absoluteDifference = 0;
+  let materiallyChanged = 0;
+  let pixels = 0;
+  const cx = (before.width - 1) / 2;
+  const cy = (before.height - 1) / 2;
+  const radius = Math.min(before.width, before.height) * 0.25;
+  for (let y = Math.max(0, Math.floor(cy - radius)); y <= Math.min(before.height - 1, Math.ceil(cy + radius)); y += 1) {
+    for (let x = Math.max(0, Math.floor(cx - radius)); x <= Math.min(before.width - 1, Math.ceil(cx + radius)); x += 1) {
+      if ((x - cx) ** 2 + (y - cy) ** 2 > radius ** 2) continue;
+      const offset = (y * before.width + x) * 4;
+      const difference =
+        Math.abs(before.data[offset] - after.data[offset])
+        + Math.abs(before.data[offset + 1] - after.data[offset + 1])
+        + Math.abs(before.data[offset + 2] - after.data[offset + 2]);
+      absoluteDifference += difference / 3;
+      if (difference / 3 > 32) materiallyChanged += 1;
+      pixels += 1;
+    }
+  }
+  const meanDifference = absoluteDifference / pixels;
+  const changedFraction = materiallyChanged / pixels;
+  if (meanDifference < 1.5 || changedFraction < 0.005) {
+    throw new Error(
+      `high-speed body rotation appears frozen: mean pixel delta=${meanDifference.toFixed(3)}, `
+      + `materially changed=${(changedFraction * 100).toFixed(2)}%`
+    );
+  }
+  return { meanDifference, changedFraction };
+}
+
 export { decodePng };
