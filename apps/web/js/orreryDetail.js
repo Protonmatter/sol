@@ -2,9 +2,9 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY, poleVector } from "./bodyData.js?v=c87fc00662";
-import { isRetrograde } from "./moonorbits.js?v=c87fc00662";
-import { store } from "./store.js?v=c87fc00662";
+import { BODY, poleVector } from "./bodyData.js?v=061ea4f22a";
+import { isRetrograde } from "./moonorbits.js?v=061ea4f22a";
+import { store } from "./store.js?v=061ea4f22a";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 
