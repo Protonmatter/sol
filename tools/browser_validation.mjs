@@ -378,11 +378,35 @@ async function visualAssertions(page, visualDirectory) {
   const earthAfter = await canvasScreenshot(page, path.join(visualDirectory, "earth-after-orbit.png"));
   const orbitStats = assertOrbitRoundTrip(earthBefore, earthAfter);
 
+  // At one day per second, duplicate/short rAF intervals used to toggle the limiter warning
+  // and reflow the navigation panel. Sample consecutive production frames and require both
+  // the disclosure and its rendered height to remain stable.
+  await page.$eval('#orrerySpeedPresets button[data-dps="1"]', (button) => button.click());
+  await setChecked(page, "#orreryAnimate", true);
+  const disclosureFrames = await page.evaluate(() => new Promise((resolve) => {
+    const samples = [];
+    const sample = () => {
+      const node = document.getElementById("orreryAccuracy");
+      samples.push({
+        text: node?.textContent || "",
+        height: node?.getBoundingClientRect().height || 0,
+      });
+      if (samples.length >= 12) resolve(samples);
+      else requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  }));
+  if (new Set(disclosureFrames.map((sample) => sample.text)).size !== 1
+      || new Set(disclosureFrames.map((sample) => sample.height)).size !== 1) {
+    throw new Error(`1 d/s navigation disclosure reflowed across frames: ${
+      JSON.stringify(disclosureFrames)
+    }`);
+  }
+
   // At one simulated week per real second the old renderer froze every planet's rotation.
   // Compare two settled frames while the real production clock is running: the focused Earth
-  // must continue turning, while the accuracy line keeps one stable rate-limit disclosure.
+  // must continue turning, including under the perceptual cap used to prevent low-FPS aliasing.
   await page.$eval('#orrerySpeedPresets button[data-dps="7"]', (button) => button.click());
-  await setChecked(page, "#orreryAnimate", true);
   await new Promise((resolve) => setTimeout(resolve, 250));
   const highSpeedBefore = await canvasScreenshot(
     page, path.join(visualDirectory, "earth-week-per-second-before.png")
