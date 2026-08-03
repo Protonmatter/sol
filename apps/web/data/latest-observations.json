@@ -4,49 +4,49 @@
       "id": "swpc-rtsw-mag-1m",
       "local_path": ".cache/solar-data/rtsw_mag_1m.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 1501740,
+      "raw_bytes": 1561755,
       "state": "cached"
     },
     {
       "id": "swpc-rtsw-wind-1m",
       "local_path": ".cache/solar-data/rtsw_wind_1m.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 2684512,
+      "raw_bytes": 2765777,
       "state": "cached"
     },
     {
       "id": "swpc-rtsw-ephemerides-1h",
       "local_path": ".cache/solar-data/rtsw_ephemerides_1h.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 740007,
+      "raw_bytes": 736625,
       "state": "cached"
     },
     {
       "id": "swpc-observed-cycle-indices",
       "local_path": ".cache/solar-data/observed-solar-cycle-indices.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 511970,
+      "raw_bytes": 512129,
       "state": "cached"
     },
     {
       "id": "swpc-predicted-cycle",
       "local_path": ".cache/solar-data/predicted-solar-cycle.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 18832,
+      "raw_bytes": 18503,
       "state": "cached"
     },
     {
       "id": "swpc-solar-regions",
       "local_path": ".cache/solar-data/solar_regions.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 117030,
+      "raw_bytes": 120946,
       "state": "cached"
     },
     {
       "id": "swpc-sunspot-report",
       "local_path": ".cache/solar-data/sunspot_report.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 147759,
+      "raw_bytes": 154963,
       "state": "cached"
     },
     {
@@ -67,14 +67,14 @@
       "id": "swpc-goes-xrays-1-day",
       "local_path": ".cache/solar-data/goes_xrays_1_day.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 657208,
+      "raw_bytes": 655479,
       "state": "cached"
     },
     {
       "id": "swpc-goes-xray-flares-7-day",
       "local_path": ".cache/solar-data/goes_xray_flares_7_day.json",
       "quality": "source metadata retained; cached data freshness must be evaluated before operational use",
-      "raw_bytes": 13545,
+      "raw_bytes": 13124,
       "state": "cached"
     },
     {
@@ -197,14 +197,14 @@
           "source": "IMAP"
         },
         "source": "IMAP",
-        "time_tag": "2026-07-31T08:15:03"
+        "time_tag": "2026-08-03T08:44:02"
       },
       "quality_flags": [
         "source metadata retained",
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 1501740,
+      "raw_bytes": 1561755,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -216,17 +216,17 @@
         "active": false,
         "raw_source_metadata": {
           "active": false,
-          "source": "ACE"
+          "source": "IMAP"
         },
-        "source": "ACE",
-        "time_tag": "2026-07-31T08:14:00"
+        "source": "IMAP",
+        "time_tag": "2026-08-03T08:43:08"
       },
       "quality_flags": [
         "source metadata retained",
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 2684512,
+      "raw_bytes": 2765777,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -241,14 +241,14 @@
           "source": "ACE"
         },
         "source": "ACE",
-        "time_tag": "2026-07-31T08:00:00"
+        "time_tag": "2026-08-03T08:00:00"
       },
       "quality_flags": [
         "source metadata retained",
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 740007,
+      "raw_bytes": 736625,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -267,7 +267,7 @@
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 511970,
+      "raw_bytes": 512129,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -286,7 +286,7 @@
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 18832,
+      "raw_bytes": 18503,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -305,7 +305,7 @@
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 117030,
+      "raw_bytes": 120946,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -317,14 +317,14 @@
         "active": null,
         "raw_source_metadata": {},
         "source": null,
-        "time_tag": "2026-07-31T01:25:00"
+        "time_tag": "2026-08-02T15:30:00"
       },
       "quality_flags": [
         "source metadata retained",
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 147759,
+      "raw_bytes": 154963,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -336,7 +336,7 @@
         "active": null,
         "raw_source_metadata": {},
         "source": null,
-        "time_tag": "2026-07-31T02:18:00"
+        "time_tag": "2026-08-03T02:49:00"
       },
       "quality_flags": [
         "source metadata retained",
@@ -355,7 +355,7 @@
         "active": null,
         "raw_source_metadata": {},
         "source": null,
-        "time_tag": "2026-07-30T22:00:00"
+        "time_tag": "2026-08-02T22:00:00"
       },
       "quality_flags": [
         "source metadata retained",
@@ -376,14 +376,14 @@
           "satellite": 18
         },
         "source": null,
-        "time_tag": "2026-07-30T08:18:00Z"
+        "time_tag": "2026-08-02T08:49:00Z"
       },
       "quality_flags": [
         "source metadata retained",
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 657208,
+      "raw_bytes": 655479,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -397,14 +397,14 @@
           "satellite": 18
         },
         "source": null,
-        "time_tag": "2026-07-24T20:52:00Z"
+        "time_tag": "2026-07-27T13:36:00Z"
       },
       "quality_flags": [
         "source metadata retained",
         "schema-era numeric normalization supported",
         "not promoted to operational truth"
       ],
-      "raw_bytes": 13545,
+      "raw_bytes": 13124,
       "schema_version": "observation-frame.v1",
       "source_mode": "cached"
     },
@@ -430,71 +430,71 @@
   ],
   "generated_by": "tools/generate_fixture_snapshot.py",
   "observed_context": {
-    "activity_index": 0.872059,
+    "activity_index": 0.841176,
     "activity_proxy_sources": {
       "f107_cm_flux_rows": 123,
-      "goes_xray_flares_7_day_rows": 35,
+      "goes_xray_flares_7_day_rows": 34,
       "goes_xrays_1_day_rows": 2876,
-      "latest_f107": 148.0,
+      "latest_f107": 127.0,
       "planetary_k_index_rows": 358,
-      "solar_region_rows": 203,
-      "sunspot_rows": 340
+      "solar_region_rows": 210,
+      "sunspot_rows": 357
     },
     "note": "Observed public context tunes research fixture density only; magnetic fields remain normalized and not operationally calibrated.",
     "schema_version": "observed-context.v1",
     "signal_freshness": {
       "rtsw_mag_1m.json": {
         "age_hours": 0.1,
-        "latest_time_tag": "2026-07-31T08:15:03Z",
+        "latest_time_tag": "2026-08-03T08:44:02Z",
         "stale": false
       },
       "rtsw_wind_1m.json": {
         "age_hours": 0.1,
-        "latest_time_tag": "2026-07-31T08:14:00Z",
+        "latest_time_tag": "2026-08-03T08:43:08Z",
         "stale": false
       },
       "swpc-f107-cm-flux": {
-        "age_hours": 10.3,
-        "latest_time_tag": "2026-07-30T22:00:00Z",
+        "age_hours": 10.8,
+        "latest_time_tag": "2026-08-02T22:00:00Z",
         "stale": false
       },
       "swpc-goes-xray-flares-7-day": {
-        "age_hours": 1.6,
-        "latest_time_tag": "2026-07-31T06:41:00Z",
+        "age_hours": 27.5,
+        "latest_time_tag": "2026-08-02T05:19:00Z",
         "stale": false
       },
       "swpc-goes-xrays-1-day": {
         "age_hours": 0.1,
-        "latest_time_tag": "2026-07-31T08:15:00Z",
+        "latest_time_tag": "2026-08-03T08:46:00Z",
         "stale": false
       },
       "swpc-planetary-k-index-1m": {
         "age_hours": 0.1,
-        "latest_time_tag": "2026-07-31T08:15:00Z",
+        "latest_time_tag": "2026-08-03T08:46:00Z",
         "stale": false
       },
       "swpc-rtsw-ephemerides-1h": {
-        "age_hours": 0.3,
-        "latest_time_tag": "2026-07-31T08:00:00Z",
+        "age_hours": 0.8,
+        "latest_time_tag": "2026-08-03T08:00:00Z",
         "stale": false
       },
       "swpc-sunspot-report": {
-        "age_hours": 6.9,
-        "latest_time_tag": "2026-07-31T01:25:00Z",
+        "age_hours": 17.3,
+        "latest_time_tag": "2026-08-02T15:30:00Z",
         "stale": false
       }
     },
     "space_weather_signals": {
-      "latest_bz_gsm_nt": 1.73,
-      "latest_f107": 148.0,
-      "latest_goes_xray_flux": 3.839756956836027e-09,
-      "latest_kp": 0.67,
-      "latest_solar_wind_speed_km_s": 348.39,
-      "rtsw_magnetometer_rows": 3555,
-      "rtsw_wind_rows": 3629
+      "latest_bz_gsm_nt": -7.14,
+      "latest_f107": 127.0,
+      "latest_goes_xray_flux": 1.5421353083411304e-08,
+      "latest_kp": 2.33,
+      "latest_solar_wind_speed_km_s": 371.0,
+      "rtsw_magnetometer_rows": 3673,
+      "rtsw_wind_rows": 3734
     },
     "stale_feeds": [],
-    "synthetic_region_count": 35
+    "synthetic_region_count": 34
   },
   "schema_version": "observation-frame.v1",
   "source_mode": "cached",
