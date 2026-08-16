@@ -10,6 +10,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BODY, poleVector, rotationPhase } from "../../apps/web/js/bodyData.js";
 import { MOONS } from "../../apps/web/js/moons.js";
+import { MOON_ELEMENTS } from "../../apps/web/js/moonelements.js";
+
+// The knots arrive lazily in the app; merge them here the way loadMoonCatalogue() does so
+// these assertions exercise the objects the renderer actually computes from.
+for (const m of MOONS) Object.assign(m, MOON_ELEMENTS[m.n]);
 import { aliasedByClock } from "../../apps/web/js/moonorbits.js";
 import {
   DAYS_PER_YEAR, MAX_DISPLAY_ROTATION_TPS,

@@ -29,7 +29,9 @@ What is measured (never re-derived — the shipped functions are called):
     lower edge. That is how the omission of the lunar E1 libration term was caught: it rendered
     the Moon's axis 0.02° from the ecliptic pole instead of 1.54°.
   * Orbital period of each of the 21 catalogued moons, from the mean-longitude knots actually
-    shipped in `moons.js`, compared with the published period `P` the detail panel prints.
+    shipped — identity in `moons.js`, knots in the lazily imported `moonelements.js`, merged
+    here exactly as loadMoonCatalogue() merges them — compared with the published period `P`
+    the detail panel prints.
   * The time model's presentation cap. The preset speed buttons in `index.html` are pinned here,
     and for every preset × body the display limiter must engage exactly when true spin exceeds
     MAX_DISPLAY_ROTATION_TPS, and when engaged must deliver exactly that rate — no faster (it
@@ -120,9 +122,12 @@ MOON_KNOT_PAIR_TOLERANCE_REL = 0.05
 # Executed by node so the audited functions are the shipped ones. Everything below is a
 # MEASUREMENT; every comparison lives in Python against the pins above.
 NODE_SCRIPT = r"""
-const [bodyUrl, moonsUrl, orbitsUrl, timeUrl] = process.argv.slice(1);
-Promise.all([import(bodyUrl), import(moonsUrl), import(orbitsUrl), import(timeUrl)])
-  .then(([B, Mo, Or, T]) => {
+const [bodyUrl, moonsUrl, elementsUrl, orbitsUrl, timeUrl] = process.argv.slice(1);
+Promise.all([import(bodyUrl), import(moonsUrl), import(elementsUrl), import(orbitsUrl), import(timeUrl)])
+  .then(([B, Mo, E, Or, T]) => {
+    // The knots live in the lazily imported moonelements.js; hang them on the identity
+    // records exactly as orrery.js's loadMoonCatalogue() does, so what is measured is what ships.
+    for (const m of Mo.MOONS) Object.assign(m, E.MOON_ELEMENTS[m.n]);
     const D2R = Math.PI / 180;
     const J2000_UNIX = 946728000;      // 2000-01-01T12:00:00Z, the epoch of the IAU elements
     const DAY = 86400;
@@ -225,6 +230,7 @@ def measure() -> dict:
     urls = [
         (WEB_JS / "bodyData.js").resolve().as_uri(),
         (WEB_JS / "moons.js").resolve().as_uri(),
+        (WEB_JS / "moonelements.js").resolve().as_uri(),
         (WEB_JS / "moonorbits.js").resolve().as_uri(),
         (WEB_JS / "orreryTime.js").resolve().as_uri(),
     ]
