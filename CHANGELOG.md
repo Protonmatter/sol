@@ -6,45 +6,33 @@ crate follows [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
-### Changed
-
-- **The moon window now spans ten years, 2021-01 to 2030-12**, up from the original two.
-  Fast-forwarding the solar-system clock used to walk off the end of the validated interval
-  within seconds, and every moon except Earth's — which has its own ELP-MPP02 solution and was
-  never in this table — would vanish at once. `tools/fetch_moons.py` was re-pointed at
-  2021-01-01 → 2031-01-01 and the sources re-fetched from Horizons at the same seven-day
-  cadence (84 h for Mimas and Enceladus), so the interpolation error budget is unchanged in
-  kind; there are simply five times as many knots.
-
-  Held-out validation now runs **11,985 checks** (was 2,392): **worst 0.1384° angular**
-  (Nereid) and **0.1893% radial** (Enceladus). Both still pass, but note the angular figure
-  is now 92% of the 0.15° CI limit, against 59% before — Nereid's eccentric, strongly
-  perturbed orbit sets the ceiling, and a materially wider window will need a finer cadence
-  for that moon rather than more of the same.
-
-  The element knots move to a new `apps/web/js/moonelements.js`, imported dynamically on entry
-  to the Solar System view and marked `@lazy-module` so `validate_web_static.py` enforces that
-  it is never preloaded or statically imported. They are ~99% of the bytes, so `moons.js` drops
-  from 211 KB to **8 KB** while carrying the same 21 moons — the Focus control and the
-  accessible positions list keep the first-entry guarantee that made it a static import, and
-  first paint no longer pays for a megabyte of orbital elements. Before the split the catalogue
-  was statically imported by `orrery.js`, statically imported in turn by `app.js`, and
-  module-preloaded from `index.html`, so every visit downloaded it whether or not the 3-D view
-  was ever opened.
-
-  The "moons hidden" notice no longer hardcodes its dates — it derives them from
-  `MOON_VALID_MIN_JD`/`MAX_JD`, so moving the window can't leave the explanation lying.
-
 ### Added
 
 - **The major moons.** Twenty-one of them — Mars's two, the four Galileans, seven Saturnian
   including Titan, the five Uranian, and Triton, Nereid and Proteus — drawn in their real orbits
   around the planets they belong to, lit, labelled, and clickable for a facts card. Every
   satellite with a mean radius of at least 150 km, plus Phobos and Deimos.
-  Orbits come from JPL Horizons via `tools/fetch_moons.py`, and accuracy is gated in CI by
-  `tools/validate_moons.py` against committed Horizons state vectors: **worst 0.0887° angular
-  and 0.1891% radial error** across 2,392 checks spanning 2025-03 to 2027-02, at times
-  interleaved between the element knots.
+  Orbits come from JPL Horizons via `tools/fetch_moons.py`, sampled weekly (every 84 hours for
+  Mimas and Enceladus) across **2021-01 to 2030-12**, and accuracy is gated in CI by
+  `tools/validate_moons.py` against committed Horizons state vectors: **worst 0.1384° angular
+  and 0.1893% radial error** across 11,985 checks, at times interleaved between the element
+  knots. Note the angular figure is 92% of the 0.15° CI limit — Nereid's eccentric, strongly
+  perturbed orbit sets the ceiling, and widening the window further will need a finer cadence
+  for that moon rather than more of the same.
+
+  The renderer withholds the moons entirely outside that interval, explaining itself in the
+  accuracy line rather than leaving them to vanish silently; the notice derives its dates from
+  `MOON_VALID_MIN_JD`/`MAX_JD`, so re-running the fetcher cannot leave it stating a window that
+  is no longer true. Earth's Moon is unaffected either way — it has its own ELP-MPP02 solution
+  and was never in this table.
+
+  The element knots live in `apps/web/js/moonelements.js`, imported dynamically on entry to the
+  Solar System view and marked `@lazy-module` so `validate_web_static.py` enforces that it is
+  never preloaded or statically imported. They are ~99% of the bytes, so the static `moons.js`
+  is **8 KB** while carrying the same 21 moons: the Focus control and the accessible positions
+  list keep their first-entry guarantee, and first paint never pays for a megabyte of orbital
+  elements.
+
   Because planets are drawn oversized, each satellite system is inflated by ONE factor so its
   innermost moon clears the planet's disc while the spacing between moons stays true — Callisto
   still sits 4.46× farther out than Io.
@@ -82,8 +70,8 @@ crate follows [SemVer](https://semver.org/).
 
 Review round (all findings from the Codex PR reviewer, each verified before acting on it):
 
-- **The Moon layer now stops where its evidence stops.** The elements are validated from March
-  2025 through February 2027, but the date slider spans ±5000 years and would happily propagate
+- **The Moon layer now stops where its evidence stops.** The elements are validated from January
+  2021 through December 2030, but the date slider spans ±5000 years and would happily propagate
   them the whole way. Outside the exact shared validation interval the moons are withheld and the
   accuracy line says why. Separately, at the default 0.5 simulated years per second one frame
   covers ~3 days — past
