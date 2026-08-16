@@ -47,6 +47,20 @@ uniform vec3 u_sunA;
 // shadow is exactly as dark as the band is optically thick, and the Cassini Division lets
 // sunlight through for free.
 uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform sampler2D u_ringTex;
+// Moon transit shadows — Io and Europa crossing Jupiter's disc, as in a telescope. Everything
+// here is in the planet's BODY frame and in units of its EQUATORIAL radius, which is what makes
+// the shadow honest on an exaggerated globe: the moon positions come from moonshadows.js, which
+// computes them from PHYSICAL planetocentric offsets, never from the inflated ones the markers
+// are drawn at. Fractional-radius coordinates are scale-invariant, so the same numbers land the
+// shadow in the right place on a disc drawn 26x too large and on the true-scale one.
+//   u_moonShadowPos[i]  = (moon centre, equatorial radii ; moon radius, equatorial radii)
+//   u_moonShadowAxis[i] = (unit Sun->moon direction        ; Sun's angular radius from it, rad)
+// The axis is per-moon and is NOT u_lightObj: a transiting Io sits up to 9.2e-5 rad off the
+// planet->Sun line, worth ~30 km of shadow displacement, systematically away from the sub-solar
+// point. u_moonShadowCount is 0 whenever no transit is in progress — which is the overwhelming
+// majority of frames — and the whole block below is skipped.
+const int MOON_SHADOWS=4;
+uniform int u_moonShadowCount; uniform vec4 u_moonShadowPos[MOON_SHADOWS]; uniform vec4 u_moonShadowAxis[MOON_SHADOWS];
 ${NOISE}
 void main(){
   vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
@@ -214,7 +228,33 @@ void main(){
     col*=texture(u_tex,vec2(uu,vv)).rgb*2.0;
   }
   float lambert=max(dot(N,normalize(u_light)),0.0);
-  float shade=0.05+0.95*lambert;
+  // How much of the Sun this surface point can still see past any transiting moon. 1 = none in
+  // the way. Drop a perpendicular from the point onto each shadow axis and compare with the
+  // cone's radius there: r = R_moon -/+ t*alpha, umbra and penumbra (derivation in
+  // moonshadows.js). The march starts from the OBLATE surface — p is the unit-sphere object
+  // coordinate and the drawn body is squashed by rPol/rEq along z, the same correction the ring
+  // shadow below already makes.
+  float sunVis=1.0;
+  if(u_moonShadowCount>0){
+    vec3 sp=vec3(p.xy,p.z*u_oblate);
+    for(int i=0;i<MOON_SHADOWS;i++){
+      if(i>=u_moonShadowCount) break;
+      vec3 w=sp-u_moonShadowPos[i].xyz;
+      float t=dot(w,u_moonShadowAxis[i].xyz);
+      if(t<=0.0) continue;                       // point is sunward of the moon: nothing cast
+      float perp=length(w-u_moonShadowAxis[i].xyz*t);
+      float half_=u_moonShadowAxis[i].w*t;       // t*alpha: the penumbra's half-width growth
+      float ru=max(u_moonShadowPos[i].w-half_,0.0);
+      float rp=u_moonShadowPos[i].w+half_;
+      // edge0<edge1 always: rp-ru is 2*t*alpha (>0, t guarded above) or rp itself when the umbra
+      // clamps to zero. smoothstep stands in for the occulted fraction of the solar disc.
+      sunVis=min(sunVis,smoothstep(ru,rp,perp));
+    }
+  }
+  // The shadow removes DIRECT sunlight only. The 0.05 floor is the light a planet's own
+  // atmosphere scatters into it, which is why Io's shadow reads as very dark grey rather than
+  // as a hole in the planet.
+  float shade=0.05+0.95*lambert*sunVis;
   col*=shade;
   // Ring shadow on the planet: march from this surface point toward the Sun in the BODY frame
   // (the rings live in the equatorial z=0 plane there) and darken by the ring's own optical
