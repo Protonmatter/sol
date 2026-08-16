@@ -36,6 +36,7 @@ import { renderStarDetail } from "./starDetail.js?v=061ea4f22a";
 import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=061ea4f22a";
 import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=061ea4f22a";
 import * as moonCatalogue from "./moons.js?v=061ea4f22a";
+import { MOON_TEXTURE_FILES, moonBaseColor } from "./moonAppearance.js?v=061ea4f22a";
 import {
   DAYS_PER_YEAR, SOLAR_SPEED_DEFAULT_YPS, solarSpeedFromSlider, solarSliderFromSpeed,
   rotationDisplayIsLimited, rotationDisplayStepSeconds, solarStepSeconds,
@@ -71,9 +72,14 @@ const VIS_RADIUS_AU = {
 
 // Real planetary surface maps (apps/web/textures/, fetched by tools/fetch_textures.py). Loaded
 // same-origin so WebGL can use them; any that are missing fall back to the procedural shader.
+// The moon mosaics ride in the SAME table: they load, fail and get toggled by exactly the same
+// code, and no catalogued moon shares a name with a planet (Earth's satellite is "Moon", which
+// is a drawn body here, not one of the 21). Keeping two tables would have meant two copies of
+// the missing-file handling, which is the part that has to stay identical.
 const TEXTURE_FILES = {
   Mercury: "mercury.jpg", Venus: "venus.jpg", Earth: "earth.jpg", Mars: "mars.jpg",
   Jupiter: "jupiter.jpg", Saturn: "saturn.jpg", Uranus: "uranus.jpg", Neptune: "neptune.jpg", Moon: "moon.jpg",
+  ...MOON_TEXTURE_FILES,
 };
 
 // Registered on the shared store (store.orrery) so this surface's state is inspectable
@@ -1150,20 +1156,32 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
     gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
     gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]));
     // Titan is the one moon with a real atmosphere, so it gets the hazy shader rather than the
-    // cratered one; everything else is a rock or an iceball. Both styles MODULATE u_base — the
-    // planet styles would overwrite it and throw away the catalogue's per-moon colour.
-    gl.uniform1i(P.sphereU.u_style, m.n === "Titan" ? STYLE_ID.moonHaze : STYLE_ID.moonRock);
+    // cratered one; Europa gets its own because it is not a cratered iceball (see the shader).
+    // Everything else is a rock or an iceball. All three styles MODULATE u_base — the planet
+    // styles would overwrite it and throw away both the catalogue's hue and the albedo scale.
+    gl.uniform1i(P.sphereU.u_style, m.n === "Titan" ? STYLE_ID.moonHaze
+      : m.n === "Europa" ? STYLE_ID.moonIce : STYLE_ID.moonRock);
     gl.uniform1i(P.sphereU.u_mode, 0);
     gl.uniform1f(P.sphereU.u_time, state.renderUnix * 0.0002);
-    gl.uniform3fv(P.sphereU.u_base, new Float32Array(m.col));
+    // The catalogue's hue at the moon's PUBLISHED geometric albedo — see moonAppearance.js.
+    // Uploading m.col raw let an illustrative colour decide relative brightness, which is how
+    // Ganymede (albedo 0.43) ended up looking brighter than Europa (0.67).
+    gl.uniform3fv(P.sphereU.u_base, new Float32Array(moonBaseColor(m)));
     gl.uniform3fv(P.sphereU.u_light, new Float32Array(light));
     gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
     gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(m.n === "Titan" ? [0.85, 0.6, 0.3] : [0, 0, 0]));
     gl.uniform1f(P.sphereU.u_atmoStr, m.n === "Titan" ? 0.5 : 0);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, whiteTex);
+    // Real USGS global mosaic when one exists, has decoded, and Photo textures are on — the
+    // same three conditions drawBody applies to the planets, so the toggle means one thing
+    // everywhere. Absent file (a checkout that has not run tools/fetch_textures.py) or toggle
+    // off ⇒ u_useTex 0 and the procedural style above draws the moon, unchanged.
+    const moonTex = state.useTextures && textures[m.n] && textures[m.n].ready ? textures[m.n] : null;
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, moonTex ? moonTex.tex : whiteTex);
     gl.uniform1i(P.sphereU.u_tex, 0);
-    gl.uniform1i(P.sphereU.u_useTex, 0);
-    gl.uniform1i(P.sphereU.u_texMode, 0);
+    gl.uniform1i(P.sphereU.u_useTex, moonTex ? 1 : 0);
+    // texMode 2: the mosaic is divided by its own mean and multiplied into u_base, so the map
+    // supplies structure while the published albedo keeps sole charge of brightness.
+    gl.uniform1i(P.sphereU.u_texMode, moonTex ? 2 : 0);
     gl.uniform2fv(P.sphereU.u_ringRad, new Float32Array([0, 0])); // no ring shadow on moons — clear the parent's state
 
     gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);

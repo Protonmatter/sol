@@ -163,7 +163,9 @@ export const STYLE_ID = {
   sun: 0, cratered: 1, venus: 2, earth: 3, mars: 4,
   jupiter: 5, saturn: 6, uranus: 7, neptune: 8, moon: 9,
   // Moon styles that modulate the body's own colour rather than replacing it (orreryShaders).
-  moonRock: 10, moonHaze: 11,
+  // moonIce is Europa's: the shared cratered style is qualitatively wrong for the youngest,
+  // least-cratered surface in the outer solar system — see the branch for the crater count.
+  moonRock: 10, moonHaze: 11, moonIce: 12,
 };
 
 const D2R = Math.PI / 180;
