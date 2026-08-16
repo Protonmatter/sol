@@ -155,6 +155,16 @@ jobs:
         # literal smoothstep edges must be increasing (reversed edges are undefined GLSL).
         run: python tools/validate_body_constants.py
 
+      - name: Motion contract (measured rotation, spin sense, obliquity, moon periods, time cap)
+        # The dynamic companion to the constants gate: it advances the simulation clock through
+        # the renderer's own rotationPhase()/poleVector() and measures. Every body's sidereal
+        # period must match the card, Venus and Uranus must be the only retrograde rotators,
+        # every axis must lean by what the fact sheets allow, all 21 moon periods must fall out
+        # of the shipped element knots, and the visible-spin cap must engage exactly at its
+        # threshold on every shipped speed preset — a correct constant consumed by broken code
+        # passes validate_body_constants.py and fails here.
+        run: python tools/validate_body_motion.py
+
       - name: Moon orbits regen-stable + validated vs JPL Horizons
         # Regenerates apps/web/js/moons.js from the committed Horizons elements and requires
         # byte-identity, then interpolates every moon and compares against committed Horizons

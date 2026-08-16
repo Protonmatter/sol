@@ -84,6 +84,7 @@ the cache token, so clients refetch automatically.
 | Gate | Script | CI job |
 | --- | --- | --- |
 | Body constants + rotation coherence + GLSL hygiene | `tools/validate_body_constants.py` | Web, provider, and browser validation (every PR) |
+| Motion contract (measured spin, sense, obliquity, moon periods, display cap) | `tools/validate_body_motion.py` | Web, provider, and browser validation (every PR) |
 | Moons regen + accuracy | `tools/validate_moons.py` | Web (every PR) |
 | Star catalogue regen + physics | `tools/validate_star_catalog.py` | Web (every PR) |
 | Geography regen | `tools/generate_geography.py --check` | Web (every PR) |
