@@ -139,6 +139,11 @@ REFERENCE: dict[str, dict] = {
         "poleNut": {"n0Deg": 357.85, "nDotDegPerCty": 52.316,
                     "raAmpDeg": 0.70, "decAmpDeg": -0.51, "wAmpDeg": -0.48},
     },
+    # poleNut is pck00011's E1 term — the first entry of BODY301_NUT_PREC_RA/_DEC/_PM on the
+    # first BODY3_NUT_PREC_ANGLES argument (125.045° − 1935.5364525°·T, the 18.6-year nodal
+    # regression). It is the dominant term of the lunar libration series and the renderer
+    # applies it, so it is pinned. The constant terms alone put the axis 0.02° from the
+    # ecliptic pole instead of the real 1.54° Cassini-state tilt.
     "Moon": {
         "radiusKm": 1737.4, "polarKm": 1736, "massKg": 7.346e22, "tiltDeg": 6.68,
         "gravity": 1.62, "escapeKms": 2.38, "densityGcm3": 3.344,
@@ -146,6 +151,8 @@ REFERENCE: dict[str, dict] = {
         "rotationHours": 655.72, "poleRaDeg": 269.9949, "poleDecDeg": 66.5392,
         "poleRaDotDegPerCty": 0.0031, "poleDecDotDegPerCty": 0.013,
         "w0Deg": 38.3213, "wDotDegPerDay": 13.17635815, "rings": None,
+        "poleNut": {"n0Deg": 125.045, "nDotDegPerCty": -1935.5364525,
+                    "raAmpDeg": -3.8787, "decAmpDeg": 1.5419, "wAmpDeg": 3.5610},
     },
 }
 
