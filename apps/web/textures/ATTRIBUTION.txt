@@ -22,21 +22,37 @@ saturn_ring: Solar System Scope (CC-BY 4.0) · NASA/Cassini ring photometry
     https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png
 sun: NASA SDO/HMI continuum — today's real Sun (public domain, NASA/SDO)
     https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg
-sun_hmib: NASA SDO/HMI magnetogram (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIB.jpg
-sun_1700: NASA SDO/AIA 1700 Å (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_1700.jpg
-sun_0304: NASA SDO/AIA 304 Å (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0304.jpg
-sun_0171: NASA SDO/AIA 171 Å (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0171.jpg
-sun_0193: NASA SDO/AIA 193 Å (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0193.jpg
-sun_0211: NASA SDO/AIA 211 Å (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0211.jpg
-sun_0335: NASA SDO/AIA 335 Å (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0335.jpg
-sun_0131: NASA SDO/AIA 131 Å (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0131.jpg
-sun_0094: NASA SDO/AIA 94 Å (public domain, NASA/SDO)
-    https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0094.jpg
+io: USGS Astrogeology — Io Voyager/Galileo SSI Global Mosaic 1 km, browse rendering (public domain, NASA/JPL/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/b9102ce8-3ee4-4848-8558-3dab5f52091a/resource/19e9cb9d-a62e-4345-8778-9580db879922/download/full.jpg
+europa: USGS Astrogeology — Europa Voyager/Galileo SSI Global Mosaic 500 m, browse rendering (public domain, NASA/JPL/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/3647e7b3-425e-4dcf-951b-cc4a22fb0129/download/europa_voyager_galileossi_global_mosaic_500m_1024.jpg
+ganymede: USGS Astrogeology — Ganymede Voyager/Galileo Simple Cylindrical global mosaic, browse rendering (public domain, NASA/JPL/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/b2d0bf2c-1335-424b-a952-da3d8374723b/resource/19e807a2-9eee-4f24-9965-5e25f0bcb9fc/download/full.jpg
+callisto: USGS Astrogeology — Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, browse rendering; mosaic spans ±87.6° latitude (public domain, NASA/JPL/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/842a3a75-af37-40ff-bf83-78ee5c76afb2/resource/b16c6dfd-199e-449e-9875-1361c1858af3/download/full.jpg
+enceladus: USGS Astrogeology — Enceladus Cassini Global Mosaic 110 m, browse rendering (public domain, NASA/JPL/SSI/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/30bff65e-56bb-4fd1-bd04-edd9bc2e77d0/resource/19ba2e14-9ceb-45e6-8cc8-e784e36ed4f0/download/full.jpg
+tethys: USGS Astrogeology — Tethys Cassini Global Mosaic 293 m, browse rendering (public domain, NASA/JPL/SSI/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/e40296c1-b4bf-46d8-86af-4b6cf0301b0c/resource/36d40203-d9b3-447e-9004-c3dc100bde04/download/full.jpg
+dione: USGS Astrogeology — Dione Cassini/Voyager Global Mosaic 154 m, browse rendering (public domain, NASA/JPL/SSI/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/acb98ae6-ec50-42df-9a74-142d177bbe6d/resource/8a6a8ada-42e1-4b92-b13e-c63493133efc/download/full.jpg
+rhea: USGS Astrogeology — Rhea Cassini/Voyager Global Mosaic 417 m, browse rendering (public domain, NASA/JPL/SSI/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/22bc1015-d9c9-4212-86c3-e42061b204d4/resource/77fa77f8-6d6b-4072-9360-17138caa6e7d/download/full.jpg
+iapetus: USGS Astrogeology — Iapetus Cassini/Voyager Global Mosaic 803 m, browse rendering (public domain, NASA/JPL/SSI/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/6ac8ecfb-36e7-4113-8d16-c92ba857c3d7/resource/141c2d1e-aa01-4e2f-969a-e46a581db4b9/download/full.jpg
+phobos: USGS Astrogeology — Phobos Viking Global Mosaic (DLR control), browse rendering (public domain, NASA/JPL/DLR/USGS)
+    https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg
+
+Catalogued moons with NO published global mosaic (procedural surface):
+
+Titan: Cassini ISS published only a NEAR-global mosaic — 65°S to 45°N, a 1024x313 strip. Stretching 110° of latitude over 180° would put every feature at the wrong latitude. Titan's true visible appearance is a featureless orange haze anyway, which is what the hazy procedural style already draws; the ISS mosaic is a near-infrared view THROUGH that haze, so it is not what the eye would see.
+Mimas: No equirectangular global mosaic is published. Astropedia's Mimas product is an airbrush shaded-relief map SHEET (borders, graticule, polar insets), which is a hand-drawn cartographic rendering, not imagery, and cannot be wrapped on a sphere.
+Triton: Same: the published Voyager 2 product on Astropedia is a printed controlled-photomosaic sheet in an oblique frame. The archival GeoTIFF (Triton_Voyager2_ClrMosaic_GlobalFill_600m) has no browse JPEG.
+Miranda: Voyager 2's 1986 Uranus flyby imaged only the southern hemisphere at usable resolution; USGS publishes no global mosaic for any Uranian moon, only nomenclature and control-network products. Half a moon is not a global map.
+Ariel: As Miranda — Voyager 2 southern-hemisphere coverage only, no global mosaic.
+Umbriel: As Miranda — Voyager 2 southern-hemisphere coverage only, no global mosaic.
+Titania: As Miranda — Voyager 2 southern-hemisphere coverage only, no global mosaic.
+Oberon: As Miranda — Voyager 2 southern-hemisphere coverage only, no global mosaic.
+Deimos: Viking imaged Deimos, but USGS publishes a global mosaic for Phobos only; there is no Deimos entry in the mosaic archive.
+Proteus: Voyager 2 resolved Proteus at a few kilometres per pixel over part of one hemisphere. No map product exists.
+Nereid: Never resolved. Voyager 2's best images are a handful of pixels across.

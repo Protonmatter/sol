@@ -4,6 +4,7 @@
 
 import { BODY, poleVector } from "./bodyData.js?v=da86e109de";
 import { isRetrograde } from "./moonorbits.js?v=da86e109de";
+import { MOON_ALBEDO, MOON_TEXTURE_FILES } from "./moonAppearance.js?v=da86e109de";
 import { store } from "./store.js?v=da86e109de";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
@@ -58,6 +59,13 @@ export function renderMoonDetail(m, unixSeconds) {
       ? ` · prograde around ${m.p}, which is itself tipped past 90°` : ""));
   if (m.rho != null) add("Mean density", `${m.rho.toFixed(3)} g/cm³`);
   if (m.gm != null) add("GM", `${m.gm.toPrecision(5)} km³/s²`);
+  // Geometric albedo earns a row because it is what now decides how bright this moon is drawn
+  // (moonAppearance.js). A number the renderer acts on should be visible to the reader.
+  const albedo = MOON_ALBEDO[m.n];
+  if (albedo != null) {
+    add("Geometric albedo", `${albedo}${albedo > 1 ? " — the most reflective surface known" : ""}`
+      + (m.n === "Iapetus" ? " (bright hemisphere; the leading one is ~0.05)" : ""));
+  }
   card.appendChild(dl);
   // The caveat belongs on the card, not only in a source file nobody reading this will open.
   const note = document.createElement("p");
@@ -65,7 +73,13 @@ export function renderMoonDetail(m, unixSeconds) {
   note.textContent = "Orbit from JPL Horizons; the position along it is Kepler-propagated and "
     + "good to a few degrees — enough to show which side of its planet it is on, not enough for "
     + "an occultation. Distances from the planet are scaled up with the planet's own exaggerated "
-    + "size, so the spacing between moons stays true. Colour is illustrative.";
+    + "size, so the spacing between moons stays true. "
+    + (MOON_TEXTURE_FILES[m.n]
+      ? "The surface is a real USGS global mosaic (see textures/ATTRIBUTION.txt); it is drawn "
+        + "without a spin model, so it shows what this moon looks like, not where a named "
+        + "feature currently faces. "
+      : "No global mosaic of this moon has been published, so its surface is procedural. ")
+    + "Hue is illustrative; how bright it is drawn comes from the published geometric albedo.";
   card.appendChild(note);
   host.appendChild(card);
 }

@@ -46,6 +46,19 @@ ASSET_GLOBS: tuple[str, ...] = (
     "textures/sun.jpg.json",
     "textures/uranus.jpg",
     "textures/venus.jpg",
+    # Moon mosaics (USGS Astrogeology global mosaics, committed like the planet maps above).
+    # They belong in the hash for the same reason: cache-first immutable URLs mean a texture
+    # that changes without rolling the token is a texture clients never see again.
+    "textures/callisto.jpg",
+    "textures/dione.jpg",
+    "textures/enceladus.jpg",
+    "textures/europa.jpg",
+    "textures/ganymede.jpg",
+    "textures/iapetus.jpg",
+    "textures/io.jpg",
+    "textures/phobos.jpg",
+    "textures/rhea.jpg",
+    "textures/tethys.jpg",
 )
 
 

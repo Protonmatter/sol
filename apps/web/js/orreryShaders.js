@@ -32,7 +32,9 @@ uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_at
 // u_useTex: is a surface map bound at all. u_texMode: 0 = REPLACE (a real photographic map from
 // tools/fetch_textures.py, or Earth's generated coastline map — the texture IS the surface);
 // 1 = MODULATE (the generated IAU albedo map, mid-grey = unchanged), which multiplies over the
-// procedural shading so crater and granulation detail survives beneath real macro-geography.
+// procedural shading so crater and granulation detail survives beneath real macro-geography;
+// 2 = MOON MOSAIC (a USGS global mosaic browse rendering), which is REPLACE divided by the
+// map's own mean level — see the branch below for why that division is the honest form.
 uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
 // u_sunA: the SDO disk-centre direction (Sun→Earth at capture time) in the SUN'S BODY FRAME —
 // see sunDiskBasis() in orrery.js. Body-frame, not camera: the image must co-rotate with the
@@ -99,7 +101,33 @@ void main(){
   // north pole. Matches surfacemap.js's lonToX/latToY exactly.
   float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862;
   vec3 col=u_base;
+  // How much relief the procedural moon styles are allowed to add. u_base for a moon is its
+  // catalogue HUE scaled to its published geometric albedo (moonAppearance.js), so its own
+  // luminance IS the albedo scale — reusing it here means the crater field on charcoal-dark
+  // Phobos is a fifth of the amplitude it has on Enceladus, instead of every moon carrying an
+  // identical absolute crater contrast regardless of how much light it reflects.
+  float relief=dot(u_base,vec3(0.299,0.587,0.114));
   if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
+  else if(u_useTex==1&&u_texMode==2){ // real USGS moon mosaic
+    // The mosaic is a browse rendering: contrast-stretched per product, single-band, with no
+    // absolute photometry — Callisto's mean sits at 0.18 and Europa's at 0.57 for reasons of
+    // publication, not reflectance. Only its STRUCTURE is data. So divide by the map's own
+    // mean, which the 1x1 mip level gives for free, and hand the resulting pure relative-albedo
+    // field to u_base, where the published geometric albedo and the catalogue hue already live.
+    // The clamp stops the brightest few texels of a low-mean map from blowing out.
+    vec3 avg=textureLod(u_tex,vec2(0.5,0.5),20.0).rgb;
+    float mean=max(dot(avg,vec3(0.299,0.587,0.114)),0.02);
+    float here=dot(texture(u_tex,vec2(uu,vv)).rgb,vec3(0.299,0.587,0.114));
+    // The 0.6 exponent softens the map's OWN contrast, and it is load-bearing rather than
+    // cosmetic. Each browse rendering is stretched independently — Callisto's sits at mean
+    // 0.18 with a full-scale tail, Europa's at 0.57 with a narrow one — so at full strength
+    // the publisher's stretch, not the measured albedo, decides which moon looks brightest:
+    // it put Ganymede (0.43) above Europa (0.67) on screen, the exact inversion this release
+    // exists to remove. pow() leaves 1.0 fixed, so the DISK-MEAN brightness still lands
+    // exactly on the albedo; only the excursions around it are damped. The cap stops a
+    // handful of blown texels in a low-mean map from carrying the whole moon.
+    col=u_base*min(pow(clamp(here/mean,0.0,6.0),0.6),1.8);
+  }
   else if(u_style==1){ col=vec3(0.55,0.51,0.46)*(0.75+0.5*fbm(p*6.0)); col+=craters(p,7.0); }       // Mercury
   else if(u_style==9){ float mare=1.0-smoothstep(0.46,0.52,fbm(p*2.4+vec3(3.0)));               // Moon
         col=mix(vec3(0.62,0.61,0.58),vec3(0.30,0.30,0.31),mare); col+=craters(p,8.0); }
@@ -107,9 +135,35 @@ void main(){
   // colours. Reusing them for moons silently discarded every per-moon colour from the catalogue —
   // Io came out Mercury-grey rather than sulphur-yellow. These modulate u_base instead of
   // replacing it, so the texture is shared but the colour is the body's own.
-  else if(u_style==10){ col=u_base*(0.78+0.44*fbm(p*6.0)); col+=craters(p,7.0)*0.85; }           // rocky/icy moon
+  // craters() is not zero-mean: averaged over the sphere its bright rims outweigh its dark
+  // floors by +0.127 at scale 7 and +0.121 at scale 9 (Monte-Carlo over 60k uniform directions
+  // on this exact function). Added raw, that is a flat 12% brightening on top of whatever
+  // brightness the albedo just set — enough to undo the ordering this release is here to fix.
+  // Subtracting the measured mean turns the crater field back into what it is meant to be:
+  // relief around the body's own level, not extra light.
+  else if(u_style==10){ col=u_base*(0.78+0.44*fbm(p*6.0));                                       // rocky/icy moon
+        col+=(craters(p,7.0)-0.127)*0.95*relief; }
   else if(u_style==11){ float c=fbm(p*4.0+vec3(u_time*0.03,0,0));                                // hazy moon (Titan)
         col=u_base*(0.82+0.36*c); }
+  else if(u_style==12){                                                                          // smooth bright ice (Europa)
+    // Europa is not a cratered iceball and must not be drawn as one. Its surface is the youngest
+    // in the outer solar system — crater counts give ~40–90 Myr, and only ~24 impact craters
+    // larger than 5 km are known on the whole moon (Bierhaus, Zahnle & Chapman 2009, "Europa's
+    // crater distributions and surface ages", in *Europa*, Univ. Arizona Press, pp. 161–180) —
+    // so the shared moon style's saturated crater field is qualitatively wrong for it.
+    // The dark banding here is ILLUSTRATIVE. Europa's lineae are real, mapped features, but this
+    // is procedural noise shaped to read like them, NOT the mapped network: no position in it
+    // means anything. The USGS Voyager/Galileo mosaic fetched by tools/fetch_textures.py is the
+    // honest surface; this branch only runs when that file is absent or Photo textures are off.
+    // Bands are deliberately THIN. A wide threshold here does not just look wrong, it darkens
+    // the disc average — an early version pulled ~80% of the surface toward the band colour and
+    // cost Europa 14% of the brightness its albedo had just been used to set.
+    float mott=fbm(p*5.0);
+    float lin=abs(fbm(p*vec3(2.0,9.0,2.0))-0.5);
+    float band=1.0-smoothstep(0.004,0.028,lin);
+    col=u_base*(0.995+0.10*mott);
+    col=mix(col,u_base*0.72,band);
+    col+=(craters(p,9.0)-0.121)*0.14*relief; }
   else if(u_style==2){ float c=fbm(p*4.0+vec3(u_time*0.03,0,0));                                // Venus
         col=mix(vec3(0.86,0.78,0.55),vec3(0.97,0.93,0.78),c); }
   else if(u_style==3){ float cont=fbm(p*2.3+vec3(11.0));                                        // Earth
@@ -120,7 +174,24 @@ void main(){
         float cl=smoothstep(0.58,0.78,fbm(p*3.2+vec3(u_time*0.02,0.0,0.0))); col=mix(surf,vec3(1.0),cl*0.55); }
   else if(u_style==4){ float a=fbm(p*3.4+vec3(7.0));                                            // Mars
         col=mix(vec3(0.78,0.36,0.22),vec3(0.55,0.26,0.16),a); col+=craters(p,6.0)*0.6;
-        col=mix(col,vec3(0.95,0.95,0.97),smoothstep(0.86,0.95,abs(lat))); }
+        // Polar caps at their CATALOGUED extents, replacing the symmetric eyeballed band that
+        // used to sit here (a cap from ~59° to ~72° in both hemispheres, which is neither).
+        // Source: IAU/USGS Gazetteer of Planetary Nomenclature, target Mars — the same register
+        // tools/fetch_geography.py already draws the Moon's maria from. Two approved features
+        // (both 1976) carry the polar deposits, and their bounding latitudes are used verbatim:
+        //   Planum Boreum  (id 4754, D = 354.63 km, centre 87.32°N) spans  80.59°N → 90°N
+        //   Planum Australe(id 4753, D = 1429.87 km, centre 83.35°S) spans 71.73°S → 90°S
+        // These are the PERENNIAL ice plateaus. The seasonal CO2 frost reaches far further —
+        // past 50° in midwinter — but this branch has no season, so painting a seasonal cap
+        // would be picking an epoch and calling it Mars. Comparing the two entries is also why
+        // the caps are drawn so unequal: the southern plateau is four times the northern one.
+        // sin() of each boundary, with a ±2° feather because a real ice margin is gradational.
+        float capN=smoothstep(0.9802,0.9916,lat);      // sin 78.6° .. sin 82.6°  (80.59°N ±2°)
+        float capS=smoothstep(0.9382,0.9599,-lat);     // sin 69.7° .. sin 73.7°  (71.73°S ±2°)
+        // The north cap is bright water ice; the southern plateau is dustier ice with only a
+        // small residual CO2 patch actually snow-white, so it is mixed in a touch weaker.
+        col=mix(col,vec3(0.95,0.95,0.97),capN);
+        col=mix(col,vec3(0.90,0.89,0.90),capS*0.88); }
   else if(u_style==5){ float warp=fbm(p*vec3(3.0,8.0,3.0));                                     // Jupiter
         float b=sin(lat*22.0+1.6*warp); vec3 zone=vec3(0.92,0.85,0.70),belt=vec3(0.72,0.52,0.36);
         col=mix(belt,zone,smoothstep(-0.3,0.3,b)); col*=0.9+0.2*fbm(p*vec3(10.0,3.0,10.0));
