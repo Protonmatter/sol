@@ -174,7 +174,24 @@ void main(){
         float cl=smoothstep(0.58,0.78,fbm(p*3.2+vec3(u_time*0.02,0.0,0.0))); col=mix(surf,vec3(1.0),cl*0.55); }
   else if(u_style==4){ float a=fbm(p*3.4+vec3(7.0));                                            // Mars
         col=mix(vec3(0.78,0.36,0.22),vec3(0.55,0.26,0.16),a); col+=craters(p,6.0)*0.6;
-        col=mix(col,vec3(0.95,0.95,0.97),smoothstep(0.86,0.95,abs(lat))); }
+        // Polar caps at their CATALOGUED extents, replacing the symmetric eyeballed band that
+        // used to sit here (a cap from ~59° to ~72° in both hemispheres, which is neither).
+        // Source: IAU/USGS Gazetteer of Planetary Nomenclature, target Mars — the same register
+        // tools/fetch_geography.py already draws the Moon's maria from. Two approved features
+        // (both 1976) carry the polar deposits, and their bounding latitudes are used verbatim:
+        //   Planum Boreum  (id 4754, D = 354.63 km, centre 87.32°N) spans  80.59°N → 90°N
+        //   Planum Australe(id 4753, D = 1429.87 km, centre 83.35°S) spans 71.73°S → 90°S
+        // These are the PERENNIAL ice plateaus. The seasonal CO2 frost reaches far further —
+        // past 50° in midwinter — but this branch has no season, so painting a seasonal cap
+        // would be picking an epoch and calling it Mars. Comparing the two entries is also why
+        // the caps are drawn so unequal: the southern plateau is four times the northern one.
+        // sin() of each boundary, with a ±2° feather because a real ice margin is gradational.
+        float capN=smoothstep(0.9802,0.9916,lat);      // sin 78.6° .. sin 82.6°  (80.59°N ±2°)
+        float capS=smoothstep(0.9382,0.9599,-lat);     // sin 69.7° .. sin 73.7°  (71.73°S ±2°)
+        // The north cap is bright water ice; the southern plateau is dustier ice with only a
+        // small residual CO2 patch actually snow-white, so it is mixed in a touch weaker.
+        col=mix(col,vec3(0.95,0.95,0.97),capN);
+        col=mix(col,vec3(0.90,0.89,0.90),capS*0.88); }
   else if(u_style==5){ float warp=fbm(p*vec3(3.0,8.0,3.0));                                     // Jupiter
         float b=sin(lat*22.0+1.6*warp); vec3 zone=vec3(0.92,0.85,0.70),belt=vec3(0.72,0.52,0.36);
         col=mix(belt,zone,smoothstep(-0.3,0.3,b)); col*=0.9+0.2*fbm(p*vec3(10.0,3.0,10.0));
