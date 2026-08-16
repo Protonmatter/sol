@@ -22,8 +22,15 @@ crate follows [SemVer](https://semver.org/).
   perturbed orbit sets the ceiling, and a materially wider window will need a finer cadence
   for that moon rather than more of the same.
 
-  `apps/web/js/moons.js` grows 211 KB → 1.0 MB. It is behind `orrery.js`'s dynamic import, so
-  the cost lands only when the Solar System view is opened, not on first paint.
+  The element knots move to a new `apps/web/js/moonelements.js`, imported dynamically on entry
+  to the Solar System view and marked `@lazy-module` so `validate_web_static.py` enforces that
+  it is never preloaded or statically imported. They are ~99% of the bytes, so `moons.js` drops
+  from 211 KB to **8 KB** while carrying the same 21 moons — the Focus control and the
+  accessible positions list keep the first-entry guarantee that made it a static import, and
+  first paint no longer pays for a megabyte of orbital elements. Before the split the catalogue
+  was statically imported by `orrery.js`, statically imported in turn by `app.js`, and
+  module-preloaded from `index.html`, so every visit downloaded it whether or not the 3-D view
+  was ever opened.
 
   The "moons hidden" notice no longer hardcodes its dates — it derives them from
   `MOON_VALID_MIN_JD`/`MAX_JD`, so moving the window can't leave the explanation lying.

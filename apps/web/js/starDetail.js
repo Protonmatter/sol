@@ -13,7 +13,7 @@
 
 import {
   teffK, luminositySun, radiusSun, massEstimateSun, absoluteMagV,
-} from "./starphysics.js?v=cad888c813";
+} from "./starphysics.js?v=adc45b0b25";
 
 // Above this radius a star is a giant/supergiant: the main-sequence mass–luminosity
 // relation is not valid for it, so we decline to estimate a mass.
