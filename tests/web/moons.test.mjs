@@ -149,7 +149,10 @@ test("the shipped JavaScript model meets the held-out Horizons error budget", ()
     worstAngle = Math.max(worstAngle, angular);
     worstRadial = Math.max(worstRadial, radial);
   }
-  assert.equal(csv.length - 1, 2392);
+  // Pinned so a silently truncated fetch cannot pass as a healthy run. It moves with the
+  // model window — re-running tools/fetch_moons.py changes it, which is the deliberate,
+  // visible diff that README describes.
+  assert.equal(csv.length - 1, 11985);
   assert.ok(worstAngle <= 0.15, `worst browser-model angular error ${worstAngle.toFixed(4)}°`);
   assert.ok(worstRadial <= 0.0025,
     `worst browser-model radial error ${(worstRadial * 100).toFixed(4)}%`);

@@ -6,6 +6,28 @@ crate follows [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **The moon window now spans ten years, 2021-01 to 2030-12**, up from the original two.
+  Fast-forwarding the solar-system clock used to walk off the end of the validated interval
+  within seconds, and every moon except Earth's — which has its own ELP-MPP02 solution and was
+  never in this table — would vanish at once. `tools/fetch_moons.py` was re-pointed at
+  2021-01-01 → 2031-01-01 and the sources re-fetched from Horizons at the same seven-day
+  cadence (84 h for Mimas and Enceladus), so the interpolation error budget is unchanged in
+  kind; there are simply five times as many knots.
+
+  Held-out validation now runs **11,985 checks** (was 2,392): **worst 0.1384° angular**
+  (Nereid) and **0.1893% radial** (Enceladus). Both still pass, but note the angular figure
+  is now 92% of the 0.15° CI limit, against 59% before — Nereid's eccentric, strongly
+  perturbed orbit sets the ceiling, and a materially wider window will need a finer cadence
+  for that moon rather than more of the same.
+
+  `apps/web/js/moons.js` grows 211 KB → 1.0 MB. It is behind `orrery.js`'s dynamic import, so
+  the cost lands only when the Solar System view is opened, not on first paint.
+
+  The "moons hidden" notice no longer hardcodes its dates — it derives them from
+  `MOON_VALID_MIN_JD`/`MAX_JD`, so moving the window can't leave the explanation lying.
+
 ### Added
 
 - **The major moons.** Twenty-one of them — Mars's two, the four Galileans, seven Saturnian
