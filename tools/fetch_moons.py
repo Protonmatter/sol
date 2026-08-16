@@ -31,14 +31,14 @@ HORIZONS = "https://ssd.jpl.nasa.gov/api/horizons.api"
 # Enceladus use 3.5-day knots because their rapid radial perturbations otherwise
 # dominate the global error. Validation vectors are shifted by half a knot, so
 # none of them can be reproduced by simply returning a training row.
-MODEL_START = "2025-03-01"
-MODEL_STOP = "2027-03-01"
+MODEL_START = "2021-01-01"
+MODEL_STOP = "2031-01-01"
 DEFAULT_STEP = "7 d"
-DEFAULT_CHECK_START = "2025-03-04 12:00"
-DEFAULT_CHECK_STOP = "2027-02-25 12:00"
+DEFAULT_CHECK_START = "2021-01-04 12:00"
+DEFAULT_CHECK_STOP = "2030-12-28 12:00"
 FINE_STEP = "84 h"
-FINE_CHECK_START = "2025-03-02 18:00"
-FINE_CHECK_STOP = "2027-02-27 18:00"
+FINE_CHECK_START = "2021-01-02 18:00"
+FINE_CHECK_STOP = "2030-12-30 18:00"
 FINE_MOONS = {"Mimas", "Enceladus"}
 
 MIN_RADIUS_KM = 150.0

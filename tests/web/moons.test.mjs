@@ -7,11 +7,25 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { MOONS, MOON_EPOCH_JD, MOON_VALID_MIN_JD, MOON_VALID_MAX_JD,
   MOON_PARENTS, moonsOf } from "../../apps/web/js/moons.js";
+import { MOON_ELEMENTS } from "../../apps/web/js/moonelements.js";
 import { moonElementsAt, moonOffsetAU, moonOrbitPath, systemScale, jdFromUnix, isRetrograde,
   withinMoonValidity, aliasedByClock } from "../../apps/web/js/moonorbits.js";
 import { BODY, poleVector } from "../../apps/web/js/bodyData.js";
 
 const AU_KM = 149597870.7;
+
+// The knots live in the lazily imported moonelements.js so they stay off the first-paint path;
+// orrery.js hangs them on the identity records at load. Do the same here so these tests exercise
+// exactly the objects the renderer's math receives.
+for (const m of MOONS) Object.assign(m, MOON_ELEMENTS[m.n]);
+
+test("every moon's identity record gets its element knots", () => {
+  assert.equal(Object.keys(MOON_ELEMENTS).length, MOONS.length);
+  for (const m of MOONS) {
+    assert.ok(Array.isArray(m.el), `${m.n}: no element table after the lazy merge`);
+    assert.ok(Number.isFinite(m.t0) && Number.isFinite(m.step), `${m.n}: missing t0/step`);
+  }
+});
 
 test("every planet with moons is one the renderer actually draws", () => {
   // A moon whose parent is not a rendered sphere would orbit nothing — the reason Charon is
@@ -149,7 +163,10 @@ test("the shipped JavaScript model meets the held-out Horizons error budget", ()
     worstAngle = Math.max(worstAngle, angular);
     worstRadial = Math.max(worstRadial, radial);
   }
-  assert.equal(csv.length - 1, 2392);
+  // Pinned so a silently truncated fetch cannot pass as a healthy run. It moves with the
+  // model window — re-running tools/fetch_moons.py changes it, which is the deliberate,
+  // visible diff that README describes.
+  assert.equal(csv.length - 1, 11985);
   assert.ok(worstAngle <= 0.15, `worst browser-model angular error ${worstAngle.toFixed(4)}°`);
   assert.ok(worstRadial <= 0.0025,
     `worst browser-model radial error ${(worstRadial * 100).toFixed(4)}%`);

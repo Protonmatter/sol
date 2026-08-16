@@ -12,6 +12,7 @@ export const GENERATED_MODULES = new Set([
   "js/constellations.js",
   "js/galacticobjects.js",
   "js/geography.js",
+  "js/moonelements.js",
   "js/moons.js",
   "js/starcatalog.js",
 ]);

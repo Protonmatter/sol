@@ -54,12 +54,25 @@ measured numbers — claims follow measurements, never the reverse.
 ### 2.3 Extending the moons' validity window
 
 1. **First edit the interval constants** `MODEL_START` / `MODEL_STOP` at the top of
-   `tools/fetch_moons.py` — they are hard-coded, and re-running the fetch without moving
-   them refetches the same window and leaves the shipped validity range exactly where it
-   was (the UI would still hide every moon after the old end date).
+   `tools/fetch_moons.py`, and move `DEFAULT_CHECK_START` / `DEFAULT_CHECK_STOP` and
+   `FINE_CHECK_START` / `FINE_CHECK_STOP` with them — the check bounds sit half a knot inside
+   each end so validation never lands on a training row. They are hard-coded, and re-running
+   the fetch without moving them refetches the same window and leaves the shipped validity
+   range exactly where it was (the UI would still hide every moon after the old end date).
 2. Run `python tools/fetch_moons.py` (networked) to fetch fresh Horizons element knots and
-   validation vectors, and commit the regenerated `apps/web/js/moons.js`.
-3. `tools/validate_moons.py` proves regen byte-identity and interpolation accuracy; the
+   validation vectors, then `python tools/generate_moons.py`. That writes **two** files and
+   both must be committed: `apps/web/js/moons.js` (identity and the window constants) and
+   `apps/web/js/moonelements.js` (the knots). Committing only the first ships a new window
+   against old knots, which interpolates clamped and silently wrong.
+3. **Generate on Linux.** `round(x, 12)` puts at least one knot within a ULP of a rounding
+   boundary, and Windows and glibc disagree on which side it falls, so a Windows-generated
+   file differs by a digit and fails the byte gate in CI. WSL is sufficient.
+4. Update the sha256 table in `tools/ephemeris-data/moons/README.md`, the accuracy figures
+   quoted in `README.md` / `docs/STATUS.md` / `docs/DATA_SOURCES.md`, and the pinned check
+   count in `tests/web/moons.test.mjs`.
+5. Re-run `python tools/build_web.py` — the `?v=` token covers the regenerated modules and
+   the dynamic import of `moonelements.js` carries it too.
+6. `tools/validate_moons.py` proves regen byte-identity and interpolation accuracy; the
    shipped window constants (`MOON_VALID_MIN_JD`/`MAX_JD`) ride along automatically.
 
 ### 2.4 ΔT / EOP refresh

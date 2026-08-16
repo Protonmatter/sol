@@ -7,8 +7,8 @@ Raw upstream data for `tools/generate_moons.py`. Committed so the derived module
 | File | Upstream | License | sha256 |
 |---|---|---|---|
 | `jpl_satellite_physical.csv` | [JPL SSD satellite physical parameters](https://ssd.jpl.nasa.gov/sats/phys_par/) — GM, mean radius, mean density; row subset | public domain (US Government) | `03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99` |
-| `horizons_satellite_elements.csv` | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) osculating elements, planetocentric, ecliptic J2000, sampled across the supported interval | public domain (US Government) | `da120c34abac6de490bfebba5d85613d4a6e8fe3cb3ef0e8f96d38bb99221e26` |
-| `horizons_satellite_vectors.csv` | JPL Horizons state vectors at times interleaved between the element knots, the ground truth `tools/validate_moons.py` gates against | public domain (US Government) | `a0b5f8884f8d4eae5a594903a8356ed36c3664ec8d173c8132f8192c20546508` |
+| `horizons_satellite_elements.csv` | [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) osculating elements, planetocentric, ecliptic J2000, sampled across the supported interval | public domain (US Government) | `cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f` |
+| `horizons_satellite_vectors.csv` | JPL Horizons state vectors at times interleaved between the element knots, the ground truth `tools/validate_moons.py` gates against | public domain (US Government) | `ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918` |
 
 > A `0.00000` GM or an `n/a` density in the physical-parameters file means **not measured**, not
 > zero. Nereid is the case here: carried through as a number it put "0.0000 km³/s²" on the facts
@@ -59,8 +59,8 @@ Kepler-propagating it for months compounds both phase and radius error. Mimas la
 195 times in six months, so even a small instantaneous-rate mismatch eventually puts it on the
 wrong side of the planet.
 
-`tools/fetch_moons.py` therefore records fresh Horizons elements every seven days from 2025-03-01
-through 2027-03-01. Mimas and Enceladus use 84-hour knots because their short, strongly perturbed
+`tools/fetch_moons.py` therefore records fresh Horizons elements every seven days from 2021-01-01
+through 2031-01-01. Mimas and Enceladus use 84-hour knots because their short, strongly perturbed
 orbits need the finer cadence. The generator converts the classical elements to modified
 equinoctial values `[a,h,k,p,q,L]` before interpolation. That avoids the meaningless 180° jumps in
 node and argument of periapsis that occur for nearly circular or low-inclination orbits.
@@ -70,8 +70,8 @@ measures interpolation against independent Horizons positions rather than reprod
 
 ## Accuracy, stated plainly
 
-Held-out validation: **worst 0.0887°** (Nereid) and **0.1891%** in radius (Enceladus) across
-2,392 checks spanning 2025-03-04 12:00 to 2027-02-23 12:00 TDB. CI fails above 0.15° angular
+Held-out validation: **worst 0.1384°** (Nereid) and **0.1893%** in radius (Enceladus) across
+11,985 checks spanning 2021-01-04 12:00 to 2030-12-23 12:00 TDB. CI fails above 0.15° angular
 or 0.25% radial error, if any check coincides with an element knot, or if a moon has fewer than
 100 independent checks.
 
