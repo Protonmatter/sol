@@ -2,9 +2,9 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY, poleVector } from "./bodyData.js?v=f3c390bd85";
-import { isRetrograde } from "./moonorbits.js?v=f3c390bd85";
-import { store } from "./store.js?v=f3c390bd85";
+import { BODY, poleVector } from "./bodyData.js?v=da86e109de";
+import { isRetrograde } from "./moonorbits.js?v=da86e109de";
+import { store } from "./store.js?v=da86e109de";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 
@@ -46,10 +46,16 @@ export function renderMoonDetail(m, unixSeconds) {
   // but retrograde is decided against the PLANET'S SPIN — see isRetrograde. Reading it off the
   // ecliptic inclination instead would label all five Uranian moons "retrograde", which is
   // false: they are prograde around a planet that is tipped over.
-  const retro = isRetrograde(m, BODY[m.p], poleVector, unixSeconds);
+  //
+  // That decision needs the orbit plane, which lives in the lazily imported moonelements.js.
+  // Every other fact here is identity and is available the moment the view opens — the whole
+  // point of that split — so while the knots are in flight the clause is omitted rather than
+  // the card being lost to a TypeError on `m.el`.
+  const retro = Array.isArray(m.el) ? isRetrograde(m, BODY[m.p], poleVector, unixSeconds) : null;
   add("Inclination", `${m.i.toFixed(2)}° to the ecliptic`
-    + (retro ? ` · retrograde — it orbits against ${m.p}'s spin` : "")
-    + (!retro && m.i > 90 ? ` · prograde around ${m.p}, which is itself tipped past 90°` : ""));
+    + (retro === true ? ` · retrograde — it orbits against ${m.p}'s spin` : "")
+    + (retro === false && m.i > 90
+      ? ` · prograde around ${m.p}, which is itself tipped past 90°` : ""));
   if (m.rho != null) add("Mean density", `${m.rho.toFixed(3)} g/cm³`);
   if (m.gm != null) add("GM", `${m.gm.toPrecision(5)} km³/s²`);
   card.appendChild(dl);

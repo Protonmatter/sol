@@ -73,10 +73,9 @@ Review round (all findings from the Codex PR reviewer, each verified before acti
 - **The Moon layer now stops where its evidence stops.** The elements are validated from January
   2021 through December 2030, but the date slider spans ±5000 years and would happily propagate
   them the whole way. Outside the exact shared validation interval the moons are withheld and the
-  accuracy line says why. Separately, at the default 0.5 simulated years per second one frame
-  covers ~3 days — past
-  the Nyquist rate for Io, Mimas and Phobos, where apparent motion can visibly run backwards — so
-  moons the clock has outrun are dropped until it slows.
+  accuracy line says why. Separately, at the clock's 5-simulated-years-per-second ceiling one
+  frame covers ~30 days — past the Nyquist rate for Io, Mimas and Phobos, where apparent motion
+  can visibly run backwards — so moons the clock has outrun are dropped until it slows.
 - **Moon suppression notices now follow the frame they describe.** The accuracy line is updated
   after painting computes visibility, fast moons return immediately when animation is paused,
   and hidden counts are accumulated across all five parent systems instead of being overwritten

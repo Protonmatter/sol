@@ -9,7 +9,7 @@
 // even with all three implemented it missed Saturn's and Uranus's moons by tens to 165° at their
 // own epoch. tools/ephemeris-data/moons/README.md records that in full.
 
-import { eccentricAnomaly } from "./smallbodies.js?v=f3c390bd85";
+import { eccentricAnomaly } from "./smallbodies.js?v=da86e109de";
 
 const AU_KM = 149597870.7;
 const D2R = Math.PI / 180;
@@ -90,8 +90,9 @@ export function withinMoonValidity(unixSeconds, minJd, maxJd) {
  * Is one animation frame too coarse to sample this moon's orbit?
  *
  * The solar-system clock runs at up to 5 simulated years per real second so the outer planets
- * visibly move. At the default 0.5 yr/s a frame covers ~3 days — more than a full orbit for Io,
- * Mimas and Phobos.
+ * visibly move. At that ceiling a 60 fps frame covers ~30 simulated days — many full orbits for
+ * Io, Mimas and Phobos. (The default is far slower, one simulated hour per real second, where
+ * nothing here is aliased; see SOLAR_SPEED_DEFAULT_YPS in orreryTime.js.)
  *
  * Note what is and is not wrong in that regime. Every individual position stays correct; it is
  * the apparent MOTION that breaks. Below the Nyquist rate of two samples per revolution the

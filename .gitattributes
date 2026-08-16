@@ -13,6 +13,9 @@
 *.yml text eol=lf
 *.toml text eol=lf
 *.ps1 text eol=lf
+# The committed Horizons CSVs are hashed in tools/ephemeris-data/moons/README.md, and a
+# CRLF-smudged checkout cannot reproduce those sha256s.
+*.csv text eol=lf
 
 *.wasm binary
 *.png binary
