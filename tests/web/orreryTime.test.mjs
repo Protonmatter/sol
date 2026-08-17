@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
+import { elpMoonAliased, MOON_SIDEREAL_DAYS,
   DAYS_PER_YEAR, SOLAR_SPEED_MIN_DPS, SOLAR_SPEED_MAX_DPS, SOLAR_SPEED_DEFAULT_YPS,
   MAX_DISPLAY_ROTATION_TPS, rotationDisplayIsLimited, rotationDisplayStepSeconds,
   solarSpeedFromSlider, solarSliderFromSpeed, solarStepSeconds,
@@ -69,4 +69,17 @@ test("rotation display limiter preserves slow motion, direction, and invalid-inp
   assert.equal(rotationDisplayStepSeconds(0, 60, 24), 0);
   assert.equal(rotationDisplayStepSeconds(1 / 60, Number.NaN, 24), 0);
   assert.equal(rotationDisplayStepSeconds(1 / 60, 60, 0), 0);
+});
+
+test("Earth's Moon gets the same Nyquist honesty as the catalogued moons", () => {
+  // Same three-samples-per-revolution rule as moonorbits.js's aliasedByClock, for the one
+  // moon that rule cannot see (it rides the ELP engine, not the element table).
+  const period = MOON_SIDEREAL_DAYS * 86400;
+  assert.equal(elpMoonAliased(0), false, "paused is always exact");
+  assert.equal(elpMoonAliased(period / 3 - 1), false, "just under three samples per orbit is drawable");
+  assert.equal(elpMoonAliased(period / 3 + 1), true, "past Nyquist the motion cannot be drawn honestly");
+  // 1 mo/s at 60 fps: a frame covers ~0.51 simulated days - fine. 1 yr/s covers ~6.1 days
+  // - still three samples. 5 yr/s covers ~30 days - more than a whole orbit, aliased.
+  assert.equal(elpMoonAliased((30.4369 * 86400) / 60), false);
+  assert.equal(elpMoonAliased((5 * 365.25 * 86400) / 60), true);
 });

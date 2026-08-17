@@ -101,6 +101,13 @@ crate follows [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Earth's Moon now discloses when the clock outruns it.** The 21 catalogued moons are hidden
+  with a notice past the Nyquist rate; Earth's Moon rides the ELP engine on a different path
+  and kept moving silently — at five simulated years per second a frame covers more than a
+  whole lunar orbit, and the drawn motion can read as retrograde. It stays drawn (positions
+  remain exact, and it is the one moon a newcomer will look for), but the accuracy line now
+  says the motion is under-sampled, the same honesty every other suppression gets.
+
 Review round (all findings from the Codex PR reviewer, each verified before acting on it):
 
 - **The Moon layer now stops where its evidence stops.** The elements are validated from January

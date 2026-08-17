@@ -42,3 +42,20 @@ export function rotationDisplayStepSeconds(realSeconds, simulatedSeconds, rotati
   const visibleLimit = periodSeconds * MAX_DISPLAY_ROTATION_TPS * realSeconds;
   return Math.sign(simulatedSeconds) * Math.min(Math.abs(simulatedSeconds), visibleLimit);
 }
+
+/**
+ * Is one animation frame too coarse to sample EARTH'S MOON's orbit?
+ *
+ * The 21 catalogued moons get this guard from moonorbits.js's aliasedByClock and are hidden
+ * with a notice when the clock outruns them. Earth's Moon comes from the ELP-MPP02 engine on
+ * a different path and received neither — at one simulated year per second a 60 fps frame
+ * covers ~6 days, a quarter of the lunar orbit, and the drawn motion is below the Nyquist
+ * rate: apparent direction of travel is unrecoverable and can read as retrograde, which is a
+ * claim about the orbit that happens to be false. Same three-samples-per-revolution rule as
+ * aliasedByClock; every individual position remains exact.
+ */
+export const MOON_SIDEREAL_DAYS = 27.321661; // sidereal month, NASA Moon fact sheet
+export function elpMoonAliased(simStepSeconds) {
+  if (!(simStepSeconds > 0)) return false; // paused - every position is exact
+  return simStepSeconds > (MOON_SIDEREAL_DAYS * 86400) / 3;
+}
