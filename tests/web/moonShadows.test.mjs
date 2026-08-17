@@ -136,9 +136,10 @@ test("the centre is the renderer's own unit-sphere coordinate, on the OBLATE sur
   const s = moonShadowOnPlanet(TILTED_MOON, TILTED_SUN, { ...GEOM, moonRadius: io().r });
   assert.ok(s);
   assert.ok(Math.abs(len(s.center) - 1) < 1e-12, `|centre| = ${len(s.center)}`);
-  const x = s.center[0] * JUP.radiusKm, y = s.center[1] * JUP.radiusKm, z = s.center[2] * JUP.polarKm;
-  const f = (x * x + y * y) / (JUP.radiusKm ** 2) + (z * z) / (JUP.polarKm ** 2);
-  assert.ok(Math.abs(f - 1) < 1e-12, `point is off the spheroid: ${f}`);
+  // No second spheroid identity here: scaling components by (rEq, rEq, rPol) and dividing
+  // by the same radii reduces algebraically to |centre| = 1 for ANY polar radius - review
+  // proved the old assertion was a tautology. The oblateness of the struck point is guarded
+  // by the displacement test below, which fails when zScale is forced to 1.
 });
 
 test("oblateness moves an off-equator shadow measurably — a sphere would be wrong", () => {

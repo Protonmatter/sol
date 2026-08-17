@@ -38,7 +38,7 @@ crate follows [SemVer](https://semver.org/).
   21 moon periods against their element knots (worst 4.95e-07 d), and the display cap's exact
   0.2 turn/s engagement across all seven speed presets. Found and fixed one real defect: the
   Moon's spin axis was 0.022° from the ecliptic pole because the E1 libration term was omitted
-  — with pck00011's E1 applied the axis holds the Cassini-state 1.52–1.58° and latitude
+  — with pck00011's E1 applied the axis holds the Cassini-state 1.51–1.58° and latitude
   libration reaches the ±6.7° the card already claimed.
 
 - **The major moons.** Twenty-one of them — Mars's two, the four Galileans, seven Saturnian
@@ -83,7 +83,7 @@ crate follows [SemVer](https://semver.org/).
     Enceladus), and the renderer interpolates modified equinoctial elements so circular-orbit
     angle singularities cannot introduce jumps.
 
-- **Earth has real geography.** `apps/web/textures/` is `.gitignore`d and is populated only by the
+- **Earth has real geography.** `apps/web/textures/` was then still `.gitignore`d and populated only by the
   optional `tools/fetch_textures.py`, so every deployment — GitHub Pages included — fell through
   to the procedural shader, where Earth's "continents" were value noise (`fbm(p*2.3)` thresholded
   into land). Real coastlines, lakes and permanent ice now ship with the repository: Natural Earth

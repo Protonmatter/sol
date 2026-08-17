@@ -137,9 +137,14 @@ void main(){
     // 0.18 with a full-scale tail, Europa's at 0.57 with a narrow one — so at full strength
     // the publisher's stretch, not the measured albedo, decides which moon looks brightest:
     // it put Ganymede (0.43) above Europa (0.67) on screen, the exact inversion this release
-    // exists to remove. pow() leaves 1.0 fixed, so the DISK-MEAN brightness still lands
-    // exactly on the albedo; only the excursions around it are damped. The cap stops a
-    // handful of blown texels in a low-mean map from carrying the whole moon.
+    // exists to remove. pow() fixes 1.0 pointwise but NOT the mean (Jensen), the cap trims
+    // the top, and the 1x1 mip is an unweighted image mean while the sphere samples with a
+    // sin-theta weight - so the disc mean lands NEAR the albedo, not on it. Measured against
+    // the ten shipped mosaics: within +5/-8% for the Galileans, -15% worst (Iapetus, whose
+    // two-tone disc defeats any single stretch). That is ~5x tighter than the raw browse
+    // stretches, and the published ORDERING survives everywhere except the Dione/Rhea tie
+    // (identical 0.6). The cap stops a handful of blown texels in a low-mean map from
+    // carrying the whole moon.
     col=u_base*min(pow(clamp(here/mean,0.0,6.0),0.6),1.8);
   }
   else if(u_style==1){ col=vec3(0.55,0.51,0.46)*(0.75+0.5*fbm(p*6.0)); col+=craters(p,7.0); }       // Mercury

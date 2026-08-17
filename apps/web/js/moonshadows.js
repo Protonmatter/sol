@@ -99,8 +99,8 @@ export const MAX_MOON_SHADOWS = 4;
  *      r_umbra    = R_moon − t·(R_sun − R_moon)/D = R_moon·(1 + t/D) − t·α
  *      r_penumbra = R_moon + t·(R_sun + R_moon)/D = R_moon·(1 + t/D) + t·α
  * The shared (1 + t/D) factor is 1.00045 for Io on Jupiter, so it is dropped and the pair
- * reduces to R_moon ∓ t·α — the form the shader evaluates. For Io that gives a 1509 km umbral
- * radius and a 2136 km penumbral radius on Jupiter's cloud tops, i.e. a ~3000 km black core
+ * reduces to R_moon ∓ t·α — the form the shader evaluates. For Io that gives a 1508 km umbral
+ * radius and a 2135 km penumbral radius on Jupiter's cloud tops, i.e. a ~3000 km black core
  * inside a ~4300 km soft disc, on a globe of 71,492 km equatorial radius.
  *
  * Returns null when no shadow lands. NOTE the one omission: the test is that the shadow AXIS

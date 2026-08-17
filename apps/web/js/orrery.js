@@ -13,35 +13,35 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=dd4ea4c0de";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=dd4ea4c0de";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=dd4ea4c0de";
-import { buildCelestial } from "./celestial.js?v=dd4ea4c0de";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=dd4ea4c0de";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=dd4ea4c0de";
+import { store } from "./store.js?v=10c823e120";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=10c823e120";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=10c823e120";
+import { buildCelestial } from "./celestial.js?v=10c823e120";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=10c823e120";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=10c823e120";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
-} from "./orreryMath.js?v=dd4ea4c0de";
+} from "./orreryMath.js?v=10c823e120";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=dd4ea4c0de";
+} from "./orreryShaders.js?v=10c823e120";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=dd4ea4c0de";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=dd4ea4c0de";
-import { renderStarDetail } from "./starDetail.js?v=dd4ea4c0de";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dd4ea4c0de";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=dd4ea4c0de";
-import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=dd4ea4c0de";
-import * as moonCatalogue from "./moons.js?v=dd4ea4c0de";
-import { MOON_TEXTURE_FILES, moonBaseColor } from "./moonAppearance.js?v=dd4ea4c0de";
+} from "./orreryGalaxy.js?v=10c823e120";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=10c823e120";
+import { renderStarDetail } from "./starDetail.js?v=10c823e120";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=10c823e120";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=10c823e120";
+import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=10c823e120";
+import * as moonCatalogue from "./moons.js?v=10c823e120";
+import { MOON_TEXTURE_FILES, moonBaseColor } from "./moonAppearance.js?v=10c823e120";
 import {
   DAYS_PER_YEAR, SOLAR_SPEED_DEFAULT_YPS, solarSpeedFromSlider, solarSliderFromSpeed,
   rotationDisplayIsLimited, rotationDisplayStepSeconds, solarStepSeconds,
-} from "./orreryTime.js?v=dd4ea4c0de";
+} from "./orreryTime.js?v=10c823e120";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -129,7 +129,7 @@ let galaxy = null;
 let smallBodies = []; // per-frame small-body markers: {name, pos, col, kind, note}
 
 // Surface maps rasterised from the committed geography (geography.js -> surfacemap.js). These
-// are what ships: apps/web/textures/ is .gitignore'd, so without them every deployment fell back
+// are what ships: before the textures became a committed baseline every deployment fell back
 // to the procedural shader and Earth's "continents" were value noise. A real fetched photo map
 // still wins where one exists — see drawBody.
 let genTex = {}, genStarted = false;
@@ -185,7 +185,7 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=dd4ea4c0de"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=10c823e120"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   // The alpha profile rides with the photo ring: when the textured ring is what's drawn, its
@@ -193,7 +193,7 @@ function loadTextures() {
   // the ring without changing its shadow (and the photo's fine gaps would not shadow at all).
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true, alphaProfile: ringImageAlphaProfile(ring) }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=dd4ea4c0de";
+  ring.src = "textures/saturn_ring.png?v=10c823e120";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -209,12 +209,12 @@ function loadTextures() {
     } catch (e) { console.warn("sun texture", e.message); }
   };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=dd4ea4c0de")
+  fetch("textures/sun.jpg.json?v=10c823e120")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=dd4ea4c0de";
+      sun.src = "textures/sun.jpg?v=10c823e120";
     });
 }
 
@@ -244,7 +244,7 @@ async function buildGeneratedMaps() {
     // and nothing here needs them. Awaiting them would put a megabyte in front of Earth's
     // coastline texture — which is exactly what browser_validation's blue-Earth assertion
     // caught when this ran as a Promise.all.
-    const geo = await import("./geography.js?v=dd4ea4c0de");
+    const geo = await import("./geography.js?v=10c823e120");
     // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
     // in that catalogue says which of them are dark — see tools/fetch_geography.py — so they
     // keep the procedural shader rather than a guess. fetch_textures.py still supplies real
@@ -297,7 +297,7 @@ function loadMoonCatalogue() {
   // import is never stored for offline use, and — worse — a later window change would ship a
   // new tokened moons.js while a browser could still serve the old knots, silently producing
   // confident positions from mismatched data.
-  moonElementsPromise = import("./moonelements.js?v=dd4ea4c0de")
+  moonElementsPromise = import("./moonelements.js?v=10c823e120")
     .then((mod) => {
       for (const m of moonSet.MOONS) Object.assign(m, mod.MOON_ELEMENTS[m.n]);
       moonElementsReady = moonSet.MOONS.every((m) => Array.isArray(m.el));
@@ -1320,7 +1320,11 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     // The 0.06 floor is the planet's own scattered light, matching the 0.05 ambient the sphere
     // shader gives an unlit surface: a moon in Jupiter's umbra all but disappears, as it does
     // in a telescope, but it is not painted pure black.
-    const eclipsed = 0.06 + 0.94 * sunlit;
+    // `sunlit` is a LINEAR fraction of the solar disc, but the value it scales is
+    // sRGB-encoded (moonAppearance.js writes albedo through the 1/2.2 transfer), so the
+    // ramp must pass through the same transfer or penumbral ingress reads ~2x deeper than
+    // the geometry says: linear 0.50 displayed as encoded would show 0.247 of the light.
+    const eclipsed = (0.06 + 0.94 * sunlit) ** (1 / 2.2);
     const baseColor = moonBaseColor(m);
     gl.uniform3fv(P.sphereU.u_base, new Float32Array(
       [baseColor[0] * eclipsed, baseColor[1] * eclipsed, baseColor[2] * eclipsed],
@@ -1888,7 +1892,7 @@ async function enterOrreryInner() {
     // in the static moons.js, so there is nothing left to wait for.
     void loadMoonCatalogue();
     buildGeneratedMaps(); // not awaited: generated maps appear progressively
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=dd4ea4c0de");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=10c823e120");
     if (starCatPromise) {
       void starCatPromise.then((catalogue) => {
         starCat = catalogue;

@@ -89,11 +89,12 @@ python tools/build_wasm.py                 # stages apps/web/pkg/*.wasm
 
 The **3-D View** draws its surfaces from three sources, in priority order:
 
-1. **Real photographic maps** (NASA Blue Marble + Solar System Scope, CC-BY) for every body, if
-   present. They are not committed — gitignored under `apps/web/textures/` — so fetch them once:
+1. **Real photographic maps** (NASA Blue Marble + Solar System Scope CC-BY + USGS moon
+   mosaics) for every body that has one. They are a COMMITTED baseline — deploys must not
+   depend on a third-party host being up — and refreshed, not obtained, by:
 
    ```bash
-   python tools/fetch_textures.py     # ~4 MB, optional
+   python tools/fetch_textures.py     # ~6 MB, refresh only
    ```
 
 2. **Committed vector geography**, which ships with the repository and needs no download: Earth's

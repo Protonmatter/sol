@@ -14,7 +14,7 @@ export function loadEngine() {
     // cache:"no-cache" (NOT no-store): the wasm is built at deploy and is not folded
     // into the ?v= content hash (it's gitignored), so we must revalidate — but a 304
     // lets the browser reuse the cached bytes instead of re-downloading every visit.
-    const response = await fetch("pkg/solar_wasm.wasm?v=dd4ea4c0de", { cache: "no-cache" });
+    const response = await fetch("pkg/solar_wasm.wasm?v=10c823e120", { cache: "no-cache" });
     if (!response.ok) throw new Error(`wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});
