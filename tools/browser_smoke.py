@@ -304,7 +304,7 @@ def dump_dom(browser: str, url: str) -> tuple[str, str]:
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=120,
+            timeout=180,  # 120 s flaked at 2x the virtual-time budget once ~1.5 MB of committed moon mosaics joined the shared texture load under SwiftShader (PR #71 run 31980907901, attempt 1)
             check=False,
         )
     if result.returncode != 0:
@@ -329,7 +329,7 @@ def capture_screenshot(browser: str, url: str) -> bytes:
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=120,
+            timeout=180,  # 120 s flaked at 2x the virtual-time budget once ~1.5 MB of committed moon mosaics joined the shared texture load under SwiftShader (PR #71 run 31980907901, attempt 1)
             check=False,
         )
         image = screenshot_path.read_bytes() if screenshot_path.is_file() else b""
