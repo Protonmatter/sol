@@ -21,7 +21,7 @@ by CI.
 ## Why these layers
 
 Before this data existed the 3-D view had no committed surface maps at all. `apps/web/textures/`
-is `.gitignore`d and is populated only by the optional `tools/fetch_textures.py`, so every
+was, before the committed-baseline change, populated only by the optional `tools/fetch_textures.py`, so every
 deployment — including GitHub Pages — fell through to the procedural shader, where Earth's
 "continents" were value-noise (`fbm(p*2.3)` thresholded into land). Recognisable, real geography
 had to come from something the repository actually carries.

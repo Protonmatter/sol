@@ -19,8 +19,10 @@ provenance comments the pins carry. The procedure for intentional changes is in
 | Moon (Luna) topocentric position | ELP-MPP02 vs JPL Horizons DE441 | measured ≤ ~5.2″ near-present, syzygy ≤ ~5″; **enforced gates 12″ (general) / 10″ (syzygy)** — the historical +20″ aberration mistake must always fail | `tools/validate_ephemeris.py`, `tools/stress_moon_syzygy.py` | weekly + manual (networked) |
 | The 21 major-moon orbits | JPL Horizons osculating elements, weekly knots (3.5-day for Mimas/Enceladus) | validated against committed Horizons state vectors between knots; positions honest to “which side of the planet”, never occultation-grade | `tools/validate_moons.py` (regen-stable + byte-identity + interpolation check, offline) | every PR |
 | Moon validity window | elements are only trusted where validated | outside the window moons are hidden, never guessed | `MOON_VALID_MIN_JD`/`MAX_JD` runtime guard + browser smoke `data-smoke-validity` | every PR |
-| Rotational elements (pole α₀/δ₀ + rates, W₀, Ẇ, periodic terms) | **IAU WGCCRE 2015** (Archinal et al. 2018 + 2019 correction), as distributed in NAIF `pck00011.tpc` | exact transcription (rel. 1e-12) of everything the renderer applies — including Neptune's single-term `poleNut` correction and Earth's rendered `precession` model; a `poleNut`/`precession` object present in code but absent from the pin fails | `tools/validate_body_constants.py` | every PR |
-| Rotation-model truncations | series terms the linear(+`poleNut`) model deliberately omits | Mars: 2015 multi-term series omitted (kept self-consistent 2009 constants; §2.1); Moon: IAU libration series omitted (~1–3° meridian; libration shown numerically on the card); Mercury: five forced-libration W terms omitted (≤ ~0.011° ≈ 40″ combined — 60× below Neptune's corrected term); Jupiter: sub-millidegree nut-prec terms omitted | documented here; Mars additionally pinned + comment-guarded | — |
+| Rotational elements (pole α₀/δ₀ + rates, W₀, Ẇ, periodic terms) | **IAU WGCCRE 2015** (Archinal et al. 2018 + 2019 correction), as distributed in NAIF `pck00011.tpc` | exact transcription (rel. 1e-12) of everything the renderer applies — including Neptune's and the Moon's single-term `poleNut` corrections and Earth's rendered `precession` model; a `poleNut`/`precession` object present in code but absent from the pin fails | `tools/validate_body_constants.py` | every PR |
+| Rotation-model truncations | series terms the linear(+`poleNut`) model deliberately omits | Mars: 2015 multi-term series omitted (kept self-consistent 2009 constants; §2.1); Moon: E1 (the dominant libration term, ∓3.88° RA / ±1.54° Dec / ±3.56° W) **is applied** as `poleNut`, E2–E13 omitted (≤ ~0.2° combined); Mercury: five forced-libration W terms omitted (≤ ~0.011° ≈ 40″ combined — 60× below Neptune's corrected term); Jupiter: sub-millidegree nut-prec terms omitted | documented here; Mars additionally pinned + comment-guarded | — |
+| Rendered motion (what the clock actually produces) | the elements above, measured back out of `rotationPhase()`/`poleVector()` | sidereal period within 0.15 h of the card; spin sense matches WGCCRE 2015 (Venus and Uranus retrograde, nobody else); every IAU pole in the ecliptic-northern hemisphere; axis-to-ecliptic-pole angle inside the spherical-triangle bound set by the fact-sheet obliquity-to-orbit and orbital inclination (±0.15°); each of the 21 moon periods within 1e-4 d of the published `P` implied by its own shipped knots | `tools/validate_body_motion.py`, `tests/web/motionContract.test.mjs` | every PR |
+| Visible-spin presentation cap | deliberate display limit, `MAX_DISPLAY_ROTATION_TPS` | pinned at 0.2 turn/s; must engage exactly when true spin exceeds it, deliver exactly that rate when engaged, and never stop or reverse a body — checked across all seven shipped speed presets | `tools/validate_body_motion.py` | every PR |
 | Sidereal periods shown in UI (`rotationHours`) | must agree with the Ẇ actually rendered | ≤ 0.15 h of 360/\|Ẇ\| (fact-sheet rounding), same sign as Ẇ | `tools/validate_body_constants.py` | every PR |
 | Radii, oblateness, masses, axial tilts | NASA planetary fact sheets (NSSDC) | exact transcription at the fact sheet's full published precision (e.g. Earth 5.9722×10²⁴ kg, not 5.972); polar ≤ equatorial | `tools/validate_body_constants.py` | every PR |
 | Detail-card scalars (surface gravity, escape velocity, density, mean temperature, geometric albedo, magnetic dipole ratio) | NASA planetary fact sheets (NSSDC) | exact transcription | `tools/validate_body_constants.py` | every PR |
@@ -59,9 +61,14 @@ protected by a comment in the code and (where applicable) by the constants gate.
 - Body sizes and moon orbital distances are exaggerated for legibility; the detail cards say
   so, and **true-scale mode must remain exact** (real radius/AU).
 - When the animation clock outpaces what a frame can resolve, the app **withholds rather
-  than fakes**: moons below the Nyquist rate are hidden with the reason in the accuracy
-  line; spin advancing more than ~15°/frame freezes its phase with the reason in the
-  accuracy line. Pausing or slowing always returns the true epoch-exact state.
+  than fakes**: moons below the Nyquist rate (fewer than three samples per revolution) are
+  hidden with the reason in the accuracy line; spin that would exceed one visible turn per
+  five real seconds keeps turning, in the correct direction, at exactly that capped rate,
+  with the reason in the accuracy line. The cap is presentation only — the simulation epoch,
+  every orbital position, and the detail cards stay exact, and pausing or slowing returns the
+  true phase. Measured engagement points, per body per speed preset, are in
+  `tools/validate_body_motion.py`; Earth crosses the threshold between the 1 h/s preset
+  (23.9 real seconds per turn, honest) and 1 d/s (5.0 s per turn, capped from 1.0).
 - Small bodies (dwarfs, comets, probes) and belts are the *illustrative* tier: real orbital
   elements, two-body propagation, ~degree-level markers — their cards carry that caveat and
   they are excluded from arcsecond claims.

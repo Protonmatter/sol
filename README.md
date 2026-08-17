@@ -89,11 +89,12 @@ python tools/build_wasm.py                 # stages apps/web/pkg/*.wasm
 
 The **3-D View** draws its surfaces from three sources, in priority order:
 
-1. **Real photographic maps** (NASA Blue Marble + Solar System Scope, CC-BY) for every body, if
-   present. They are not committed — gitignored under `apps/web/textures/` — so fetch them once:
+1. **Real photographic maps** (NASA Blue Marble + Solar System Scope CC-BY + USGS moon
+   mosaics) for every body that has one. They are a COMMITTED baseline — deploys must not
+   depend on a third-party host being up — and refreshed, not obtained, by:
 
    ```bash
-   python tools/fetch_textures.py     # ~4 MB, optional
+   python tools/fetch_textures.py     # ~6 MB, refresh only
    ```
 
 2. **Committed vector geography**, which ships with the repository and needs no download: Earth's
@@ -108,7 +109,10 @@ The view also draws the **21 major moons** of Mars, Jupiter, Saturn, Uranus and 
 Horizons elements (`tools/ephemeris-data/moons/`), validated in CI against Horizons state vectors
 to within 0.139° angular and 0.19% radial error across 11,985 interleaved checks. They are shown
 only from January 2021 through December 2030, the exact interval independently checked for every
-moon.
+moon. Ten of them wear committed USGS global mosaics and all are shaded at their published
+geometric albedo; a transiting moon casts its real umbra/penumbra on the planet's disc, computed
+from physical positions (never the inflated display orbits), and a moon inside its planet's
+shadow cone goes eclipse-dark.
 
 ### Regenerate the data the app reads (Python stdlib only)
 

@@ -13,33 +13,35 @@
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
-import { store } from "./store.js?v=da86e109de";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=da86e109de";
-import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=da86e109de";
-import { buildCelestial } from "./celestial.js?v=da86e109de";
-import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=da86e109de";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=da86e109de";
+import { store } from "./store.js?v=10c823e120";
+import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=10c823e120";
+import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=10c823e120";
+import { buildCelestial } from "./celestial.js?v=10c823e120";
+import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=10c823e120";
+import { epochAccuracy, epochLabel } from "./accuracy.js?v=10c823e120";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
-} from "./orreryMath.js?v=da86e109de";
+} from "./orreryMath.js?v=10c823e120";
 import {
   SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
-} from "./orreryShaders.js?v=da86e109de";
+} from "./orreryShaders.js?v=10c823e120";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
-} from "./orreryGalaxy.js?v=da86e109de";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=da86e109de";
-import { renderStarDetail } from "./starDetail.js?v=da86e109de";
-import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=da86e109de";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=da86e109de";
-import * as moonCatalogue from "./moons.js?v=da86e109de";
+} from "./orreryGalaxy.js?v=10c823e120";
+import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=10c823e120";
+import { renderStarDetail } from "./starDetail.js?v=10c823e120";
+import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=10c823e120";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=10c823e120";
+import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=10c823e120";
+import * as moonCatalogue from "./moons.js?v=10c823e120";
+import { MOON_TEXTURE_FILES, moonBaseColor } from "./moonAppearance.js?v=10c823e120";
 import {
   DAYS_PER_YEAR, SOLAR_SPEED_DEFAULT_YPS, solarSpeedFromSlider, solarSliderFromSpeed,
   rotationDisplayIsLimited, rotationDisplayStepSeconds, solarStepSeconds,
-} from "./orreryTime.js?v=da86e109de";
+} from "./orreryTime.js?v=10c823e120";
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
@@ -71,9 +73,14 @@ const VIS_RADIUS_AU = {
 
 // Real planetary surface maps (apps/web/textures/, fetched by tools/fetch_textures.py). Loaded
 // same-origin so WebGL can use them; any that are missing fall back to the procedural shader.
+// The moon mosaics ride in the SAME table: they load, fail and get toggled by exactly the same
+// code, and no catalogued moon shares a name with a planet (Earth's satellite is "Moon", which
+// is a drawn body here, not one of the 21). Keeping two tables would have meant two copies of
+// the missing-file handling, which is the part that has to stay identical.
 const TEXTURE_FILES = {
   Mercury: "mercury.jpg", Venus: "venus.jpg", Earth: "earth.jpg", Mars: "mars.jpg",
   Jupiter: "jupiter.jpg", Saturn: "saturn.jpg", Uranus: "uranus.jpg", Neptune: "neptune.jpg", Moon: "moon.jpg",
+  ...MOON_TEXTURE_FILES,
 };
 
 // Registered on the shared store (store.orrery) so this surface's state is inspectable
@@ -122,7 +129,7 @@ let galaxy = null;
 let smallBodies = []; // per-frame small-body markers: {name, pos, col, kind, note}
 
 // Surface maps rasterised from the committed geography (geography.js -> surfacemap.js). These
-// are what ships: apps/web/textures/ is .gitignore'd, so without them every deployment fell back
+// are what ships: before the textures became a committed baseline every deployment fell back
 // to the procedural shader and Earth's "continents" were value noise. A real fetched photo map
 // still wins where one exists — see drawBody.
 let genTex = {}, genStarted = false;
@@ -178,7 +185,7 @@ function loadTextures() {
     const img = new Image();
     img.onload = () => { try { textures[name] = { tex: makeTexture(img, true), ready: true }; repaint(); } catch (e) { console.warn("texture", name, e.message); } };
     img.onerror = () => texMissing(file);
-    img.src = "textures/" + file + "?v=da86e109de"; // ?v stamped by tools/build_web.py (busts cached textures)
+    img.src = "textures/" + file + "?v=10c823e120"; // ?v stamped by tools/build_web.py (busts cached textures)
   }
   const ring = new Image();
   // The alpha profile rides with the photo ring: when the textured ring is what's drawn, its
@@ -186,7 +193,7 @@ function loadTextures() {
   // the ring without changing its shadow (and the photo's fine gaps would not shadow at all).
   ring.onload = () => { try { ringTex = { tex: makeTexture(ring, false), ready: true, alphaProfile: ringImageAlphaProfile(ring) }; repaint(); } catch (e) {} };
   ring.onerror = () => texMissing("saturn_ring.png");
-  ring.src = "textures/saturn_ring.png?v=da86e109de";
+  ring.src = "textures/saturn_ring.png?v=10c823e120";
   // The real Sun (NASA SDO HMI continuum) for the 3-D Sun's surface — served same-origin from
   // textures/ (sdo.gsfc.nasa.gov sends no CORS header, so a remote image can't be a WebGL texture).
   // tools/fetch_textures.py downloads the latest disk to textures/sun.jpg; absent → procedural shader.
@@ -202,12 +209,12 @@ function loadTextures() {
     } catch (e) { console.warn("sun texture", e.message); }
   };
   sun.onerror = () => texMissing("sun.jpg");
-  fetch("textures/sun.jpg.json?v=da86e109de")
+  fetch("textures/sun.jpg.json?v=10c823e120")
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((meta) => {
       state.sunImageUnix = meta && Number.isFinite(meta.fetched_unix) ? meta.fetched_unix : null;
-      sun.src = "textures/sun.jpg?v=da86e109de";
+      sun.src = "textures/sun.jpg?v=10c823e120";
     });
 }
 
@@ -237,7 +244,7 @@ async function buildGeneratedMaps() {
     // and nothing here needs them. Awaiting them would put a megabyte in front of Earth's
     // coastline texture — which is exactly what browser_validation's blue-Earth assertion
     // caught when this ran as a Promise.all.
-    const geo = await import("./geography.js?v=da86e109de");
+    const geo = await import("./geography.js?v=10c823e120");
     // Only Earth and the Moon. Mars and Mercury have real, catalogued features too, but nothing
     // in that catalogue says which of them are dark — see tools/fetch_geography.py — so they
     // keep the procedural shader rather than a guess. fetch_textures.py still supplies real
@@ -290,7 +297,7 @@ function loadMoonCatalogue() {
   // import is never stored for offline use, and — worse — a later window change would ship a
   // new tokened moons.js while a browser could still serve the old knots, silently producing
   // confident positions from mismatched data.
-  moonElementsPromise = import("./moonelements.js?v=da86e109de")
+  moonElementsPromise = import("./moonelements.js?v=10c823e120")
     .then((mod) => {
       for (const m of moonSet.MOONS) Object.assign(m, mod.MOON_ELEMENTS[m.n]);
       moonElementsReady = moonSet.MOONS.every((m) => Array.isArray(m.el));
@@ -344,7 +351,10 @@ function initGL(canvas) {
     gl = null; P = {};
     return null;
   }
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex"]);
+  // Array uniforms are queried at element 0 — the location uniform4fv() needs to upload the
+  // whole array in one call. GLSL ES 3.00 accepts the bare name for that too, but "[0]" is the
+  // form the WebGL spec guarantees, and a silently null location would just skip the upload.
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
@@ -1006,6 +1016,108 @@ function updateRotationDisplay(realStepSeconds) {
   state.spinLimitedCount = rotationLimitedBodies.size;
 }
 
+/**
+ * @typedef {{m:any, off:number[], bodyKm:[number,number,number], sunlit:number}} DrawnMoon
+ */
+
+/**
+ * The moons of one planet that this frame will actually draw, with their PHYSICAL planetocentric
+ * offsets (AU, world frame) solved once.
+ *
+ * Split out of drawMoons because the transit shadows need the same positions BEFORE the planet's
+ * sphere is drawn and the markers need them after; solving Kepler twice for 21 moons every frame
+ * to answer the same question twice would be the whole cost of the feature. drawBody calls this
+ * and hands the result down.
+ *
+ * Returning null means "draw no moons and no moon shadows" — the two are gated together on
+ * purpose. A shadow whose caster the Nyquist gate has just hidden would be a dark spot crossing
+ * Jupiter with nothing casting it, which is a worse picture than no shadow at all; and the LOD
+ * and validity gates below are the layer's honesty rails, so the shadow has to sit behind them
+ * too. The invariant is simply: a shadow appears only when its moon is on screen.
+ *
+ * @returns {{moons:DrawnMoon[], scale:number, aliased:number}|null}
+ */
+function drawnMoonsFor(parentName, parentPos, parentDisplayAU, eye) {
+  if (!moonElementsReady || !state.showMoons) return null;
+  // Outside the window the committed elements were validated in, we do not know where these
+  // moons are — the phase drifts without bound and the date slider reaches ±5000 years. Drawing
+  // them anyway would put confident-looking dots at arbitrary points, which is worse than an
+  // empty orbit. The reason is surfaced in the accuracy line rather than left as a mystery.
+  if (!withinMoonValidity(
+    state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD,
+  )) {
+    state.moonsHiddenReason = `Moons hidden — outside their ${moonValidityLabel()} `
+      + "validated window. Press Now to bring them back.";
+    return null;
+  }
+  const moons = moonSet.moonsOf(parentName);
+  if (!moons.length) return null;
+  const phys = BODY[parentName];
+  // Rings are drawn out to (outerKm / radiusKm) x the planet's display radius; feed that in so
+  // the moons are lifted clear of them rather than into them.
+  const ringOuterAU = phys.rings ? (phys.rings.outerKm / phys.radiusKm) * parentDisplayAU : 0;
+  const scale = systemScale(moons, parentDisplayAU, state.trueScale, ringOuterAU);
+  // Beyond this the whole system is a few pixels wide; drawing it just speckles the planet.
+  const outermost = (moons[moons.length - 1].a / AU_KM) * scale;
+  const dist = Math.hypot(eye[0] - parentPos[0], eye[1] - parentPos[1], eye[2] - parentPos[2]);
+  if (outermost / Math.max(dist, 1e-9) < 0.012) return null;
+
+  /** @type {DrawnMoon[]} */
+  const drawn = [];
+  let aliased = 0;
+  for (const m of moons) {
+    // A frame that samples this moon's orbit below the Nyquist rate (aliasedByClock: fewer
+    // than ~3 samples per revolution) cannot draw its motion, only alias it — apparent travel
+    // can even reverse. Fast-forwarding therefore thins the inner moons out first and keeps
+    // the outer ones, which is exactly which of them the clock is still resolving.
+    if (aliasedByClock(m, state.simStepSeconds)) { aliased++; continue; }
+    drawn.push({ m, off: moonOffsetAU(m, state.renderUnix), bodyKm: [0, 0, 0], sunlit: 1 });
+  }
+  return { moons: drawn, scale, aliased };
+}
+
+/** The all-clear upload: count 0 and two zeroed arrays, shared because nothing ever writes it. */
+const NO_MOON_SHADOWS = packMoonShadows([]);
+
+/**
+ * Transit shadows on the planet's disc, and how much sunlight each of its moons is still
+ * receiving — both from the PHYSICAL geometry, never from the inflated display positions.
+ * See the header of moonshadows.js for the derivation and for why the distinction matters.
+ *
+ * Everything is handed to moonshadows.js in the planet's BODY frame, in km. Note that `rot` may
+ * be the rate-limited DISPLAY rotation at high clock speeds: that is harmless here, because the
+ * shader turns the body frame straight back into world space through the same matrix, so the
+ * shadow lands at the correct world-frame point on the globe either way. Only which surface
+ * feature happens to lie under it inherits the disclosed spin-display cap.
+ *
+ * Fills `sunlit` on each drawn moon as a side effect, so the body-frame offsets are computed
+ * once for both halves of the event.
+ *
+ * @returns {{count:number, pos:Float32Array, axis:Float32Array}}
+ */
+function moonShadowUniforms(phys, planetPos, rot, drawn) {
+  if (!drawn || !drawn.moons.length) return NO_MOON_SHADOWS;
+  // World → body is Rᵀ; rot's upper 3×3 is orthonormal and column-major (same transpose the
+  // ring-shadow light direction above uses).
+  const toBody = (v) => /** @type {[number,number,number]} */ ([
+    rot[0] * v[0] + rot[1] * v[1] + rot[2] * v[2],
+    rot[4] * v[0] + rot[5] * v[1] + rot[6] * v[2],
+    rot[8] * v[0] + rot[9] * v[1] + rot[10] * v[2],
+  ]);
+  const sunOffset = toBody([-planetPos[0] * AU_KM, -planetPos[1] * AU_KM, -planetPos[2] * AU_KM]);
+  const geom = {
+    eqRadius: phys.radiusKm, polarRadius: phys.polarKm, sunRadius: BODY.Sun.radiusKm,
+  };
+  const casters = [];
+  for (const e of drawn.moons) {
+    e.bodyKm = toBody([e.off[0] * AU_KM, e.off[1] * AU_KM, e.off[2] * AU_KM]);
+    // The other half of the same geometry: a moon that has gone behind its planet loses the Sun.
+    e.sunlit = sunlightOnMoon(e.bodyKm, sunOffset, geom);
+    casters.push({ name: e.m.n, offset: e.bodyKm, radius: e.m.r });
+  }
+  return packMoonShadows(moonShadowsOnPlanet(casters, sunOffset, geom, MAX_MOON_SHADOWS));
+}
+
 function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
@@ -1018,6 +1130,10 @@ function drawBody(b, vp, eye) {
   const mvp = mul(vp, model);
   const light = b.name === "Sun" ? [0, 0, 1] : norm([-pos[0], -pos[1], -pos[2]]);
   const atmo = atmoColor(b.name), atmoStr = atmoStrength(b.name);
+  // Solve the moon positions ONCE per planet per frame: the transit shadows need them before
+  // this sphere is drawn, drawMoons needs them after.
+  const drawn = drawnMoonsFor(b.name, pos, rEq, eye);
+  const shadows = moonShadowUniforms(phys, pos, rot, drawn);
 
   gl.useProgram(P.sphere);
   gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mvp));
@@ -1063,6 +1179,12 @@ function drawBody(b, vp, eye) {
     phys.rings ? [phys.rings.innerKm / phys.radiusKm, phys.rings.outerKm / phys.radiusKm] : [0, 0],
   ));
   gl.uniform1f(P.sphereU.u_oblate, phys.polarKm / phys.radiusKm);
+  // Transit shadows. count is 0 on all but a handful of frames per decade, and the shader skips
+  // the whole block then — but the arrays are still uploaded so a stale caster from the previous
+  // planet can never be read if the count is ever raised without them.
+  gl.uniform1i(P.sphereU.u_moonShadowCount, shadows.count);
+  gl.uniform4fv(P.sphereU["u_moonShadowPos[0]"], shadows.pos);
+  gl.uniform4fv(P.sphereU["u_moonShadowAxis[0]"], shadows.axis);
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D, phys.rings ? ringShadowProfileTex(b.name, phys) : whiteTex);
   gl.uniform1i(P.sphereU.u_ringTex, 1);
@@ -1092,7 +1214,7 @@ function drawBody(b, vp, eye) {
   // Opaque moons first, transparent rings second. drawRing disables depth writes, so drawing it
   // first left no ring depth for a later moon to test against and made moons behind a foreground
   // ring appear on top of it.
-  drawMoons(b.name, pos, rEq, vp, eye);
+  drawMoons(b.name, pos, rEq, vp, eye, drawn);
   if (phys.rings) drawRing(b.name, phys, pos, rEq, rot, vp);
 }
 
@@ -1128,42 +1250,23 @@ function moonValidityLabel() {
   return moonValidityLabelCache;
 }
 
-// Draw the moons of one planet. Returns quietly when the catalogue has not loaded, when the
-// planet has none, or when the camera is too far out for them to be anything but clutter.
-function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
-  if (!moonElementsReady || !state.showMoons) return;
-  // Outside the window the committed elements were validated in, we do not know where these
-  // moons are — the phase drifts without bound and the date slider reaches ±5000 years. Drawing
-  // them anyway would put confident-looking dots at arbitrary points, which is worse than an
-  // empty orbit. The reason is surfaced in the accuracy line rather than left as a mystery.
-  if (!withinMoonValidity(
-    state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD,
-  )) {
-    state.moonsHiddenReason = `Moons hidden — outside their ${moonValidityLabel()} `
-      + "validated window. Press Now to bring them back.";
-    return;
-  }
-  const moons = moonSet.moonsOf(parentName);
-  if (!moons.length) return;
+// Draw the moons of one planet from the set drawnMoonsFor() already resolved (see there for
+// every reason this can be empty). Returns quietly when there is nothing to draw.
+function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
+  if (!drawn) return;
+  // Counted even when the clock has aliased away every moon of this planet — that is exactly
+  // the case the accuracy line exists to disclose.
+  state.moonsAliasedCount += drawn.aliased;
+  if (!drawn.moons.length) return;
   const phys = BODY[parentName];
-  // Rings are drawn out to (outerKm / radiusKm) x the planet's display radius; feed that in so
-  // the moons are lifted clear of them rather than into them.
-  const ringOuterAU = phys.rings ? (phys.rings.outerKm / phys.radiusKm) * parentDisplayAU : 0;
-  const scale = systemScale(moons, parentDisplayAU, state.trueScale, ringOuterAU);
-  // Beyond this the whole system is a few pixels wide; drawing it just speckles the planet.
-  const outermost = (moons[moons.length - 1].a / AU_KM) * scale;
-  const dist = Math.hypot(eye[0] - parentPos[0], eye[1] - parentPos[1], eye[2] - parentPos[2]);
-  if (outermost / Math.max(dist, 1e-9) < 0.012) return;
-
-  let aliased = 0;
+  const scale = drawn.scale;
 
   // Orbit paths, when the Orbits overlay is on. Same scale factor as the markers, so the moon
   // always sits ON its drawn path. Without these the markers float with none of the context the
   // overlay promises for every other body in the scene.
   if (state.showOrbits) {
     const pts = [];
-    for (const m of moons) {
-      if (aliasedByClock(m, state.simStepSeconds)) continue;
+    for (const { m } of drawn.moons) {
       const path = moonOrbitPath(m, state.renderUnix, 64);
       for (let i = 0; i + 1 < path.length; i++) {
         for (const q of [path[i], path[i + 1]]) {
@@ -1187,13 +1290,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
     }
   }
 
-  for (const m of moons) {
-    // A frame that samples this moon's orbit below the Nyquist rate (aliasedByClock: fewer
-    // than ~3 samples per revolution) cannot draw its motion, only alias it — apparent travel
-    // can even reverse. Fast-forwarding therefore thins the inner moons out first and keeps
-    // the outer ones, which is exactly which of them the clock is still resolving.
-    if (aliasedByClock(m, state.simStepSeconds)) { aliased++; continue; }
-    const off = moonOffsetAU(m, state.renderUnix);
+  for (const { m, off, sunlit } of drawn.moons) {
     const pos = [parentPos[0] + off[0] * scale, parentPos[1] + off[1] * scale, parentPos[2] + off[2] * scale];
     const r = moonDisplayRadius(m, phys.radiusKm, parentDisplayAU);
     const model = mul(translate(pos), scaleM([r, r, r]));
@@ -1208,21 +1305,50 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
     gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
     gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]));
     // Titan is the one moon with a real atmosphere, so it gets the hazy shader rather than the
-    // cratered one; everything else is a rock or an iceball. Both styles MODULATE u_base — the
-    // planet styles would overwrite it and throw away the catalogue's per-moon colour.
-    gl.uniform1i(P.sphereU.u_style, m.n === "Titan" ? STYLE_ID.moonHaze : STYLE_ID.moonRock);
+    // cratered one; Europa gets its own because it is not a cratered iceball (see the shader).
+    // Everything else is a rock or an iceball. All three styles MODULATE u_base — the planet
+    // styles would overwrite it and throw away both the catalogue's hue and the albedo scale.
+    gl.uniform1i(P.sphereU.u_style, m.n === "Titan" ? STYLE_ID.moonHaze
+      : m.n === "Europa" ? STYLE_ID.moonIce : STYLE_ID.moonRock);
     gl.uniform1i(P.sphereU.u_mode, 0);
     gl.uniform1f(P.sphereU.u_time, state.renderUnix * 0.0002);
-    gl.uniform3fv(P.sphereU.u_base, new Float32Array(m.col));
+    // The catalogue's hue at the moon's PUBLISHED geometric albedo — see moonAppearance.js —
+    // dimmed if the moon is inside its planet's shadow cone. `sunlit` is the fraction of the
+    // solar disc the moon can still see (sunlightOnMoon in moonshadows.js, computed from the
+    // PHYSICAL offset like the transit shadows), so an eclipsed Galilean fades out and comes
+    // back as it crosses the penumbra — the event Rømer used to measure the speed of light.
+    // The 0.06 floor is the planet's own scattered light, matching the 0.05 ambient the sphere
+    // shader gives an unlit surface: a moon in Jupiter's umbra all but disappears, as it does
+    // in a telescope, but it is not painted pure black.
+    // `sunlit` is a LINEAR fraction of the solar disc, but the value it scales is
+    // sRGB-encoded (moonAppearance.js writes albedo through the 1/2.2 transfer), so the
+    // ramp must pass through the same transfer or penumbral ingress reads ~2x deeper than
+    // the geometry says: linear 0.50 displayed as encoded would show 0.247 of the light.
+    const eclipsed = (0.06 + 0.94 * sunlit) ** (1 / 2.2);
+    const baseColor = moonBaseColor(m);
+    gl.uniform3fv(P.sphereU.u_base, new Float32Array(
+      [baseColor[0] * eclipsed, baseColor[1] * eclipsed, baseColor[2] * eclipsed],
+    ));
     gl.uniform3fv(P.sphereU.u_light, new Float32Array(light));
     gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
     gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(m.n === "Titan" ? [0.85, 0.6, 0.3] : [0, 0, 0]));
     gl.uniform1f(P.sphereU.u_atmoStr, m.n === "Titan" ? 0.5 : 0);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, whiteTex);
+    // Real USGS global mosaic when one exists, has decoded, and Photo textures are on — the
+    // same three conditions drawBody applies to the planets, so the toggle means one thing
+    // everywhere. Absent file (a checkout that has not run tools/fetch_textures.py) or toggle
+    // off ⇒ u_useTex 0 and the procedural style above draws the moon, unchanged.
+    const moonTex = state.useTextures && textures[m.n] && textures[m.n].ready ? textures[m.n] : null;
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, moonTex ? moonTex.tex : whiteTex);
     gl.uniform1i(P.sphereU.u_tex, 0);
-    gl.uniform1i(P.sphereU.u_useTex, 0);
-    gl.uniform1i(P.sphereU.u_texMode, 0);
+    gl.uniform1i(P.sphereU.u_useTex, moonTex ? 1 : 0);
+    // texMode 2: the mosaic is divided by its own mean and multiplied into u_base, so the map
+    // supplies structure while the published albedo keeps sole charge of brightness.
+    gl.uniform1i(P.sphereU.u_texMode, moonTex ? 2 : 0);
     gl.uniform2fv(P.sphereU.u_ringRad, new Float32Array([0, 0])); // no ring shadow on moons — clear the parent's state
+    // Nor a moon shadow ON a moon: mutual Galilean events are real but they need each moon's
+    // own body frame and an accuracy this element set does not claim (moons.js: "never for an
+    // occultation, a mutual event"). Clear the parent's casters so none leaks onto this sphere.
+    gl.uniform1i(P.sphereU.u_moonShadowCount, 0);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
@@ -1235,7 +1361,6 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye) {
 
     moonMarkers.push({ name: m.n, pos, moon: m });
   }
-  state.moonsAliasedCount += aliased;
 }
 
 function drawRing(name, phys, pos, rEq, rot, vp) {
@@ -1767,7 +1892,7 @@ async function enterOrreryInner() {
     // in the static moons.js, so there is nothing left to wait for.
     void loadMoonCatalogue();
     buildGeneratedMaps(); // not awaited: generated maps appear progressively
-    const starCatPromise = starCat ? null : import("./starcatalog.js?v=da86e109de");
+    const starCatPromise = starCat ? null : import("./starcatalog.js?v=10c823e120");
     if (starCatPromise) {
       void starCatPromise.then((catalogue) => {
         starCat = catalogue;

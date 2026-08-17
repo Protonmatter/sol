@@ -8,6 +8,39 @@ crate follows [SemVer](https://semver.org/).
 
 ### Added
 
+- **Moons cast their real shadows.** When a catalogued moon transits its planet's sunlit face,
+  the umbra/penumbra cross the disc — computed in the planet's body frame from PHYSICAL
+  planetocentric positions (not the inflated display offsets), in fractions of the equatorial
+  radius, so the same numbers are correct on the oversized disc and in true-scale mode. The
+  spheroid is handled exactly via the affine map onto a sphere; treating Jupiter as round
+  misplaced an off-equator shadow by more than a whole umbral radius. Shadows obey the moon
+  layer's own honesty rails (validity window, Nyquist gate, LOD), and the Overlays panel says
+  why a shadow does not sit under its drawn moon — the moon is displayed on an inflated orbit,
+  the shadow where it physically falls. Eclipses too: a moon entering its planet's shadow cone
+  fades to scattered-light dark; Io goes dark once per orbit for ~2.3 h, never mid-transit.
+  Verified against a rendered Io transit (2026-03-01T23:39Z: 96.8% of direct sunlight removed
+  at the predicted disc position) and a no-transit control ten hours later.
+
+- **Ten moons wear their real faces.** USGS Astrogeology global-mosaic browse renderings
+  (public domain) are committed for Phobos, Io, Europa, Ganymede, Callisto, Enceladus, Tethys,
+  Dione, Rhea and Iapetus. The eleven without a usable published global product keep the
+  procedural surface, each absence recorded with its reason (Voyager 2 imaged one hemisphere of
+  the Uranian moons and Triton; Titan's ISS strip sees through the haze the eye would see;
+  Nereid has never been resolved). Moon brightness is now driven by geometric albedo pinned to
+  the JPL Horizons physical-data blocks and pushed through the sRGB transfer, so displayed
+  luminance ratios equal published reflectance ratios — Enceladus (1.04) leads, Europa (0.67)
+  outshines Ganymede (0.43), Callisto (0.17) trails, and none of it is a taste decision any
+  more. Mars's procedural surface gains its polar caps at the published extents.
+
+- **A motion contract, gated in CI.** `tools/validate_body_motion.py` measures every body
+  through the shipped `rotationPhase()`/`poleVector()`: rotation period vs the card, spin
+  direction vs IAU (Venus and Uranus retrograde), rendered axis tilt within a pinned band, all
+  21 moon periods against their element knots (worst 4.95e-07 d), and the display cap's exact
+  0.2 turn/s engagement across all seven speed presets. Found and fixed one real defect: the
+  Moon's spin axis was 0.022° from the ecliptic pole because the E1 libration term was omitted
+  — with pck00011's E1 applied the axis holds the Cassini-state 1.51–1.58° and latitude
+  libration reaches the ±6.7° the card already claimed.
+
 - **The major moons.** Twenty-one of them — Mars's two, the four Galileans, seven Saturnian
   including Titan, the five Uranian, and Triton, Nereid and Proteus — drawn in their real orbits
   around the planets they belong to, lit, labelled, and clickable for a facts card. Every
@@ -50,7 +83,7 @@ crate follows [SemVer](https://semver.org/).
     Enceladus), and the renderer interpolates modified equinoctial elements so circular-orbit
     angle singularities cannot introduce jumps.
 
-- **Earth has real geography.** `apps/web/textures/` is `.gitignore`d and is populated only by the
+- **Earth has real geography.** `apps/web/textures/` was then still `.gitignore`d and populated only by the
   optional `tools/fetch_textures.py`, so every deployment — GitHub Pages included — fell through
   to the procedural shader, where Earth's "continents" were value noise (`fbm(p*2.3)` thresholded
   into land). Real coastlines, lakes and permanent ice now ship with the repository: Natural Earth

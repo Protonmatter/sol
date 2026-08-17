@@ -10,7 +10,7 @@ Inputs (tools/ephemeris-data/geography/, see its README for provenance and licen
 Output (committed; CI verifies regeneration is byte-identical):
   apps/web/js/geography.js
 
-Why this exists: apps/web/textures/ is .gitignore'd, so every deployment rendered planets with
+Why this exists: before the textures became a committed baseline, every deployment rendered planets with
 the procedural shader — Earth's "continents" were value noise. This module gives the renderer
 real geography that the repository actually carries, with no network and no binary assets.
 

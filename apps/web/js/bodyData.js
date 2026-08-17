@@ -143,6 +143,21 @@ export const BODY = {
     radiusKm: 1737.4, polarKm: 1736.0, massKg: 7.346e22, densityGcm3: 3.344,
     gravity: 1.62, escapeKms: 2.38, rotationHours: 655.72 /* synchronous, 27.322 d */, tiltDeg: 6.68,
     poleRaDeg: 269.9949, poleDecDeg: 66.5392, poleRaDotDegPerCty: 0.0031, poleDecDotDegPerCty: 0.013, w0Deg: 38.3213, wDotDegPerDay: 13.17635815,
+    // pck00011 E1 — the first and overwhelmingly dominant term of the lunar libration series:
+    // BODY301_NUT_PREC_RA[0] = −3.8787°, _DEC[0] = +1.5419°, _PM[0] = +3.5610°, on
+    // BODY3_NUT_PREC_ANGLES[0] = 125.045° − 1935.5364525°·T (the 18.6-year regression of the
+    // lunar node). It rides in the same `poleNut` slot as Neptune's correction, for the same
+    // reason and at five times the magnitude.
+    //
+    // The constant terms ALONE are not the Moon's axis. They place the pole 0.02° from the
+    // ecliptic pole, whereas the Moon really sits in a Cassini state with its spin axis 1.54°
+    // from it, on the opposite side of the ecliptic normal from its orbit normal (6.68°
+    // obliquity to orbit − 5.14° orbit inclination). Measured on this model: the rendered axis
+    // moved from 0.022° to 1.575° off the ecliptic pole, and the rendered latitude libration
+    // grew from ±5.24° to ±6.77° — the ±6.7° this table already claims in `tidalLock` below
+    // and prints on the card. E2/E3 and the ten smaller terms stay omitted; their combined
+    // residual is ≤ ~0.2° (docs/ACCURACY_CONTRACT.md §1).
+    poleNut: { n0Deg: 125.045, nDotDegPerCty: -1935.5364525, raAmpDeg: -3.8787, decAmpDeg: 1.5419, wAmpDeg: 3.5610 },
     magDipoleEarth: 0, magnetosphere: false,
     // Synchronous rotation: the spin period above EQUALS the orbital period, which is what
     // "tidally locked" means — the same hemisphere faces Earth. It does not mean the Moon is
@@ -163,7 +178,9 @@ export const STYLE_ID = {
   sun: 0, cratered: 1, venus: 2, earth: 3, mars: 4,
   jupiter: 5, saturn: 6, uranus: 7, neptune: 8, moon: 9,
   // Moon styles that modulate the body's own colour rather than replacing it (orreryShaders).
-  moonRock: 10, moonHaze: 11,
+  // moonIce is Europa's: the shared cratered style is qualitatively wrong for the youngest,
+  // least-cratered surface in the outer solar system — see the branch for the crater count.
+  moonRock: 10, moonHaze: 11, moonIce: 12,
 };
 
 const D2R = Math.PI / 180;
@@ -223,9 +240,10 @@ export function poleAt(phys, unixSeconds) {
   // Everyone else: the IAU linear rates. Their magnitudes are small enough (Mars, the largest at
   // −0.061°/cty in declination, moves 3° over the slider's full range) that the tangent stays a
   // good approximation and δ0 never leaves range. Bodies with a single dominant periodic term
-  // (Neptune: ±0.70° in RA / ∓0.51° in Dec on N = 357.85° + 52.316°·T) carry it as `poleNut` —
-  // dropping it would render a pole up to 0.7° off while the constants gate reported an exact
-  // source match. Multi-term series (Mars 2015, the Moon's libration series) remain truncations
+  // (Neptune: ±0.70° in RA / ∓0.51° in Dec on N = 357.85° + 52.316°·T; the Moon: ∓3.88° / ±1.54°
+  // on E1) carry it as `poleNut` — dropping it would render a pole up to 0.7° (Neptune) or 1.5°
+  // (the Moon) off while the constants gate reported an exact source match. The genuinely
+  // multi-term series (Mars 2015, the Moon's remaining twelve E-terms) stay truncations
   // documented in docs/ACCURACY_CONTRACT.md.
   const T = days / 36525;
   if (phys.poleNut) {
