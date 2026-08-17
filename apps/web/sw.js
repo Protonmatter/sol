@@ -16,7 +16,7 @@
 //     bloat the cache and hide failures the app already handles.
 //   • Paths are relative so the same worker serves / locally and /sol/ on GitHub Pages.
 
-const TOKEN = "?v=10c823e120"; // restamped by tools/build_web.py with every content change
+const TOKEN = "?v=dcca6290db"; // restamped by tools/build_web.py with every content change
 const CACHE = `sol-${TOKEN.slice(3)}`;
 
 self.addEventListener("install", (event) => {
