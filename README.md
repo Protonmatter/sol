@@ -108,7 +108,10 @@ The view also draws the **21 major moons** of Mars, Jupiter, Saturn, Uranus and 
 Horizons elements (`tools/ephemeris-data/moons/`), validated in CI against Horizons state vectors
 to within 0.139° angular and 0.19% radial error across 11,985 interleaved checks. They are shown
 only from January 2021 through December 2030, the exact interval independently checked for every
-moon.
+moon. Ten of them wear committed USGS global mosaics and all are shaded at their published
+geometric albedo; a transiting moon casts its real umbra/penumbra on the planet's disc, computed
+from physical positions (never the inflated display orbits), and a moon inside its planet's
+shadow cone goes eclipse-dark.
 
 ### Regenerate the data the app reads (Python stdlib only)
 
