@@ -8,13 +8,6 @@ on:
   push:
     branches: [master, "precision/**", "redesign/**"]
   pull_request:
-    # The daily-ingest branches are excluded on purpose. Their PRs are opened by
-    # github-actions[bot], which GitHub's approval policy treats as a perpetual
-    # first-time contributor: the pull_request runs fire, land in action_required,
-    # and wait for a human — while the ingest workflow has ALREADY dispatched these
-    # same checks at the branch SHA to satisfy the required contexts and auto-merge.
-    # The held runs gate nothing; they only accumulate as approval requests.
-    branches-ignore: ["data/daily-ingest-**"]
 
 permissions:
   contents: read

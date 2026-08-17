@@ -4,13 +4,6 @@ on:
   push:
     branches: [master, "precision/**", "redesign/**"]
   pull_request:
-    # The daily-ingest branches are excluded on purpose. Their PRs are opened by
-    # github-actions[bot], which GitHub's approval policy treats as a perpetual
-    # first-time contributor: the pull_request runs fire, land in action_required,
-    # and wait for a human — while the ingest workflow has ALREADY dispatched these
-    # same checks at the branch SHA to satisfy the required contexts and auto-merge.
-    # The held runs gate nothing; they only accumulate as approval requests.
-    branches-ignore: ["data/daily-ingest-**"]
   # Manual/API dispatch. Load-bearing for daily-ingest.yml: a PR opened with the
   # default GITHUB_TOKEN does not trigger workflows (GitHub's recursion guard), so
   # CI would never report on an automated data PR and its required checks could
@@ -92,7 +85,7 @@ jobs:
   web:
     name: Web, provider, and browser validation
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40  # smoke's worst case is 6 browser launches x 180 s = 18 min before wasm build + browser_validation
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
