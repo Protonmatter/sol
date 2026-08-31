@@ -354,7 +354,7 @@ jobs:
       - name: Browser runtime coverage probe + WebGL visual assertions
         run: node tools/browser_validation.mjs --output-dir=coverage/browser-ci
 
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: browser-visual-regressions-${{ github.sha }}
@@ -386,7 +386,7 @@ jobs:
           cargo run --release --locked -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 --activity 0.9 --out "snapshot-${{ matrix.os }}.json"
           cargo run --release --locked -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 --activity 0.9 --out snapshot-again.json
           cmp "snapshot-${{ matrix.os }}.json" snapshot-again.json
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: determinism-${{ matrix.os }}
           path: snapshot-${{ matrix.os }}.json
