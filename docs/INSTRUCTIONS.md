@@ -11,6 +11,10 @@ Initial toolchain/dependency installation requires network access and is separat
 offline validation. `npm ci --ignore-scripts` is the locked install command when authorized.
 No Node runtime is needed by the static deployed app.
 
+The Python tool suite also executes the real Node smoke driver. Install the locked npm
+tooling before running that suite or its coverage job, even when testing only Python.
+The URL-admission regressions reject invalid inputs without launching Chromium.
+
 ## Build and serve a preview
 
 Choose unused output directories; do not overwrite a previous candidate.
