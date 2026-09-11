@@ -89,6 +89,7 @@ function recipient() {
   return consent.setRecipient(typeof configured==="string"?configured:"");
 }
 let renderGen = 0;      // stale-response guard for the async server tier
+let geolocationGen = 0; // observer intent survives unrelated snapshot/time refreshes
 
 // --- Persistence: My Sky is a repeat-use surface; losing the observer/provider on every
 // reload (and re-prompting for geolocation) was real friction. localStorage can throw in
@@ -183,6 +184,7 @@ export function enterSky() {
 
 export function leaveSky() {
   active = false;
+  ++geolocationGen;
   ++renderGen; computingSnapshot=false;
   remoteController?.abort();workerClient?.dispose();workerClient=null;
   trajCache={key:null,pts:null};hideTooltip();
@@ -549,7 +551,7 @@ function redraw() { if (lastSnap) drawDome(lastSnap); }
 
 // --- Observer controls ---
 document.getElementById("skyGeo")?.addEventListener("click", () => {
-  const generation=renderGen;
+  const generation=++geolocationGen;
   const label = document.getElementById("skyLocLabel");
   if (!navigator.geolocation) {
     if (label) label.textContent = "This browser has no geolocation — enter coordinates manually.";
@@ -558,9 +560,9 @@ document.getElementById("skyGeo")?.addEventListener("click", () => {
   if (label) label.textContent = "Locating…"; // pending feedback while the permission prompt is open
   navigator.geolocation.getCurrentPosition(
     (pos) => {
+      if (!active || generation!==geolocationGen) return;
       try { validateSkyWork({operation:"snapshot",lat:pos.coords.latitude,lon:pos.coords.longitude,elev:pos.coords.altitude||0,unix:currentUnix()}); }
       catch(error){inputError(error.message);return;}
-      if (!active || generation!==renderGen) return;
       Object.assign(observer,{lat:pos.coords.latitude,lon:pos.coords.longitude,elev:pos.coords.altitude||0,label:"Your device location"});
       clearDeepLinkHash();
       saveSkyPrefs();
@@ -568,6 +570,7 @@ document.getElementById("skyGeo")?.addEventListener("click", () => {
       renderSky();
     },
     () => {
+      if (!active || generation!==geolocationGen) return;
       if (label) label.textContent = "Location permission denied - enter coordinates manually.";
     }
   );
@@ -579,6 +582,7 @@ document.getElementById("skySet")?.addEventListener("click", () => {
     if(values.some(v=>!v))throw new Error("Enter latitude, longitude and elevation; empty values are not zero.");
     const [lat,lon,elev]=values.map(Number);
     validateSkyWork({operation:"snapshot",lat,lon,elev,unix:currentUnix()});
+    ++geolocationGen;
     Object.assign(observer,{lat,lon,elev,label:"Set location"});
     inputError("");clearDeepLinkHash();saveSkyPrefs();setLocLabel();renderSky();
   } catch(error) {inputError(error.message);}
@@ -652,26 +656,47 @@ document.getElementById("skyNow")?.addEventListener("click", () => {
 // --- Share link + export (deep-link the location/time; download the snapshot) ---
 function previewSky(kind) {
   if(!lastSnap){inputError("Compute a validated snapshot before sharing or exporting.");return;}
+  document.getElementById("skyShareManualCopy")?.remove();
   const o=lastSnap.observer;
-  const preview=makeSkyPreview({lat:o.terrestrial_lat_deg,lon:o.terrestrial_lon_deg_east,elev:o.elev_m,unix:(lastSnap.time.jd_utc-2440587.5)*86400},location.href);
+  // Staged release URLs expire; the deployment root forwards the captured Sky hash.
+  const releaseBasePath="__SOL_BASE_PATH__";
+  const shareBase=releaseBasePath.startsWith("__")?location.href:new URL(releaseBasePath,location.href).href;
+  const preview=makeSkyPreview({lat:o.terrestrial_lat_deg,lon:o.terrestrial_lon_deg_east,elev:o.elev_m,unix:(lastSnap.time.jd_utc-2440587.5)*86400},shareBase);
   pendingPreview={...preview,kind,snapshot:lastSnap};
   const panel=document.getElementById("skySharePreview"),text=document.getElementById("skySharePreviewText"),confirm=document.getElementById("skyShareConfirm");
   if(panel)panel.hidden=false;if(text)text.textContent=preview.text+(kind==="export"?" Raw JSON also includes source/model metadata.":" "+preview.url);
   if(confirm)confirm.textContent=kind==="export"?"Download precise snapshot":"Copy precise share link";
 }
+function offerManualShareCopy(url) {
+  let field=/** @type {HTMLTextAreaElement|null} */(document.getElementById("skyShareManualCopy"));
+  if(!field){
+    field=document.createElement("textarea");field.id="skyShareManualCopy";field.readOnly=true;
+    field.setAttribute("aria-label","Precise Sky share link for manual copying");
+    document.getElementById("skySharePreview")?.appendChild(field);
+  }
+  field.value=url;field.focus();field.select();
+  inputError("Automatic copying unavailable. Copy the selected precise share link manually.");
+}
 document.getElementById("skyShare")?.addEventListener("click",()=>previewSky("share"));
 document.getElementById("skyExport")?.addEventListener("click",()=>previewSky("export"));
-document.getElementById("skyShareCancel")?.addEventListener("click",()=>{pendingPreview=null;const p=document.getElementById("skySharePreview");if(p)p.hidden=true;});
+document.getElementById("skyShareCancel")?.addEventListener("click",()=>{pendingPreview=null;document.getElementById("skyShareManualCopy")?.remove();const p=document.getElementById("skySharePreview");if(p)p.hidden=true;});
 document.getElementById("skyShareConfirm")?.addEventListener("click",async()=>{
   const preview=pendingPreview;if(!preview)return;
   try{
-    if(preview.kind==="share")await navigator.clipboard.writeText(preview.url);
+    if(preview.kind==="share"){
+      if(typeof navigator.clipboard?.writeText!=="function")throw new Error("Clipboard API unavailable");
+      await navigator.clipboard.writeText(preview.url);
+    }
     else {
       const blob=new Blob([JSON.stringify(preview.snapshot,null,2)],{type:"application/json"});
       const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="sky-snapshot-v3.json";a.click();URL.revokeObjectURL(url);
     }
-    pendingPreview=null;const p=document.getElementById("skySharePreview");if(p)p.hidden=true;inputError(preview.kind==="share"?"Share link copied.":"Snapshot downloaded.");
-  }catch(error){inputError("Sharing failed: "+error.message);}
+    if(pendingPreview!==preview)return;
+    pendingPreview=null;document.getElementById("skyShareManualCopy")?.remove();const p=document.getElementById("skySharePreview");if(p)p.hidden=true;inputError(preview.kind==="share"?"Share link copied.":"Snapshot downloaded.");
+  }catch(error){
+    if(pendingPreview!==preview)return;
+    if(preview.kind==="share")offerManualShareCopy(preview.url);else inputError("Sharing failed: "+error.message);
+  }
 });
 
 // --- Overlay toggles ---

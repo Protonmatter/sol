@@ -336,6 +336,10 @@ fn ingest_swpc_command(args: &[String]) -> Result<(), String> {
             payloads.push((
                 name.to_owned(),
                 origin.to_owned(),
+                p.get("source")
+                    .and_then(JsonValue::as_str)
+                    .ok_or("product source missing")?
+                    .to_owned(),
                 bundle
                     .components
                     .get(name)
@@ -343,8 +347,9 @@ fn ingest_swpc_command(args: &[String]) -> Result<(), String> {
                     .clone(),
             ));
         }
-        let json =
-            solar_ingest::swpc_observation_report_from_payloads(&bundle.id, &payloads, as_of)?;
+        let json = solar_ingest::swpc_observation_report_from_attributed_payloads(
+            &bundle.id, &payloads, as_of,
+        )?;
         write_text(&out, &json)?;
         println!(
             "wrote observations={} source_bundle={}",

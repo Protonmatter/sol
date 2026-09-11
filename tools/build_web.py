@@ -116,8 +116,16 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
         url = base_path + namespace + "index.html"
         (temporary / "index.html").write_text(
             '<!doctype html><html lang="en"><meta charset="utf-8">'
-            f'<meta http-equiv="refresh" content="0;url={url}"><title>Sol</title>'
-            f'<a href="{url}">Open this Sol release</a></html>\n', encoding="utf-8", newline="\n")
+            '<title>Sol</title>'
+            f'<a id="openSol" href="{url}">Open this Sol release</a>'
+            # Meta refresh discards fragments in Chromium. Keep a shared Sky's
+            # captured observer/time in the fragment, never in the request path.
+            '<script>'
+            f'const target=new URL({json.dumps(url)},location.href);'
+            'target.hash=location.hash;document.getElementById("openSol").href=target.href;'
+            'location.replace(target.href);</script>'
+            f'<noscript><meta http-equiv="refresh" content="0;url={url}"></noscript>'
+            '</html>\n', encoding="utf-8", newline="\n")
         if previous:
             if previous["base_path"] != base_path:
                 raise ValueError("previous artifact base path is incompatible")

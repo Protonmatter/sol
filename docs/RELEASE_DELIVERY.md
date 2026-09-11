@@ -41,7 +41,11 @@ without a leading slash, and include `releases/RELEASE_ID/` for immutable files.
 `base_path` is an absolute URL path such as `/sol/`. Coverage `source_path` values are
 repository-relative, beginning with `apps/web/`; absolute filesystem paths are forbidden.
 
-The root `index.html` redirects to the current immutable index. There is exactly one
+The root `index.html` redirects to the current immutable index while preserving the
+incoming fragment. Sky shares target this stable root, not an expiring release
+namespace, and retain the captured observer/time in the fragment rather than sending
+it in the HTTP request path. The root's no-script fallback opens the current release
+without a Sky fragment; the application itself requires JavaScript. There is exactly one
 root `sw.js`; register it using the stamped base path and base scope. The builder
 substitutes `__SOL_RELEASE_ID__`, `__SOL_RELEASE_NAMESPACE__`, `__SOL_BASE_PATH__`, and
 existing version-query tokens before hashing. Root bootstrap and worker bytes are

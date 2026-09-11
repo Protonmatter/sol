@@ -2021,8 +2021,12 @@ async function showFallback(msg) {
   const canvas = /** @type {HTMLCanvasElement|null} */ (document.getElementById("orreryCanvas")); if (!canvas) return;
   canvas.tabIndex = 0;
   document.getElementById("orreryRetry")?.addEventListener("click",()=>{
+    // Coalesce repeated clicks before cancellation can invalidate the pending entry.
+    if(state.entering)return;
     cancelSystemWork();metadataFailed=false;state.engineError="";lastFullSnapshot=0;
-    if(!gl||state.bodies.length!==9)void enterOrrery();else void refreshSystemMetadata();
+    // A failed re-entry can retain GL and bodies while hiding the canvas before
+    // startLoop. Metadata-only recovery cannot restore that rendering lifecycle.
+    if(!gl||state.bodies.length!==9||canvas.style.display==="none")void enterOrrery();else void refreshSystemMetadata();
     updateOrreryAccuracy();
   });
   document.addEventListener("visibilitychange",()=>{

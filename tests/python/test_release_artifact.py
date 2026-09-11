@@ -10,6 +10,7 @@ import contextlib
 import io
 import os
 import runpy
+import subprocess
 from unittest.mock import patch
 from pathlib import Path
 
@@ -57,6 +58,33 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertEqual((out / "web-release-manifest.json").read_bytes(),
             (out / manifest["namespace"] / "web-release-manifest.json").read_bytes())
         self.assertTrue(any(asset["path"] == "index.html" and asset["role"] == "critical" for asset in manifest["assets"]))
+
+    def test_stable_root_bootstrap_preserves_share_fragment_in_current_release(self):
+        # Execute the builder's generated script, not a copy of its routing logic.
+        # Chromium coverage separately verifies actual document navigation.
+        script = r'''
+const fs = require("node:fs"), vm = require("node:vm");
+const html = fs.readFileSync(process.argv[1], "utf8");
+const location = new URL(process.argv[2]), redirects = [], link = {};
+location.replace = url => redirects.push(String(url));
+const context = vm.createContext({ URL, location, document: { getElementById: () => link } });
+for (const match of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) vm.runInContext(match[1], context);
+process.stdout.write(JSON.stringify({ redirects, link: link.href }));
+'''
+        for index, base in enumerate(("/", "/sol/", "/research/sol/")):
+            with self.subTest(base=base):
+                output = self.root / f"share-{index}"
+                build_web.build_site(self.source, self.wasm, output, release_id="new-release",
+                    source_sha="a" * 40, repository="owner/repo", run_id=123, run_attempt=1,
+                    base_path=base, schemas=["solar-state-snapshot.v2", "ephemeris-snapshot.v2"])
+                self.assertFalse((output / "releases/old-release").exists())
+                for fragment in ("#sky=12.5,-76,1782872027,10", "", "#sky=%22%3Cscript%3E"):
+                    address = "https://example.invalid" + base + fragment
+                    result = subprocess.run(["node", "-e", script, str(output / "index.html"), address],
+                        text=True, capture_output=True, check=True, timeout=10)
+                    expected = "https://example.invalid" + base + "releases/new-release/index.html" + fragment
+                    self.assertEqual(json.loads(result.stdout), {"redirects": [expected], "link": expected})
+                validator.validate_manifest(output / "web-release-manifest.json")
 
     def test_asset_tampering_and_unlisted_files_fail(self):
         out = self.build()

@@ -17,6 +17,12 @@ Reusing a fixture after a failed refresh keeps its `fixture` origin, original cl
 and bytes; the new acquisition records the failure/degradation separately. Reuse cannot
 promote fixture data to observed cached data.
 
+Native source-pointer intake carries the validated product source into row selection.
+When an F10.7 row omits `source`, the manifest attribution is used without changing
+the original row or raw payload. A valid row source takes precedence; an explicit
+blank, unknown, null or non-string row source remains rejected. Legacy cache/payload
+inputs without manifest attribution cannot invent a source or activity analysis.
+
 `research-data-bundle.v1` binds its source manifest digest and all snapshot,
 normalized-observation, feed-status, series-manifest, and available-series-frame
 components. Explicit unavailable series slots retain their original index/time and
@@ -43,6 +49,9 @@ loads retain the entire previous validated publication and show a retryable erro
 Successful replacement returns to the new bundle's latest context, clears prior cycle,
 gap, region and live-run intent, stops playback and invalidates pending worker results.
 Failed loads do not cancel or reset the previous view's work.
+An on-device simulation is independent of bundle loading: it retains an unresolved
+bundle error and Retry control, including after Latest restores the retained feed.
+Only successful bundle publication clears that error.
 
 Closed schemas live in `docs/*bundle*.schema.json` and
 `docs/daily-ingest-status-v2.schema.json`; embedded browser schema equality is tested.

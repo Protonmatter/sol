@@ -34,6 +34,79 @@ fn text(bytes: &[u8]) -> String {
 }
 
 #[test]
+fn source_bundle_manifest_attribution_reaches_activity_analysis() {
+    let root = temp_dir("manifest-f107");
+    let pointer = workspace_root().join("tests/fixtures/manifest-f107/current.json");
+    let report = root.join("observations.json");
+    let snapshot = root.join("snapshot.json");
+    let ingested = cli(&[
+        "ingest",
+        "swpc",
+        "--source-pointer",
+        pointer.to_str().unwrap(),
+        "--as-of-unix-seconds",
+        "1789084800",
+        "--out",
+        report.to_str().unwrap(),
+    ]);
+    assert!(ingested.status.success(), "{}", text(&ingested.stderr));
+    let normalized = solar_core::parse_json(&fs::read_to_string(&report).unwrap()).unwrap();
+    assert_eq!(
+        normalized
+            .get("observed_context")
+            .and_then(|c| c.get("activity_index"))
+            .and_then(|v| v.as_f64()),
+        Some(0.5)
+    );
+    let signal = normalized
+        .get("frames")
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f.get("id").and_then(|v| v.as_str()) == Some("swpc-f107-cm-flux"))
+        .unwrap();
+    assert_eq!(
+        signal
+            .get("provenance")
+            .unwrap()
+            .get("source")
+            .and_then(|v| v.as_str()),
+        Some("NOAA/SWPC F10.7")
+    );
+    assert!(
+        signal
+            .get("provenance")
+            .unwrap()
+            .get("raw_source_metadata")
+            .unwrap()
+            .get("source")
+            .is_none(),
+        "manifest attribution must not rewrite raw source rows"
+    );
+    let simulated = cli(&[
+        "simulate",
+        "--steps",
+        "0",
+        "--activity",
+        "0.9",
+        "--observations",
+        report.to_str().unwrap(),
+        "--out",
+        snapshot.to_str().unwrap(),
+    ]);
+    assert!(simulated.status.success(), "{}", text(&simulated.stderr));
+    let analyzed = solar_core::parse_json(&fs::read_to_string(snapshot).unwrap()).unwrap();
+    let run = analyzed.get("run").unwrap();
+    assert_eq!(
+        run.get("mode").and_then(|v| v.as_str()),
+        Some("Assimilation")
+    );
+    assert!((run.get("activity_index").unwrap().as_f64().unwrap() - 0.58).abs() < 1e-6);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn bundle_replay_validates_all_components_before_any_output() {
     let root = temp_dir("bundle-replay");
     let pointer = workspace_root().join("apps/web/data/current.json");

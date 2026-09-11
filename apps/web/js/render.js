@@ -291,7 +291,7 @@ function drawButterflySeries(ctx, width, height) {
       return;
     }
     for (const region of frame.active_regions || []) {
-      const lat = region.lat_deg || 0;
+      const lat = regionAnchor(region).lat_deg;
       const y = latToY(lat);
       const size = 1.4 + 4 * clamp(region.complexity || 0.3, 0, 1);
       ctx.beginPath();
@@ -323,13 +323,14 @@ function drawButterflySnapshot(ctx, width, height) {
   const regions = store.state.active_regions || [];
   regions.forEach((region, index) => {
     const x = 30 + (index / Math.max(regions.length - 1, 1)) * (width - 60);
-    const y = height / 2 - ((region.lat_deg || 0) / 45) * (height * 0.42);
+    const lat = regionAnchor(region).lat_deg;
+    const y = height / 2 - (lat / 45) * (height * 0.42);
     const isSelected = store.selectedRegionId === region.id;
     const size = (isSelected ? 6 : 3) + 8 * clamp(region.complexity || 0.3, 0, 1);
     store.projectedButterflyRegions.push({ x, y, region });
     ctx.beginPath();
     ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fillStyle = isSelected ? "#f7b733" : region.lat_deg >= 0 ? "rgba(247,183,51,0.85)" : "rgba(64,214,200,0.85)";
+    ctx.fillStyle = isSelected ? "#f7b733" : lat >= 0 ? "rgba(247,183,51,0.85)" : "rgba(64,214,200,0.85)";
     ctx.fill();
   });
   ctx.fillStyle = "#aeb4bd";

@@ -62,7 +62,8 @@ export async function runLiveEngine() {
     store.timelineIndex = -1;
     store.liveEngineRun = true;
     store.state = snapshot;
-    store.dataError = null;
+    // A local solve does not repair the separately loaded bundle. Only its
+    // successful publication in loadState() clears dataError and the Retry UI.
     store.selectedRegionId = null;
     renderAll();
     if (status) {

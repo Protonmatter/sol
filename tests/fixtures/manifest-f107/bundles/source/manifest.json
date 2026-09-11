@@ -1,0 +1,56 @@
+{
+  "schema_version": "public-data-cache-manifest.v2",
+  "bundle_id": "source",
+  "acquired_at_utc": "2026-09-11T00:00:00Z",
+  "products": [
+    {
+      "product_id": "rtsw_mag_1m.json",
+      "source": "NOAA/SWPC RTSW",
+      "origin": "fixture",
+      "observation_time_utc": "2026-09-11T00:00:00Z",
+      "retrieved_at_utc": null,
+      "quality": [
+        "offline behavioral fixture"
+      ],
+      "failure": null,
+      "license": "synthetic test data",
+      "critical": true,
+      "path": "mag.json",
+      "size_bytes": 70,
+      "sha256": "807414416efc72020d3c66d557b9d48fe1c50ae6b34f110784ce9550fb168cf0"
+    },
+    {
+      "product_id": "rtsw_wind_1m.json",
+      "source": "NOAA/SWPC RTSW",
+      "origin": "fixture",
+      "observation_time_utc": "2026-09-11T00:00:00Z",
+      "retrieved_at_utc": null,
+      "quality": [
+        "offline behavioral fixture"
+      ],
+      "failure": null,
+      "license": "synthetic test data",
+      "critical": true,
+      "path": "wind.json",
+      "size_bytes": 70,
+      "sha256": "807414416efc72020d3c66d557b9d48fe1c50ae6b34f110784ce9550fb168cf0"
+    },
+    {
+      "product_id": "f107_cm_flux.json",
+      "source": "NOAA/SWPC F10.7",
+      "origin": "fixture",
+      "observation_time_utc": "2026-09-11T00:00:00Z",
+      "retrieved_at_utc": null,
+      "quality": [
+        "offline behavioral fixture"
+      ],
+      "failure": null,
+      "license": "synthetic test data",
+      "critical": true,
+      "path": "f107.json",
+      "size_bytes": 49,
+      "sha256": "20ddda4c4fc63f62ebdf71c7fc723cc56fff2f7cb0d1bfb13e3c36883f1f3a3c"
+    }
+  ],
+  "failures": []
+}

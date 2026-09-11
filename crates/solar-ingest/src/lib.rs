@@ -287,12 +287,54 @@ pub fn swpc_observation_report_from_payloads(
     payloads: &[(String, String, String)],
     as_of_unix_seconds: u64,
 ) -> Result<String, String> {
+    let captured: Vec<_> = payloads
+        .iter()
+        .map(|(id, origin, raw)| (id.as_str(), origin.as_str(), None, raw.as_str()))
+        .collect();
+    report_from_bundle_payloads(bundle_id, &captured, as_of_unix_seconds)
+}
+
+/// Consume hash-validated bundle products with their manifest attribution.
+/// Tuple fields are product id, declared origin, manifest source, original raw JSON.
+/// Manifest attribution fills an absent row source, never an explicitly invalid one.
+pub fn swpc_observation_report_from_attributed_payloads(
+    bundle_id: &str,
+    payloads: &[(String, String, String, String)],
+    as_of_unix_seconds: u64,
+) -> Result<String, String> {
+    if payloads
+        .iter()
+        .any(|(_, _, source, _)| !attributable_source(source))
+    {
+        return Err("bundle product source provenance unavailable".into());
+    }
+    let captured: Vec<_> = payloads
+        .iter()
+        .map(|(id, origin, source, raw)| {
+            (
+                id.as_str(),
+                origin.as_str(),
+                Some(source.as_str()),
+                raw.as_str(),
+            )
+        })
+        .collect();
+    report_from_bundle_payloads(bundle_id, &captured, as_of_unix_seconds)
+}
+
+fn report_from_bundle_payloads(
+    bundle_id: &str,
+    payloads: &[(&str, &str, Option<&str>, &str)],
+    as_of_unix_seconds: u64,
+) -> Result<String, String> {
     let candidate =
         |name: &str, endpoint: SwpcEndpoint| -> Result<Option<SourceCandidate>, String> {
-            let Some((_, origin, raw)) = payloads.iter().find(|(id, _, _)| id == name) else {
+            let Some((_, origin, manifest_source, raw)) =
+                payloads.iter().find(|(id, _, _, _)| *id == name)
+            else {
                 return Ok(None);
             };
-            let mode = match origin.as_str() {
+            let mode = match *origin {
                 "fixture" => "fixture",
                 "current-fetch" | "cached-fallback" => "cached",
                 _ => return Err("unknown bundle product origin".into()),
@@ -301,7 +343,8 @@ pub fn swpc_observation_report_from_payloads(
                 endpoint,
                 path: PathBuf::from(format!("bundle:{bundle_id}/{name}")),
                 mode,
-                raw: raw.clone(),
+                raw: (*raw).to_owned(),
+                manifest_source: manifest_source.map(str::to_owned),
                 parsed: parse_json(raw).map_err(|e| e.to_string())?,
             }))
         };
@@ -319,9 +362,13 @@ fn report_from_candidates(
     f107: Option<SourceCandidate>,
     as_of_unix_seconds: u64,
 ) -> Result<String, String> {
-    let signal = f107
-        .as_ref()
-        .and_then(|candidate| newest_record(&candidate.parsed, true));
+    let signal = f107.as_ref().and_then(|candidate| {
+        newest_record(
+            &candidate.parsed,
+            true,
+            candidate.manifest_source.as_deref(),
+        )
+    });
 
     let source_mode = if mag.mode == "cached"
         || wind.mode == "cached"
@@ -389,6 +436,7 @@ struct SourceCandidate {
     path: PathBuf,
     mode: &'static str,
     raw: String,
+    manifest_source: Option<String>,
     parsed: JsonValue,
 }
 
@@ -437,6 +485,7 @@ fn read_source(
         path,
         mode,
         raw,
+        manifest_source: None,
         parsed,
     })
 }
@@ -456,7 +505,11 @@ fn candidate_json(out: &mut String, candidate: &SourceCandidate, id: &str, trail
         out,
         candidate,
         id,
-        newest_record(&candidate.parsed, false),
+        newest_record(
+            &candidate.parsed,
+            false,
+            candidate.manifest_source.as_deref(),
+        ),
         trailing,
     );
 }
@@ -504,8 +557,7 @@ fn candidate_json_record(
     string_pair(
         out,
         "source",
-        row.and_then(|r| scalar(r, "source"))
-            .as_deref()
+        row.and_then(|r| record_source(r, candidate.manifest_source.as_deref()))
             .unwrap_or("unknown"),
         true,
     );
@@ -553,7 +605,23 @@ fn numeric_field(row: &JsonValue, key: &str) -> Option<f64> {
         .filter(|v| v.is_finite())
 }
 
-fn newest_record(value: &JsonValue, require_flux: bool) -> Option<&JsonValue> {
+fn attributable_source(source: &str) -> bool {
+    !source.trim().is_empty() && !source.trim().eq_ignore_ascii_case("unknown")
+}
+
+fn record_source<'a>(row: &'a JsonValue, manifest_source: Option<&'a str>) -> Option<&'a str> {
+    match row.get("source") {
+        None => manifest_source,
+        Some(value) => value.as_str(),
+    }
+    .filter(|source| attributable_source(source))
+}
+
+fn newest_record<'a>(
+    value: &'a JsonValue,
+    require_flux: bool,
+    manifest_source: Option<&str>,
+) -> Option<&'a JsonValue> {
     let records = match value {
         JsonValue::Array(items) => items.as_slice(),
         _ => std::slice::from_ref(value),
@@ -561,9 +629,7 @@ fn newest_record(value: &JsonValue, require_flux: bool) -> Option<&JsonValue> {
     records
         .iter()
         .filter(|row| {
-            row.get("source")
-                .and_then(JsonValue::as_str)
-                .is_some_and(|s| !s.trim().is_empty() && !s.trim().eq_ignore_ascii_case("unknown"))
+            record_source(row, manifest_source).is_some()
                 && (!require_flux
                     || (numeric_field(row, "flux").is_some()
                         && row.get("active").and_then(JsonValue::as_bool) != Some(false)))
@@ -672,6 +738,141 @@ fn push_escaped(out: &mut String, value: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn attributed_f107_payloads(raw: &str) -> Vec<(String, String, String, String)> {
+        vec![
+            (
+                "rtsw_mag_1m.json".into(),
+                "fixture".into(),
+                "NOAA/SWPC RTSW".into(),
+                include_str!("../../../tests/swpc_scn26_21/rtsw_mag_1m_new.json").into(),
+            ),
+            (
+                "rtsw_wind_1m.json".into(),
+                "fixture".into(),
+                "NOAA/SWPC RTSW".into(),
+                include_str!("../../../tests/swpc_scn26_21/rtsw_wind_1m_new.json").into(),
+            ),
+            (
+                "f107_cm_flux.json".into(),
+                "fixture".into(),
+                "NOAA/SWPC F10.7".into(),
+                raw.into(),
+            ),
+        ]
+    }
+
+    #[test]
+    fn manifest_attribution_fills_only_an_absent_row_source() {
+        for (field, expected) in [
+            ("", Some("NOAA/SWPC F10.7")),
+            (r#", "source":"row instrument""#, Some("row instrument")),
+            (r#", "source":"""#, None),
+            (r#", "source":"  ""#, None),
+            (r#", "source":" UNKNOWN ""#, None),
+            (r#", "source":null"#, None),
+            (r#", "source":42"#, None),
+        ] {
+            let raw = format!(r#"[{{"time_tag":"2026-09-11T00:00:00Z","flux":150{field}}}]"#);
+            let payloads = attributed_f107_payloads(&raw);
+            let report =
+                swpc_observation_report_from_attributed_payloads("source", &payloads, 1789084800)
+                    .unwrap();
+            let parsed = parse_json(&report).unwrap();
+            assert_eq!(
+                parsed.get("observed_context").is_some(),
+                expected.is_some(),
+                "{field}"
+            );
+            let signal = parsed
+                .get("frames")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f.get("id").and_then(JsonValue::as_str) == Some("swpc-f107-cm-flux"));
+            assert_eq!(
+                signal
+                    .and_then(|f| f.get("provenance"))
+                    .and_then(|p| p.get("source"))
+                    .and_then(JsonValue::as_str),
+                expected,
+                "{field}"
+            );
+            if let Some(signal) = signal {
+                assert_eq!(
+                    signal
+                        .get("provenance")
+                        .unwrap()
+                        .get("raw_source_metadata")
+                        .unwrap(),
+                    &parse_json(&raw).unwrap().as_array().unwrap()[0]
+                );
+            }
+            assert_eq!(payloads[2].3, raw);
+        }
+    }
+
+    #[test]
+    fn missing_or_invalid_manifest_attribution_cannot_invent_a_signal() {
+        let mut payloads =
+            attributed_f107_payloads(r#"[{"time_tag":"2026-09-11T00:00:00Z","flux":150}]"#);
+        let legacy: Vec<_> = payloads
+            .iter()
+            .map(|(id, origin, _, raw)| (id.clone(), origin.clone(), raw.clone()))
+            .collect();
+        let report = swpc_observation_report_from_payloads("source", &legacy, 1789084800).unwrap();
+        assert!(parse_json(&report)
+            .unwrap()
+            .get("observed_context")
+            .is_none());
+        for source in ["", " ", "unknown", " UNKNOWN "] {
+            payloads[2].2 = source.into();
+            assert!(
+                swpc_observation_report_from_attributed_payloads("source", &payloads, 1789084800)
+                    .is_err(),
+                "{source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn manifest_attribution_does_not_rescue_newer_explicit_unknown_signal() {
+        let payloads = attributed_f107_payloads(
+            r#"[
+            {"time_tag":"2026-09-10T00:00:00Z","flux":150},
+            {"time_tag":"2026-09-11T00:00:00Z","flux":235,"source":" UNKNOWN "}
+        ]"#,
+        );
+        let report =
+            swpc_observation_report_from_attributed_payloads("source", &payloads, 1789084800)
+                .unwrap();
+        let parsed = parse_json(&report).unwrap();
+        assert_eq!(
+            parsed
+                .get("observed_context")
+                .unwrap()
+                .get("activity_index")
+                .and_then(JsonValue::as_f64),
+            Some(0.5)
+        );
+        let signal = parsed
+            .get("frames")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .last()
+            .unwrap();
+        assert_eq!(
+            signal
+                .get("provenance")
+                .unwrap()
+                .get("time_tag")
+                .and_then(JsonValue::as_str),
+            Some("2026-09-10T00:00:00Z")
+        );
+    }
+
     #[test]
     fn captured_bundle_payloads_preserve_fixture_mode_and_never_fallback() {
         let mut payloads = vec![
@@ -714,7 +915,7 @@ mod tests {
 
     fn extract_json_scalar(raw: &str, key: &str) -> Option<String> {
         let parsed = parse_json(raw).ok()?;
-        scalar(newest_record(&parsed, false)?, key)
+        scalar(newest_record(&parsed, false, None)?, key)
     }
 
     fn temp_dir(label: &str) -> PathBuf {
@@ -944,7 +1145,7 @@ mod tests {
         ]"#,
         )
         .unwrap();
-        let selected = newest_record(&parsed, true).unwrap();
+        let selected = newest_record(&parsed, true, None).unwrap();
         assert_eq!(scalar(selected, "source"), Some("F107".into()));
         assert_eq!(numeric_field(selected, "flux"), Some(150.0));
         assert_eq!(timestamp_seconds("1970-01-01T00:00:00Z"), Some(0));

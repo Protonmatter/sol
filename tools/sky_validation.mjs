@@ -8,6 +8,7 @@ import puppeteer from "puppeteer-core";
 
 const option=(name,fallback)=>process.argv.find(v=>v.startsWith(`--${name}=`))?.slice(name.length+3)||fallback;
 const root=path.resolve(option("web-root","build/p12-preview")),out=path.resolve(option("out","coverage/p12-sky"));
+const manifest=JSON.parse(fs.readFileSync(path.join(root,"web-release-manifest.json"),"utf8"));
 const evidence={checks:[],errors:[],workers:[],mockRequests:0,redirectTargetRequests:0};
 const redirectTarget=http.createServer((_req,res)=>{evidence.redirectTargetRequests++;res.writeHead(502,{"Access-Control-Allow-Origin":"*"}).end("local redirect destination");});
 await new Promise(resolve=>redirectTarget.listen(0,"127.0.0.1",resolve));
@@ -34,7 +35,7 @@ try {
   const cdp=await page.createCDPSession();await cdp.send("Network.enable");await cdp.send("Network.setBlockedURLs",{urls:["https://*","http://localhost/*"]});
   await page.evaluateOnNewDocument(base=>{
     window.SOL_EPHEMERIS_SERVER=base+"/mock-one";
-    window.__copies=[];Object.defineProperty(navigator,"clipboard",{value:{writeText:async value=>window.__copies.push(value)}});
+    window.__copies=[];Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async value=>window.__copies.push(value)}});
   },origin);
   await page.setViewport({width:1440,height:900});
   await page.goto(origin,{waitUntil:"networkidle0"});
@@ -82,8 +83,54 @@ try {
   await page.$eval("#skyLat",n=>{n.value="91";});await page.$eval("#skyLon",n=>{n.value="0";});await page.click("#skySet");
   assert.equal(await page.evaluate(()=>JSON.stringify(window.__skyDebug().snap)),before);assert.match(await page.$eval("#skyInputError",n=>n.textContent),/bounds/);
   await page.select("#skyTimeMode","utc");assert.match(await page.$eval("#skyTimeLabel",n=>n.textContent),/display in UTC/);
+  await page.evaluate(()=>{
+    for(const [id,value] of [["skyLat","12.345678"],["skyLon","-76.54321"],["skyElev","123.5"]])document.getElementById(id).value=value;
+    document.getElementById("skySet").click();
+    const time=document.getElementById("skyTime");time.value="2026-07-01T12:00";time.dispatchEvent(new Event("change"));
+  });
+  await page.waitForFunction(()=>{
+    const s=window.__skyDebug().snap;
+    return s.observer.terrestrial_lat_deg===12.345678&&s.observer.terrestrial_lon_deg_east===-76.54321&&s.observer.elev_m===123.5&&s.time.jd_utc===2461223;
+  },{timeout:20000});
+  const stableRoot=new URL(manifest.base_path,origin).href;
+  const capturedHash="#sky=12.345678,-76.54321,1782907200,123.5";
   await page.click("#skyShare");assert.equal(await page.evaluate(()=>window.__copies.length),0);assert.equal(await page.$eval("#skySharePreview",n=>n.hidden),false);assert.match(await page.$eval("#skySharePreviewText",n=>n.textContent),/precise latitude/);
+  // A newer snapshot must not replace the observer/time already disclosed for sharing.
+  await page.$eval("#skyTime",n=>{n.value="2026-07-02T12:00";n.dispatchEvent(new Event("change"));});
+  await page.waitForFunction(()=>window.__skyDebug().snap.time.jd_utc===2461224,{timeout:20000});
   await page.click("#skyShareConfirm");assert.equal(await page.evaluate(()=>window.__copies.length),1);
+  assert.equal(await page.evaluate(()=>window.__copies[0]),stableRoot+capturedHash,"share uses the deployment root and originally previewed snapshot");
+  const clipboardFallbacks=[];
+  for(const mode of ["missing","rejected"]){
+    await page.evaluate(mode=>Object.defineProperty(navigator,"clipboard",{configurable:true,value:mode==="missing"?undefined:{writeText:async()=>{throw new DOMException("Permission denied","NotAllowedError");}}}),mode);
+    await page.click("#skyShare");
+    assert.equal(await page.$("#skyShareManualCopy"),null,"manual copy field requires confirmation");
+    const beforeHash=await page.evaluate(()=>location.hash);
+    await page.click("#skyShareConfirm");
+    await page.waitForSelector("#skyShareManualCopy",{visible:true,timeout:5000});
+    const manual=await page.$eval("#skyShareManualCopy",n=>({readOnly:n.readOnly,label:n.getAttribute("aria-label"),value:n.value,focused:document.activeElement===n,start:n.selectionStart,end:n.selectionEnd}));
+    assert.equal(manual.readOnly,true);assert.match(manual.label,/share link/i);assert.equal(manual.focused,true);
+    assert.equal(manual.start,0);assert.equal(manual.end,manual.value.length);
+    assert.equal(manual.value,stableRoot+"#sky=12.345678,-76.54321,1782993600,123.5");
+    assert.match(await page.$eval("#skyInputError",n=>n.textContent),/copy.*manually/i);
+    assert.equal(await page.$eval("#skySharePreview",n=>n.hidden),false);
+    assert.equal(await page.evaluate(()=>location.hash),beforeHash,"fallback must not publish precise coordinates in browser history");
+    await page.setViewport({width:390,height:844});
+    await page.$eval("#skyShareManualCopy",n=>n.scrollIntoView({block:"center"}));
+    const narrow=await page.evaluate(()=>{
+      const field=document.getElementById("skyShareManualCopy");
+      return {overflow:document.documentElement.scrollWidth>innerWidth+1,
+        controlsFit:["skyShareManualCopy","skyShareConfirm","skyShareCancel"].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth;}),
+        focused:document.activeElement===field,selected:field.selectionStart===0&&field.selectionEnd===field.value.length};
+    });
+    assert.deepEqual(narrow,{overflow:false,controlsFit:true,focused:true,selected:true},`${mode}: manual copy works at 390px`);
+    await page.screenshot({path:path.join(out,`sky-share-manual-${mode}-390.png`)});
+    await page.click("#skyShareCancel");
+    assert.equal(await page.$("#skyShareManualCopy"),null);assert.equal(await page.$eval("#skySharePreview",n=>n.hidden),true);
+    clipboardFallbacks.push({mode,selected:true,readOnly:true,accessibleLabel:true,cancelCleared:true,narrow});
+    await page.setViewport({width:1440,height:900});
+  }
+  await page.evaluate(()=>Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async value=>window.__copies.push(value)}}));
   await page.click("#skyExport");assert.match(await page.$eval("#skySharePreviewText",n=>n.textContent),/Raw JSON/);await page.click("#skyShareCancel");
   await page.click("#skyProviderServer");assert.equal(evidence.mockRequests,0);await page.click("#skyConsentDeny");assert.equal(evidence.mockRequests,0);
   await page.waitForFunction(()=>/Source: computed on device/.test(document.getElementById("skyProvenance").textContent),{timeout:20000});
@@ -110,7 +157,11 @@ try {
   assert.deepEqual(evidence.errors,[]);
   const shared=await page.evaluate(()=>window.__copies[0]);
   await page.goto(shared,{waitUntil:"networkidle0"});
-  await page.reload({waitUntil:"networkidle0"}); // Same-document hash navigation is not a new page load.
+  const immutablePath=manifest.base_path+manifest.namespace+"index.html";
+  await page.waitForFunction(expected=>location.pathname===expected,{timeout:20000},immutablePath);
+  assert.equal(new URL(page.url()).hash,capturedHash,"actual root bootstrap must forward the entire captured fragment");
+  await page.reload({waitUntil:"networkidle0"});
+  assert.equal(new URL(page.url()).pathname,immutablePath);assert.equal(new URL(page.url()).hash,capturedHash);
   await page.click('[data-mode="sky"]');
   await page.waitForFunction(()=>window.__skyDebug?.().snap,{timeout:20000});
   assert.match(await page.$eval("#skyLocLabel",n=>n.textContent),/Shared location/);
@@ -118,7 +169,8 @@ try {
     const [lat,lon,unix,elev]=location.hash.slice(5).split(",").map(Number),s=window.__skyDebug().snap;
     return s.observer.terrestrial_lat_deg===lat&&s.observer.terrestrial_lon_deg_east===lon&&s.observer.elev_m===elev&&Math.abs(s.time.jd_utc-(unix/86400+2440587.5))<=2**-29;
   });assert.equal(roundtrip,true,"copied precise location/time survives an actual page reload");
-  evidence.checks.push({focus,geometry,lifecycle,remoteRequests:evidence.mockRequests,result:"passed"});
+  assert.deepEqual(evidence.errors,[]);
+  evidence.checks.push({focus,geometry,lifecycle,clipboardFallbacks,shareStablePath:manifest.base_path,capturedSnapshot:true,bootstrapPath:immutablePath,fragmentPreserved:true,roundtrip,remoteRequests:evidence.mockRequests,result:"passed"});
   console.log("PASS: actual Sky worker, keyed focus, privacy, recovery, cancellation and reflow");
 } finally {
   fs.writeFileSync(path.join(out,"evidence.json"),JSON.stringify(evidence,null,2)+"\n");
