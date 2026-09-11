@@ -32,7 +32,7 @@ jobs:
           mkdir -p coverage
           cargo llvm-cov --workspace --all-features --locked \
             --fail-under-lines 90 --lcov --output-path coverage/rust.lcov
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: rust-coverage-${{ github.sha }}
@@ -82,7 +82,7 @@ jobs:
         # Generated catalogues must load in the browser but are deliberately omitted
         # from the percentage so declarative data rows cannot inflate application coverage.
         run: node tools/merge_web_coverage.mjs --minimum-lines=90
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: javascript-coverage-and-visuals-${{ github.sha }}
@@ -120,7 +120,7 @@ jobs:
           mkdir -p coverage
           coverage xml -o coverage/python.xml \
             --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py'
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: python-coverage-${{ github.sha }}
