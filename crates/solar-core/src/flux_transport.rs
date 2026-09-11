@@ -33,6 +33,10 @@ impl Default for FluxTransportConfig {
 ///
 /// External corrections to `state.br` or `state.confidence` must be followed by
 /// `SolarState::synchronize_transport_anchor()` before transport resumes.
+/// A zero duration is a no-op. A positive advance consumes a pending event at
+/// the initial time and all events through the inclusive target, in time/ID
+/// order. New events before the committed anchor or conflicting reused IDs
+/// panic with a rewind/rebuild diagnostic before any solver state is changed.
 pub fn advance_flux_transport(state: &mut SolarState, dt_seconds: f64, cfg: &FluxTransportConfig) {
     assert!(dt_seconds.is_finite() && dt_seconds >= 0.0);
     assert!(cfg.max_step_seconds.is_finite() && cfg.max_step_seconds > 0.0);
@@ -41,26 +45,37 @@ pub fn advance_flux_transport(state: &mut SolarState, dt_seconds: f64, cfg: &Flu
     assert!(cfg.source_sigma_deg.is_finite() && cfg.source_sigma_deg > 0.0);
     assert!(state.time_seconds.is_finite() && state.time_seconds >= 0.0);
     assert!(state.transport_anchor_seconds.is_finite());
-    assert!(
-        state.transport_anchor_seconds <= state.time_seconds + time_tolerance(state.time_seconds)
-    );
+    assert!(state.transport_anchor_seconds <= state.time_seconds);
 
     let target = state.time_seconds + dt_seconds;
     assert!(target.is_finite());
+    if dt_seconds == 0.0 {
+        return;
+    }
+    assert!(
+        target > state.time_seconds,
+        "positive transport duration must advance representable time"
+    );
+
+    let sources = state.reconciled_source_events();
+    let mut uncertainty = state.activity_uncertainty.clone();
+    uncertainty
+        .forecast_to(target)
+        .expect("valid elapsed-time scalar uncertainty forecast");
 
     // Discard the previously evaluated partial interval and replay it from the
     // last fixed-step checkpoint. This is the partition-invariance rule.
     state.time_seconds = state.transport_anchor_seconds;
     state.br = state.transport_anchor_br.clone();
     state.confidence = state.transport_anchor_confidence.clone();
+    state.consumed_source_ids = state.transport_anchor_consumed_source_ids.clone();
+    state.source_events = sources;
 
-    let event_cutoff = state.transport_anchor_event_cutoff_seconds;
     let mut events: Vec<ActiveRegion> = state
-        .active_regions
-        .iter()
+        .source_events
+        .values()
         .filter(|region| {
-            region.birth_seconds > event_cutoff + time_tolerance(event_cutoff)
-                && region.birth_seconds < target
+            !state.consumed_source_ids.contains(&region.id) && region.birth_seconds <= target
         })
         .cloned()
         .collect();
@@ -71,7 +86,24 @@ pub fn advance_flux_transport(state: &mut SolarState, dt_seconds: f64, cfg: &Flu
     });
 
     let mut event_index = 0usize;
-    while state.time_seconds < target {
+    let mut reached_fixed_boundary = false;
+    loop {
+        while let Some(event) = events.get(event_index) {
+            if event.birth_seconds != state.time_seconds {
+                break;
+            }
+            inject_bipole(state, event, cfg.source_sigma_deg);
+            state.consumed_source_ids.insert(event.id);
+            event_index += 1;
+        }
+
+        // A boundary checkpoint owns its endpoint sources as well as its fields.
+        if reached_fixed_boundary {
+            save_transport_anchor(state);
+        }
+        if state.time_seconds == target {
+            break;
+        }
         let current = state.time_seconds;
         let next_boundary = next_fixed_boundary(current, cfg.max_step_seconds);
         let next_event = events
@@ -79,47 +111,19 @@ pub fn advance_flux_transport(state: &mut SolarState, dt_seconds: f64, cfg: &Flu
             .map(|event| event.birth_seconds)
             .unwrap_or(f64::INFINITY);
         let segment_end = target.min(next_boundary).min(next_event);
-
-        if segment_end > current + time_tolerance(current) {
-            advance_operator_split(state, segment_end - current, cfg);
-        } else {
-            state.time_seconds = segment_end.max(current);
-        }
-
-        while let Some(event) = events.get(event_index) {
-            if (event.birth_seconds - state.time_seconds).abs() > time_tolerance(state.time_seconds)
-            {
-                break;
-            }
-            inject_bipole(state, event, cfg.source_sigma_deg);
-            event_index += 1;
-        }
-
-        if is_fixed_boundary(state.time_seconds, cfg.max_step_seconds)
-            && state.time_seconds
-                > state.transport_anchor_seconds + time_tolerance(state.transport_anchor_seconds)
-        {
-            save_transport_anchor(state);
-        }
-
-        // The only intended zero-length segment is an event exactly at the
-        // current time. If no event remains there, force progress.
-        let event_remains_at_current = events
-            .get(event_index)
-            .is_some_and(|event| (event.birth_seconds - current).abs() <= time_tolerance(current));
-        if (state.time_seconds - current).abs() <= time_tolerance(current)
-            && !event_remains_at_current
-        {
-            let forced_end = target.min(next_boundary);
-            assert!(forced_end > current);
-            advance_operator_split(state, forced_end - current, cfg);
-            if is_fixed_boundary(state.time_seconds, cfg.max_step_seconds) {
-                save_transport_anchor(state);
-            }
-        }
+        assert!(
+            segment_end > current,
+            "transport schedule must advance to its next event or boundary"
+        );
+        advance_operator_split(state, segment_end - current, cfg);
+        // Preserve the selected event/clock value exactly; do not recompute it
+        // by floating-point addition, or merge nearby events with a tolerance.
+        state.time_seconds = segment_end;
+        reached_fixed_boundary = segment_end == next_boundary;
     }
 
     state.time_seconds = target;
+    state.activity_uncertainty = uncertainty;
     retire_regions(state);
     state.recompute_continuum_from_br();
 }
@@ -128,29 +132,20 @@ fn save_transport_anchor(state: &mut SolarState) {
     state.transport_anchor_seconds = state.time_seconds;
     state.transport_anchor_br = state.br.clone();
     state.transport_anchor_confidence = state.confidence.clone();
-    state.transport_anchor_event_cutoff_seconds = state.time_seconds;
-}
-
-fn time_tolerance(time_seconds: f64) -> f64 {
-    if time_seconds.is_finite() {
-        1.0e-9_f64.max(time_seconds.abs() * 1.0e-13)
-    } else {
-        0.0
-    }
+    state.transport_anchor_consumed_source_ids = state.consumed_source_ids.clone();
 }
 
 fn next_fixed_boundary(time_seconds: f64, step_seconds: f64) -> f64 {
-    let index = (time_seconds / step_seconds).floor() + 1.0;
-    let mut boundary = index * step_seconds;
-    if boundary <= time_seconds + time_tolerance(time_seconds) {
-        boundary += step_seconds;
-    }
-    boundary
-}
-
-fn is_fixed_boundary(time_seconds: f64, step_seconds: f64) -> bool {
-    let nearest = (time_seconds / step_seconds).round() * step_seconds;
-    (time_seconds - nearest).abs() <= time_tolerance(time_seconds)
+    let index = (time_seconds / step_seconds).floor();
+    // Division can round a time just below a boundary up to the integer index,
+    // or a boundary down to the previous index. Compare the neighboring clock
+    // products directly, always computing k * step rather than adding a step
+    // to an already rounded boundary.
+    [index, index + 1.0, index + 2.0]
+        .into_iter()
+        .map(|candidate| candidate * step_seconds)
+        .find(|boundary| *boundary > time_seconds)
+        .expect("fixed transport clock cannot advance at this time resolution")
 }
 
 fn advance_operator_split(state: &mut SolarState, dt_seconds: f64, cfg: &FluxTransportConfig) {
@@ -165,9 +160,14 @@ fn advance_operator_split(state: &mut SolarState, dt_seconds: f64, cfg: &FluxTra
 
 fn retire_regions(state: &mut SolarState) {
     let now = state.time_seconds;
-    state.active_regions.retain(|region| {
-        now - region.birth_seconds <= ACTIVE_REGION_LIFETIME_DAYS * SECONDS_PER_DAY
-    });
+    state.active_regions = state
+        .source_events
+        .values()
+        .filter(|region| {
+            now - region.birth_seconds <= ACTIVE_REGION_LIFETIME_DAYS * SECONDS_PER_DAY
+        })
+        .cloned()
+        .collect();
 }
 
 fn rotate_field(state: &mut SolarState, dt_seconds: f64) {
@@ -333,6 +333,324 @@ mod tests {
                 "confidence mismatch: {a} vs {b}"
             );
         }
+        for (a, b) in left.continuum.values.iter().zip(&right.continuum.values) {
+            assert!((a - b).abs() <= tolerance, "continuum mismatch: {a} vs {b}");
+        }
+        assert_eq!(left.active_regions, right.active_regions);
+        assert_eq!(left.source_events, right.source_events);
+        assert_eq!(left.consumed_source_ids, right.consumed_source_ids);
+        assert_eq!(
+            left.transport_anchor_consumed_source_ids,
+            right.transport_anchor_consumed_source_ids
+        );
+    }
+
+    fn event_state(births: &[(u64, f64)]) -> SolarState {
+        let mut state = SolarState::new(SolarGrid::new(72, 36), SolarMode::Synthetic);
+        state.active_regions = births
+            .iter()
+            .map(|&(id, time)| test_region(id, time))
+            .collect();
+        state
+    }
+
+    #[test]
+    fn boundary_birth_at_3600_survives_one_and_two_calls_to_7200() {
+        let mut one = event_state(&[(1, 3600.0)]);
+        let mut two = one.clone();
+        let cfg = FluxTransportConfig::default();
+        advance_flux_transport(&mut one, 7200.0, &cfg);
+        advance_flux_transport(&mut two, 3600.0, &cfg);
+        advance_flux_transport(&mut two, 3600.0, &cfg);
+        assert!(one.br.max_abs() > 0.1);
+        assert!(two.br.max_abs() > 0.1, "the boundary source was lost");
+        assert_fields_close(&one, &two, 0.0);
+    }
+
+    #[test]
+    fn time_zero_birth_does_not_skip_birth_at_1800() {
+        let mut both = event_state(&[(1, 0.0), (2, 1800.0)]);
+        let mut initial_only = event_state(&[(1, 0.0)]);
+        let cfg = FluxTransportConfig::default();
+        advance_flux_transport(&mut both, 7200.0, &cfg);
+        advance_flux_transport(&mut initial_only, 7200.0, &cfg);
+        let difference = both
+            .br
+            .values
+            .iter()
+            .zip(&initial_only.br.values)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0_f32, f32::max);
+        assert!(
+            difference > 0.1,
+            "second source had no material field effect: {difference}"
+        );
+    }
+
+    #[test]
+    fn target_birth_is_present_before_snapshot_publication() {
+        for target in [1800.0, 3600.0, 7200.0] {
+            let mut state = event_state(&[(1, target)]);
+            advance_flux_transport(&mut state, target, &FluxTransportConfig::default());
+            assert!(
+                state.br.max_abs() > 0.1,
+                "missing source at target {target}"
+            );
+            assert!(state.continuum.values.iter().any(|value| *value != 1.0));
+            assert!(state.confidence.values.iter().any(|value| *value >= 0.55));
+        }
+    }
+
+    #[test]
+    fn tiny_positive_intervals_cannot_skip_an_event() {
+        let cfg = FluxTransportConfig::default();
+        let mut one = event_state(&[(1, 0.0), (2, 1.0e-12)]);
+        let mut parts = one.clone();
+        let mut initial_only = event_state(&[(1, 0.0)]);
+        advance_flux_transport(&mut one, 2.0e-12, &cfg);
+        advance_flux_transport(&mut parts, 1.0e-12, &cfg);
+        advance_flux_transport(&mut parts, 1.0e-12, &cfg);
+        advance_flux_transport(&mut initial_only, 2.0e-12, &cfg);
+        assert!(one.br.max_abs() > initial_only.br.max_abs() * 1.5);
+        assert_fields_close(&one, &parts, 0.0);
+    }
+
+    #[test]
+    fn zero_duration_changes_neither_fields_nor_event_state() {
+        let mut state = event_state(&[(1, 0.0)]);
+        // A no-op must also preserve an externally corrected, unre-based field.
+        state.br.values[0] = 0.9;
+        let before = format!("{state:?}");
+        advance_flux_transport(&mut state, 0.0, &FluxTransportConfig::default());
+        assert!(
+            format!("{state:?}") == before,
+            "zero duration mutated state"
+        );
+    }
+
+    #[test]
+    fn simultaneous_events_have_stable_id_order_in_fields_and_snapshot() {
+        let mut sorted = event_state(&[(1, 0.0), (2, 0.0), (3, 1800.0)]);
+        sorted.active_regions[0].flux_norm = 1.0e8;
+        sorted.active_regions[1].flux_norm = 1.0e8;
+        sorted.active_regions[1].polarity = Polarity::LeadingNegative;
+        let mut reversed = sorted.clone();
+        reversed.active_regions.reverse();
+        let cfg = FluxTransportConfig::default();
+        advance_flux_transport(&mut sorted, 7200.0, &cfg);
+        advance_flux_transport(&mut reversed, 7200.0, &cfg);
+        assert_fields_close(&sorted, &reversed, 0.0);
+        let request = crate::SnapshotRequest::synthetic(42, 2, 1.0, 0.9);
+        assert!(
+            crate::solar_state_snapshot_json(&sorted, &request)
+                == crate::solar_state_snapshot_json(&reversed, &request),
+            "snapshot bytes depend on ID insertion order"
+        );
+    }
+
+    #[test]
+    fn repeated_identical_id_is_idempotent() {
+        let mut once = event_state(&[(1, 0.0)]);
+        let mut twice = event_state(&[(1, 0.0), (1, 0.0)]);
+        let cfg = FluxTransportConfig::default();
+        advance_flux_transport(&mut once, 7200.0, &cfg);
+        advance_flux_transport(&mut twice, 7200.0, &cfg);
+        assert_fields_close(&once, &twice, 0.0);
+        assert_eq!(twice.active_regions.len(), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "conflicting payload")]
+    fn duplicate_id_with_conflicting_payload_is_rejected() {
+        let mut state = event_state(&[(1, 0.0), (1, 1800.0)]);
+        advance_flux_transport(&mut state, 7200.0, &FluxTransportConfig::default());
+    }
+
+    #[test]
+    fn event_before_committed_anchor_is_rejected_without_mutation() {
+        let mut state = event_state(&[(1, 0.0)]);
+        let cfg = FluxTransportConfig::default();
+        advance_flux_transport(&mut state, 7200.0, &cfg);
+        state.active_regions.push(test_region(2, 1800.0));
+        let before = format!("{state:?}");
+        let error = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            advance_flux_transport(&mut state, 3600.0, &cfg);
+        }))
+        .expect_err("past event must require rewind/rebuild");
+        let message = error
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| error.downcast_ref::<&str>().copied())
+            .unwrap_or("");
+        assert!(message.contains("rewind/rebuild"), "{message}");
+        assert!(format!("{state:?}") == before, "rejection mutated state");
+    }
+
+    #[test]
+    fn new_event_inside_partial_interval_replays_from_anchor() {
+        let mut expected = event_state(&[(1, 0.0), (2, 1000.0)]);
+        let mut late = event_state(&[(1, 0.0)]);
+        let cfg = FluxTransportConfig::default();
+        advance_flux_transport(&mut expected, 4000.0, &cfg);
+        advance_flux_transport(&mut late, 2000.0, &cfg);
+        late.active_regions.push(test_region(2, 1000.0));
+        advance_flux_transport(&mut late, 2000.0, &cfg);
+        assert!(expected.br.max_abs() > 0.1);
+        assert_fields_close(&expected, &late, 0.0);
+    }
+
+    #[test]
+    fn rebase_retains_consumed_events_and_accepts_new_event_at_anchor() {
+        let cfg = FluxTransportConfig::default();
+        let mut state = event_state(&[(1, 0.0)]);
+        advance_flux_transport(&mut state, 1800.0, &cfg);
+        state.br.values.fill(0.0);
+        state.confidence.values.fill(0.8);
+        state.synchronize_transport_anchor();
+        let mut no_new_event = state.clone();
+        state.active_regions.push(test_region(2, 1800.0));
+        advance_flux_transport(&mut state, 1800.0, &cfg);
+        advance_flux_transport(&mut no_new_event, 1800.0, &cfg);
+        assert!(state.br.max_abs() > 0.1);
+        assert_eq!(
+            no_new_event.br.max_abs(),
+            0.0,
+            "rebased source was reinjected"
+        );
+        assert!(state.confidence.values.iter().all(|value| *value > 0.79));
+    }
+
+    #[test]
+    fn retiring_display_region_does_not_delete_partial_replay_source() {
+        let cfg = FluxTransportConfig {
+            max_step_seconds: 40.0 * SECONDS_PER_DAY,
+            diffusion: 0.0,
+            ..FluxTransportConfig::default()
+        };
+        let mut one = event_state(&[(1, 0.0)]);
+        let mut parts = one.clone();
+        advance_flux_transport(&mut one, 17.0 * SECONDS_PER_DAY, &cfg);
+        advance_flux_transport(&mut parts, 16.0 * SECONDS_PER_DAY, &cfg);
+        assert!(parts.active_regions.is_empty());
+        advance_flux_transport(&mut parts, SECONDS_PER_DAY, &cfg);
+        assert!(one.br.max_abs() > 0.01);
+        assert_fields_close(&one, &parts, 0.0);
+    }
+
+    #[test]
+    fn multiple_irregular_partitions_preserve_fields_ledger_and_canonical_bytes() {
+        let cfg = FluxTransportConfig::default();
+        let initial = event_state(&[
+            (5, 7200.0),
+            (2, 1800.0),
+            (1, 0.0),
+            (4, 3600.0),
+            (3, 3600.0),
+            (6, 9001.0),
+            (7, 12345.0),
+        ]);
+        let mut one = initial.clone();
+        advance_flux_transport(&mut one, 12345.0, &cfg);
+        let request = crate::SnapshotRequest::synthetic(42, 1, 12345.0 / 3600.0, 0.9);
+        let canonical = crate::solar_state_snapshot_json(&one, &request);
+        for endpoints in [
+            vec![137.0, 948.0, 3600.0, 3617.0, 7217.0, 8224.0, 12345.0],
+            vec![1800.0, 3600.0, 7200.0, 9001.0, 12345.0],
+            vec![
+                1.0e-12,
+                1799.9999999999,
+                1800.0,
+                3599.9999999999,
+                3600.0,
+                3600.0000000001,
+                9000.9999999999,
+                9001.0,
+                12345.0,
+            ],
+        ] {
+            let mut parts = initial.clone();
+            for endpoint in endpoints {
+                let dt = endpoint - parts.time_seconds;
+                advance_flux_transport(&mut parts, dt, &cfg);
+            }
+            assert_fields_close(&one, &parts, 0.0);
+            assert!(
+                canonical == crate::solar_state_snapshot_json(&parts, &request),
+                "canonical serialized bytes must be equal with identical request metadata"
+            );
+        }
+        assert_eq!(
+            one.consumed_source_ids.iter().copied().collect::<Vec<_>>(),
+            vec![1, 2, 3, 4, 5, 6, 7]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "conflicting payload")]
+    fn already_consumed_id_cannot_be_reused_with_changed_payload() {
+        let cfg = FluxTransportConfig::default();
+        let mut state = event_state(&[(1, 0.0)]);
+        advance_flux_transport(&mut state, 7200.0, &cfg);
+        state.active_regions[0].flux_norm = 2.0;
+        advance_flux_transport(&mut state, 3600.0, &cfg);
+    }
+
+    #[test]
+    #[should_panic(expected = "rewind/rebuild")]
+    fn rebase_cannot_silently_acknowledge_unknown_event_before_old_anchor() {
+        let cfg = FluxTransportConfig::default();
+        let mut state = event_state(&[(1, 0.0)]);
+        advance_flux_transport(&mut state, 7200.0, &cfg);
+        state.active_regions.push(test_region(2, 1800.0));
+        state.synchronize_transport_anchor();
+    }
+
+    #[test]
+    fn rebase_of_partial_interval_replays_correction_without_reinjecting_sources() {
+        let cfg = FluxTransportConfig::default();
+        let mut one = event_state(&[(1, 0.0), (2, 1800.0), (3, 4100.0)]);
+        advance_flux_transport(&mut one, 2000.0, &cfg);
+        one.br.values.fill(0.0);
+        one.confidence.values.fill(0.8);
+        one.synchronize_transport_anchor();
+        let mut parts = one.clone();
+        advance_flux_transport(&mut one, 5200.0, &cfg);
+        for endpoint in [2017.0, 3600.0, 4100.0, 4500.0, 7200.0] {
+            let dt = endpoint - parts.time_seconds;
+            advance_flux_transport(&mut parts, dt, &cfg);
+        }
+        assert_fields_close(&one, &parts, 0.0);
+        assert!(one.br.max_abs() > 0.1);
+        let mut source_only = event_state(&[(3, 4100.0)]);
+        source_only.time_seconds = 2000.0;
+        source_only.confidence.values.fill(0.8);
+        source_only.synchronize_transport_anchor();
+        advance_flux_transport(&mut source_only, 5200.0, &cfg);
+        assert_eq!(one.br.values, source_only.br.values);
+    }
+
+    #[test]
+    fn fractional_clock_does_not_skip_boundary_after_nearby_event() {
+        let cfg = FluxTransportConfig {
+            max_step_seconds: 0.1,
+            ..FluxTransportConfig::default()
+        };
+        let mut state = event_state(&[(1, 1.7)]);
+        // 17 * 0.1 is the next fixed-clock value above the event's f64 time.
+        let target = 1.7000000000000002;
+        advance_flux_transport(&mut state, target, &cfg);
+        assert_eq!(
+            state.transport_anchor_seconds, target,
+            "an event one ULP before the fixed boundary must not skip checkpoint commit"
+        );
+        assert_eq!(
+            state
+                .transport_anchor_consumed_source_ids
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![1]
+        );
     }
 
     #[test]

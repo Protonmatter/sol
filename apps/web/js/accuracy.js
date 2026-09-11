@@ -1,33 +1,42 @@
-// The engine's honest validity envelope, by epoch. Used to label the time controls so the app shows
-// "how far back and forward it stays accurate" rather than implying uniform precision everywhere.
-//
-// Two regimes, because the views differ:
-//  • "helio" — the 3-D and top-down Solar-System views show HELIOCENTRIC positions (ecliptic J2000).
-//    These are NOT limited by ΔT; their accuracy is set by the planetary theory. Inner planets use
-//    VSOP2013 (sub-arcsecond for millennia); the four giants use TOP2013, which stays sub-arcsecond
-//    across the whole ±5000-yr span — where VSOP2013 alone would drift to hundreds of arcsec by ±6000 yr.
-//  • "sky" — the My Sky horizon dome is TOPOCENTRIC (altitude/azimuth), so it also depends on Earth's
-//    rotation. Deep in time that is dominated by ΔT (the drift of the Earth-rotation clock), which
-//    reaches hours at ±6000 yr and swings the whole local sky by degrees — the binding error there.
+// Supported model spans are computation limits, not empirical accuracy envelopes.
+export const ENGINE_RANGE = { helioYears: 5000, skyYears: 5000 };
 
-export const ENGINE_RANGE = {
-  helioYears: 5000,   // heliocentric views: arcsecond-class across the whole span (TOP2013 giants)
-  skyYears: 5000,     // sky view: positions of-date; rise/set & whole-sky orientation ΔT-limited deep-time
-};
+function usableSourceParityRecord(record) {
+  if (!record || record.method!=="source_theory_parity") return false;
+  const nonempty=value=>typeof value==="string" && value.trim().length>0;
+  const reference=record.reference, error=record.measured_error;
+  return [record.id,record.body,record.quantity,record.time_scale,record.observer_domain,record.limitations].every(nonempty)
+    && Array.isArray(record.tested_epochs_jd) && record.tested_epochs_jd.length>0 && record.tested_epochs_jd.every(Number.isFinite)
+    && reference && nonempty(reference.git_revision) && /^[a-f0-9]{40}$/i.test(reference.git_revision)
+    && nonempty(reference.sha256_lf) && /^[a-f0-9]{64}$/i.test(reference.sha256_lf)
+    && nonempty(reference.path) && nonempty(reference.symbol)
+    && Array.isArray(reference.vector_au) && reference.vector_au.length===3 && reference.vector_au.every(Number.isFinite)
+    && error && nonempty(error.metric) && Number.isFinite(error.value) && error.value>=0
+    && Number.isFinite(error.acceptance_threshold) && error.acceptance_threshold>0 && error.value<error.acceptance_threshold;
+}
+
+/** Select only exact recorded body/quantity/observer/epoch evidence; never interpolate a claim. */
+export function accuracyForSelection(records, {body,quantity,jd,observerDomain}) {
+  // No accepted independent registry is supported yet. An arbitrary method string,
+  // even with an apparently passing measurement, must never certify UI accuracy.
+  const matches=(Array.isArray(records) ? records : []).filter(r=>usableSourceParityRecord(r) && r.body===body && r.quantity===quantity && r.observer_domain===observerDomain && r.tested_epochs_jd.includes(jd));
+  return {status:"unvalidated",recordIds:matches.map(r=>r.id),text:matches.length
+    ? "Independent accuracy unvalidated; source-theory parity is recorded at this sample only."
+    : "Unvalidated for this body, quantity, observer domain and selected epoch."};
+}
 
 /** @returns {{level:"good"|"ok"|"rough", text:string}} */
 export function epochAccuracy(yearsFromNow, kind) {
-  const ay = Math.abs(yearsFromNow);
-  if (kind === "helio") {
-    // Inner planets: VSOP2013. Outer planets (Jupiter–Neptune): TOP2013 — sub-arcsecond across the
-    // whole ±5000-yr span (validated to the source), so no deep-time degradation here.
-    if (ay <= 5000) return { level: "good", text: "Arcsecond-class — inner planets via VSOP2013, the four giants via TOP2013 (sub-arcsec across ±5000 yr)." };
-    return { level: "ok", text: "Past the tabulated ±5000-yr span; positions extrapolate and slowly soften." };
-  }
-  // sky (topocentric) — positions are of-date, but Earth's rotation (ΔT) is the deep-time limiter.
-  if (ay <= 300) return { level: "good", text: "Arcsecond-class, validated vs JPL Horizons." };
-  if (ay <= 2000) return { level: "ok", text: "Star/planet directions good; rise–set times drift with ΔT (minutes-scale)." };
-  return { level: "rough", text: "ΔT-limited: Earth's unpredictable rotation can swing the whole sky by up to ~degrees at ±6000 yr. Relative star patterns stay correct." };
+  return {level:Math.abs(yearsFromNow)>300 && kind==="sky" ? "rough" : "ok",
+    text:kind==="helio"
+      ? "Selected epoch unvalidated. VSOP2013/TOP2013 source-theory sample parity is not independent accuracy over a time span."
+      : "Selected sky epoch unvalidated. Earth orientation, historical time-scale approximations and catalogue-star simplifications add uncertainty; dates use the proleptic Gregorian calendar."};
+}
+
+export function renderedEpochLabel(unixSeconds) {
+  if (!Number.isFinite(unixSeconds)) return "Render time unavailable";
+  const date = new Date(unixSeconds * 1000);
+  return Number.isFinite(date.getTime()) ? `${date.toISOString().replace("T", " ").replace(".000Z", " UTC")} (proleptic Gregorian)` : "Render time outside supported calendar";
 }
 
 // A compact human label for a year offset from the present. The base year is read from the

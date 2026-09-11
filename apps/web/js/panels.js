@@ -4,6 +4,7 @@ import { store } from "./store.js?v=dcca6290db";
 import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=dcca6290db";
 import { text, textWithTitle, setPill } from "./dom.js?v=dcca6290db";
 import { auroraAssessment } from "./aurora.js?v=dcca6290db";
+import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
 import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=dcca6290db";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
@@ -42,6 +43,7 @@ export function updateText() {
   updateApplicationPanel();
   updateSelectionText();
   updateRegionList();
+  updateCycleTable();
   updateStageRail();
 
   if (!fields.br_normalized || !fields.continuum_proxy) {
@@ -55,11 +57,7 @@ function modeInsight() {
 }
 
 function beginnerCycleInsight() {
-  const stage = store.state.learning?.cycle_stage || stageFromActivity(store.state.run?.activity_index || 0);
-  const count = (store.state.active_regions || []).length;
-  const plain = STAGE_PLAIN[String(stage).toLowerCase()] || "an active part of its cycle";
-  const are = count === 1 ? "is" : "are";
-  return `The Sun is near ${stage} — ${plain}. Right now there ${are} ${count} active ${plural(count, "region")} (sunspot groups) on the side facing us; each marker on the disk is one of them.`;
+  return store.presentation?.headline || "Loading model and source evidence…";
 }
 
 function updateStageRail() {
@@ -84,7 +82,7 @@ function updateSnapshotSummary(brMax, confidenceMean) {
   const visible = visibleLayerSummary();
   const dataLabel = dataStateLabel();
   const readiness = readinessLabel();
-  text("summaryPrimary", `${stage}: ${regions.length} active regions, ${dataLabel} context, mean confidence ${confidenceMean.toFixed(2)}.`);
+  text("summaryPrimary", `${store.presentation?.headline || stage} Mean heuristic model score ${confidenceMean.toFixed(2)} (not probability).`);
   text("summaryDetail", `Max normalized |Br| is ${brMax.toFixed(2)}. Visible layers: ${visible}. ${selectedRegionSentence()}Readiness: ${readiness}; space-weather operations remain gated.`);
   setPill("dataState", `data: ${dataLabel}`, dataStateClass());
   setPill("ingestState", `feed: ${feedStateLabel()}`, feedStateClass());
@@ -114,6 +112,12 @@ function updateLayerLegend() {
       chip.setAttribute("role", "button");
     }
     legend.appendChild(chip);
+  }
+  if (store.presentation?.showModelOverlays && layers.some(layer => layer.id === "confidence")) {
+    const scale = document.createElement("span");
+    scale.className = "score-scale";
+    scale.textContent = "Heuristic model score — not probability: 0 · 0.25 · 0.5 · 0.75 · 1 (increasing opacity)";
+    legend.appendChild(scale);
   }
 }
 
@@ -211,46 +215,41 @@ function updateSelectionText() {
   text("selectionText", selectedRegionSummary(region));
 }
 
-// Keyboard/AT-accessible equivalent of clicking a marker on the solar disk: a list
-// of real <button>s, one per active region. Wired via delegation in app.js.
-// Skipped when nothing changed and focus is restored across rebuilds: timeline playback
-// re-renders every 1.1 s, and the wholesale rebuild used to destroy the focused chip —
-// teleporting keyboard users to <body> mid-interaction.
-let lastRegionListSignature = null;
+// Keyed native controls preserve actual focus identity during data refreshes.
 function updateRegionList() {
   const list = document.getElementById("regionList");
   if (!list) return;
   const regions = store.state.active_regions || [];
-  // The signature must include the coordinates, not just the ids: timeline frames reuse
-  // ids 1..N with different lat/lon, so an id-only key kept the previous frame's
-  // locations in the list while the disk rendered the new snapshot.
-  const signature = `${regions.map((r) => `${r.id}@${r.lat_deg},${r.lon_deg}`).join(";")}|${store.selectedRegionId}`;
-  if (signature === lastRegionListSignature && list.childNodes.length) return;
-  lastRegionListSignature = signature;
-  const focused = /** @type {HTMLElement|null} */ (document.activeElement);
-  const focusedId = focused && list.contains(focused) ? focused.dataset.regionId : null;
-  list.textContent = "";
-  if (!regions.length) {
-    const empty = document.createElement("p");
-    empty.className = "time-frame-label";
-    empty.textContent = "No active regions in this snapshot.";
-    list.appendChild(empty);
-    return;
+  const query = /** @type {HTMLInputElement|null} */ (document.getElementById("regionSearch"))?.value || "";
+  const records = regions.map(region => ({ id: region.id, label: `AR ${region.id} · ${regionLocation(region)}`,
+    selected: region.id === store.selectedRegionId, className: `region-chip${region.id === store.selectedRegionId ? " selected" : ""}`,
+    hidden: !matchesObject({ id: region.id, name: `AR ${region.id} ${regionLocation(region)}` }, query) }));
+  syncObjectRows(list, records, id => window.dispatchEvent(new CustomEvent("sol:region-selected", { detail: id })));
+  text("regionSearchStatus", `${records.filter(row => !row.hidden).length} of ${regions.length} modeled regions shown`);
+}
+
+function updateCycleTable() {
+  const table=document.getElementById("cycleFrameTable");
+  if (!table) return;
+  const existing=new Map(Array.from(table.children).map(row=>[row.getAttribute("data-frame-id"),row]));
+  const ids=new Set();
+  for (const frame of store.seriesRecords) {
+    ids.add(frame.id);
+    let row=existing.get(frame.id);
+    if (!row) {
+      row=document.createElement("tr");row.setAttribute("data-frame-id",frame.id);
+      row.append(document.createElement("td"),document.createElement("td"),document.createElement("td"));
+      const button=document.createElement("button");button.type="button";button.className="time-btn ghost";
+      row.children[2].appendChild(button);table.appendChild(row);
+    }
+    row.children[0].textContent=String(frame.months);
+    row.children[1].textContent=frame.status === "ready" ? "Synthetic model available" : "Unavailable — no interpolation";
+    const button=/** @type {HTMLButtonElement} */ (row.children[2].firstElementChild);
+    button.textContent=`Select month ${frame.months}`;
+    button.setAttribute("aria-pressed",String(frame.index === store.timelineIndex));
+    button.onclick=()=>window.dispatchEvent(new CustomEvent("sol:frame-selected",{detail:frame.index}));
   }
-  for (const region of regions) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "region-chip";
-    const isSelected = region.id === store.selectedRegionId;
-    if (isSelected) btn.classList.add("selected");
-    btn.setAttribute("aria-pressed", String(isSelected));
-    btn.dataset.regionId = String(region.id);
-    btn.textContent = `AR ${region.id} · ${regionLocation(region)}`;
-    list.appendChild(btn);
-  }
-  if (focusedId) {
-    /** @type {HTMLElement|null} */ (list.querySelector(`button[data-region-id="${focusedId}"]`))?.focus();
-  }
+  for (const row of Array.from(table.children)) if (!ids.has(row.getAttribute("data-frame-id"))) row.remove();
 }
 
 function renderOperationalReadinessChecklist() {

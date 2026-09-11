@@ -1,259 +1,109 @@
-# Solar Maximum Engine ("Sol")
+# Sol — solar and sky research explorer
 
-[![CI](https://github.com/Protonmatter/sol/actions/workflows/ci.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/ci.yml)
-[![Coverage](https://github.com/Protonmatter/sol/actions/workflows/coverage.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/coverage.yml)
-[![Docs](https://github.com/Protonmatter/sol/actions/workflows/docs.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/docs.yml)
-[![Ephemeris accuracy](https://github.com/Protonmatter/sol/actions/workflows/ephemeris-accuracy.yml/badge.svg)](https://github.com/Protonmatter/sol/actions/workflows/ephemeris-accuracy.yml)
-[![crates.io](https://img.shields.io/crates/v/solar-ephemeris.svg)](https://crates.io/crates/solar-ephemeris)
+Sol is a local-first research and learning application: a reduced solar-surface model,
+an observer's sky, and a Solar System view. The static browser uses native ES modules
+and audited Rust engines through raw WebAssembly. No runtime framework or bundler is required.
 
-**Live app: <https://protonmatter.github.io/sol/>**
+## Current state
 
-A deterministic, math-first **solar-cycle / space-weather** simulation engine and a
-**layered learning + research web app** built on top of it. *Sol* is Latin for the Sun —
-this is not a file explorer.
+The September 2026 correctness/experience changes are **implemented locally, not released
+or fully qualified**. RFC 0002 remains Accepted. Existing public site/crate versions are
+separate artifacts and have not been revalidated as matching this checkout. Passing local
+tests do not establish hosted CI, accepted scientific/manual evidence or production approval.
 
-The design goal is a **state-estimation engine, not a shader**: a reduced solar-surface
-physics model produces immutable, versioned `SolarState` snapshots, and the renderer only
-ever *consumes* those snapshots. The UI never invents physical values.
+Live contracts are [solar-state-snapshot.v3](docs/solar-state-snapshot-v3.schema.json),
+[ephemeris-snapshot.v3](docs/ephemeris-snapshot-v3.schema.json), and
+`system-snapshot.v1`. Historical v2 remains separately inspectable; live readers reject
+unsupported versions rather than silently relabelling data.
 
-> **Product north star:** *See the real Sun → understand what's happening on it → then see
-> exactly what the model knows, how it knows it, and what it still can't claim.*
+## What the application does
 
----
+- **Sun:** reduced Carrington-frame transport and illustrative cycle examples. Current model
+  region anchors are distinct from immutable birth positions. Activity variance is an
+  illustrative scalar proxy; magnetic uncertainty is unavailable and confidence is a
+  heuristic score, not a calibrated probability.
+- **My Sky:** on-device observer/time calculations, geometric above-horizon grouping,
+  searchable keyboard-native object rows, selected facts, and separately disclosed event
+  status. Device civil time and UTC are explicit choices; coordinates do not imply a timezone.
+- **Solar System:** WebGL2 and map views, catalogue-backed stars, body selection and
+  independently selectable display scales. Display inflation is not physical distance.
+  Moon interpolation is withheld outside its documented window; it is not a navigation
+  or mutual-event ephemeris.
+- **Sources and limits:** persistent presentation metadata identifies the displayed
+  epoch, source/provider and degraded/unavailable state. An observed image is not a
+  registered model overlay: current registration assessment never permits compositing.
 
-## Two layers
+Full solar solving, Sky events/tracks and System metadata run in bounded workers.
+Latest-intent scheduling cancels obsolete work and validates engine/schema/ABI/release/
+generation identities before publication. The System view retains a fixed nine-body,
+27-f64 position fast path; a local microprofile is not a cross-device performance guarantee.
 
-1. **Engine + data pipeline** (Rust + Python)
-   - Rust workspace: `solar-core` (reduced flux-transport model + diagonal Kalman-style
-     assimilation primitive), `solar-ingest`, `solar-cli`, and `solar-ephemeris` — a
-     zero-dependency VSOP2013 / ELP-MPP02 / TOP2013 ephemeris + topocentric sky engine,
-     [published on crates.io](https://crates.io/crates/solar-ephemeris).
-   - Python tooling for deterministic fixtures, public-data ingest (NOAA/SWPC,
-     Helioviewer, JPL Horizons), snapshot-series generation, and validation.
-   - Versioned JSON contracts: `solar-state-snapshot.v2`, `ephemeris-snapshot.v2`,
-     `observation-frame.v1`, `model-run-manifest.v1`, `operational-readiness.v1`, plus
-     `series-manifest.v1`. The snapshot shapes are each defined once —
-     [`docs/solar-state-snapshot-v2.schema.json`](docs/solar-state-snapshot-v2.schema.json)
-     and [`docs/ephemeris-snapshot-v2.schema.json`](docs/ephemeris-snapshot-v2.schema.json) —
-     and enforced across Rust, Python, and the browser via `tools/validate_snapshot.py`
-     and `tools/validate_ephemeris_snapshot.py`.
+Remote Sky is optional and requires an explicitly configured recipient and session-only
+consent before either health or location/time requests. Redirects are rejected before
+transmission to another recipient. Failure retains the last valid snapshot with visible
+status; local recovery is explicit. Share/export previews disclose the captured exact
+location/time before copying or downloading.
 
-2. **Web app** (`apps/web/`) — a dependency-free, no-build static app that renders the
-   snapshots (the redesign is merged; `master` is the only branch and deploys to
-   GitHub Pages):
-   - **Real NASA SDO/HMI imagery** as the observed photosphere, with the model's
-     active-regions / magnetic field / confidence composited on top (observed-vs-model
-     always labelled).
-   - **A real star catalogue everywhere stars appear**: the naked-eye Hipparcos
-     catalogue (8,867 stars, V ≤ 6.5 — true positions, parallax distances, B−V colours)
-     backs the Solar-System view's sky, the Milky-Way view, and a light-year-scale
-     **Solar neighbourhood** view; the on-device engine reduces 108 bright stars with
-     proper motion for My Sky.
-   - **Three destinations** (**The Sun · My Sky · Solar System**), with the Sun surface
-     layered through progressive-disclosure drawers (layers & region inspection →
-     space-weather impact → the model under the hood); a beginner "glance" by default,
-     research depth on request.
-   - **Onboarding tour**, a glossary of every science term, an interactive cycle **stage
-     rail**, a **time scrubber / playback** of an idealized 11-year cycle, and a **real
-     butterfly diagram** (sunspot latitude vs. time).
-   - **The real engine in the browser**: `solar-core` is compiled to **WebAssembly**
-     (`crates/solar-wasm`) and loaded as an ES module, so a "Run the engine live" control
-     re-solves the actual model in ~2 ms — same validated snapshot contract, no Node/bundler.
+## Run a local preview
 
-See **[docs/STATUS.md](docs/STATUS.md)** for exactly what's done and what's left, and
-**[docs/WEB_REDESIGN_SPEC.md](docs/WEB_REDESIGN_SPEC.md)** for the full redesign plan.
-A proposed next direction — a solar-system + local-sky (ephemeris) engine, "NASA Eyes meets
-SkyView, grounded in facts" — is specced in **[docs/SOLAR_SYSTEM_SPEC.md](docs/SOLAR_SYSTEM_SPEC.md)**.
+Use an existing locked Rust toolchain with the WASM target, Python 3.11+, and Node 22
+with this repository's pinned development tooling. Building is offline once dependencies
+and toolchains are installed. New output directories prevent accidental replacement.
 
----
-
-## Quick start
-
-### Run the web app
-
-```bash
-# Serve it (required — the app is native ES modules, which browsers block over file://)
-python -m http.server 8000 --directory apps/web
-# then open http://localhost:8000
+```powershell
+$candidateSha = git rev-parse HEAD
+python tools/build_wasm.py --locked --out-root build/wasm-review
+python tools/build_web.py --wasm-dir build/wasm-review --out-root build/site-review --release-id local-review-1 --source-sha $candidateSha --repository OWNER/REPOSITORY --run-id 1
+python -m http.server 8000 --bind 127.0.0.1 --directory build/site-review
 ```
 
-**My Sky**, **Solar System**, and the "Run the engine live" control run the real Rust
-engines compiled to WebAssembly. The `.wasm` binaries are **not committed** (they are
-built from source at deploy); build them once locally or those surfaces will explain
-they're unavailable and fall back:
+Replace the repository placeholder with the actual candidate identity. Open the loopback
+preview in a browser. A dirty checkout's HEAD is lineage only, not exact source attestation.
+Do not serve the source tree as a production artifact or hand-edit cache tokens.
 
-```bash
-rustup target add wasm32-unknown-unknown   # one-time
-python tools/build_wasm.py                 # stages apps/web/pkg/*.wasm
-```
+See [instructions](docs/INSTRUCTIONS.md), [operations](docs/OPERATIONS.md) and
+[artifact delivery](docs/RELEASE_DELIVERY.md) for validation, immutable namespaces,
+explicit update/rollback and held promotion policy.
 
-The **3-D View** draws its surfaces from three sources, in priority order:
+## Data and evidence
 
-1. **Real photographic maps** (NASA Blue Marble + Solar System Scope CC-BY + USGS moon
-   mosaics) for every body that has one. They are a COMMITTED baseline — deploys must not
-   depend on a third-party host being up — and refreshed, not obtained, by:
+Public source acquisition is separately authorized network work. Default validation uses
+committed fixtures and references. Acquisition retains original bytes in immutable source
+bundles; derivation validates a complete research bundle before atomically selecting its
+pointer. Snapshot, observations, feed status and cycle frames cannot be mixed across
+bundle identities. Freshly generated does not mean freshly observed or published.
 
-   ```bash
-   python tools/fetch_textures.py     # ~6 MB, refresh only
-   ```
+- [Current specification](docs/SPEC.md) and [status/holds](docs/STATUS.md)
+- [Solar v3 semantics](docs/SOLAR_V3_MIGRATION.md) and [ephemeris v3 semantics](docs/EPHEMERIS_V3.md)
+- [Coefficient provenance and regeneration gaps](docs/COEFFICIENT_PROVENANCE.md)
+- [Canonical generation](docs/CANONICAL_GENERATION.md) and [data sources](docs/DATA_SOURCES.md)
+- [Validation plan](docs/VALIDATION_PLAN.md), [accuracy contract](docs/ACCURACY_CONTRACT.md)
+  and [requirements](docs/REQUIREMENTS.md)
 
-2. **Committed vector geography**, which ships with the repository and needs no download: Earth's
-   real coastlines, lakes and permanent ice (Natural Earth 1:110m, public domain) and the Moon's
-   maria at their IAU/USGS coordinates. Generated by `tools/generate_geography.py` and rasterised
-   in the browser, so *every* deployment shows real geography rather than noise.
-3. **Procedural shaders** for the bodies neither of the above covers — Mars and Mercury, whose
-   catalogued features have real positions but no published albedo. See
-   `tools/ephemeris-data/geography/README.md` for why guessing was rejected.
+The three analytic coefficient blobs have immutable local hashes but missing original
+upstream inputs/serialization correspondence. They are explicitly non-regenerable from
+this checkout. The current eight TOP2013 records prove source-theory parity at recorded
+samples only, not independent pointing/range/event accuracy. Canonical moon generation
+qualification and new independent reference acquisition remain held.
 
-The view also draws the **21 major moons** of Mars, Jupiter, Saturn, Uranus and Neptune from JPL
-Horizons elements (`tools/ephemeris-data/moons/`), validated in CI against Horizons state vectors
-to within 0.139° angular and 0.19% radial error across 11,985 interleaved checks. They are shown
-only from January 2021 through December 2030, the exact interval independently checked for every
-moon. Ten of them wear committed USGS global mosaics and all are shaded at their published
-geometric albedo; a transiting moon casts its real umbra/penumbra on the planet's disc, computed
-from physical positions (never the inflated display orbits), and a moon inside its planet's
-shadow cone goes eclipse-dark.
+## Development checks
 
-### Regenerate the data the app reads (Python stdlib only)
-
-```bash
-# The live "today" snapshot — a deterministic ILLUSTRATIVE fixture (static bipole
-# painting; its manifest says so). The real flux-transport engine is `solar-cli simulate`
-# (below) and the in-browser WASM run.
-python tools/generate_fixture_snapshot.py \
-  --out apps/web/data/latest-state.json \
-  --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
-
-# The solar-cycle series for timeline playback + the butterfly diagram
-python tools/generate_series.py
-
-# Validate everything
-python tools/validate_snapshot.py apps/web/data/latest-state.json
-python tools/validate_operational_readiness.py apps/web/data/latest-state.json
-python tools/validate_web_static.py --root apps/web
-```
-
-### Rust engine (requires a local Rust toolchain)
-
-```bash
-cargo test --workspace
-cargo run -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 \
-  --out apps/web/data/latest-state.json
-```
-
-### Use the ephemeris as a library
-
-The `solar-ephemeris` engine (zero-dependency positions + topocentric sky) is published
-on crates.io:
-
-```bash
-cargo add solar-ephemeris    # https://crates.io/crates/solar-ephemeris
-```
-
-See **[crates/solar-ephemeris/README.md](crates/solar-ephemeris/README.md)** for install
-and usage.
-
-Full developer instructions: **[docs/INSTRUCTIONS.md](docs/INSTRUCTIONS.md)**.
-
-### Validate a change
-
-Install the locked JavaScript validation tools, then run the fast cross-language contract:
-
-```bash
-npm ci --ignore-scripts
+```powershell
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+npm test
+python tools/typecheck_web.py
 python tools/validate_sdlc.py
 python tools/validate_docs.py
 python tools/validate_ux_contract.py
-PYTHONPATH=tools python -m unittest discover -s tests/python -p 'test_*.py' -v
-npm test
-python tools/typecheck_web.py
-python tools/validate_web_static.py
 ```
 
-The full CI additionally builds/tests Rust and WASM, runs the real app in Chromium with
-WebGL visual assertions, compares deterministic snapshots across Linux/macOS/Windows, and
-enforces at least 90% Rust, Python, and denominator-complete web line coverage. See
-**[CONTRIBUTING.md](CONTRIBUTING.md)** and
-**[docs/VALIDATION_PLAN.md](docs/VALIDATION_PLAN.md)**.
+Run the risk-specific Python, contract, staged-browser and coverage commands in the
+validation plan as well. Existing 90% coverage floors are requirements, not a claim that
+this local tree currently passes every coverage/platform gate. No full accessibility
+conformance or operational forecast authority is claimed.
 
----
-
-## Repository layout
-
-```text
-apps/web/            Static web app (index.html, app.js, styles.css)
-apps/web/data/       Snapshots the app reads: latest-state.json, feed-status.json,
-                     latest-observations.json, series/ (cycle frames + manifest)
-crates/              Rust workspace (solar-core, solar-ingest, solar-cli, …)
-python/              Runnable prototype (synthetic solar maximum image)
-tools/               Python generators, ingest, validators + shell helpers (watch-ci.sh)
-docs/                Specs, requirements, RFCs/ADRs, UX, validation, status + operations
-tests/               Fixtures and golden snapshots
-```
-
----
-
-## Specification-driven development
-
-Behavior starts with a stable requirement in
-[`docs/requirements.json`](docs/requirements.json), links to the governing specification,
-and ends with implementation, verification, and a named CI gate. Material contract,
-privacy, UX-workflow, architecture, or release-policy changes use the
-[`docs/rfcs/`](docs/rfcs/) process; durable architecture decisions use
-[`docs/adr/`](docs/adr/).
-
-The lifecycle is documented in [`docs/SDLC.md`](docs/SDLC.md), the standards boundary in
-[`docs/STANDARDS.md`](docs/STANDARDS.md), and the progressive-disclosure/accessibility
-contract in [`docs/UX_GUIDELINES.md`](docs/UX_GUIDELINES.md). CI validates all of them
-before the tested SHA can deploy.
-
----
-
-## Modes (engine)
-
-### Synthetic mode
-A reproducible solar-maximum state from a solar-cycle activity index, a bipolar
-active-region birth model, differential rotation, surface flux transport, and
-probabilistic flare/CME hazard fields.
-
-### Assimilation mode (scalar activity, v1 scope)
-`solar-cli simulate --observations <report.json>` corrects the scalar activity forecast
-with the daily pipeline's observed activity index through the diagonal Kalman-style
-update below — freshness-damped from the report's own staleness evaluation, and gated on
-attributable provenance (frames without a source are disclosed, not embedded). The
-snapshot is emitted in `Assimilation` mode with the evidence frames attached; the **Br
-grid remains synthetic and says so** — spatial assimilation waits for real magnetogram
-frames (ROADMAP v0.4). Unusable observations leave the run `Synthetic` with a warning
-saying why; degraded inputs never inflate the mode. See ADR 0005.
-
-```text
-forecast  x_f = M(x_t)
-residual  r   = y - H(x_f)
-gain      K   = P_f / (P_f + R)
-analysis  x_a = x_f + freshness_gain * K * r
-variance  P_a = (1 - K) * P_f
-```
-
----
-
-## Operational boundary (read this)
-
-This app is operational for **deterministic research and learning** workflows only. It is
-**not** operational space-weather forecasting. `operational_readiness.space_weather_operational`
-stays `false` until calibrated physical units, historical validation, comparison against
-operational SWPC products, adapter-freshness monitoring, alerting, and approval evidence
-exist. Normalized magnetic values are labelled normalized — never asserted as Gauss/Mx.
-
-## Public-method anchors
-
-Claims are anchored to public, inspectable products: [NOAA SWPC](https://www.swpc.noaa.gov/products-and-data),
-[Helioviewer](https://api.helioviewer.org/docs/v2/), NASA [SDO](https://sdo.gsfc.nasa.gov/)
-browse imagery, [JPL/NAIF SPICE](https://naif.jpl.nasa.gov/naif/), and
-[NN/g progressive disclosure](https://www.nngroup.com/articles/progressive-disclosure/).
-No SpaceX equivalence or proprietary internal JPL/SpaceX algorithm is claimed.
-See [`docs/STANDARDS.md`](docs/STANDARDS.md) for exact IETF, W3C, NIST, OWASP, and
-usability-guidance scope; no blanket certification or conformance is claimed.
-
-## License
-
-MIT OR Apache-2.0.
+Sol is not for navigation, occultation prediction, mission safety or operational
+space-weather warnings. `space_weather_operational` remains false. Project code is
+MIT OR Apache-2.0; third-party data attribution and outstanding coefficient notice
+correspondence are documented separately and are not resolved by that project license.

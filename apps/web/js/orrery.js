@@ -14,11 +14,16 @@
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
 import { store } from "./store.js?v=dcca6290db";
-import { loadSkyEngine, systemSnapshot, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=dcca6290db";
+import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
+import { layoutLabels } from "./labelLayout.js?v=dcca6290db";
+import { resolveSystemPresentation } from "./presentationState.js?v=dcca6290db";
+import { loadSkyEngine, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=dcca6290db";
+import { projectSystemPositions, validateSystemRequest } from "./systemContract.js?v=dcca6290db";
+import { requestSystemSnapshot, cancelSystemSnapshot } from "./systemWorkerClient.js?v=dcca6290db";
 import { BODY, PLANET_ORDER, STYLE_ID, AU_KM, poleVector, equToEcl } from "./bodyData.js?v=dcca6290db";
 import { buildCelestial } from "./celestial.js?v=dcca6290db";
 import { DWARFS, COMETS, PROBES, asOrbit, bodyXYZ, probeXYZ, buildBelts } from "./smallbodies.js?v=dcca6290db";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=dcca6290db";
+import { epochAccuracy, renderedEpochLabel } from "./accuracy.js?v=dcca6290db";
 import {
   perspective, lookAt, mul, sub, add, cross, dot, norm, translate, scaleM, normalMat3,
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
@@ -31,7 +36,7 @@ import {
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
 } from "./orreryGalaxy.js?v=dcca6290db";
-import { renderDetail, renderMoonDetail, renderSmallDetail } from "./orreryDetail.js?v=dcca6290db";
+import { renderDetail, renderMoonDetail, renderSmallDetail, updateLiveDetailFacts } from "./orreryDetail.js?v=dcca6290db";
 import { renderStarDetail } from "./starDetail.js?v=dcca6290db";
 import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dcca6290db";
 import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=dcca6290db";
@@ -45,12 +50,14 @@ import { elpMoonAliased,
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
+  updateLiveDetailFacts(state.bodies.find(body=>body.name===state.selected));
+  state.presentation = resolveSystemPresentation({ renderUnix: state.renderUnix, scene: state.galaxy ? "galaxy" : "system", selected: state.selected, hasSnapshot: state.bodies.length===9, error: state.engineError });
+  window.dispatchEvent(new Event("sol:presentation"));
   const node = document.getElementById("orreryAccuracy"); if (!node) return;
-  const a = epochAccuracy(state.offsetYears, "helio");
+  const a = epochAccuracy((state.renderUnix - Date.now() / 1000) / (365.25 * 86400), "helio");
   node.className = "epoch-accuracy acc-" + a.level;
-  // Append the moon layer's own caveat when it is declining to draw. The planets here stay
-  // arcsecond-class across the whole slider; the moons do not, and silently vanishing moons
-  // would read as a bug rather than as the honest answer.
+  // Data availability and independent accuracy are different claims. Always disclose
+  // a hidden moon layer without extending a recorded parity sample across the slider.
   const moonNote = state.showMoons && state.moonsHiddenReason ? ` ${state.moonsHiddenReason}` : "";
   // Same honesty for spin: at high time speeds physical rotation outpaces a display's sampling
   // rate. Keep the bodies moving continuously, but disclose the visible-rate cap.
@@ -64,7 +71,16 @@ function updateOrreryAccuracy() {
   const lunarNote = state.animate && !state.galaxy && elpMoonAliased(state.simStepSeconds)
     ? " The Moon's drawn motion is under-sampled at this speed (positions stay exact)."
     : "";
-  node.textContent = `${epochLabel(state.offsetYears)} — ${a.text}${moonNote}${spinNote}${lunarNote}`;
+  node.textContent = `${state.galaxy ? "Galaxy illustration — separate model clock" : renderedEpochLabel(state.renderUnix)} — ${a.text}${moonNote}${spinNote}${lunarNote}${state.engineError ? ` ${state.engineError}` : ""}`;
+  const metadata = document.getElementById("orreryMetadataEpoch");
+  if(metadata) metadata.textContent=state.metadataUnix==null ? "Orbital elements and phase metadata loading on your device…" : `Orbit curves and phase metadata sampled at ${renderedEpochLabel(state.metadataUnix)}. Position markers use the rendered instant above; metadata refresh is asynchronous.`;
+  const retry=document.getElementById("orreryRetry");if(retry)retry.hidden=!state.engineError;
+  const scale = document.getElementById("orreryScaleStatus");
+  if (scale) scale.textContent = state.galaxy ? state.localView ? "Solar neighbourhood · light-years · static catalogue epoch" : `Illustrative galaxy · kiloparsecs · ${(state.galYears / 1e6).toFixed(2)} million model years`
+    : state.trueScale ? "Physical scale — small bodies may be sub-pixel" : "Enlarged for visibility — body sizes and moon spacing are exaggerated";
+  const live = document.getElementById("orrerySelectedEpoch");
+  if (live) live.textContent = state.selectedStar ? "Star catalogue facts; not an independently validated apparent place"
+    : `${state.selected || "No selection"} · ${renderedEpochLabel(state.renderUnix)}${moonSet.MOONS.some(m=>m.n===state.selected) && !withinMoonValidity(state.renderUnix,moonSet.MOON_VALID_MIN_JD,moonSet.MOON_VALID_MAX_JD) ? " · position unavailable outside the moon table interval" : ""}`;
 }
 
 const FOVY = (42 * Math.PI) / 180;
@@ -95,6 +111,7 @@ const TEXTURE_FILES = {
 // GL handles stay module-local below; this holds the user-facing/scene state.
 const state = (store.orrery = {
   az: 0.7, el: 0.45, radius: 26, savedRadius: 26, offsetYears: 0,
+  presentation: /** @type {any} */ (null),
   active: false, entering: false, exaggeration: 1, trueScale: false, animate: true,
   // Solar-system animation rate (sim years per real second). The close-up default is one
   // simulated hour per real second: Earth turns visibly (~15°/s) without completing a full
@@ -119,6 +136,8 @@ const state = (store.orrery = {
   sunImageUnix: null,
   moonsAliasedCount: 0, // accumulated across every visible parent system in one paint
   bodies: [], lastTick: 0,
+  objectQuery: "", objectGroup: "all",
+  metadataUnix: null, engineError: "",
 });
 
 const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
@@ -552,39 +571,44 @@ function stepParticles(dt) {
 }
 
 // ---------------------------------------------------------------- per-frame data
-function effectiveBaseUnix() { return Date.now() / 1000 + state.offsetYears * YR; }
+function effectiveBaseUnix(offsetYears=state.offsetYears) { return Date.now() / 1000 + offsetYears * YR; }
 
 let lastPosUpdate = 0;
 let lastFullSnapshot = 0;
+let systemGeneration = 0, metadataPending = false, metadataFailed = false;
+
+async function refreshSystemMetadata() {
+  if(metadataPending||metadataFailed||!state.active||document.hidden)return;
+  const generation=systemGeneration,unix=state.renderUnix;
+  metadataPending=true;
+  try {
+    const snapshot=await requestSystemSnapshot(unix);
+    if(generation!==systemGeneration||!state.active)return;
+    const projected=projectSystemPositions(snapshot.bodies,systemPositions(state.renderUnix));
+    state.bodies=projected;
+    state.metadataUnix=unix;state.engineError="";lastFullSnapshot=performance.now();
+    // Never replace current-time marker coordinates with a delayed metadata epoch.
+    rebuildPositions();buildSceneLines();
+    if(!state.animate)paint();
+  } catch(error) {
+    if(generation===systemGeneration&&state.active){metadataFailed=true;state.engineError=`Orbital metadata unavailable: ${error.message}; prior metadata retained. Retry explicitly to resume metadata updates.`;updateOrreryAccuracy();}
+  } finally {if(generation===systemGeneration)metadataPending=false;}
+}
+
+function cancelSystemWork(){systemGeneration++;metadataPending=false;cancelSystemSnapshot();}
 
 function rebuildPositions() {
   try {
-    // Fast path for the 60 fps animation: raw positions from linear memory, updated
-    // in place — the full JSON snapshot (phase/magnitude/speed for the detail panel)
-    // refreshes at ≤~1 Hz, aligned with the DOM list's own throttle below. An older
-    // deployed wasm without the export, a name-order mismatch, or an empty first call
-    // all fall back to the JSON path, which also (re)seeds the body objects.
-    const positions = systemPositions(state.renderUnix);
-    const aligned = positions
-      && positions.length === SYSTEM_POSITIONS_ORDER.length * 3
-      && state.bodies.length === SYSTEM_POSITIONS_ORDER.length
-      && state.bodies.every((b, i) => b.name === SYSTEM_POSITIONS_ORDER[i]);
-    if (aligned && performance.now() - lastFullSnapshot <= 800) {
-      for (let i = 0; i < state.bodies.length; i++) {
-        const body = state.bodies[i];
-        body.x_au = positions[i * 3];
-        body.y_au = positions[i * 3 + 1];
-        body.z_au = positions[i * 3 + 2];
-        body.dist_au = Math.hypot(body.x_au, body.y_au, body.z_au);
-      }
-    } else {
-      const snap = systemSnapshot(state.renderUnix);
-      state.bodies = snap.bodies || [];
-      lastFullSnapshot = performance.now();
-      // Orbit ellipses depend on the osculating elements, which only refresh here.
-      buildSceneLines();
-    }
-  } catch (e) { console.error("orrery snapshot failed:", e); }
+    // Fixed 27-f64 calculation is the measured main-thread exception. Full JSON,
+    // orbital-element and phase metadata computation runs only in a separate worker.
+    state.bodies=projectSystemPositions(state.bodies,systemPositions(state.renderUnix));
+  } catch (e) {state.engineError=e.message;return false;}
+  finishPositionUpdate();
+  return true;
+}
+
+function finishPositionUpdate() {
+  if(performance.now()-lastFullSnapshot>800)void refreshSystemMetadata();
   buildDropLines();
   rebuildSmallBodies();
   // Refresh the text "Positions" list (a11y), throttled so animation doesn't thrash the DOM.
@@ -592,44 +616,68 @@ function rebuildPositions() {
   if (now - lastPosUpdate > 800) { updateOrreryPositions(); lastPosUpdate = now; }
 }
 
+function applySystemTime(offsetYears, resetGalaxy=false) {
+  cancelSystemWork();
+  try {
+    if(!Number.isFinite(offsetYears))throw new Error("Invalid System time offset");
+    const {unix}=validateSystemRequest({unix:effectiveBaseUnix(offsetYears)});
+    const bodies=projectSystemPositions(state.bodies,systemPositions(unix));
+    // Publish one complete intent only after every coordinate and distance validates.
+    Object.assign(state,{bodies,renderUnix:unix,offsetYears,simElapsed:0,engineError:""});
+    if(resetGalaxy)state.galYears=0;
+    metadataFailed=false;lastFullSnapshot=0;
+    resetRotationDisplay();finishPositionUpdate();
+    if(state.galaxy||resetGalaxy)updateGalaxySun();
+    paint();
+  } catch(error) {
+    metadataFailed=true;
+    state.engineError=`System time change unavailable: ${error.message}; prior rendered time and coordinates retained. Retry or choose another time.`;
+  }
+  const slider=/** @type {HTMLInputElement|null} */ (document.getElementById("orreryTime"));
+  if(slider)slider.value=String(state.offsetYears);
+  updateOrreryAccuracy();
+}
+
 // Text alternative to the canvas (accessibility): every body's heliocentric distance + ecliptic
 // longitude — the content the standalone top-down "Solar System" surface used to provide.
 function updateOrreryPositions() {
   const list = document.getElementById("orreryPositions");
   if (!list) return;
-  list.textContent = "";
+  const rows = [];
   // Rows are BUTTONS, not text. This panel is the canvas's stated text alternative, so anything
   // you can click in the 3-D view has to be reachable here too — otherwise the moons would exist
   // only for pointer users, since the label overlay is aria-hidden and hit-testing is by cursor.
   const select = (name) => {
-    state.selectedStar = null;
+    state.selectedStar = starCat?.NAMED_STARS.find(s=>`star:${s.hip}` === name) || null;
     state.selected = name;
     showDetail(name);
+    updateOrreryPositions();
+    const focus = document.getElementById("orreryFocusSelected");
+    if (focus) focus.toggleAttribute("disabled", !!state.selectedStar);
     if (!state.animate) paint();
   };
-  const addRow = (name, text, indent) => {
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = indent ? "sky-row orrery-pos-moon" : "sky-row";
-    row.textContent = text;
-    row.addEventListener("click", () => select(name));
-    list.appendChild(row);
+  const addRow = (name, text, kind, searchName = name) => {
+    if (!matchesObject({name:searchName,kind},state.objectQuery,state.objectGroup)) return;
+    rows.push({ id: name, label: text, selected: state.selected === name, className: kind === "moon" ? "sky-row orrery-pos-moon" : "sky-row" });
   };
+  addRow("Sun", "Sun · heliocentric origin", "planet");
   for (const b of state.bodies) {
     if (b.x_au == null || b.dist_au == null) continue;
     const lon = (((Math.atan2(b.y_au, b.x_au) * 180) / Math.PI) + 360) % 360;
-    addRow(b.name, `${b.name}: ${b.dist_au.toFixed(2)} AU from the Sun, ecliptic longitude ${lon.toFixed(0)}°`, false);
+    addRow(b.name, `${b.name}: ${b.dist_au.toFixed(2)} AU from the Sun, ecliptic longitude ${lon.toFixed(0)}°`, b.name === "Moon" ? "moon" : "planet");
     // Its moons directly beneath it, so the hierarchy is audible in reading order.
-    if (!state.showMoons) continue;
-    if (!withinMoonValidity(
-      state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD,
-    )) continue;
     for (const m of moonSet.moonsOf(b.name)) {
       const period = m.P < 1 ? `${(m.P * 24).toFixed(1)} h` : `${m.P.toFixed(2)} d`;
       addRow(m.n, `↳ ${m.n}: moon of ${b.name}, ${Math.round(m.a).toLocaleString()} km out, `
-        + `orbit ${period}, radius ${Math.round(m.r).toLocaleString()} km`, true);
+        + `orbit ${period}, radius ${Math.round(m.r).toLocaleString()} km`
+        + (!withinMoonValidity(state.renderUnix,moonSet.MOON_VALID_MIN_JD,moonSet.MOON_VALID_MAX_JD) ? " · position unavailable at this epoch" : !state.showMoons ? " · visual layer hidden" : ""), "moon");
     }
   }
+  for (const s of smallBodies) addRow(s.name, `${s.name} · ${s.kind} · illustrative orbit${state.showSmall ? "" : " · visual layer hidden"}`, "small");
+  for (const s of starCat?.NAMED_STARS || []) addRow(`star:${s.hip}`, `${s.name} · star · catalogue magnitude ${s.mag}`, "star", s.name);
+  const count = document.getElementById("orreryObjectCount");
+  if (count) count.textContent = `${rows.length} matching objects${rows.length > 100 ? " · showing first 100; refine search for any object" : ""}${starCat ? "" : " · named-star catalogue loading"}. Label suppression does not remove objects from search.`;
+  syncObjectRows(list, rows.slice(0,100), select);
 }
 
 // STATIC line geometry: orbit ellipses (fixed per element refresh, ~1 Hz at most),
@@ -1523,6 +1571,7 @@ function paintNeighbourhood(w, h, dpr, vp, eye) {
 // ---------------------------------------------------------------- DOM labels
 const labelEls = [];
 function updateLabels(canvas, vp, skyVp) {
+  updateOrreryAccuracy();
   const host = document.getElementById("orreryLabels"); if (!host) return;
   const cw = canvas.clientWidth, ch = canvas.clientHeight;
   host.style.left = canvas.offsetLeft + "px"; host.style.top = canvas.offsetTop + "px";
@@ -1572,18 +1621,38 @@ function updateLabels(canvas, vp, skyVp) {
     }
   }
   while (labelEls.length < items.length) { const e = document.createElement("span"); host.appendChild(e); labelEls.push(e); }
+  // Batch DOM text writes, then measurements, then placement writes.
   for (let i = 0; i < labelEls.length; i++) {
+    const el = labelEls[i], it = items[i];
+    delete el.dataset.projectionX; delete el.dataset.projectionY;
+    el.style.display = it ? "block" : "none";
+    if (!it) continue;
+    el.className = it.cls; el.textContent = it.name; el.style.transform = "none";
+    el.style.maxWidth = Math.max(0,cw-8)+"px"; el.style.width = "max-content";
+  }
+  const candidates = [];
+  for (let i = 0; i < items.length; i++) {
     const el = labelEls[i];
-    if (i >= items.length) { el.style.display = "none"; continue; }
     const it = items[i], m = it.sky ? skyVp : vp;
     const x = m[0] * it.p[0] + m[4] * it.p[1] + m[8] * it.p[2] + m[12];
     const y = m[1] * it.p[0] + m[5] * it.p[1] + m[9] * it.p[2] + m[13];
     const wv = m[3] * it.p[0] + m[7] * it.p[1] + m[11] * it.p[2] + m[15];
     if (wv <= 0.0001) { el.style.display = "none"; continue; }
     const sx = (x / wv * 0.5 + 0.5) * cw, sy = (1 - (y / wv * 0.5 + 0.5)) * ch;
-    if (sx < -40 || sx > cw + 40 || sy < 0 || sy > ch) { el.style.display = "none"; continue; }
-    el.style.display = "block"; el.className = it.cls; el.style.left = sx + "px"; el.style.top = sy + "px";
-    if (el.textContent !== it.name) el.textContent = it.name;
+    if (Number.isFinite(sx) && Number.isFinite(sy)) {
+      el.dataset.projectionX=String(sx); el.dataset.projectionY=String(sy);
+    }
+    const selected = it.name === state.selected || it.name === state.selectedStar?.name;
+    const priority = selected ? 0 : it.name === state.anchor ? 1 : DRAW_LIST.includes(it.name) ? 2 : moonMarkers.some(m=>m.name === it.name) ? 3 : 4;
+    candidates.push({id:it.name,x:sx,y:sy,width:el.offsetWidth,height:el.offsetHeight,priority});
+  }
+  const placements = new Map(layoutLabels(candidates,{width:cw,height:ch}).map(p=>[p.id,p]));
+  for (let i=0;i<items.length;i++) {
+    const el=labelEls[i], box=placements.get(items[i].name);
+    el.style.display = box ? "block" : "none";
+    if (!box) { delete el.dataset.projectionX; delete el.dataset.projectionY; continue; }
+    el.dataset.objectId=box.id; el.classList.toggle("label-callout",box.callout);
+    el.style.left=box.x+"px"; el.style.top=box.y+"px";
   }
 }
 
@@ -1591,6 +1660,9 @@ function updateLabels(canvas, vp, skyVp) {
 // (The facts card itself is built by orreryDetail.js; this wrapper just supplies the
 // body's live snapshot row.)
 function showDetail(name) {
+  const status=document.getElementById("orrerySelectionStatus");
+  const selectedLabel=state.selectedStar?.name||name||"No object";
+  if(status&&status.textContent!==`${selectedLabel} selected`)status.textContent=`${selectedLabel} selected`;
   // A picked star wins the panel until something else is picked; otherwise fall back to
   // the body card (which also renders the "click something" placeholder).
   if (state.selectedStar) { renderStarDetail(state.selectedStar); return; }
@@ -1627,7 +1699,7 @@ function pickStar(px, py, w, h, m, project) {
 // ---------------------------------------------------------------- animation loop
 let rafId = 0;
 function tick(now) {
-  if (!state.active) { rafId = 0; return; }
+  if (!state.active || document.hidden) { rafId = 0; state.lastTick = 0; return; }
   const dt = state.lastTick ? Math.min(0.05, (now - state.lastTick) / 1000) : 0.016;
   state.lastTick = now;
   const spinBefore = state.spinLimitedCount;
@@ -1650,8 +1722,9 @@ function tick(now) {
       // Advance from the previous simulated epoch. Re-evaluating Date.now() here added one
       // wall-clock second per real second on top of the selected accelerated rate, making
       // every rate fast (and a slow manual rate materially so).
+      const previousUnix=state.renderUnix;
       state.renderUnix += state.simStepSeconds;
-      rebuildPositions();
+      if(!rebuildPositions()){state.renderUnix=previousUnix;state.simElapsed-=state.simStepSeconds;state.animate=false;const cb=/** @type {HTMLInputElement|null} */(document.getElementById("orreryAnimate"));if(cb)cb.checked=false;}
       stepParticles(dt);
       updateRotationDisplay(dt);
     }
@@ -1669,7 +1742,7 @@ function tick(now) {
     rafId = 0;
   }
 }
-function startLoop() { if (!rafId) { state.lastTick = 0; rafId = requestAnimationFrame(tick); } }
+function startLoop() { if (!rafId && !document.hidden) { state.lastTick = 0; rafId = requestAnimationFrame(tick); } }
 
 // Integrate free-fly movement from held keys (WASD = move, Q/E or R/F = down/up, Shift = boost).
 function flyStep(dt) {
@@ -1856,17 +1929,18 @@ export function enterOrrery() {
   // Idempotent against overlapping calls: enter is async (WASM load + GL init), so a
   // double-invocation could race two initGL passes. app.js always leaves before entering,
   // but the boot router and future callers shouldn't have to know that.
-  if (enterPromise) return enterPromise;
+  if (enterPromise && state.active) return enterPromise;
   state.entering = true;
-  enterPromise = enterOrreryInner().finally(() => {
-    state.entering = false;
-    enterPromise = null;
+  const pending = enterOrreryInner().finally(() => {
+    if(enterPromise===pending){state.entering = false;enterPromise = null;}
   });
-  return enterPromise;
+  enterPromise=pending;return pending;
 }
 
 async function enterOrreryInner() {
   state.active = true;
+  metadataFailed=false;
+  const generation=systemGeneration;
   const canvas = document.getElementById("orreryCanvas"); if (!canvas) return;
   // Clear a possible showFallback() hide — but ONLY clear. Setting an inline
   // display:block here permanently overrode the CSS that hides this canvas on the other
@@ -1874,7 +1948,10 @@ async function enterOrreryInner() {
   // frame corrupting the Sun surface's layout for the rest of the session.
   canvas.style.display = "";
   try {
-    await loadSkyEngine();
+    const {unix}=validateSystemRequest({unix:effectiveBaseUnix() + state.simElapsed});
+    const [,snapshot]=await Promise.all([loadSkyEngine(),requestSystemSnapshot(unix)]);
+    if(!state.active||generation!==systemGeneration)return;
+    state.bodies=snapshot.bodies.map(body=>({...body}));state.renderUnix=unix;state.metadataUnix=unix;state.engineError="";lastFullSnapshot=performance.now();
     if (!gl) {
       const res = initGL(canvas);
       if (!res) { showFallback("WebGL2 is unavailable — try a recent Chrome, Edge, Firefox, or Safari."); return; }
@@ -1885,8 +1962,8 @@ async function enterOrreryInner() {
     }
     loadTextures();
     setSpeedSliderMode(state.galaxy);
-    state.renderUnix = effectiveBaseUnix() + state.simElapsed;
     rebuildPositions();
+    buildSceneLines();
     showDetail(state.selected);
     updateOrreryAccuracy();
     paint();
@@ -1903,6 +1980,7 @@ async function enterOrreryInner() {
     if (starCatPromise) {
       void starCatPromise.then((catalogue) => {
         starCat = catalogue;
+        updateOrreryPositions();
         if (gl && !gl.isContextLost()) {
           buildCelestialBuffers();
           buildGalaxyBuffers();
@@ -1910,28 +1988,57 @@ async function enterOrreryInner() {
         if (state.active) paint();
       }).catch((error) => console.warn("star catalogue unavailable:", error.message));
     }
-  } catch (e) { showFallback("3-D view failed to initialise: " + e.message); console.error(e); }
+  } catch (e) { if(state.active&&generation===systemGeneration&&!document.hidden) {showFallback("3-D view failed to initialise: " + e.message);console.error(e);} }
 }
 export function leaveOrrery() {
   state.active = false;
+  cancelSystemWork();
   if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
 }
-function showFallback(msg) {
+async function showFallback(msg) {
+  const generation=systemGeneration,unix=state.renderUnix;
+  state.engineError=msg;
+  updateOrreryAccuracy();
   const node = document.getElementById("orreryInsight"); if (node) node.textContent = msg;
   const canvas = document.getElementById("orreryCanvas"); if (canvas) canvas.style.display = "none";
   // Keep the text alternative alive: the "Positions" list needs only the ephemeris engine,
   // not WebGL — it used to stay empty after a GL failure, leaving a fully dead panel.
   try {
-    const snap = systemSnapshot(Date.now() / 1000);
-    state.bodies = snap.bodies || [];
+    const snap = await requestSystemSnapshot(unix);
+    if(!state.active||generation!==systemGeneration)return;
+    state.bodies = snap.bodies.map(body=>({...body}));
+    state.metadataUnix=unix;updateOrreryAccuracy();
     updateOrreryPositions();
-  } catch (_) { /* engine unavailable too — nothing to show */ }
+  } catch (error) {
+    if(!state.active||generation!==systemGeneration)return;
+    state.engineError=`${msg}; text positions unavailable: ${error.message}. Retry explicitly to recover.`;
+    updateOrreryAccuracy();
+  }
 }
 
 // ---------------------------------------------------------------- interaction
 (function attach() {
   const canvas = /** @type {HTMLCanvasElement|null} */ (document.getElementById("orreryCanvas")); if (!canvas) return;
   canvas.tabIndex = 0;
+  document.getElementById("orreryRetry")?.addEventListener("click",()=>{
+    cancelSystemWork();metadataFailed=false;state.engineError="";lastFullSnapshot=0;
+    if(!gl||state.bodies.length!==9)void enterOrrery();else void refreshSystemMetadata();
+    updateOrreryAccuracy();
+  });
+  document.addEventListener("visibilitychange",()=>{
+    state.keys.clear(); state.lastTick=0;
+    if (document.hidden) { if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelSystemWork(); }
+    else if (state.active) {if(!state.bodies.length)void enterOrrery();else startLoop();}
+  });
+  document.getElementById("orrerySearch")?.addEventListener("input",event=>{
+    state.objectQuery=/** @type {HTMLInputElement} */ (event.target).value; updateOrreryPositions();
+  });
+  document.getElementById("orreryObjectGroup")?.addEventListener("change",event=>{
+    state.objectGroup=/** @type {HTMLSelectElement} */ (event.target).value; updateOrreryPositions();
+  });
+  document.getElementById("orreryFocusSelected")?.addEventListener("click",()=>{
+    if (state.selected && !state.selectedStar) setAnchor(state.selected);
+  });
   // Respect the OS motion preference: the 3-D surface must not auto-animate full-viewport
   // for users who asked for reduced motion. The Animate checkbox re-enables it explicitly.
   if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -2066,8 +2173,8 @@ function showFallback(msg) {
   const bind = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
   /** @param {Event} e */
   const inputTarget = (e) => /** @type {HTMLInputElement} */ (e.currentTarget);
-  bind("orreryTime", "input", (e) => { state.offsetYears = Number(inputTarget(e).value); state.simElapsed = 0; state.renderUnix = effectiveBaseUnix(); resetRotationDisplay(); rebuildPositions(); if (state.galaxy) updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
-  bind("orreryNow", "click", () => { state.offsetYears = 0; state.simElapsed = 0; state.galYears = 0; const s = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryTime")); if (s) s.value = "0"; state.renderUnix = effectiveBaseUnix(); resetRotationDisplay(); rebuildPositions(); updateGalaxySun(); showDetail(state.selected); paint(); updateOrreryAccuracy(); });
+  bind("orreryTime", "input", (e) => applySystemTime(Number(inputTarget(e).value)));
+  bind("orreryNow", "click", () => applySystemTime(0,true));
   // drawRing already detects a radius change and re-uploads into the SAME buffer, so no
   // ringBufs reset here — nuking the map on every slider input orphaned up to three ~1.3 MB
   // GPU buffers per event without gl.deleteBuffer.
@@ -2166,6 +2273,8 @@ function showFallback(msg) {
 
   canvas.addEventListener("webglcontextlost", (e) => {
     e.preventDefault();
+    if(rafId)cancelAnimationFrame(rafId);rafId=0;cancelSystemWork();state.keys.clear();state.lastTick=0;
+    state.engineError="3-D graphics context lost; the text alternative and prior coordinates remain available.";updateOrreryAccuracy();
     // Everything GPU-side belongs to the dead context. The texture/ring caches MUST be
     // invalidated too: their `ready` flags used to survive the loss, so after a restore
     // drawBody bound dead textures (planets rendered flat, rings vanished) and
@@ -2178,6 +2287,7 @@ function showFallback(msg) {
   });
   canvas.addEventListener("webglcontextrestored", () => {
     if (!state.active) return;
+    state.engineError="";metadataFailed=false;
     const c = document.getElementById("orreryCanvas");
     if (!initGL(c)) return;
     initParticles();

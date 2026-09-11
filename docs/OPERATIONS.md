@@ -1,176 +1,98 @@
-# Solar Maximum Engine Operations
+# Operations
 
-## Purpose
+Updated: 2026-09-11. Scope: local research operation. No production, scheduled acquisition,
+registry publication or deployed-service qualification is asserted.
 
-Run deterministic research and learning workflows for the Solar Maximum Engine. This app is not approved for operational space-weather warning, fleet safety decisions, or mission-critical forecasting.
+## Preconditions and authority
 
-The workflow is anchored to public sources and methods: NOAA/SWPC data products, Helioviewer metadata/quicklooks, JPL/NAIF SPICE-style observer geometry, and NOAA WSA-Enlil as a public operational product family for future comparison learning. Do not describe outputs as SpaceX-equivalent or proprietary JPL/SpaceX-derived.
+Use the locked development environment described in [instructions](INSTRUCTIONS.md).
+Read existing artifact/pointer identities before a change, choose an exact task-local
+destination and retain prior valid state. No administrator access is needed for ordinary
+local validation. Explicitly authorize network acquisition and endpoint/recipient scope;
+the deterministic default uses committed fixtures.
 
-## Preconditions
+## Source and derived data transactions
 
-- Python 3.11+ for fixture generation, validation, notebooks, and public-data cache helpers.
-- Rust toolchain for `cargo test --workspace` and `solar-cli`.
-- Node.js 22 plus `npm ci --ignore-scripts` for the locked unit, browser-coverage, and visual-regression tooling.
-- Chromium plus built WASM engines for local end-to-end and WebGL validation.
-- Network access only when running `tools/fetch_public_data.py`.
+`tools/fetch_public_data.py` acquires immutable source bundles with original bytes, hashes,
+source identity, observation/retrieval times, origin, quality and failure records.
+`tools/run_daily_ingest.py` derives and validates a complete research bundle before
+atomically selecting `current.json`. Source and derived pointers are separate: a newly
+acquired source does not make a failed derivation current.
 
-## Release governance preflight
+The derived bundle binds snapshot v3, observations, feed status v2, series manifest and
+available frames to one source-manifest hash. The browser resolves a local pointer once
+or its release-bound descriptor, verifies all required bytes/contracts and publishes one
+coherent state. Corrupt, missing or mixed components leave the prior valid state visible
+with an actionable error. Generation time never replaces observation/retrieval time.
 
-Before language or browser validation, verify that requirements, RFCs, evidence paths,
-dependency automation, workflow pins, coverage thresholds, deployment semantics, docs, and
-the UI disclosure structure remain internally consistent:
-
-```bash
-python tools/validate_sdlc.py
-python tools/validate_docs.py
-python tools/validate_ux_contract.py
-PYTHONPATH=tools python -m unittest tests.python.test_sdlc_contract tests.python.test_ux_contract -v
-```
-
-These checks run in the independent `Governance and specification contracts` CI job, so a
-governance failure prevents the complete `CI` workflow from succeeding and therefore
-prevents normal Pages deployment.
-
-## Deterministic Offline Run
-
-```bash
-python tools/generate_fixture_snapshot.py --out apps/web/data/latest-state.json --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
-python tools/validate_snapshot.py apps/web/data/latest-state.json
-python tools/validate_operational_readiness.py apps/web/data/latest-state.json
-python tools/validate_web_static.py --root apps/web
-python tools/validate_notebook.py notebooks/solar-maximum-lab.ipynb
-```
-
-Expected result: exit code `0` from validation commands and an updated static web fixture. This validates the research/learning track only.
-
-## Rust Run
-
-```bash
-cargo test --workspace
-cargo run -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 --out apps/web/data/latest-state.json
-cargo run -p solar-cli -- ingest swpc --cache .cache/solar-data --out tests/fixtures/live-swpc-normalized.json --fallback-fixtures tests/swpc_scn26_21
-cargo run -p solar-cli -- replay --snapshot apps/web/data/latest-state.json --out apps/web/data
-```
-
-Expected result: Rust tests pass, snapshot is written, SWPC observation frame is fixture-backed or cache-backed with provenance retained, and `apps/web/data/latest-state.json` is ready for the web app.
-
-## Optional Live Cache
-
-```bash
-python tools/fetch_public_data.py --cache .cache/solar-data
-python tools/generate_fixture_snapshot.py --cache .cache/solar-data --out apps/web/data/latest-state.json --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
-```
-
-This command fetches public NOAA/SWPC Kp, F10.7, GOES/X-ray, real-time solar-wind, solar-region, cycle, and Helioviewer context. Add `--include-jpl` only when JPL Horizons geometry context is needed. Cache files are local working data and should not be treated as validated truth.
-
-## Daily Research Feed
-
-Run one daily ingest/update cycle:
-
-```bash
-python tools/run_daily_ingest.py --include-jpl
-```
-
-Expected result:
-
-- Public source files are written under `.cache/solar-data`.
-- A daily archive is written under `.cache/solar-data/history/<YYYY-MM-DD>`.
-- `apps/web/data/latest-state.json` is regenerated from the cache.
-- `apps/web/data/latest-observations.json` stores normalized observation provenance.
-- `apps/web/data/feed-status.json` records source health, failures, validation commands, last run, and next recommended run.
-
-The daily feed updates research context. It does not make `operational_readiness.space_weather_operational` true.
-
-On Windows, schedule a per-user daily task:
+For an **existing validated local source bundle**, an offline derivation into an exact
+task-local output is:
 
 ```powershell
-.\tools\install_daily_ingest_task.ps1 -Time 06:15 -IncludeJpl
+python tools/run_daily_ingest.py --skip-fetch --cache PATH_TO_EXISTING_SOURCE_BUNDLE_ROOT --web-data build/research-preview
 ```
 
-Rollback the scheduled task:
+The cache root must already contain its valid `current.json`; this command does not fetch.
+It creates immutable local output and selects that output's pointer, not a deployed site.
+`--migrate-v1 --skip-fetch` explicitly inventories an existing legacy cache without
+rewriting its original raw files; review provenance gaps before use.
+`--fail-on-degraded` withholds degraded derivations. Exit 0 means local validated
+selection only; failure returns 1 and retains the last derived pointer. Argument errors
+can return 2. Failure-attempt evidence remains distinct from healthy feed status.
 
-```powershell
-.\tools\install_daily_ingest_task.ps1 -Uninstall
-```
+Omitting `--skip-fetch` performs network acquisition and requires separate authorization.
+Do not infer permission from scheduling examples or use a demonstration fixture as a
+live observation. See the separately maintained [data update playbook](DATA_UPDATE_PLAYBOOK.md)
+for governed refresh procedures; exact current code and accepted contracts prevail over
+historical prose about fixed output aliases.
 
-## Readiness Gates
+## Browser/provider operation
 
-The app has two operational tracks:
+Default Sky calculations stay on device. Remote mode requires an explicitly configured
+recipient and session-only consent for selected latitude, longitude, elevation and time.
+Health and snapshot redirects are rejected before reaching another recipient. Endpoint
+changes require fresh consent. Deny/revoke aborts remote intent; errors retain last-valid
+data and offer explicit local recovery, not hidden fallback. Share/export previews show
+the captured values before the second copy/download action.
 
-- Research/learning operation is allowed when deterministic replay, snapshot validation, static web checks, notebook validation, and browser smoke checks pass.
-- Space-weather operational use remains blocked while `operational_readiness.space_weather_operational` is `false`.
+The optional Python provider is a separate loopback service, not a production-hardened
+public deployment. Admission is bounded to four workers/twelve distinct jobs, with
+subscriber-aware cancellation, an overall twenty-second job budget, bounded response
+bytes and retries. OS/DNS calls cannot be forcibly terminated by Python threads; a stuck
+slot remains occupied without replacement-thread growth. See [ephemeris limits](EPHEMERIS_V3.md).
+No public endpoint, authentication/TLS topology or production latency is qualified here.
 
-To verify that the app remains honest about this boundary:
+## Candidate build, promotion and rollback
 
-```bash
-python tools/validate_operational_readiness.py apps/web/data/latest-state.json
-```
+Build into a new staged directory using [instructions](INSTRUCTIONS.md). Candidate,
+qualified, promotion-eligible and served-verified are distinct states.
+[Release delivery](RELEASE_DELIVERY.md) specifies same-run evidence, protected profile
+acceptance, immutable asset/WASM/schema identities and exact-artifact promotion. The
+privileged promotion path does not rebuild source. Missing settings/manual/scientific
+acceptance is a hold, not success. Registry publication is separately held.
 
-To test a future release that claims operational status, the stricter gate must pass:
+Do not repair a failed release by overwriting data aliases, rebuilding an arbitrary ref
+or clearing all caches. Preserve evidence and identify a compatible, corrected,
+qualified predecessor artifact; production rollback needs separate authority and served
+verification. A local retained artifact alone is not an eligible production rollback.
 
-```bash
-python tools/validate_operational_readiness.py apps/web/data/latest-state.json --require-space-weather-operational
-```
+## Validation and incident evidence
 
-That stricter command is expected to fail for v1 because calibrated physical units, historical validation, SWPC product comparison, and operational monitoring are not implemented.
+Run source, contract, staged-browser and coverage checks in [VALIDATION_PLAN](VALIDATION_PLAN.md).
+Keep command/toolchain versions, source and final asset hashes, errors and exact input
+identities. Do not log credentials or needless location payloads. A fresh source fetch,
+successful build or upload is not a verified served release.
 
-## Web coverage and visual validation
+For invalid data, retain the selected pointer and inspect the failed attempt, source
+manifest and component hashes. For unavailable workers/providers, preserve valid facts,
+cancel obsolete intent and use explicit recovery. Do not fabricate missing events or
+change schema versions to bypass validation.
 
-The JavaScript coverage gate has two inputs. Native Node tests retain independent
-90% line, branch, and function thresholds. A denominator-complete c8 run seeds
-every hand-written page and service-worker module, then Chromium's execution
-coverage fills the DOM/WebGL modules Node cannot execute. The merged hand-written
-runtime is gated at 90% line coverage; generated star, moon, geography, and
-constellation catalogues must load but cannot inflate that percentage.
+## Scientific and operational limits
 
-After the WASM engines are built:
-
-```bash
-npm ci --ignore-scripts
-node tools/collect_node_coverage.mjs
-node tools/browser_validation.mjs
-node tools/merge_web_coverage.mjs --minimum-lines=90
-```
-
-The browser run saves its raw coverage plus focused Sun/Earth PNGs under
-`coverage/browser/`. It asserts a warm-white Sun, visible blue Earth oceans, and
-visual continuity after a complete 360° camera orbit. It also verifies initial and toggled
-progressive-disclosure states before exercising the full Sun, My Sky, Solar System, tour,
-provider-fallback, timeline, and camera flows. CI uploads those diagnostics even when a
-gate fails.
-
-## Release evidence and deployment
-
-The full release evidence is split across required workflows:
-
-- `CI`: governance, Rust, web/provider/browser integration, and cross-OS deterministic
-  snapshots;
-- `Coverage`: Rust, Python, Node, browser, and combined whole-web reports;
-- `Docs`: offline documentation and SDLC contract validation;
-- scheduled accuracy, EOP, external-link, ingest, and fuzz workflows for evidence that
-  depends on networks, time, or longer execution.
-
-Normal Pages deployment starts only after the complete `CI` workflow succeeds on `master`.
-It checks out `workflow_run.head_sha`, rebuilds the WASM/data/static artifact, validates it,
-and deploys through the `github-pages` environment. Coverage and Docs should remain required
-branch checks in repository settings; environment reviewers and branch protection are
-settings-owned controls and cannot be proven by files in this repository.
-
-## Rollback
-
-Restore the deterministic fixture:
-
-```bash
-python tools/generate_fixture_snapshot.py --out apps/web/data/latest-state.json --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
-```
-
-Delete `.cache/solar-data` to remove live public-data cache state.
-
-## Known Risks
-
-- Magnetic fields are normalized demonstration units, not calibrated Gauss or Mx.
-- Live public endpoints can change schema or availability.
-- Helioviewer quicklook imagery is useful for overlays, not calibrated FITS analysis.
-- The static app runs audited Rust engines through WASM, but every view still consumes a
-  validated immutable snapshot and must not invent physics in JavaScript.
-- `operational_readiness` must remain visible in research tooling and must not be flipped to operational without evidence.
+Real imagery is not automatically registered; current assessments never permit model
+compositing. Coefficient regeneration/notice gaps and canonical runtime holds are in
+[COEFFICIENT_PROVENANCE](COEFFICIENT_PROVENANCE.md) and
+[CANONICAL_GENERATION](CANONICAL_GENERATION.md).
+Keep operational readiness false: no calibrated magnetic/forecast probability,
+navigation, occultation, mission-safety or operational warning authority is established.

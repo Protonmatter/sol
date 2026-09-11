@@ -164,10 +164,19 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--lon-count", type=int, default=72)
     parser.add_argument("--lat-count", type=int, default=36)
-    parser.add_argument("--cache", help="Optional public-data cache directory to use before deterministic SWPC fixtures.")
+    source_group = parser.add_mutually_exclusive_group()
+    source_group.add_argument("--cache", help="Explicit historical/migration cache input; not live bundle authority.")
+    source_group.add_argument("--source-pointer", type=Path, help="Resolve and validate all immutable source bytes exactly once.")
+    parser.add_argument("--evaluated-at-utc", help="Explicit deterministic evaluation clock required with --source-pointer.")
     args = parser.parse_args()
 
-    observations = build_observation_report(Path(args.cache) if args.cache else None)
+    if args.source_pointer:
+        import data_bundles as bundles
+        if not args.evaluated_at_utc: parser.error("--source-pointer requires --evaluated-at-utc")
+        bundles.timestamp(args.evaluated_at_utc)
+        observations = build_bundle_observation_report(bundles.resolve_source_bundle(args.source_pointer), evaluated_at_utc=args.evaluated_at_utc)
+    else:
+        observations = build_observation_report(Path(args.cache) if args.cache else None)
     snapshot = build_snapshot(args.seed, args.lon_count, args.lat_count, observations)
     write_json(Path(args.out), snapshot)
     write_json(Path(args.observations_out), observations)
@@ -198,11 +207,10 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
     active_regions = build_regions(rng, count=region_count)
     br, confidence = build_field(lon_count, lat_count, active_regions)
     continuum = [continuum_from_br(value) for value in br]
-    variance = [round(max(0.04, 1.0 - conf), 6) for conf in confidence]
 
     source_mode = snapshot_source_mode(observations)
     return {
-        "schema_version": "solar-state-snapshot.v2",
+        "schema_version": "solar-state-snapshot.v3",
         "model_version": "0.2.0",
         "source_mode": source_mode,
         "operational_use": False,
@@ -247,17 +255,17 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
         "layers": [
             {"id": "br_normalized", "label": "Radial magnetic field", "kind": "synthetic", "units": "normalized magnetic field"},
             {"id": "continuum_proxy", "label": "Continuum brightness proxy", "kind": "inferred", "units": "relative intensity"},
-            {"id": "confidence", "label": "Model confidence", "kind": "inferred", "units": "0..1"},
-            {"id": "active_regions", "label": "Active region births", "kind": "synthetic", "units": "normalized metadata"},
+            {"id": "confidence", "label": "Heuristic model score — not probability", "kind": "inferred", "units": "0..1"},
+            {"id": "active_regions", "label": "Modeled region anchors and immutable births", "kind": "synthetic", "units": "normalized metadata"},
             {"id": "swpc_context", "label": "SWPC solar-wind context", "kind": "observed", "units": "provenance metadata"},
         ],
         "fields": {
             "br_normalized": {"units": "normalized magnetic field", "values": br},
-            "br_variance_normalized": {"units": "normalized variance", "values": variance},
             "continuum_proxy": {"units": "relative intensity", "values": continuum},
-            "confidence": {"units": "0..1", "values": confidence},
+            "confidence": score_field(confidence),
         },
-        "active_regions": active_regions,
+        "uncertainty": illustrative_uncertainty(),
+        "active_regions": [region_snapshot(region, 0.0) for region in active_regions],
         "learning": {
             "cycle_stage": "solar maximum",
             "plain_language_insight": insight_from_context(observed_context),
@@ -289,6 +297,38 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
             "Research and learning use only; not operational space-weather forecasting.",
         ],
     }
+
+
+def illustrative_uncertainty(time_seconds: float = 0.0) -> dict[str, Any]:
+    """Uncalibrated scalar prior, never inferred from a spatial score or source feed."""
+    return {"activity": {"variance": 0.04, "units": "activity_index_squared",
+            "method": "freshness_damped_diagonal_proxy.v1", "status": "illustrative",
+            "at_time_seconds": time_seconds, "last_analysis_time_seconds": None,
+            "process_noise_per_day": 0.0, "process_noise_status": "disabled"},
+            "magnetic": {"status": "unavailable", "reason": "Scalar activity context does not determine spatial magnetic covariance."}}
+
+
+def score_field(values: list[float]) -> dict[str, Any]:
+    return {"units": "0..1", "semantics": "heuristic_model_score",
+            "interpretation": "not probability or calibrated uncertainty", "values": values}
+
+
+def region_snapshot(region: dict[str, Any], time_seconds: float) -> dict[str, Any]:
+    """Producer-derived anchor under the same constant-latitude Carrington law as Rust.
+
+    Static/cycle fixtures are generated at age zero; this is not a v2 intake adapter.
+    """
+    birth_time = region["birth_seconds"]
+    if not math.isfinite(time_seconds) or time_seconds < birth_time:
+        raise ValueError("region snapshot time must be finite and not before birth")
+    latitude, longitude = region["lat_deg"], region["lon_deg"]
+    sine = math.sin(math.radians(latitude))
+    rate = 14.713 - 2.396 * sine * sine - 1.787 * sine ** 4 - 14.1844
+    current_longitude = (longitude + rate * ((time_seconds - birth_time) / 86400.0)) % 360.0
+    metadata = {key: value for key, value in region.items() if key not in ("birth_seconds", "lat_deg", "lon_deg")}
+    return {**metadata, "birth": {"time_seconds": birth_time, "lat_deg": latitude, "lon_deg": longitude},
+            "model_position": {"lat_deg": latitude, "lon_deg": current_longitude,
+                               "at_time_seconds": time_seconds, "semantics": "advected_model_anchor"}}
 
 
 def hale_polarity(rng: random.Random, hemi: float) -> str:
@@ -383,6 +423,33 @@ def build_observation_report(cache_dir: Path | None = None) -> dict[str, Any]:
     mag = read_json_candidate(cache_dir, "rtsw_mag_1m.json", Path("tests/swpc_scn26_21/rtsw_mag_1m_new.json"))
     wind = read_json_candidate(cache_dir, "rtsw_wind_1m.json", Path("tests/swpc_scn26_21/rtsw_wind_1m_new.json"))
     optional_candidates = [read_optional_cache_candidate(cache_dir, source) for source in OPTIONAL_CACHE_SOURCES]
+    return report_from_candidates(mag, wind, optional_candidates)
+
+
+def build_bundle_observation_report(source, *, evaluated_at_utc: str) -> dict[str, Any]:
+    """Derive solely from captured bundle bytes; no directory fallback or wall clock."""
+    from data_bundles import loads_strict
+    metadata = {p["product_id"]: p for p in loads_strict(source.manifest_raw.decode())["products"]}
+    by_file = {item.role: item for item in source.components}
+    def candidate(name: str, descriptor: dict[str, Any] | None = None) -> dict[str, Any]:
+        descriptor = descriptor or {}
+        item = by_file.get(name)
+        if item is None:
+            data, row, mode, count = None, {}, "missing", 0
+        else:
+            data = loads_strict(item.raw.decode("utf-8"))
+            row, mode, count = first_row(data), "fixture" if metadata[name]["origin"] == "fixture" else "cached", len(item.raw)
+        result = {"data":data, "row":row, "id":descriptor.get("id",name), "layer_kind":descriptor.get("layer_kind","observed"),
+                  "source_mode":mode, "local_path":f"bundle:{source.bundle_id}/{name}", "raw_bytes":count, "evaluated_at_utc":evaluated_at_utc}
+        result.update({key:descriptor[key] for key in ("name","url") if key in descriptor})
+        return result
+    if not {"rtsw_mag_1m.json", "rtsw_wind_1m.json"} <= by_file.keys():
+        raise ValueError("source bundle requires attributable mag and wind payloads; no mutable/fixture fallback")
+    return report_from_candidates(candidate("rtsw_mag_1m.json"), candidate("rtsw_wind_1m.json"),
+                                  [candidate(d["cache_name"],d) for d in OPTIONAL_CACHE_SOURCES])
+
+
+def report_from_candidates(mag: dict[str, Any], wind: dict[str, Any], optional_candidates: list[dict[str, Any]]) -> dict[str, Any]:
     all_candidates = [mag, wind, *optional_candidates]
     source_mode = "cached" if any(candidate["source_mode"] == "cached" for candidate in all_candidates) else "fixture"
     observed_context = build_observed_context(all_candidates)
@@ -535,7 +602,8 @@ def evaluate_freshness(candidates: list[dict[str, Any]]) -> tuple[dict[str, Any]
     across runs, and canned fixtures have no meaningful age. The quality flags always
     promised "cached data freshness must be evaluated" — this is the evaluation.
     """
-    now = dt.datetime.now(dt.timezone.utc)
+    supplied = next((item["evaluated_at_utc"] for item in candidates if "evaluated_at_utc" in item), None)
+    now = dt.datetime.fromisoformat(supplied.replace("Z", "+00:00")) if supplied else dt.datetime.now(dt.timezone.utc)
     report: dict[str, Any] = {}
     stale: list[str] = []
     for candidate in candidates:

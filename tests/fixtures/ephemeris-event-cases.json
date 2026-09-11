@@ -1,0 +1,13 @@
+{
+  "description": "Synthetic v2 event-boundary cases; not astronomical accuracy references. JD query2460000.75 at east longitude90 has day [2460000.25,2460001.25).",
+  "cases": [
+    {"name":"unavailable", "transit":null, "altitude":null, "valid":true},
+    {"name":"start included", "transit":2460000.25, "altitude":30, "valid":true},
+    {"name":"interior", "transit":2460000.75, "altitude":30, "valid":true},
+    {"name":"end excluded", "transit":2460001.25, "altitude":30, "valid":false},
+    {"name":"before start", "transit":2460000.24999999, "altitude":30, "valid":false},
+    {"name":"after end", "transit":2460001.25000001, "altitude":30, "valid":false},
+    {"name":"time without altitude", "transit":2460000.75, "altitude":null, "valid":false},
+    {"name":"altitude without time", "transit":null, "altitude":30, "valid":false}
+  ]
+}

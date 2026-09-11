@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Run one daily Solar Maximum Engine research-ingest cycle.
 
-This script is idempotent and safe to schedule. It fetches bounded public data
-into the local cache, regenerates the web snapshot from that cache, validates
-the research contract, and writes apps/web/data/feed-status.json.
+Each attempt captures immutable source bytes, stages a complete derived bundle,
+validates the research contract, then selects apps/web/data/current.json once.
+Pre-selection failures preserve the pointer; post-replacement uncertainty is explicit.
+No publication or remote git action.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import logging
 import subprocess
 import sys
 import tempfile
+import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -22,229 +24,100 @@ LOGGER = logging.getLogger("run_daily_ingest")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def display_token(token: str) -> str:
-    """Sanitize a command token for the committed/deployed status file: repo paths become
-    repo-relative POSIX, other absolute paths collapse to their basename. The old verbatim
-    recording shipped the local username and interpreter path to the public site."""
-    path = Path(token)
-    if not path.is_absolute() and ("/" not in token and "\\" not in token):
-        return token
+def derive_bundle(source, output_root: Path, *, bundle_id: str, generated_at_utc: str, seed: int,
+                  series_root: Path | None = None, stage_hook=None):
+    """Generate from pinned source bytes and select only one fully validated result."""
+    import data_bundles as bundles
+    import generate_fixture_snapshot as generator
     try:
-        return path.resolve().relative_to(REPO_ROOT).as_posix()
-    except (ValueError, OSError):
-        return path.name if path.is_absolute() else Path(token).as_posix()
+        observations = generator.build_bundle_observation_report(source, evaluated_at_utc=generated_at_utc)
+        snapshot = generator.build_snapshot(seed, 72, 36, observations)
+        source_manifest = bundles.loads_strict(source.manifest_raw.decode())
+        products = source_manifest["products"]
+        times = [p["observation_time_utc"] for p in products if p["observation_time_utc"] is not None]
+        degraded = bool(source_manifest["failures"]) or any(p["origin"] != "current-fetch" or p["failure"] is not None for p in products)
+        now = datetime.fromisoformat(generated_at_utc.replace("Z", "+00:00"))
+        status = {"schema_version":"daily-ingest-status.v2", "bundle_id":bundle_id,"source_bundle_id":source.bundle_id,
+                  "status":"degraded" if degraded else "ok", "generated_at_utc":generated_at_utc,
+                  "observation_time_utc":max(times,key=lambda t:datetime.fromisoformat(t.replace("Z","+00:00"))) if times else None,"delivery_state":"validated",
+                  "last_run_utc":generated_at_utc,"next_recommended_run_utc":(now+timedelta(days=1)).isoformat(),
+                  "sources":[{"file":p["product_id"],"source":p["source"],"ok":p["failure"] is None,"origin":p["origin"],
+                              "observation_time_utc":p["observation_time_utc"],"retrieved_at_utc":p["retrieved_at_utc"]} for p in products],
+                  "warnings":["Local generation and validation are not approval, merge, deployment or served verification.",
+                              "Research/learning only; no operational forecasting."]}
+        components = {"snapshot":("snapshot.json","solar-state-snapshot.v3",bundles.json_bytes(snapshot)),
+                      "observations":("observations.json","observation-frame.v1",bundles.json_bytes(observations)),
+                      "feed_status":("feed-status.json","daily-ingest-status.v2",bundles.json_bytes(status))}
+        # Explicit local migration inputs for idealized cycle data, captured once.
+        series_root = series_root or REPO_ROOT / "apps/web/data/series"
+        series_raw = bundles.read_bytes(series_root / "manifest.json")
+        series = bundles.loads_strict(series_raw.decode("utf-8"))
+        components["series_manifest"]=("series/manifest.json","series-manifest.v1",series_raw)
+        for index, entry in enumerate(series["frames"]):
+            if entry.get("availability") != "unavailable":
+                components[f"series_frame:{index}"]=("series/"+entry["file"],"solar-state-snapshot.v3",bundles.read_bytes(bundles.safe_path(series_root,entry["file"])))
+        return bundles.create_derived_bundle(output_root,bundle_id=bundle_id,source=source,
+            generated_at_utc=generated_at_utc,components=components,stage_hook=stage_hook)
+    except BaseException as exc:
+        bundles._write_new(output_root / "attempts" / (uuid.uuid4().hex+".json"),bundles.json_bytes({
+            "bundle_id":bundle_id,**bundles.failure_outcome(exc,status="derivation-failed")}))
+        raise
+
+
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
+    import data_bundles as bundles
+    import fetch_public_data as acquisition
+    parser = argparse.ArgumentParser(description="Stage and atomically select one validated research bundle.")
     parser.add_argument("--cache", default=".cache/solar-data")
     parser.add_argument("--web-data", default="apps/web/data")
-    parser.add_argument("--snapshot", default="apps/web/data/latest-state.json")
-    parser.add_argument("--observations-out", default="apps/web/data/latest-observations.json")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--include-jpl", action="store_true")
-    parser.add_argument("--date", help="UTC date stamp for history folders, YYYY-MM-DD. Defaults to today.")
-    parser.add_argument("--skip-fetch", action="store_true", help="Use the existing cache without network calls.")
-    parser.add_argument("--no-archive-history", action="store_true")
+    parser.add_argument("--date")
+    parser.add_argument("--skip-fetch", action="store_true")
+    parser.add_argument("--migrate-v1", action="store_true", help="Explicit read-only inventory of the original cache manifest.")
+    parser.add_argument("--no-archive-history", action="store_true", help="Compatibility flag; immutable bundles are always retained.")
     parser.add_argument("--timeout-seconds", type=int, default=20)
     parser.add_argument("--fail-on-degraded", action="store_true")
     args = parser.parse_args()
-
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-    # Anchor at the repo root, not the caller's CWD — a manual run from elsewhere used to
-    # fail confusingly because tool paths and the validators' relative --root broke.
-    root = REPO_ROOT
-
-    def under_root(value: str) -> Path:
+    def under_root(value):
         path = Path(value)
-        return path if path.is_absolute() else root / path
-
-    cache = under_root(args.cache)
-    web_data = under_root(args.web_data)
-    snapshot = under_root(args.snapshot)
-    observations = under_root(args.observations_out)
-    status_path = web_data / "feed-status.json"
-    fetched_at = datetime.now(UTC)
-
-    commands: list[dict[str, Any]] = []
-    cache_manifest: dict[str, Any] | None = None
-    fetch_exit = 0
-    completed_all = False
-
+        return path if path.is_absolute() else REPO_ROOT / path
+    cache, output = under_root(args.cache), under_root(args.web_data)
+    now = datetime.now(UTC)
+    identity = now.strftime("%Y%m%dT%H%M%S") + "-" + uuid.uuid4().hex[:12]
     try:
-        if args.skip_fetch:
-            cache_manifest = read_json(cache / "manifest.json")
-            commands.append({"name": "fetch_public_data", "skipped": True, "reason": "skip-fetch"})
+        if args.migrate_v1:
+            if not args.skip_fetch:
+                raise ValueError("--migrate-v1 requires --skip-fetch; migration never fetches")
+            source = bundles.create_source_bundle(cache, bundle_id="source-" + identity,
+                acquired_at_utc=now.isoformat(), products=bundles.inventory_legacy_cache(cache))
+        elif args.skip_fetch:
+            source = bundles.resolve_source_bundle(cache / "current.json")
         else:
-            fetch_cmd = [
-                sys.executable,
-                str(root / "tools" / "fetch_public_data.py"),
-                "--cache",
-                str(cache),
-                "--timeout-seconds",
-                str(args.timeout_seconds),
-            ]
-            if not args.no_archive_history:
-                fetch_cmd.append("--archive-history")
-            if args.include_jpl:
-                fetch_cmd.append("--include-jpl")
-            if args.date:
-                fetch_cmd.extend(["--date", args.date])
-            fetch_result = run_command("fetch_public_data", fetch_cmd)
-            commands.append(fetch_result)
-            fetch_exit = int(fetch_result["exit_code"])
-            cache_manifest = read_json(cache / "manifest.json")
-
-        generate_cmd = [
-            sys.executable,
-            str(root / "tools" / "generate_fixture_snapshot.py"),
-            "--cache",
-            str(cache),
-            "--out",
-            str(snapshot),
-            "--observations-out",
-            str(observations),
-            "--seed",
-            str(args.seed),
-        ]
-        commands.append(run_command("generate_fixture_snapshot", generate_cmd))
-
-        validation_commands = [
-            ("validate_snapshot", [sys.executable, str(root / "tools" / "validate_snapshot.py"), str(snapshot)]),
-            ("validate_operational_readiness", [sys.executable, str(root / "tools" / "validate_operational_readiness.py"), str(snapshot)]),
-            ("validate_web_static", [sys.executable, str(root / "tools" / "validate_web_static.py"), "--root", "apps/web"]),
-        ]
-        for name, command in validation_commands:
-            commands.append(run_command(name, command))
-        completed_all = True
-    finally:
-        status = build_status(
-            fetched_at=fetched_at,
-            cache=cache,
-            snapshot=snapshot,
-            observations=observations,
-            cache_manifest=cache_manifest,
-            commands=commands,
-            fetch_exit=fetch_exit,
-            aborted=not completed_all,
-        )
-        write_json(status_path, status)
-        LOGGER.info("wrote feed status=%s status=%s", status_path, status["status"])
-
-    status = read_json(status_path)
-    if status["status"] in ("failed", "aborted"):
+            source = acquisition.acquire_bundle(cache, bundle_id="source-" + identity,
+                acquired_at_utc=now.isoformat(), stamp=acquisition.parse_date(args.date) if args.date else now.date(),
+                include_jpl=args.include_jpl, timeout_seconds=args.timeout_seconds)
+        source_manifest = bundles.loads_strict(source.manifest_raw.decode())
+        products = source_manifest["products"]
+        if args.fail_on_degraded and (source_manifest["failures"] or any(p["origin"] != "current-fetch" or p["failure"] for p in products)):
+            raise ValueError("degraded source bundle withheld; last derived pointer unchanged")
+        result = derive_bundle(source, output, bundle_id="research-" + identity,
+            generated_at_utc=now.isoformat(), seed=args.seed)
+        LOGGER.info("validated bundle=%s source_bundle=%s; not published", result.bundle_id, source.bundle_id)
+        return 0
+    except (ValueError, OSError, RuntimeError) as exc:
+        bundles._write_new(output / "attempts" / (uuid.uuid4().hex + ".json"),
+            bundles.json_bytes(bundles.failure_outcome(exc)))
+        if isinstance(exc,bundles.CommittedSelectionError):
+            LOGGER.error("ingest selection committed but completion uncertain: %s; no rollback attempted",exc)
+        else:
+            LOGGER.error("ingest failed before derived selection completed: %s; inspect attempt evidence",exc)
         return 1
-    if args.fail_on_degraded and status["status"] == "degraded":
-        return 1
-    return 0
 
 
-def run_command(name: str, command: list[str]) -> dict[str, Any]:
-    LOGGER.info("running %s", name)
-    completed = subprocess.run(
-        command,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        cwd=REPO_ROOT,
-    )
-    return {
-        "name": name,
-        "command": [display_token(token) for token in command],
-        "exit_code": completed.returncode,
-        "stdout_tail": scrub_paths(tail(completed.stdout)),
-        "stderr_tail": scrub_paths(tail(completed.stderr)),
-    }
-
-
-def scrub_paths(text: str) -> str:
-    """Child processes echo absolute paths; replace the repo root (either separator style)
-    so the committed/deployed status file carries no machine/username paths."""
-    native = str(REPO_ROOT)
-    return text.replace(native + "\\", "").replace(native + "/", "").replace(native, ".")
-
-
-def build_status(
-    *,
-    fetched_at: datetime,
-    cache: Path,
-    snapshot: Path,
-    observations: Path,
-    cache_manifest: dict[str, Any] | None,
-    commands: list[dict[str, Any]],
-    fetch_exit: int,
-    aborted: bool = False,
-) -> dict[str, Any]:
-    command_failures = [item["name"] for item in commands if item.get("exit_code", 0) != 0 and item.get("name") != "fetch_public_data"]
-    fetch_manifest_status = (cache_manifest or {}).get("status", "missing")
-    critical_failures = list((cache_manifest or {}).get("critical_failures") or [])
-    optional_failures = [
-        item.get("file")
-        for item in (cache_manifest or {}).get("fetched", [])
-        if isinstance(item, dict) and not item.get("ok") and not item.get("critical")
-    ]
-
-    status = "ok"
-    if optional_failures or fetch_manifest_status == "degraded":
-        status = "degraded"
-    if fetch_exit != 0 or critical_failures or command_failures:
-        status = "failed"
-    if aborted:
-        # The run died before the command list completed (Ctrl-C, scheduler kill). The old
-        # code built a healthy-looking "ok" status that simply omitted the never-run
-        # validators — the served feed-health panel then lied about a run that validated
-        # nothing.
-        status = "aborted"
-
-    next_run = fetched_at + timedelta(days=1)
-    warnings: list[str] = []
-    if aborted:
-        warnings.append("Ingest run was interrupted before all steps completed; results are partial.")
-    if optional_failures:
-        warnings.append(f"Optional sources failed: {', '.join(str(item) for item in optional_failures)}")
-    if critical_failures:
-        warnings.append(f"Critical sources failed: {', '.join(str(item) for item in critical_failures)}")
-    warnings.append("Research/learning ingest only; not operational space-weather forecasting.")
-
-    return {
-        "schema_version": "daily-ingest-status.v1",
-        "generated_by": "tools/run_daily_ingest.py",
-        "status": status,
-        "last_run_utc": fetched_at.isoformat(),
-        "next_recommended_run_utc": next_run.isoformat(),
-        "cache_dir": display_token(str(cache)),
-        "snapshot": display_token(str(snapshot)),
-        "observations": display_token(str(observations)),
-        "cache_manifest_status": fetch_manifest_status,
-        "critical_failures": critical_failures,
-        "optional_failures": optional_failures,
-        "sources": (cache_manifest or {}).get("fetched", []),
-        "commands": commands,
-        "warnings": warnings,
-    }
-
-
-def tail(value: str, limit: int = 2000) -> str:
-    if len(value) <= limit:
-        return value
-    return value[-limit:]
-
-
-def read_json(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", delete=False, dir=str(path.parent), encoding="utf-8", newline="\n", prefix=f".{path.name}.", suffix=".tmp") as handle:
-        tmp = Path(handle.name)
-        json.dump(value, handle, indent=2, sort_keys=True)
-        handle.write("\n")
-    tmp.replace(path)
 
 
 if __name__ == "__main__":

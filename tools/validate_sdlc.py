@@ -19,7 +19,6 @@ ACTION_USE = re.compile(
     re.MULTILINE,
 )
 WORKFLOW_WRITE_SCOPE_ALLOWLIST = {
-    "daily-ingest.yml": {"actions", "contents", "issues", "pull-requests"},
     "deploy-pages.yml": {"id-token", "pages"},
 }
 
@@ -244,6 +243,42 @@ def require_tokens(relative: str, text: str, tokens: tuple[str, ...]) -> list[st
     return [f"{relative}: missing release contract token {token!r}" for token in tokens if token not in text]
 
 
+def validate_release_graph(text: str) -> list[str]:
+    # The repository emits a deliberately small job grammar (inline needs lists).
+    # Reject unsupported shapes rather than treating a missed dependency as green.
+    job_text = text.split("\njobs:\n", 1)[-1] if "\njobs:\n" in text else text.removeprefix("jobs:\n")
+    matches = list(re.finditer(r"^  ([a-zA-Z0-9_-]+):\s*$", job_text, re.MULTILINE))
+    jobs = {match.group(1): job_text[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(job_text)]
+            for index, match in enumerate(matches)}
+    errors = []
+    gate = jobs.get("release-gate", "")
+    if not re.search(r"^    if: always\(\)\s*$", gate, re.MULTILINE):
+        errors.append("release-gate must evaluate always()")
+    for name in ("coverage", "docs"):
+        if f"uses: ./.github/workflows/{name}.yml" not in jobs.get(name, ""):
+            errors.append(f"release-gate requires same-run reusable {name}")
+    seen = set()
+    pending = ["release-gate"]
+    while pending:
+        name = pending.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        body = jobs.get(name, "")
+        match = re.search(r"^    needs: (.+)$", body, re.MULTILINE)
+        if match:
+            expression = match.group(1).strip()
+            if not re.fullmatch(r"\[?[a-zA-Z0-9_, -]+\]?", expression):
+                errors.append(f"unsupported needs shape in {name}")
+            else:
+                pending.extend(item.strip() for item in expression.strip("[]").split(","))
+    for name in sorted(set(jobs) - seen):
+        errors.append(f"release-gate omits substantive job {name}")
+    for name in sorted(seen - set(jobs)):
+        errors.append(f"release-gate references absent job {name}")
+    return errors
+
+
 def validate_workflows(root: Path) -> list[str]:
     errors: list[str] = []
     workflow_dir = root / ".github" / "workflows"
@@ -251,14 +286,16 @@ def validate_workflows(root: Path) -> list[str]:
         errors.extend(validate_action_pins(path, path.read_text(encoding="utf-8"), root))
 
     ci = (workflow_dir / "ci.yml").read_text(encoding="utf-8")
+    errors.extend(validate_release_graph(ci))
     errors.extend(require_tokens(".github/workflows/ci.yml", ci, (
         "Governance and specification contracts",
         "python tools/validate_sdlc.py",
         "python tools/validate_docs.py",
         "python tools/validate_ux_contract.py",
-        "python tools/browser_smoke.py",
-        "node tools/browser_validation.mjs",
         "python tools/build_wasm.py",
+        "tools/release_policy.py",
+        "--coverage-root build/coverage-evidence",
+        "--build-provenance build/build-provenance.json",
     )))
 
     coverage = (workflow_dir / "coverage.yml").read_text(encoding="utf-8")
@@ -270,6 +307,7 @@ def validate_workflows(root: Path) -> list[str]:
         "--minimum-lines=90",
         "--fail-under=90",
         "node tools/browser_validation.mjs",
+        "--web-root=build/site",
         "tools/validate_sdlc.py",
         "tools/validate_ux_contract.py",
         "if: always()",
@@ -281,9 +319,26 @@ def validate_workflows(root: Path) -> list[str]:
         "github.event.workflow_run.conclusion == 'success'",
         "github.event.workflow_run.head_branch == 'master'",
         "github.event.workflow_run.head_sha",
+        "validate_release_manifest.py",
+        "--promotion",
         "environment:",
         "name: github-pages",
     )))
+    if "workflow_dispatch:" in deploy or "build_wasm.py" in deploy or "build_web.py" in deploy or "fetch_textures.py" in deploy:
+        errors.append("Pages must promote an exact qualified artifact, without manual ref/rebuild/fetch bypass")
+    promotion = deploy.split("\n  deploy:\n", 1)[-1]
+    before_publish = promotion.split("uses: actions/deploy-pages@", 1)[0]
+    if not all(token in before_publish for token in (
+            "trusted/tools/release_policy.py", "--promotion", "--master-sha",
+            "--require-rich-evidence", "--manifest candidate-site/web-release-manifest.json",
+            "needs.verify.outputs.verifier_sha", "needs.verify.outputs.manifest_sha256")):
+        errors.append("Pages post-approval eligibility must be rechecked with the pinned verifier and exact artifact")
+
+    crate = (workflow_dir / "publish-crate.yml").read_text(encoding="utf-8")
+    errors.extend(require_tokens(".github/workflows/publish-crate.yml", crate, (
+        "cargo publish --dry-run", "tools/release_crate.py", "--dry-run-exit 0", "Publication held:", "exit 1")))
+    if re.search(r"cargo publish(?! --dry-run)", crate) or "CARGO_REGISTRY_TOKEN" in crate:
+        errors.append("crate publication must remain credential-free dry-run evidence only")
 
     docs = (workflow_dir / "docs.yml").read_text(encoding="utf-8")
     errors.extend(require_tokens(".github/workflows/docs.yml", docs, (

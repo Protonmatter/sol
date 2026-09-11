@@ -4,12 +4,7 @@ on:
   push:
     branches: [master, "precision/**", "redesign/**"]
   pull_request:
-  # Manual/API dispatch. Load-bearing for daily-ingest.yml: a PR opened with the
-  # default GITHUB_TOKEN does not trigger workflows (GitHub's recursion guard), so
-  # CI would never report on an automated data PR and its required checks could
-  # never go green. workflow_dispatch is an explicit exception to that rule, so the
-  # ingest job dispatches CI at the data branch; the check runs attach to that SHA
-  # and satisfy the PR. Also useful for re-running CI on a branch by hand.
+  # Dispatch remains diagnostic only; it cannot replace an approved PR check run.
   workflow_dispatch:
 
 concurrency:
@@ -20,6 +15,15 @@ permissions:
   contents: read
 
 jobs:
+  candidate:
+    name: Candidate identity
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Verify exact checkout identity
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
   governance:
     name: Governance and specification contracts
     runs-on: ubuntu-latest
@@ -67,20 +71,46 @@ jobs:
       - name: clippy (-D warnings)
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-  wasm:
-    name: WASM build (wasm32-unknown-unknown)
+  artifact:
+    name: Build immutable web artifact
+    needs: candidate
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_name: web-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+      manifest_sha256: ${{ steps.manifest.outputs.sha256 }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-      - name: Build solar-wasm + solar-ephemeris
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Build and stage final bytes once
         run: |
-          cargo build --release --locked -p solar-wasm --target wasm32-unknown-unknown
-          cargo build --release --locked -p solar-ephemeris --target wasm32-unknown-unknown
+          python tools/build_wasm.py --locked --out-root build/wasm
+          python tools/release_evidence.py --capture-build > build/build-provenance.json
+          python tools/build_web.py --wasm-dir build/wasm --out-root build/site --release-id "ci-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --source-sha "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --base-path /sol/
+          python tools/validate_release_manifest.py build/site/web-release-manifest.json --source-sha "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT"
+      - name: Record final manifest digest
+        id: manifest
+        run: python -c "import hashlib,os; from pathlib import Path; value=hashlib.sha256(Path('build/site/web-release-manifest.json').read_bytes()).hexdigest(); Path(os.environ['GITHUB_OUTPUT']).open('a').write('sha256='+value+'\n')"
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: build-provenance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/build-provenance.json
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        id: upload
+        with:
+          name: web-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/site
+          if-no-files-found: error
+          retention-days: 90
 
   web:
     name: Web, provider, and browser validation
@@ -232,10 +262,10 @@ jobs:
             exit 1
           fi
 
-      - name: Generate on-device ephemeris v2 fixture
-        run: cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v2.json
+      - name: Generate on-device ephemeris v3 fixture
+        run: cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v3.json
 
-      - name: Ephemeris v2 structural schema
+      - name: Ephemeris v3 structural schema
         run: |
           python - <<'PY'
           import json
@@ -243,15 +273,15 @@ jobs:
           from pathlib import Path
           sys.path.insert(0, "tools")
           import jsonschema_min
-          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
-          schema = json.loads(Path("docs/ephemeris-snapshot-v2.schema.json").read_text(encoding="utf-8"))
+          data = json.loads(Path("/tmp/ephemeris-v3.json").read_text(encoding="utf-8"))
+          schema = json.loads(Path("docs/ephemeris-snapshot-v3.schema.json").read_text(encoding="utf-8"))
           errors = jsonschema_min.validate(data, schema)
           if errors:
               print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
               raise SystemExit(1)
           PY
 
-      - name: Ephemeris v2 finite-number safety
+      - name: Ephemeris v3 finite-number safety
         run: |
           python - <<'PY'
           import json
@@ -259,14 +289,14 @@ jobs:
           from pathlib import Path
           sys.path.insert(0, "tools")
           import validate_ephemeris_snapshot as validator
-          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          data = json.loads(Path("/tmp/ephemeris-v3.json").read_text(encoding="utf-8"))
           errors = validator.finite_tree(data)
           if errors:
               print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
               raise SystemExit(1)
           PY
 
-      - name: Ephemeris v2 time and EOP semantics
+      - name: Ephemeris v3 time and EOP semantics
         run: |
           python - <<'PY'
           import json
@@ -274,7 +304,7 @@ jobs:
           from pathlib import Path
           sys.path.insert(0, "tools")
           import validate_ephemeris_snapshot as validator
-          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
+          data = json.loads(Path("/tmp/ephemeris-v3.json").read_text(encoding="utf-8"))
           time = data.get("time") or {}
           observer = data.get("observer") or {}
           accuracy = data.get("accuracy") or {}
@@ -298,7 +328,7 @@ jobs:
               raise SystemExit(1)
           PY
 
-      - name: Ephemeris v2 body and event semantics
+      - name: Ephemeris v3 body and event semantics
         run: |
           python - <<'PY'
           import json
@@ -306,18 +336,18 @@ jobs:
           from pathlib import Path
           sys.path.insert(0, "tools")
           import validate_ephemeris_snapshot as validator
-          data = json.loads(Path("/tmp/ephemeris-v2.json").read_text(encoding="utf-8"))
-          errors = validator.check_bodies(data.get("bodies", []), data.get("time"), data.get("observer"))
+          data = json.loads(Path("/tmp/ephemeris-v3.json").read_text(encoding="utf-8"))
+          errors = validator.semantic_checks(data)
           if errors:
               print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)
               raise SystemExit(1)
           PY
 
-      - name: Validate complete ephemeris v2 contract
-        run: python tools/validate_ephemeris_snapshot.py /tmp/ephemeris-v2.json
+      - name: Validate complete ephemeris v3 contract
+        run: python tools/validate_ephemeris_snapshot.py /tmp/ephemeris-v3.json
 
-      - name: Validate browser ephemeris v2 runtime guard
-        run: node tools/test_ephemeris_contract.mjs /tmp/ephemeris-v2.json
+      - name: Validate browser ephemeris v3 runtime guard
+        run: node tools/test_ephemeris_contract.mjs /tmp/ephemeris-v3.json
 
       - name: Validate optional DE441 provider contract offline
         run: python services/ephemeris-server/test_server.py -v
@@ -325,42 +355,61 @@ jobs:
       - name: Python schema and ephemeris semantic regression tests
         run: PYTHONPATH=tools python -m unittest discover -s tests/python -p 'test_*.py' -v
 
-      - name: Build browser WASM from source
-        run: python tools/build_wasm.py
-
-      - name: Build static web cache tokens deterministically
-        shell: bash
-        run: |
-          python tools/build_web.py
-          # The COMMITTED token must match the content hash. The idempotence diff below
-          # can't see a stale committed token (deploy restamps, so production hides it),
-          # and one already slipped through — see the chore/launch-hardening restamp.
-          # Pathspec covers exactly what build_web.py stamps/hashes — data/ is excluded
-          # because earlier steps in this job legitimately regenerate it.
-          if ! git diff --exit-code --stat -- apps/web/index.html 'apps/web/*.js' apps/web/js 'apps/web/*.css'; then
-            echo "::error::committed ?v= cache token is stale — run 'python tools/build_web.py' and commit the restamp"
-            exit 1
-          fi
-          cp -a apps/web /tmp/web-stamped
-          python tools/build_web.py
-          diff -qr /tmp/web-stamped apps/web
-
-      - name: Static web validation after build stamping
+      - name: Static source validation
         run: python tools/validate_web_static.py
 
-      - name: Headless browser smoke (Sun + My Sky + 3-D Solar System)
-        run: python tools/browser_smoke.py
+  coverage:
+    name: Coverage
+    needs: artifact
+    uses: ./.github/workflows/coverage.yml
+    with:
+      artifact_name: ${{ needs.artifact.outputs.artifact_name }}
+      manifest_sha256: ${{ needs.artifact.outputs.manifest_sha256 }}
 
-      - name: Browser runtime coverage probe + WebGL visual assertions
-        run: node tools/browser_validation.mjs --output-dir=coverage/browser-ci
+  docs:
+    name: Docs
+    uses: ./.github/workflows/docs.yml
 
+  release-gate:
+    name: Release gate
+    if: always()
+    needs: [candidate, governance, test, lint, web, artifact, coverage, docs, determinism, determinism-compare]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: web-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/site
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: build-provenance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          pattern: '*-coverage-${{ github.sha }}'
+          path: build/coverage-evidence
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: javascript-coverage-and-visuals-${{ github.sha }}
+          path: build/coverage-evidence/javascript
+      - name: Evaluate every same-run dependency and retain promotion hold
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          ARTIFACT_ID: ${{ needs.artifact.outputs.artifact_id }}
+          MANIFEST_SHA256: ${{ needs.artifact.outputs.manifest_sha256 }}
+        run: python tools/release_policy.py --ci-evidence build/release-evidence.json --manifest build/site/web-release-manifest.json --coverage-root build/coverage-evidence --build-provenance build/build-provenance.json
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
-          name: browser-visual-regressions-${{ github.sha }}
-          path: coverage/browser-ci
-          if-no-files-found: ignore
-          retention-days: 14
+          name: release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release-evidence.json
+          if-no-files-found: error
+          retention-days: 90
 
   # The engine's determinism and the wasm "byte-compatible snapshots" claim both rest on
   # every float passing through platform libm before {:.6} rounding — plausible, never
@@ -404,6 +453,7 @@ jobs:
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: snaps
+          pattern: determinism-*
           merge-multiple: true
       - name: Snapshots byte-identical across ubuntu / macos / windows
         shell: bash

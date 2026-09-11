@@ -7,6 +7,8 @@ import reportModule from "istanbul-lib-report";
 import reportsModule from "istanbul-reports";
 import {
   ROOT,
+  WEB,
+  releaseSourceMap,
   absoluteRuntimeModules,
 } from "./js_coverage_scope.mjs";
 
@@ -21,13 +23,15 @@ function argument(name, fallback) {
 }
 
 const minimumLines = Number(argument("minimum-lines", "90"));
-if (!Number.isFinite(minimumLines) || minimumLines < 0 || minimumLines > 100) {
-  throw new Error("--minimum-lines must be between 0 and 100");
+if (!Number.isFinite(minimumLines) || minimumLines < 90 || minimumLines > 100) {
+  throw new Error("--minimum-lines must be between 90 and 100");
 }
+const webRoot = path.resolve(argument("web-root", WEB));
+if (webRoot !== WEB && !releaseSourceMap(webRoot)) throw new Error("staged coverage requires a release manifest");
 
 const inputs = [
-  path.join(ROOT, "coverage", "node", "coverage-final.json"),
-  path.join(ROOT, "coverage", "browser", "coverage-final.json"),
+  path.resolve(argument("node-input", path.join(ROOT, "coverage", "node", "coverage-final.json"))),
+  path.resolve(argument("browser-input", path.join(ROOT, "coverage", "browser", "coverage-final.json"))),
 ];
 const combined = createCoverageMap({});
 for (const input of inputs) {
@@ -44,7 +48,7 @@ if (absent.length) {
   );
 }
 
-const outputDirectory = path.join(ROOT, "coverage", "combined");
+const outputDirectory = path.resolve(argument("output-dir", path.join(ROOT, "coverage", "combined")));
 fs.mkdirSync(outputDirectory, { recursive: true });
 fs.writeFileSync(
   path.join(outputDirectory, "coverage-final.json"),

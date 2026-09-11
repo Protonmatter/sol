@@ -23,3 +23,9 @@
 *.ppm binary
 *.bin binary
 *.txt text eol=lf
+
+# Immutable research bundles bind raw payload bytes, including line endings.
+# Do not normalize their JSON during staging or checkout: that invalidates hashes.
+# Recognize preserved CRLF while retaining the standard whitespace-error checks.
+/apps/web/data/bundles/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/feed-source/bundles/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

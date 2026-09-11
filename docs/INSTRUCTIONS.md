@@ -1,147 +1,104 @@
-# Instructions — running & developing Sol
+# Instructions — running and developing Sol
 
-Practical commands for the web app and its data. Paths are relative to the repo root.
+Updated: 2026-09-11. Commands run from the repository root. These are local operations,
+not permission to acquire data, publish, deploy or install a resident service.
 
 ## Prerequisites
 
-- **Python 3** — required for the data generators and validators (standard library only).
-- **A browser** — to run the app.
-- **Rust/cargo** — needed to build the engine crates and the WebAssembly modules that power
-  My Sky, Solar System, and "Run the engine live". Without it the Sun surface still works
-  fully and the other surfaces fall back gracefully.
-- **Node 22** — required for JS unit/type/coverage/browser validation; never required by
-  the production static app at runtime. Install locked tooling with
-  `npm ci --ignore-scripts`.
+Use Python 3.11+, the locked Rust toolchain with an already installed
+`wasm32-unknown-unknown` target, Node 22 and this repository's locked development packages.
+Initial toolchain/dependency installation requires network access and is separate from
+offline validation. `npm ci --ignore-scripts` is the locked install command when authorized.
+No Node runtime is needed by the static deployed app.
 
-## Run the web app
+## Build and serve a preview
 
-```bash
-# Recommended: serve so the browser can fetch data/*.json
-python -m http.server 8000 --directory apps/web
-# open http://localhost:8000
+Choose unused output directories; do not overwrite a previous candidate.
+
+```powershell
+$candidateSha = git rev-parse HEAD
+python tools/build_wasm.py --locked --out-root build/wasm-review
+python tools/build_web.py --wasm-dir build/wasm-review --out-root build/site-review --release-id local-review-1 --source-sha $candidateSha --repository OWNER/REPOSITORY --run-id 1
+python -m http.server 8000 --bind 127.0.0.1 --directory build/site-review
 ```
 
-You can also open `apps/web/index.html` directly from disk; it falls back to a built-in
-state if it can't fetch `data/`.
+Replace the repository placeholder with the actual local candidate identity. The staged
+root selects an immutable release namespace. Stop the foreground loopback server when
+finished. A dirty tree's HEAD label is not exact source correspondence; the manifest
+records the final staged bytes. Do not hand-edit cache tokens, serve source as a release,
+or expect file-URL workers/WASM/service workers to be a supported equivalent.
 
-Notes:
-- `index.html` cache-busts CSS/JS with `?v=<hash>`. **Run `python tools/build_web.py`** after any
-  `apps/web/` edit — it stamps a single content hash across all HTML/JS references (don't hand-edit
-  `?v=`).
-- The app needs **no build step** — edit `apps/web/{index.html,app.js,styles.css}` and reload.
+## Generate task-local demonstration data
 
-## Regenerate the data the app reads
+These generators produce research fixtures, not observed-current or deployed products.
 
-```bash
-# 1) Live "today" snapshot (deterministic; stdlib only)
-python tools/generate_fixture_snapshot.py \
-  --out apps/web/data/latest-state.json \
-  --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
-
-# 2) Solar-cycle series (drives the timeline scrubber + butterfly diagram)
-python tools/generate_series.py            # writes apps/web/data/series/frame-*.json + manifest.json
-#   useful flags: --frames N --seed S --lon-count 36 --lat-count 18
-
-# 3) Optional: pull bounded public data into a local cache first, then regenerate
-python tools/fetch_public_data.py --cache .cache/solar-data
-python tools/generate_fixture_snapshot.py --cache .cache/solar-data \
-  --out apps/web/data/latest-state.json \
-  --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
+```powershell
+python tools/generate_fixture_snapshot.py --out build/demo/snapshot.json --observations-out build/demo/observations.json --seed 42
+python tools/generate_series.py --base build/demo/snapshot.json --out-dir build/demo/series --frames 11 --seed 42 --months-span 132
+python tools/validate_snapshot.py build/demo/snapshot.json
+python tools/validate_operational_readiness.py build/demo/snapshot.json
 ```
 
-## Validate (run these before committing)
+Standalone generated files are not automatically selected by the app. Source acquisition
+and research-bundle selection use the transaction workflow in [operations](OPERATIONS.md).
+Do not overwrite canonical coefficient/moon assets to make a regeneration check pass:
+see [canonical generation](CANONICAL_GENERATION.md) and
+[coefficient provenance](COEFFICIENT_PROVENANCE.md).
 
-```bash
+## Validate source and boundaries
+
+```powershell
+cargo fmt --all --check
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+$env:PYTHONPATH = 'tools'
+python -m unittest discover -s tests/python -p 'test_*.py' -v
+python -m unittest discover -s services/ephemeris-server -p 'test*.py' -v
+npm test
+python tools/typecheck_web.py
 python tools/validate_sdlc.py
 python tools/validate_docs.py
 python tools/validate_ux_contract.py
-PYTHONPATH=tools python -m unittest discover -s tests/python -p 'test_*.py' -v
-npm ci --ignore-scripts
-npm test
-python tools/typecheck_web.py
-python tools/validate_snapshot.py apps/web/data/latest-state.json
-python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 python tools/validate_web_static.py --root apps/web
-# every series frame should also validate:
-for f in apps/web/data/series/frame-*.json; do python tools/validate_snapshot.py "$f"; done
 ```
 
-`validate_web_static.py` checks required element IDs, that referenced assets exist, that the
-responsive breakpoint is present, and that the research panel is closed by default. **If you
-add/rename a required DOM id, update `REQUIRED_IDS` in that file.**
+Configured coverage gates remain mandatory; source tests are not a substitute for them.
+Use [the validation plan](VALIDATION_PLAN.md) to select additional contract, accuracy,
+determinism and failure-injection tests. Record any unavailable toolchain/platform.
 
-`validate_sdlc.py` checks requirements/RFC traceability, evidence paths, dependency-update
-configuration, action SHA pins, coverage thresholds, and tested-SHA deployment. The separate
-`validate_ux_contract.py` checks the initial progressive-disclosure structure, accessible
-names/states, canvas alternatives, dialog semantics, responsive behavior, and reduced motion.
+## Validate the staged browser
 
-## Build the in-browser engine (WebAssembly)
+Set `CHROME_BIN` explicitly to an installed compatible Chromium executable. The Sky
+harness uses `puppeteer-core` and does not discover a browser or install one. For example,
+on Windows with Chrome in its standard location (adjust the path for your installation):
 
-The web app runs the real `solar-core` and `solar-ephemeris` engines client-side. The
-compiled modules under `apps/web/pkg/` are **not committed** (`.gitignore` excludes them);
-the deploy workflow builds them from source, and locally you build them yourself after
-cloning or after changing any engine crate:
-
-```bash
-rustup target add wasm32-unknown-unknown   # one-time
-python tools/build_wasm.py                 # builds + stages apps/web/pkg/*.wasm
+```powershell
+$env:CHROME_BIN = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
+if (-not (Test-Path -LiteralPath $env:CHROME_BIN -PathType Leaf)) { throw 'Set CHROME_BIN to an installed Chromium executable.' }
+node tools/browser_validation.mjs --web-root=build/site-review --output-dir=build/browser-review
+node tools/sky_validation.mjs --web-root=build/site-review --out=coverage/sky-review
 ```
 
-(`tools/build_wasm.ps1` is the same thing for a PowerShell-only environment.)
+The Sky harness uses local fixtures and blocks external destinations. It exercises real
+worker lifecycle, request/recipient boundaries, focus, invalid-state retention and narrow
+reflow. Such automation does not certify screen readers, contrast, physical touch devices,
+clipboard permissions or all supported browser combinations.
 
-No wasm-bindgen / wasm-pack / Node is needed — `solar-wasm` is a raw `cdylib` and the app
-marshals the JSON snapshot through linear memory itself. In the app: scroll to the timeline
-and use **"Run the engine live"** to re-solve the model in-browser at a chosen activity.
+## What to check manually
 
-## Rust engine (only with a local toolchain)
+Confirm the displayed source/provider, epoch, observer and limitations match the selected
+snapshot. Keep observed imagery separate from model overlays. Check idealized cycle/gap
+labels, keyboard-native selection, visible focus, persistent selected facts and cancel/error
+recovery. In Sky, deny consent and verify zero remote calls; inspect the exact recipient and
+share/export preview before allowing transmission. Do not infer object visibility from
+refraction or use the display for navigation.
 
-```bash
-cargo test --workspace
-cargo run -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 \
-  --out apps/web/data/latest-state.json
-cargo run -p solar-cli -- replay --snapshot apps/web/data/latest-state.json --out apps/web/data
-```
+## Conventions and release boundary
 
-## Full browser end-to-end validation
+Keep live snapshots immutable and reject unsupported versions. Physical calculations
+remain Rust-authoritative; the browser presents validated results. All handwritten workers
+stay in coverage. Follow [SDLC](SDLC.md) and [requirements](REQUIREMENTS.md); preserve
+unrelated working-tree changes. Commit/publication requires separate authority.
 
-Build the WASM engines and cache tokens first. A Chromium-compatible browser must be
-installed at a standard system path or named by `CHROME_BIN`.
-
-```bash
-python tools/build_wasm.py
-python tools/build_web.py
-python tools/browser_smoke.py
-node tools/browser_validation.mjs
-```
-
-The browser validation freezes time and external requests, checks the initial and toggled
-progressive-disclosure states, exercises every destination and important fallback, collects
-browser-side execution coverage, and writes semantic WebGL images under `coverage/browser/`.
-CI merges that result with denominator-complete Node coverage and enforces the 90% whole-web
-line threshold.
-
-## Verifying changes in the browser (what "done" looks like)
-
-- **Today** shows the real Sun above the fold, the stage rail, one plain sentence; dense
-  panels hidden.
-- **Explore** reveals layer toggles, metric grid (with `?` glossary), the region inspector;
-  clicking a marker selects it.
-- **Space Weather** shows the SWPC signal chips (with glossary).
-- **Research** opens the equations/provenance/readiness panel and the adapter-node overlay.
-- **Timeline** (scroll to the butterfly): Play animates the cycle; the disk goes synthetic
-  and is labelled; **Now** restores the live SDO image; the butterfly wings migrate to the
-  equator.
-- Tour: clears via Skip/Done/Esc; replay with the CTA. (Reset with
-  `localStorage.removeItem('sol-tour-seen')` in the console.)
-
-## Conventions
-
-- No frameworks, no bundler, no runtime dependencies in `apps/web`.
-- Render via `textContent` / DOM APIs — never `innerHTML` with data.
-- The JSON snapshot contract is the boundary between engine and UI; the UI only consumes it
-  and must not invent physical values. Audited Rust physics may execute through WASM and
-  returns the same validated snapshot contract. Keep
-  `operational_use`/`space_weather_operational` `false` and preserve layer-kind labels.
-- Commit messages end with the `Co-Authored-By` trailer used across this branch.
-- Follow `CONTRIBUTING.md`, link affected `SOL-*` requirements, and update specifications,
-  tests, implementation plan, operations, and user documentation in the same change.
+Use [release delivery](RELEASE_DELIVERY.md) for exact-artifact verification and held
+promotion. No source build or local test changes RFC 0002 from Accepted to Implemented.

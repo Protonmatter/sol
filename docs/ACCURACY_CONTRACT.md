@@ -15,8 +15,8 @@ provenance comments the pins carry. The procedure for intentional changes is in
 
 | Quantity | Source of truth | Tolerance | Enforced by | When |
 | --- | --- | --- | --- | --- |
-| Heliocentric planet positions | VSOP2013 (inner) / TOP2013 (giants) vs JPL Horizons **DE441** | measured ≤ ~4″ near-present pointing (`sep`); **enforced gate 10″** (≈2× measured worst, so a real regression can never hide in the margin); sub-arcsec vs theory sources at ±5000 yr | `cargo test --workspace`; `tools/validate_ephemeris.py` | every PR (cargo); weekly + manual (Horizons, networked) |
-| Moon (Luna) topocentric position | ELP-MPP02 vs JPL Horizons DE441 | measured ≤ ~5.2″ near-present, syzygy ≤ ~5″; **enforced gates 12″ (general) / 10″ (syzygy)** — the historical +20″ aberration mistake must always fail | `tools/validate_ephemeris.py`, `tools/stress_moon_syzygy.py` | weekly + manual (networked) |
+| Heliocentric planet positions | VSOP2013 (inner) / TOP2013 (giants) vs JPL Horizons **DE441** | **Enforced gate 10″** for sampled network comparisons; the eight committed deep-time records establish source-theory parity only, not independent accuracy throughout ±5000 years | `cargo test --workspace`; `tools/validate_ephemeris.py` | every PR (cargo); weekly + manual (Horizons, networked) |
+| Moon (Luna) topocentric position | ELP-MPP02 vs JPL Horizons DE441 | **Enforced gates 12″ (general) / 10″ (syzygy)** for sampled network comparisons; no immutable v3 range reference is yet recorded | `tools/validate_ephemeris.py`, `tools/stress_moon_syzygy.py` | weekly + manual (networked) |
 | The 21 major-moon orbits | JPL Horizons osculating elements, weekly knots (3.5-day for Mimas/Enceladus) | validated against committed Horizons state vectors between knots; positions honest to “which side of the planet”, never occultation-grade | `tools/validate_moons.py` (regen-stable + byte-identity + interpolation check, offline) | every PR |
 | Moon validity window | elements are only trusted where validated | outside the window moons are hidden, never guessed | `MOON_VALID_MIN_JD`/`MAX_JD` runtime guard + browser smoke `data-smoke-validity` | every PR |
 | Rotational elements (pole α₀/δ₀ + rates, W₀, Ẇ, periodic terms) | **IAU WGCCRE 2015** (Archinal et al. 2018 + 2019 correction), as distributed in NAIF `pck00011.tpc` | exact transcription (rel. 1e-12) of everything the renderer applies — including Neptune's and the Moon's single-term `poleNut` corrections and Earth's rendered `precession` model; a `poleNut`/`precession` object present in code but absent from the pin fails | `tools/validate_body_constants.py` | every PR |
@@ -73,7 +73,9 @@ protected by a comment in the code and (where applicable) by the constants gate.
   elements, two-body propagation, ~degree-level markers — their cards carry that caveat and
   they are excluded from arcsecond claims.
 - Every accuracy claim shown in the UI (snapshot `accuracy` block, epoch-accuracy readout)
-  must be worded to match the *measured* numbers above, never the theoretical best.
+  must be bounded to the exact body, quantity, epoch and observer evidence in
+  `apps/web/data/accuracy-evidence.json`; a source-theory parity test is not independent
+  JPL accuracy. Unmatched selections remain unvalidated. See [EPHEMERIS_V3.md](EPHEMERIS_V3.md).
 
 ## 4. Amendment procedure
 

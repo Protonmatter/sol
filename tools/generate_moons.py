@@ -5,21 +5,27 @@ Inputs (tools/ephemeris-data/moons/, see its README for provenance and licences)
   horizons_satellite_elements.csv  JPL Horizons osculating elements, ecliptic J2000, planetocentric
   jpl_satellite_physical.csv       JPL SSD satellite GM / mean radius / mean density
 
-Output (committed; CI verifies regeneration is byte-identical):
+Outputs (committed; qualified canonical generation must be byte-identical):
   apps/web/js/moons.js
+  apps/web/js/moonelements.js
 
 Determinism: pure function of the committed inputs, ordered by JPL body code, fixed float
 formatting, no timestamps.
 
 Usage:
-    python tools/generate_moons.py            # (re)write the module
-    python tools/generate_moons.py --check    # fail if the committed file differs
+    python tools/generate_moons.py            # write only with reviewed canonical qualification
+    python tools/generate_moons.py --check    # read-only source/output comparison on any host
+    python tools/generate_moons.py --check --require-canonical  # strict qualification gate
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
+import os
+import platform
+import re
 import sys
 from pathlib import Path
 
@@ -85,7 +91,7 @@ def num(v: str, default: float | None = None) -> float | None:
         return default
 
 
-def build() -> str:
+def build() -> tuple[str, str]:
     groups = load_element_groups(SRC / "horizons_satellite_elements.csv")
     phys = {r["Code"]: r for r in
             csv.DictReader((SRC / "jpl_satellite_physical.csv").open(encoding="utf-8", newline=""))}
@@ -238,23 +244,103 @@ def build() -> str:
     return "".join(lines), "".join(elements)
 
 
+def runtime_identity() -> dict[str, str]:
+    """Observed runtime facts, separate from a declared container digest."""
+    return {
+        "system": platform.system(), "machine": platform.machine().lower(),
+        "implementation": platform.python_implementation(),
+        "python_version": platform.python_version(),
+    }
+
+
+def load_generation_manifest() -> dict:
+    path = ROOT / "tools" / "ephemeris-data" / "generation-manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != "scientific-generation-manifest.v1":
+        raise ValueError("unsupported scientific generation manifest")
+    return manifest
+
+
+def verify_source_identity(manifest: dict) -> None:
+    expected_sources = {
+        "horizons_satellite_elements.csv", "horizons_satellite_vectors.csv",
+        "jpl_satellite_physical.csv",
+    }
+    sources = manifest.get("sources", {})
+    if set(sources) != expected_sources:
+        raise ValueError("generation manifest must bind exactly the three pristine moon sources")
+    for name, record in sources.items():
+        observed = hashlib.sha256((SRC / name).read_bytes()).hexdigest()
+        if observed != record.get("sha256"):
+            raise ValueError(f"source hash mismatch: {name}; review source and manifest together")
+    generators = manifest.get("generator", {}).get("files", {})
+    expected_generators = {"tools/generate_moons.py", "tools/moon_model.py"}
+    if set(generators) != expected_generators:
+        raise ValueError("generation manifest must bind generator and numerical model source")
+    for name, expected in generators.items():
+        observed = hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+        if observed != expected:
+            raise ValueError(f"generator hash mismatch: {name}; refresh reviewed source correspondence")
+
+
+def canonical_errors(manifest: dict, runtime: dict[str, str], image_digest: str | None) -> list[str]:
+    canonical = manifest.get("canonical", {})
+    errors: list[str] = []
+    if canonical.get("status") != "qualified":
+        errors.append("canonical Linux x86_64 image qualification is pending")
+    expected_digest = canonical.get("image_digest", "")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", expected_digest):
+        errors.append("canonical image digest is not pinned")
+    elif image_digest != expected_digest:
+        errors.append("running container image digest is not attested by the invoking workflow")
+    if runtime.get("system") != "Linux" or runtime.get("machine") not in ("x86_64", "amd64"):
+        errors.append("this host is noncanonical; Linux x86_64 is required")
+    if runtime.get("implementation") != "CPython" or runtime.get("python_version") != canonical.get("python_version"):
+        errors.append("Python implementation/version differs from the canonical pin")
+    evidence = canonical.get("qualification", {})
+    if not isinstance(evidence, dict) or evidence.get("identical_runs", 0) < 2 or not evidence.get("reviewed_evidence"):
+        errors.append("two canonical runs and reviewed source/output evidence are not recorded")
+    return errors
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="fail if the committed module differs")
+    ap.add_argument("--require-canonical", action="store_true", help="also require qualified pinned Linux x86_64 execution")
     args = ap.parse_args()
+    try:
+        manifest = load_generation_manifest()
+        verify_source_identity(manifest)
+        reasons = canonical_errors(manifest, runtime_identity(), os.environ.get("SOL_MOON_GENERATOR_IMAGE_DIGEST"))
+        if reasons and (not args.check or args.require_canonical):
+            raise ValueError("; ".join(reasons))
+    except (OSError, ValueError, TypeError) as exc:
+        print(f"ERROR: {exc}. Authoritative files were not changed. See docs/CANONICAL_GENERATION.md.", file=sys.stderr)
+        return 2
     text, elements = build()
     targets = [(OUT, text), (OUT_ELEMENTS, elements)]
+    output_hashes = manifest.get("outputs", {})
+    expected_keys = {"apps/web/js/moons.js", "apps/web/js/moonelements.js"}
+    if set(output_hashes) != expected_keys:
+        print("ERROR: generation manifest must bind both moon outputs", file=sys.stderr)
+        return 2
+    generated_hashes = {f"apps/web/js/{path.name}": hashlib.sha256(want.encode("utf-8")).hexdigest() for path, want in targets}
+    if generated_hashes != output_hashes:
+        print("ERROR: generated bytes differ from reviewed output hashes; preserve authoritative files and compare in the canonical image. See docs/CANONICAL_GENERATION.md.", file=sys.stderr)
+        return 1
     if args.check:
         stale = [p for p, want in targets
-                 if (p.read_text(encoding="utf-8") if p.exists() else "") != want]
+                 if (p.read_bytes() if p.exists() else b"") != want.encode("utf-8")]
         if stale:
             names = ", ".join(str(p.relative_to(ROOT)).replace("\\", "/") for p in stale)
-            print(f"ERROR: {names} is stale — re-run tools/generate_moons.py", file=sys.stderr)
+            print(f"ERROR: {names} differs from pinned source/output identity; use docs/CANONICAL_GENERATION.md", file=sys.stderr)
             return 1
         print("OK: moons.js + moonelements.js match their sources")
+        if reasons:
+            print("NOTE: noncanonical comparison only; this does not qualify authoritative generation: " + "; ".join(reasons))
         return 0
     for path, want in targets:
-        path.write_text(want, encoding="utf-8")
+        path.write_bytes(want.encode("utf-8"))
         print(f"wrote {str(path.relative_to(ROOT)).replace(chr(92), '/')} ({len(want)} bytes)")
     return 0
 

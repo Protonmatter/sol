@@ -1,162 +1,113 @@
-// Runtime guard for the provider-neutral ephemeris-snapshot.v2 contract.
-// Keep this dependency-free so the static browser build and Node CI use the same code.
-
-const MAJOR_BODIES = new Set([
-  "Sun", "Moon", "Mercury", "Venus", "Mars",
-  "Jupiter", "Saturn", "Uranus", "Neptune",
-]);
-
-function fail(path, message) {
-  throw new TypeError(`Invalid ephemeris-snapshot.v2 at ${path}: ${message}`);
+// Live provider boundary. Historical v2 is isolated in ephemerisContractV2.js.
+import { ephemerisSchema } from "./ephemerisSchema.js?v=dcca6290db";
+import { parseStrictJson } from "./solarContract.js?v=dcca6290db";
+const MAJOR = new Set(["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"]);
+const fail = (path, message) => { throw new TypeError(`Invalid ephemeris-snapshot.v3 at ${path}: ${message}`); };
+// Inclusive serialization/float allowance: 2^-29 day (~0.161ms), four binary64
+// ulps at modern JD or two at the upper supported epoch. Never a day/window allowance.
+const EPOCH_TOLERANCE_DAYS = 2 ** -29;
+function assertSameEpoch(actual, expected, context) {
+  if (!Number.isFinite(actual) || !Number.isFinite(expected) || Math.abs(actual-expected)>EPOCH_TOLERANCE_DAYS) fail("time.jd_utc", `${context} epoch mismatch`);
 }
-
-function objectAt(value, path) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) fail(path, "expected object");
-  return value;
+const keywords = new Set(["$schema","$id","$defs","$ref","title","description","type","const","enum","required","properties","additionalProperties","items","minItems","minLength","minimum","maximum","exclusiveMinimum","exclusiveMaximum"]);
+function checkSchema(schema) {
+  for (const key of Object.keys(schema)) if (!keywords.has(key)) fail("schema", `unsupported keyword ${key}`);
+  for (const node of Object.values(schema.properties || {})) checkSchema(node);
+  for (const node of Object.values(schema.$defs || {})) checkSchema(node);
+  if (schema.items) checkSchema(schema.items);
 }
-
-function finiteAt(value, path) {
-  if (typeof value !== "number" || !Number.isFinite(value)) fail(path, "expected finite number");
-  return value;
-}
-
-function nullableFiniteAt(value, path) {
-  if (value !== null) finiteAt(value, path);
-  return value;
-}
-
-function stringAt(value, path) {
-  if (typeof value !== "string" || !value.trim()) fail(path, "expected non-empty string");
-  return value;
-}
-
-function rangeAt(value, path, min, max, maxExclusive = false) {
-  finiteAt(value, path);
-  if (value < min || (maxExclusive ? value >= max : value > max)) {
-    fail(path, `expected ${min} <= value ${maxExclusive ? "<" : "<="} ${max}`);
+checkSchema(ephemerisSchema);
+function validateSchema(value, schema, path="$") {
+  if (schema.$ref) return validateSchema(value, ephemerisSchema.$defs[schema.$ref.split("/").at(-1)], path);
+  if (Object.hasOwn(schema,"const") && value !== schema.const) fail(path,"constant mismatch");
+  if (schema.enum && !schema.enum.includes(value)) fail(path,"unsupported value");
+  const object = value !== null && typeof value === "object" && !Array.isArray(value);
+  const types = {null:value === null, object, array:Array.isArray(value), string:typeof value === "string", boolean:typeof value === "boolean", number:typeof value === "number" && Number.isFinite(value)};
+  if (schema.type && !(Array.isArray(schema.type) ? schema.type : [schema.type]).some(type=>types[type])) fail(path,"incorrect type");
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || schema.minimum !== undefined && value < schema.minimum || schema.maximum !== undefined && value > schema.maximum || schema.exclusiveMinimum !== undefined && value <= schema.exclusiveMinimum || schema.exclusiveMaximum !== undefined && value >= schema.exclusiveMaximum) fail(path,"outside numeric bounds");
   }
-  return value;
-}
-
-function bodyAt(value, index) {
-  const path = `bodies[${index}]`;
-  const body = objectAt(value, path);
-  stringAt(body.name, `${path}.name`);
-  if (!["star", "moon", "planet"].includes(body.kind)) fail(`${path}.kind`, "unsupported kind");
-  if (body.coordinate_frame !== "true_equator_and_equinox_of_date") {
-    fail(`${path}.coordinate_frame`, "unexpected coordinate frame");
-  }
-  rangeAt(body.ra_deg, `${path}.ra_deg`, 0, 360, true);
-  rangeAt(body.dec_deg, `${path}.dec_deg`, -90, 90);
-  rangeAt(body.geocentric_apparent_ra_deg, `${path}.geocentric_apparent_ra_deg`, 0, 360, true);
-  rangeAt(body.geocentric_apparent_dec_deg, `${path}.geocentric_apparent_dec_deg`, -90, 90);
-  rangeAt(body.topocentric_apparent_ra_deg, `${path}.topocentric_apparent_ra_deg`, 0, 360, true);
-  rangeAt(body.topocentric_apparent_dec_deg, `${path}.topocentric_apparent_dec_deg`, -90, 90);
-  if (Math.abs(body.ra_deg - body.topocentric_apparent_ra_deg) > 1e-9) {
-    fail(`${path}.ra_deg`, "must alias topocentric_apparent_ra_deg");
-  }
-  if (Math.abs(body.dec_deg - body.topocentric_apparent_dec_deg) > 1e-9) {
-    fail(`${path}.dec_deg`, "must alias topocentric_apparent_dec_deg");
-  }
-  nullableFiniteAt(body.distance_km, `${path}.distance_km`);
-  if (body.distance_km === null && body.kind !== "star") {
-    fail(`${path}.distance_km`, "may be null only for catalogue stars");
-  }
-  // Catalogue stars are represented at infinite distance. The Sun is also a
-  // star, but has finite distance and measurable topocentric parallax.
-  if (body.kind === "star" && body.distance_km === null) {
-    if (Math.abs(body.geocentric_apparent_ra_deg - body.topocentric_apparent_ra_deg) > 1e-9) {
-      fail(`${path}.topocentric_apparent_ra_deg`, "catalogue star must equal geocentric RA");
-    }
-    if (Math.abs(body.geocentric_apparent_dec_deg - body.topocentric_apparent_dec_deg) > 1e-9) {
-      fail(`${path}.topocentric_apparent_dec_deg`, "catalogue star must equal geocentric Dec");
+  if (typeof value === "string" && [...value].length < (schema.minLength || 0)) fail(path,"empty string");
+  if (Array.isArray(value)) {
+    if (value.length < (schema.minItems || 0)) fail(path,"too few entries");
+    for (let index=0;index<value.length;index++) {
+      if (!Object.hasOwn(value,index)) fail(path,"sparse arrays are not JSON values");
+      if(schema.items)validateSchema(value[index],schema.items,`${path}[${index}]`);
     }
   }
-  rangeAt(body.alt_deg, `${path}.alt_deg`, -90, 90);
-  rangeAt(body.az_deg, `${path}.az_deg`, 0, 360, true);
-  rangeAt(body.alt_refracted_deg, `${path}.alt_refracted_deg`, -90, 91);
-  if (typeof body.above_horizon !== "boolean") fail(`${path}.above_horizon`, "expected boolean");
-  if (body.above_horizon !== (body.alt_refracted_deg > 0)) {
-    fail(`${path}.above_horizon`, "disagrees with alt_refracted_deg");
-  }
-  stringAt(body.compass, `${path}.compass`);
-  finiteAt(body.angular_size_arcsec, `${path}.angular_size_arcsec`);
-  finiteAt(body.horizontal_parallax_deg, `${path}.horizontal_parallax_deg`);
-  nullableFiniteAt(body.rise_jd, `${path}.rise_jd`);
-  nullableFiniteAt(body.transit_jd, `${path}.transit_jd`);
-  nullableFiniteAt(body.set_jd, `${path}.set_jd`);
-  nullableFiniteAt(body.transit_alt_deg, `${path}.transit_alt_deg`);
-  return body;
-}
-
-export function assertEphemerisSnapshotV2(value) {
-  const snapshot = objectAt(value, "$");
-  if (snapshot.schema_version !== "ephemeris-snapshot.v2") {
-    fail("$.schema_version", `expected ephemeris-snapshot.v2, got ${String(snapshot.schema_version)}`);
-  }
-  stringAt(snapshot.engine_version, "$.engine_version");
-
-  if (snapshot.provider != null) {
-    const provider = objectAt(snapshot.provider, "$.provider");
-    if (!["client", "server"].includes(provider.tier)) fail("$.provider.tier", "unsupported tier");
-    stringAt(provider.source, "$.provider.source");
-    stringAt(provider.ephemeris, "$.provider.ephemeris");
-    if (provider.endpoint_contract !== "ephemeris-snapshot.v2") {
-      fail("$.provider.endpoint_contract", "must be ephemeris-snapshot.v2");
+  if (object) {
+    for (const key of schema.required || []) if (!Object.hasOwn(value,key)) fail(path,`missing ${key}`);
+    for (const [key,item] of Object.entries(value)) {
+      if (Object.hasOwn(schema.properties || {},key)) validateSchema(item,schema.properties[key],`${path}.${key}`);
+      else if (schema.additionalProperties === false) fail(path,`unexpected ${key}`);
     }
   }
-
-  const time = objectAt(snapshot.time, "$.time");
-  for (const key of ["jd_utc", "jd_tt", "jd_ut1", "dut1_seconds", "delta_t_seconds", "lst_deg", "obliquity_deg"]) {
-    finiteAt(time[key], `$.time.${key}`);
+}
+export function assertEphemerisSnapshotV3(snapshot) {
+  if (!snapshot || snapshot.schema_version !== "ephemeris-snapshot.v3") fail("schema_version","upgrade required: live provider must emit ephemeris-snapshot.v3");
+  validateSchema(snapshot,ephemerisSchema);
+  const {time,observer,events_window:window,accuracy}=snapshot;
+  if (time.jd_utc < 1721425.5 || time.jd_utc >= 5373484.5) fail("time.jd_utc","unsupported proleptic Gregorian epoch");
+  if (["rapid","predicted"].includes(time.earth_orientation.quality) && !time.earth_orientation.source.startsWith("IERS Bulletin A")) fail("time.earth_orientation","precision EOP requires IERS Bulletin A source");
+  const offset=observer.terrestrial_lon_deg_east/360;
+  const start=Math.floor(time.jd_utc-0.5+offset)+0.5-offset;
+  if (window.start_jd!==start || window.end_jd!==start+1) fail("events_window","does not match observer local mean-solar day");
+  if ((time.input_time_semantics==="historical_ut1_proxy")!==(time.jd_tai===null)) fail("time","historical approximation mismatch");
+  if ((time.jd_tai===null)!==(time.tai_minus_utc_seconds===null)) fail("time","TAI values must both be null or numeric");
+  if (time.input_time_semantics==="historical_ut1_proxy" && time.earth_orientation.quality!=="pre_utc_ut1_proxy") fail("time","historical approximation requires degraded UT1-proxy quality");
+  if (Math.abs(time.jd_ut1-time.jd_utc-time.dut1_seconds/86400)>2e-9 || Math.abs(time.delta_t_seconds-(time.jd_tt-time.jd_ut1)*86400)>5e-5) fail("time","inconsistent time scales");
+  if (time.jd_tai!==null && (Math.abs(time.jd_tai-time.jd_utc-time.tai_minus_utc_seconds/86400)>2e-9 || Math.abs(time.jd_tt-time.jd_tai-32.184/86400)>2e-9)) fail("time","inconsistent TAI/TT");
+  if (accuracy.eop_status!==time.earth_orientation.quality) fail("accuracy","EOP status mismatch");
+  if ((accuracy.evidence_status==="unvalidated")!==(accuracy.evidence_record_ids.length===0)) fail("accuracy","evidence status mismatch");
+  // The current immutable registry has source-theory heliocentric parity only,
+  // no independently qualified apparent-place/range/event records for this feed.
+  if (accuracy.evidence_status!=="unvalidated") fail("accuracy","no registered independent evidence qualifies this snapshot; provider self-certification is not accepted");
+  const names=new Set();
+  for (const body of snapshot.bodies) {
+    const path=`bodies[${body.name}]`;
+    if (names.has(body.name)) fail(path,"duplicate identity"); names.add(body.name);
+    if (Math.abs(body.ra_deg-body.topocentric_apparent_ra_deg)>1e-9 || Math.abs(body.dec_deg-body.topocentric_apparent_dec_deg)>1e-9) fail(path,"topocentric aliases disagree");
+    const infinite=body.range_approximation==="infinite_catalogue_star";
+    if (infinite) {
+      if (MAJOR.has(body.name) || body.kind!=="star" || body.geocentric_range_km!==null || body.observer_range_km!==null) fail(path,"invalid infinite catalogue-star range");
+      if (body.ra_deg!==body.geocentric_apparent_ra_deg || body.dec_deg!==body.geocentric_apparent_dec_deg) fail(path,"infinite star has parallax");
+    } else if (body.geocentric_range_km===null || body.observer_range_km===null) fail(path,"finite ranges cannot be null");
+    if (body.above_horizon!==(body.alt_refracted_deg>0)) fail(path,"above_horizon must use refracted altitude");
+    for (const [name,event] of Object.entries(body.events)) {
+      if (event.jd!==null) {
+        if (event.calculation_status!=="calculated" || event.occurrence_status!=="occurs" || !(event.jd>=start && event.jd<start+1)) fail(`${path}.${name}`,"invalid calculated event or window");
+      } else if (event.calculation_status==="calculated" ? event.occurrence_status!=="none_in_window" : event.occurrence_status!=="unknown") fail(`${path}.${name}`,"inconsistent null event status");
+    }
+    if ((body.events.transit.jd===null)!==(body.events.transit.altitude_deg===null)) fail(path+".transit","time and altitude null pairing");
+    if (body.name==="Moon" && Math.abs(body.ra_deg-body.geocentric_apparent_ra_deg)+Math.abs(body.dec_deg-body.geocentric_apparent_dec_deg)<=1e-6) fail(path,"geocentric alias");
   }
-  nullableFiniteAt(time.jd_tai, "$.time.jd_tai");
-  nullableFiniteAt(time.tai_minus_utc_seconds, "$.time.tai_minus_utc_seconds");
-  if ((time.jd_tai === null) !== (time.tai_minus_utc_seconds === null)) {
-    fail("$.time", "jd_tai and tai_minus_utc_seconds must both be null or both numeric");
-  }
-  rangeAt(time.lst_deg, "$.time.lst_deg", 0, 360, true);
-  const eop = objectAt(time.earth_orientation, "$.time.earth_orientation");
-  stringAt(eop.source, "$.time.earth_orientation.source");
-  if (!["rapid", "predicted", "degraded", "pre_utc_ut1_proxy"].includes(eop.quality)) {
-    fail("$.time.earth_orientation.quality", "unsupported quality");
-  }
-  finiteAt(eop.xp_arcsec, "$.time.earth_orientation.xp_arcsec");
-  finiteAt(eop.yp_arcsec, "$.time.earth_orientation.yp_arcsec");
-  finiteAt(eop.dut1_uncertainty_seconds, "$.time.earth_orientation.dut1_uncertainty_seconds");
-
-  const observer = objectAt(snapshot.observer, "$.observer");
-  rangeAt(observer.terrestrial_lat_deg, "$.observer.terrestrial_lat_deg", -90, 90);
-  finiteAt(observer.terrestrial_lon_deg_east, "$.observer.terrestrial_lon_deg_east");
-  rangeAt(observer.polar_motion_corrected_lat_deg, "$.observer.polar_motion_corrected_lat_deg", -90, 90);
-  rangeAt(observer.polar_motion_corrected_lon_deg_east, "$.observer.polar_motion_corrected_lon_deg_east", 0, 360, true);
-  finiteAt(observer.elev_m, "$.observer.elev_m");
-
-  const accuracy = objectAt(snapshot.accuracy, "$.accuracy");
-  for (const key of ["class", "coordinate_semantics", "time_scales", "validation_scope", "valid_epoch", "non_goal"]) {
-    stringAt(accuracy[key], `$.accuracy.${key}`);
-  }
-  if (accuracy.eop_status !== eop.quality) fail("$.accuracy.eop_status", "must match EOP quality");
-
-  if (!Array.isArray(snapshot.bodies)) fail("$.bodies", "expected array");
-  const names = new Set();
-  snapshot.bodies.forEach((entry, index) => {
-    const body = bodyAt(entry, index);
-    if (names.has(body.name)) fail(`$.bodies[${index}].name`, "duplicate body name");
-    names.add(body.name);
-  });
-  for (const name of MAJOR_BODIES) {
-    if (!names.has(name)) fail("$.bodies", `missing major body ${name}`);
-  }
-  const moon = snapshot.bodies.find((body) => body.name === "Moon");
-  const lunarParallax =
-    Math.abs(moon.topocentric_apparent_ra_deg - moon.geocentric_apparent_ra_deg)
-    + Math.abs(moon.topocentric_apparent_dec_deg - moon.geocentric_apparent_dec_deg);
-  if (lunarParallax <= 1e-6) fail("$.bodies[Moon]", "topocentric coordinates alias geocentric coordinates");
-
-  if (!Array.isArray(snapshot.warnings) || snapshot.warnings.length === 0) {
-    fail("$.warnings", "expected at least one warning");
-  }
-  snapshot.warnings.forEach((warning, index) => stringAt(warning, `$.warnings[${index}]`));
+  for (const name of MAJOR) if (!names.has(name)) fail("bodies",`missing ${name}`);
   return snapshot;
+}
+export function parseEphemerisSnapshot(text) {
+  const snapshot=parseStrictJson(text);
+  if (snapshot && typeof snapshot.error === "string") throw new Error(snapshot.error);
+  return assertEphemerisSnapshotV3(snapshot);
+}
+// Apply only after strict snapshot intake; bind the validated value to this request.
+export function assertEphemerisRequestBinding(snapshot, unixSeconds, lat, lonEast, elev) {
+  for (const [key,expected] of [["terrestrial_lat_deg",lat],["terrestrial_lon_deg_east",lonEast],["elev_m",elev]]) if (snapshot.observer[key]!==expected) fail("observer", "response does not match requested observer");
+  assertSameEpoch(snapshot.time.jd_utc,unixSeconds/86400+2440587.5,"response/request");
+  return snapshot;
+}
+export function mergeLocalEvents(remote,local) {
+  assertEphemerisSnapshotV3(remote); assertEphemerisSnapshotV3(local);
+  for (const key of ["terrestrial_lat_deg","terrestrial_lon_deg_east","elev_m"]) if (remote.observer[key]!==local.observer[key]) fail("observer","local backfill observer mismatch");
+  for (const key of Object.keys(remote.events_window)) if (remote.events_window[key]!==local.events_window[key]) fail("events_window","local backfill window mismatch");
+  // This merger also appends instantaneous star geometry, not just daily events.
+  assertSameEpoch(local.time.jd_utc,remote.time.jd_utc,"local backfill instantaneous");
+  const result=structuredClone(remote), byName=new Map(local.bodies.map(body=>[body.name,body]));
+  for (const body of result.bodies) {
+    const source=byName.get(body.name);
+    if (source) body.events=structuredClone(source.events);
+  }
+  const present=new Set(result.bodies.map(body=>body.name));
+  for (const body of local.bodies) if (!present.has(body.name)) result.bodies.push(structuredClone(body));
+  result.warnings.push("Event and catalogue-star provenance is retained per event; local events are not Horizons calculations.");
+  return assertEphemerisSnapshotV3(result);
 }

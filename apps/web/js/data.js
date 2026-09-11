@@ -4,6 +4,8 @@ import { store } from "./store.js?v=dcca6290db";
 import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=dcca6290db";
 import { renderAll } from "./view.js?v=dcca6290db";
 import { maybeAutoStartTour } from "./tour.js?v=dcca6290db";
+import { readDataBundle } from "./dataBundle.js?v=dcca6290db";
+import { prepareBundlePublication } from "./timeline.js?v=dcca6290db";
 
 const baseImageCache = {};
 
@@ -48,52 +50,39 @@ export function currentBaseImage() {
   return null;
 }
 
+let loadGeneration = 0;
+
 export async function loadState() {
+  const generation = ++loadGeneration;
   try {
-    // no-cache = always revalidate but reuse on 304. The data changes at most daily;
-    // no-store forced a full ~450 KB re-download of snapshot + series every visit.
-    const response = await fetch("data/latest-state.json", { cache: "no-cache" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    store.state = await response.json();
+    const releaseId = "__SOL_RELEASE_ID__";
+    const localPreview = releaseId.startsWith("__SOL_");
+    const bundle = await readDataBundle(localPreview
+      ? { pointerUrl: new URL("../data/current.json", import.meta.url).href }
+      : { releaseUrl: new URL("../web-release-manifest.json", import.meta.url).href, expectedReleaseId: releaseId });
+    if (generation !== loadGeneration) return;
+    // All required bytes and identities passed before one synchronous publication.
+    prepareBundlePublication();
+    Object.assign(store, { state: bundle.snapshot, liveState: bundle.snapshot,
+      timelineIndex: -1, liveEngineRun: false, selectedRegionId: null,
+      dataBundleIdentity: bundle.identity,
+      feedStatus: bundle.feedStatus, seriesManifest: bundle.seriesManifest,
+      seriesRecords: bundle.seriesRecords, seriesFrames: bundle.seriesFrames,
+      dataError: null, seriesError: null });
+    const scrubber = /** @type {HTMLInputElement|null} */ (document.getElementById("timeScrubber"));
+    if (scrubber) { scrubber.max = String(Math.max(0, bundle.seriesFrames.length - 1)); scrubber.value = "0"; }
+    const liveStatus = document.getElementById("liveStatus");
+    if (liveStatus) liveStatus.textContent = "Latest loaded feed context. Simulate starts a new calculation.";
   } catch (error) {
-    store.state = FALLBACK_STATE;
+    if (generation !== loadGeneration) return;
+    store.dataError = `Snapshot bundle unavailable or invalid: ${error.message}. Retaining the last valid view where available.`;
+    store.seriesError = `Cycle series retained with its selected bundle: ${error.message}`;
+    if (!store.state) { store.state = FALLBACK_STATE; store.liveState = FALLBACK_STATE; }
   }
-  store.liveState = store.state;
-  store.feedStatus = await loadFeedStatus();
   renderAll();
   maybeAutoStartTour();
-  loadSeries();
 }
 
-async function loadFeedStatus() {
-  try {
-    const response = await fetch("data/feed-status.json", { cache: "no-cache" });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (error) {
-    return null;
-  }
-}
-
-export async function loadSeries() {
-  try {
-    const response = await fetch("data/series/manifest.json", { cache: "no-cache" });
-    if (!response.ok) return;
-    store.seriesManifest = await response.json();
-    // Per-frame .catch: one dropped connection must not reject the whole Promise.all
-    // and discard the frames that DID load (Play/scrub would be dead for the session).
-    const frames = await Promise.all(
-      (store.seriesManifest.frames || []).map((entry) =>
-        fetch(`data/series/${entry.file}`, { cache: "no-cache" })
-          .then((res) => (res.ok ? res.json() : null))
-          .catch(() => null)
-      )
-    );
-    store.seriesFrames = frames.filter(Boolean);
-    const scrubber = /** @type {HTMLInputElement|null} */ (document.getElementById("timeScrubber"));
-    if (scrubber && store.seriesFrames.length) scrubber.max = String(store.seriesFrames.length - 1);
-    renderAll();
-  } catch (error) {
-    store.seriesFrames = [];
-  }
-}
+// Compatibility entry point: a retry reloads one complete bundle, not a mutable
+// series manifest independently of the currently displayed snapshot/status.
+export async function loadSeries() { return loadState(); }

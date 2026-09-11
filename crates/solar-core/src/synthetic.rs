@@ -47,9 +47,9 @@ impl SyntheticSolarModel {
         }
     }
 
-    /// Generate all Poisson-process arrivals in [now, now + dt). The next event
-    /// time is retained, making the sequence invariant to how callers partition
-    /// the same interval.
+    /// Generate pending Poisson-process arrivals through the inclusive target
+    /// `now + dt`. The retained next-event cursor emits each endpoint once,
+    /// independent of caller partitioning. A zero duration changes no state.
     pub fn generate_births(
         &mut self,
         now_seconds: f64,
@@ -58,6 +58,9 @@ impl SyntheticSolarModel {
     ) -> Vec<ActiveRegion> {
         assert!(now_seconds.is_finite());
         assert!(dt_seconds.is_finite() && dt_seconds >= 0.0);
+        if dt_seconds == 0.0 {
+            return Vec::new();
+        }
         if let Some(previous_end) = self.generated_until_seconds {
             assert!(
                 (now_seconds - previous_end).abs() <= 1.0e-6,
@@ -66,6 +69,7 @@ impl SyntheticSolarModel {
         }
 
         let end_seconds = now_seconds + dt_seconds;
+        assert!(end_seconds.is_finite() && end_seconds > now_seconds);
         let rate = self.effective_rate_per_second();
         if !rate.is_finite() || rate <= 0.0 {
             self.next_birth_seconds = None;
@@ -83,7 +87,7 @@ impl SyntheticSolarModel {
 
         let mut out = Vec::new();
         while let Some(birth_seconds) = self.next_birth_seconds {
-            if birth_seconds >= end_seconds {
+            if birth_seconds > end_seconds {
                 break;
             }
             out.push(self.sample_region(birth_seconds));
@@ -184,6 +188,34 @@ impl XorShift64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exact_endpoint_birth_is_emitted_once() {
+        let grid = SolarGrid::new(72, 36);
+        let mut probe = SyntheticSolarModel::new(SyntheticConfig::default());
+        let births = probe.generate_births(0.0, 10.0 * SECONDS_PER_DAY, &grid);
+        let endpoint = births[0].birth_seconds;
+        let mut model = SyntheticSolarModel::new(SyntheticConfig::default());
+        let at_endpoint = model.generate_births(0.0, endpoint, &grid);
+        assert_eq!(
+            at_endpoint.len(),
+            1,
+            "endpoint arrival is not deferred to next call"
+        );
+        assert_eq!(at_endpoint[0].birth_seconds, endpoint);
+        let after = model.generate_births(endpoint, 10.0 * SECONDS_PER_DAY - endpoint, &grid);
+        assert_eq!(after.len() + 1, births.len());
+        assert!(after.iter().all(|region| region.id != at_endpoint[0].id));
+    }
+
+    #[test]
+    fn zero_duration_generation_does_not_consume_random_or_event_state() {
+        let grid = SolarGrid::new(72, 36);
+        let mut model = SyntheticSolarModel::new(SyntheticConfig::default());
+        let before = format!("{model:?}");
+        assert!(model.generate_births(0.0, 0.0, &grid).is_empty());
+        assert_eq!(format!("{model:?}"), before);
+    }
 
     #[test]
     fn polarity_follows_hales_law() {

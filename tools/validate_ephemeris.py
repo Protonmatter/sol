@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate ephemeris-snapshot.v2 against JPL Horizons observer quantities 2, 4, and 49.
+"""Validate ephemeris-snapshot.v3 against JPL Horizons observer quantities 2, 4, and 49.
 
 Runs the `sky` CLI (apparent topocentric alt/az from the engine) and compares to
 Horizons' airless Az/El for the same instant + site. This is the "grounded in
@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import math
 import re
 import subprocess
 import sys
@@ -58,24 +59,25 @@ def find_binary(explicit: str | None) -> Path:
 
 def engine_snapshot(binary: Path, when: dt.datetime, lat: float, lon: float, elev: float) -> dict:
     out = subprocess.run(
-        [str(binary), str(when.timestamp()), str(lat), str(lon), str(elev)],
+        [str(binary), str((when - dt.datetime(1970,1,1,tzinfo=dt.timezone.utc)).total_seconds()), str(lat), str(lon), str(elev)],
         capture_output=True,
         text=True,
         check=True,
     ).stdout
     snapshot = json.loads(out)
-    if snapshot.get("schema_version") != "ephemeris-snapshot.v2":
-        raise RuntimeError("engine did not emit ephemeris-snapshot.v2")
+    if snapshot.get("schema_version") != "ephemeris-snapshot.v3":
+        raise RuntimeError("engine did not emit ephemeris-snapshot.v3")
     return snapshot
 
 
 def horizons_observation(command: str, when: dt.datetime, lat: float, lon: float, elev_m: float) -> dict:
-    jd_utc = when.timestamp() / 86400.0 + 2440587.5
+    jd_utc = (when - dt.datetime(1970,1,1,tzinfo=dt.timezone.utc)).total_seconds() / 86400.0 + 2440587.5
     params = {
         "format": "text", "COMMAND": f"'{command}'", "OBJ_DATA": "'NO'", "MAKE_EPHEM": "'YES'",
         "EPHEM_TYPE": "'OBSERVER'", "CENTER": "'coord@399'", "COORD_TYPE": "'GEODETIC'",
         "SITE_COORD": f"'{lon % 360.0},{lat},{elev_m / 1000.0}'",
         "TLIST": f"'{jd_utc:.12f}'", "TLIST_TYPE": "'JD'", "TIME_TYPE": "'UT'",
+        "CAL_FORMAT": "'JD'", "CAL_TYPE": "'GREGORIAN'",
         "TIME_DIGITS": "'FRACSEC'", "QUANTITIES": "'2,4,49'", "ANG_FORMAT": "'DEG'",
         "APPARENT": "'AIRLESS'", "EXTRA_PREC": "'YES'", "CSV_FORMAT": "'YES'", "ELEV_CUT": "'-90'",
     }
@@ -84,6 +86,14 @@ def horizons_observation(command: str, when: dt.datetime, lat: float, lon: float
     if "$$SOE" not in payload or "$$EOE" not in payload:
         raise RuntimeError(f"Horizons response lacks ephemeris block: {payload[:500]}")
     line = payload.split("$$SOE", 1)[1].split("$$EOE", 1)[0].strip().splitlines()[0]
+    token = line.split(",",1)[0].strip()
+    if not re.fullmatch(r"[+-]?\d+(?:\.\d+)?",token):
+        raise RuntimeError("Horizons response epoch is not a numeric JD")
+    returned_jd = float(token)
+    precision = len(token.split(".",1)[1]) if "." in token else 0
+    tolerance = min(1/86400,0.5*10**(-precision)+2*math.ulp(jd_utc))
+    if not math.isfinite(returned_jd) or abs(returned_jd-jd_utc)>tolerance:
+        raise RuntimeError("Horizons returned an epoch different from the requested JD/UT")
     values = [float(value) for value in re.findall(r"[-+]?\d+(?:\.\d+)(?:[Ee][-+]?\d+)?", line)]
     if len(values) < 5:
         raise RuntimeError(f"could not parse Horizons quantities 2,4,49: {line}")

@@ -1,6 +1,6 @@
 //! Deterministic ephemeris + topocentric sky engine (Sun & Moon for P0).
 //!
-//! Deterministic analytic astronomy. The v2 contract separates geocentric and
+//! Deterministic analytic astronomy. The v3 contract separates geocentric and
 //! topocentric apparent coordinates and carries UTC, TAI, TT, UT1, DUT1, polar
 //! motion, and Earth-orientation quality explicitly.
 
@@ -124,6 +124,7 @@ struct Topo {
     topocentric_ra: f64,
     topocentric_dec: f64,
     dist_km: f64,
+    observer_range_km: f64,
     alt: f64,
     az: f64,
     alt_refracted: f64,
@@ -154,6 +155,14 @@ fn topocentric_sky_at_time(
     let lst = (time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon).rem_euclid(360.0);
     let (rho_sin, rho_cos) = coords::observer_rho(observer_lat, elev);
     let (ra_t, dec_t) = coords::topocentric(ra, dec, dist_km, lst, rho_sin, rho_cos);
+    // Subtract the terrestrial observer vector in the same equatorial frame as
+    // the geocentric direction. The distance is not the geocentric parallax base.
+    let h = (ra - lst).to_radians();
+    let d = dec.to_radians();
+    let x = dist_km * d.cos() * h.cos() - 6378.14 * rho_cos;
+    let y = dist_km * d.cos() * h.sin();
+    let z = dist_km * d.sin() - 6378.14 * rho_sin;
+    let observer_range_km = x.hypot(y).hypot(z);
     let (alt, az) = coords::alt_az(ra_t, dec_t, lst, observer_lat);
     Topo {
         geocentric_ra: ra,
@@ -161,6 +170,7 @@ fn topocentric_sky_at_time(
         topocentric_ra: ra_t,
         topocentric_dec: dec_t,
         dist_km,
+        observer_range_km,
         alt,
         az,
         alt_refracted: alt + coords::refraction_deg(alt),
@@ -206,6 +216,7 @@ fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _e
         topocentric_ra: ra,
         topocentric_dec: dec,
         dist_km: f64::INFINITY,
+        observer_range_km: f64::INFINITY,
         alt,
         az,
         alt_refracted: alt + coords::refraction_deg(alt),
@@ -239,11 +250,14 @@ fn local_solar_day_start(jd_utc: f64, lon_east: f64) -> f64 {
 
 /// Rise / transit / set as JD(UTC) during the observer's local mean-solar day.
 /// NaN is returned when an event does not occur in that interval.
-fn events(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> (f64, f64, f64, f64) {
-    events_core(
+fn events(body: Body, jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> EventSolution {
+    events_detailed(
         &|jd| {
             let sky = topocentric_sky(body, jd, lat, lon_east, elev);
-            (sky.alt - standard_altitude_deg(body, sky.dist_km), sky.alt)
+            (
+                sky.alt - standard_altitude_deg(body, sky.observer_range_km),
+                sky.alt,
+            )
         },
         local_solar_day_start(jd_utc, lon_east),
     )
@@ -255,8 +269,8 @@ fn star_events(
     lat: f64,
     lon_east: f64,
     elev: f64,
-) -> (f64, f64, f64, f64) {
-    events_core(
+) -> EventSolution {
+    events_detailed(
         &|jd| {
             let sky = star_topocentric(star, jd, lat, lon_east, elev);
             (sky.alt + STANDARD_REFRACTION_DEG, sky.alt)
@@ -265,24 +279,93 @@ fn star_events(
     )
 }
 
+#[derive(Debug)]
+struct EventSolution {
+    values: (f64, f64, f64, f64),
+    transit_failed: bool,
+}
+
+impl EventSolution {
+    fn json(&self) -> String {
+        let (rise, transit, set, altitude) = self.values;
+        let mut output = String::from("\"events\":{");
+        for (index, (name, jd)) in [("rise", rise), ("transit", transit), ("set", set)]
+            .iter()
+            .enumerate()
+        {
+            if index > 0 {
+                output.push(',');
+            }
+            let failed = *name == "transit" && self.transit_failed;
+            let calculation = if failed { "failed" } else { "calculated" };
+            let occurrence = if failed {
+                "unknown"
+            } else if jd.is_finite() {
+                "occurs"
+            } else {
+                "none_in_window"
+            };
+            output.push_str(&format!("\"{}\":{{\"jd\":{},\"calculation_status\":\"{}\",\"occurrence_status\":\"{}\",\"source\":{{\"engine\":\"solar-ephemeris\",\"version\":\"{}\"}}", name, jnum(*jd), calculation, occurrence, env!("CARGO_PKG_VERSION")));
+            if *name == "transit" {
+                output.push_str(&format!(",\"altitude_deg\":{}", jnum(altitude)));
+            }
+            output.push('}');
+        }
+        output.push('}');
+        output
+    }
+}
+
+// Kept as a test convenience for the reviewed P05 numerical regressions.
+#[cfg(test)]
+fn events_core(sample: &dyn Fn(f64) -> (f64, f64), start: f64) -> (f64, f64, f64, f64) {
+    events_detailed(sample, start).values
+}
+
 /// `sample_at` returns `(crossing_margin_deg, true_centre_altitude_deg)`.
-fn events_core(
-    sample_at: &dyn Fn(f64) -> (f64, f64),
-    day_start_jd_utc: f64,
-) -> (f64, f64, f64, f64) {
+fn events_detailed(sample_at: &dyn Fn(f64) -> (f64, f64), day_start_jd_utc: f64) -> EventSolution {
     let steps = 144; // 10-minute sampling over one local mean-solar day
     let mut prev_jd = day_start_jd_utc;
     let (mut prev_margin, initial_alt) = sample_at(prev_jd);
     let mut rise = f64::NAN;
     let mut set = f64::NAN;
-    let mut transit = prev_jd;
-    let mut transit_alt = initial_alt;
+    let mut transit = f64::NAN;
+    let mut transit_alt = f64::NAN;
+    let mut transit_failed = false;
+    let h = 1.0 / steps as f64;
+    let (left_margin, mut left_alt) = sample_at(day_start_jd_utc - h);
+    if prev_margin == 0.0 {
+        let right_margin = sample_at(day_start_jd_utc + h).0;
+        if left_margin < 0.0 && right_margin > 0.0 {
+            rise = day_start_jd_utc;
+        }
+        if left_margin > 0.0 && right_margin < 0.0 {
+            set = day_start_jd_utc;
+        }
+    }
+    let mut centre_alt = initial_alt;
+    let day_end = day_start_jd_utc + 1.0;
     for i in 1..=steps {
         let jd = day_start_jd_utc + (i as f64) / (steps as f64);
         let (margin, alt) = sample_at(jd);
-        if alt > transit_alt {
-            transit_alt = alt;
-            transit = jd;
+        // A boundary sample is a candidate only with evidence on both sides.
+        // Extended samples bracket a genuine peak; they do not belong to this day.
+        if transit.is_nan() && !transit_failed && centre_alt > left_alt && centre_alt >= alt {
+            let peak = refine_culmination(
+                sample_at,
+                prev_jd - h,
+                prev_jd,
+                jd,
+                day_start_jd_utc,
+                day_end,
+            );
+            if peak.is_nan() {
+                transit_failed = true;
+            }
+            if (day_start_jd_utc..day_end).contains(&peak) {
+                transit = peak;
+                transit_alt = sample_at(peak).1;
+            }
         }
         if prev_margin < 0.0 && margin >= 0.0 && rise.is_nan() {
             rise = bisect_cross(&|time| sample_at(time).0, prev_jd, jd);
@@ -292,23 +375,159 @@ fn events_core(
         }
         prev_jd = jd;
         prev_margin = margin;
+        left_alt = centre_alt;
+        centre_alt = alt;
     }
+    // Include a peak just before the end whose nearest grid point is the end.
+    if transit.is_nan()
+        && !transit_failed
+        && centre_alt > left_alt
+        && centre_alt > sample_at(day_end + h).1
+    {
+        let peak = refine_culmination(
+            sample_at,
+            day_end - h,
+            day_end,
+            day_end + h,
+            day_start_jd_utc,
+            day_end,
+        );
+        if peak.is_nan() {
+            transit_failed = true;
+        }
+        if (day_start_jd_utc..day_end).contains(&peak) {
+            transit = peak;
+            transit_alt = sample_at(peak).1;
+        }
+    }
+    if !(day_start_jd_utc..day_end).contains(&rise) {
+        rise = f64::NAN;
+    }
+    if !(day_start_jd_utc..day_end).contains(&set) {
+        set = f64::NAN;
+    }
+    EventSolution {
+        values: (rise, transit, set, transit_alt),
+        transit_failed,
+    }
+}
 
-    // Refine culmination with a three-point parabolic fit around the best sample.
-    let h = 1.0 / (steps as f64);
-    let a_m = sample_at(transit - h).1;
-    let a_p = sample_at(transit + h).1;
-    let denom = a_m - 2.0 * transit_alt + a_p;
-    if denom < 0.0 {
-        let dx = 0.5 * (a_m - a_p) / denom;
-        transit += dx * h;
-        transit_alt -= 0.125 * (a_p - a_m) * (a_p - a_m) / denom;
+/// Contract a sampled unimodal maximum bracket to at most one second, continuing
+/// to floating-point resolution if it still contains a local-day boundary.
+/// This is numerical convergence, not an external event-accuracy assertion.
+fn refine_culmination(
+    sample: &dyn Fn(f64) -> (f64, f64),
+    mut left: f64,
+    centre: f64,
+    mut right: f64,
+    day_start: f64,
+    day_end: f64,
+) -> f64 {
+    let mut best = centre;
+    let mut best_alt = sample(centre).1;
+    for _ in 0..128 {
+        let straddles_boundary = [day_start, day_end]
+            .iter()
+            .any(|boundary| left <= *boundary && *boundary <= right);
+        if (right - left) * 86400.0 <= 1.0 && !straddles_boundary {
+            break;
+        }
+        let a = left + (right - left) / 3.0;
+        let b = right - (right - left) / 3.0;
+        if a <= left || b >= right || a >= b {
+            break;
+        }
+        let aa = sample(a).1;
+        let ab = sample(b).1;
+        for (jd, alt) in [(a, aa), (b, ab)] {
+            if alt > best_alt {
+                best = jd;
+                best_alt = alt;
+            }
+        }
+        if aa < ab {
+            left = a;
+        } else if aa > ab {
+            right = b;
+        } else {
+            // Rounded equality provides no directional evidence. Preserve the
+            // best sampled point, especially a midnight boundary on a numerical
+            // plateau, instead of discarding it toward an arbitrary side.
+            left = a.min(best);
+            right = b.max(best);
+        }
     }
-    (rise, transit, set, transit_alt)
+    // A one-second bracket alone cannot distinguish a peak just across midnight.
+    // If subdivision reaches machine resolution, inspect the boundary and its
+    // adjacent representable JDs. Require strict local evidence for an exact
+    // boundary maximum; unresolved flat numerical values remain unavailable.
+    for boundary in [day_start, day_end] {
+        if left <= boundary && boundary <= right {
+            let below = adjacent_float(boundary, false);
+            let above = adjacent_float(boundary, true);
+            let boundary_alt = sample(boundary).1;
+            let below_alt = sample(below).1;
+            let above_alt = sample(above).1;
+            for (jd, alt) in [
+                (left, sample(left).1),
+                (right, sample(right).1),
+                (boundary, boundary_alt),
+                (below, below_alt),
+                (above, above_alt),
+            ] {
+                if alt > best_alt {
+                    best = jd;
+                    best_alt = alt;
+                }
+            }
+            if best == boundary {
+                return if boundary_alt > below_alt && boundary_alt > above_alt {
+                    boundary
+                } else {
+                    f64::NAN
+                };
+            }
+            return if best_alt > boundary_alt {
+                best
+            } else {
+                f64::NAN
+            };
+        }
+    }
+    // The complete bracket now lies on one side of each boundary.
+    if best >= left && best <= right {
+        best
+    } else {
+        // An unsampled midpoint is not evidence of a maximum.
+        f64::NAN
+    }
+}
+
+// Equivalent to next_up/next_down without raising the crate's Rust 1.85 MSRV.
+fn adjacent_float(value: f64, upwards: bool) -> f64 {
+    if value == 0.0 {
+        return if upwards {
+            f64::from_bits(1)
+        } else {
+            -f64::from_bits(1)
+        };
+    }
+    let bits = value.to_bits();
+    f64::from_bits(if upwards == (value > 0.0) {
+        bits + 1
+    } else {
+        bits - 1
+    })
 }
 
 fn bisect_cross(f: &dyn Fn(f64) -> f64, mut a: f64, mut b: f64) -> f64 {
     let mut fa = f(a);
+    if fa == 0.0 {
+        return a;
+    }
+    if f(b) == 0.0 {
+        return b;
+    }
     for _ in 0..24 {
         let m = 0.5 * (a + b);
         let fm = f(m);
@@ -323,6 +542,18 @@ fn bisect_cross(f: &dyn Fn(f64) -> f64, mut a: f64, mut b: f64) -> f64 {
 }
 
 pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> String {
+    if !jd_utc.is_finite() || !(1721425.5..5373484.5).contains(&jd_utc) {
+        return "{\"error\":\"Unsupported epoch: My Sky requires proleptic Gregorian years 1 through 9999\"}".into();
+    }
+    if !lat.is_finite()
+        || !(-90.0..=90.0).contains(&lat)
+        || !lon_east.is_finite()
+        || !(-360.0..=360.0).contains(&lon_east)
+        || !elev.is_finite()
+        || !(-12000.0..=100000.0).contains(&elev)
+    {
+        return "{\"error\":\"Invalid observer: latitude [-90,90], longitude [-360,360], elevation [-12000,100000] required\"}".into();
+    }
     let astro = AstroTime::from_jd_utc(jd_utc);
     let t = time::centuries(astro.jd_tt);
     let (dpsi, deps) = time::nutation_deg(t);
@@ -342,12 +573,22 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
 
     let mut out = String::with_capacity(4096);
     out.push_str("{\n");
-    out.push_str("  \"schema_version\": \"ephemeris-snapshot.v2\",\n");
+    out.push_str("  \"schema_version\": \"ephemeris-snapshot.v3\",\n");
     out.push_str(&format!(
         "  \"engine_version\": \"solar-ephemeris {}\",\n",
         env!("CARGO_PKG_VERSION")
     ));
+    let day_start = local_solar_day_start(jd_utc, lon_east);
+    out.push_str(&format!("  \"events_window\":{{\"convention\":\"observer_local_mean_solar_day\",\"time_scale\":\"UTC\",\"interval\":\"[start,end)\",\"start_jd\":{},\"end_jd\":{}}},", jnum(day_start), jnum(day_start+1.0)));
     out.push_str("  \"time\": {");
+    out.push_str(&format!(
+        "\"calendar\":\"proleptic_gregorian\",\"input_time_semantics\":\"{}\",",
+        if astro.jd_tai.is_some() {
+            "utc"
+        } else {
+            "historical_ut1_proxy"
+        }
+    ));
     out.push_str(&format!(
         "\"jd_utc\":{:.10},\"jd_tai\":{},\"jd_tt\":{:.10},\"jd_ut1\":{:.10},",
         astro.jd_utc,
@@ -377,11 +618,13 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     out.push_str("}},\n");
     out.push_str("  \"observer\": {");
     out.push_str(&format!(
-        "\"terrestrial_lat_deg\":{:.8},\"terrestrial_lon_deg_east\":{:.8},\"polar_motion_corrected_lat_deg\":{:.8},\"polar_motion_corrected_lon_deg_east\":{:.8},\"elev_m\":{:.3}",
-        lat, lon_east, observer_lat, observer_lon, elev
+        "\"terrestrial_lat_deg\":{},\"terrestrial_lon_deg_east\":{},\"polar_motion_corrected_lat_deg\":{:.8},\"polar_motion_corrected_lon_deg_east\":{:.8},\"elev_m\":{}",
+        jnum(lat), jnum(lon_east), observer_lat, observer_lon, jnum(elev)
     ));
     out.push_str("},\n");
-    out.push_str("  \"accuracy\": {");
+    out.push_str(
+        "  \"accuracy\": {\"evidence_status\":\"unvalidated\",\"evidence_record_ids\":[],",
+    );
     out.push_str(&format!("\"class\":\"{}\",", accuracy_class));
     out.push_str("\"coordinate_semantics\":\"ra_deg and dec_deg are apparent topocentric coordinates; geocentric and topocentric values are also emitted under explicit field names\",");
     out.push_str("\"time_scales\":\"UTC to TAI from leap-second table, TT = TAI + 32.184 s, UT1 = UTC + DUT1\",");
@@ -395,9 +638,11 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
 
     for (index, body) in ALL_BODIES.iter().enumerate() {
         let s = topocentric_sky_at_time(*body, &astro, lat, lon_east, elev);
-        let (rise, transit, set, transit_alt) = events(*body, jd_utc, lat, lon_east, elev);
-        let angular_size =
-            2.0 * (body.radius_km() / s.dist_km).asin() * (180.0 / std::f64::consts::PI) * 3600.0;
+        let event_solution = events(*body, jd_utc, lat, lon_east, elev);
+        let angular_size = 2.0
+            * (body.radius_km() / s.observer_range_km).asin()
+            * (180.0 / std::f64::consts::PI)
+            * 3600.0;
         if index > 0 {
             out.push_str(",\n");
         }
@@ -408,17 +653,17 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             body.kind()
         ));
         out.push_str(&format!(
-            "\"ra_deg\":{:.9},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{:.9},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{:.9},\"topocentric_apparent_dec_deg\":{:.9},\"distance_km\":{:.3},",
+            "\"ra_deg\":{:.9},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{:.9},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{:.9},\"topocentric_apparent_dec_deg\":{:.9},\"geocentric_range_km\":{},\"observer_range_km\":{},\"range_approximation\":\"finite\",",
             s.topocentric_ra,
             s.topocentric_dec,
             s.geocentric_ra,
             s.geocentric_dec,
             s.topocentric_ra,
             s.topocentric_dec,
-            s.dist_km
+            jnum(s.dist_km), jnum(s.observer_range_km)
         ));
         out.push_str(&format!(
-            "\"alt_deg\":{:.7},\"az_deg\":{:.7},\"alt_refracted_deg\":{:.7},\"above_horizon\":{},",
+            "\"alt_deg\":{},\"az_deg\":{},\"alt_refracted_deg\":{},\"above_horizon\":{},",
             s.alt,
             s.az,
             s.alt_refracted,
@@ -430,26 +675,20 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             angular_size,
             coords::horizontal_parallax_deg(s.dist_km)
         ));
-        out.push_str(&format!(
-            "\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.6}",
-            jnum(rise),
-            jnum(transit),
-            jnum(set),
-            transit_alt
-        ));
+        out.push_str(&event_solution.json());
         out.push('}');
     }
 
     for star in stars::STARS.iter() {
         let s = star_topocentric(star, jd_utc, lat, lon_east, elev);
-        let (rise, transit, set, transit_alt) = star_events(star, jd_utc, lat, lon_east, elev);
+        let event_solution = star_events(star, jd_utc, lat, lon_east, elev);
         out.push_str(",\n    {");
         out.push_str(&format!(
             "\"name\":\"{}\",\"kind\":\"star\",\"coordinate_frame\":\"true_equator_and_equinox_of_date\",",
             star.name
         ));
         out.push_str(&format!(
-            "\"ra_deg\":{:.9},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{:.9},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{:.9},\"topocentric_apparent_dec_deg\":{:.9},\"distance_km\":null,",
+            "\"ra_deg\":{:.9},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{:.9},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{:.9},\"topocentric_apparent_dec_deg\":{:.9},\"geocentric_range_km\":null,\"observer_range_km\":null,\"range_approximation\":\"infinite_catalogue_star\",",
             s.topocentric_ra,
             s.topocentric_dec,
             s.geocentric_ra,
@@ -458,7 +697,7 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             s.topocentric_dec
         ));
         out.push_str(&format!(
-            "\"alt_deg\":{:.7},\"az_deg\":{:.7},\"alt_refracted_deg\":{:.7},\"above_horizon\":{},",
+            "\"alt_deg\":{},\"az_deg\":{},\"alt_refracted_deg\":{},\"above_horizon\":{},",
             s.alt,
             s.az,
             s.alt_refracted,
@@ -469,18 +708,12 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             "\"angular_size_arcsec\":0,\"horizontal_parallax_deg\":0,\"magnitude\":{:.2},",
             star.mag
         ));
-        out.push_str(&format!(
-            "\"rise_jd\":{},\"transit_jd\":{},\"set_jd\":{},\"transit_alt_deg\":{:.6}",
-            jnum(rise),
-            jnum(transit),
-            jnum(set),
-            transit_alt
-        ));
+        out.push_str(&event_solution.json());
         out.push('}');
     }
     out.push_str("\n  ],\n");
     out.push_str(
-        "  \"warnings\": [\"Analytic apparent place; research and observing-planning only.\"",
+        "  \"warnings\": [\"Analytic apparent place; research and observing-planning only. Catalogue stars approximate infinite distance; annual parallax and aberration are omitted.\"",
     );
     if !astro.eop.quality.precision_ready() {
         out.push_str(",\"Earth orientation is degraded for this epoch; sub-arcsecond topocentric accuracy is not asserted.\"");
@@ -492,7 +725,7 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
 
 fn jnum(v: f64) -> String {
     if v.is_finite() {
-        format!("{:.8}", v)
+        v.to_string()
     } else {
         "null".to_string()
     }
@@ -660,15 +893,8 @@ thread_local! {
     static RESULT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
-// --- Raw-ABI input sanitizing -------------------------------------------------------------
-//
-// These entry points take raw f64s straight from JS. A NaN latitude (an empty input box
-// coerced by a caller) otherwise flows into format!("{:.n}") sites, which render the literal
-// `NaN` — invalid JSON that throws at JSON.parse in the browser. Clamp ranges are physical,
-// not cosmetic: |lat| ≤ 90, longitude wrapped to (-180, 180] (wrapping, unlike clamping,
-// leaves any valid input's meaning unchanged), elevation Dead Sea..Everest, and time held to
-// ±≈12,700 years around the epoch — beyond the model's stated ±5000 yr envelope but small
-// enough that every downstream polynomial stays finite.
+// Legacy fixed-nine-body System time sanitizing; retained for that separate ABI.
+// Sky snapshots and trajectories reject unsupported inputs instead of using this helper.
 
 const UNIX_ABS_MAX: f64 = 4.0e11;
 
@@ -680,27 +906,6 @@ fn sanitize_unix(unix_seconds: f64) -> f64 {
     }
 }
 
-fn sanitize_observer(lat_deg: f64, lon_deg_east: f64, elev_m: f64) -> (f64, f64, f64) {
-    let lat = if lat_deg.is_finite() {
-        lat_deg.clamp(-90.0, 90.0)
-    } else {
-        0.0
-    };
-    let lon = if lon_deg_east.is_finite() {
-        // Wrap into (-180, 180] so a valid longitude round-trips unchanged in the
-        // snapshot's echoed observer block.
-        -((-lon_deg_east + 180.0).rem_euclid(360.0) - 180.0)
-    } else {
-        0.0
-    };
-    let elev = if elev_m.is_finite() {
-        elev_m.clamp(-430.0, 9000.0)
-    } else {
-        0.0
-    };
-    (lat, lon, elev)
-}
-
 /// Compute a sky snapshot for a Unix time + observer; returns a pointer to UTF-8 JSON bytes.
 #[no_mangle]
 pub extern "C" fn sky_snapshot(
@@ -709,8 +914,7 @@ pub extern "C" fn sky_snapshot(
     lon_deg_east: f64,
     elev_m: f64,
 ) -> *const u8 {
-    let (lat_deg, lon_deg_east, elev_m) = sanitize_observer(lat_deg, lon_deg_east, elev_m);
-    let jd_utc = time::jd_from_unix(sanitize_unix(unix_seconds));
+    let jd_utc = time::jd_from_unix(unix_seconds);
     let json = sky_snapshot_json(jd_utc, lat_deg, lon_deg_east, elev_m);
     RESULT.with(|cell| {
         *cell.borrow_mut() = json.into_bytes();
@@ -780,35 +984,49 @@ fn body_track_json(
     dt_seconds: f64,
     n: u32,
 ) -> String {
-    let body = ALL_BODIES[(body_idx as usize) % ALL_BODIES.len()];
-    let (lat_deg, lon_deg_east, elev_m) = sanitize_observer(lat_deg, lon_deg_east, elev_m);
-    let unix0 = sanitize_unix(unix0);
-    // Non-finite dt collapses to the app's own 60 s default; the magnitude cap keeps
-    // unix0 + i*dt inside the sanitized time envelope for every sample.
-    let dt_seconds = if dt_seconds.is_finite() {
-        dt_seconds.clamp(-1.0e9, 1.0e9)
-    } else {
-        60.0
-    };
-    let count = n.min(2000) as usize;
-    let mut out = String::with_capacity(16 + 36 * count);
+    let epoch_valid =
+        |unix: f64| unix.is_finite() && (-62135596800.0..253402300800.0).contains(&unix);
+    let span = dt_seconds * f64::from(n.saturating_sub(1));
+    if body_idx as usize >= ALL_BODIES.len()
+        || !lat_deg.is_finite()
+        || !(-90.0..=90.0).contains(&lat_deg)
+        || !lon_deg_east.is_finite()
+        || !(-360.0..=360.0).contains(&lon_deg_east)
+        || !elev_m.is_finite()
+        || !(-12000.0..=100000.0).contains(&elev_m)
+        || !epoch_valid(unix0)
+        || !(2..=257).contains(&n)
+        || !dt_seconds.is_finite()
+        || dt_seconds == 0.0
+        || dt_seconds.abs() > 3600.0
+        || span.abs() > 172800.0
+        || !epoch_valid(unix0 + span)
+    {
+        return "{\"error\":\"Trajectory request outside supported bounds\",\"code\":\"invalid_input\"}".into();
+    }
+    let body = ALL_BODIES[body_idx as usize];
+    let count = n as usize;
+    let mut out = String::new();
+    if out.try_reserve(16 + 128 * count).is_err() {
+        return "{\"error\":\"Trajectory allocation unavailable\",\"code\":\"capacity\"}".into();
+    }
     out.push('[');
     let mut emitted = false;
     for i in 0..count {
-        let unix = sanitize_unix(unix0 + (i as f64) * dt_seconds);
+        let unix = unix0 + (i as f64) * dt_seconds;
         let jd = time::jd_from_unix(unix);
         let s = topocentric_sky(body, jd, lat_deg, lon_deg_east, elev_m);
-        // A sample the solver can't produce finitely is simply omitted: the JSON stays
-        // valid and the arc just has a gap, instead of a literal NaN killing JSON.parse.
+        // Never silently omit a requested sample or publish a partial trajectory.
         if !(s.alt_refracted.is_finite() && s.az.is_finite()) {
-            continue;
+            return "{\"error\":\"Trajectory sample unavailable\",\"code\":\"engine_failed\"}"
+                .into();
         }
         if emitted {
             out.push(',');
         }
         emitted = true;
         out.push_str(&format!(
-            "{{\"alt\":{:.4},\"az\":{:.4},\"up\":{}}}",
+            "{{\"alt\":{},\"az\":{},\"up\":{}}}",
             s.alt_refracted,
             s.az,
             s.alt_refracted > 0.0
@@ -853,10 +1071,67 @@ mod tests {
     use super::*;
 
     #[test]
+    fn legacy_system_time_sanitizing_remains_bounded() {
+        assert_eq!(sanitize_unix(f64::NAN), 0.0);
+        assert_eq!(sanitize_unix(1.0e30), UNIX_ABS_MAX);
+    }
+
+    #[test]
+    fn sky_rejects_unsupported_epoch_instead_of_clamping() {
+        for jd in [f64::NAN, 1721425.49, 5373484.5] {
+            assert!(sky_snapshot_json(jd, 0.0, 0.0, 0.0).contains("\"error\""));
+        }
+    }
+
+    #[test]
+    fn raw_track_rejects_out_of_bounds_work_instead_of_clamping() {
+        for (body, lat, unix, step, count) in [
+            (9, 0.0, 1.7e9, 600.0, 145),
+            (1, 91.0, 1.7e9, 600.0, 145),
+            (1, 0.0, f64::NAN, 600.0, 145),
+            (1, 0.0, 1.7e9, f64::NAN, 145),
+            (1, 0.0, 1.7e9, 0.0, 145),
+            (1, 0.0, 1.7e9, 600.0, 258),
+            (1, 0.0, 1.7e9, 676.0, 257),
+            (1, 0.0, 253402300799.0, 1.0, 2),
+        ] {
+            let result = body_track_json(body, lat, 0.0, 0.0, unix, step, count);
+            assert!(result.contains("\"error\""), "invalid work was accepted");
+            assert!(result.contains("\"code\""));
+        }
+        for count in [256, 257] {
+            let result = body_track_json(1, 0.0, 0.0, 0.0, 1.7e9, 600.0, count);
+            assert_eq!(result.matches("\"alt\"").count(), count as usize);
+        }
+        let result = body_track_json(1, 0.0, 0.0, 0.0, 1.7e9, 675.0, 257);
+        assert_eq!(result.matches("\"alt\"").count(), 257);
+    }
+
+    #[test]
+    fn event_status_distinguishes_ambiguous_boundary_from_no_occurrence() {
+        let start = 2460000.5;
+        let ambiguous = events_detailed(&|jd| (-1.0, 30.0 - (jd - start).powi(2)), start);
+        assert!(ambiguous.transit_failed);
+        assert!(ambiguous.values.1.is_nan() && ambiguous.values.3.is_nan());
+        assert!(ambiguous
+            .json()
+            .contains("\"calculation_status\":\"failed\",\"occurrence_status\":\"unknown\""));
+        let absent = events_detailed(&|jd| (-1.0, jd - start), start);
+        assert!(!absent.transit_failed);
+        assert!(absent.values.1.is_nan());
+        assert!(absent.json().contains(
+            "\"calculation_status\":\"calculated\",\"occurrence_status\":\"none_in_window\""
+        ));
+    }
+
+    #[test]
     fn snapshot_is_well_formed() {
         // 2024-01-01 00:00 UTC ≈ JD 2460310.5, Boston.
         let json = sky_snapshot_json(2460310.5, 42.36, -71.06, 0.0);
-        assert!(json.contains("ephemeris-snapshot.v2"));
+        assert!(json.contains("ephemeris-snapshot.v3"));
+        assert!(json.contains("\"geocentric_range_km\""));
+        assert!(json.contains("\"observer_range_km\""));
+        assert!(json.contains("\"events_window\""));
         assert!(json.contains("topocentric_apparent_ra_deg"));
         assert!(json.contains("dut1_seconds"));
         assert!(json.contains("\"name\":\"Sun\""));
@@ -904,39 +1179,242 @@ mod tests {
     }
 
     #[test]
-    fn abi_observer_sanitizing_preserves_valid_inputs() {
-        // Every already-valid observer must round-trip unchanged (New York's -74.01°E
-        // must NOT come back as 285.99): wrapping, not clamping, for longitude.
-        let (lat, lon, elev) = sanitize_observer(40.71, -74.01, 10.0);
-        assert!((lat - 40.71).abs() < 1.0e-12);
-        assert!((lon - -74.01).abs() < 1.0e-12);
-        assert!((elev - 10.0).abs() < 1.0e-12);
-        let (_, lon_wrapped, _) = sanitize_observer(0.0, 190.0, 0.0);
-        assert!((lon_wrapped - -170.0).abs() < 1.0e-9);
-        let (_, lon_edge, _) = sanitize_observer(0.0, 180.0, 0.0);
-        assert!((lon_edge - 180.0).abs() < 1.0e-9);
+    fn culmination_requires_a_genuine_maximum_in_the_half_open_day() {
+        let start = 2_460_000.5;
+        for peak in [-0.02, -0.000001, 1.0, 1.000001, 1.02] {
+            let sample = |jd: f64| {
+                let a = -(jd - start - peak).powi(2);
+                (a, a)
+            };
+            let (_, transit, _, altitude) = events_core(&sample, start);
+            assert!(
+                transit.is_nan() && altitude.is_nan(),
+                "outside peak {peak}: {transit}"
+            );
+        }
+        for peak in [0.0, 0.0001, 0.25, 0.9999] {
+            let sample = |jd: f64| {
+                let a = -(jd - start - peak).powi(2);
+                (a, a)
+            };
+            let (_, transit, _, altitude) = events_core(&sample, start);
+            assert!(transit >= start && transit < start + 1.0);
+            assert!((transit - start - peak).abs() * 86400.0 <= 1.0);
+            assert!((altitude - sample(transit).1).abs() < 1e-12);
+        }
+        let (_, transit, _, altitude) = events_core(&|jd| (jd, jd), start);
+        assert!(transit.is_nan() && altitude.is_nan());
+        let (_, transit, _, _) = events_core(
+            &|jd| {
+                let a = (4.0 * std::f64::consts::PI * (jd - start - 0.1)).cos();
+                (a, a)
+            },
+            start,
+        );
+        assert!((transit - start - 0.1).abs() * 86400.0 <= 1.0);
     }
 
     #[test]
-    fn abi_hostile_observer_inputs_are_neutralized() {
-        let (lat, lon, elev) = sanitize_observer(f64::NAN, f64::INFINITY, f64::NEG_INFINITY);
-        assert_eq!((lat, lon, elev), (0.0, 0.0, 0.0));
-        let (lat_hi, _, elev_hi) = sanitize_observer(1.0e6, 0.0, 1.0e9);
-        assert_eq!(lat_hi, 90.0);
-        assert_eq!(elev_hi, 9000.0);
-        assert_eq!(sanitize_unix(f64::NAN), 0.0);
-        assert_eq!(sanitize_unix(1.0e30), UNIX_ABS_MAX);
+    fn culmination_resolves_subsecond_midnight_membership() {
+        let start: f64 = 2_460_000.5;
+        let end = start + 1.0;
+        for boundary in [start, end] {
+            for peak in [
+                boundary - 0.01 / 86400.0,
+                f64::from_bits(boundary.to_bits() - 1),
+                boundary,
+                f64::from_bits(boundary.to_bits() + 1),
+                boundary + 0.01 / 86400.0,
+            ] {
+                let sample = |jd: f64| {
+                    let altitude = -(jd - peak).powi(2);
+                    (altitude, altitude)
+                };
+                let (_, transit, _, altitude) = events_core(&sample, start);
+                if (start..end).contains(&peak) {
+                    assert!(
+                        (start..end).contains(&transit),
+                        "peak {peak:.16}, returned {transit:.16}"
+                    );
+                    assert!(
+                        (transit - peak).abs() <= 0.001 / 86400.0,
+                        "peak {peak:.16}, returned {transit:.16}"
+                    );
+                    assert_eq!(altitude, sample(transit).1);
+                } else {
+                    assert!(
+                        transit.is_nan() && altitude.is_nan(),
+                        "outside peak {peak:.16}, returned {transit:.16}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn culmination_rounding_ties_do_not_move_midnight_events() {
+        let start: f64 = 2_460_000.5;
+        let end = start + 1.0;
+        for offset in [30.0, 60.0] {
+            for boundary in [start, end] {
+                for peak in [
+                    boundary - 0.01 / 86400.0,
+                    f64::from_bits(boundary.to_bits() - 1),
+                    boundary,
+                    f64::from_bits(boundary.to_bits() + 1),
+                    boundary + 0.01 / 86400.0,
+                ] {
+                    let sample = |jd: f64| {
+                        let altitude = offset - (jd - peak).powi(2);
+                        (altitude, altitude)
+                    };
+                    let (_, transit, _, altitude) = events_core(&sample, start);
+                    // With these offsets the exact/adjacent-JD peaks round to
+                    // the same altitude at midnight. Their membership is
+                    // unknowable from this numerical function: report null.
+                    let boundary_unresolved = sample(boundary).1 == offset;
+                    if boundary_unresolved || !(start..end).contains(&peak) {
+                        assert!(
+                            transit.is_nan() && altitude.is_nan(),
+                            "offset {offset}, peak {peak:.16}, returned {transit:.16}"
+                        );
+                    } else {
+                        assert!(
+                            (start..end).contains(&transit),
+                            "offset {offset}, interior peak {peak:.16}, returned {transit:.16}"
+                        );
+                        assert!((transit - peak).abs() * 86400.0 <= 1.0);
+                        assert_eq!(altitude, sample(transit).1);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn event_serialization_preserves_boundary_membership() {
+        let start = local_solar_day_start(2461222.5, -71.06);
+        assert_eq!(jnum(start).parse::<f64>().unwrap(), start);
+    }
+
+    #[test]
+    fn culmination_between_equal_adjacent_samples_is_found() {
+        let start = 0.0;
+        let peak = 0.5 / 144.0;
+        let (_, transit, _, _) = events_core(
+            &|jd| {
+                let a = -(jd - peak).powi(2);
+                (a, a)
+            },
+            start,
+        );
+        assert!((transit - peak).abs() * 86400.0 <= 1.0);
+    }
+
+    #[test]
+    fn horizon_crossings_use_the_same_half_open_day() {
+        for direction in [-1.0, 1.0] {
+            for crossing in [0.0, 1.0] {
+                let (rise, _, set, _) = events_core(&|jd| (direction * (jd - crossing), 1.0), 0.0);
+                let event = if direction > 0.0 { rise } else { set };
+                if crossing == 0.0 {
+                    assert_eq!(event, 0.0);
+                } else {
+                    assert!(event.is_nan(), "end crossing: {event}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn july_2026_boston_moon_events_belong_to_the_requested_day() {
+        for day in 0..31 {
+            let jd = 2_461_222.5 + day as f64;
+            let start = local_solar_day_start(jd, -71.06);
+            let (rise, transit, set, altitude) = events(Body::Moon, jd, 42.36, -71.06, 10.0).values;
+            for event in [rise, transit, set] {
+                assert!(
+                    event.is_nan() || (start..start + 1.0).contains(&event),
+                    "July {}: {event} outside {start}",
+                    day + 1
+                );
+            }
+            assert_eq!(transit.is_nan(), altitude.is_nan());
+            if transit.is_finite() {
+                let actual = topocentric_sky(Body::Moon, transit, 42.36, -71.06, 10.0).alt;
+                assert!((actual - altitude).abs() < 1e-8);
+                assert!(
+                    actual
+                        >= topocentric_sky(
+                            Body::Moon,
+                            transit - 2.0 / 86400.0,
+                            42.36,
+                            -71.06,
+                            10.0
+                        )
+                        .alt
+                );
+                assert!(
+                    actual
+                        >= topocentric_sky(
+                            Body::Moon,
+                            transit + 2.0 / 86400.0,
+                            42.36,
+                            -71.06,
+                            10.0
+                        )
+                        .alt
+                );
+            }
+        }
     }
 
     #[test]
     fn abi_snapshot_with_hostile_inputs_stays_valid_json() {
-        // The exact path the extern wrappers take: NaN/∞ from JS must never reach a
-        // format! site — a literal `NaN` in the output throws at JSON.parse in the app.
-        let (lat, lon, elev) = sanitize_observer(f64::NAN, f64::INFINITY, f64::NAN);
-        let jd = time::jd_from_unix(sanitize_unix(f64::NAN));
-        let json = sky_snapshot_json(jd, lat, lon, elev);
-        assert!(json.contains("\"schema_version\""));
-        assert!(!json.contains("NaN") && !json.contains("inf"));
+        // Exercise the actual ABI: reject, never silently replace the requested epoch.
+        sky_snapshot(f64::NAN, 0.0, 0.0, 0.0);
+        let json = RESULT.with(|cell| String::from_utf8(cell.borrow().clone()).unwrap());
+        assert!(json.starts_with("{\"error\":"));
+        assert!(!json.contains("NaN"));
+        sky_snapshot(1.7e9, f64::INFINITY, 0.0, 0.0);
+        let json = RESULT.with(|cell| String::from_utf8(cell.borrow().clone()).unwrap());
+        assert!(json.contains("Invalid observer"));
+    }
+
+    #[test]
+    fn observer_range_obeys_independent_vector_triangle() {
+        let jd = 2461222.5929050925;
+        let astro = AstroTime::from_jd_utc(jd);
+        let (lat, lon) = earth_orientation::corrected_observer_geodetic(
+            0.0,
+            0.0,
+            astro.eop.xp_arcsec,
+            astro.eop.yp_arcsec,
+        );
+        let (rho_sin, rho_cos) = coords::observer_rho(lat, 0.0);
+        let observer_radius = 6378.14 * rho_sin.hypot(rho_cos);
+        let (dpsi, deps) = time::nutation_deg(time::centuries(astro.jd_tt));
+        let lst = (time::gast_deg(
+            astro.jd_ut1,
+            dpsi,
+            time::mean_obliquity_deg(time::centuries(astro.jd_tt)) + deps,
+        ) + lon)
+            .to_radians();
+        for body in [Body::Moon, Body::Sun] {
+            let s = topocentric_sky_at_time(body, &astro, 0.0, 0.0, 0.0);
+            // Law of cosines, using unit directions in the global equatorial frame,
+            // independently of the production hour-angle Cartesian subtraction.
+            let ra = s.geocentric_ra.to_radians();
+            let dec = s.geocentric_dec.to_radians();
+            let dot = dec.cos() * ra.cos() * rho_cos * lst.cos()
+                + dec.cos() * ra.sin() * rho_cos * lst.sin()
+                + dec.sin() * rho_sin;
+            let expected = (s.dist_km.powi(2) + observer_radius.powi(2)
+                - 2.0 * s.dist_km * 6378.14 * dot)
+                .sqrt();
+            assert!((s.observer_range_km - expected).abs() < 1e-7);
+            assert!((s.observer_range_km - s.dist_km).abs() > 1.0);
+        }
     }
 
     #[test]
@@ -999,7 +1477,7 @@ mod tests {
             f64::NAN,
             5,
         );
-        assert!(json.starts_with('[') && json.ends_with(']'));
+        assert!(json.contains("\"code\":\"invalid_input\""));
         assert!(!json.contains("NaN") && !json.contains("inf"));
         // Sane inputs still produce the full sample count.
         let ok = body_track_json(0, 40.71, -74.01, 10.0, 1.7e9, 600.0, 5);

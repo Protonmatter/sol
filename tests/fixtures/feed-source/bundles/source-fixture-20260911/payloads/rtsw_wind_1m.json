@@ -1,0 +1,10 @@
+[
+  {
+    "time_tag": "2026-04-30T00:00:00Z",
+    "proton_density": 5.1,
+    "proton_speed": 420.0,
+    "proton_temperature": 102000.0,
+    "source": "DSCOVR",
+    "active": true
+  }
+]

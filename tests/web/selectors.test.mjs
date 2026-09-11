@@ -149,11 +149,11 @@ test("feed labels and tones cover absent, late, degraded, failed, and unknown", 
 
 test("region copy preserves coordinates, units, and explicit selection", () => {
   const region = {
-    id: 42, lat_deg: -12.25, lon_deg: 130.75, flux_norm: 0.6,
+    id: 42, birth:{lat_deg:-12.25,lon_deg:130.75,time_seconds:0}, model_position:{lat_deg:-12.25,lon_deg:130.75,at_time_seconds:0}, flux_norm: 0.6,
     complexity: 0.9, area_msh: 340, tilt_deg: -3.2, confidence: 0.88,
   };
-  assert.equal(regionLocation(region), "lat -12.3°, lon 130.8°");
-  assert.match(selectedRegionSummary(region), /AR 42.*high \(0.90\).*340 MSH/);
+  assert.equal(regionLocation(region), "modeled anchor: lat -12.3°, lon 130.8° W");
+  assert.match(selectedRegionSummary(region), /AR 42.*340 millionths of the solar hemisphere.*Heuristic model score 0.88.*not probability/);
   store.state = { active_regions: [region] };
   store.selectedRegionId = 42;
   assert.match(selectedRegionSentence(), /^Selected AR 42/);

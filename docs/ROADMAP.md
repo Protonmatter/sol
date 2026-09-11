@@ -1,82 +1,41 @@
 # Roadmap
 
-## Engineering lifecycle and browser validation — shipped 2026-07-28
+Updated: 2026-09-11. This is a lifecycle map, not a release announcement.
 
-- Specification-driven SDLC with stable `SOL-*` requirements and evidence traceability
-- Internal RFC template/process plus ADR alignment for durable architecture decisions
-- Contributor and pull-request review contracts
-- Progressive-disclosure and accessibility structure validator with real Chromium behavior
-- Denominator-complete Node + Chromium web coverage and semantic WebGL image assertions
-- CI enforcement of governance, immutable action pins, dependency updates, coverage, and
-  exact-tested-SHA Pages deployment
+## Current accepted work — locally implemented, qualification held
 
-## v0.2.0 Published ephemeris + real star catalogue — shipped 2026-07-20
+RFC 0002 remains Accepted. The correctness/experience source now includes solar and
+ephemeris v3 semantics, immutable validated intake, safe numerical/admission boundaries,
+bounded workers, explicit presentation/privacy controls, and immutable data/release
+transactions. Bounded task reports and tests establish local implementation only.
 
-- Publish `solar-ephemeris` to crates.io (0.1.1 first release, 0.2.0 current) via a
-  scheduled, guarded `publish-crate.yml`
-- Replace every procedural/hand-written star list with the naked-eye Hipparcos catalogue
-  (8,867 stars) behind the Solar-System and Milky-Way views, generated deterministically
-  from committed sources and gated in CI
-- Extend the on-device engine catalogue 26 → 108 bright stars with real proper motion
-- Add the light-year-scale Solar neighbourhood view (true parallax 3-D positions)
-- Lazy-load the catalogue so first paint of the Sun / My Sky surfaces is unaffected
-- Docs CI: offline Markdown link/badge/style gate on every PR, weekly external-link check
+The next gate is evidence closure and independent review, not automatic publication:
 
-## v0.1 CPU reference
+- Finish the acceptance/failure matrix and denominator-complete coverage without lowering floors.
+- Acquire approved independent scientific references for the actual v3 quantities and epochs.
+- Resolve coefficient provenance/notice gaps and canonical moon-generation qualification.
+- Complete required desktop/mobile performance and manual accessibility evidence.
+- Review protected release profiles/settings and exact-artifact qualification records.
+- Only with separate authority, promote an eligible artifact and verify served critical bytes.
 
-- Deterministic state model
-- Differential rotation
-- Bipolar active-region generator
-- Reduced flux transport
-- Assimilation primitive
-- Rust tests
-- Python image prototype
+## Historical capability baseline
 
-## v0.1.2 Research + learning app
+The repository already contains a reduced CPU solar model, observation adapters,
+a static learning UI, an optional Horizons server, WebGL2 Solar System/Milky Way views,
+and catalogue-backed stars, constellations, geography and major moons. Earlier 2026
+milestones and published crate versions describe historical artifacts; they do not prove
+the current working tree was released or qualified. GPU compute, calibrated assimilation,
+and scientific image registration must not be inferred from those capability names.
 
-- Import v0.1.1 baseline into the git repo
-- Add versioned JSON snapshot and observation contracts
-- Add `simulate`, `ingest swpc`, and `replay` CLI surfaces
-- Add static progressive-disclosure web app
-- Add deterministic web fixture, tutorial notebook, and experiment notebook
-- Add explicit public-data cache helper with fixture fallback
+## Future work — not implemented commitments
 
-## v0.2 GPU compute
+- Physically calibrated magnetic units and empirically validated uncertainty/forecast skill.
+- Registered science-grade image transforms with independently verified geometry and epochs.
+- More complete transport physics, including spherical operators and meridional circulation.
+- An audited observer timezone resolver and broader manually qualified input/accessibility paths.
+- GPU/ML/NPU experiments only with a new scoped design, measured need and reference parity.
 
-- wgpu buffers
-- rotate/diffuse/decay kernels
-- CPU vs GPU parity tests
-- responsive renderer
-
-## v0.3 Assimilation engine
-
-- ObservationFrame schema
-- source freshness/confidence model
-- active-region matcher
-- HMI/continuum blend
-- flare timeline correction
-
-## v0.4 Real adapters
-
-- SWPC cycle adapter
-- SWPC SRS parser
-- GOES XRS adapter
-- Helioviewer HMI/AIA adapter
-- JSOC/SunPy bridge
-
-## v0.5 ML/NPU
-
-- ONNX Runtime abstraction
-- CoreML / DirectML / Windows ML / OpenVINO providers
-- active-region detector
-- flare/CME surrogate scorer
-
-
-## v0.1.1 - SWPC schema-hardening patch
-
-- Add `docs/SWPC_SCHEMA_CHANGE_2026_03_31.md`.
-- Add canonical RTSW replacement endpoint constants.
-- Add deprecated RTSW endpoint mapping rules.
-- Add field-name mapping for RTSW wind/plasma and magnetometer products.
-- Require adapter tests for quoted legacy numerics and new numeric JSON values.
-- Require local retention for 3-day and 7-day solar-wind windows.
+No planned feature may silently replace scientific authority, relax accuracy/coverage
+thresholds, or introduce network/production changes. The governing acceptance plan,
+[SPEC](SPEC.md), [status](STATUS.md) and [release delivery](RELEASE_DELIVERY.md) define
+the current boundaries.

@@ -1,0 +1,66 @@
+{
+  "schema_version": "scientific-generation-manifest.v1",
+  "scope": "Major-moon generated assets only; simulation cross-OS identity is a separate contract.",
+  "generator": {
+    "name": "generate_moons.py + moon_model.py",
+    "version": "source-sha256",
+    "files": {
+      "tools/generate_moons.py": "0c070352991b48283a9ab9aa40425b50df9406a5d36dd1788f5c8d34290f86f9",
+      "tools/moon_model.py": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445"
+    }
+  },
+  "sources": {
+    "horizons_satellite_elements.csv": {
+      "sha256": "cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f",
+      "upstream": "https://ssd.jpl.nasa.gov/horizons/",
+      "identity": "Committed JPL Horizons planetocentric ecliptic J2000 TDB element rows; content identity is the SHA-256, not the mutable service URL.",
+      "notice": "Public-domain US government data; see moons/README.md."
+    },
+    "horizons_satellite_vectors.csv": {
+      "sha256": "ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918",
+      "upstream": "https://ssd.jpl.nasa.gov/horizons/",
+      "identity": "Committed independent held-out JPL Horizons validation vectors; source bytes identified by SHA-256.",
+      "notice": "Public-domain US government data; see moons/README.md."
+    },
+    "jpl_satellite_physical.csv": {
+      "sha256": "03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99",
+      "upstream": "https://ssd.jpl.nasa.gov/sats/phys_par/",
+      "identity": "Committed JPL SSD satellite GM, mean radius and mean density; source bytes identified by SHA-256.",
+      "notice": "Public-domain US government data; see moons/README.md."
+    }
+  },
+  "serialization": {
+    "encoding": "UTF-8",
+    "newlines": "LF",
+    "ordering": "JPL body code ascending; fixed field order",
+    "knot_decimal_places": {"a": 4, "h": 12, "k": 12, "p": 12, "q": 12, "L": 6},
+    "float_format": "Pinned CPython built-in round and float/JSON serialization; generator source hash binds all representative-field formatting.",
+    "timestamps_in_outputs": false
+  },
+  "outputs": {
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+  },
+  "canonical": {
+    "status": "pending",
+    "platform": "linux/amd64",
+    "image": "python:3.12.12-slim-bookworm",
+    "image_digest": "sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+    "image_metadata_source": "https://hub.docker.com/v2/repositories/library/python/tags/3.12.12-slim-bookworm",
+    "image_metadata_observed_date": "2026-09-11",
+    "python_implementation": "CPython",
+    "python_version": "3.12.12",
+    "qualification": {
+      "identical_runs": 0,
+      "reviewed_evidence": null,
+      "reason": "Candidate amd64 manifest digest verified from primary Docker Hub metadata, but no matching local Linux x86_64 runtime/image was available. Windows ARM64 and WSL Linux aarch64 are diagnostic platforms, not canonical qualification."
+    }
+  },
+  "validation": {
+    "max_angle_deg": 0.15,
+    "max_radius_fraction": 0.0025,
+    "minimum_checks_per_moon": 100,
+    "expected_held_out_checks": 11985,
+    "evidence": "docs/CANONICAL_GENERATION.md"
+  }
+}

@@ -8,6 +8,7 @@ measures the interpolation plus Kepler propagation the browser actually performs
 from __future__ import annotations
 
 import csv
+import argparse
 import math
 import subprocess
 import sys
@@ -40,10 +41,13 @@ EXPECTED_INC = {
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--require-canonical", action="store_true", help="require reviewed pinned Linux x86_64 generation evidence")
+    args = parser.parse_args()
     errors: list[str] = []
 
     regeneration = subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "generate_moons.py"), "--check"],
+        [sys.executable, str(ROOT / "tools" / "generate_moons.py"), "--check", *(["--require-canonical"] if args.require_canonical else [])],
         capture_output=True,
         text=True,
     )
@@ -53,6 +57,8 @@ def main() -> int:
             + regeneration.stdout
             + regeneration.stderr
         )
+    elif regeneration.stdout:
+        print(regeneration.stdout.strip())
 
     groups = load_element_groups(SRC / "horizons_satellite_elements.csv")
     knots = {name: equinoctial_knots(rows) for name, rows in groups.items()}

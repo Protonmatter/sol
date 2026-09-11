@@ -21,6 +21,7 @@
  * @property {string} [calibration_state]
  * @property {Object} [run]
  * @property {Object} [grid]
+ * @property {Object} [coordinates]
  * @property {Array} [layers]
  * @property {Object} [fields]
  * @property {ActiveRegion[]} [active_regions]
@@ -40,6 +41,7 @@ export const FALLBACK_STATE = {
   calibration_state: "normalized magnetic units; physical Gauss/Mx calibration not asserted",
   run: { seed: 42, steps: 1, dt_hours: 1, activity_index: 0.9, time_seconds: 3600, mode: "DegradedSyntheticFallback" },
   grid: { lon_count: 8, lat_count: 4, dlon_deg: 45, dlat_deg: 45 },
+  coordinates: { central_meridian_longitude_deg: 0, longitude_positive: "west" },
   layers: [
     { id: "br_normalized", label: "Radial magnetic field", kind: "synthetic", units: "normalized magnetic field" },
     { id: "continuum_proxy", label: "Continuum brightness proxy", kind: "inferred", units: "relative intensity" },
@@ -79,7 +81,7 @@ export const FALLBACK_STATE = {
 // (The old explore/weather/research entries described surfaces removed in the
 // three-destination consolidation — they were unreachable dead copy.)
 export const MODE_COPY = {
-  today: ["Today on the Sun", "A plain-language snapshot of where the Sun is in its cycle and what is happening on the side facing us right now."],
+  today: ["Explore the Sun", "Observed imagery and synthetic magnetic models are separate views. Inspect their sources, times and limits."],
 };
 
 export const APPLICATION_COPY = {
@@ -94,7 +96,7 @@ export const APPLICATION_COPY = {
 export const GLOSSARY = {
   "active-region": ["Active region", "A magnetically intense area on the Sun, usually marked by a sunspot group. Active regions are where flares and coronal mass ejections come from."],
   "br": ["Br — radial magnetic field", "How strongly the magnetic field points out of or into the surface at a spot. Shown here in normalized units, not calibrated Gauss."],
-  "confidence": ["Confidence", "How much the model trusts the value at a spot, from 0 (low) to 1 (high). It drops where data is sparse or the field changes quickly."],
+  "confidence": ["Heuristic model score", "A supplied model score from 0 to 1, not probability, calibrated uncertainty, or proof of an observed feature. Magnetic uncertainty is unavailable."],
   "continuum": ["Continuum", "Ordinary visible (white) light from the Sun's surface. Sunspots look dark in continuum because they are cooler than their surroundings."],
   "magnetogram": ["Magnetogram", "A map of the surface magnetic field. Opposite magnetic polarities (north/south) are drawn as opposite colors."],
   "kp": ["Kp index", "A 0–9 scale of global geomagnetic activity. Higher Kp means stronger geomagnetic storms and aurora visible farther from the poles."],
@@ -175,9 +177,9 @@ export const WAVELENGTHS = [
 ];
 
 export const TOUR_STEPS = [
-  { target: null, title: "Meet the Sun", body: "This is the real Sun as seen today by NASA's SDO satellite — not a drawing. Take a few seconds and I'll show you around." },
-  { target: "#solarCanvas", title: "Real sunspots", body: "Those dark specks are sunspots: cooler, magnetically intense patches. The more sunspots there are, the more active the Sun is." },
-  { target: "#stageRail", title: "Where we are in the cycle", body: "The Sun runs an ~11-year cycle from quiet (Minimum) to busy (Maximum). The highlighted step is where it is right now — click any step to learn about it." },
+  { target: null, title: "Explore the Sun", body: "Choose observed SDO imagery or a synthetic model. The source and time labels explain the current view; browse images do not supply capture-time registration." },
+  { target: "#solarCanvas", title: "Image or model?", body: "Observed images can show sunspots. Model markers are generated regions and remain separate from images without verified alignment." },
+  { target: "#stageRail", title: "Explore the modeled cycle", body: "The Sun runs an approximately 11-year cycle. This rail describes the loaded model's stage, not a measurement of today's cycle. Choose a step to learn." },
   { target: ".mode-grid", title: "Three places to explore", body: "These buttons switch the whole app. You're on The Sun now — the drawers beneath it go deeper: the layers, what it means for Earth, and the model under the hood." },
   { target: ".mode-button[data-mode='sky']", title: "My Sky", body: "Switch here for your local night sky: where the Sun, Moon, planets and bright stars are right now for your location, with rise and set times. Real orbital mechanics, validated against NASA JPL." },
   { target: ".mode-button[data-mode='orrery']", title: "Solar System", body: "And here you fly through the planets in 3-D at their true positions — drag to orbit, scroll to zoom, click a world to inspect it. Sizes are enlarged so the small planets show up; flip on True scale for honest proportions." },

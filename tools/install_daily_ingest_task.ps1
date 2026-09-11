@@ -33,6 +33,10 @@ Removes the scheduled task instead of installing it.
 .\tools\install_daily_ingest_task.ps1 -Uninstall
 
 .NOTES
+State is Applied only after registration, Removed only after unregistration,
+NotPresent when no task exists, and Skipped when ShouldProcess declines a change.
+Exit 0 reports a completed decision (including Skipped/NotPresent), not necessarily
+a mutation. Errors exit 1 and do not emit a success-state object.
 Rollback: run this script with -Uninstall or run
 Unregister-ScheduledTask -TaskName SolarMaximumEngineDailyIngest -Confirm:$false.
 #>
@@ -71,15 +75,18 @@ try {
 
     if ($Uninstall) {
         $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        $state = 'NotPresent'
         if ($null -ne $existing) {
+            $state = 'Skipped'
             if ($PSCmdlet.ShouldProcess($TaskName, 'Unregister scheduled task')) {
                 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+                $state = 'Removed'
             }
         }
         Write-Output ([pscustomobject]@{
             TaskName = $TaskName
             Action   = 'Uninstall'
-            State    = if ($null -ne $existing) { 'Removed' } else { 'NotPresent' }
+            State    = $state
         })
         exit 0
     }
@@ -107,13 +114,16 @@ try {
     $trigger = New-ScheduledTaskTrigger -Daily -At $triggerTime
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 1)
 
+    $state = 'Skipped'
     if ($PSCmdlet.ShouldProcess($TaskName, 'Register daily ingest scheduled task')) {
         Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Description 'Daily Solar Maximum Engine public-data ingest for research snapshots.' -Force | Out-Null
+        $state = 'Applied'
     }
 
     Write-Output ([pscustomobject]@{
         TaskName   = $TaskName
         Action     = 'Install'
+        State      = $state
         Time       = $Time
         PythonPath = $PythonPath
         RepoRoot   = $RepoRoot
@@ -121,6 +131,6 @@ try {
     })
     exit 0
 } catch {
-    Write-Error $_
+    Write-Error $_ -ErrorAction Continue
     exit 1
 }

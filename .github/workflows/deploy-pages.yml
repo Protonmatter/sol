@@ -1,84 +1,176 @@
 name: Deploy web app (GitHub Pages)
 
-# Production publishes only the exact master SHA that completed the full CI workflow.
-# A manual dispatch remains available for an explicitly reviewed recovery deployment.
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-  workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
+  actions: read
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build tested static site
+  verify:
+    name: Verify trusted qualified artifact
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'master')
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'master' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
+    outputs:
+      eligible: ${{ steps.eligibility.outputs.eligible }}
+      verifier_sha: ${{ steps.identity.outputs.verifier_sha }}
+      manifest_sha256: ${{ steps.eligibility.outputs.manifest_sha256 }}
+      artifact_id: ${{ steps.eligibility.outputs.artifact_id }}
     steps:
+      - name: Require independently configured trusted verifier
+        env:
+          TRUSTED_VERIFIER_SHA: ${{ vars.SOL_TRUSTED_VERIFIER_SHA }}
+        run: |
+          if [[ ! "$TRUSTED_VERIFIER_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo '::error::Promotion held: configure a reviewed exact verifier SHA and protected qualification/settings evidence.'
+            exit 1
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ vars.SOL_TRUSTED_VERIFIER_SHA }}
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+      - name: Retain exact verifier identity across approval wait
+        id: identity
+        run: echo "verifier_sha=$(git -C trusted rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
-      - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+      - name: Resolve run identity from GitHub and current master
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN_ID: ${{ github.event.workflow_run.id }}
+          CANDIDATE_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p metadata
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID" > metadata/run.json
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID/attempts/$CANDIDATE_ATTEMPT/jobs?per_page=100" > metadata/jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq .sha > metadata/master-sha.txt
+          test "$(jq -r .head_sha metadata/run.json)" = "$EXPECTED_SHA"
+          test "$(jq -r .repository.full_name metadata/run.json)" = "$GITHUB_REPOSITORY"
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
-          targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-
-      - name: Build WASM engines from the tested source
-        run: python tools/build_wasm.py
-
-      - name: Regenerate canonical deterministic cycle series
+          name: release-evidence-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: candidate-evidence
+      - name: Resolve exact candidate artifact ID
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python tools/generate_series.py
-          for file in apps/web/data/series/frame-*.json; do
-            python tools/validate_snapshot.py "$file"
-          done
-
-      # Remote surface maps are deliberately opt-in because upstream mutable URLs do not
-      # produce a byte-reproducible deployment. The renderer has a deterministic procedural
-      # fallback. Set repository variable SOL_FETCH_REMOTE_TEXTURES=true only for a reviewed
-      # deployment where that trade-off is accepted.
-      - name: Fetch optional remote textures
-        if: vars.SOL_FETCH_REMOTE_TEXTURES == 'true'
-        continue-on-error: true
-        run: python tools/fetch_textures.py --force
-
-      - name: Stamp content-derived cache tokens
-        run: python tools/build_web.py
-
-      - name: Validate built artifact
+          set -euo pipefail
+          artifact_id="$(jq -er '.artifact_id | select(type == "number" and . > 0) | floor' candidate-evidence/release-evidence.json)"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" > metadata/artifact.json
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: web-candidate-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: candidate-site
+      - name: Validate static payload using trusted verifier only
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          EXPECTED_RUN: ${{ github.event.workflow_run.id }}
+          EXPECTED_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
         run: |
-          python tools/validate_web_static.py
-          test -s apps/web/pkg/solar_wasm.wasm
-          test -s apps/web/pkg/solar_ephemeris.wasm
-
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+          set -euo pipefail
+          manifest_digest="$(jq -er .manifest_sha256 candidate-evidence/release-evidence.json)"
+          python trusted/tools/validate_release_manifest.py candidate-site/web-release-manifest.json --expected-sha256 "$manifest_digest" --source-sha "$EXPECTED_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$EXPECTED_RUN" --run-attempt "$EXPECTED_ATTEMPT"
+      - name: Require protected profile and accepted qualification
+        id: eligibility
+        run: |
+          set -euo pipefail
+          test -s trusted/docs/release-profiles.json
+          test -s trusted/docs/accepted-qualification.json
+          python trusted/tools/release_policy.py --candidate candidate-evidence/release-evidence.json --trusted trusted/docs/release-profiles.json --qualification trusted/docs/accepted-qualification.json --run-metadata metadata/run.json --artifact-metadata metadata/artifact.json --jobs-metadata metadata/jobs.json --master-sha "$(cat metadata/master-sha.txt)" --require-rich-evidence --manifest candidate-site/web-release-manifest.json --promotion
+          echo "manifest_sha256=$(jq -er .manifest_sha256 candidate-evidence/release-evidence.json)" >> "$GITHUB_OUTPUT"
+          echo "artifact_id=$(jq -er .artifact_id candidate-evidence/release-evidence.json)" >> "$GITHUB_OUTPUT"
+          echo 'eligible=true' >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
-          path: apps/web
+          path: candidate-site
+          retention-days: 90
 
   deploy:
-    name: Deploy tested SHA
-    needs: build
+    name: Deploy qualified immutable artifact
+    needs: verify
+    if: needs.verify.outputs.eligible == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+      actions: read
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.verify.outputs.verifier_sha }}
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: release-evidence-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: candidate-evidence
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: web-candidate-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: candidate-site
+      - name: Re-evaluate full eligibility after environment approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          CANDIDATE_RUN_ID: ${{ github.event.workflow_run.id }}
+          CANDIDATE_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          EXPECTED_MANIFEST: ${{ needs.verify.outputs.manifest_sha256 }}
+          EXPECTED_ARTIFACT_ID: ${{ needs.verify.outputs.artifact_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p metadata
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID" > metadata/run.json
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN_ID/attempts/$CANDIDATE_ATTEMPT/jobs?per_page=100" > metadata/jobs.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$EXPECTED_ARTIFACT_ID" > metadata/artifact.json
+          gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq .sha > metadata/master-sha.txt
+          test "$(jq -er .artifact_id candidate-evidence/release-evidence.json)" = "$EXPECTED_ARTIFACT_ID"
+          test "$(jq -er .manifest_sha256 candidate-evidence/release-evidence.json)" = "$EXPECTED_MANIFEST"
+          python trusted/tools/validate_release_manifest.py candidate-site/web-release-manifest.json --expected-sha256 "$EXPECTED_MANIFEST" --source-sha "$EXPECTED_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$CANDIDATE_RUN_ID" --run-attempt "$CANDIDATE_ATTEMPT"
+          # No --today override: evaluate the real UTC date after the approval wait.
+          python trusted/tools/release_policy.py --candidate candidate-evidence/release-evidence.json --trusted trusted/docs/release-profiles.json --qualification trusted/docs/accepted-qualification.json --run-metadata metadata/run.json --artifact-metadata metadata/artifact.json --jobs-metadata metadata/jobs.json --master-sha "$(cat metadata/master-sha.txt)" --require-rich-evidence --manifest candidate-site/web-release-manifest.json --promotion
       - id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
+      - name: Verify served manifest and critical bytes independently
+        env:
+          DEPLOYED_URL: ${{ steps.deployment.outputs.page_url }}
+        run: python trusted/tools/verify_served_release.py candidate-site/web-release-manifest.json --origin "$DEPLOYED_URL" > metadata/served-release-evidence.json
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: served-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: metadata/served-release-evidence.json
+          if-no-files-found: warn
+          retention-days: 90

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Optional high-precision ephemeris provider for Sol.
 
-The server emits the same ``ephemeris-snapshot.v2`` contract as the in-browser
+The server emits the same ``ephemeris-snapshot.v3`` contract as the in-browser
 Rust/WASM engine. Planet, Moon, and Sun positions are sourced from JPL Horizons
 (DE441). The server does not synthesize rise/transit/set events; those nullable
 fields are intentionally backfilled by the browser's local engine when the
@@ -14,36 +14,180 @@ Stdlib only. Run:
 Endpoints:
 
     GET /health
-    GET /v2/sky?unix=<sec>&lat=<deg>&lon=<degE>&elev=<m>
-    GET /v1/sky?...   # compatibility alias; response is still schema v2
+    GET /v3/sky?unix=<sec>&lat=<deg>&lon=<degE>&elev=<m>
+    Legacy /v1/sky and /v2/sky fail closed with an upgrade explanation.
+
+Calendar input uses proleptic Gregorian years 1 through 9999. Horizons receives
+explicit JD(UT); before modern UTC the time block declares a degraded UT1 proxy.
+Individual targets can have narrower upstream coverage and fail explicitly.
+Response epochs are checked at their printed JD precision, capped at one second.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime as dt
 import hashlib
 import json
 import math
 import os
 import re
+import select
+import socket
 import tempfile
 import time
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, Callable
 
 AU_KM = 149_597_870.7
 EARTH_R_KM = 6378.14
 HORIZONS = "https://ssd.jpl.nasa.gov/api/horizons.api"
-SCHEMA_VERSION = "ephemeris-snapshot.v2"
-CACHE_VERSION = "v3"
+SCHEMA_VERSION = "ephemeris-snapshot.v3"
+CACHE_VERSION = "v5"  # Invalidate calendar-string responses without verified epochs.
 CACHE_MAX_ENTRIES = 4096
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 USER_AGENT = "Protonmatter-Sol/0.3 (+https://github.com/Protonmatter/sol)"
+MAX_RESPONSE_BYTES = 1_048_576
+PER_CALL_SECONDS = 5.0
+OVERALL_SECONDS = 20.0
+_request_context = threading.local()
+
+
+class ProviderError(RuntimeError):
+    def __init__(self, code: str, message: str, status: int = 502):
+        super().__init__(message)
+        self.code = code
+        self.status = status
+
+
+class WorkBudget:
+    def __init__(self, seconds: float):
+        self.deadline = time.monotonic() + seconds
+        self.cancelled = threading.Event()
+
+    def remaining(self) -> float:
+        if self.cancelled.is_set():
+            raise ProviderError("cancelled", "Ephemeris request cancelled", 499)
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise ProviderError("deadline", "Ephemeris overall deadline exceeded", 504)
+        return remaining
+
+
+class _Job:
+    def __init__(self, args: tuple[float, ...], seconds: float):
+        self.args = args
+        self.budget = WorkBudget(seconds)
+        self.subscribers = 0
+        self.future: Any = None
+
+
+class ProviderSubscription:
+    def __init__(self, owner: ProviderWork, job: _Job):
+        self.owner, self.job = owner, job
+        self.cancelled = False
+        self.released = False
+
+    def cancel(self) -> None:
+        self.cancelled = True
+        self.release()
+
+    def release(self) -> None:
+        with self.owner.lock:
+            if not self.released:
+                self.released = True
+                self.job.subscribers -= 1
+                if self.job.subscribers == 0 and not self.job.future.done():
+                    # Keep queued cancelled jobs admitted until drained. This prevents
+                    # unbounded cancelled-Future tombstones behind a blocked transport.
+                    self.job.budget.cancelled.set()
+
+    def result(self, disconnected: Callable[[], bool] = lambda: False) -> Any:
+        try:
+            while True:
+                if self.cancelled or disconnected():
+                    self.cancel()
+                    raise ProviderError("cancelled", "Ephemeris subscriber cancelled", 499)
+                remaining = self.job.budget.remaining()
+                try:
+                    value = self.job.future.result(timeout=min(remaining, 0.05))
+                    self.job.budget.remaining()
+                    return copy.deepcopy(value)
+                except FutureTimeout:
+                    # FutureTimeout aliases built-in TimeoutError. A completed
+                    # transport failure must propagate, not spin until the overall
+                    # deadline. Re-read a completed future to resolve that ambiguity.
+                    if self.job.future.done():
+                        self.job.future.result()
+                    continue
+        finally:
+            self.release()
+
+
+class ProviderWork:
+    """Four serial upstream workers, eight waiting jobs, exact in-flight coalescing.
+
+    Deadline includes queue residence. Subscriber cancellation never cancels other
+    subscribers. No replacement thread is spawned for a stuck transport: it keeps
+    its slot until returning, while subscribers still receive a bounded deadline.
+    """
+    def __init__(self, work: Callable[..., Any], deadline_seconds: float = OVERALL_SECONDS):
+        self.work, self.deadline_seconds = work, deadline_seconds
+        self.lock = threading.RLock()
+        self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="sol-provider")
+        self.jobs: dict[tuple[str, ...], _Job] = {}
+        self.closed = False
+
+    def subscribe(self, args: tuple[float, ...]) -> ProviderSubscription:
+        problem = validate_params(*args)
+        if problem:
+            raise ValueError(problem)
+        key = tuple(float(value).hex() for value in args)
+        with self.lock:
+            if self.closed:
+                raise ProviderError("unavailable", "Provider coordinator is closed", 503)
+            job = self.jobs.get(key)
+            if job is not None:
+                job.budget.remaining()
+                if job.subscribers >= 128:
+                    raise ProviderError("overload", "Too many subscribers for this request", 503)
+            else:
+                if len(self.jobs) >= 12:
+                    raise ProviderError("overload", "Provider has four active and eight queued requests", 503)
+                job = _Job(args, self.deadline_seconds)
+                self.jobs[key] = job
+                job.future = self.pool.submit(self._run, job)
+                job.future.add_done_callback(lambda _future: self._complete(key, job))
+            job.subscribers += 1
+            return ProviderSubscription(self, job)
+
+    def _run(self, job: _Job) -> Any:
+        _request_context.budget = job.budget
+        try:
+            job.budget.remaining()
+            result = self.work(*job.args)
+            job.budget.remaining()
+            return result
+        finally:
+            del _request_context.budget
+
+    def _complete(self, key: tuple[str, ...], job: _Job) -> None:
+        with self.lock:
+            if self.jobs.get(key) is job:
+                del self.jobs[key]
+
+    def close(self) -> None:
+        with self.lock:
+            self.closed = True
+            for job in self.jobs.values():
+                job.budget.cancelled.set()
+        self.pool.shutdown(wait=True)
 
 # name -> (Horizons command id, kind, mean radius km)
 BODIES = [
@@ -131,7 +275,7 @@ def time_block(jd_utc: float, lon_east: float) -> dict[str, Any]:
         jd_tt = jd_ut1
         delta_t = 0.0
         quality = "pre_utc_ut1_proxy"
-        source = "pre-1972 UTC treated as UT1 proxy; body coordinates supplied directly by JPL Horizons"
+        source = "proleptic Gregorian historical UT treated as UT1 proxy; body coordinates supplied directly by JPL Horizons"
     else:
         jd_tai = jd_utc + tai_minus_utc / 86_400.0
         jd_tt = jd_tai + 32.184 / 86_400.0
@@ -139,6 +283,8 @@ def time_block(jd_utc: float, lon_east: float) -> dict[str, Any]:
         quality = "degraded"
         source = "JPL Horizons coordinates; no independent IERS EOP table loaded by server"
     return {
+        "calendar": "proleptic_gregorian",
+        "input_time_semantics": "historical_ut1_proxy" if tai_minus_utc is None else "utc",
         "jd_utc": round(jd_utc, 10),
         "jd_tai": None if jd_tai is None else round(jd_tai, 10),
         "jd_tt": round(jd_tt, 10),
@@ -175,20 +321,40 @@ def compass(az_deg: float) -> str:
 
 
 def _request_text(params: dict[str, str]) -> str:
+    budget = getattr(_request_context, "budget", None) or WorkBudget(OVERALL_SECONDS)
     url = HORIZONS + "?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    for attempt in range(4):
+    for attempt in range(2):
         try:
-            with urllib.request.urlopen(request, timeout=40) as response:
-                return response.read().decode("utf-8")
+            call_seconds = min(PER_CALL_SECONDS, budget.remaining())
+            call_deadline = time.monotonic() + call_seconds
+            with urllib.request.urlopen(request, timeout=call_seconds) as response:
+                chunks: list[bytes] = []
+                total = 0
+                while True:
+                    remaining = min(budget.remaining(), call_deadline - time.monotonic())
+                    if remaining <= 0:
+                        raise TimeoutError("Upstream per-call deadline exceeded")
+                    transport = getattr(getattr(getattr(response, "fp", None), "raw", None), "_sock", None)
+                    if transport is not None:
+                        transport.settimeout(min(PER_CALL_SECONDS, remaining))
+                    chunk = response.read1(min(65536, MAX_RESPONSE_BYTES + 1 - total))
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > MAX_RESPONSE_BYTES:
+                        raise ProviderError("response_too_large", "Upstream response exceeds byte limit")
+                    chunks.append(chunk)
+                budget.remaining()
+                return b"".join(chunks).decode("utf-8")
         except urllib.error.HTTPError as exc:
-            if exc.code in (429, 503) and attempt < 3:
-                time.sleep(0.8 * (attempt + 1))
+            if exc.code in (429, 502, 503, 504) and attempt == 0:
+                time.sleep(min(0.2, budget.remaining()))
                 continue
             raise
         except (urllib.error.URLError, TimeoutError):
-            if attempt < 3:
-                time.sleep(0.8 * (attempt + 1))
+            if attempt == 0:
+                time.sleep(min(0.2, budget.remaining()))
                 continue
             raise
     raise RuntimeError("Horizons request exhausted retries")
@@ -201,6 +367,10 @@ def _horizons_params(
     quantities: str,
     site_coord: str | None = None,
 ) -> dict[str, str]:
+    # JPL's observer tables support UT (modern UTC, historical UT1) or TT.
+    # Numeric JD avoids Horizons' default mixed Julian/Gregorian calendar.
+    # https://ssd-api.jpl.nasa.gov/doc/horizons.html
+    jd = (when - dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)).total_seconds() / 86400.0 + 2440587.5
     params = {
         "format": "text",
         "COMMAND": f"'{hid}'",
@@ -208,9 +378,12 @@ def _horizons_params(
         "MAKE_EPHEM": "'YES'",
         "EPHEM_TYPE": "'OBSERVER'",
         "CENTER": f"'{center}'",
-        "START_TIME": "'" + when.strftime("%Y-%m-%d %H:%M:%S") + "'",
-        "STOP_TIME": "'" + (when + dt.timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M:%S") + "'",
-        "STEP_SIZE": "'1'",
+        "TLIST": f"'{jd:.10f}'",
+        "TLIST_TYPE": "'JD'",
+        "TIME_TYPE": "'UT'",
+        "CAL_FORMAT": "'JD'",
+        "CAL_TYPE": "'GREGORIAN'",
+        "TIME_DIGITS": "'FRACSEC'",
         "QUANTITIES": f"'{quantities}'",
         "ANG_FORMAT": "'DEG'",
         "APPARENT": "'AIRLESS'",
@@ -228,6 +401,24 @@ def _data_row(text: str) -> str:
         raise ValueError("Horizons response did not contain an ephemeris row") from exc
 
 
+def _verified_row(text: str, expected_jd: float) -> str:
+    """Check the JD printed under CAL_FORMAT=JD before consuming coordinates.
+
+    Permit half the last printed decimal place plus floating-point roundoff,
+    capped at one second. Coarsely printed epochs never permit day-scale drift.
+    """
+    row = _data_row(text)
+    match = re.match(r"\s*(\d+\.\d+)(?:\s|,|$)", row)
+    if match is None:
+        raise ValueError("Horizons response is missing its JD epoch")
+    token = match.group(1)
+    decimals = len(token.split(".")[1])
+    tolerance = min(1.0 / 86400.0, 0.5 * 10.0 ** -decimals + math.ulp(expected_jd))
+    if abs(float(token) - expected_jd) > tolerance:
+        raise ValueError("Horizons response epoch differs from requested JD(UT)")
+    return row
+
+
 def fetch_body(
     when: dt.datetime,
     lat: float,
@@ -237,16 +428,18 @@ def fetch_body(
 ) -> dict[str, float]:
     """Fetch geocentric and topocentric apparent coordinates for one body."""
     site = f"{lon_east},{lat},{elev_m / 1000.0}"
-    topo_text = _request_text(_horizons_params(when, hid, "coord@399", "2,4,20", site))
-    topo_numbers = re.findall(r"[-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?", _data_row(topo_text))
-    if len(topo_numbers) < 6:
+    params = _horizons_params(when, hid, "coord@399", "2,4,20", site)
+    expected_jd = float(params["TLIST"].strip("'"))
+    topo_text = _request_text(params)
+    topo_numbers = re.findall(r"[-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?", _verified_row(topo_text, expected_jd))
+    if len(topo_numbers) < 7:
         raise ValueError("Horizons topocentric row has too few numeric fields")
     topo = [float(value) for value in topo_numbers[-6:]]
     top_ra, top_dec, az, alt, distance_au = topo[:5]
 
     geo_text = _request_text(_horizons_params(when, hid, "500@399", "2,20"))
-    geo_numbers = re.findall(r"[-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?", _data_row(geo_text))
-    if len(geo_numbers) < 4:
+    geo_numbers = re.findall(r"[-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?", _verified_row(geo_text, expected_jd))
+    if len(geo_numbers) < 5:
         raise ValueError("Horizons geocentric row has too few numeric fields")
     geo = [float(value) for value in geo_numbers[-4:]]
     geo_ra, geo_dec = geo[:2]
@@ -258,22 +451,22 @@ def fetch_body(
         "topocentric_dec": top_dec,
         "az": az,
         "alt": alt,
-        "distance_au": distance_au,
+        "observer_range_km": distance_au * AU_KM,
+        "geocentric_range_km": geo[2] * AU_KM,
     }
 
 
 def definitive_positions(when: dt.datetime, lat: float, lon: float, elev: float) -> dict[str, dict[str, float]]:
-    """Provider seam for a future local SPICE/DE440 reader."""
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = {
-            name: pool.submit(fetch_body, when, lat, lon, elev, hid)
-            for name, hid, _, _ in BODIES
-        }
-        return {name: future.result() for name, future in futures.items()}
+    """Serial per job: the shared four-worker coordinator bounds all upstream fanout."""
+    return {name: fetch_body(when, lat, lon, elev, hid) for name, hid, _, _ in BODIES}
 
 
 def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str, Any]:
-    when = dt.datetime.fromtimestamp(unix, tz=dt.timezone.utc)
+    problem = validate_params(unix, lat, lon, elev)
+    if problem:
+        raise ValueError(problem)
+    # Arithmetic conversion works for historical dates on Windows as well.
+    when = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc) + dt.timedelta(seconds=unix)
     raw = definitive_positions(when, lat, lon, elev)
     jd_utc = unix / 86_400.0 + 2_440_587.5
     time_meta = time_block(jd_utc, lon)
@@ -282,16 +475,19 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str
 
     for name, _hid, kind, radius_km in BODIES:
         item = raw[name]
-        distance_km = item["distance_au"] * AU_KM
+        observer_range = item["observer_range_km"]
+        geocentric_range = item["geocentric_range_km"]
+        if not all(math.isfinite(value) and value > 0 for value in (observer_range, geocentric_range)):
+            raise ValueError("provider ranges must be finite and positive")
         alt = item["alt"]
         alt_refracted = alt + refraction_deg(alt)
         angular_size = (
             2.0
-            * math.degrees(math.asin(min(1.0, radius_km / distance_km)))
+            * math.degrees(math.asin(min(1.0, radius_km / observer_range)))
             * 3600.0
         )
         horizontal_parallax = math.degrees(
-            math.asin(min(1.0, EARTH_R_KM / distance_km))
+            math.asin(min(1.0, EARTH_R_KM / geocentric_range))
         )
         bodies.append(
             {
@@ -304,18 +500,23 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str
                 "geocentric_apparent_dec_deg": round(item["geocentric_dec"], 9),
                 "topocentric_apparent_ra_deg": round(item["topocentric_ra"] % 360.0, 9),
                 "topocentric_apparent_dec_deg": round(item["topocentric_dec"], 9),
-                "distance_km": round(distance_km, 3),
-                "alt_deg": round(alt, 7),
+                "observer_range_km": observer_range,
+                "geocentric_range_km": geocentric_range,
+                "range_approximation": "finite",
+                "alt_deg": alt,
                 "az_deg": round(item["az"] % 360.0, 7),
-                "alt_refracted_deg": round(alt_refracted, 7),
+                "alt_refracted_deg": alt_refracted,
                 "above_horizon": alt_refracted > 0.0,
                 "compass": compass(item["az"]),
                 "angular_size_arcsec": round(angular_size, 4),
                 "horizontal_parallax_deg": round(horizontal_parallax, 9),
-                "rise_jd": None,
-                "transit_jd": None,
-                "set_jd": None,
-                "transit_alt_deg": None,
+                "events": {
+                    key: {"jd": None, "calculation_status": "not_calculated",
+                          "occurrence_status": "unknown",
+                          "source": {"engine": "ephemeris-server", "version": "3"},
+                          **({"altitude_deg": None} if key == "transit" else {})}
+                    for key in ("rise", "transit", "set")
+                },
             }
         )
 
@@ -332,9 +533,14 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str
             "tier": "server",
             "source": "JPL Horizons",
             "ephemeris": "DE441",
-            "endpoint_contract": "ephemeris-snapshot.v2",
+            "endpoint_contract": "ephemeris-snapshot.v3",
         },
         "time": time_meta,
+        "events_window": {
+            "convention": "observer_local_mean_solar_day", "time_scale": "UTC", "interval": "[start,end)",
+            "start_jd": math.floor(jd_utc - 0.5 + lon / 360) + 0.5 - lon / 360,
+            "end_jd": (math.floor(jd_utc - 0.5 + lon / 360) + 0.5 - lon / 360) + 1,
+        },
         "observer": {
             "terrestrial_lat_deg": lat,
             "terrestrial_lon_deg_east": lon,
@@ -344,6 +550,7 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str
         },
         "accuracy": {
             "class": accuracy_class,
+            "evidence_status": "unvalidated", "evidence_record_ids": [],
             "coordinate_semantics": (
                 "ra_deg and dec_deg are apparent topocentric coordinates; "
                 "geocentric and topocentric values are emitted separately"
@@ -357,7 +564,7 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str
                 "DE441 apparent coordinates from JPL Horizons; contract compatibility "
                 "validated locally; rise/transit/set intentionally unavailable server-side"
             ),
-            "valid_epoch": "JPL Horizons DE441 supported interval, subject to upstream service availability",
+            "valid_epoch": "Adapter: proleptic Gregorian years 1 through 9999; subject to individual JPL Horizons target coverage and service availability",
             "non_goal": "navigation, occultation prediction, or safety-critical timing",
         },
         "bodies": bodies,
@@ -389,12 +596,14 @@ def evict_cache(max_entries: int = CACHE_MAX_ENTRIES) -> None:
 
 
 def cache_path(unix: float, lat: float, lon: float, elev: float) -> str:
-    key = f"{CACHE_VERSION}|{int(unix)}|{lat:.4f}|{lon:.4f}|{elev:.1f}"
+    key = "|".join([CACHE_VERSION, *(float(value).hex() for value in (unix, lat, lon, elev))])
     return os.path.join(CACHE_DIR, hashlib.sha256(key.encode()).hexdigest() + ".json")
 
 
 def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict[str, Any]:
-    unix = float(int(unix))
+    problem = validate_params(unix, lat, lon, elev)
+    if problem:
+        raise ValueError(problem)
     path = cache_path(unix, lat, lon, elev)
     if os.path.isfile(path):
         try:
@@ -430,8 +639,10 @@ def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict[st
 def validate_params(unix: float, lat: float, lon: float, elev: float) -> str | None:
     if not all(math.isfinite(value) for value in (unix, lat, lon, elev)):
         return "unix, lat, lon, and elev must be finite numbers"
-    if not -4.0e12 < unix < 4.0e12:
-        return "unix is outside the supported time range"
+    # Adapter calendar range: proleptic Gregorian years 1 through 9999.
+    # Individual Horizons targets may have narrower upstream coverage.
+    if not -62135596800.0 <= unix < 253402300800.0:
+        return "unix is outside the supported proleptic Gregorian years 1 through 9999"
     if not -90.0 <= lat <= 90.0:
         return "lat must be within [-90, 90] degrees"
     if not -360.0 <= lon <= 360.0:
@@ -441,8 +652,55 @@ def validate_params(unix: float, lat: float, lon: float, elev: float) -> str | N
     return None
 
 
+PROVIDER_WORK = ProviderWork(lambda *args: snapshot_cached(*args))
+
+
+class BoundedHTTPServer(ThreadingHTTPServer):
+    """Keep idle/slow or coalesced HTTP subscribers from creating unlimited threads."""
+    def __init__(self, *args: Any, **kwargs: Any):
+        self.slots = threading.BoundedSemaphore(32)
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request: Any, client_address: Any) -> None:
+        if not self.slots.acquire(blocking=False):
+            try:
+                body = b'{"error":"HTTP connection capacity reached","code":"overload"}'
+                request.settimeout(1)
+                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: " + str(len(body)).encode("ascii") + b"\r\n\r\n" + body)
+            except OSError:
+                pass
+            finally:
+                self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.slots.release()
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+
+    def setup(self) -> None:
+        self.request.settimeout(10)
+        super().setup()
+
+    def _disconnected(self) -> bool:
+        connection = getattr(self, "connection", None)
+        if connection is None:
+            return False  # Offline handler test seam.
+        try:
+            readable, _, _ = select.select([connection], [], [], 0)
+            return bool(readable) and connection.recv(1, socket.MSG_PEEK) == b""
+        except OSError:
+            return True
 
     def _send(self, code: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, allow_nan=False).encode("utf-8")
@@ -468,13 +726,16 @@ class Handler(BaseHTTPRequestHandler):
                     "status": "ok",
                     "provider": "horizons-de441",
                     "schema_version": SCHEMA_VERSION,
-                    "endpoints": ["/v2/sky", "/v1/sky"],
+                    "endpoints": ["/v3/sky"],
                     "bodies": [body[0] for body in BODIES],
                 },
             )
             return
 
         if parsed.path in {"/v2/sky", "/v1/sky"}:
+            self._send(409, {"error": "upgrade required: use /v3/sky with ephemeris-snapshot.v3"})
+            return
+        if parsed.path == "/v3/sky":
             query = urllib.parse.parse_qs(parsed.query)
             try:
                 unix = float(query.get("unix", [None])[0])
@@ -489,18 +750,24 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, {"error": problem})
                 return
             try:
-                self._send(200, snapshot_cached(unix, lat, lon, elev))
-            except Exception as exc:
+                ticket = PROVIDER_WORK.subscribe((unix, lat, lon, elev))
+                self._send(200, ticket.result(self._disconnected))
+            except ProviderError as exc:
+                if not self._disconnected():
+                    self._send(exc.status, {"error": str(exc), "code": exc.code})
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            except Exception:
                 self._send(
                     502,
                     {
                         "error": "upstream ephemeris (Horizons) failed",
-                        "detail": str(exc),
+                        "code": "upstream_failed",
                     },
                 )
             return
 
-        self._send(404, {"error": "not found", "endpoints": ["/health", "/v2/sky"]})
+        self._send(404, {"error": "not found", "endpoints": ["/health", "/v3/sky"]})
 
     def log_message(self, fmt: str, *args: Any) -> None:
         pass
@@ -512,12 +779,16 @@ def main() -> int:
     parser.add_argument("--host", default=os.environ.get("EPHEM_HOST", "127.0.0.1"))
     args = parser.parse_args()
     os.makedirs(CACHE_DIR, exist_ok=True)
-    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    server = BoundedHTTPServer((args.host, args.port), Handler)
     print(
         f"ephemeris-server (DE441 via Horizons) on http://{args.host}:{args.port} "
-        "— GET /v2/sky?unix&lat&lon&elev"
+        "— GET /v3/sky?unix&lat&lon&elev"
     )
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+        PROVIDER_WORK.close()
     return 0
 
 

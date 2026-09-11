@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import math
 import os
@@ -45,7 +46,8 @@ def fake_positions(*_args):
             "topocentric_dec": -18.0 + 4.0 * index + (0.22 if moon else 0.001),
             "az": (17.0 + 37.0 * index) % 360.0,
             "alt": -12.0 + 10.0 * index,
-            "distance_au": 0.00257 if moon else 0.8 + 0.3 * index,
+            "geocentric_range_km": (0.00257 if moon else 0.8 + 0.3 * index) * server.AU_KM,
+            "observer_range_km": (0.00254 if moon else 0.8 + 0.3 * index) * server.AU_KM,
         }
     return result
 
@@ -55,10 +57,10 @@ class ServerContractTests(unittest.TestCase):
         with mock.patch.object(server, "definitive_positions", side_effect=fake_positions):
             return server.build_snapshot(1_783_569_600.0, 40.71, -74.01, 12.0)
 
-    def test_server_emits_valid_provider_neutral_v2(self):
+    def test_server_emits_valid_provider_neutral_v3(self):
         snapshot = self.build()
-        self.assertEqual(snapshot["schema_version"], "ephemeris-snapshot.v2")
-        self.assertEqual(snapshot["provider"]["endpoint_contract"], "ephemeris-snapshot.v2")
+        self.assertEqual(snapshot["schema_version"], "ephemeris-snapshot.v3")
+        self.assertEqual(snapshot["provider"]["endpoint_contract"], "ephemeris-snapshot.v3")
         self.assertEqual(snapshot["provider"]["tier"], "server")
         self.assertEqual(validator.validate(snapshot), [])
 
@@ -73,10 +75,21 @@ class ServerContractTests(unittest.TestCase):
 
     def test_server_declares_nullable_events_instead_of_fabricating_them(self):
         for body in self.build()["bodies"]:
-            self.assertIsNone(body["rise_jd"])
-            self.assertIsNone(body["transit_jd"])
-            self.assertIsNone(body["set_jd"])
-            self.assertIsNone(body["transit_alt_deg"])
+            self.assertIn("events", body)
+            for event in body["events"].values():
+                self.assertIsNone(event["jd"])
+                self.assertEqual(event["calculation_status"], "not_calculated")
+                self.assertEqual(event["occurrence_status"], "unknown")
+            self.assertIsNone(body["events"]["transit"]["altitude_deg"])
+
+    def test_server_ranges_keep_independent_coordinate_origins(self):
+        topo = "$$SOE\n2461230.500000000 12.5 -3.25 87.0 45.0 0.0026 0\n$$EOE"
+        geo = "$$SOE\n2461230.500000000 11.9 -3.1 0.0027 0\n$$EOE"
+        with mock.patch.object(server, "_request_text", side_effect=[topo, geo]):
+            item = server.fetch_body(datetime(2026, 7, 9, tzinfo=timezone.utc), 0, 0, 0, "301")
+        self.assertIn("geocentric_range_km", item)
+        self.assertAlmostEqual(item["geocentric_range_km"], 403914.25089, places=5)
+        self.assertAlmostEqual(item["observer_range_km"], 388954.46382, places=5)
 
     def test_time_metadata_is_internally_consistent_and_degraded(self):
         time = self.build()["time"]
@@ -125,14 +138,58 @@ class ServerContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             server._data_row("missing markers")
 
+    def test_historical_calendar_uses_explicit_jd_and_rejects_wrong_epoch(self):
+        when = datetime(1500, 3, 1, tzinfo=timezone.utc)
+        params = server._horizons_params(when, "301", "500@399", "2,20")
+        self.assertEqual(params.get("TLIST_TYPE"), "'JD'")
+        self.assertEqual(params.get("TIME_TYPE"), "'UT'")
+        self.assertEqual(float(params["TLIST"].strip("'")), 2268982.5)
+        self.assertFalse({"START_TIME", "STOP_TIME", "STEP_SIZE"} & params.keys())
+
+    def test_historical_response_epoch_mismatch_is_rejected(self):
+        when = datetime(1500, 3, 1, tzinfo=timezone.utc)
+        wrong = "$$SOE\n2268992.500000000 12.5 -3.25 87.0 45.0 0.00257 0\n$$EOE"
+        with mock.patch.object(server, "_request_text", return_value=wrong):
+            with self.assertRaisesRegex(ValueError, "epoch"):
+                server.fetch_body(when, 10, 20, 30, "301")
+
+    def test_unsupported_datetime_rejected_before_provider_work(self):
+        self.assertIsNotNone(server.validate_params(253402300800.0, 0, 0, 0))
+
+    def test_historical_build_retains_calendar_and_degraded_time(self):
+        with mock.patch.object(server, "definitive_positions", side_effect=fake_positions):
+            snapshot = server.build_snapshot(-14826672000.0, 42.36, -71.06, 10)
+        self.assertEqual(snapshot["time"]["jd_utc"], 2268982.5)
+        self.assertEqual(snapshot["time"]["earth_orientation"]["quality"], "pre_utc_ut1_proxy")
+        self.assertIsNone(snapshot["time"]["jd_tai"])
+        self.assertEqual(validator.validate(snapshot), [])
+
+    def test_response_epoch_precision_and_both_coordinate_rows(self):
+        expected = 2461230.500001
+        self.assertTrue(server._verified_row("$$SOE\n2461230.50000 1 2\n$$EOE", expected))
+        for token in ["2461230.5001", "2461230.5", "2461230.50000101"]:
+            with self.subTest(token=token), self.assertRaisesRegex(ValueError, "epoch"):
+                server._verified_row(f"$$SOE\n{token} 1 2\n$$EOE", expected + (2/86400 if token == "2461230.5" else 0))
+        topo = "$$SOE\n2461230.500000000 12.5 -3.25 87.0 45.0 0.00257 0\n$$EOE"
+        for geo in ["2461231.500000000 11.9 -3.1 0 0", "2461230.500000000 1 2"]:
+            with mock.patch.object(server, "_request_text", side_effect=[topo, f"$$SOE\n{geo}\n$$EOE"]):
+                with self.assertRaises(ValueError):
+                    server.fetch_body(datetime(2026, 7, 9, tzinfo=timezone.utc), 10, 20, 30, "301")
+        with mock.patch.object(server, "definitive_positions") as provider:
+            with self.assertRaises(ValueError):
+                server.build_snapshot(253402300800.0, 0, 0, 0)
+            provider.assert_not_called()
+        self.assertIsNotNone(server.validate_params(253402300800.0, 0, 0, 0))
+
     def test_fetch_body_parses_topocentric_and_geocentric_rows(self):
-        topo = "$$SOE\n2026 1 2 3 4 12.5 -3.25 87.0 45.0 0.00257 0\n$$EOE"
-        geo = "$$SOE\n2026 1 2 3 4 11.9 -3.1 0 0\n$$EOE"
+        when = datetime(2026, 7, 9, tzinfo=timezone.utc)
+        topo = "$$SOE\n2461230.500000000 12.5 -3.25 87.0 45.0 0.00257 0\n$$EOE"
+        geo = "$$SOE\n2461230.500000000 11.9 -3.1 0 0\n$$EOE"
         with mock.patch.object(server, "_request_text", side_effect=[topo, geo]):
-            body = server.fetch_body(datetime.now(timezone.utc), 10, 20, 30, "301")
+            body = server.fetch_body(when, 10, 20, 30, "301")
         self.assertEqual(body["topocentric_ra"], 12.5)
         self.assertEqual(body["geocentric_ra"], 11.9)
-        self.assertEqual(body["distance_au"], 0.00257)
+        self.assertEqual(body["observer_range_km"], 0.00257 * server.AU_KM)
         with mock.patch.object(server, "_request_text", return_value="$$SOE\n1 2\n$$EOE"):
             with self.assertRaises(ValueError):
                 server.fetch_body(datetime.now(timezone.utc), 0, 0, 0, "301")
@@ -154,12 +211,12 @@ class ServerContractTests(unittest.TestCase):
             with mock.patch.object(server, "CACHE_DIR", tmp), \
                  mock.patch.object(server, "build_snapshot", return_value={"schema_version": server.SCHEMA_VERSION, "value": 1}) as build:
                 first = server.snapshot_cached(123.9, 1, 2, 3)
-                second = server.snapshot_cached(123.1, 1, 2, 3)
+                second = server.snapshot_cached(123.9, 1, 2, 3)
                 self.assertEqual(first, second)
                 self.assertEqual(build.call_count, 1)
-                path = server.cache_path(123, 1, 2, 3)
+                path = server.cache_path(123.9, 1, 2, 3)
                 Path(path).write_text("{bad", encoding="utf-8")
-                server.snapshot_cached(123, 1, 2, 3)
+                server.snapshot_cached(123.9, 1, 2, 3)
                 self.assertEqual(build.call_count, 2)
 
                 for index in range(4):
@@ -169,9 +226,16 @@ class ServerContractTests(unittest.TestCase):
                 server.evict_cache(2)
                 self.assertEqual(len(list(Path(tmp).glob("*.json"))), 2)
 
+    def test_cache_preserves_exact_epoch_and_observer(self):
+        self.assertNotEqual(server.cache_path(123.1,1,2,3), server.cache_path(123.9,1,2,3))
+        self.assertNotEqual(server.cache_path(123,1.00001,2,3), server.cache_path(123,1.00002,2,3))
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(server,"CACHE_DIR",tmp), mock.patch.object(server,"build_snapshot",return_value={"schema_version":server.SCHEMA_VERSION}) as build:
+            server.snapshot_cached(123.9,1.00001,2,3)
+            build.assert_called_once_with(123.9,1.00001,2,3)
+
     def test_request_retries_transient_errors_and_raises_permanent_errors(self):
         response = mock.MagicMock()
-        response.__enter__.return_value.read.return_value = b"ok"
+        response.__enter__.return_value = io.BytesIO(b"ok")
         with mock.patch.object(server.urllib.request, "urlopen", side_effect=[urllib.error.URLError("late"), response]), \
              mock.patch.object(server.time, "sleep") as sleep:
             self.assertEqual(server._request_text({"a": "b"}), "ok")
@@ -197,20 +261,23 @@ class ServerContractTests(unittest.TestCase):
         for path, expected in [
             ("/health", 200),
             ("/missing", 404),
-            ("/v2/sky", 400),
-            ("/v2/sky?unix=0&lat=91", 400),
+            ("/v2/sky", 409),
+            ("/v1/sky", 409),
+            ("/v3/sky", 400),
+            ("/v3/sky?unix=0&lat=91", 400),
         ]:
             handler.path = path
             handler.do_GET()
             self.assertEqual(sent[-1][0], expected)
-        handler.path = "/v1/sky?unix=1783569600&lat=1&lon=2&elev=3"
+        handler.path = "/v3/sky?unix=1783569600&lat=1&lon=2&elev=3"
         with mock.patch.object(server, "snapshot_cached", return_value={"ok": True}):
             handler.do_GET()
         self.assertEqual(sent[-1], (200, {"ok": True}))
         with mock.patch.object(server, "snapshot_cached", side_effect=RuntimeError("offline")):
             handler.do_GET()
         self.assertEqual(sent[-1][0], 502)
-        self.assertEqual(sent[-1][1]["detail"], "offline")
+        self.assertEqual(sent[-1][1]["code"], "upstream_failed")
+        self.assertNotIn("offline", str(sent[-1]))
         handler.do_OPTIONS()
         self.assertEqual(sent[-1], (204, {}))
 

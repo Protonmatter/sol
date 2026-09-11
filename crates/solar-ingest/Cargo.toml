@@ -11,3 +11,6 @@ description = "SWPC schema-era scaffolding and observation-frame reports for the
 [lib]
 name = "solar_ingest"
 path = "src/lib.rs"
+
+[dependencies]
+solar-core = { path = "../solar-core" }

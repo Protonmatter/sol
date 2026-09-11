@@ -8,6 +8,7 @@ node_modules/
 tmp-solar-web-server.*.log
 tmp-solar-web-server.pid
 /target/
+/build/
 synthetic_solar_maximum.ppm
 synthetic_solar_maximum.png
 
