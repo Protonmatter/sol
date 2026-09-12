@@ -295,6 +295,85 @@ class BundleObservationProvenanceTests(unittest.TestCase):
                 self.assertEqual(source.component(name).raw, raw)
                 self.assertEqual(json.loads(raw), payload)
 
+    def test_persisted_padded_clocks_cannot_supply_f107_context(self):
+        payload = [
+            {"time_tag": "2026-09-10T00:00:00Z", "source": "valid source", "flux": 150.0},
+            {"time_tag": " 2026-09-11T00:00:00Z", "source": "space-padded source", "flux": 235.0},
+            {"time_tag": "2026-09-12T00:00:00Z\t", "source": "tab-padded source", "flux": 240.0},
+            {"time_tag": "2026-09-13T00:00:00Z\n", "source": "newline-padded source", "flux": 245.0},
+        ]
+        source = self.source({}, bundle_id="padded-clock-source", rows_by_name={"f107_cm_flux.json": payload})
+        raw = source.component("f107_cm_flux.json").raw
+        daily.derive_bundle(source, self.root / "derived", bundle_id="padded-clock-derived",
+            generated_at_utc="2026-09-11T01:00:00Z", seed=42)
+        resolved = bundles.resolve_derived_bundle(self.root / "derived" / "current.json")
+        report = json.loads(resolved.component("observations").raw)
+        snapshot = json.loads(resolved.component("snapshot").raw)
+        frame = next(frame for frame in report["frames"] if frame["id"] == "swpc-f107-cm-flux")
+        context = report["observed_context"]
+        self.assertEqual(frame["provenance"]["time_tag"], "2026-09-10T00:00:00Z")
+        self.assertEqual(context["space_weather_signals"]["latest_f107"], 150.0)
+        self.assertEqual(context["activity_proxy_sources"]["f107_cm_flux_rows"], 1)
+        self.assertEqual(snapshot["run"]["activity_index"], 0.5)
+        self.assertEqual(source.component("f107_cm_flux.json").raw, raw)
+        self.assertEqual(json.loads(raw), payload)
+
+    def test_persisted_f107_ignores_newer_literal_false_active_signal(self):
+        payload = [
+            {"time_tag": "2026-09-10T00:00:00Z", "source": "active source", "flux": 150.0, "active": True},
+            {"time_tag": "2026-09-11T00:00:00Z", "source": "inactive source", "flux": 235.0, "active": False},
+        ]
+        source = self.source({}, bundle_id="inactive-newer-source", rows_by_name={"f107_cm_flux.json": payload})
+        raw = source.component("f107_cm_flux.json").raw
+        daily.derive_bundle(source, self.root / "derived", bundle_id="inactive-newer-derived",
+            generated_at_utc="2026-09-11T01:00:00Z", seed=42)
+        resolved = bundles.resolve_derived_bundle(self.root / "derived" / "current.json")
+        report = json.loads(resolved.component("observations").raw)
+        frame = next(frame for frame in report["frames"] if frame["id"] == "swpc-f107-cm-flux")
+        context = report["observed_context"]
+        self.assertEqual(frame["provenance"]["source"], "active source")
+        self.assertEqual(context["space_weather_signals"]["latest_f107"], 150.0)
+        self.assertEqual(context["activity_proxy_sources"]["f107_cm_flux_rows"], 2)
+        self.assertEqual(context["signal_freshness"]["swpc-f107-cm-flux"]["latest_time_tag"],
+            "2026-09-10T00:00:00Z")
+        self.assertEqual(source.component("f107_cm_flux.json").raw, raw)
+        self.assertEqual(json.loads(raw), payload)
+
+    def test_persisted_inactive_only_f107_is_retained_without_a_signal(self):
+        payload = [
+            {"time_tag": "2026-09-11T00:00:00Z", "source": "inactive source", "flux": 235.0, "active": False},
+        ]
+        source = self.source({}, bundle_id="inactive-only-source", rows_by_name={"f107_cm_flux.json": payload})
+        raw = source.component("f107_cm_flux.json").raw
+        daily.derive_bundle(source, self.root / "derived", bundle_id="inactive-only-derived",
+            generated_at_utc="2026-09-11T01:00:00Z", seed=42)
+        resolved = bundles.resolve_derived_bundle(self.root / "derived" / "current.json")
+        report = json.loads(resolved.component("observations").raw)
+        frame = next(frame for frame in report["frames"] if frame["id"] == "swpc-f107-cm-flux")
+        context = report["observed_context"]
+        self.assertIsNone(context["space_weather_signals"]["latest_f107"])
+        self.assertNotIn("swpc-f107-cm-flux", context["signal_freshness"])
+        self.assertEqual(context["activity_proxy_sources"]["f107_cm_flux_rows"], 1)
+        self.assertFalse(frame["provenance"]["active"])
+        self.assertEqual(source.component("f107_cm_flux.json").raw, raw)
+        self.assertEqual(json.loads(raw), payload)
+
+    def test_persisted_missing_and_true_active_f107_remain_signals(self):
+        for index, active in enumerate((None, True)):
+            with self.subTest(active=active):
+                row = {"time_tag": "2026-09-11T00:00:00Z", "source": "usable source", "flux": 150.0}
+                if active is not None:
+                    row["active"] = active
+                payload = [row]
+                source = self.source({}, bundle_id=f"usable-active-{index}-source",
+                    rows_by_name={"f107_cm_flux.json": payload})
+                raw = source.component("f107_cm_flux.json").raw
+                report = self.report(source)
+                self.assertEqual(report["observed_context"]["space_weather_signals"]["latest_f107"], 150.0)
+                self.assertEqual(report["observed_context"]["activity_proxy_sources"]["f107_cm_flux_rows"], 1)
+                self.assertEqual(source.component("f107_cm_flux.json").raw, raw)
+                self.assertEqual(json.loads(raw), payload)
+
     def test_invalid_rows_do_not_inflate_activity_proxy_counts(self):
         for index, (name, count_key, activity, region_count) in enumerate((
             ("solar_regions.json", "solar_region_rows", 0.375, 22),

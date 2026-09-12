@@ -217,6 +217,8 @@ Explicitly malformed clocks MUST be excluded from count-based region, sunspot an
 proxies as well as numeric signals. Python row-time parsing retains only native-supported
 calendar date/whole-second legacy forms and full explicit-UTC `Z`/`+00:00` forms with
 optional fractions; compact ISO and nonzero/negative-zero offsets do not qualify.
+Timestamp strings are checked exactly as retained: surrounding whitespace does not
+qualify and MUST NOT be stripped into a usable clock.
 Missing/null clocks retain the existing legacy unstamped path. Equal parsed instants
 select the last original payload position, consistently with native ingestion, without
 rewriting the selected source strings or immutable source bytes.
@@ -233,6 +235,10 @@ unstamped fallback or disappear from freshness while still affecting activity. S
 orders parsed instants, not timestamp spellings. Native source intake supports the source
 contract's fractional-second `Z` and `+00:00` forms with precision retained for ordering
 and unrounded freshness. Original timestamp/source evidence remains unchanged.
+F10.7 scalar selection MUST also exclude rows whose `active` value is the literal
+JSON boolean `false`, matching native ingestion. Missing or other legacy activity
+metadata does not mean false. Inactive records remain available as diagnostic source
+evidence, but cannot bind a selected F10.7 value or its signal freshness.
 
 Derived bundle `feed_status.sources` MUST equal the ordered projection of retained
 `source.products`: `file` is `product_id`, `ok` is whether `failure` is null, and source,

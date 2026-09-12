@@ -119,7 +119,7 @@ class FeedCommandTests(unittest.TestCase):
         self.assertEqual(generate.clamp_float(None,1,2),1);self.assertEqual(generate.format_optional(None,1),"n/a")
         self.assertIsNone(generate.parse_time_tag("bad"));self.assertIsNone(generate.parse_time_tag(None))
         self.assertIsNotNone(generate.parse_time_tag("2026-09-11T00:00:00"))
-        self.assertEqual(generate.row_time({"time":" 2026-09-11 "}),"2026-09-11")
+        self.assertEqual(generate.row_time({"time":" 2026-09-11 "})," 2026-09-11 ")
         candidate={"id":"swpc-f107-cm-flux","source_mode":"cached","data":[row],"evaluated_at_utc":"2026-09-14T00:00:00Z"}
         freshness,stale=generate.evaluate_freshness([candidate]);self.assertTrue(stale);self.assertTrue(freshness[candidate["id"]]["stale"])
         candidate["data"]=[{"time_tag":"bad"}];self.assertEqual(generate.evaluate_freshness([candidate]),({},[]))
@@ -164,5 +164,37 @@ class FeedCommandTests(unittest.TestCase):
         value, row = generate.latest_numeric_observation(rows, "value")
         self.assertEqual(value, 235.0)
         self.assertIs(row, rows[-1])
+
+    def test_timestamp_padding_is_rejected_without_becoming_unstamped(self):
+        valid = {"time_tag": "2026-09-10T00:00:00Z", "value": 150}
+        for padded in (
+            " 2026-09-11T00:00:00Z",
+            "2026-09-11T00:00:00Z\t",
+            "2026-09-11T00:00:00Z\n",
+        ):
+            with self.subTest(padded=repr(padded)):
+                invalid = {"time_tag": padded, "value": 235}
+                self.assertIsNone(generate.parse_time_tag(padded))
+                self.assertEqual(generate.row_time(invalid), padded)
+                self.assertEqual(generate.latest_numeric([valid, invalid], "value"), 150.0)
+
+    def test_f107_signal_ignores_literal_false_active_only(self):
+        def context(payload):
+            return generate.build_observed_context([
+                {"id": "swpc-f107-cm-flux", "source_mode": "fixture", "data": payload},
+            ])
+
+        older_active = {"time_tag": "2026-09-10T00:00:00Z", "flux": 150, "active": True}
+        newer_inactive = {"time_tag": "2026-09-11T00:00:00Z", "flux": 235, "active": False}
+        selected = context([older_active, newer_inactive])
+        self.assertEqual(selected["space_weather_signals"]["latest_f107"], 150.0)
+        self.assertEqual(selected["activity_proxy_sources"]["f107_cm_flux_rows"], 2)
+        self.assertIsNone(context([newer_inactive])["space_weather_signals"]["latest_f107"])
+        for active in (None, True):
+            row = {"time_tag": "2026-09-11T00:00:00Z", "flux": 150}
+            if active is not None:
+                row["active"] = active
+            with self.subTest(active=active):
+                self.assertEqual(context([row])["space_weather_signals"]["latest_f107"], 150.0)
 
 if __name__=="__main__":unittest.main()

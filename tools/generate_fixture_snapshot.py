@@ -67,9 +67,9 @@ _TIME_TAG_PATTERN = re.compile(
 
 
 def parse_time_tag(value: Any) -> dt.datetime | None:
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str) or not value:
         return None
-    text = value.strip()
+    text = value
     if _TIME_TAG_PATTERN.fullmatch(text) is None:
         return None
     if text.endswith("Z"):
@@ -94,8 +94,8 @@ ROW_TIME_KEYS = ("time_tag", "time", "date", "begin_time")
 def row_time(row: dict[str, Any]) -> str | None:
     for key in ROW_TIME_KEYS:
         value = row.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+        if isinstance(value, str) and value:
+            return value
     return None
 
 
@@ -490,7 +490,11 @@ def build_bundle_observation_report(source, *, evaluated_at_utc: str) -> dict[st
             # the manifest source, and invalid-only report metadata remains inspectable.
             data = [entry for entry in rows(data)
                     if attributable_source(entry.get("source", metadata[name]["source"]))]
-            selected = latest_numeric_observation(data, *context_keys) if context_keys else None
+            selected = latest_numeric_observation(
+                data,
+                *context_keys,
+                reject_inactive=descriptor.get("id") == "swpc-f107-cm-flux",
+            ) if context_keys else None
             if selected is not None:
                 row = selected[1]
             elif data:
@@ -712,7 +716,11 @@ def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     region_count = len(solar_regions)
     sunspot_count = len(sunspots)
     flare_count = len(xray_flares)
-    latest_direct_f107 = latest_numeric(f107_rows, *CONTEXT_NUMERIC_KEYS["swpc-f107-cm-flux"])
+    latest_direct_f107 = latest_numeric(
+        f107_rows,
+        *CONTEXT_NUMERIC_KEYS["swpc-f107-cm-flux"],
+        reject_inactive=True,
+    )
     latest_f107 = latest_direct_f107
     if latest_f107 is None:
         latest_f107 = latest_numeric(cycle_rows, *CONTEXT_NUMERIC_KEYS["swpc-observed-cycle-indices"])
@@ -776,12 +784,20 @@ def context_rows(value: Any) -> list[dict[str, Any]]:
     return [row for row in rows(value) if admitted_row_time(row)[0]]
 
 
-def latest_numeric(row_values: list[dict[str, Any]], *keys: str) -> float | None:
-    selected = latest_numeric_observation(row_values, *keys)
+def latest_numeric(
+    row_values: list[dict[str, Any]],
+    *keys: str,
+    reject_inactive: bool = False,
+) -> float | None:
+    selected = latest_numeric_observation(row_values, *keys, reject_inactive=reject_inactive)
     return selected[0] if selected is not None else None
 
 
-def latest_numeric_observation(row_values: list[dict[str, Any]], *keys: str) -> tuple[float, dict[str, Any]] | None:
+def latest_numeric_observation(
+    row_values: list[dict[str, Any]],
+    *keys: str,
+    reject_inactive: bool = False,
+) -> tuple[float, dict[str, Any]] | None:
     """Newest parseable value and its row, shared by context and bundle evidence.
 
     SWPC feeds disagree on row order — rtsw_* and f107_cm_flux are NEWEST-first while
@@ -794,6 +810,8 @@ def latest_numeric_observation(row_values: list[dict[str, Any]], *keys: str) -> 
     stamped: list[tuple[dt.datetime, int, dict[str, Any]]] = []
     unstamped: list[dict[str, Any]] = []
     for index, row in enumerate(row_values):
+        if reject_inactive and row.get("active") is False:
+            continue
         admitted, parsed = admitted_row_time(row)
         if not admitted:
             continue

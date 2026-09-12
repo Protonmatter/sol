@@ -89,3 +89,18 @@ branch-inclusive gate passed at 92% rounded. Real-browser experience validation 
 against `build/pr105-round8/site`; its WASM binaries reuse the previously verified
 build because no engine/WASM source changed in this correction. Final-head hosted CI
 rebuilds and verifies the immutable release candidate independently.
+
+## Final timestamp and inactive-signal corrections
+
+Review `5188218419` on `b3900bf` identified two remaining Python/native selection
+mismatches. Timestamp parsing and row-clock extraction now retain the exact string
+instead of trimming surrounding whitespace into a usable timestamp. F10.7 selection
+now excludes only literal `active: false`, matching the native predicate; inactive
+source records and diagnostic row counts remain intact. Missing/true activity metadata
+remains usable. Neither change rewrites immutable payload bytes.
+
+Direct regressions demonstrated four failures before correction; persisted hash-bound
+regressions demonstrated three. All 28 tests in the two affected Python suites then
+passed, including padded clocks, newer inactive rows, inactive-only payloads, retained
+diagnostics and missing/true controls. The existing native timestamp and inactive-signal
+tests also passed unchanged. Final integrated and hosted results are recorded on the PR.
