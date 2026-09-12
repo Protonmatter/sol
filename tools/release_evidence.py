@@ -27,7 +27,7 @@ def coverage_entry(total: int, covered: int, files: list[str], path: Path) -> di
 
 
 def python_denominator(report: ET.Element, repository_root: Path) -> list[str]:
-    """Resolve coverage.py's class names through its configured, validated roots."""
+    """Resolve both coverage.py report shapes without expanding the source scope."""
     repository_root = repository_root.resolve()
     allowed = {repository_root / "tools", repository_root / "services/ephemeris-server"}
     roots = []
@@ -37,7 +37,10 @@ def python_denominator(report: ET.Element, repository_root: Path) -> list[str]:
             raise ValueError("invalid Python coverage source root")
         declared = Path(raw)
         source = declared if declared.is_absolute() else repository_root / relative_path(raw)
-        if (any(part.is_symlink() for part in (source, *source.parents)) or source.resolve() not in allowed or
+        # A separate `coverage xml` CLI process emits the checkout root and
+        # repository-relative filenames; --source belongs to the earlier run.
+        # Accept that exact root, but still enforce allowed source trees per file.
+        if (any(part.is_symlink() for part in (source, *source.parents)) or source.resolve() not in allowed | {repository_root} or
                 not source.is_dir()):
             raise ValueError("unresolved or escaping Python coverage source root")
         if source.resolve() in roots:
@@ -54,6 +57,8 @@ def python_denominator(report: ET.Element, repository_root: Path) -> list[str]:
             if any(part.is_symlink() for part in (target, *target.parents)) or not target.resolve().is_relative_to(source):
                 raise ValueError("unsafe Python coverage file identity")
             if target.is_file():
+                if not any(target.resolve().is_relative_to(root) for root in allowed):
+                    raise ValueError("Python coverage file is outside the configured source population")
                 candidates.append(target.resolve().relative_to(repository_root).as_posix())
         if len(candidates) != 1:
             raise ValueError("unresolved or ambiguous Python coverage file: " + filename)

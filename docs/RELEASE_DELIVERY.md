@@ -184,6 +184,12 @@ symlinked or ambiguous source identities fail closed; a bare basename is not a c
 Python denominator. Coverage-generated XML comments are accepted, but DTD/entity
 declarations are rejected. The actual installed reporter shape is exercised in the
 mandatory coverage job, using its existing pinned dependency.
+The separate `coverage xml` process can declare the checkout root with repository-
+relative class paths instead of measurement subdirectories with shorter class names.
+The resolver accepts that exact trusted root but independently confines every file
+to the original `tools` and `services/ephemeris-server` population. Its reporter-shape
+regression reloads saved data into a fresh reporter, matching the workflow process
+boundary rather than inheriting measurement-only command-line configuration.
 Outer evidence also includes
 actual WASM/ABI/data identities, and source-to-stamped-asset mapping. It does not infer
 Node branch/function coverage from line totals: the authoritative Node job separately

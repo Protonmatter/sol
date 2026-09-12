@@ -8,7 +8,7 @@ test attribution, adds behavioral coverage, and restores the required WASM check
 It does not change production browser/Rust runtime code, dependencies, coverage
 thresholds, branch protection, scientific claims, deployment settings, or public APIs.
 
-This document records local implementation evidence before its publication commit.
+This document records local implementation evidence and the first hosted gate result.
 Final-head hosted checks and review state must be read from
 [PR 105](https://github.com/Protonmatter/sol/pull/105), not inferred from these local runs.
 New unrelated actionable review findings remain open, so successful CI alone does not
@@ -122,6 +122,37 @@ environment isolation. Independent review caught and verified corrections for a
 default-output artifact mismatch, after-command advisory gate keys, and insufficient
 WASM-wrapper dispatch assertions. No blocking finding remains within this patch's
 reviewed collection/gate scope.
+
+## Hosted release-evidence follow-up
+
+The first published head, `4a3209b5b248e379883992bae02ec4a9013f385a`, passed all four
+protected checks and both the reusable and standalone Coverage workflows. Hosted
+Node 22 reproduced the exact 565-test and 99.25/91.77/96.84 Node totals above, and
+the 97.60% whole-web gate passed. However, the complete
+[CI run 34707010841](https://github.com/Protonmatter/sol/actions/runs/34707010841)
+failed at `Release gate` while assembling Python coverage evidence; no release
+evidence artifact was produced. This failure is retained, not treated as success.
+
+The actual coverage.py 7.15.2 XML declares `/home/runner/work/sol/sol` as its source
+root and uses repository-relative class paths. A fresh `coverage xml` process loads
+the measurement database but does not retain the earlier `coverage run --source`
+CLI option. The prior local reporter-shape test incorrectly reused that configured
+in-memory reporter and therefore exercised only subdirectory-root XML.
+
+The follow-up changes `python_denominator` to accept the exact trusted checkout root
+as well as the original two measurement roots. Every resolved file must still reside
+under `tools` or `services/ephemeris-server`; the configured population is not widened.
+Missing, duplicate, ambiguous, absolute, traversal, symlinked and out-of-scope file
+identities still fail closed. Two regressions reproduced the hosted failure before
+the fix: repository-root XML with strict per-file scope, and the actual installed
+reporter reloaded into a fresh instance before XML generation. Both pass after it.
+The final-head CI must be re-run after publishing this follow-up; the earlier green
+substantive jobs cannot stand in for a passing complete release gate.
+The follow-up local run passes 28 provider plus 180 tooling tests (208 total), with
+the same 18-file Python branch-measured gate at 92%. An actual separately generated
+XML report resolves all 18 canonical source identities. Independent review replayed
+the downloaded hosted report with only the checkout root localized in memory, confirmed
+the old resolver failure and exact new 18-file result, and found no blocking patch issue.
 
 ## Unresolved review and release limitations
 

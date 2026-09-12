@@ -84,6 +84,18 @@ fmt/clippy, the two-engine WASM build, and smoke/experience/Sky/visual browser c
 passed. See [coverage and gate evidence](../../PR105_COVERAGE_WASM_GATES.md) for exact
 commands, counts, collection corrections, review holds, and non-claims.
 
+## Task 5: correct the hosted Python XML process-boundary mismatch
+
+The first hosted run at `4a3209b` passes all substantive jobs but fails release-evidence
+collection because a separate XML reporter declares the checkout root, not its earlier
+measurement subdirectories. In `tests/python/test_release_evidence.py`, first reproduce
+that exact failure with a fresh reporter loading saved data and strict repository-root
+fixtures. In `tools/release_evidence.py`, accept the exact trusted repository root while
+preserving per-file confinement to the original two source trees, uniqueness and escape
+rejection. Run the full Python branch-coverage suite, review the fix independently,
+retain the failed hosted evidence, and push a follow-up commit. Require a new final-head
+complete CI release gate; do not rerun or promote the earlier artifact as if fixed.
+
 ## Risk and rollback
 
 Moderate test/CI-policy risk; production source is not planned to change. Exact

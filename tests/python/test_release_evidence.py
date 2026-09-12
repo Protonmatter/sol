@@ -13,6 +13,42 @@ import xml.etree.ElementTree as ET
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_repository_root_xml_keeps_the_configured_python_population(self):
+        import release_evidence as evidence
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            names = ["tools/one.py", "services/ephemeris-server/server.py"]
+            for name in [*names, "outside.py", "tools-other/one.py", "services/other/server.py"]:
+                target = repo / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("x=1\n")
+
+            def report(root, filenames):
+                xml = ET.Element("coverage")
+                ET.SubElement(ET.SubElement(xml, "sources"), "source").text = root
+                for filename in filenames:
+                    ET.SubElement(xml, "class", filename=filename)
+                return xml
+
+            # coverage xml is a fresh CLI process: it loads measured data but not
+            # the earlier coverage run --source option. Its root is the checkout.
+            self.assertEqual(evidence.python_denominator(report(str(repo), names), repo), sorted(names))
+            for filename in ["outside.py", "tools-other/one.py", "services/other/server.py",
+                             "missing.py", "one.py", "../outside.py", str(repo / names[0])]:
+                with self.subTest(filename=filename), self.assertRaises(ValueError):
+                    evidence.python_denominator(report(str(repo), [filename]), repo)
+            with self.assertRaises(ValueError):
+                evidence.python_denominator(report(str(repo.parent), names), repo)
+            with self.assertRaisesRegex(ValueError, "duplicate"):
+                evidence.python_denominator(report(str(repo), names + names), repo)
+            nested = repo / "tools/tools/one.py"
+            nested.parent.mkdir()
+            nested.write_text("x=2\n")
+            ambiguous = report(str(repo), ["tools/one.py"])
+            ET.SubElement(ambiguous.find("sources"), "source").text = str(repo / "tools")
+            with self.assertRaisesRegex(ValueError, "ambiguous"):
+                evidence.python_denominator(ambiguous, repo)
+
     def test_python_source_resolution_rejects_ambiguous_unresolved_and_escaping_roots(self):
         import release_evidence as evidence
         self.assertTrue(hasattr(evidence, "python_denominator"), "Python XML sources are not resolved")
@@ -72,9 +108,15 @@ class EvidenceTests(unittest.TestCase):
         # Use the actual workflow source roots and installed reporter, without
         # executing provider/network code. The denominator is intentionally real.
         selected = [repository / "tools/release_changes.py", repository / "services/ephemeris-server/server.py"]
-        measured = coverage.Coverage(data_file=None, source=[str(repository / "tools"), str(repository / "services/ephemeris-server")])
+        data_file = str(root / ".coverage")
+        measured = coverage.Coverage(data_file=data_file, source=[str(repository / "tools"), str(repository / "services/ephemeris-server")])
         measured.get_data().add_lines({str(path): set(range(1, len(path.read_text(encoding="utf-8").splitlines()) + 1)) for path in selected})
-        measured.xml_report(outfile=str(root / "python.xml"), include=[str(path) for path in selected])
+        measured.save()
+        # Match the workflow's separate `coverage xml` process, which does not
+        # inherit the earlier CLI --source configuration from the measuring run.
+        reporter = coverage.Coverage(data_file=data_file)
+        reporter.load()
+        reporter.xml_report(outfile=str(root / "python.xml"), include=[str(path) for path in selected])
         (root / "combined").mkdir()
         (root / "browser").mkdir()
         (root / "browser/coverage-summary.json").write_text('{"total":{"lines":{"total":100,"covered":0}}}')
