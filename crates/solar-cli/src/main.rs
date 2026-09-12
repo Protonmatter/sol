@@ -11,6 +11,7 @@ use std::process;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 mod bundle_intake;
+mod provenance;
 mod snapshot_validation;
 mod snapshot_validation_v2;
 
@@ -184,7 +185,7 @@ fn assess_observations(
                 .get("provenance")
                 .and_then(|p| p.get("source"))
                 .and_then(|s| s.as_str())
-                .is_some_and(|s| !s.trim().is_empty() && !s.trim().eq_ignore_ascii_case("unknown"))
+                .is_some_and(provenance::attributable_source)
         })
         .cloned()
         .collect();

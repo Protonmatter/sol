@@ -2,6 +2,7 @@
 import { ephemerisSchema } from "./ephemerisSchema.js?v=dcca6290db";
 import { parseStrictJson } from "./solarContract.js?v=dcca6290db";
 const MAJOR = new Set(["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"]);
+const COMPASS_POINTS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 const fail = (path, message) => { throw new TypeError(`Invalid ephemeris-snapshot.v3 at ${path}: ${message}`); };
 // Inclusive serialization/float allowance: 2^-29 day (~0.161ms), four binary64
 // ulps at modern JD or two at the upper supported epoch. Never a day/window allowance.
@@ -66,6 +67,8 @@ export function assertEphemerisSnapshotV3(snapshot) {
   for (const body of snapshot.bodies) {
     const path=`bodies[${body.name}]`;
     if (names.has(body.name)) fail(path,"duplicate identity"); names.add(body.name);
+    // Same sixteen clockwise sectors as both producers; exact midpoints select clockwise.
+    if (body.compass!==COMPASS_POINTS[Math.floor(((body.az_deg+11.25)%360)/22.5)]) fail(path+".compass","must agree with az_deg");
     if (Math.abs(body.ra_deg-body.topocentric_apparent_ra_deg)>1e-9 || Math.abs(body.dec_deg-body.topocentric_apparent_dec_deg)>1e-9) fail(path,"topocentric aliases disagree");
     const infinite=body.range_approximation==="infinite_catalogue_star";
     if (infinite) {

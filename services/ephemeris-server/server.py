@@ -49,7 +49,7 @@ AU_KM = 149_597_870.7
 EARTH_R_KM = 6378.14
 HORIZONS = "https://ssd.jpl.nasa.gov/api/horizons.api"
 SCHEMA_VERSION = "ephemeris-snapshot.v3"
-CACHE_VERSION = "v5"  # Invalidate calendar-string responses without verified epochs.
+CACHE_VERSION = "v6"  # Invalidate responses predating normalized azimuth/compass pairs.
 CACHE_MAX_ENTRIES = 4096
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 USER_AGENT = "Protonmatter-Sol/0.3 (+https://github.com/Protonmatter/sol)"
@@ -481,6 +481,8 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str
             raise ValueError("provider ranges must be finite and positive")
         alt = item["alt"]
         alt_refracted = alt + refraction_deg(alt)
+        # Derive the label from the emitted bearing; rounding can cross a sector or 360.
+        azimuth = round(item["az"] % 360.0, 7) % 360.0
         angular_size = (
             2.0
             * math.degrees(math.asin(min(1.0, radius_km / observer_range)))
@@ -504,10 +506,10 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str
                 "geocentric_range_km": geocentric_range,
                 "range_approximation": "finite",
                 "alt_deg": alt,
-                "az_deg": round(item["az"] % 360.0, 7),
+                "az_deg": azimuth,
                 "alt_refracted_deg": alt_refracted,
                 "above_horizon": alt_refracted > 0.0,
-                "compass": compass(item["az"]),
+                "compass": compass(azimuth),
                 "angular_size_arcsec": round(angular_size, 4),
                 "horizontal_parallax_deg": round(horizontal_parallax, 9),
                 "events": {

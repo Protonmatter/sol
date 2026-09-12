@@ -13,6 +13,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 
 
 class ChangesTests(unittest.TestCase):
+    def test_bundle_admission_and_source_attribution_are_scientific_changes(self):
+        import release_changes as changes
+        for name in ("dataBundle.js", "sourceAttribution.js"):
+            with self.subTest(name=name):
+                path = "apps/web/js/" + name
+                self.assertEqual(changes.category(path), "scientific")
+                report = changes.classify("a" * 40, "b" * 40, [("M", path)])
+                self.assertEqual(report["categories"], ["scientific"])
+
     def test_scientific_inventory_matches_real_contract_files_and_unknown_contract_requires_review(self):
         import release_changes as changes
         from build_web import SCIENCE_MODULES

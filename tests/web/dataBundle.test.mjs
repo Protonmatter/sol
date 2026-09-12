@@ -14,6 +14,8 @@ function fixture(id, mutate=()=>{}){
   values.snapshot=structuredClone(snapshot);
   values.observations=structuredClone(snapshot.observations[0]);
   mutate(values);
+  values.feed_status.sources=source.products.map(p=>({file:p.product_id,source:p.source,ok:p.failure===null,
+    origin:p.origin,observation_time_utc:p.observation_time_utc,retrieved_at_utc:p.retrieved_at_utc}));
   const root=`https://example.invalid/data/bundles/${id}/`,files=new Map(),components=[];
   for(const [role,value] of Object.entries(values)){const raw=bytes(value),path=role.startsWith("series_frame:")?`series/frame-${role.slice(13)}.json`:`${role}.json`;files.set(root+path,raw);components.push({role,path,schema_version:value.schema_version,size_bytes:raw.length,sha256:hash(raw)});}
   const manifest=bytes({schema_version:"research-data-bundle.v1",bundle_id:id,source_bundle_id:"source",source_manifest_sha256:hash(bytes(source)),generated_at_utc:"2026-09-11T00:00:00Z",components});
@@ -177,7 +179,8 @@ test("release-bound bundle uses immutable manifest and critical asset size/hash 
 function seriesFixture(extraRole=null){
   return fixture("series",values=>{
     values.series_manifest.frames=Array.from({length:11},(_,index)=>({
-      file:`frame-${index}.json`,months:index*12,
+      file:`frame-${index}.json`,months:index*12,index,
+      stage:snapshot.learning.cycle_stage,activity_index:snapshot.run.activity_index,region_count:snapshot.active_regions.length,
       ...(index===0||index===10?{}:{availability:"unavailable",reason:"declared gap"}),
     }));
     values["series_frame:0"]=structuredClone(snapshot);

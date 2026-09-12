@@ -646,15 +646,20 @@ def evaluate_freshness(candidates: list[dict[str, Any]]) -> tuple[dict[str, Any]
                 newest = parsed
         if newest is None:
             continue
-        age_hours = round((now - newest).total_seconds() / 3600.0, 1)
+        exact_age_hours = (now - newest).total_seconds() / 3600.0
+        age_hours = round(exact_age_hours, 1)
         limit = FRESHNESS_LIMITS_HOURS.get(candidate["id"], 48.0)
         entry = {
-            "latest_time_tag": newest.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "latest_time_tag": newest.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "age_hours": age_hours,
-            "stale": age_hours > limit,
+            # Round for display only: even a one-second future timestamp or
+            # a value just beyond the age limit must not be classified fresh.
+            "stale": exact_age_hours < 0 or exact_age_hours > limit,
         }
         report[candidate["id"]] = entry
-        if entry["stale"]:
+        if exact_age_hours < 0:
+            stale.append(f"{candidate['id']} (newest row is future-dated relative to evaluation time)")
+        elif entry["stale"]:
             stale.append(f"{candidate['id']} (newest row {age_hours} h old)")
     return report, stale
 

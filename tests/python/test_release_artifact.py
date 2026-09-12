@@ -126,6 +126,40 @@ process.stdout.write(JSON.stringify({ redirects, link: link.href }));
         decision = release_policy.evaluate(fixture.candidate, fixture.trusted, records, fixture.today)
         self.assertIn("qualification-missing:scientific", decision.reasons)
 
+    def test_admission_only_edits_invalidate_scientific_qualification_not_data_or_wasm(self):
+        import test_release_policy
+        (self.source / "js").mkdir()
+        for name in ("dataBundle.js", "sourceAttribution.js"):
+            with self.subTest(name=name):
+                module = self.source / "js" / name
+                module.write_text("export const accepts = value => value !== null;")
+                original = validator.validate_manifest(self.build(name + "-before") / "web-release-manifest.json")
+                module.write_text("export const accepts = value => typeof value === 'string';")
+                changed = validator.validate_manifest(self.build(name + "-after") / "web-release-manifest.json")
+                self.assertNotEqual(original["components"]["science"], changed["components"]["science"])
+                self.assertEqual(original["data_bundle_id"], changed["data_bundle_id"])
+                self.assertEqual(original["wasm_sha256"], changed["wasm_sha256"])
+                fixture = test_release_policy.ReleasePolicyTests()
+                fixture.setUp()
+                fixture.candidate["components"] = original["components"]
+                fixture.trusted["components"] = original["components"]
+                fixture.trusted["qualification_scope"] = {
+                    "manual": {"AC-01": {"components": ["ui"], "platforms": ["chromium-desktop"]}},
+                    "scientific": {"F01": {"components": ["science"], "platforms": ["chromium-desktop"]}},
+                }
+                records = fixture.qualify()
+                baseline = release_policy.evaluate(fixture.candidate, fixture.trusted, records, fixture.today)
+                self.assertTrue(baseline.promotion_eligible, baseline.reasons)
+                fixture.candidate["components"] = {**original["components"], "ui": changed["components"]["ui"]}
+                fixture.trusted["components"] = fixture.candidate["components"]
+                ui_only = release_policy.evaluate(fixture.candidate, fixture.trusted, records, fixture.today)
+                self.assertIn("qualification-missing:manual", ui_only.reasons)
+                self.assertNotIn("qualification-missing:scientific", ui_only.reasons)
+                fixture.candidate["components"] = changed["components"]
+                fixture.trusted["components"] = changed["components"]
+                decision = release_policy.evaluate(fixture.candidate, fixture.trusted, records, fixture.today)
+                self.assertIn("qualification-missing:scientific", decision.reasons)
+
     def test_path_baseurl_source_run_identity_and_collisions_fail_closed(self):
         out = self.build()
         manifest_path = out / "web-release-manifest.json"

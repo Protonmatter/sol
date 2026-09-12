@@ -1,5 +1,6 @@
 //! Read-only immutable bundle intake. Capture the pointer once, then validate every
 //! declared byte before returning any component to a caller. No cache/alias fallback.
+use crate::provenance::attributable_source;
 use crate::snapshot_validation::{validate, validate_document};
 use solar_core::{parse_json, JsonValue};
 use std::{
@@ -193,19 +194,6 @@ fn semantic_json_equal(left: &JsonValue, right: &JsonValue) -> bool {
     }
 }
 
-fn attributable_source(source: &str) -> bool {
-    // Shared with the daily producer and browser reader; Rust's default trim
-    // omits U+001C..U+001F. U+FEFF is deliberately not whitespace.
-    let source = source.trim_matches(|ch| {
-        matches!(ch,
-            '\u{0009}'..='\u{000d}' | '\u{001c}'..='\u{0020}' |
-            '\u{0085}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' |
-            '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}'
-        )
-    });
-    !source.is_empty() && source.to_lowercase() != "unknown"
-}
-
 fn observation_coherence(snapshot: &JsonValue, report: &JsonValue) -> Result<(), String> {
     let frames: Vec<JsonValue> = array(report, "frames")?
         .iter()
@@ -251,6 +239,38 @@ fn observation_coherence(snapshot: &JsonValue, report: &JsonValue) -> Result<(),
     };
     if !semantic_json_equal(get(snapshot, "observed_context")?, context) {
         return Err("snapshot observed_context differs from bundle observations report".into());
+    }
+    Ok(())
+}
+
+fn feed_source_coherence(status: &JsonValue, source: &JsonValue) -> Result<(), String> {
+    // Project retained products in the daily producer's order. Failed acquisitions
+    // with no product remain in source.failures, without invented status rows.
+    let mut expected = Vec::new();
+    for product in array(source, "products")? {
+        expected.push(JsonValue::Object(vec![
+            ("file".into(), get(product, "product_id")?.clone()),
+            ("source".into(), get(product, "source")?.clone()),
+            (
+                "ok".into(),
+                JsonValue::Bool(matches!(get(product, "failure")?, JsonValue::Null)),
+            ),
+            ("origin".into(), get(product, "origin")?.clone()),
+            (
+                "observation_time_utc".into(),
+                get(product, "observation_time_utc")?.clone(),
+            ),
+            (
+                "retrieved_at_utc".into(),
+                get(product, "retrieved_at_utc")?.clone(),
+            ),
+        ]));
+    }
+    if !status
+        .get("sources")
+        .is_some_and(|rows| semantic_json_equal(rows, &JsonValue::Array(expected)))
+    {
+        return Err("feed status sources disagree with source products".into());
     }
     Ok(())
 }
@@ -374,6 +394,7 @@ fn resolve_with_hook(
         if string(&status, "status")? != if degraded { "degraded" } else { "ok" } {
             return Err("feed status must preserve source degradation".into());
         }
+        feed_source_coherence(&status, &src)?;
         let observations = parse_json(component("observations")?).map_err(|e| e.to_string())?;
         if string(&observations, "schema_version")? != "observation-frame.v1" {
             return Err("observations schema mismatch".into());
@@ -408,7 +429,14 @@ fn resolve_with_hook(
             }
             relative(Path::new(""), filename)?;
             let role = format!("series_frame:{index}");
-            if frame.get("availability").and_then(JsonValue::as_str) == Some("unavailable") {
+            let unavailable =
+                frame.get("availability").and_then(JsonValue::as_str) == Some("unavailable");
+            if (!unavailable || frame.get("index").is_some())
+                && frame.get("index").and_then(JsonValue::as_f64) != Some(index as f64)
+            {
+                return Err("series index disagrees with manifest position".into());
+            }
+            if unavailable {
                 if string(frame, "reason")?.trim().is_empty() || components.contains_key(&role) {
                     return Err("invalid declared series gap".into());
                 }
@@ -421,6 +449,29 @@ fn resolve_with_hook(
                     .ok_or("series entry missing")?;
                 if string(entry, "path")? != format!("series/{filename}") {
                     return Err("series frame path mismatch".into());
+                }
+                let snapshot = parse_json(component(&role)?).map_err(|e| e.to_string())?;
+                // Cycle months are illustrative placement, not a physical run epoch.
+                for (key, expected) in [
+                    (
+                        "stage",
+                        get(get(&snapshot, "learning")?, "cycle_stage")?.clone(),
+                    ),
+                    (
+                        "activity_index",
+                        get(get(&snapshot, "run")?, "activity_index")?.clone(),
+                    ),
+                    (
+                        "region_count",
+                        JsonValue::Number(array(&snapshot, "active_regions")?.len() as f64),
+                    ),
+                ] {
+                    if !frame
+                        .get(key)
+                        .is_some_and(|value| semantic_json_equal(value, &expected))
+                    {
+                        return Err("series metadata disagrees with frame snapshot".into());
+                    }
                 }
             }
         }
@@ -600,6 +651,174 @@ mod tests {
         fn drop(&mut self) {
             fs::remove_dir_all(&self.root).unwrap();
         }
+    }
+
+    #[test]
+    fn rehashed_series_metadata_and_valid_payload_swaps_are_rejected() {
+        let mut accepted = Vec::new();
+        for mutation in [
+            "payload",
+            "stage",
+            "activity_index",
+            "region_count",
+            "index",
+            "boolean index",
+            "missing index",
+            "missing stage",
+        ] {
+            let mut fixture = DerivedFixture::new();
+            if mutation == "payload" {
+                let replacement = fixture.component("series_frame:5").to_compact_string();
+                fixture.replace("series_frame:0", &replacement);
+            } else {
+                let mut series = fixture.component("series_manifest");
+                let frame = &mut items_mut(field_mut(&mut series, "frames"))[0];
+                match mutation {
+                    "stage" => {
+                        *field_mut(frame, "stage") = JsonValue::String("solar maximum".into())
+                    }
+                    "activity_index" => *field_mut(frame, mutation) = JsonValue::Number(0.95),
+                    "region_count" => *field_mut(frame, mutation) = JsonValue::Number(34.0),
+                    "index" => *field_mut(frame, mutation) = JsonValue::Number(5.0),
+                    "boolean index" => *field_mut(frame, "index") = JsonValue::Bool(false),
+                    _ => {
+                        let JsonValue::Object(fields) = frame else {
+                            unreachable!()
+                        };
+                        fields
+                            .retain(|(name, _)| name != mutation.strip_prefix("missing ").unwrap());
+                    }
+                }
+                fixture.replace("series_manifest", &series.to_compact_string());
+            }
+            match resolve(&fixture.root.join("current.json"), false) {
+                Ok(_) => accepted.push(mutation),
+                Err(error) => assert!(
+                    error.contains("series")
+                        && (error.contains("metadata") || error.contains("index")),
+                    "{mutation}: {error}"
+                ),
+            }
+        }
+        assert!(
+            accepted.is_empty(),
+            "semantically inconsistent rehashed series accepted: {accepted:?}"
+        );
+    }
+
+    #[test]
+    fn rehashed_feed_rows_must_preserve_source_product_projection() {
+        let mut accepted = Vec::new();
+        for mutation in [
+            "absent",
+            "missing",
+            "empty",
+            "duplicate",
+            "order",
+            "file",
+            "source",
+            "ok",
+            "origin",
+            "observation_time_utc",
+            "retrieved_at_utc",
+        ] {
+            let mut fixture = DerivedFixture::new();
+            let mut status = fixture.component("feed_status");
+            if mutation == "absent" {
+                let JsonValue::Object(fields) = &mut status else {
+                    unreachable!()
+                };
+                fields.retain(|(name, _)| name != "sources");
+            } else {
+                let rows = items_mut(field_mut(&mut status, "sources"));
+                match mutation {
+                    "missing" => {
+                        rows.pop();
+                    }
+                    "empty" => rows.clear(),
+                    "duplicate" => rows.push(rows[0].clone()),
+                    "order" => rows.reverse(),
+                    "ok" => *field_mut(&mut rows[0], mutation) = JsonValue::Bool(false),
+                    key => {
+                        *field_mut(&mut rows[0], key) = JsonValue::String(
+                            match key {
+                                "file" => "fabricated.json",
+                                "source" => "fabricated instrument",
+                                "origin" => "current-fetch",
+                                _ => "2026-09-11T01:00:00Z",
+                            }
+                            .into(),
+                        )
+                    }
+                }
+            }
+            fixture.replace("feed_status", &status.to_compact_string());
+            match resolve(&fixture.root.join("current.json"), false) {
+                Ok(_) => accepted.push(mutation),
+                Err(error) => assert!(
+                    error.contains("feed") && error.contains("sources"),
+                    "{mutation}: {error}"
+                ),
+            }
+        }
+        assert!(
+            accepted.is_empty(),
+            "fabricated rehashed feed rows accepted: {accepted:?}"
+        );
+    }
+
+    #[test]
+    fn committed_series_keeps_illustrative_time_and_declared_gaps() {
+        let mut fixture = DerivedFixture::new();
+        assert!(resolve(&fixture.root.join("current.json"), false).is_ok());
+        assert_eq!(
+            get(
+                get(&fixture.component("series_frame:10"), "run").unwrap(),
+                "time_seconds"
+            )
+            .unwrap()
+            .as_f64(),
+            Some(0.0)
+        );
+        let mut series = fixture.component("series_manifest");
+        items_mut(field_mut(&mut series, "frames"))[1] = parse_json(r#"{"file":"frame-01.json","months":13.2,"availability":"unavailable","reason":"declared gap"}"#).unwrap();
+        items_mut(field_mut(&mut fixture.manifest, "components"))
+            .retain(|c| string(c, "role").unwrap() != "series_frame:1");
+        fixture.replace("series_manifest", &series.to_compact_string());
+        let accepted = resolve(&fixture.root.join("current.json"), false).unwrap();
+        assert!(!accepted.components.contains_key("series_frame:1"));
+        assert!(accepted.components.contains_key("series_frame:10"));
+    }
+
+    #[test]
+    fn feed_projection_preserves_logical_ids_order_failure_and_unavailable_acquisitions() {
+        let mut fixture = DerivedFixture::new();
+        let mut source = fixture.component("source_manifest");
+        let products = items_mut(field_mut(&mut source, "products"));
+        *field_mut(&mut products[0], "product_id") = JsonValue::String("logical-product".into());
+        *field_mut(&mut products[0], "path") =
+            JsonValue::String("payloads/physical-file.json".into());
+        *field_mut(&mut products[0], "failure") = JsonValue::String("offline fallback".into());
+        products.reverse();
+        items_mut(field_mut(&mut source, "failures")).push(parse_json(r#"{"product_id":"unavailable.json","critical":false,"error_type":"OfflineFailure"}"#).unwrap());
+        let mut status = fixture.component("feed_status");
+        let rows = items_mut(field_mut(&mut status, "sources"));
+        *field_mut(&mut rows[0], "file") = JsonValue::String("logical-product".into());
+        *field_mut(&mut rows[0], "ok") = JsonValue::Bool(false);
+        rows.reverse();
+        let source_raw = source.to_compact_string();
+        *field_mut(&mut fixture.manifest, "source_manifest_sha256") =
+            JsonValue::String(sha256(source_raw.as_bytes()));
+        fixture.replace("source_manifest", &source_raw);
+        fixture.replace("feed_status", &status.to_compact_string());
+        let pointer = fixture.root.join("current.json");
+        let before = fs::read(&pointer).unwrap();
+        let accepted = resolve(&pointer, false).unwrap();
+        assert_eq!(
+            accepted.components["feed_status"],
+            status.to_compact_string()
+        );
+        assert_eq!(fs::read(&pointer).unwrap(), before);
     }
 
     #[test]
@@ -870,6 +1089,12 @@ mod tests {
             *field_mut(&mut fixture.manifest, "source_manifest_sha256") =
                 JsonValue::String(sha256(raw.as_bytes()));
             fixture.replace("source_manifest", &raw);
+            let mut status = fixture.component("feed_status");
+            *field_mut(
+                &mut items_mut(field_mut(&mut status, "sources"))[0],
+                "source",
+            ) = JsonValue::String(source.into());
+            fixture.replace("feed_status", &status.to_compact_string());
             let before = fs::read(fixture.root.join("current.json")).unwrap();
             let result = resolve(&fixture.root.join("current.json"), false);
             if accepted {

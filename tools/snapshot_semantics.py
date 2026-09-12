@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from observation_provenance import attributable_source
+
 ALLOWED_LAYER_KINDS = {"synthetic", "observed", "blended", "inferred", "degraded"}
 REQUIRED_FIELDS = {
     "br_normalized",
@@ -244,9 +246,9 @@ def validate_observation_report(index: int, value: Any) -> list[str]:
         if not isinstance(provenance, dict):
             errors.append(f"observations[{index}].frames[{frame_index}].provenance must be an object")
         else:
-            if not provenance.get("source"):
+            if not attributable_source(provenance.get("source")):
                 errors.append(
-                    f"observations[{index}].frames[{frame_index}].provenance.source is required"
+                    f"observations[{index}].frames[{frame_index}].provenance.source must be attributable"
                 )
             if "active" not in provenance:
                 errors.append(

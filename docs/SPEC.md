@@ -191,6 +191,42 @@ invalid/stale/unattributable data does not create an analysis. Observation prove
 quality, freshness and active-source metadata remain attached. Magnetic uncertainty
 remains unavailable; scalar assimilation must not invent a magnetic variance field.
 
+## Admission consistency
+
+Standalone v3 snapshots, native simulation and bundle intake MUST apply the same
+source-attribution predicate without rewriting retained source evidence. It requires
+a string that is nonempty after removing the shared boundary-whitespace set and whose
+Unicode lowercase form is not `unknown`. The set is U+0009–U+000D, U+001C–U+0020,
+U+0085, U+00A0, U+1680, U+2000–U+200A, U+2028, U+2029, U+202F, U+205F and U+3000.
+U+FEFF is deliberately not removed. This is an admission rule, not proof of source
+authenticity. RFC 8259 permits C1 characters inside JSON strings; only unescaped
+U+0000–U+001F are rejected by the serializer's string-envelope guard.
+
+Cached-feed freshness MUST use the unrounded age relative to the report evaluation
+clock. Negative ages and ages above the existing per-feed limit are stale; zero and
+the exact upper limit remain admissible. The rounded display age does not determine
+classification. Future-dated rows remain retained and explicitly warned, including
+in illustrative fixture context; all-stale reports do not create a scalar analysis.
+
+Derived bundle `feed_status.sources` MUST equal the ordered projection of retained
+`source.products`: `file` is `product_id`, `ok` is whether `failure` is null, and source,
+origin, observation time and retrieval time retain their exact declared values.
+Unavailable acquisitions recorded only in `source.failures` do not imply invented
+product rows. Every available series entry MUST bind its index to its array position,
+stage to `learning.cycle_stage`, activity to `run.activity_index`, and region count
+to `active_regions.length`. Gaps retain their positions and may omit their index;
+a declared index still MUST match. Illustrative cycle months are not physical elapsed
+snapshot time. Rejection MUST preserve the prior complete browser publication.
+
+Each ephemeris v3 body's `compass` MUST describe its serialized `az_deg` using the 16
+clockwise sectors of width 22.5 degrees, with exact midpoints (11.25 degrees from a
+sector center) assigned clockwise. A provider's rounded 360 degrees normalizes to
+zero before deriving the label; internal full-precision physics remains unchanged.
+
+Browser admission code (`dataBundle.js` and its shared `sourceAttribution.js` helper)
+MUST participate in the scientific component fingerprint. Admission-only edits
+invalidate prior scientific qualification even if WASM and data bytes are unchanged.
+
 ## UI contract
 
 Rendered layers are labeled as exactly one of:

@@ -13,6 +13,10 @@ from validate_ephemeris_snapshot_v2 import (
 )
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "docs/ephemeris-snapshot-v3.schema.json"
+COMPASS_POINTS = (
+    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+)
 
 def reject_constant(value: str) -> None:
     raise ValueError(f"non-JSON numeric constant {value}")
@@ -61,6 +65,10 @@ def semantic_checks(data: dict[str, Any]) -> list[str]:
         errors.append("body names must be unique and include all major bodies")
     for body in data["bodies"]:
         name = body["name"]
+        # Same sixteen clockwise sectors as both producers, based on serialized azimuth.
+        expected_compass = COMPASS_POINTS[int(((body["az_deg"] + 11.25) % 360.0) / 22.5)]
+        if body["compass"] != expected_compass:
+            errors.append(f"{name}.compass must agree with az_deg")
         for alias, explicit in [("ra_deg", "topocentric_apparent_ra_deg"), ("dec_deg", "topocentric_apparent_dec_deg")]:
             if abs(body[alias] - body[explicit]) > 1e-9:
                 errors.append(f"{name}.{alias} must alias {explicit}")

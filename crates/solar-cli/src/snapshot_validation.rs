@@ -1,4 +1,5 @@
 //! Live v3 snapshot-copy validation. Frozen historical v2 has a separate explicit path.
+use crate::provenance::attributable_source;
 use solar_core::{parse_json, JsonValue};
 
 // Six-decimal serialization of Rust f32 births changes the derived longitude by
@@ -354,8 +355,8 @@ fn semantics(value: &JsonValue) -> Result<(), String> {
                 return Err("invalid observation layer_kind or source_mode".into());
             }
             let provenance = member(frame, "provenance")?;
-            if string(provenance, "source")?.trim().is_empty() {
-                return Err("observation provenance.source required".into());
+            if !attributable_source(string(provenance, "source")?) {
+                return Err("observation provenance.source must be attributable".into());
             }
             member(provenance, "active")?;
             if !matches!(

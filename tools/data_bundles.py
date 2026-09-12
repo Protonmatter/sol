@@ -18,14 +18,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 import jsonschema_min
+from observation_provenance import ATTRIBUTION_WHITESPACE, attributable_source
 from validate_snapshot import loads_strict, validate as validate_snapshot
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMIT = 16 * 1024 * 1024
 IDENTITY = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}\Z")
 HASH = re.compile(r"[a-f0-9]{64}\Z")
-# Explicit shared attribution whitespace; U+FEFF is not whitespace here.
-ATTRIBUTION_WHITESPACE = "\u0009\u000a\u000b\u000c\u000d\u001c\u001d\u001e\u001f\u0020\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000"
 SCHEMAS = {name: ROOT / "docs" / file for name, file in {
     "bundle-pointer.v1": "bundle-pointer-v1.schema.json",
     "public-data-cache-manifest.v2": "public-data-cache-manifest-v2.schema.json",
@@ -199,14 +198,6 @@ def _same_json(left: Any, right: Any) -> bool:
     return type(left) is type(right) and left == right
 
 
-def attributable_source(value: Any) -> bool:
-    """Shared producer/reader rule; language-default whitespace sets differ."""
-    if not isinstance(value, str):
-        return False
-    source = value.strip(ATTRIBUTION_WHITESPACE)
-    return bool(source) and source.lower() != "unknown"
-
-
 def _validate_observation_coherence(snapshot: dict, report: dict) -> None:
     # Daily derivation embeds the report envelope with only attributable frames.
     # Preserve all other report data and exact frame ordering; never repair a reader input.
@@ -259,6 +250,14 @@ def _resolve_derived(value: dict, raw: bytes, path: Path, component_hook) -> Res
     degraded = bool(source["failures"]) or any(p["origin"] != "current-fetch" or p["failure"] is not None for p in source["products"])
     if status["status"] != ("degraded" if degraded else "ok"):
         raise ValueError("feed status must preserve source degradation")
+    # The daily producer projects every retained product in source order. Missing
+    # products stay in source.failures; readers must not invent a status row for them.
+    expected_sources = [{"file": p["product_id"], "source": p["source"],
+                         "ok": p["failure"] is None, "origin": p["origin"],
+                         "observation_time_utc": p["observation_time_utc"],
+                         "retrieved_at_utc": p["retrieved_at_utc"]} for p in source["products"]]
+    if not _same_json(status.get("sources"), expected_sources):
+        raise ValueError("feed status sources disagree with source products")
     observations = data["observations"]
     if observations.get("schema_version") != "observation-frame.v1" or not isinstance(observations.get("frames"), list) or not observations.get("source_mode"):
         raise ValueError("invalid normalized observations")
@@ -276,12 +275,22 @@ def _resolve_derived(value: dict, raw: bytes, path: Path, component_hook) -> Res
             raise ValueError("invalid series identity/time")
         names.add(name); previous = months
         role = f"series_frame:{index}"
+        if (entry.get("availability") != "unavailable" or "index" in entry) and not _same_json(entry.get("index"), index):
+            raise ValueError("series index disagrees with manifest position")
         if entry.get("availability") == "unavailable":
             if not entry.get("reason") or role in roles:
                 raise ValueError("unavailable series entry must explain gap without payload")
         elif role not in roles or bundle.component(role).relative_path != "series/" + name or validate_snapshot(data[role]):
             raise ValueError("missing/invalid series component")
         else:
+            # Months describe illustrative cycle placement, not a physical run epoch.
+            frame = data[role]
+            if not all(_same_json(entry.get(key), expected) for key, expected in (
+                ("stage", frame["learning"]["cycle_stage"]),
+                ("activity_index", frame["run"]["activity_index"]),
+                ("region_count", len(frame["active_regions"])),
+            )):
+                raise ValueError("series metadata disagrees with frame snapshot")
             selected_roles.add(role)
     if any(role not in selected_roles for role in roles if role.startswith("series_frame:")):
         raise ValueError("orphan series frame")

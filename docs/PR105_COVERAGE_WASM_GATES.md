@@ -156,6 +156,11 @@ the old resolver failure and exact new 18-file result, and found no blocking pat
 
 ## Unresolved review and release limitations
 
+Historical status at this coverage-only patch: the subsequently authorized
+[admission and review correction](PR105_REVIEW_ROUND5.md) addresses the findings below
+and the next review's four findings. Consult that evidence and fresh PR state for
+current disposition; this earlier record is retained rather than rewritten as a pass.
+
 At the pre-publication review refresh, 20 of 23 inline threads were resolved. Three
 unresolved threads cover two issues (standalone provenance is duplicated), and a
 review-body comment raises a third issue:

@@ -87,16 +87,22 @@ class BundleTests(unittest.TestCase):
             "feed_status": ("feed-status.json", "daily-ingest-status.v2", bundles.json_bytes({
                 "schema_version": "daily-ingest-status.v2", "bundle_id": "derived-a", "source_bundle_id": "source-a",
                 "status": "degraded", "generated_at_utc": "2026-09-11T12:00:00Z",
-                "observation_time_utc": None, "delivery_state": "validated", "warnings": ["fixture"]})),
+                "observation_time_utc": None, "delivery_state": "validated", "warnings": ["fixture"],
+                "sources": [{"file": "rtsw_mag_1m.json", "source": "fixture NOAA magnetometer", "ok": True,
+                             "origin": "fixture", "observation_time_utc": None, "retrieved_at_utc": None}]})),
             "series_manifest": ("series/manifest.json", "series-manifest.v1", bundles.json_bytes({"schema_version":"series-manifest.v1","frames":[]})),
         }
 
     def derived(self, name="derived-a", source=None, hook=None):
+        source = source or self.source()
         components = self.components()
         status = json.loads(components["feed_status"][2]); status["bundle_id"] = name
+        status["sources"] = [{"file": p["product_id"], "source": p["source"], "ok": p["failure"] is None,
+                              "origin": p["origin"], "observation_time_utc": p["observation_time_utc"],
+                              "retrieved_at_utc": p["retrieved_at_utc"]} for p in json.loads(source.manifest_raw)["products"]]
         components["feed_status"] = (*components["feed_status"][:2], bundles.json_bytes(status))
         return bundles.create_derived_bundle(self.root / "derived", bundle_id=name,
-            source=source or self.source(), generated_at_utc="2026-09-11T12:00:00Z",
+            source=source, generated_at_utc="2026-09-11T12:00:00Z",
             components=components, stage_hook=hook)
 
     def test_source_products_share_attribution_and_preserve_bytes_and_selection(self):
@@ -260,7 +266,10 @@ class BundleTests(unittest.TestCase):
     def test_exact_series_roles_reject_rehashed_aliases_without_replacing_selection(self):
         source = self.source()
         components = self.components()
-        entries = [{"file": f"frame-{index}.json", "months": index * 12,
+        snapshot = json.loads(components["snapshot"][2])
+        entries = [{"file": f"frame-{index}.json", "months": index * 12, "index": index,
+                    "stage": snapshot["learning"]["cycle_stage"], "activity_index": snapshot["run"]["activity_index"],
+                    "region_count": len(snapshot["active_regions"]),
                     **({} if index in (0, 10) else {"availability": "unavailable", "reason": "declared gap"})}
                    for index in range(11)]
         components["series_manifest"] = ("series/manifest.json", "series-manifest.v1",

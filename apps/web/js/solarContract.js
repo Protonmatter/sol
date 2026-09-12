@@ -1,5 +1,6 @@
 // A raw-text boundary: platform JSON parsing alone cannot detect duplicate keys.
 import { solarSchema, solarImageRegistrationSchema } from "./solarSchema.js?v=dcca6290db";
+import { attributableSource } from "./sourceAttribution.js";
 export { SOLAR_STATE_SNAPSHOT_SCHEMA } from "./solarSchema.js?v=dcca6290db";
 
 export function parseStrictJson(text) {
@@ -135,7 +136,7 @@ export function assertSolarSnapshot(data) {
   for (const report of data.observations) {
     if (report.schema_version !== "observation-frame.v1" || !report.source_mode || !Array.isArray(report.frames)) fail("observations", "invalid report");
     for (const frame of report.frames) {
-      if (!frame || !KINDS.includes(frame.layer_kind) || !frame.source_mode || !frame.provenance?.source || !Object.hasOwn(frame.provenance, "active") || !frame.provenance.raw_source_metadata || typeof frame.provenance.raw_source_metadata !== "object" || Array.isArray(frame.provenance.raw_source_metadata) || !Array.isArray(frame.quality_flags) || !frame.quality_flags.length) fail("observations", "missing attributable provenance or quality flags");
+      if (!frame || !KINDS.includes(frame.layer_kind) || !frame.source_mode || !attributableSource(frame.provenance?.source) || !Object.hasOwn(frame.provenance, "active") || !frame.provenance.raw_source_metadata || typeof frame.provenance.raw_source_metadata !== "object" || Array.isArray(frame.provenance.raw_source_metadata) || !Array.isArray(frame.quality_flags) || !frame.quality_flags.length) fail("observations", "missing attributable provenance or quality flags");
     }
   }
   if (readiness.data_state.source_mode !== data.source_mode) fail("data_state", "source mode mismatch");

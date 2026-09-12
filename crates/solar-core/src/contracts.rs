@@ -303,7 +303,8 @@ fn balanced_json_array_envelope(raw: &str) -> bool {
             match character {
                 '\\' => escaped = true,
                 '"' => in_string = false,
-                control if control.is_control() => return false,
+                // JSON forbids unescaped U+0000..U+001F, not the C1 controls.
+                control if control < '\u{0020}' => return false,
                 _ => {}
             }
             continue;
@@ -540,6 +541,43 @@ mod tests {
         let mut request = SnapshotRequest::synthetic(42, 0, 1.0, 0.9);
         request.observations_json = Some("[{\"broken\":true}");
         let _ = solar_state_snapshot_json(&state, &request);
+    }
+
+    #[test]
+    fn observation_envelope_preserves_json_permitted_control_characters() {
+        let state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
+        for character in ['\u{007f}', '\u{0080}', '\u{0085}', '\u{009f}'] {
+            let source = format!("observatory{character}");
+            let observations = format!(r#"[{{"provenance":{{"source":"{source}"}}}}]"#);
+            let mut request = SnapshotRequest::synthetic(42, 0, 1.0, 0.9);
+            request.observations_json = Some(&observations);
+            let parsed = crate::parse_json(&solar_state_snapshot_json(&state, &request)).unwrap();
+            assert_eq!(
+                parsed.get("observations").unwrap().as_array().unwrap()[0]
+                    .get("provenance")
+                    .unwrap()
+                    .get("source")
+                    .unwrap()
+                    .as_str(),
+                Some(source.as_str())
+            );
+        }
+    }
+
+    #[test]
+    fn observation_envelope_rejects_unescaped_json_controls_and_broken_structure() {
+        for character in ['\u{0000}', '\u{0009}', '\u{001f}'] {
+            assert!(!balanced_json_array_envelope(&format!(
+                r#"[{{"source":"observatory{character}"}}]"#
+            )));
+        }
+        for raw in [
+            r#"[{"source":"unterminated}]"#,
+            r#"[{"source":true]]"#,
+            r#"[{"source":true}}]"#,
+        ] {
+            assert!(!balanced_json_array_envelope(raw));
+        }
     }
 
     #[test]

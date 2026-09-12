@@ -168,7 +168,8 @@ function bundleFixture({ mutateValues = () => {}, mutateManifest = () => {}, mut
     products: [{ product_id: "observation", source: "synthetic fixture", origin: "current-fetch", observation_time_utc: null, retrieved_at_utc: null,
       quality: ["fixture only"], failure: null, license: "fixture", critical: true, path: "payloads/observation.json", size_bytes: 2, sha256: hash(bytes({})) }] };
   const values = { snapshot: structuredClone(solar), observations: structuredClone(solar.observations[0]), source_manifest: source,
-    feed_status: { schema_version: "daily-ingest-status.v2", bundle_id: "bundle", source_bundle_id: "source", status: "ok", generated_at_utc: "2024-02-29T00:00:00Z", observation_time_utc: null, delivery_state: "validated", warnings: [] },
+    feed_status: { schema_version: "daily-ingest-status.v2", bundle_id: "bundle", source_bundle_id: "source", status: "ok", generated_at_utc: "2024-02-29T00:00:00Z", observation_time_utc: null, delivery_state: "validated", warnings: [],
+      sources: [{ file: "observation", source: "synthetic fixture", ok: true, origin: "current-fetch", observation_time_utc: null, retrieved_at_utc: null }] },
     series_manifest: { schema_version: "series-manifest.v1", frames: [] } };
   mutateValues(values);
   const prefix = release ? "https://example.invalid/sol/releases/release-a/" : "https://example.invalid/";
@@ -229,7 +230,7 @@ const bundleCases = [
   ["invalid normalized report", { mutateValues: v => { v.observations.frames = {}; } }, /Invalid normalized observations/],
   ["missing observation context", { mutateValues: v => { delete v.snapshot.observed_context; } }, /Snapshot observation context disagrees/],
   ["wrong series schema", { mutateValues: v => { v.series_manifest.schema_version = "series-manifest.v99"; } }, /Invalid series schema/],
-  ["missing selected series payload", { mutateValues: v => { v.series_manifest.frames = [{ file: "frame-0.json", months: 0 }]; } }, /Missing series component/],
+  ["missing selected series payload", { mutateValues: v => { v.series_manifest.frames = [{ file: "frame-0.json", months: 0, index: 0 }]; } }, /Missing series component/],
   ["release identity mismatch", { release: true, mutateRelease: r => { r.release_id = "foreign"; } }, /Release identity mismatch/],
   ["missing release descriptor", { release: true, mutateRelease: r => { delete r.data_bundle; } }, /Missing release-bound data bundle/],
   ["bundle outside immutable namespace", { release: true, mutateRelease: r => { r.data_bundle.manifest_path = "releases/foreign/data/bundles/bundle/manifest.json"; } }, /Bundle outside release namespace/],

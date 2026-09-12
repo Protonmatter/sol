@@ -18,7 +18,8 @@ TOKEN = re.compile(r"\?v=[0-9a-zA-Z._-]+")
 WASM_FILES = ("solar_wasm.wasm", "solar_ephemeris.wasm")
 TRANSITION_SCHEMAS = {"solar-state-snapshot.v2", "solar-state-snapshot.v3", "ephemeris-snapshot.v2", "ephemeris-snapshot.v3"}
 SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "ephemerisSchema.js", "ephemerisContract.js", "ephemerisContractV2.js",
-    "solarSchema.js", "solarContract.js", "systemContract.js", "solarProjection.js", "solarRegionFacts.js", "celestial.js", "engineLimits.js",
+    "solarSchema.js", "solarContract.js", "systemContract.js", "dataBundle.js", "sourceAttribution.js",
+    "solarProjection.js", "solarRegionFacts.js", "celestial.js", "engineLimits.js",
     "bodyData.js", "moonelements.js", "moonorbits.js", "moonshadows.js", "starphysics.js", "starcatalog.js",
     "orreryMath.js", "orreryTime.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
     "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js"})

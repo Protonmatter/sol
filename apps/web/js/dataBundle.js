@@ -1,6 +1,7 @@
 // Pure resolve-once data reader. No mutable root aliases and no store publication.
 import { parseStrictJson, parseSolarSnapshot } from "./solarContract.js?v=dcca6290db";
 import { makeSeriesRecords } from "./seriesModel.js?v=dcca6290db";
+import { attributableSource } from "./sourceAttribution.js?v=dcca6290db";
 
 export const BUNDLE_SCHEMAS = {"research-data-bundle.v1":{"type":"object","additionalProperties":false,"required":["schema_version","bundle_id","source_bundle_id","source_manifest_sha256","generated_at_utc","components"],"properties":{"schema_version":{"const":"research-data-bundle.v1"},"bundle_id":{"type":"string","minLength":1},"source_bundle_id":{"type":"string","minLength":1},"source_manifest_sha256":{"type":"string","minLength":64,"maxLength":64},"generated_at_utc":{"type":"string","minLength":1},"components":{"type":"array","minItems":5,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["role","path","schema_version","size_bytes","sha256"],"properties":{"role":{"type":"string","minLength":1},"path":{"type":"string","minLength":1},"schema_version":{"type":"string","minLength":1},"size_bytes":{"type":"integer","minimum":0,"maximum":16777216},"sha256":{"type":"string","minLength":64,"maxLength":64}}}}},"$schema":"https://json-schema.org/draft/2020-12/schema"},"daily-ingest-status.v2":{"type":"object","additionalProperties":false,"required":["schema_version","bundle_id","source_bundle_id","status","generated_at_utc","observation_time_utc","delivery_state","warnings"],"properties":{"schema_version":{"const":"daily-ingest-status.v2"},"bundle_id":{"type":"string","minLength":1},"source_bundle_id":{"type":"string","minLength":1},"status":{"enum":["ok","degraded"]},"generated_at_utc":{"type":"string","minLength":1},"observation_time_utc":{"type":["string","null"]},"delivery_state":{"const":"validated"},"warnings":{"type":"array","items":{"type":"string","minLength":1}},"last_run_utc":{"type":"string","minLength":1},"next_recommended_run_utc":{"type":"string","minLength":1},"sources":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["file","source","ok","origin","observation_time_utc","retrieved_at_utc"],"properties":{"file":{"type":"string","minLength":1},"source":{"type":"string","minLength":1},"ok":{"type":"boolean"},"origin":{"enum":["current-fetch","cached-fallback","fixture"]},"observation_time_utc":{"type":["string","null"]},"retrieved_at_utc":{"type":["string","null"]}}}}},"$schema":"https://json-schema.org/draft/2020-12/schema"},"bundle-pointer.v1":{"type":"object","additionalProperties":false,"required":["schema_version","bundle_id","manifest_path","manifest_sha256"],"properties":{"schema_version":{"const":"bundle-pointer.v1"},"bundle_id":{"type":"string","minLength":1},"manifest_path":{"type":"string","minLength":1},"manifest_sha256":{"type":"string","minLength":64,"maxLength":64}},"$schema":"https://json-schema.org/draft/2020-12/schema"},"public-data-cache-manifest.v2":{"type":"object","additionalProperties":false,"required":["schema_version","bundle_id","acquired_at_utc","products","failures"],"properties":{"schema_version":{"const":"public-data-cache-manifest.v2"},"bundle_id":{"type":"string","minLength":1},"acquired_at_utc":{"type":"string","minLength":1},"products":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["product_id","source","origin","observation_time_utc","retrieved_at_utc","quality","failure","license","critical","path","size_bytes","sha256"],"properties":{"product_id":{"type":"string","minLength":1},"source":{"type":"string","minLength":1},"origin":{"enum":["current-fetch","cached-fallback","fixture"]},"observation_time_utc":{"type":["string","null"]},"retrieved_at_utc":{"type":["string","null"]},"quality":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"failure":{"type":["string","null"]},"license":{"type":"string","minLength":1},"critical":{"type":"boolean"},"path":{"type":"string","minLength":1},"size_bytes":{"type":"integer","minimum":1,"maximum":16777216},"sha256":{"type":"string","minLength":64,"maxLength":64}}}},"failures":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["product_id","critical","error_type"],"properties":{"product_id":{"type":"string","minLength":1},"critical":{"type":"boolean"},"error_type":{"type":"string","minLength":1}}}}},"$schema":"https://json-schema.org/draft/2020-12/schema"}};
 const LIMIT = 16 * 1024 * 1024;
@@ -42,13 +43,6 @@ function sameJson(left,right){
   if(Array.isArray(left)||Array.isArray(right))return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((v,i)=>sameJson(v,right[i]));
   const keys=Object.keys(left);
   return keys.length===Object.keys(right).length&&keys.every(key=>Object.hasOwn(right,key)&&sameJson(left[key],right[key]));
-}
-function attributableSource(value){
-  if(typeof value!=="string")return false;
-  // Explicit cross-runtime whitespace (U+FEFF is deliberately not stripped).
-  const whitespace=/^[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g;
-  const source=value.replace(whitespace,"");
-  return source!==""&&source.toLowerCase()!=="unknown";
 }
 function observationCoherence(snapshot,report){
   // Match daily derivation's attributed evidence projection without changing either input.
@@ -116,6 +110,11 @@ export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedRe
   if(status.status!==(degraded?"degraded":"ok"))fail("Feed status must preserve source degradation");
   const productIds=new Set(),productPaths=new Set();
   for(const product of source.products){relative(product.path);if(!ID.test(product.product_id)||productIds.has(product.product_id.toLowerCase())||productPaths.has(product.path.toLowerCase())||!attributableSource(product.source)||!HASH.test(product.sha256))fail("Invalid attributable source product");productIds.add(product.product_id.toLowerCase());productPaths.add(product.path.toLowerCase());utc(product.observation_time_utc,true);utc(product.retrieved_at_utc,true);}
+  // Match the producer's retained products in order; unavailable acquisitions
+  // remain source.failures and do not acquire fabricated feed rows.
+  const expectedSources=source.products.map(p=>({file:p.product_id,source:p.source,ok:p.failure===null,
+    origin:p.origin,observation_time_utc:p.observation_time_utc,retrieved_at_utc:p.retrieved_at_utc}));
+  if(!sameJson(status.sources,expectedSources))fail("Feed status sources disagree with source products");
   if(data.observations.schema_version!=="observation-frame.v1"||!Array.isArray(data.observations.frames)||!data.observations.source_mode)fail("Invalid normalized observations");
   const snapshot=parseSolarSnapshot(new TextDecoder().decode(raws.snapshot));
   observationCoherence(snapshot,data.observations);
@@ -125,11 +124,15 @@ export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedRe
   const selectedRoles=new Set();
   const frames=series.frames.map((entry,index)=>{
     const role=`series_frame:${index}`;
+    if((entry.availability!=="unavailable"||Object.hasOwn(entry,"index"))&&entry.index!==index)fail("Series index disagrees with manifest position");
     if(entry.availability==="unavailable"){if(!entry.reason||roles.has(role))fail("Invalid declared gap");return null;}
     const record=manifest.components.find(c=>c.role===role);
     if(!record||record.path!==`series/${entry.file}`)fail("Missing series component");
     selectedRoles.add(role);
-    return parseSolarSnapshot(new TextDecoder().decode(raws[role]));
+    const frame=parseSolarSnapshot(new TextDecoder().decode(raws[role]));
+    // Cycle months are illustrative placement, not the snapshot's physical epoch.
+    if(entry.stage!==frame.learning.cycle_stage||entry.activity_index!==frame.run.activity_index||entry.region_count!==frame.active_regions.length)fail("Series metadata disagrees with frame snapshot");
+    return frame;
   });
   if([...roles].some(r=>r.startsWith("series_frame:")&&!selectedRoles.has(r)))fail("Orphan series component");
   return freeze({bundleId:manifest.bundle_id,sourceBundleId:manifest.source_bundle_id,
