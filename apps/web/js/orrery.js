@@ -595,7 +595,13 @@ async function refreshSystemMetadata() {
   } finally {if(generation===systemGeneration)metadataPending=false;}
 }
 
-function cancelSystemWork(){systemGeneration++;metadataPending=false;cancelSystemSnapshot();}
+function cancelSystemWork(){
+  systemGeneration++;metadataPending=false;
+  // Cancellation releases the old entry immediately; its finally handler must
+  // not own a replacement started before the rejected promise settles.
+  enterPromise=null;state.entering=false;
+  cancelSystemSnapshot();
+}
 
 function rebuildPositions() {
   try {
@@ -1717,16 +1723,27 @@ function tick(now) {
       // How much simulated time one frame covers — the moon aliasing guard and visible-spin
       // limiter both key off it. At the 1 hour/s default it is ~1 sim-minute per frame; at
       // 5 yr/s it is ~30 days, more than a full orbit for several moons.
-      state.simStepSeconds = solarStepSeconds(dt, state.yearsPerSec);
-      state.simElapsed += state.simStepSeconds;
       // Advance from the previous simulated epoch. Re-evaluating Date.now() here added one
       // wall-clock second per real second on top of the selected accelerated rate, making
       // every rate fast (and a slow manual rate materially so).
-      const previousUnix=state.renderUnix;
-      state.renderUnix += state.simStepSeconds;
-      if(!rebuildPositions()){state.renderUnix=previousUnix;state.simElapsed-=state.simStepSeconds;state.animate=false;const cb=/** @type {HTMLInputElement|null} */(document.getElementById("orreryAnimate"));if(cb)cb.checked=false;}
-      stepParticles(dt);
-      updateRotationDisplay(dt);
+      let nextFrame;
+      try {
+        const stepSeconds=solarStepSeconds(dt,state.yearsPerSec);
+        const {unix}=validateSystemRequest({unix:state.renderUnix+stepSeconds});
+        const bodies=projectSystemPositions(state.bodies,systemPositions(unix));
+        nextFrame={bodies,renderUnix:unix,simElapsed:state.simElapsed+stepSeconds,simStepSeconds:stepSeconds};
+      } catch(error) {
+        cancelSystemWork();metadataFailed=true;
+        state.animate=false;state.simStepSeconds=0;resetRotationDisplay();
+        state.engineError=`System animation stopped: ${error.message}; prior rendered time and coordinates retained. Choose another time or Now, then resume Animate.`;
+        const cb=/** @type {HTMLInputElement|null} */(document.getElementById("orreryAnimate"));if(cb)cb.checked=false;
+      }
+      if(nextFrame) {
+        Object.assign(state,nextFrame);
+        finishPositionUpdate();
+        stepParticles(dt);
+        updateRotationDisplay(dt);
+      }
     }
   }
   if (state.freeFly) flyStep(dt);

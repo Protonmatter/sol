@@ -269,7 +269,7 @@ def _resolve_derived(value: dict, raw: bytes, path: Path, component_hook) -> Res
     series = data["series_manifest"]
     if series.get("schema_version") != "series-manifest.v1" or not isinstance(series.get("frames"), list):
         raise ValueError("invalid series manifest")
-    names, previous = set(), -1.0
+    names, previous, selected_roles = set(), -1.0, set()
     for index, entry in enumerate(series["frames"]):
         name, months = entry.get("file"), entry.get("months")
         if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_-]+\.json", name) or name in names or isinstance(months, bool) or not isinstance(months, (float, int)) or not 0 <= months <= 1.7976931348623157e308 or not months > previous:
@@ -281,7 +281,9 @@ def _resolve_derived(value: dict, raw: bytes, path: Path, component_hook) -> Res
                 raise ValueError("unavailable series entry must explain gap without payload")
         elif role not in roles or bundle.component(role).relative_path != "series/" + name or validate_snapshot(data[role]):
             raise ValueError("missing/invalid series component")
-    if any(int(role.split(":")[1]) >= len(series["frames"]) for role in roles if role.startswith("series_frame:")):
+        else:
+            selected_roles.add(role)
+    if any(role not in selected_roles for role in roles if role.startswith("series_frame:")):
         raise ValueError("orphan series frame")
     return bundle
 

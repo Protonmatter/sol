@@ -27,6 +27,15 @@ FRESHNESS_LIMITS_HOURS = {
     "swpc-goes-xray-flares-7-day": 48.0,
 }
 
+CONTEXT_NUMERIC_KEYS = {
+    "rtsw_mag_1m.json": ("bz_gsm", "bz", "bzgsm"),
+    "rtsw_wind_1m.json": ("speed", "bulk_speed", "proton_speed", "velocity"),
+    "swpc-planetary-k-index-1m": ("estimated_kp", "kp_index"),
+    "swpc-goes-xrays-1-day": ("flux", "observed_flux"),
+    "swpc-f107-cm-flux": ("flux",),
+    "swpc-observed-cycle-indices": ("f10.7", "f10_7", "observed_f10.7", "f107"),
+}
+
 
 def display_path(path: Path) -> str:
     """Repo-relative POSIX path, or just the file name for paths outside the repo.
@@ -282,7 +291,7 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
                 [
                     f"{unattributed_count} of {len(all_frames)} observation frames lacked "
                     "attributable provenance and are not embedded as snapshot evidence "
-                    "(they still informed the observed context; see the observations report)."
+                    "(see retained source metadata in the observations report)."
                 ]
                 if unattributed_count
                 else []
@@ -435,16 +444,29 @@ def build_bundle_observation_report(source, *, evaluated_at_utc: str) -> dict[st
     by_file = {item.role: item for item in source.components}
     def candidate(name: str, descriptor: dict[str, Any] | None = None) -> dict[str, Any]:
         descriptor = descriptor or {}
+        context_keys = CONTEXT_NUMERIC_KEYS.get(descriptor.get("id", name), ())
         item = by_file.get(name)
         if item is None:
             data, row, mode, count = None, {}, "missing", 0
         else:
             data = loads_strict(item.raw.decode("utf-8"))
             row, mode, count = first_row(data), "fixture" if metadata[name]["origin"] == "fixture" else "cached", len(item.raw)
+            # Only attributable rows may inform bundle-derived context. The immutable
+            # bundle keeps every original byte; explicit invalid sources never inherit
+            # the manifest source, and invalid-only report metadata remains inspectable.
+            data = [entry for entry in rows(data)
+                    if attributable_source(entry.get("source", metadata[name]["source"]))]
+            selected = latest_numeric_observation(data, *context_keys) if context_keys else None
+            if selected is not None:
+                row = selected[1]
+            elif data:
+                row = first_row(data)
         result = {"data":data, "row":row, "id":descriptor.get("id",name), "layer_kind":descriptor.get("layer_kind","observed"),
                   "source_mode":mode, "local_path":f"bundle:{source.bundle_id}/{name}", "raw_bytes":count, "evaluated_at_utc":evaluated_at_utc}
         if item is not None:
             result["manifest_source"] = metadata[name]["source"]
+            if context_keys:
+                result["freshness_rows"] = [selected[1]] if selected is not None else []
         result.update({key:descriptor[key] for key in ("name","url") if key in descriptor})
         return result
     if not {"rtsw_mag_1m.json", "rtsw_wind_1m.json"} <= by_file.keys():
@@ -607,6 +629,8 @@ def evaluate_freshness(candidates: list[dict[str, Any]]) -> tuple[dict[str, Any]
     Only cached feeds are evaluated: fixture-mode outputs must stay byte-deterministic
     across runs, and canned fixtures have no meaningful age. The quality flags always
     promised "cached data freshness must be evaluated" — this is the evaluation.
+    Bundle numeric feeds bind freshness to their selected value's row, so newer
+    nonnumeric metadata cannot make an older signal appear fresh.
     """
     supplied = next((item["evaluated_at_utc"] for item in candidates if "evaluated_at_utc" in item), None)
     now = dt.datetime.fromisoformat(supplied.replace("Z", "+00:00")) if supplied else dt.datetime.now(dt.timezone.utc)
@@ -616,7 +640,7 @@ def evaluate_freshness(candidates: list[dict[str, Any]]) -> tuple[dict[str, Any]
         if candidate.get("source_mode") != "cached":
             continue
         newest: dt.datetime | None = None
-        for row in rows(candidate.get("data")):
+        for row in candidate.get("freshness_rows", rows(candidate.get("data"))):
             parsed = parse_time_tag(row_time(row))
             if parsed is not None and (newest is None or parsed > newest):
                 newest = parsed
@@ -649,14 +673,14 @@ def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     region_count = len(solar_regions)
     sunspot_count = len(sunspots)
     flare_count = len(xray_flares)
-    latest_direct_f107 = latest_numeric(f107_rows, "flux")
+    latest_direct_f107 = latest_numeric(f107_rows, *CONTEXT_NUMERIC_KEYS["swpc-f107-cm-flux"])
     latest_f107 = latest_direct_f107
     if latest_f107 is None:
-        latest_f107 = latest_numeric(cycle_rows, "f10.7", "f10_7", "observed_f10.7", "f107")
-    latest_kp = latest_numeric(kp_rows, "estimated_kp", "kp_index")
-    latest_xray_flux = latest_numeric(xray_rows, "flux", "observed_flux")
-    latest_wind_speed = latest_numeric(rtsw_wind, "speed", "bulk_speed", "proton_speed", "velocity")
-    latest_bz = latest_numeric(rtsw_mag, "bz_gsm", "bz", "bzgsm")
+        latest_f107 = latest_numeric(cycle_rows, *CONTEXT_NUMERIC_KEYS["swpc-observed-cycle-indices"])
+    latest_kp = latest_numeric(kp_rows, *CONTEXT_NUMERIC_KEYS["swpc-planetary-k-index-1m"])
+    latest_xray_flux = latest_numeric(xray_rows, *CONTEXT_NUMERIC_KEYS["swpc-goes-xrays-1-day"])
+    latest_wind_speed = latest_numeric(rtsw_wind, *CONTEXT_NUMERIC_KEYS["rtsw_wind_1m.json"])
+    latest_bz = latest_numeric(rtsw_mag, *CONTEXT_NUMERIC_KEYS["rtsw_mag_1m.json"])
 
     proxies = []
     if region_count:
@@ -710,7 +734,12 @@ def rows(value: Any) -> list[dict[str, Any]]:
 
 
 def latest_numeric(row_values: list[dict[str, Any]], *keys: str) -> float | None:
-    """Newest parseable value for any of `keys`.
+    selected = latest_numeric_observation(row_values, *keys)
+    return selected[0] if selected is not None else None
+
+
+def latest_numeric_observation(row_values: list[dict[str, Any]], *keys: str) -> tuple[float, dict[str, Any]] | None:
+    """Newest parseable value and its row, shared by context and bundle evidence.
 
     SWPC feeds disagree on row order — rtsw_* and f107_cm_flux are NEWEST-first while
     planetary_k_index and the GOES X-ray series are oldest-first — so order by time_tag
@@ -728,7 +757,7 @@ def latest_numeric(row_values: list[dict[str, Any]], *keys: str) -> float | None
             if key in row:
                 value = numeric(row.get(key))
                 if value is not None:
-                    return value
+                    return value, row
     return None
 
 

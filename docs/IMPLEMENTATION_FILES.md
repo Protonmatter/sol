@@ -8,7 +8,7 @@ This inventory records all modified and untracked candidate files in the dedicat
 It is not a commit, publication attestation or claim that every acceptance gate passed.
 See [LOCAL_IMPLEMENTATION](LOCAL_IMPLEMENTATION.md) for results and open gates.
 
-There are 285 payload paths: 108 modified and 177 new. This inventory itself is
+There are 286 payload paths: 108 modified and 178 new. This inventory itself is
 one additional new file and is excluded from its own hash table to avoid self-reference.
 Ignored build, coverage and independent review evidence are not source payload entries.
 Hashes identify raw local file bytes (including line endings); Git blob IDs can differ.
@@ -61,14 +61,14 @@ No source files were deleted.
 | [apps/web/js/accuracy.js](../apps/web/js/accuracy.js) | modified | 3331 | `53ec28c6188568fb0a1b184db16e55569d81664ddcc043ad14596a2c67462eaa` |
 | [apps/web/js/config.js](../apps/web/js/config.js) | modified | 18029 | `baae20176371a0613437bcb5102436b52a50a320f6cc78a5818490467221869e` |
 | [apps/web/js/data.js](../apps/web/js/data.js) | modified | 4418 | `69c2d0154d45b47a4acb813de041f462007900f83d3dc76e4bdfcb5ce8ba9ba8` |
-| [apps/web/js/dataBundle.js](../apps/web/js/dataBundle.js) | new | 16038 | `acb5edd34b587054b9ffe501575b39a44bba226a3e27dfb1e58d9cc1699f72df` |
+| [apps/web/js/dataBundle.js](../apps/web/js/dataBundle.js) | new | 16083 | `7511c2df95e2b68e09ef4b3ed753bd8a47289d68bf4aade0e3b4c531bd7037a2` |
 | [apps/web/js/engineLimits.js](../apps/web/js/engineLimits.js) | new | 1656 | `16ed87b3b97292c7645799862226b226222b2ebadb9a0470a28ab5a565a7eb1e` |
 | [apps/web/js/ephemerisContract.js](../apps/web/js/ephemerisContract.js) | modified | 9644 | `5d36ef90de7f262c44acb45c024026a6c5aea93b481759efda96bdf8dfd0bc5f` |
 | [apps/web/js/ephemerisContractV2.js](../apps/web/js/ephemerisContractV2.js) | new | 8475 | `7e76358a742c1ce2cd75e7b0501a652cd571a2651c920124835f7d7485e2ade6` |
 | [apps/web/js/ephemerisSchema.js](../apps/web/js/ephemerisSchema.js) | new | 7042 | `def932eed15775ae59b7b4728200234f47b5396383c3396f8f94e07f8452fbe2` |
 | [apps/web/js/labelLayout.js](../apps/web/js/labelLayout.js) | new | 2165 | `241f4d3cb7284a4f10f9e1075c928934a937debe622c67beefbd8f67848d4d50` |
 | [apps/web/js/objectBrowser.js](../apps/web/js/objectBrowser.js) | new | 1447 | `fa642ae1f691b1967077a10007a7145070c61791a6b31636cf6685fa5b90f3c1` |
-| [apps/web/js/orrery.js](../apps/web/js/orrery.js) | modified | 130640 | `e2a7a3979284914d8f67c18a2f970372d46ce581e4b06156014f41d5f4795f66` |
+| [apps/web/js/orrery.js](../apps/web/js/orrery.js) | modified | 131319 | `01c9c605c42c409105329b273811bf698ae2b53d2cba475ddb872d4bf477c7e1` |
 | [apps/web/js/orreryDetail.js](../apps/web/js/orreryDetail.js) | modified | 14367 | `1d73a4861fccad82a86ac30fcd4f0c7ca40c5759313fe681d4e9b49e151441c9` |
 | [apps/web/js/panels.js](../apps/web/js/panels.js) | modified | 16935 | `dd9b8eeb3a498d0ba7aeae1c1548d09328b1c6d83969b699161ba3b2f41955de` |
 | [apps/web/js/presentationState.js](../apps/web/js/presentationState.js) | new | 5423 | `5aeae7c21c1a214fc3ab34835d0bda4fcb7582bdb54e9bf161fdc72f12e5ac7b` |
@@ -110,7 +110,7 @@ No source files were deleted.
 | [crates/solar-core/src/active_region.rs](../crates/solar-core/src/active_region.rs) | modified | 779 | `38e22b833c64b334dfde3fd580e6eaf9cab1f477b49c9ea4dbec2905e801624b` |
 | [crates/solar-core/src/assimilation.rs](../crates/solar-core/src/assimilation.rs) | modified | 11270 | `8ef88b3c6c19fe80c392bd14d4d4d00ae319a22bc69a5b06205d1ab8ed2cf330` |
 | [crates/solar-core/src/contracts.rs](../crates/solar-core/src/contracts.rs) | modified | 22472 | `efcb81c70d1fc5a8b26298c5fe4f10d1fe9e73e465951d497a11a68db83bddf1` |
-| [crates/solar-core/src/flux_transport.rs](../crates/solar-core/src/flux_transport.rs) | modified | 29910 | `b5847d04851048e37ae3a41edd7fb174576e28bd117e6cc3b9bb7357d3e1c6c4` |
+| [crates/solar-core/src/flux_transport.rs](../crates/solar-core/src/flux_transport.rs) | modified | 34369 | `44972b4851f608ccefa4957d7295d02e51c3425a73e74c71a0c402db977f675a` |
 | [crates/solar-core/src/grid.rs](../crates/solar-core/src/grid.rs) | modified | 2755 | `c8da744f8c165b73b92ece9a1f0fd78e16b2678e5d9f0714bad3a3456906da7d` |
 | [crates/solar-core/src/json_read.rs](../crates/solar-core/src/json_read.rs) | modified | 16667 | `b2d53ab4eef197ad25628607f0e78614db9c6403a35a3a19481c9bb6ab54a627` |
 | [crates/solar-core/src/lib.rs](../crates/solar-core/src/lib.rs) | modified | 6923 | `695cb7f869a97364b0030a3ed82d46f2b2f3820161c8e4bb3e5c3bad4e0497cd` |
@@ -165,9 +165,10 @@ No source files were deleted.
 | [docs/SOLAR_V3_MIGRATION.md](../docs/SOLAR_V3_MIGRATION.md) | new | 8606 | `4a4b82dfbc168d0b3b9daa9c8acb7ae92e03b6d94ad7f97835c5c09e9802f971` |
 | [docs/solar-image-registration-v1.schema.json](../docs/solar-image-registration-v1.schema.json) | new | 2469 | `de7add4cbf9962748bae85fecb677286a7be70514ed01702229e5d8e45935ee8` |
 | [docs/solar-state-snapshot-v3.schema.json](../docs/solar-state-snapshot-v3.schema.json) | new | 14684 | `53cf3491925b076ee236c311f215f9e3a57461aa22f14b9a8068420c6f0883be` |
-| [docs/SPEC.md](../docs/SPEC.md) | modified | 11970 | `f6550e7d4200d252cfde479f64fd0458c39be0b9c55fa9e124d73073bd467624` |
+| [docs/PR105_REVIEW_ROUND3.md](../docs/PR105_REVIEW_ROUND3.md) | new | 8317 | `9639b7970c1f035108a92212cf117f2a1553091c723030d77976bdddb147b90d` |
+| [docs/SPEC.md](../docs/SPEC.md) | modified | 12573 | `5a964f2ac584074831fde3a00b3116cd7c16290918144ed82c15ed1790553ad0` |
 | [docs/STATUS.md](../docs/STATUS.md) | modified | 5333 | `b521638ca3d1aba35d82e6310ece12b9a838cb912b6291e4ce1899c15a054d77` |
-| [docs/TRANSACTIONAL_FEED.md](../docs/TRANSACTIONAL_FEED.md) | new | 16080 | `0cc46183a66485fef040453dcc4992997af991ed0de4876a0df85445253bd541` |
+| [docs/TRANSACTIONAL_FEED.md](../docs/TRANSACTIONAL_FEED.md) | new | 16703 | `b22abc4ab90db49539b028bfe7d99ac5bc6cc54098957d5c7e9781ff9a8397f8` |
 | [docs/VALIDATION_PLAN.md](../docs/VALIDATION_PLAN.md) | modified | 8540 | `6d99c4269e7a83fda68fe9e17cbd9e1b24f4580a9a9696bfcab56a0be2a4b202` |
 | [docs/web-release-manifest-v1.schema.json](../docs/web-release-manifest-v1.schema.json) | new | 4235 | `4fd4e94705b0271bcff0760f7c0e6a731f69bf606b4b41abef464508c16ec8e4` |
 | [package-lock.json](../package-lock.json) | modified | 31094 | `35e851e382cad3594c79251f4bb8926b48f935312106fc1f27e0439fae9c49af` |
@@ -193,7 +194,7 @@ No source files were deleted.
 | [tests/python/test_browser_executable.py](../tests/python/test_browser_executable.py) | new | 11133 | `37094232e322c4c2dff97dd15be0d44221a80abc87077fbd0b37bf5b6c848ab6` |
 | [tests/python/test_bundle_build.py](../tests/python/test_bundle_build.py) | new | 2241 | `e547ebd1359b2e47360ea9663e285ad67601aa047986680404abab8523fa5538` |
 | [tests/python/test_contract_validators.py](../tests/python/test_contract_validators.py) | modified | 7323 | `27c3e18898b298cba738c62ec4604ec486d3449c733b0c0c64af4a83c279ee2d` |
-| [tests/python/test_data_bundles.py](../tests/python/test_data_bundles.py) | new | 18148 | `bd7d489963127757c2c26022b359d083d1f0c8531050164caafaf79336008682` |
+| [tests/python/test_data_bundles.py](../tests/python/test_data_bundles.py) | new | 20304 | `774223ffde8eeaf0812414ac1ed85b5dcb988f1ee330f409d80a857cc9667451` |
 | [tests/python/test_delivery_lifecycle.py](../tests/python/test_delivery_lifecycle.py) | new | 13641 | `a12ddc8b42df7343f22d247c1960de9ed043338be992b88f3248f7c7b8cff736` |
 | [tests/python/test_ephemeris_events.py](../tests/python/test_ephemeris_events.py) | new | 1594 | `3d6de56d845c6672625c1f6e677146c311bb93c77fe1021397e7878f7873776e` |
 | [tests/python/test_ephemeris_helper.py](../tests/python/test_ephemeris_helper.py) | new | 1351 | `2fdcb1a22ed6ffca146b336d6aeb9af08e5dd71ab086aa70488c6c5634055fc8` |
@@ -213,7 +214,7 @@ No source files were deleted.
 | [tests/python/test_strict_intake.py](../tests/python/test_strict_intake.py) | new | 3804 | `ff1ce3d0b8b3b02b5ed8d073097bfaca7edb5928791e720088062212f3acb57d` |
 | [tests/python/test_ux_contract.py](../tests/python/test_ux_contract.py) | modified | 10268 | `e0f4da0733bfa0048a2a2a73fdf5debfeaa9b65fc603cd408e12eff11794a649` |
 | [tests/web/accuracyEvidence.test.mjs](../tests/web/accuracyEvidence.test.mjs) | new | 3795 | `e395571985cd7e00e8a868afcdbbcc4cff7c34a6efa7fcd94df92900ba78b9c3` |
-| [tests/web/dataBundle.test.mjs](../tests/web/dataBundle.test.mjs) | new | 12076 | `98d2e0f1819cce0f722e42ba02df45e431ff3e85db26e8f2a38bf8a3ff81b1cd` |
+| [tests/web/dataBundle.test.mjs](../tests/web/dataBundle.test.mjs) | new | 14323 | `516c60d0fddeaddf642c92baa0d893263c9a8e9cab2636e065ab511b954f4759` |
 | [tests/web/dataPublication.test.mjs](../tests/web/dataPublication.test.mjs) | new | 5503 | `600a803db40f3a335997a49253a6e6cdbed42a81a6a19f4b7606bc86f2da546e` |
 | [tests/web/engineLimits.test.mjs](../tests/web/engineLimits.test.mjs) | new | 1380 | `0e09f824c1aea8985be90ddcf36bc3d80f0ae864f73c4b83564bd0398c73cb33` |
 | [tests/web/ephemerisEvents.test.mjs](../tests/web/ephemerisEvents.test.mjs) | new | 2354 | `b1b193ef0006acc9f85f30a5364b061aa35b0137d32f996bb4cb6d6c925c471d` |
@@ -251,13 +252,13 @@ No source files were deleted.
 | [tools/build_wasm.py](../tools/build_wasm.py) | modified | 1947 | `29ab61005eb793dfc280be12b0611c1a9ed2373458b831c58c0bf495a244e531` |
 | [tools/build_web.py](../tools/build_web.py) | modified | 13077 | `905b1f40f7077b58daaf55bb2e0558c4ea94923e5ae3a7c3d14be21db722e624` |
 | [tools/collect_node_coverage.mjs](../tools/collect_node_coverage.mjs) | modified | 1846 | `2fb412c9028be456ca52225d8ccd44d4a99a18b4c1f80860753ee21d428e11e7` |
-| [tools/data_bundles.py](../tools/data_bundles.py) | new | 23609 | `283148625c69f055255131e24cb7e57e53649d219616063ed97e3a5385081a68` |
+| [tools/data_bundles.py](../tools/data_bundles.py) | new | 23661 | `c5f6b653c58a290ccc65b65b74a92213428389031daceae8b28823d27adf742b` |
 | [tools/delivery_lifecycle.py](../tools/delivery_lifecycle.py) | new | 17272 | `dfa47c78b050514a911ecd347b6e0c2c3e9cae4861c4fbe85596cc433723dc8a` |
 | [tools/ephemeris-data/generation-manifest.json](../tools/ephemeris-data/generation-manifest.json) | new | 3292 | `00848b3b835128c28b40dd7b5a05990bb0d22bdecb2796cb360cf71dbf0bb649` |
 | [tools/ephemeris-data/README.md](../tools/ephemeris-data/README.md) | modified | 2114 | `eca81b307b4f190b760ddfcf24efba5ec636eabea38a9ca8378b8cee5d3aa4cf` |
 | [tools/experience_validation.mjs](../tools/experience_validation.mjs) | new | 18600 | `48f299111cb4a1e12d5957d4795a7a4bdc25df90e2c6ed1e1ee28197d865f2d2` |
 | [tools/fetch_public_data.py](../tools/fetch_public_data.py) | modified | 14449 | `9fddba185a75a6937d51d578c823eb19541209ea1a5ac64c5bcf62d5afbb3f17` |
-| [tools/generate_fixture_snapshot.py](../tools/generate_fixture_snapshot.py) | modified | 38609 | `77ca96cb34148b1749e613b6f304e85b5d9604500f5793bbe96b402ec6856336` |
+| [tools/generate_fixture_snapshot.py](../tools/generate_fixture_snapshot.py) | modified | 40376 | `f2eacf90c49bc338505f0b334944ca7ce69068447d5f47d7a4e1c37a14731d5e` |
 | [tools/generate_moons.py](../tools/generate_moons.py) | modified | 19128 | `0c070352991b48283a9ab9aa40425b50df9406a5d36dd1788f5c8d34290f86f9` |
 | [tools/generate_series.py](../tools/generate_series.py) | modified | 7858 | `b289ad7b5c9ad18babfce30a169348ba8439b63c1a2550508ad42b0ce16caa0b` |
 | [tools/install_daily_ingest_task.ps1](../tools/install_daily_ingest_task.ps1) | modified | 4442 | `52c5e1c02d0a5acd544b0d44aa50da7229acdb7ae8990305773e031cf922bb65` |
@@ -295,9 +296,9 @@ No source files were deleted.
 | [tests/fixtures/manifest-f107/bundles/source/manifest.json](../tests/fixtures/manifest-f107/bundles/source/manifest.json) | new | 1624 | `041bc95fc75f9442200de9d749af858214aa278080a1d7e96e8b1496e26387f4` |
 | [tests/fixtures/manifest-f107/bundles/source/wind.json](../tests/fixtures/manifest-f107/bundles/source/wind.json) | new | 70 | `807414416efc72020d3c66d557b9d48fe1c50ae6b34f110784ce9550fb168cf0` |
 | [tests/fixtures/manifest-f107/current.json](../tests/fixtures/manifest-f107/current.json) | new | 209 | `742fa1ada338b19fc97f14285aabbda3ab8db53854f134fc1277190fa86317f8` |
-| [tests/web/orrery_review_regressions.test.mjs](../tests/web/orrery_review_regressions.test.mjs) | new | 9935 | `82c12769ad06b3768af23e6c8df4f3b9c915acfa8412f1ebb54a9b567c341569` |
+| [tests/web/orrery_review_regressions.test.mjs](../tests/web/orrery_review_regressions.test.mjs) | new | 18738 | `c5b7ecba674115ae1712b7170460880407ef12a66e966a785a154e31a1d6e68b` |
 | [tests/web/sky_review_regressions.test.mjs](../tests/web/sky_review_regressions.test.mjs) | new | 14002 | `f5e442c6833758e03335061f81d2e7d4a2dcce4254be0b4d02bc64ace6f02bfd` |
 | [docs/PR105_REVIEW_ROUND2.md](../docs/PR105_REVIEW_ROUND2.md) | new | 7727 | `90137129fcfa25219768cd2c6dbe7d1796629433c41be74d91b30819a1fb9d53` |
-| [tests/python/test_bundle_observation_provenance.py](../tests/python/test_bundle_observation_provenance.py) | new | 5455 | `08332dd19ee037cf6f9cbeccb82c00e654c8d816b069123f40cb6453b47827e1` |
+| [tests/python/test_bundle_observation_provenance.py](../tests/python/test_bundle_observation_provenance.py) | new | 12030 | `269bdda7355ee11c92e36c5b9bcc7e035bc3e505e75ee65462d277136499f530` |
 | [tests/web/wavelength_review_regressions.test.mjs](../tests/web/wavelength_review_regressions.test.mjs) | new | 6942 | `f46f5a2771f2cdf1bdd81d23ab79e4ccae6e8806fd9ceccb758cdab300434030` |
 | [tests/web/solar_review_regressions.test.mjs](../tests/web/solar_review_regressions.test.mjs) | new | 6240 | `af7e4bfa1f9758608163ece8079c7c4da3024d865b3d90372555c6a269fbdb66` |

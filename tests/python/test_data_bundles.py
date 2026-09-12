@@ -209,6 +209,35 @@ class BundleTests(unittest.TestCase):
         with self.assertRaises(KeyboardInterrupt): self.derived("selected", source=bundles.resolve_source_bundle(self.root / "source/current.json"), hook=interrupt)
         self.assertEqual(bundles.resolve_derived_bundle(self.root / "derived/current.json").bundle_id, "selected")
 
+    def test_exact_series_roles_reject_rehashed_aliases_without_replacing_selection(self):
+        source = self.source()
+        components = self.components()
+        entries = [{"file": f"frame-{index}.json", "months": index * 12,
+                    **({} if index in (0, 10) else {"availability": "unavailable", "reason": "declared gap"})}
+                   for index in range(11)]
+        components["series_manifest"] = ("series/manifest.json", "series-manifest.v1",
+            bundles.json_bytes({"schema_version": "series-manifest.v1", "frames": entries}))
+        for index in (0, 10):
+            components[f"series_frame:{index}"] = (f"series/frame-{index}.json", "solar-state-snapshot.v3", components["snapshot"][2])
+        accepted = bundles.create_derived_bundle(self.root / "derived", bundle_id="derived-a", source=source,
+            generated_at_utc="2026-09-11T12:00:00Z", components=components)
+        self.assertEqual(accepted.component("series_frame:10").raw, components["snapshot"][2])
+        pointer = self.root / "derived/current.json"
+        before = pointer.read_bytes()
+        for index, suffix in enumerate(("00", "000", "010", "01", "1", "11", "999")):
+            with self.subTest(suffix=suffix):
+                bundles.select_bundle(pointer, accepted)
+                changed = dict(components)
+                changed[f"series_frame:{suffix}"] = (f"series/frame-{suffix}.json", "solar-state-snapshot.v3", components["snapshot"][2])
+                name = f"orphan-{index}"
+                status = json.loads(changed["feed_status"][2]); status["bundle_id"] = name
+                changed["feed_status"] = (*changed["feed_status"][:2], bundles.json_bytes(status))
+                with self.assertRaisesRegex(ValueError, "orphan series|unavailable series"):
+                    bundles.create_derived_bundle(self.root / "derived", bundle_id=name, source=source,
+                        generated_at_utc="2026-09-11T12:00:00Z", components=changed)
+                self.assertEqual(pointer.read_bytes(), before)
+                self.assertEqual(bundles.resolve_derived_bundle(pointer).bundle_id, accepted.bundle_id)
+
     def test_hash_corruption_and_traversal_reject_without_fallback(self):
         selected = self.derived()
         selected.component("snapshot").path.write_bytes(b"changed")

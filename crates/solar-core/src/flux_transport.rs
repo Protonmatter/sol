@@ -164,7 +164,8 @@ fn retire_regions(state: &mut SolarState) {
         .source_events
         .values()
         .filter(|region| {
-            now - region.birth_seconds <= ACTIVE_REGION_LIFETIME_DAYS * SECONDS_PER_DAY
+            region.birth_seconds <= now
+                && now - region.birth_seconds <= ACTIVE_REGION_LIFETIME_DAYS * SECONDS_PER_DAY
         })
         .cloned()
         .collect();
@@ -365,6 +366,111 @@ mod tests {
         assert!(one.br.max_abs() > 0.1);
         assert!(two.br.max_abs() > 0.1, "the boundary source was lost");
         assert_fields_close(&one, &two, 0.0);
+    }
+
+    #[test]
+    fn future_birth_snapshots_publish_only_born_regions_at_every_partition() {
+        let cfg = FluxTransportConfig::default();
+        let initial = event_state(&[(1, 3600.0), (2, 9001.0)]);
+        let mut parts = initial.clone();
+        let cases: &[(f64, &[u64])] = &[
+            (1800.0, &[]),
+            (3599.0, &[]),
+            (3600.0, &[1]),
+            (3600.25, &[1]),
+            (7200.0, &[1]),
+            (9000.0, &[1]),
+            (9001.0, &[1, 2]),
+            (10000.0, &[1, 2]),
+        ];
+        for &(target, expected_ids) in cases {
+            let dt = target - parts.time_seconds;
+            advance_flux_transport(&mut parts, dt, &cfg);
+            let request = crate::SnapshotRequest::synthetic(42, 1, target / 3600.0, 0.9);
+            // Exercise the public producer at each intermediate epoch: an
+            // unborn display region violates its birth <= snapshot-time rule.
+            let raw = crate::solar_state_snapshot_json(&parts, &request);
+            let snapshot = crate::parse_json(&raw).unwrap();
+            let regions = snapshot.get("active_regions").unwrap().as_array().unwrap();
+            assert_eq!(regions.len(), expected_ids.len(), "target {target}");
+            for (region, id) in regions.iter().zip(expected_ids) {
+                assert_eq!(region.get("id").unwrap().as_f64(), Some(*id as f64));
+            }
+            assert_eq!(
+                parts
+                    .consumed_source_ids
+                    .iter()
+                    .copied()
+                    .collect::<Vec<_>>(),
+                expected_ids,
+                "source consumption at target {target}"
+            );
+            assert_eq!(
+                parts.source_events.values().cloned().collect::<Vec<_>>(),
+                initial.active_regions,
+                "pending source payloads must survive display selection"
+            );
+            if expected_ids.is_empty() {
+                assert_eq!(parts.br.max_abs(), 0.0, "source injected before birth");
+            } else {
+                assert!(parts.br.max_abs() > 0.1, "source lost at target {target}");
+            }
+
+            let mut one = initial.clone();
+            advance_flux_transport(&mut one, target, &cfg);
+            assert_fields_close(&one, &parts, 0.0);
+            assert!(
+                raw == crate::solar_state_snapshot_json(&one, &request),
+                "snapshot bytes depend on prebirth caller partitions at {target}"
+            );
+        }
+    }
+
+    #[test]
+    fn future_birth_consumption_survives_rebase_without_reinjection() {
+        let cfg = FluxTransportConfig::default();
+        // Cover both a fixed checkpoint and a birth inside a partial interval.
+        for birth in [3600.0, 4217.0] {
+            let mut state = event_state(&[(1, birth)]);
+            advance_flux_transport(&mut state, 1800.0, &cfg);
+            let request = crate::SnapshotRequest::synthetic(42, 1, 0.5, 0.9);
+            let snapshot =
+                crate::parse_json(&crate::solar_state_snapshot_json(&state, &request)).unwrap();
+            assert!(snapshot
+                .get("active_regions")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .is_empty());
+            advance_flux_transport(&mut state, birth - 1800.0, &cfg);
+            assert!(
+                state.br.max_abs() > 0.1,
+                "queued source was lost at {birth}"
+            );
+
+            // An external field correction retains the consumed source identity.
+            // If display retirement discards that identity, the next advance
+            // would incorrectly recreate the removed magnetic field.
+            state.br.values.fill(0.0);
+            state.synchronize_transport_anchor();
+            advance_flux_transport(&mut state, 1.0, &cfg);
+            advance_flux_transport(&mut state, 7200.0, &cfg);
+            assert_eq!(
+                state.br.max_abs(),
+                0.0,
+                "source reinjected after birth {birth}"
+            );
+            assert_eq!(state.active_regions.len(), 1);
+            assert_eq!(state.source_events.len(), 1);
+            assert_eq!(
+                state
+                    .consumed_source_ids
+                    .iter()
+                    .copied()
+                    .collect::<Vec<_>>(),
+                vec![1]
+            );
+        }
     }
 
     #[test]

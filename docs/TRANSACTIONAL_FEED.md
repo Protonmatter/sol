@@ -18,16 +18,24 @@ and bytes; the new acquisition records the failure/degradation separately. Reuse
 promote fixture data to observed cached data.
 
 Native source-pointer intake and Python daily derivation carry the validated product
-source into row selection and normalized-frame provenance, respectively.
+source into row selection and normalized-frame provenance.
 When an F10.7 row omits `source`, the manifest attribution is used without changing
 the original row or raw payload. A valid row source takes precedence; an explicit
 blank, unknown, null or non-string row source remains rejected. Legacy cache/payload
 inputs without manifest attribution cannot invent a source or activity analysis.
+Python bundle derivation excludes unattributable rows from numeric signals and activity
+proxy counts, not only from snapshot evidence. Numeric context and its evidence frame
+select the same newest eligible numeric row; signal freshness follows that selected
+row rather than a newer nonnumeric record. Invalid-only inputs retain raw report/source
+metadata but cannot supply a numeric signal or activity proxy.
 
 `research-data-bundle.v1` binds its source manifest digest and all snapshot,
 normalized-observation, feed-status, series-manifest, and available-series-frame
 components. Explicit unavailable series slots retain their original index/time and
-reason. Every declared component is read, sized, hashed, parsed, and validated before
+reason. Available frames select exact canonical roles (`series_frame:0`,
+`series_frame:1`, and so on); extra aliases such as `series_frame:00` are orphan
+components, not alternative spellings. Gap entries must not carry frame payloads.
+Every declared component is read, sized, hashed, parsed, and validated before
 the result is returned. A missing/corrupt declared frame rejects the candidate; it is
 not silently removed from the timeline. Images and planetary catalogs remain separate
 release assets, not physical observations of the solar simulation.

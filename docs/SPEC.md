@@ -53,6 +53,9 @@ SolarState {
 ```
 
 The private transport checkpoint makes the state at a requested target time invariant to how a caller partitions the interval. External assimilation or replacement of transport fields must explicitly rebase that checkpoint.
+Pending source events remain queued until their birth epoch. An intermediate snapshot's
+active regions include only events born at or before its epoch and within the existing
+lifetime bound; hiding future regions must not discard their eventual source injection.
 
 ## Snapshot contracts
 
@@ -205,6 +208,10 @@ Current top-level destinations are:
 Canvas views require keyboard-native alternatives and persistent selected facts. The tour
 is modal, focus-trapped and skippable. Current source/epoch/observer/provider/limits are
 presented independently from pending work. Cancellation and failure retain valid state.
+System animation validates each proposed epoch before changing displayed time or invoking
+the raw position path. An unsupported step pauses at the last valid epoch with an
+actionable status. Returning to a visible System view supersedes an entry cancelled
+while hidden; an obsolete completion cannot publish or clear the replacement entry.
 Sky groups use geometric altitude strictly greater than zero, not refraction. Invalid
 observer/time input is rejected rather than clamped; device civil timezone or UTC is
 explicit and observer timezone is not inferred.

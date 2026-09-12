@@ -20,9 +20,10 @@ class BundleObservationProvenanceTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
-    def source(self, row_source: dict, bundle_id: str = "source"):
+    def source(self, row_source: dict, bundle_id: str = "source", rows_by_name: dict | None = None):
+        rows_by_name = rows_by_name or {}
         products = []
-        for name in ("rtsw_mag_1m.json", "rtsw_wind_1m.json", "f107_cm_flux.json"):
+        for name in dict.fromkeys(("rtsw_mag_1m.json", "rtsw_wind_1m.json", "f107_cm_flux.json", *rows_by_name)):
             row = {"time_tag": "2026-09-11T00:00:00Z", **row_source}
             if name == "f107_cm_flux.json":
                 row["flux"] = 150.0
@@ -31,7 +32,7 @@ class BundleObservationProvenanceTests(unittest.TestCase):
                 "origin": "cached-fallback", "observation_time_utc": row["time_tag"],
                 "retrieved_at_utc": None, "quality": ["synthetic offline regression payload"],
                 "failure": "offline test", "license": "synthetic test data", "critical": True,
-                "payload": bundles.json_bytes([row]),
+                "payload": bundles.json_bytes(rows_by_name.get(name, [row])),
             })
         return bundles.create_source_bundle(self.root / "source", bundle_id=bundle_id,
             acquired_at_utc="2026-09-11T00:00:00Z", products=products)
@@ -79,6 +80,96 @@ class BundleObservationProvenanceTests(unittest.TestCase):
                     self.assertEqual(frame["provenance"]["source"], invalid)
                     self.assertEqual(frame["provenance"]["raw_source_metadata"]["source"], invalid)
                 self.assertEqual(snapshot["observations"][0]["frames"], [])
+                context = report["observed_context"]
+                self.assertIsNone(context["space_weather_signals"]["latest_f107"])
+                self.assertEqual(context["activity_proxy_sources"]["f107_cm_flux_rows"], 0)
+                self.assertEqual(context["signal_freshness"], {})
+                self.assertEqual(snapshot["run"]["activity_index"], 0.9)
+                self.assertEqual(len(snapshot["active_regions"]), 34)
+
+    def test_newer_invalid_row_cannot_override_attributable_context_or_evidence(self):
+        payload = [
+            {"time_tag": "2026-09-11T00:00:00Z", "source": " UNKNOWN ", "flux": 235.0,
+             "active": False, "instrument": "unattributed instrument"},
+            {"time_tag": "2026-09-10T00:00:00Z", "source": "older observatory", "flux": 150.0,
+             "active": True, "instrument": "attributed instrument"},
+        ]
+        source = self.source({}, rows_by_name={"f107_cm_flux.json": payload})
+        raw = source.component("f107_cm_flux.json").raw
+        manifest_raw = source.manifest_raw
+        report = self.report(source)
+        daily.derive_bundle(source, self.root / "derived", bundle_id="derived",
+            generated_at_utc="2026-09-11T01:00:00Z", seed=42)
+        derived = bundles.resolve_derived_bundle(self.root / "derived" / "current.json")
+        snapshot = json.loads(derived.component("snapshot").raw)
+        self.assertEqual(json.loads(derived.component("observations").raw), report)
+        context = report["observed_context"]
+        self.assertEqual(context["space_weather_signals"]["latest_f107"], 150.0)
+        self.assertEqual(context["activity_proxy_sources"]["f107_cm_flux_rows"], 1)
+        self.assertEqual(snapshot["run"]["activity_index"], 0.5)
+        self.assertEqual(len(snapshot["active_regions"]), 25)
+        frame = next(frame for frame in snapshot["observations"][0]["frames"] if frame["id"] == "swpc-f107-cm-flux")
+        self.assertEqual(frame["provenance"]["source"], "older observatory")
+        self.assertEqual(frame["provenance"]["time_tag"], "2026-09-10T00:00:00Z")
+        self.assertEqual(frame["provenance"]["raw_source_metadata"], {
+            "source": "older observatory", "active": True, "instrument": "attributed instrument",
+        })
+        self.assertEqual(context["signal_freshness"]["swpc-f107-cm-flux"]["latest_time_tag"], "2026-09-10T00:00:00Z")
+        self.assertEqual(snapshot["observations"], [report])
+        self.assertEqual(snapshot["observed_context"], context)
+        self.assertEqual(source.component("f107_cm_flux.json").raw, raw)
+        self.assertEqual(source.component("f107_cm_flux.json").path.read_bytes(), raw)
+        self.assertEqual(json.loads(raw), payload)
+        self.assertEqual(source.manifest_raw, manifest_raw)
+        self.assertEqual(frame["raw_bytes"], len(raw))
+
+    def test_numeric_evidence_uses_selected_row_with_manifest_fallback(self):
+        cases = (
+            ("rtsw_mag_1m.json", "swpc-rtsw-mag-1m", "bz_gsm", "latest_bz_gsm_nt"),
+            ("rtsw_wind_1m.json", "swpc-rtsw-wind-1m", "speed", "latest_solar_wind_speed_km_s"),
+            ("f107_cm_flux.json", "swpc-f107-cm-flux", "flux", "latest_f107"),
+            ("observed-solar-cycle-indices.json", "swpc-observed-cycle-indices", "f10.7", "latest_f107"),
+            ("planetary_k_index_1m.json", "swpc-planetary-k-index-1m", "estimated_kp", "latest_kp"),
+            ("goes_xrays_1_day.json", "swpc-goes-xrays-1-day", "flux", "latest_goes_xray_flux"),
+        )
+        for index, (name, frame_id, key, signal) in enumerate(cases):
+            with self.subTest(feed=name):
+                rows_by_name = {name: [
+                    {"time_tag": "2026-09-08T00:00:00Z", "source": "oldest source", key: 100.0},
+                    {"time_tag": "2026-09-09T00:00:00Z", "instrument": "selected instrument", key: "150.0"},
+                    {"time_tag": "2026-09-10T00:00:00Z", "source": " UNKNOWN ", key: 235.0},
+                    {"time_tag": "2026-09-11T00:00:00Z", "source": "newer nonnumeric source", key: "missing"},
+                ]}
+                if name == "observed-solar-cycle-indices.json":
+                    rows_by_name["f107_cm_flux.json"] = [{"source": "unknown", "flux": 235.0}]
+                report = self.report(self.source({}, bundle_id=f"numeric-{index}", rows_by_name=rows_by_name))
+                snapshot = generator.build_snapshot(42, 12, 6, report)
+                self.assertEqual(report["observed_context"]["space_weather_signals"][signal], 150.0)
+                frame = next(frame for frame in snapshot["observations"][0]["frames"] if frame["id"] == frame_id)
+                self.assertEqual(frame["provenance"]["time_tag"], "2026-09-09T00:00:00Z")
+                self.assertEqual(frame["provenance"]["source"], "offline manifest " + name)
+                self.assertEqual(frame["provenance"]["raw_source_metadata"], {"instrument": "selected instrument"})
+                freshness_id = name if name.startswith("rtsw_") else frame_id
+                freshness = report["observed_context"]["signal_freshness"][freshness_id]
+                self.assertEqual(freshness["latest_time_tag"], "2026-09-09T00:00:00Z")
+                self.assertEqual(freshness["age_hours"], 49.0)
+                self.assertTrue(freshness["stale"])
+
+    def test_invalid_rows_do_not_inflate_activity_proxy_counts(self):
+        for index, (name, count_key, activity, region_count) in enumerate((
+            ("solar_regions.json", "solar_region_rows", 0.375, 22),
+            ("sunspot_report.json", "sunspot_rows", 0.375, 22),
+            ("goes_xray_flares_7_day.json", "goes_xray_flares_7_day_rows", 0.495833, 25),
+        )):
+            with self.subTest(feed=name):
+                payload = [{"time_tag": "2026-09-10T00:00:00Z", "source": "attributable observatory"}]
+                payload.extend({"time_tag": "2026-09-11T00:00:00Z", "source": invalid}
+                               for invalid in (None, "", " UNKNOWN ", 7, False))
+                report = self.report(self.source({}, bundle_id=f"count-{index}", rows_by_name={name: payload}))
+                snapshot = generator.build_snapshot(42, 12, 6, report)
+                self.assertEqual(report["observed_context"]["activity_proxy_sources"][count_key], 1)
+                self.assertEqual(snapshot["run"]["activity_index"], activity)
+                self.assertEqual(len(snapshot["active_regions"]), region_count)
 
     def test_legacy_candidate_without_manifest_does_not_infer_attribution(self):
         candidate = {"row": {"time_tag": "2026-09-11T00:00:00Z"}, "source_mode": "cached",

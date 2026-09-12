@@ -117,14 +117,16 @@ export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedRe
   const series=data.series_manifest;
   if(series.schema_version!=="series-manifest.v1")fail("Invalid series schema");
   makeSeriesRecords(series,[]);
+  const selectedRoles=new Set();
   const frames=series.frames.map((entry,index)=>{
     const role=`series_frame:${index}`;
     if(entry.availability==="unavailable"){if(!entry.reason||roles.has(role))fail("Invalid declared gap");return null;}
     const record=manifest.components.find(c=>c.role===role);
     if(!record||record.path!==`series/${entry.file}`)fail("Missing series component");
+    selectedRoles.add(role);
     return parseSolarSnapshot(new TextDecoder().decode(raws[role]));
   });
-  if([...roles].some(r=>r.startsWith("series_frame:")&&Number(r.split(":")[1])>=frames.length))fail("Orphan series component");
+  if([...roles].some(r=>r.startsWith("series_frame:")&&!selectedRoles.has(r)))fail("Orphan series component");
   return freeze({bundleId:manifest.bundle_id,sourceBundleId:manifest.source_bundle_id,
     identity:{bundle_id:manifest.bundle_id,source_bundle_id:manifest.source_bundle_id,manifest_sha256:descriptor.manifest_sha256},
     snapshot,observations:data.observations,feedStatus:status,seriesManifest:series,seriesFrames:frames,seriesRecords:makeSeriesRecords(series,frames)});

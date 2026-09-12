@@ -15,7 +15,7 @@ function fixture(id, mutate=()=>{}){
   values.observations=structuredClone(snapshot.observations[0]);
   mutate(values);
   const root=`https://example.invalid/data/bundles/${id}/`,files=new Map(),components=[];
-  for(const [role,value] of Object.entries(values)){const raw=bytes(value),path=`${role}.json`;files.set(root+path,raw);components.push({role,path,schema_version:value.schema_version,size_bytes:raw.length,sha256:hash(raw)});}
+  for(const [role,value] of Object.entries(values)){const raw=bytes(value),path=role.startsWith("series_frame:")?`series/frame-${role.slice(13)}.json`:`${role}.json`;files.set(root+path,raw);components.push({role,path,schema_version:value.schema_version,size_bytes:raw.length,sha256:hash(raw)});}
   const manifest=bytes({schema_version:"research-data-bundle.v1",bundle_id:id,source_bundle_id:"source",source_manifest_sha256:hash(bytes(source)),generated_at_utc:"2026-09-11T00:00:00Z",components});
   files.set(root+"manifest.json",manifest);
   return {files,pointer:bytes({schema_version:"bundle-pointer.v1",bundle_id:id,manifest_path:`bundles/${id}/manifest.json`,manifest_sha256:hash(manifest)})};
@@ -85,7 +85,7 @@ test("object key order and excluded unattributed report frames do not create fal
   assert.equal(accepted.snapshot.observed_context.activity_index,0.9);
 });
 
-test("the actual loader retains its complete publication when rehashed evidence disagrees",async()=>{
+test("the actual loader retains its complete publication for invalid rehashed evidence or series roles",async()=>{
   const good=fixture("good"),bad=fixture("bad",v=>{v.observations.observed_context.activity_index=0.2;});
   let selected=good;
   const fetcher=async url=>new Response(url.endsWith("current.json")?selected.pointer:selected.files.get(url));
@@ -99,10 +99,12 @@ test("the actual loader retains its complete publication when rehashed evidence 
   await context.loadState();
   const before={snapshot:store.state,identity:store.dataBundleIdentity,status:store.feedStatus,series:store.seriesRecords};
   assert.equal(before.identity.bundle_id,"good");
-  selected=bad;await context.loadState();
-  assert.equal(store.state,before.snapshot);assert.equal(store.liveState,before.snapshot);
-  assert.equal(store.dataBundleIdentity,before.identity);assert.equal(store.feedStatus,before.status);assert.equal(store.seriesRecords,before.series);
-  assert.match(store.dataError,/observations/);
+  for(const candidate of [bad,seriesFixture("series_frame:00")]){
+    selected=candidate;await context.loadState();
+    assert.equal(store.state,before.snapshot);assert.equal(store.liveState,before.snapshot);
+    assert.equal(store.dataBundleIdentity,before.identity);assert.equal(store.feedStatus,before.status);assert.equal(store.seriesRecords,before.series);
+    assert.match(store.dataError,/observations|Orphan series/);
+  }
   selected=good;await context.loadState();assert.equal(store.dataError,null);
 });
 
@@ -150,4 +152,41 @@ test("release-bound bundle uses immutable manifest and critical asset size/hash 
   const seen=[],fetcher=async url=>{seen.push(url);return new Response(files.get(url));};
   const selected=await readDataBundle({releaseUrl:prefix+"web-release-manifest.json",expectedReleaseId:"release-a",fetcher,crypto:webcrypto});
   assert.equal(selected.bundleId,"a");assert.ok(seen.every(url=>url.startsWith(prefix)));
+});
+
+function seriesFixture(extraRole=null){
+  return fixture("series",values=>{
+    values.series_manifest.frames=Array.from({length:11},(_,index)=>({
+      file:`frame-${index}.json`,months:index*12,
+      ...(index===0||index===10?{}:{availability:"unavailable",reason:"declared gap"}),
+    }));
+    values["series_frame:0"]=structuredClone(snapshot);
+    values["series_frame:10"]=structuredClone(snapshot);
+    if(extraRole)values[extraRole]=structuredClone(snapshot);
+  });
+}
+
+test("canonical series roles retain multi-digit indices and declared gaps",async()=>{
+  const a=seriesFixture(),fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+  const selected=await readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto});
+  assert.equal(selected.seriesFrames.length,11);
+  assert.equal(selected.seriesRecords[0].status,"ready");
+  assert.equal(selected.seriesRecords[1].status,"unavailable");
+  assert.equal(selected.seriesFrames[1],null);
+  assert.equal(selected.seriesRecords[10].status,"ready");
+  assert.equal(selected.seriesRecords[10].months,120);
+});
+
+test("rehashed leading-zero series role aliases are rejected as unselected components",async()=>{
+  for(const role of ["series_frame:00","series_frame:000","series_frame:010","series_frame:01"]){
+    const a=seriesFixture(role),fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+    await assert.rejects(readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto}),/orphan series/i,role);
+  }
+});
+
+test("series gap payloads and out-of-range canonical components remain rejected",async()=>{
+  for(const role of ["series_frame:1","series_frame:11","series_frame:999"]){
+    const a=seriesFixture(role),fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+    await assert.rejects(readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto}),/gap|orphan series/i,role);
+  }
 });
