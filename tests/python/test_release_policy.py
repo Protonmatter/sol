@@ -96,6 +96,16 @@ class ReleasePolicyTests(unittest.TestCase):
                 with self.subTest(job=job, outcome=outcome):
                     self.assertFalse(policy.evaluate(candidate, self.trusted, [], self.today).candidate_verified)
 
+    def test_required_wasm_verification_cannot_be_absent_or_unsuccessful(self) -> None:
+        for outcome in (None, "failure", "skipped", "cancelled"):
+            candidate = copy.deepcopy(self.candidate)
+            if outcome is None:
+                candidate["jobs"].pop("wasm", None)
+            else:
+                candidate["jobs"]["wasm"] = outcome
+            with self.subTest(outcome=outcome):
+                self.assertFalse(policy.evaluate(candidate, self.trusted, [], self.today).candidate_verified)
+
     def test_wrong_candidate_identity_cannot_borrow_a_green_run(self) -> None:
         for key, value in {"repository": "foreign/repo", "source_sha": "c" * 40,
             "run_id": 999, "run_attempt": 2, "artifact_id": 999,
@@ -317,6 +327,7 @@ class ReleasePolicyTests(unittest.TestCase):
             "candidate": ["Candidate identity"], "governance": ["Governance and specification contracts"],
             "test": ["Rust tests (workspace)"], "lint": ["Rust lint (fmt + clippy)"],
             "web": ["Web, provider, and browser validation"], "artifact": ["Build immutable web artifact"],
+            "wasm": ["WASM build (wasm32-unknown-unknown)"],
             "coverage": ["Coverage / Rust coverage (>= 90%)", "Coverage / Python coverage (>= 90%)",
                          "Coverage / JavaScript coverage (Node + Chromium, >= 90%)"],
             "docs": ["Docs / Markdown links, badges + style"],

@@ -69,6 +69,12 @@ files and is merged with Chromium coverage at the existing 90 percent floor.
 
 CI's always-run `Release gate` requires every substantive same-run job, including
 reusable Coverage and Docs. Missing, skipped, cancelled, or failed jobs are not success.
+The protected `WASM build (wasm32-unknown-unknown)` identity depends on `Build immutable
+web artifact`: it rejects an unsuccessful or unidentified producer, downloads the same-
+run/attempt candidate, and validates both engine binaries against the exact manifest
+digest, repository, source SHA, run ID and attempt. It does not rename the producer,
+rebuild different bytes, or change branch protection. It is also a required release-gate
+dependency and expanded promotion job identity.
 A PR merge preview may be `candidate_verified` but is never a normal deployable artifact.
 Dispatch is diagnostic and does not replace PR check association.
 
@@ -90,6 +96,10 @@ records and must map to their exact `reviewed_by` and `acceptance_id` values.
 Protected policy also requires `required_job_names`, the exact expanded map in the
 pinned verifier's `MANDATORY_JOB_NAMES`. It includes all three determinism matrix
 members, all three Coverage children, the Docs child, and the other mandatory jobs.
+The additive WASM identity requires a coordinated reviewed pinned-verifier and protected
+`required_job_names` update before production promotion. An older protected map is not
+silently accepted by the new verifier. This source change does not modify protected
+settings or authorize that later administrative operation.
 Promotion fetches jobs from the exact run-attempt endpoint and rejects absent,
 ambiguous, unexpected, non-completed, non-successful, or foreign run/attempt/source
 results. Candidate summary must agree with the independently resolved complete map.

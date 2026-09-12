@@ -2,20 +2,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
-import { BASE_IMAGES, WAVELENGTHS, FALLBACK_STATE } from "../../apps/web/js/config.js";
+import { loadSourceModules } from "./helpers/sourceModuleHarness.mjs";
 import { assertSolarSnapshot } from "../../apps/web/js/solarContract.js";
-import { projectSolarPoint, regionAnchor, confidenceEncoding } from "../../apps/web/js/solarProjection.js";
-import { seriesPosition, nextAvailableFrame } from "../../apps/web/js/seriesModel.js";
-import { clamp, hash01 } from "../../apps/web/js/format.js";
-import { resolvePresentation } from "../../apps/web/js/presentationState.js";
 
-const source = name => fs.readFileSync(new URL(`../../apps/web/js/${name}.js`, import.meta.url), "utf8")
-  .replace(/^import .*;\r?\n/gm, "").replaceAll("export ", "")
-  .replaceAll("import.meta.url", '"https://example.invalid/js/data.js"');
+const moduleURL = name => new URL(`../../apps/web/js/${name}.js`, import.meta.url);
 const snapshot = assertSolarSnapshot(JSON.parse(fs.readFileSync(
   new URL("../../apps/web/data/latest-state.json", import.meta.url), "utf8")));
 
-function harness() {
+async function harness() {
   function element() {
     let value = "";
     const children = [];
@@ -43,9 +37,7 @@ function harness() {
   const store = { state: snapshot, liveState: snapshot, wavelength: "continuum", activeMode: "today",
     timelineIndex: -1, liveEngineRun: false, playTimer: 0, selectedRegionId: null,
     seriesFrames: [snapshot], seriesRecords: [{ months: 0 }], seriesManifest: { frames: [{ months: 0 }] } };
-  const context = vm.createContext({ store, BASE_IMAGES, WAVELENGTHS, FALLBACK_STATE, Event, URL,
-    Image: ImageBoundary, assertSolarSnapshot, projectSolarPoint, regionAnchor, confidenceEncoding,
-    seriesPosition, nextAvailableFrame, clamp, hash01, resolvePresentation,
+  const context = vm.createContext({ store, Event, URL, Image: ImageBoundary,
     document: { getElementById: id => nodes[id] ?? null, querySelector: () => null,
       querySelectorAll: () => [], createElement: element,
       createTextNode: text => ({ textContent: text }), body: { setAttribute() {} } },
@@ -59,7 +51,17 @@ function harness() {
   });
   // Keep real timeline transitions, image-cache decisions/events, complete canvas
   // renderer, caption builder and render orchestrator. No source-selection stubs.
-  for (const name of ["timeline", "data", "view", "render", "wavelength"]) vm.runInContext(source(name), context);
+  const boundaries = {
+    "store.js": { store },
+    "dom.js": { controls: context.controls, text: context.text },
+    "panels.js": { updateText: context.updateText },
+    "tour.js": { maybeAutoStartTour: context.maybeAutoStartTour },
+    "solarWorkerClient.js": { requestSolarSimulation: context.requestSolarSimulation, cancelSolarSimulation: context.cancelSolarSimulation },
+  };
+  Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "render", "wavelength"].map(moduleURL), {
+    resolveImport: (_specifier, url) => boundaries[url.pathname.split("/").at(-1)],
+    initializeImportMeta: meta => { meta.url = "https://example.invalid/js/data.js"; },
+  }));
   context.setWavelength("continuum");
   return { context, store, nodes, images, draws,
     ready() { images[0].complete = true; images[0].naturalWidth = 1024; images[0].onload(); },
@@ -70,7 +72,7 @@ function harness() {
 for (const mode of ["cycle", "local simulation"]) {
   for (const timing of ["image ready during model", "channel reselected during model"]) {
     test(`Latest restores observed caption after ${mode}: ${timing}`, async () => {
-      const h = harness();
+      const h = await harness();
       if (timing === "channel reselected during model") h.ready();
       if (mode === "cycle") h.context.setTimelineFrame(0);
       else await h.context.runLiveEngine();
@@ -92,7 +94,7 @@ for (const mode of ["cycle", "local simulation"]) {
 }
 
 test("entering cycle and local simulation immediately replaces an observed caption with synthetic", async () => {
-  const h = harness();
+  const h = await harness();
   h.ready();
   assert.match(h.nodes.wavelengthCaption.textContent, /observed NASA SDO/);
   h.context.setTimelineFrame(0);
@@ -105,8 +107,8 @@ test("entering cycle and local simulation immediately replaces an observed capti
 });
 
 for (const outcome of ["pending", "failed", "model selected"]) {
-  test(`Latest does not claim observed imagery when ${outcome}`, () => {
-    const h = harness();
+  test(`Latest does not claim observed imagery when ${outcome}`, async () => {
+    const h = await harness();
     h.context.setTimelineFrame(0);
     if (outcome === "failed") h.fail();
     if (outcome === "model selected") { h.ready(); h.context.setWavelength("model"); }

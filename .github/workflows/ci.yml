@@ -112,6 +112,35 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+  # Preserve the protected check name while verifying the same bytes built above.
+  wasm:
+    name: WASM build (wasm32-unknown-unknown)
+    needs: artifact
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ARTIFACT_RESULT: ${{ needs.artifact.result }}
+      ARTIFACT_ID: ${{ needs.artifact.outputs.artifact_id }}
+      MANIFEST_SHA256: ${{ needs.artifact.outputs.manifest_sha256 }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Require successful same-run artifact build
+        shell: python
+        run: |
+          import os
+          if os.environ["ARTIFACT_RESULT"] != "success" or not os.environ["ARTIFACT_ID"] or not os.environ["MANIFEST_SHA256"]:
+              raise SystemExit("WASM verification requires a successful artifact build and its immutable identity")
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: web-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/site
+      - name: Verify both WASM binaries and exact candidate identity
+        run: python tools/validate_release_manifest.py build/site/web-release-manifest.json --expected-sha256 "$MANIFEST_SHA256" --source-sha "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT"
+
   web:
     name: Web, provider, and browser validation
     runs-on: ubuntu-latest
@@ -147,7 +176,7 @@ jobs:
       - name: JS unit tests (node --test)
         # Explicit file list (shell glob): this runner rejects a bare directory argument.
         shell: bash
-        run: node --test tests/web/*.test.mjs
+        run: npm test
 
       # The ?v= specifiers are stripped in a temp copy — see tools/typecheck_web.py.
       # This is blocking: a broken project-file handoff previously made the advisory
@@ -373,7 +402,7 @@ jobs:
   release-gate:
     name: Release gate
     if: always()
-    needs: [candidate, governance, test, lint, web, artifact, coverage, docs, determinism, determinism-compare]
+    needs: [candidate, governance, test, lint, web, artifact, wasm, coverage, docs, determinism, determinism-compare]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

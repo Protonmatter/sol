@@ -279,6 +279,61 @@ def validate_release_graph(text: str) -> list[str]:
     return errors
 
 
+def validate_required_wasm_job(text: str) -> list[str]:
+    """Keep the protected status bound to a successful, same-run two-engine artifact."""
+    matches = re.findall(r"^  wasm:\n(.*?)(?=^  [a-zA-Z0-9_-]+:|\Z)", text, re.MULTILINE | re.DOTALL)
+    if len(matches) != 1:
+        return ["required WASM verification job is missing or ambiguous"]
+    job = matches[0]
+    # This deliberately accepts only the reviewed gate grammar. In particular,
+    # optional CLI identity flags cannot silently disappear, and failed/skipped
+    # dependencies cannot become a successful empty or conditionally skipped job.
+    lines = (
+        "    name: WASM build (wasm32-unknown-unknown)",
+        "    needs: artifact",
+        "    if: always()",
+        "      ARTIFACT_RESULT: ${{ needs.artifact.result }}",
+        "      ARTIFACT_ID: ${{ needs.artifact.outputs.artifact_id }}",
+        "      MANIFEST_SHA256: ${{ needs.artifact.outputs.manifest_sha256 }}",
+        "        run: python tools/validate_release_manifest.py build/site/web-release-manifest.json"
+        ' --expected-sha256 "$MANIFEST_SHA256" --source-sha "$GITHUB_SHA"'
+        ' --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT"',
+    )
+    errors = [f"required WASM verification contract is missing or altered: {line.strip()}"
+              for line in lines if job.splitlines().count(line) != 1]
+    guard = (
+        '        shell: python\n        run: |\n          import os\n'
+        '          if os.environ["ARTIFACT_RESULT"] != "success" or not os.environ["ARTIFACT_ID"] or not os.environ["MANIFEST_SHA256"]:\n'
+        '              raise SystemExit("WASM verification requires a successful artifact build and its immutable identity")\n'
+    )
+    if guard not in job:
+        errors.append("required WASM verification must reject unsuccessful or unidentified artifact builds")
+    download = re.search(
+        r"^      - uses: actions/download-artifact@[0-9a-fA-F]{40}[^\n]*\n"
+        r"        with:\n          name: web-candidate-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}\n"
+        r"          path: build/site\n", job, re.MULTILINE)
+    if not download or (guard in job and job.index(guard) > download.start()):
+        errors.append("required WASM verification must download the same-run artifact after its success guard")
+    if re.search(r"^\s+continue-on-error:|^        if:|^          (?:run-id|repository|github-token|artifact-ids):", job, re.MULTILINE):
+        errors.append("required WASM verification cannot skip checks, tolerate failure, or select a foreign artifact")
+    return errors
+
+
+def validate_node_coverage_job(text: str) -> list[str]:
+    """Preserve the independent Node-only gate, not just its descriptive name."""
+    jobs = re.findall(r"^  javascript:\n(.*?)(?=^  [a-zA-Z0-9_-]+:|\Z)", text, re.MULTILINE | re.DOTALL)
+    if len(jobs) != 1:
+        return ["Node-only coverage job is missing or ambiguous"]
+    job = jobs[0]
+    steps = re.findall(
+        r"^      - name: Node-tested production-module line, branch, and function gates\n"
+        r"(.*?)(?=^      - |\Z)", job, re.MULTILINE | re.DOTALL)
+    if (len(steps) != 1 or steps[0].rstrip("\n") != "        run: node tools/check_node_coverage.mjs"
+            or re.search(r"^    (?:if|continue-on-error):", job, re.MULTILINE)):
+        return ["Node-only coverage must execute its fixed 90/90/90 gate without advisory conditions"]
+    return []
+
+
 def validate_workflows(root: Path) -> list[str]:
     errors: list[str] = []
     workflow_dir = root / ".github" / "workflows"
@@ -287,6 +342,7 @@ def validate_workflows(root: Path) -> list[str]:
 
     ci = (workflow_dir / "ci.yml").read_text(encoding="utf-8")
     errors.extend(validate_release_graph(ci))
+    errors.extend(validate_required_wasm_job(ci))
     errors.extend(require_tokens(".github/workflows/ci.yml", ci, (
         "Governance and specification contracts",
         "python tools/validate_sdlc.py",
@@ -299,11 +355,10 @@ def validate_workflows(root: Path) -> list[str]:
     )))
 
     coverage = (workflow_dir / "coverage.yml").read_text(encoding="utf-8")
+    errors.extend(validate_node_coverage_job(coverage))
     errors.extend(require_tokens(".github/workflows/coverage.yml", coverage, (
         "--fail-under-lines 90",
-        "--test-coverage-lines=90",
-        "--test-coverage-branches=90",
-        "--test-coverage-functions=90",
+        "node tools/check_node_coverage.mjs",
         "--minimum-lines=90",
         "--fail-under=90",
         "node tools/browser_validation.mjs",

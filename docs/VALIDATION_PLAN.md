@@ -67,6 +67,16 @@ expected diagnostic image.
 - Node-executed production modules: **at least 90% lines, branches, and functions**.
 - Whole hand-written web runtime after Node plus Chromium merge: **at least 90% lines**.
 
+The independent Node gate is `node tools/check_node_coverage.mjs`. It runs the
+existing Node suites using the pinned c8 reporter and the original
+`apps/web/**/*.js` imported-module population, including imported generated data.
+Complete original-byte VM modules retain canonical source identities; versioned
+URLs merge at reporting time, without changing ESM execution/cache identity.
+All three floors compare integer covered/total counts against 90%, not rounded
+display percentages. Empty reports, failed tests, configuration/threshold overrides,
+and missing tests fail closed. Its retained reports are `coverage/node-executed/`.
+This remains a **Node-only** gate: Chromium coverage cannot satisfy it.
+
 The whole-web denominator seeds browser-only and WebGL modules at zero before merging
 Chromium execution. Generated catalogues must load in Chromium but are excluded from the
 percentage so data rows cannot inflate application coverage. Generated schema objects

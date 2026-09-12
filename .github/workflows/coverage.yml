@@ -85,13 +85,7 @@ jobs:
           if [ -n "$EXPECTED_MANIFEST" ]; then args+=(--expected-sha256 "$EXPECTED_MANIFEST"); fi
           python tools/validate_release_manifest.py build/site/web-release-manifest.json --source-sha "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" "${args[@]}"
       - name: Node-tested production-module line, branch, and function gates
-        run: |
-          node --test --experimental-test-coverage \
-            --test-coverage-include='apps/web/**/*.js' \
-            --test-coverage-lines=90 \
-            --test-coverage-branches=90 \
-            --test-coverage-functions=90 \
-            tests/web/*.test.mjs
+        run: node tools/check_node_coverage.mjs
       - name: Collect denominator-complete Node coverage
         # c8 --all seeds every hand-written runtime module at zero, including modules
         # that Node cannot import because they require the DOM or WebGL. Chromium's
@@ -113,6 +107,7 @@ jobs:
             coverage/browser
             coverage/combined
             coverage/node/coverage-final.json
+            coverage/node-executed
           if-no-files-found: ignore
           retention-days: 90
 

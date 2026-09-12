@@ -39,6 +39,7 @@ const args = [
   `--reports-dir=${outputDirectory}`,
   ...absoluteRuntimeModules().map((file) => `--include=${repositoryRelative(file)}`),
   process.execPath,
+  "--experimental-vm-modules",
   "--test",
   ...tests,
 ];

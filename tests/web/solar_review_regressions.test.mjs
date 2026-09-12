@@ -2,16 +2,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
+import { loadSourceModules } from "./helpers/sourceModuleHarness.mjs";
 import { assertSolarSnapshot } from "../../apps/web/js/solarContract.js";
-import { regionAnchor } from "../../apps/web/js/solarProjection.js";
-import { seriesPosition } from "../../apps/web/js/seriesModel.js";
-import { clamp } from "../../apps/web/js/format.js";
-import { resolvePresentation } from "../../apps/web/js/presentationState.js";
 
 const fixture = fs.readFileSync(new URL("../../apps/web/data/latest-state.json", import.meta.url), "utf8");
-const source = name => fs.readFileSync(new URL(`../../apps/web/js/${name}.js`, import.meta.url), "utf8")
-  .replace(/^import .*;\r?\n/gm, "").replaceAll("export ", "")
-  .replaceAll("import.meta.url", '"https://example.invalid/js/data.js"');
+const moduleURL = name => new URL(`../../apps/web/js/${name}.js`, import.meta.url);
 
 function latitudeSnapshot() {
   const snapshot = JSON.parse(fixture);
@@ -27,7 +22,7 @@ function latitudeSnapshot() {
 }
 
 for (const mode of ["series", "snapshot"]) {
-  test(`butterfly ${mode} uses current v3 latitude and correct hemisphere colours`, () => {
+  test(`butterfly ${mode} uses current v3 latitude and correct hemisphere colours`, async () => {
     const snapshot = latitudeSnapshot();
     const before = JSON.stringify(snapshot);
     const circles = [];
@@ -40,9 +35,13 @@ for (const mode of ["series", "snapshot"]) {
       getBoundingClientRect: () => ({ width: 400, height: 200 }) };
     const store = { state: snapshot, seriesFrames: mode === "series" ? [snapshot, null, snapshot] : [],
       seriesRecords: [{ months: 0 }, { months: 2 }, { months: 24 }], timelineIndex: -1, selectedRegionId: null };
-    const context = vm.createContext({ store, regionAnchor, seriesPosition, clamp,
-      document: { getElementById: () => canvas }, window: { devicePixelRatio: 1 } });
-    vm.runInContext(source("render"), context);
+    const events = new EventTarget();
+    const context = vm.createContext({ store, setTimeout, clearTimeout, URL,
+      document: { getElementById: id => id === "butterflyCanvas" ? canvas : null },
+      window: { devicePixelRatio: 1, addEventListener: events.addEventListener.bind(events) } });
+    Object.assign(context, ...await loadSourceModules(context, [moduleURL("render")], {
+      resolveImport: (_specifier, url) => url.pathname.endsWith("/store.js") ? { store } : undefined,
+    }));
     context.drawButterfly();
     const expectedY = mode === "series" ? [41, 149, 95] : [44, 156, 100];
     assert.deepEqual(circles.slice(0, 3).map(point => Math.round(point.y)), expectedY);
@@ -70,7 +69,7 @@ for (const initialFailure of [true, false]) {
     let bundleAvailable = false;
     const context = vm.createContext({ store, URL, Image: class {}, FALLBACK_STATE: fallback, BASE_IMAGES: {},
       document: { getElementById: id => nodes.get(id) || null, querySelector: () => null, body: { setAttribute() {} } },
-      window: {}, performance: { now: () => 0 }, resolvePresentation, assertSolarSnapshot,
+      window: {}, performance: { now: () => 0 },
       updateText() {}, drawSolarDisk() {}, drawButterfly() {}, maybeAutoStartTour() {}, cancelSolarSimulation() {},
       requestSolarSimulation: async () => simulated,
       readDataBundle: async () => {
@@ -80,9 +79,19 @@ for (const initialFailure of [true, false]) {
       } });
     // Keep the real data publication, timeline, presentation and header paths.
     // Only the worker/I/O and unrelated canvas rendering are boundary doubles.
-    vm.runInContext(source("timeline"), context);
-    vm.runInContext(source("data"), context);
-    vm.runInContext(source("view"), context);
+    const boundaries = {
+      "store.js": { store },
+      "config.js": { FALLBACK_STATE: fallback, BASE_IMAGES: {} },
+      "panels.js": { updateText: context.updateText },
+      "render.js": { drawSolarDisk: context.drawSolarDisk, drawButterfly: context.drawButterfly },
+      "tour.js": { maybeAutoStartTour: context.maybeAutoStartTour },
+      "solarWorkerClient.js": { requestSolarSimulation: context.requestSolarSimulation, cancelSolarSimulation: context.cancelSolarSimulation },
+      "dataBundle.js": { readDataBundle: context.readDataBundle },
+    };
+    Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view"].map(moduleURL), {
+      resolveImport: (_specifier, url) => boundaries[url.pathname.split("/").at(-1)],
+      initializeImportMeta: meta => { meta.url = "https://example.invalid/js/data.js"; },
+    }));
     await context.loadState();
     const failure = store.dataError;
     const retained = store.liveState;

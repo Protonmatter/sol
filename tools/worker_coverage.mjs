@@ -1,5 +1,7 @@
 // Chromium worker instrumentation for the same retained artifact as page coverage.
 // Workers are resumed only after precise coverage is armed. Cancellation remains real.
+import { TargetCloseError } from "puppeteer-core";
+
 async function bounded(operation, timeoutMs, label) {
   let timer;
   try {
@@ -24,6 +26,10 @@ export async function startWorkerCoverage(page, { timeoutMs = 10_000 } = {}) {
   const parent=await page.createCDPSession(),workers=new Map(),entries=[],errors=[];
   const pending=new Set();
   const send = (session, method, params) => bounded(() => session.send(method, params), timeoutMs, method);
+  // Puppeteer rejects pending commands with TargetCloseError before forwarding
+  // the matching detach event synchronously. Neither a message containing Target
+  // nor detachment alone excuses an instrumentation failure or deadline.
+  const cancelled = (record, error) => record.detached && error instanceof TargetCloseError;
   parent.on("Target.attachedToTarget",event=>{
     const work=(async()=>{
       const session=parent.connection().session(event.sessionId);
@@ -35,8 +41,8 @@ export async function startWorkerCoverage(page, { timeoutMs = 10_000 } = {}) {
         });
         await send(session,"Debugger.enable");await send(session,"Profiler.enable");
         await send(session,"Profiler.startPreciseCoverage",{callCount:true,detailed:true});
-      } catch(error){errors.push(error.message);}
-      finally{try{await send(session,"Runtime.runIfWaitingForDebugger");}catch(error){if(!record.detached)errors.push(error.message);}}
+      } catch(error){if(!cancelled(record,error))errors.push(error.message);}
+      finally{try{await send(session,"Runtime.runIfWaitingForDebugger");}catch(error){if(!cancelled(record,error))errors.push(error.message);}}
     })();
     pending.add(work);work.finally(()=>pending.delete(work));
   });
@@ -57,7 +63,7 @@ export async function startWorkerCoverage(page, { timeoutMs = 10_000 } = {}) {
             if(source.text===null)source.text=(await send(record.session,"Debugger.getScriptSource",{scriptId:script.scriptId})).scriptSource;
             entries.push({url:source.url,text:source.text,rawScriptCoverage:script});
           }
-        } catch(error) {if(!record.detached)errors.push(error.message);}
+        } catch(error) {if(!cancelled(record,error))errors.push(error.message);}
       }
     },
     async dispose() {

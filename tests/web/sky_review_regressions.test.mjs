@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 import vm from "node:vm";
+import { loadSourceModules } from "./helpers/sourceModuleHarness.mjs";
 import { fetchServerSky, BODY_INDEX, SERVER_BASE } from "../../apps/web/js/skyEngine.js";
 import { createSkyWorkerClient } from "../../apps/web/js/skyWorkerClient.js";
 import { validateSkyWork } from "../../apps/web/js/skyLimits.js";
@@ -13,7 +14,8 @@ import { epochAccuracy, epochLabel } from "../../apps/web/js/accuracy.js";
 import { resolveSkyPresentation } from "../../apps/web/js/presentationState.js";
 import { assertEphemerisSnapshotV3, mergeLocalEvents } from "../../apps/web/js/ephemerisContract.js";
 
-const source = fs.readFileSync(new URL("../../apps/web/js/sky.js", import.meta.url), "utf8");
+const moduleURL = new URL("../../apps/web/js/sky.js", import.meta.url);
+const source = fs.readFileSync(moduleURL, "utf8");
 const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json", import.meta.url), "utf8")).snapshot;
 const unix = (snapshot.time.jd_utc - 2440587.5) * 86400;
 const capturedHash = "#sky=0,0,1782872026.9999936,0";
@@ -47,24 +49,25 @@ function canvasRecorder() {
 // Execute the complete Sky controller and real privacy/contract/worker-client modules.
 // Only browser host I/O is controlled: DOM, clock, permission callbacks, clipboard,
 // and worker messages. Stamping uses the same token substitution as build_web.py.
-function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol/releases/A/index.html", clipboard,
-  savedProvider = null, storedObserver = JSON.stringify({ lat: 0, lon: 0, elev: 0 }), recipientBase = "", canvas = false } = {}) {
+async function skyHarness(t, { basePath = "/sol/", stamped = false, href = "https://example.invalid/sol/releases/A/index.html", clipboard,
+  savedProvider = null, storedObserver = JSON.stringify({ lat: 0, lon: 0, elev: 0 }), recipientBase = "", canvas = false, controls = false } = {}) {
   const nodes = new Map(), intervals = new Map(), positions = [], workers = [], saved = new Map();
   const drawing = canvas ? canvasRecorder() : null;
   let focused = null;
   const node = (id = "") => ({
-    id, textContent: "", value: "", hidden: false, children: [], attributes: {}, dataset: {}, listeners: new Map(),
+    id, textContent: "", value: "", hidden: false, children: [], attributes: {}, dataset: {}, style: {}, listeners: new Map(),
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 180, height: 100 }),
     classList: { toggle() {} },
     addEventListener(type, callback) { this.listeners.set(type, callback); },
     click() { return this.onclick ? this.onclick() : this.listeners.get("click")?.({ target: this }); },
     setAttribute(key, value) { this.attributes[key] = value; },
-    appendChild(child) { this.children.push(child); if (child.id) nodes.set(child.id, child); },
+    appendChild(child) { this.children.push(child); child.parentNode = this; if (child.id) nodes.set(child.id, child); },
     insertBefore(child, before) {
       const old = this.children.indexOf(child); if (old >= 0) this.children.splice(old, 1);
       const index = before ? this.children.indexOf(before) : this.children.length;
-      this.children.splice(index, 0, child);
+      this.children.splice(index, 0, child); child.parentNode = this;
     },
-    remove() { nodes.delete(this.id); },
+    remove() { nodes.delete(this.id); if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this); },
     focus() { focused = this; },
     select() { this.selectionStart = 0; this.selectionEnd = this.value.length; },
   });
@@ -75,6 +78,8 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
   }
   nodes.get("skySharePreview").hidden = true;
   nodes.get("skyConsent").hidden = true;
+  if (controls) for (const id of ["skyTimeMode", "skyTime", "skyNow", "skyTimeLabel", "skyAccuracy", "skySearch", "skyFilter", "skyExport", "skySelectedFacts", "skyResultCount"])
+    nodes.set(id, node(id));
   if (canvas) {
     for (const id of ["skyCanvas", "skyList", "skyConst", "skyTraj"]) nodes.set(id, node(id));
     Object.assign(nodes.get("skyCanvas"), {
@@ -94,8 +99,9 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
       getItem(key) { return key === "sol-sky-observer" ? storedObserver : key === "sol-sky-provider" ? savedProvider : null; },
       setItem(key, value) { saved.set(key, value); },
     },
-    document: { getElementById: id => nodes.get(id) || null, createElement: () => node() },
-    window: { SOL_EPHEMERIS_SERVER: recipientBase, dispatchEvent() {}, setInterval(callback) { intervals.set(1, callback); return 1; }, clearInterval(id) { intervals.delete(id); } },
+    document: { getElementById: id => nodes.get(id) || null, createElement: () => node(), body: node("body") },
+    window: { SOL_EPHEMERIS_SERVER: recipientBase, innerWidth: 640, innerHeight: 640, devicePixelRatio: 1,
+      dispatchEvent() {}, setInterval(callback) { intervals.set(1, callback); return 1; }, clearInterval(id) { intervals.delete(id); } },
     fetchServerSky, BODY_INDEX, SERVER_BASE,
     createSkyWorkerClient: () => createSkyWorkerClient({
       createWorker: () => {
@@ -108,12 +114,21 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
     syncObjectRows, CONSTELLATIONS, epochAccuracy, epochLabel, resolveSkyPresentation,
     assertEphemerisSnapshotV3, mergeLocalEvents,
   });
-  vm.runInContext(source.replace(/^import .*;\r?\n/gm, "").replaceAll("export ", "")
-    .replaceAll("__SOL_BASE_PATH__", basePath), context, { filename: "sky.js" });
+  if (stamped && basePath !== "__SOL_BASE_PATH__") {
+    // These release-substitution assertions retain their transformed fixture.
+    // Its offsets differ from original source, so it must not claim that file's
+    // coverage. Original-source scenarios below execute the complete ES module.
+    vm.runInContext(source.replace(/^import .*;\r?\n/gm, "").replaceAll("export ", "")
+      .replaceAll("__SOL_BASE_PATH__", basePath), context, { filename: "sky-release-fixture.js" });
+  } else {
+    Object.assign(context, ...await loadSourceModules(context, [moduleURL], {
+      resolveImport: () => context,
+    }));
+  }
   t.after(() => context.leaveSky());
   context.enterSky();
   return {
-    context, nodes, positions, saved, location, store, drawing, focused: () => focused,
+    context, nodes, positions, saved, location, store, drawing, workers, focused: () => focused,
     click: id => nodes.get(id).click(),
     tick: () => intervals.get(1)(),
     async publishSnapshot() {
@@ -138,7 +153,7 @@ function assertFiniteDrawing(drawing) {
 }
 
 test("v3 snapshots draw finite constellation paths and preserve overlay toggling", async t => {
-  const h = skyHarness(t, { canvas: true });
+  const h = await skyHarness(t, { canvas: true });
   await h.publishSnapshot();
   assertFiniteDrawing(h.drawing);
   const visible = structuredClone(h.drawing.strokes);
@@ -156,7 +171,7 @@ test("v3 snapshots draw finite constellation paths and preserve overlay toggling
 });
 
 test("selecting a v3 catalogue star draws finite past and future paths and preserves trajectory toggling", async t => {
-  const h = skyHarness(t, { canvas: true });
+  const h = await skyHarness(t, { canvas: true });
   await h.publishSnapshot();
   setOverlay(h, "skyConst", false);
   const baseline = structuredClone(h.drawing.strokes);
@@ -181,7 +196,7 @@ test("saved remote preference is restored but each session requires fresh recipi
   const requests=[];
   t.mock.method(globalThis,"fetch",async url=>{requests.push(new URL(url).pathname);return new Response("offline fixture",{status:502});});
   const options={savedProvider:"server",recipientBase:"https://recipient.invalid"};
-  const h=skyHarness(t,options);
+  const h=await skyHarness(t,options);
   assert.equal(h.store.sky.provider,"server");
   assert.equal(h.nodes.get("skyProviderServer").attributes["aria-pressed"],"true");
   assert.equal(h.nodes.get("skyProviderLocal").attributes["aria-pressed"],"false");
@@ -193,7 +208,7 @@ test("saved remote preference is restored but each session requires fresh recipi
   h.click("skyConsentAllow");
   assert.deepEqual(requests,["/v3/sky"]);
   assert.equal(h.saved.get("sol-sky-provider"),"server");
-  const reloaded=skyHarness(t,{...options,savedProvider:h.saved.get("sol-sky-provider")});
+  const reloaded=await skyHarness(t,{...options,savedProvider:h.saved.get("sol-sky-provider")});
   await reloaded.context.renderSky();
   assert.equal(reloaded.store.sky.provider,"server");
   assert.equal(reloaded.nodes.get("skyConsent").hidden,false);
@@ -204,16 +219,16 @@ test("saved remote preference is restored but each session requires fresh recipi
   assert.deepEqual(requests,["/v3/sky"]);
 });
 
-test("malformed saved observer does not discard a separately valid saved remote preference", t => {
-  const h=skyHarness(t,{savedProvider:"server",storedObserver:"{invalid",recipientBase:"https://recipient.invalid"});
+test("malformed saved observer does not discard a separately valid saved remote preference", async t => {
+  const h=await skyHarness(t,{savedProvider:"server",storedObserver:"{invalid",recipientBase:"https://recipient.invalid"});
   assert.equal(h.store.sky.provider,"server");
   assert.equal(h.store.sky.observer.lat,40.71);
   assert.equal(h.nodes.get("skyConsent").hidden,false);
 });
 
-test("unknown saved provider values retain the on-device default", t => {
+test("unknown saved provider values retain the on-device default", async t => {
   for(const savedProvider of [null,"local","SERVER","unknown",'"server"',"https://recipient.invalid"]) {
-    const h=skyHarness(t,{savedProvider,recipientBase:"https://recipient.invalid"});
+    const h=await skyHarness(t,{savedProvider,recipientBase:"https://recipient.invalid"});
     assert.equal(h.store.sky.provider,"local");
     assert.equal(h.nodes.get("skyProviderLocal").attributes["aria-pressed"],"true");
     assert.equal(h.nodes.get("skyConsent").hidden,true);
@@ -222,8 +237,8 @@ test("unknown saved provider values retain the on-device default", t => {
 
 const locationResult = { coords: { latitude: 12.345678, longitude: -76.54321, altitude: 123.5 } };
 
-test("a geolocation success after the live minute refresh updates the observer and clears pending feedback", t => {
-  const h = skyHarness(t);
+test("a geolocation success after the live minute refresh updates the observer and clears pending feedback", async t => {
+  const h = await skyHarness(t);
   h.click("skyGeo");
   h.tick();
   h.positions[0].success(locationResult);
@@ -234,9 +249,9 @@ test("a geolocation success after the live minute refresh updates the observer a
   assert.equal(JSON.parse(h.saved.get("sol-sky-observer")).lat, 12.345678);
 });
 
-test("a newer geolocation request owns both success and failure callbacks", t => {
+test("a newer geolocation request owns both success and failure callbacks", async t => {
   for (const result of ["success", "failure"]) {
-    const h = skyHarness(t);
+    const h = await skyHarness(t);
     h.click("skyGeo");
     h.click("skyGeo");
     h.positions[0][result](locationResult);
@@ -248,9 +263,9 @@ test("a newer geolocation request owns both success and failure callbacks", t =>
   }
 });
 
-test("manual coordinates supersede a pending geolocation callback without stale error feedback", t => {
+test("manual coordinates supersede a pending geolocation callback without stale error feedback", async t => {
   for (const result of ["success", "failure"]) {
-    const h = skyHarness(t);
+    const h = await skyHarness(t);
     h.click("skyGeo");
     for (const [id, value] of [["skyLat", "23"], ["skyLon", "45"], ["skyElev", "6"]]) h.nodes.get(id).value = value;
     h.click("skySet");
@@ -261,9 +276,9 @@ test("manual coordinates supersede a pending geolocation callback without stale 
   }
 });
 
-test("leaving and reentering Sky ignores permission results from the previous visit", t => {
+test("leaving and reentering Sky ignores permission results from the previous visit", async t => {
   for (const result of ["success", "failure"]) {
-    const h = skyHarness(t);
+    const h = await skyHarness(t);
     h.click("skyGeo");
     h.context.leaveSky(); h.context.enterSky();
     const label = h.nodes.get("skyLocLabel").textContent;
@@ -279,7 +294,7 @@ for (const [label, clipboard] of [
   ["denied clipboard permission", { writeText: async () => { throw new Error("Permission denied"); } }],
 ]) {
   test(`confirmed sharing offers a selected manual copy field with ${label}`, async t => {
-    const h = skyHarness(t, { clipboard });
+    const h = await skyHarness(t, { clipboard, stamped: true });
     await h.publishSnapshot();
     h.click("skyShare");
     assert.equal(h.nodes.has("skyShareManualCopy"), false);
@@ -304,7 +319,7 @@ for (const [label, clipboard] of [
 
 test("cancelling while clipboard permission is pending cannot reopen manual-copy disclosure", async t => {
   let rejectCopy;
-  const h = skyHarness(t, { clipboard: { writeText: () => new Promise((_resolve, reject) => { rejectCopy = reject; }) } });
+  const h = await skyHarness(t, { clipboard: { writeText: () => new Promise((_resolve, reject) => { rejectCopy = reject; }) } });
   await h.publishSnapshot();
   h.click("skyShare");
   const confirmation = h.click("skyShareConfirm");
@@ -319,7 +334,7 @@ test("cancelling while clipboard permission is pending cannot reopen manual-copy
 for (const outcome of ["success", "failure"]) {
   test(`a late clipboard ${outcome} leaves a newer unconfirmed preview intact`, async t => {
     let resolveCopy, rejectCopy;
-    const h = skyHarness(t, { clipboard: { writeText: () => new Promise((resolve, reject) => { resolveCopy = resolve; rejectCopy = reject; }) } });
+    const h = await skyHarness(t, { clipboard: { writeText: () => new Promise((resolve, reject) => { resolveCopy = resolve; rejectCopy = reject; }) } });
     await h.publishSnapshot();
     h.click("skyShare");
     const confirmation = h.click("skyShareConfirm");
@@ -340,7 +355,7 @@ for (const [basePath, href, expectedBase] of [
 ]) {
   test(`confirmed share targets stable deployment ${basePath} with the captured snapshot`, async t => {
     const copied = [];
-    const h = skyHarness(t, { basePath, href, clipboard: { writeText: async value => { copied.push(value); } } });
+    const h = await skyHarness(t, { basePath, href, stamped: true, clipboard: { writeText: async value => { copied.push(value); } } });
     await h.publishSnapshot();
     h.click("skyShare");
     assert.equal(copied.length, 0, "preview alone cannot copy precise observer/time values");
@@ -352,3 +367,126 @@ for (const [basePath, href, expectedBase] of [
     assert.equal(h.location.hash, "");
   });
 }
+
+test("time controls reject invalid instants, disclose timezone, and Now clears frozen intent", async t => {
+  const h = await skyHarness(t, { controls: true });
+  await h.publishSnapshot();
+  const change = id => h.nodes.get(id).listeners.get("change")({ target: h.nodes.get(id) });
+  h.nodes.get("skyTimeMode").value = "utc"; change("skyTimeMode");
+  assert.equal(h.store.sky.displayMode, "utc"); assert.match(h.nodes.get("skyTimeLabel").textContent, /display in UTC/);
+  h.nodes.get("skyTime").value = "invalid"; change("skyTime");
+  assert.equal(h.store.sky.chosenUnix, null); assert.ok(h.nodes.get("skyInputError").textContent.length > 0);
+  h.nodes.get("skyTime").value = "2030-01-02T03:04"; change("skyTime");
+  assert.equal(h.store.sky.chosenUnix, Date.parse("2030-01-02T03:04:00Z") / 1000);
+  assert.match(h.nodes.get("skyTimeLabel").textContent, /Frozen/);
+  h.location.hash = "#sky=0,0,123,0"; h.click("skyNow");
+  assert.equal(h.store.sky.chosenUnix, null); assert.equal(h.location.hash, "");
+  assert.match(h.nodes.get("skyTimeLabel").textContent, /Live/);
+  h.nodes.get("skyTimeMode").value = "device"; change("skyTimeMode");
+  assert.match(h.nodes.get("skyTimeLabel").textContent, /device civil timezone, not observer timezone/);
+  let prevented = false; h.nodes.get("skyLat").value = "0"; h.nodes.get("skyLon").value = "0"; h.nodes.get("skyElev").value = "0";
+  h.nodes.get("skyElev").listeners.get("keydown")({ key: "Enter", preventDefault() { prevented = true; } });
+  assert.equal(prevented, true); assert.equal(h.store.sky.observer.label, "Set location");
+});
+
+test("dome pointer inspection pins a body, preserves pin on leave, and clears it on empty click", async t => {
+  const h = await skyHarness(t, { controls: true, canvas: true });
+  await h.publishSnapshot();
+  const canvas = h.nodes.get("skyCanvas");
+  const target = h.context.window.__skyDebug().plotted.find(point => point.name === "Moon");
+  assert.ok(target, "validated Moon has a plotted hit target");
+  const event = { clientX: target.x, clientY: target.y };
+  canvas.listeners.get("mousemove")(event);
+  assert.equal(canvas.style.cursor, "pointer");
+  assert.equal(h.nodes.get("skyTooltip").style.display, "block");
+  assert.equal(h.nodes.get("skyTooltip").children[0].children[0].textContent, "Moon");
+  canvas.listeners.get("click")(event); canvas.listeners.get("mouseleave")();
+  assert.equal(h.nodes.get("skyTooltip").style.display, "block");
+  canvas.listeners.get("click")({ clientX: -1000, clientY: -1000 });
+  assert.equal(h.nodes.get("skyTooltip").style.display, "none");
+  canvas.listeners.get("mousemove")({ clientX: -1000, clientY: -1000 });
+  assert.equal(canvas.style.cursor, "default"); canvas.listeners.get("mouseleave")();
+  h.context.leaveSky(); h.context.resizeSky();
+  assert.equal(h.nodes.get("skyTooltip").style.display, "none");
+});
+
+test("export requires a confirmed snapshot and downloads the captured bytes without a network request", async t => {
+  const h = await skyHarness(t, { controls: true });
+  h.click("skyExport"); assert.match(h.nodes.get("skyInputError").textContent, /validated snapshot/);
+  await h.publishSnapshot();
+  const blobs = [], revoked = [], links = [];
+  h.context.URL = class extends URL {
+    static createObjectURL(blob) { blobs.push(blob); return "blob:fixture"; }
+    static revokeObjectURL(url) { revoked.push(url); }
+  };
+  const create = h.context.document.createElement;
+  h.context.document.createElement = tag => { const element = create(tag); if (tag === "a") element.click = () => links.push({ href: element.href, download: element.download }); return element; };
+  h.click("skyExport"); assert.equal(blobs.length, 0);
+  assert.match(h.nodes.get("skySharePreviewText").textContent, /Raw JSON/);
+  assert.equal(h.nodes.get("skyShareConfirm").textContent, "Download precise snapshot");
+  h.store.sky.observer.lat = 77;
+  await h.click("skyShareConfirm");
+  assert.deepEqual(JSON.parse(await blobs[0].text()), snapshot);
+  assert.deepEqual(links, [{ href: "blob:fixture", download: "sky-snapshot-v3.json" }]);
+  assert.deepEqual(revoked, ["blob:fixture"]);
+  assert.equal(h.nodes.get("skySharePreview").hidden, true);
+  assert.equal(h.nodes.get("skyInputError").textContent, "Snapshot downloaded.");
+});
+
+test("missing geolocation and invalid device coordinates leave the observer intact", async t => {
+  const h = await skyHarness(t);
+  const original = JSON.stringify(h.store.sky.observer);
+  h.click("skyGeo"); h.positions[0].success({ coords: { latitude: 91, longitude: 0, altitude: 0 } });
+  assert.equal(JSON.stringify(h.store.sky.observer), original); assert.match(h.nodes.get("skyInputError").textContent, /Observer outside supported bounds/);
+  h.context.navigator.geolocation = undefined; h.click("skyGeo");
+  assert.match(h.nodes.get("skyLocLabel").textContent, /no geolocation/);
+  assert.equal(JSON.stringify(h.store.sky.observer), original);
+});
+
+test("Sky filters retain selected facts and verified worker trajectory paints both directions", async t => {
+  const h = await skyHarness(t, { controls: true, canvas: true });
+  await h.publishSnapshot();
+  const rows = h.nodes.get("skyList").children;
+  rows.find(row => row.dataset.objectId === "Moon").click();
+  assert.match(h.nodes.get("skySelectedFacts").children.at(-1).textContent, /Geometric altitude.*Observer range/);
+  const worker = h.workers.at(-1);
+  assert.equal(worker.sent.payload.operation, "track");
+  const samples = Array.from({ length: worker.sent.payload.samples }, (_, i) => ({ alt: i < 10 || i > 170 ? -10 : 30, az: i, up: !(i < 10 || i > 170) }));
+  worker.onmessage({ data: { ...worker.sent, type: "result", value: { operation: "track", samples } } });
+  await new Promise(setImmediate);
+  assertFiniteDrawing(h.drawing);
+  assert.ok(h.drawing.strokes.some(stroke => stroke.dash.length > 0 && stroke.path.length > 3));
+  h.nodes.get("skySearch").value = "Sirius";
+  h.nodes.get("skySearch").listeners.get("input")();
+  assert.equal(h.context.window.__skyDebug().selectedName, "Moon");
+  assert.match(h.nodes.get("skyResultCount").textContent, /1 matching objects/);
+  assert.equal(rows.find(row => row.dataset.objectId === "Moon").hidden, true);
+  rows.find(row => row.dataset.objectId === "Sirius").click();
+  assert.match(h.nodes.get("skySelectedFacts").children.at(-1).textContent, /infinite catalogue-star approximation/);
+  h.nodes.get("skySearch").value = ""; h.nodes.get("skyFilter").value = "planets";
+  h.nodes.get("skyFilter").listeners.get("change")();
+  assert.equal(h.context.window.__skyDebug().selectedName, "Sirius");
+});
+
+for (const augmentationFails of [false, true]) test(`remote snapshot retains honest ${augmentationFails ? "unavailable" : "validated"} local augmentation`, async t => {
+  const requested = [];
+  t.mock.method(globalThis, "fetch", async url => {
+    requested.push(new URL(url).pathname);
+    return { ok: true, text: async () => JSON.stringify(snapshot) };
+  });
+  const h = await skyHarness(t, { recipientBase: "https://recipient.invalid" });
+  h.click("skyProviderServer"); h.click("skyConsentAllow");
+  await new Promise(setImmediate);
+  assert.deepEqual(requested, ["/v3/sky"]);
+  const worker = h.workers.at(-1);
+  if (augmentationFails) worker.onmessage({ data: { ...worker.sent, type: "error", error: { code: "engine_failed", message: "local engine unavailable" } } });
+  else worker.onmessage({ data: { ...worker.sent, type: "result", value: { operation: "snapshot", snapshot: structuredClone(snapshot) } } });
+  await new Promise(setImmediate);
+  assert.equal(h.store.sky.presentation.availability, "ready");
+  assert.equal(h.store.sky.presentation.actualProvider, "server");
+  const visible = h.context.window.__skyDebug().snap;
+  assert.equal(visible.time.jd_utc, snapshot.time.jd_utc);
+  assert.equal(visible.warnings.some(text => text.includes("augmentation unavailable")), augmentationFails);
+  h.click("skyConsentRevoke");
+  assert.equal(h.store.sky.provider, "local"); assert.match(h.nodes.get("skyInputError").textContent, /consent revoked/);
+});

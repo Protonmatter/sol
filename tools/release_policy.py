@@ -14,13 +14,14 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-REQUIRED_JOBS = ("candidate", "governance", "test", "lint", "web", "artifact", "coverage", "docs", "determinism", "determinism-compare")
+REQUIRED_JOBS = ("candidate", "governance", "test", "lint", "web", "artifact", "wasm", "coverage", "docs", "determinism", "determinism-compare")
 # Expanded API identities for this reviewed workflow, including reusable children
 # and every matrix member. Changes require a new pinned verifier and protected map.
 MANDATORY_JOB_NAMES = {
     "candidate": ["Candidate identity"], "governance": ["Governance and specification contracts"],
     "test": ["Rust tests (workspace)"], "lint": ["Rust lint (fmt + clippy)"],
     "web": ["Web, provider, and browser validation"], "artifact": ["Build immutable web artifact"],
+    "wasm": ["WASM build (wasm32-unknown-unknown)"],
     "coverage": ["Coverage / Rust coverage (>= 90%)", "Coverage / Python coverage (>= 90%)",
                  "Coverage / JavaScript coverage (Node + Chromium, >= 90%)"],
     "docs": ["Docs / Markdown links, badges + style"],
