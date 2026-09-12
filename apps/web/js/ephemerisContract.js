@@ -7,6 +7,23 @@ const fail = (path, message) => { throw new TypeError(`Invalid ephemeris-snapsho
 // Inclusive serialization/float allowance: 2^-29 day (~0.161ms), four binary64
 // ulps at modern JD or two at the upper supported epoch. Never a day/window allowance.
 const EPOCH_TOLERANCE_DAYS = 2 ** -29;
+// Direction-coherence bound, not ephemeris accuracy: the standalone provider
+// discloses approximate mean sidereal time (no EOP/equation-of-equinoxes input).
+// One arcminute accommodates that metadata; vector distance stays conditioned
+// at zenith/nadir and across azimuth 0/360. Roundoff margin is 1e-12 in unit space.
+const HORIZONTAL_CHORD_LIMIT = 2*Math.sin(Math.PI/(180*60*2))+1e-12;
+function horizontalDirectionAgrees(body,time,observer) {
+  const radians=Math.PI/180;
+  const hour=(time.lst_deg-body.topocentric_apparent_ra_deg)*radians;
+  const dec=body.topocentric_apparent_dec_deg*radians;
+  const lat=observer.polar_motion_corrected_lat_deg*radians;
+  const alt=body.alt_deg*radians,az=body.az_deg*radians;
+  return Math.hypot(
+    -Math.cos(dec)*Math.sin(hour)-Math.cos(alt)*Math.sin(az),
+    Math.sin(dec)*Math.cos(lat)-Math.cos(dec)*Math.cos(hour)*Math.sin(lat)-Math.cos(alt)*Math.cos(az),
+    Math.sin(dec)*Math.sin(lat)+Math.cos(dec)*Math.cos(hour)*Math.cos(lat)-Math.sin(alt),
+  )<=HORIZONTAL_CHORD_LIMIT;
+}
 function assertSameEpoch(actual, expected, context) {
   if (!Number.isFinite(actual) || !Number.isFinite(expected) || Math.abs(actual-expected)>EPOCH_TOLERANCE_DAYS) fail("time.jd_utc", `${context} epoch mismatch`);
 }
@@ -70,6 +87,7 @@ export function assertEphemerisSnapshotV3(snapshot) {
     // Same sixteen clockwise sectors as both producers; exact midpoints select clockwise.
     if (body.compass!==COMPASS_POINTS[Math.floor(((body.az_deg+11.25)%360)/22.5)]) fail(path+".compass","must agree with az_deg");
     if (Math.abs(body.ra_deg-body.topocentric_apparent_ra_deg)>1e-9 || Math.abs(body.dec_deg-body.topocentric_apparent_dec_deg)>1e-9) fail(path,"topocentric aliases disagree");
+    if (!horizontalDirectionAgrees(body,time,observer)) fail(path,"horizontal direction disagrees with equatorial position and observer/time");
     const infinite=body.range_approximation==="infinite_catalogue_star";
     if (infinite) {
       if (MAJOR.has(body.name) || body.kind!=="star" || body.geocentric_range_km!==null || body.observer_range_km!==null) fail(path,"invalid infinite catalogue-star range");

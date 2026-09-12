@@ -324,5 +324,60 @@
     ],
     "value": -1,
     "accepted": false
+  },
+  {
+    "id": "assimilation-with-valid-attributable-frame",
+    "path": [
+      "run",
+      "mode"
+    ],
+    "value": "Assimilation",
+    "accepted": true
+  },
+  {
+    "id": "assimilation-with-empty-observations",
+    "mutations": [
+      {
+        "path": ["run", "mode"],
+        "value": "Assimilation"
+      },
+      {
+        "path": ["observations"],
+        "value": []
+      },
+      {
+        "path": ["operational_readiness", "data_state", "observation_mode"],
+        "value": "none"
+      }
+    ],
+    "accepted": false
+  },
+  {
+    "id": "assimilation-with-empty-report-frames",
+    "mutations": [
+      {
+        "path": ["run", "mode"],
+        "value": "Assimilation"
+      },
+      {
+        "path": ["observations", 0, "frames"],
+        "value": []
+      }
+    ],
+    "accepted": false
+  },
+  {
+    "id": "synthetic-without-observations",
+    "mutations": [
+      {
+        "path": ["observations"],
+        "value": []
+      },
+      {
+        "path": ["operational_readiness", "data_state", "observation_mode"],
+        "value": "none"
+      }
+    ],
+    "accepted": true
   }
 ]

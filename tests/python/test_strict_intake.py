@@ -36,7 +36,8 @@ class StrictIntakeTests(unittest.TestCase):
                 if case["accepted"]:
                     self.assertEqual(errors, [])
                 else:
-                    self.assertTrue(any("longitude" in error for error in errors), errors)
+                    expected = case.get("error_contains", "longitude")
+                    self.assertTrue(any(expected in error for error in errors), errors)
 
     def test_shared_snapshot_mutations(self):
         baseline = json.loads((ROOT / "apps/web/data/latest-state.json").read_text())
@@ -44,13 +45,14 @@ class StrictIntakeTests(unittest.TestCase):
         for case in cases:
             with self.subTest(case=case["id"]):
                 data = copy.deepcopy(baseline)
-                parent = data
-                for key in case["path"][:-1]:
-                    parent = parent[key]
-                if case.get("remove"):
-                    del parent[case["path"][-1]]
-                else:
-                    parent[case["path"][-1]] = case["value"]
+                for mutation in case.get("mutations", [case]):
+                    parent = data
+                    for key in mutation["path"][:-1]:
+                        parent = parent[key]
+                    if mutation.get("remove"):
+                        del parent[mutation["path"][-1]]
+                    else:
+                        parent[mutation["path"][-1]] = mutation["value"]
                 self.assertEqual(not validate_snapshot.validate(data), case["accepted"])
 
     def test_shared_lexical_corpus_through_cli_intake(self):

@@ -1,5 +1,5 @@
 {
-  "description": "Contract fixture derived from native model, not external accuracy truth. Moon altitude modified to test negative geometric and positive refracted visibility. Mutation cases run identically in Python and Node; native integration emits fresh snapshots into both consumers.",
+  "description": "Contract fixture derived from native model, not external accuracy truth. Moon altitude and matching synthetic topocentric RA/Dec modified together to test negative geometric and positive refracted visibility. Mutation cases run identically in Python and Node; native integration emits fresh snapshots into both consumers.",
   "snapshot": {
     "schema_version": "ephemeris-snapshot.v3",
     "engine_version": "solar-ephemeris 0.2.0",
@@ -104,12 +104,12 @@
         "name": "Moon",
         "kind": "moon",
         "coordinate_frame": "true_equator_and_equinox_of_date",
-        "ra_deg": 293.283515757,
-        "dec_deg": -25.325142874,
+        "ra_deg": 222.253640373603,
+        "dec_deg": -55.042917128335944,
         "geocentric_apparent_ra_deg": 293.613912582,
         "geocentric_apparent_dec_deg": -24.959281799,
-        "topocentric_apparent_ra_deg": 293.283515757,
-        "topocentric_apparent_dec_deg": -25.325142874,
+        "topocentric_apparent_ra_deg": 222.253640373603,
+        "topocentric_apparent_dec_deg": -55.042917128335944,
         "geocentric_range_km": 403615.1429911155,
         "observer_range_km": 398160.8822732132,
         "range_approximation": "finite",

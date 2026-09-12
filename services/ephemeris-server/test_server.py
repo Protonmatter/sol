@@ -36,6 +36,8 @@ validator = load_module("sol_ephemeris_validator", TOOLS / "validate_ephemeris_s
 
 
 def fake_positions(*_args):
+    when, lat, lon = _args[:3] if len(_args) >= 3 else (datetime.fromtimestamp(1783569600, timezone.utc), 40.71, -74.01)
+    lst = server.time_block(when.timestamp() / 86400 + 2440587.5, lon)["lst_deg"]
     result = {}
     for index, (name, _hid, _kind, _radius) in enumerate(server.BODIES):
         moon = name == "Moon"
@@ -49,6 +51,10 @@ def fake_positions(*_args):
             "geocentric_range_km": (0.00257 if moon else 0.8 + 0.3 * index) * server.AU_KM,
             "observer_range_km": (0.00254 if moon else 0.8 + 0.3 * index) * server.AU_KM,
         }
+        item = result[name]
+        hour, dec, phi = map(math.radians, (lst-item["topocentric_ra"], item["topocentric_dec"], lat))
+        item["alt"] = math.degrees(math.asin(math.sin(phi)*math.sin(dec)+math.cos(phi)*math.cos(dec)*math.cos(hour)))
+        item["az"] = math.degrees(math.atan2(-math.cos(dec)*math.sin(hour), math.sin(dec)*math.cos(phi)-math.sin(phi)*math.cos(dec)*math.cos(hour))) % 360
     return result
 
 

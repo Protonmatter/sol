@@ -224,6 +224,77 @@ class BundleObservationProvenanceTests(unittest.TestCase):
         self.assertEqual(source.component("f107_cm_flux.json").raw, raw)
         self.assertEqual(json.loads(raw), payload)
 
+    def test_persisted_bundle_rejects_nonnative_timestamp_spellings(self):
+        payload = [
+            {"time_tag": "2026-09-10T00:00:00Z", "source": "valid source", "flux": 150.0},
+            {"time_tag": "20260912T000000Z", "source": "compact source", "flux": 235.0},
+            {"time_tag": "2026-09-13T02:00:00+02:00", "source": "offset source", "flux": 240.0},
+        ]
+        source = self.source({}, bundle_id="strict-clock-source", rows_by_name={"f107_cm_flux.json": payload})
+        raw = source.component("f107_cm_flux.json").raw
+        daily.derive_bundle(source, self.root / "derived", bundle_id="strict-clock-derived",
+            generated_at_utc="2026-09-11T01:00:00Z", seed=42)
+        resolved = bundles.resolve_derived_bundle(self.root / "derived" / "current.json")
+        report = json.loads(resolved.component("observations").raw)
+        snapshot = json.loads(resolved.component("snapshot").raw)
+        frame = next(frame for frame in report["frames"] if frame["id"] == "swpc-f107-cm-flux")
+        self.assertEqual(frame["provenance"]["time_tag"], "2026-09-10T00:00:00Z")
+        self.assertEqual(report["observed_context"]["space_weather_signals"]["latest_f107"], 150.0)
+        self.assertEqual(snapshot["run"]["activity_index"], 0.5)
+        self.assertEqual(len(snapshot["active_regions"]), 25)
+        self.assertEqual(source.component("f107_cm_flux.json").raw, raw)
+        self.assertEqual(json.loads(raw), payload)
+
+    def test_persisted_equal_instants_select_last_payload_position(self):
+        payload = [
+            {"time_tag": "2026-09-11T00:00:00Z", "source": "first source", "flux": 150.0},
+            {"time_tag": "2026-09-11T00:00:00+00:00", "source": "last source", "flux": 235.0},
+        ]
+        source = self.source({}, bundle_id="equal-clock-source", rows_by_name={"f107_cm_flux.json": payload})
+        raw = source.component("f107_cm_flux.json").raw
+        daily.derive_bundle(source, self.root / "derived", bundle_id="equal-clock-derived",
+            generated_at_utc="2026-09-11T01:00:00Z", seed=42)
+        resolved = bundles.resolve_derived_bundle(self.root / "derived" / "current.json")
+        report = json.loads(resolved.component("observations").raw)
+        snapshot = json.loads(resolved.component("snapshot").raw)
+        frame = next(frame for frame in report["frames"] if frame["id"] == "swpc-f107-cm-flux")
+        self.assertEqual(frame["provenance"]["time_tag"], "2026-09-11T00:00:00+00:00")
+        self.assertEqual(frame["provenance"]["source"], "last source")
+        self.assertEqual(report["observed_context"]["space_weather_signals"]["latest_f107"], 235.0)
+        self.assertEqual(snapshot["run"]["activity_index"], 1.0)
+        self.assertEqual(len(snapshot["active_regions"]), 38)
+        self.assertEqual(source.component("f107_cm_flux.json").raw, raw)
+        self.assertEqual(json.loads(raw), payload)
+
+    def test_persisted_count_proxies_share_clock_admission(self):
+        cases = (
+            ("solar_regions.json", "solar_region_rows", 0.375, 22),
+            ("sunspot_report.json", "sunspot_rows", 0.375, 22),
+            ("goes_xray_flares_7_day.json", "goes_xray_flares_7_day_rows", 0.5375, 26),
+        )
+        for index, (name, count_key, activity, region_count) in enumerate(cases):
+            with self.subTest(feed=name):
+                payload = [
+                    {"time_tag": "2026-09-10", "source": "valid calendar source"},
+                    {"source": "legacy missing-clock source"},
+                    {"time_tag": None, "source": "legacy null-clock source"},
+                    {"time_tag": "not-a-time", "source": "malformed-clock source"},
+                    {"time_tag": "20260912T000000Z", "source": "compact-clock source"},
+                    {"time_tag": "2026-09-12T02:00:00+02:00", "source": "offset-clock source"},
+                ]
+                source = self.source({}, bundle_id=f"count-clock-{index}-source", rows_by_name={name: payload})
+                raw = source.component(name).raw
+                daily.derive_bundle(source, self.root / "derived", bundle_id=f"count-clock-{index}-derived",
+                    generated_at_utc="2026-09-11T01:00:00Z", seed=42)
+                resolved = bundles.resolve_derived_bundle(self.root / "derived" / "current.json")
+                report = json.loads(resolved.component("observations").raw)
+                snapshot = json.loads(resolved.component("snapshot").raw)
+                self.assertEqual(report["observed_context"]["activity_proxy_sources"][count_key], 3)
+                self.assertEqual(snapshot["run"]["activity_index"], activity)
+                self.assertEqual(len(snapshot["active_regions"]), region_count)
+                self.assertEqual(source.component(name).raw, raw)
+                self.assertEqual(json.loads(raw), payload)
+
     def test_invalid_rows_do_not_inflate_activity_proxy_counts(self):
         for index, (name, count_key, activity, region_count) in enumerate((
             ("solar_regions.json", "solar_region_rows", 0.375, 22),

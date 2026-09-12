@@ -1,6 +1,9 @@
 //! Live v3 snapshot-copy validation. Frozen historical v2 has a separate explicit path.
 use crate::provenance::attributable_source;
-use solar_core::{parse_json, JsonValue};
+use solar_core::{
+    constants::{ACTIVE_REGION_LIFETIME_DAYS, SECONDS_PER_DAY},
+    parse_json, JsonValue,
+};
 
 // Six-decimal serialization of Rust f32 births changes the derived longitude by
 // <1.3e-6 degrees over the producer's 14-day region lifetime. Never scale this
@@ -393,6 +396,9 @@ fn semantics(value: &JsonValue) -> Result<(), String> {
                     .into(),
             );
         }
+        if time - number(birth, "time_seconds")? > ACTIVE_REGION_LIFETIME_DAYS * SECONDS_PER_DAY {
+            return Err("active_regions age exceeds active-region lifetime".into());
+        }
     }
     let activity = member(member(value, "uncertainty")?, "activity")?;
     if number(activity, "at_time_seconds")? != time {
@@ -409,6 +415,7 @@ fn semantics(value: &JsonValue) -> Result<(), String> {
         return Err("process noise rate/status mismatch".into());
     }
     let observations = array(value, "observations")?;
+    let mut attached_observation_frames = 0;
     for report in observations {
         if string(report, "schema_version")? != "observation-frame.v1"
             || string(report, "source_mode")?.is_empty()
@@ -417,7 +424,13 @@ fn semantics(value: &JsonValue) -> Result<(), String> {
         }
         for frame in array(report, "frames")? {
             validate_observation_frame(frame)?;
+            attached_observation_frames += 1;
         }
+    }
+    if string(run, "mode")? == "Assimilation" && attached_observation_frames == 0 {
+        return Err(
+            "run.mode Assimilation requires an attributable attached observation frame".into(),
+        );
     }
     let readiness = member(value, "operational_readiness")?;
     let data_state = member(readiness, "data_state")?;
@@ -610,7 +623,11 @@ mod tests {
                 "{id}: {result:?}"
             );
             if let Err(error) = result {
-                assert!(error.contains("longitude"), "{id}: {error}");
+                let expected = case
+                    .get("error_contains")
+                    .and_then(JsonValue::as_str)
+                    .unwrap_or("longitude");
+                assert!(error.contains(expected), "{id}: {error}");
             }
         }
     }
@@ -623,11 +640,21 @@ mod tests {
             parse_json(include_str!("../../../tests/fixtures/snapshot-intake.json")).unwrap();
         for case in cases.as_array().unwrap() {
             let mut snapshot = baseline.clone();
-            mutate(
-                &mut snapshot,
-                case.get("path").unwrap().as_array().unwrap(),
-                case.get("value"),
-            );
+            if let Some(mutations) = case.get("mutations").and_then(JsonValue::as_array) {
+                for mutation in mutations {
+                    mutate(
+                        &mut snapshot,
+                        mutation.get("path").unwrap().as_array().unwrap(),
+                        mutation.get("value"),
+                    );
+                }
+            } else {
+                mutate(
+                    &mut snapshot,
+                    case.get("path").unwrap().as_array().unwrap(),
+                    case.get("value"),
+                );
+            }
             let result = validate(&snapshot.to_compact_string());
             assert_eq!(
                 result.is_ok(),

@@ -83,6 +83,7 @@ const KINDS = ["synthetic", "observed", "blended", "inferred", "degraded"];
 // 14-day region lifetime, rounding changes the derived longitude by <1.3e-6
 // degrees. Keep this allowance fixed so a large age cannot hide a bad anchor.
 const LONGITUDE_TOLERANCE_DEG = 1e-5;
+const ACTIVE_REGION_LIFETIME_SECONDS = 14 * 86400;
 function unique(items, path) { if (new Set(items).size !== items.length) fail(path, "duplicate identities"); }
 function freezeTree(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freezeTree); Object.freeze(value); }
@@ -132,13 +133,17 @@ export function assertSolarSnapshot(data) {
     if (expectedLongitude < 0) expectedLongitude += 360;
     const difference = Math.abs(region.model_position.lon_deg - expectedLongitude);
     if (Math.min(difference, 360 - difference) > LONGITUDE_TOLERANCE_DEG) fail("active_regions.model_position.lon_deg", "longitude inconsistent with birth and model age");
+    if (run.time_seconds - region.birth.time_seconds > ACTIVE_REGION_LIFETIME_SECONDS) fail("active_regions", "age exceeds active-region lifetime");
   }
+  let attachedObservationFrames = 0;
   for (const report of data.observations) {
     if (report.schema_version !== "observation-frame.v1" || !report.source_mode || !Array.isArray(report.frames)) fail("observations", "invalid report");
     for (const frame of report.frames) {
       if (!frame || !KINDS.includes(frame.layer_kind) || !frame.source_mode || !attributableSource(frame.provenance?.source) || !Object.hasOwn(frame.provenance, "active") || !frame.provenance.raw_source_metadata || typeof frame.provenance.raw_source_metadata !== "object" || Array.isArray(frame.provenance.raw_source_metadata) || !Array.isArray(frame.quality_flags) || !frame.quality_flags.length) fail("observations", "missing attributable provenance or quality flags");
+      attachedObservationFrames++;
     }
   }
+  if (run.mode === "Assimilation" && attachedObservationFrames === 0) fail("run.mode", "Assimilation requires an attributable attached observation frame");
   if (readiness.data_state.source_mode !== data.source_mode) fail("data_state", "source mode mismatch");
   if ((data.observations.length === 0) !== (readiness.data_state.observation_mode === "none")) fail("data_state", "observation mode mismatch");
   if (readiness.data_state.live_data_present && !data.observations.length) fail("data_state", "live data without observations");

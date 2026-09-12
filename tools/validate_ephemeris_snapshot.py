@@ -17,6 +17,22 @@ COMPASS_POINTS = (
     "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
     "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
 )
+# Direction coherence, not an accuracy claim: allow the standalone provider's
+# disclosed mean/apparent sidereal and degraded EOP difference (one arcminute).
+# Unit-vector distance is conditioned at zenith/nadir and azimuth wraparound.
+HORIZONTAL_CHORD_LIMIT = 2 * math.sin(math.pi / (180 * 60 * 2)) + 1e-12
+
+
+def horizontal_direction_agrees(body: dict, time: dict, observer: dict) -> bool:
+    hour = math.radians(time["lst_deg"] - body["topocentric_apparent_ra_deg"])
+    dec = math.radians(body["topocentric_apparent_dec_deg"])
+    lat = math.radians(observer["polar_motion_corrected_lat_deg"])
+    alt, az = math.radians(body["alt_deg"]), math.radians(body["az_deg"])
+    equatorial = (-math.cos(dec) * math.sin(hour),
+                  math.sin(dec) * math.cos(lat) - math.cos(dec) * math.cos(hour) * math.sin(lat),
+                  math.sin(dec) * math.sin(lat) + math.cos(dec) * math.cos(hour) * math.cos(lat))
+    horizontal = (math.cos(alt) * math.sin(az), math.cos(alt) * math.cos(az), math.sin(alt))
+    return math.dist(equatorial, horizontal) <= HORIZONTAL_CHORD_LIMIT
 
 def reject_constant(value: str) -> None:
     raise ValueError(f"non-JSON numeric constant {value}")
@@ -72,6 +88,8 @@ def semantic_checks(data: dict[str, Any]) -> list[str]:
         for alias, explicit in [("ra_deg", "topocentric_apparent_ra_deg"), ("dec_deg", "topocentric_apparent_dec_deg")]:
             if abs(body[alias] - body[explicit]) > 1e-9:
                 errors.append(f"{name}.{alias} must alias {explicit}")
+        if not horizontal_direction_agrees(body, time, observer):
+            errors.append(f"{name} horizontal direction disagrees with equatorial position and observer/time")
         geo, obs = body["geocentric_range_km"], body["observer_range_km"]
         infinite = body["range_approximation"] == "infinite_catalogue_star"
         if infinite:

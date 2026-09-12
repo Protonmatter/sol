@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import math
 import random
+import re
 from pathlib import Path
 from typing import Any
 
@@ -55,12 +56,31 @@ def content_bytes(path: Path) -> int:
     return len(path.read_bytes().replace(b"\r\n", b"\n"))
 
 
+_DATE_PATTERN = r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
+_CLOCK_PATTERN = r"[0-9]{2}:[0-9]{2}:[0-9]{2}"
+_TIME_TAG_PATTERN = re.compile(
+    rf"(?:{_DATE_PATTERN}Z?|{_DATE_PATTERN}T{_CLOCK_PATTERN}(?:Z|\+00:00)?|"
+    rf"{_DATE_PATTERN} {_CLOCK_PATTERN}Z?|"
+    rf"{_DATE_PATTERN}T{_CLOCK_PATTERN}\.[0-9]+(?:Z|\+00:00))",
+    re.ASCII,
+)
+
+
 def parse_time_tag(value: Any) -> dt.datetime | None:
     if not isinstance(value, str) or not value.strip():
         return None
-    text = value.strip().replace("Z", "+00:00")
+    text = value.strip()
+    if _TIME_TAG_PATTERN.fullmatch(text) is None:
+        return None
+    if text.endswith("Z"):
+        normalized = text[:-1]
+        if len(normalized) == 10:
+            normalized += "T00:00:00"
+        normalized += "+00:00"
+    else:
+        normalized = text
     try:
-        parsed = dt.datetime.fromisoformat(text)
+        parsed = dt.datetime.fromisoformat(normalized)
     except ValueError:
         return None
     if parsed.tzinfo is None:
@@ -77,6 +97,17 @@ def row_time(row: dict[str, Any]) -> str | None:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
+
+
+def admitted_row_time(row: dict[str, Any]) -> tuple[bool, dt.datetime | None]:
+    """Classify a row's clock once for both value and count-based context."""
+    tag = row_time(row)
+    if tag is not None:
+        parsed = parse_time_tag(tag)
+        return parsed is not None, parsed
+    # Preserve legacy rows that genuinely omit a clock or explicitly use null.
+    unstamped = all(key not in row or row[key] is None for key in ROW_TIME_KEYS)
+    return unstamped, None
 
 
 OPTIONAL_CACHE_SOURCES = [
@@ -669,15 +700,15 @@ def evaluate_freshness(candidates: list[dict[str, Any]]) -> tuple[dict[str, Any]
 
 def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     by_id = {candidate["id"]: candidate for candidate in candidates}
-    rtsw_mag = rows(by_id.get("rtsw_mag_1m.json", {}).get("data"))
-    rtsw_wind = rows(by_id.get("rtsw_wind_1m.json", {}).get("data"))
-    solar_regions = rows(by_id.get("swpc-solar-regions", {}).get("data"))
-    sunspots = rows(by_id.get("swpc-sunspot-report", {}).get("data"))
-    kp_rows = rows(by_id.get("swpc-planetary-k-index-1m", {}).get("data"))
-    f107_rows = rows(by_id.get("swpc-f107-cm-flux", {}).get("data"))
-    xray_rows = rows(by_id.get("swpc-goes-xrays-1-day", {}).get("data"))
-    xray_flares = rows(by_id.get("swpc-goes-xray-flares-7-day", {}).get("data"))
-    cycle_rows = rows(by_id.get("swpc-observed-cycle-indices", {}).get("data"))
+    rtsw_mag = context_rows(by_id.get("rtsw_mag_1m.json", {}).get("data"))
+    rtsw_wind = context_rows(by_id.get("rtsw_wind_1m.json", {}).get("data"))
+    solar_regions = context_rows(by_id.get("swpc-solar-regions", {}).get("data"))
+    sunspots = context_rows(by_id.get("swpc-sunspot-report", {}).get("data"))
+    kp_rows = context_rows(by_id.get("swpc-planetary-k-index-1m", {}).get("data"))
+    f107_rows = context_rows(by_id.get("swpc-f107-cm-flux", {}).get("data"))
+    xray_rows = context_rows(by_id.get("swpc-goes-xrays-1-day", {}).get("data"))
+    xray_flares = context_rows(by_id.get("swpc-goes-xray-flares-7-day", {}).get("data"))
+    cycle_rows = context_rows(by_id.get("swpc-observed-cycle-indices", {}).get("data"))
     region_count = len(solar_regions)
     sunspot_count = len(sunspots)
     flare_count = len(xray_flares)
@@ -741,6 +772,10 @@ def rows(value: Any) -> list[dict[str, Any]]:
     return []
 
 
+def context_rows(value: Any) -> list[dict[str, Any]]:
+    return [row for row in rows(value) if admitted_row_time(row)[0]]
+
+
 def latest_numeric(row_values: list[dict[str, Any]], *keys: str) -> float | None:
     selected = latest_numeric_observation(row_values, *keys)
     return selected[0] if selected is not None else None
@@ -756,22 +791,18 @@ def latest_numeric_observation(row_values: list[dict[str, Any]], *keys: str) -> 
     correctly only after parsing to instants. Rows without a time tag fall back to the
     old reversed scan; rows with an explicitly invalid timestamp cannot supply a signal.
     """
-    stamped: list[tuple[dt.datetime, dict[str, Any]]] = []
+    stamped: list[tuple[dt.datetime, int, dict[str, Any]]] = []
     unstamped: list[dict[str, Any]] = []
-    for row in row_values:
-        tag = row_time(row)
-        if tag is None:
-            # Missing/null clocks retain the legacy unstamped ordering. An explicit
-            # malformed value is not missing and cannot lend an unaged signal.
-            if any(key in row and row[key] is not None for key in ROW_TIME_KEYS):
-                continue
+    for index, row in enumerate(row_values):
+        admitted, parsed = admitted_row_time(row)
+        if not admitted:
+            continue
+        if parsed is None:
             unstamped.append(row)
             continue
-        parsed = parse_time_tag(tag)
-        if parsed is not None:
-            stamped.append((parsed, row))
+        stamped.append((parsed, index, row))
     if stamped:
-        ordered = [row for _, row in sorted(stamped, key=lambda pair: pair[0], reverse=True)]
+        ordered = [row for _, _, row in sorted(stamped, key=lambda pair: (pair[0], pair[1]), reverse=True)]
     else:
         ordered = list(reversed(unstamped))
     for row in ordered:

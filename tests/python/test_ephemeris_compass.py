@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import math
 from pathlib import Path
 import sys
 import tempfile
@@ -51,11 +52,22 @@ def with_bearing(azimuth: float, compass: str, body_name: str = "Sun") -> dict:
     data = copy.deepcopy(SNAPSHOT)
     body = next(body for body in data["bodies"] if body["name"] == body_name)
     body.update(az_deg=azimuth, compass=compass)
+    ra, dec = equatorial_for_bearing(body["alt_deg"], azimuth, data["observer"]["polar_motion_corrected_lat_deg"], data["time"]["lst_deg"])
+    body.update(ra_deg=ra, dec_deg=dec, topocentric_apparent_ra_deg=ra, topocentric_apparent_dec_deg=dec)
+    if body["range_approximation"] == "infinite_catalogue_star":
+        body.update(geocentric_apparent_ra_deg=ra, geocentric_apparent_dec_deg=dec)
     return data
 
 
-def provider_positions() -> dict[str, dict[str, float]]:
-    return {
+def equatorial_for_bearing(altitude, azimuth, latitude, lst):
+    alt, az, lat = map(math.radians, (altitude, azimuth, latitude))
+    dec = math.asin(math.sin(alt)*math.sin(lat)+math.cos(alt)*math.cos(az)*math.cos(lat))
+    hour = math.atan2(-math.cos(alt)*math.sin(az), math.sin(alt)*math.cos(lat)-math.cos(alt)*math.cos(az)*math.sin(lat))
+    return (lst-math.degrees(hour)) % 360, math.degrees(dec)
+
+
+def provider_positions(unix=1783569600.0) -> dict[str, dict[str, float]]:
+    result = {
         body["name"]: {
             "geocentric_ra": body["geocentric_apparent_ra_deg"],
             "geocentric_dec": body["geocentric_apparent_dec_deg"],
@@ -67,6 +79,16 @@ def provider_positions() -> dict[str, dict[str, float]]:
         }
         for body in SNAPSHOT["bodies"] if body["range_approximation"] == "finite"
     }
+    # Keep synthetic provider directions coherent at the actual requested epoch.
+    for item in result.values():
+        point_at_azimuth(item, item["az"], unix)
+    return result
+
+
+def point_at_azimuth(item, azimuth, unix=1783569600.0):
+    lst = server.time_block(unix / 86400 + 2440587.5, 0)["lst_deg"]
+    ra, dec = equatorial_for_bearing(item["alt"], azimuth, 0, lst)
+    item.update(az=azimuth, topocentric_ra=ra, topocentric_dec=dec)
 
 
 class CompassContractTests(unittest.TestCase):
@@ -117,7 +139,7 @@ class CompassContractTests(unittest.TestCase):
             (-90.0, 270.0, "W"),
         ]:
             with self.subTest(source_az=source_az):
-                raw["Sun"]["az"] = source_az
+                point_at_azimuth(raw["Sun"], source_az)
                 before = copy.deepcopy(raw)
                 with mock.patch.object(server, "definitive_positions", return_value=raw):
                     emitted = server.build_snapshot(1783569600.0, 0, 0, 0)
@@ -129,8 +151,8 @@ class CompassContractTests(unittest.TestCase):
 
     def test_server_does_not_reuse_pre_normalization_cached_compass_pair(self):
         unix = (SNAPSHOT["time"]["jd_utc"] - 2440587.5) * 86400
-        raw = provider_positions()
-        raw["Sun"]["az"] = 11.24999999
+        raw = provider_positions(unix)
+        point_at_azimuth(raw["Sun"], 11.24999999, unix)
         old_text = json.dumps(with_bearing(11.25, "N"))
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(server, "CACHE_DIR", directory):
             # Reproduce the cache identity used before this serialization fix.

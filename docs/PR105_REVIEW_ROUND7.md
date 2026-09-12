@@ -52,3 +52,40 @@ qualification retain their existing holds. No scientific payload was regenerated
 The previous local ARM64 Moon-regeneration limitation remains separate from these
 fixes and the hosted Linux checks. Historical absent/null replay context remains
 compatible; strict context admission applies to newly assimilated CLI inputs.
+
+## Additional comments on `bda055e`
+
+Review `5188104576` identified six further admission inconsistencies. The correction
+keeps the same interfaces, schemas, scientific payloads and protected delivery gates:
+
+- Numeric and count-based Python proxies now use one clock-admission decision;
+  malformed-dated region/sunspot/flare records cannot influence counts or activity.
+- Numeric timestamps reject compact ISO and nonzero/negative-zero offsets, retaining
+  the explicitly supported native legacy forms and `Z`/`+00:00` fractional UTC forms.
+- Equal parsed timestamps choose the last original payload position, matching native
+  selection. Persisted hash-bound regressions verify selection and original bytes.
+- Live JS/Python/native solar admission rejects active regions older than 14 days,
+  while accepting the exact endpoint; replay rejection preserves previous output.
+- Assimilation requires at least one completely validated attached observation frame.
+  Shared cases reject empty observations and empty frame lists while preserving valid
+  Synthetic and attributable Assimilation cases.
+- Both live Sky validators compare horizontal/equatorial unit directions before
+  publication. The one-arcminute consistency allowance is explicit in SPEC and is not
+  a scientific accuracy claim. Tests cover incorrect altitude/azimuth/time/latitude,
+  cardinal directions, poles, zenith/nadir, wraparound and both sides of the allowance.
+  The test-only Moon/compass/provider fixtures now keep their synthetic coordinate
+  pairs coherent; no production science data or provider response is rewritten.
+
+The optional server currently supplies approximate mean sidereal/EOP metadata while
+Horizons supplies apparent body coordinates. The distinction is documented by the
+[Horizons manual](https://ssd.jpl.nasa.gov/horizons/manual.html#greenwich-mean-sidereal-time).
+This change adds bounded intake consistency, not a live Horizons qualification.
+
+Fresh integrated results after these corrections: 191 Rust tests, 239 Python tests
+(28 provider, 211 tools) and 657 Node tests passed. Rust formatting and Clippy with
+warnings denied passed; 68 JavaScript files typechecked. The unchanged Node coverage
+gate passed at 99.25% lines, 92.01% branches and 96.86% functions. The unchanged Python
+branch-inclusive gate passed at 92% rounded. Real-browser experience validation passed
+against `build/pr105-round8/site`; its WASM binaries reuse the previously verified
+build because no engine/WASM source changed in this correction. Final-head hosted CI
+rebuilds and verifies the immutable release candidate independently.

@@ -134,4 +134,35 @@ class FeedCommandTests(unittest.TestCase):
         self.assertEqual(generate.latest_numeric(rows, "value"), 2.0)
         self.assertEqual(generate.latest_numeric([{"value": "1"}, {"value": "2"}], "value"), 2.0)
 
+    def test_time_parser_matches_native_explicit_utc_and_legacy_grammar(self):
+        valid = (
+            "2026-09-11", "2026-09-11Z",
+            "2026-09-11T00:00:00", "2026-09-11 00:00:00",
+            "2026-09-11T00:00:00Z", "2026-09-11 00:00:00Z",
+            "2026-09-11T00:00:00+00:00",
+            "2026-09-11T00:00:00.1Z", "2026-09-11T00:00:00.123456789+00:00",
+        )
+        for value in valid:
+            with self.subTest(valid=value):
+                self.assertIsNotNone(generate.parse_time_tag(value))
+        invalid = (
+            "2026-09-11T00:00:00+02:00", "2026-09-11T00:00:00-05:00",
+            "2026-09-11T00:00:00-00:00", "2026-09-11T00:00:00.1-00:00",
+            "20260911", "20260911T000000Z", "2026-09-11T000000Z",
+            "2026-09-11+00:00", "2026-09-11 00:00:00+00:00",
+            "2026-09-11T00:00:00.1", "2026-09-11 00:00:00.1Z",
+        )
+        for value in invalid:
+            with self.subTest(invalid=value):
+                self.assertIsNone(generate.parse_time_tag(value))
+
+    def test_equal_parsed_instants_select_last_payload_position(self):
+        rows = [
+            {"time_tag": "2026-09-11T00:00:00Z", "value": 150},
+            {"time_tag": "2026-09-11T00:00:00+00:00", "value": 235},
+        ]
+        value, row = generate.latest_numeric_observation(rows, "value")
+        self.assertEqual(value, 235.0)
+        self.assertIs(row, rows[-1])
+
 if __name__=="__main__":unittest.main()

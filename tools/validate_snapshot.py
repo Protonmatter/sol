@@ -15,6 +15,7 @@ from snapshot_semantics import semantic_checks
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = REPO_ROOT / "docs" / "solar-state-snapshot-v3.schema.json"
+ACTIVE_REGION_LIFETIME_SECONDS = 14.0 * 86400.0
 
 
 def load_schema() -> dict[str, Any]:
@@ -51,7 +52,25 @@ def validate(data: Any, schema: dict[str, Any] | None = None) -> list[str]:
         schema = load_schema()
     errors = jsonschema_min.validate(data, schema)
     # Cross-field checks require the schema's object/array shapes first.
-    return errors if errors else semantic_checks(data)
+    if errors:
+        return errors
+    errors = semantic_checks(data)
+    return errors if errors else live_admission_checks(data)
+
+
+def live_admission_checks(data: dict[str, Any]) -> list[str]:
+    """Checks tied to producer lifecycle and evidence-bearing live run modes."""
+    errors: list[str] = []
+    run = data["run"]
+    for index, region in enumerate(data["active_regions"]):
+        age_seconds = run["time_seconds"] - region["birth"]["time_seconds"]
+        if age_seconds > ACTIVE_REGION_LIFETIME_SECONDS:
+            errors.append(f"active_regions[{index}] age exceeds active-region lifetime")
+
+    attached_frames = sum(len(report["frames"]) for report in data["observations"])
+    if run["mode"] == "Assimilation" and attached_frames == 0:
+        errors.append("run.mode Assimilation requires an attributable attached observation frame")
+    return errors
 
 
 def main() -> int:

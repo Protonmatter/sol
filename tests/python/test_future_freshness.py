@@ -55,15 +55,20 @@ class FutureFreshnessTests(unittest.TestCase):
         candidate["source_mode"] = "fixture"
         self.assertEqual(generate.evaluate_freshness([candidate]), ({}, []))
 
-    def test_offset_timestamps_report_the_same_utc_instant_used_for_age(self):
-        for stamp in ("2026-09-12T01:00:00+01:00", "2026-09-11T19:00:00-05:00"):
+    def test_native_invalid_offset_timestamps_do_not_supply_freshness(self):
+        for stamp in (
+            "2026-09-12T01:00:00+01:00",
+            "2026-09-11T19:00:00-05:00",
+            "2026-09-12T00:00:00-00:00",
+        ):
             with self.subTest(stamp=stamp):
                 candidate = self.candidate(0)
                 candidate["data"][0]["time_tag"] = stamp
+                before = copy.deepcopy(candidate)
                 report, warnings = generate.evaluate_freshness([candidate])
-                self.assertEqual(report[candidate["id"]], {
-                    "latest_time_tag": "2026-09-12T00:00:00Z", "age_hours": 0.0, "stale": False})
+                self.assertEqual(report, {})
                 self.assertEqual(warnings, [])
+                self.assertEqual(candidate, before, "captured source must not be rewritten")
 
 
 if __name__ == "__main__":

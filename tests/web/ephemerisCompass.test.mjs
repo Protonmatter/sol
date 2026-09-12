@@ -36,7 +36,14 @@ const boundaries = [
 
 function withBearing(azimuth, compass, bodyName = "Sun") {
   const data = structuredClone(snapshot);
-  Object.assign(data.bodies.find(body => body.name === bodyName), { az_deg: azimuth, compass });
+  const body=data.bodies.find(body => body.name === bodyName);
+  const radians=Math.PI/180, alt=body.alt_deg*radians, az=azimuth*radians;
+  const lat=data.observer.polar_motion_corrected_lat_deg*radians;
+  const dec=Math.asin(Math.sin(alt)*Math.sin(lat)+Math.cos(alt)*Math.cos(az)*Math.cos(lat))/radians;
+  const hour=Math.atan2(-Math.cos(alt)*Math.sin(az),Math.sin(alt)*Math.cos(lat)-Math.cos(alt)*Math.cos(az)*Math.sin(lat))/radians;
+  const ra=(data.time.lst_deg-hour+360)%360;
+  Object.assign(body, { az_deg: azimuth, compass, ra_deg:ra,dec_deg:dec,topocentric_apparent_ra_deg:ra,topocentric_apparent_dec_deg:dec });
+  if(body.range_approximation==="infinite_catalogue_star") Object.assign(body,{geocentric_apparent_ra_deg:ra,geocentric_apparent_dec_deg:dec});
   return data;
 }
 

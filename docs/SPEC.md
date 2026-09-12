@@ -56,6 +56,9 @@ The private transport checkpoint makes the state at a requested target time inva
 Pending source events remain queued until their birth epoch. An intermediate snapshot's
 active regions include only events born at or before its epoch and within the existing
 lifetime bound; hiding future regions must not discard their eventual source injection.
+Live snapshot admission MUST also enforce the producer's inclusive 14-day active-region
+lifetime. `Assimilation` mode requires at least one fully validated, attributable attached
+observation frame; an empty report cannot establish an assimilated result.
 
 ## Snapshot contracts
 
@@ -210,6 +213,13 @@ in illustrative fixture context; all-stale reports do not create a scalar analys
 Ingestion MUST reject unattributable records before selecting the newest usable row
 or deriving observed activity. Valid magnetic or wind evidence cannot authorize an
 activity value derived from an unattributable F10.7 row.
+Explicitly malformed clocks MUST be excluded from count-based region, sunspot and flare
+proxies as well as numeric signals. Python row-time parsing retains only native-supported
+calendar date/whole-second legacy forms and full explicit-UTC `Z`/`+00:00` forms with
+optional fractions; compact ISO and nonzero/negative-zero offsets do not qualify.
+Missing/null clocks retain the existing legacy unstamped path. Equal parsed instants
+select the last original payload position, consistently with native ingestion, without
+rewriting the selected source strings or immutable source bytes.
 
 Native simulation MUST validate observation envelopes and frames before they influence
 assimilation or enter an exported v3 snapshot. Accepted aggregate observation context,
@@ -275,6 +285,13 @@ already rendered for a newer valid epoch.
 Sky groups use geometric altitude strictly greater than zero, not refraction. Invalid
 observer/time input is rejected rather than clamped; device civil timezone or UTC is
 explicit and observer timezone is not inferred.
+Live Sky admission MUST reconcile geometric horizontal and topocentric equatorial
+directions using the declared sidereal angle and polar-motion-corrected latitude.
+The consistency limit is one arcminute in unit-vector angular separation, plus a
+`1e-12` chord-distance roundoff margin. This bounded consistency rule accommodates
+the optional server's disclosed approximate mean sidereal/EOP metadata; it is not
+an external accuracy or calibration guarantee. A vector comparison avoids singular
+azimuth differences at zenith/nadir and handles the 0/360-degree wrap.
 Constellation and fixed-star trajectory overlays use the displayed v3 snapshot's
 `observer.terrestrial_lat_deg`, not pending input or a removed historical observer alias.
 
