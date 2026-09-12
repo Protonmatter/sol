@@ -16,6 +16,9 @@ pub struct SnapshotRequest<'a> {
     /// Trusted JSON array produced by the ingest layer. The serializer verifies
     /// that it is a balanced JSON array envelope before embedding it.
     pub observations_json: Option<&'a str>,
+    /// Accepted observation context used to derive the analysis. The serializer
+    /// verifies that it is a balanced JSON object before preserving it verbatim.
+    pub observed_context_json: Option<&'a str>,
 }
 
 impl<'a> SnapshotRequest<'a> {
@@ -33,6 +36,7 @@ impl<'a> SnapshotRequest<'a> {
                 "Research and learning use only; not operational space-weather forecasting.",
             ],
             observations_json: None,
+            observed_context_json: None,
         }
     }
 }
@@ -222,6 +226,12 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     json_string_field(&mut out, 2, "plain_language_insight", insight(state), false);
     out.push_str("  },\n");
 
+    if let Some(raw) = request.observed_context_json {
+        out.push_str("  \"observed_context\": ");
+        out.push_str(raw.trim());
+        out.push_str(",\n");
+    }
+
     out.push_str("  \"observations\": ");
     match request.observations_json {
         Some(raw) => out.push_str(raw.trim()),
@@ -283,11 +293,25 @@ fn validate_snapshot_inputs(state: &SolarState, request: &SnapshotRequest<'_>) {
             "observations_json must be a balanced JSON array"
         );
     }
+    if let Some(raw) = request.observed_context_json {
+        assert!(
+            balanced_json_object_envelope(raw),
+            "observed_context_json must be a balanced JSON object"
+        );
+    }
 }
 
 fn balanced_json_array_envelope(raw: &str) -> bool {
+    balanced_json_envelope(raw, '[', ']')
+}
+
+fn balanced_json_object_envelope(raw: &str) -> bool {
+    balanced_json_envelope(raw, '{', '}')
+}
+
+fn balanced_json_envelope(raw: &str, opening: char, closing: char) -> bool {
     let text = raw.trim();
-    if !text.starts_with('[') || !text.ends_with(']') {
+    if !text.starts_with(opening) || !text.ends_with(closing) {
         return false;
     }
 
@@ -540,6 +564,15 @@ mod tests {
         let state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
         let mut request = SnapshotRequest::synthetic(42, 0, 1.0, 0.9);
         request.observations_json = Some("[{\"broken\":true}");
+        let _ = solar_state_snapshot_json(&state, &request);
+    }
+
+    #[test]
+    #[should_panic(expected = "observed_context_json must be a balanced JSON object")]
+    fn malformed_observed_context_envelope_is_rejected() {
+        let state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
+        let mut request = SnapshotRequest::synthetic(42, 0, 1.0, 0.9);
+        request.observed_context_json = Some("{\"broken\":true");
         let _ = solar_state_snapshot_json(&state, &request);
     }
 

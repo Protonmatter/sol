@@ -168,6 +168,18 @@ try {
     diagnostics.checks.push({workerStatus,workers});
     assert.match(workerStatus,/Computed on your device/);
     assert.ok(workers.some(url=>url.includes("solarWorker.js")),"actual solar calculation runs in a browser worker");
+    const completedState = await page.evaluate(async u => JSON.stringify((await import(u)).store.state), moduleUrl);
+    await page.click('[data-mode="sky"]');
+    await page.click('[data-mode="today"]');
+    assert.equal(await page.$eval("#liveStatus",node=>node.textContent),workerStatus,"surface switches preserve completed calculation status");
+    const backgroundTab = await browser.newPage();
+    await backgroundTab.bringToFront();
+    await page.waitForFunction(()=>document.hidden,{timeout:5000});
+    await page.bringToFront();
+    await backgroundTab.close();
+    assert.equal(await page.$eval("#liveStatus",node=>node.textContent),workerStatus,"actual hidden/visible lifecycle preserves completed calculation status");
+    assert.equal(await page.evaluate(async u => JSON.stringify((await import(u)).store.state), moduleUrl),completedState,"lifecycle changes retain the completed snapshot");
+    diagnostics.checks.push({completedCalculationLifecycle:"surface-switch-and-hidden-visible-preserved"});
     const cancellation=await page.evaluate(async q=>{
       const {store}=await import(`${window.__solQaPrefix}js/store.js${q}`),before=store.state;
       document.getElementById("liveRun").click();document.getElementById("liveCancel").click();

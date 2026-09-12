@@ -390,9 +390,11 @@ fn report_from_candidates(
             .get("time_tag")
             .and_then(JsonValue::as_str)
             .ok_or("selected signal has no time_tag")?;
-        let observed = timestamp_seconds(timestamp).ok_or("selected signal time_tag is invalid")?;
-        let age_hours = (as_of_unix_seconds as f64 - observed as f64) / 3600.0;
-        let stale = !(0.0..=48.0).contains(&age_hours);
+        let observed =
+            timestamp_microseconds(timestamp).ok_or("selected signal time_tag is invalid")?;
+        let age_microseconds = i128::from(as_of_unix_seconds) * 1_000_000 - i128::from(observed);
+        let age_hours = age_microseconds as f64 / 3_600_000_000.0;
+        let stale = !(0..=48 * 3_600_000_000i128).contains(&age_microseconds);
         // Same documented F10.7 normalization and 48 h policy as the Python producer.
         let activity = ((flux - 65.0) / 170.0).clamp(0.25, 1.0);
         out.push_str(&format!("  \"observed_context\": {{\"activity_index\": {activity:.6}, \"signal_freshness\": {{\"swpc-f107-cm-flux\": {{\"age_hours\": {age_hours:.6}, \"stale\": {stale}}}}}, \"evaluated_at_unix_seconds\": {as_of_unix_seconds}}},\n"));
@@ -631,25 +633,63 @@ fn newest_record<'a>(
                         && row.get("active").and_then(JsonValue::as_bool) != Some(false)))
         })
         .filter_map(|row| {
-            let time = timestamp_seconds(row.get("time_tag")?.as_str()?)?;
+            let time = timestamp_microseconds(row.get("time_tag")?.as_str()?)?;
             Some((time, row))
         })
         .max_by_key(|(time, _)| *time)
         .map(|(_, row)| row)
 }
 
-/// SWPC UTC dates / second-resolution timestamps; invalid dates and offsets fail closed.
-fn timestamp_seconds(text: &str) -> Option<i64> {
-    let text = text.strip_suffix('Z').unwrap_or(text);
-    if !text.is_ascii() || (text.len() != 10 && text.len() != 19) {
+/// SWPC legacy dates / whole seconds plus source-contract explicit UTC timestamps.
+/// Fractional precision follows Python `datetime`: pad to, or truncate at, microseconds.
+fn timestamp_microseconds(text: &str) -> Option<i64> {
+    if !text.is_ascii() {
         return None;
     }
-    if &text[4..5] != "-" || &text[7..8] != "-" {
+    let (text, suffix) = if let Some(value) = text.strip_suffix("+00:00") {
+        (value, 2u8)
+    } else if let Some(value) = text.strip_suffix('Z') {
+        (value, 1u8)
+    } else {
+        (text, 0u8)
+    };
+    let (base, fraction) = match text.split_once('.') {
+        Some((base, fraction))
+            if !fraction.is_empty() && fraction.bytes().all(|byte| byte.is_ascii_digit()) =>
+        {
+            (base, Some(fraction))
+        }
+        Some(_) => return None,
+        None => (text, None),
+    };
+    if base.len() != 10 && base.len() != 19 {
         return None;
     }
-    let year: i64 = text[..4].parse().ok()?;
-    let month: i64 = text[5..7].parse().ok()?;
-    let day: i64 = text[8..10].parse().ok()?;
+    if suffix == 2 && base.len() != 19 {
+        return None;
+    }
+    if fraction.is_some() && (suffix == 0 || base.get(10..11) != Some("T")) {
+        return None;
+    }
+    if suffix == 2 && base.get(10..11) != Some("T") {
+        return None;
+    }
+    if &base[4..5] != "-" || &base[7..8] != "-" {
+        return None;
+    }
+    let number = |start: usize, end: usize| {
+        let value = base.get(start..end)?;
+        value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit())
+            .then(|| value.parse::<i64>().ok())?
+    };
+    let year = number(0, 4)?;
+    let month = number(5, 7)?;
+    let day = number(8, 10)?;
+    if year == 0 {
+        return None;
+    }
     let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
     let days_in_month = match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
@@ -661,15 +701,11 @@ fn timestamp_seconds(text: &str) -> Option<i64> {
     if day < 1 || day > days_in_month {
         return None;
     }
-    let (hour, minute, second): (i64, i64, i64) = if text.len() == 19 {
-        if !["T", " "].contains(&&text[10..11]) || &text[13..14] != ":" || &text[16..17] != ":" {
+    let (hour, minute, second): (i64, i64, i64) = if base.len() == 19 {
+        if !["T", " "].contains(&&base[10..11]) || &base[13..14] != ":" || &base[16..17] != ":" {
             return None;
         }
-        (
-            text[11..13].parse().ok()?,
-            text[14..16].parse().ok()?,
-            text[17..19].parse().ok()?,
-        )
+        (number(11, 13)?, number(14, 16)?, number(17, 19)?)
     } else {
         (0, 0, 0)
     };
@@ -683,7 +719,11 @@ fn timestamp_seconds(text: &str) -> Option<i64> {
     let mp = month + if month > 2 { -3 } else { 9 };
     let doy = (153 * mp + 2) / 5 + day - 1;
     let days = era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
-    Some(days * 86400 + hour * 3600 + minute * 60 + second)
+    let fraction_microseconds = fraction.map_or(0, |digits| {
+        let width = digits.len().min(6);
+        digits[..width].parse::<i64>().unwrap() * 10i64.pow((6 - width) as u32)
+    });
+    Some((days * 86400 + hour * 3600 + minute * 60 + second) * 1_000_000 + fraction_microseconds)
 }
 
 fn raw_excerpt(raw: &str) -> String {
@@ -1144,8 +1184,11 @@ mod tests {
         let selected = newest_record(&parsed, true, None).unwrap();
         assert_eq!(scalar(selected, "source"), Some("F107".into()));
         assert_eq!(numeric_field(selected, "flux"), Some(150.0));
-        assert_eq!(timestamp_seconds("1970-01-01T00:00:00Z"), Some(0));
-        assert_eq!(timestamp_seconds("2026-09-11T00:00:00Z"), Some(1789084800));
+        assert_eq!(timestamp_microseconds("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(
+            timestamp_microseconds("2026-09-11T00:00:00Z"),
+            Some(1_789_084_800_000_000)
+        );
         for invalid in [
             "2026-02-29",
             "2026-09-31",
@@ -1153,8 +1196,91 @@ mod tests {
             "2026-09-11T24:00:00Z",
             "2026-09-11T12:00:00+02:00",
         ] {
-            assert!(timestamp_seconds(invalid).is_none(), "{invalid}");
+            assert!(timestamp_microseconds(invalid).is_none(), "{invalid}");
         }
+    }
+
+    #[test]
+    fn explicit_utc_timestamps_preserve_microseconds_for_ordering() {
+        for value in ["2026-09-11T00:00:00.500Z", "2026-09-11T00:00:00.500+00:00"] {
+            assert_eq!(timestamp_microseconds(value), Some(1_789_084_800_500_000));
+        }
+        for value in ["2026-09-11T00:00:00Z", "2026-09-11T00:00:00+00:00"] {
+            assert_eq!(timestamp_microseconds(value), Some(1_789_084_800_000_000));
+        }
+        assert_eq!(
+            timestamp_microseconds("2026-09-11T00:00:00.123456789Z"),
+            Some(1_789_084_800_123_456),
+            "fractional precision follows Python datetime microseconds"
+        );
+        for legacy in [
+            "2026-09-11",
+            "2026-09-11Z",
+            "2026-09-11T00:00:00",
+            "2026-09-11 00:00:00",
+            "2026-09-11 00:00:00Z",
+        ] {
+            assert_eq!(
+                timestamp_microseconds(legacy),
+                Some(1_789_084_800_000_000),
+                "legacy timestamp {legacy:?}"
+            );
+        }
+
+        let parsed = parse_json(
+            r#"[
+              {"time_tag":"2026-09-11T00:00:00.900Z","source":"NEWER","flux":150},
+              {"time_tag":"2026-09-11T00:00:00.100+00:00","source":"OLDER","flux":235}
+            ]"#,
+        )
+        .unwrap();
+        assert_eq!(
+            scalar(newest_record(&parsed, true, None).unwrap(), "source"),
+            Some("NEWER".into())
+        );
+
+        for invalid in [
+            "0000-01-01T00:00:00Z",
+            "2026-09-11T00:00:00.Z",
+            "2026-09-11T00:00:00.1.2Z",
+            "2026-09-11T00:00:00-00:00",
+            "2026-09-11T00:00:00.1-00:00",
+            "2026-09-11T00:00:00+02:00",
+            "2026-09-11T00:00:60Z",
+            "2026-09-11T00:00:00.1µZ",
+        ] {
+            assert!(timestamp_microseconds(invalid).is_none(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn fractional_freshness_uses_the_unrounded_boundary_age() {
+        let root = temp_dir("fractional-freshness");
+        fs::write(root.join("rtsw_mag_1m.json"), "[]").unwrap();
+        fs::write(root.join("rtsw_wind_1m.json"), "[]").unwrap();
+        for (time_tag, stale) in [
+            ("2026-09-11T00:00:00.000001Z", false),
+            ("2026-09-10T23:59:59.999999+00:00", true),
+        ] {
+            fs::write(
+                root.join("f107_cm_flux.json"),
+                format!(r#"[{{"time_tag":"{time_tag}","source":"F107","flux":150}}]"#),
+            )
+            .unwrap();
+            let report = swpc_observation_report_json_at(Some(&root), None, 1_789_257_600)
+                .expect("fractional UTC F10.7 record remains usable");
+            let parsed = parse_json(&report).unwrap();
+            let freshness = parsed
+                .get("observed_context")
+                .unwrap()
+                .get("signal_freshness")
+                .unwrap()
+                .get("swpc-f107-cm-flux")
+                .unwrap();
+            assert_eq!(freshness.get("age_hours").unwrap().as_f64(), Some(48.0));
+            assert_eq!(freshness.get("stale").unwrap().as_bool(), Some(stale));
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

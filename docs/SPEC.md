@@ -211,6 +211,19 @@ Ingestion MUST reject unattributable records before selecting the newest usable 
 or deriving observed activity. Valid magnetic or wind evidence cannot authorize an
 activity value derived from an unattributable F10.7 row.
 
+Native simulation MUST validate observation envelopes and frames before they influence
+assimilation or enter an exported v3 snapshot. Accepted aggregate observation context,
+including the activity value and per-signal freshness used by assimilation, MUST remain
+attached to the result without rewriting its values. Projecting admissible frames MUST
+preserve their order and the accepted report's other provenance metadata.
+
+Numeric signal selection MUST reject booleans and nonfinite values. Declared timestamps
+must parse before a row can supply a signal; malformed timestamps cannot become an
+unstamped fallback or disappear from freshness while still affecting activity. Selection
+orders parsed instants, not timestamp spellings. Native source intake supports the source
+contract's fractional-second `Z` and `+00:00` forms with precision retained for ordering
+and unrounded freshness. Original timestamp/source evidence remains unchanged.
+
 Derived bundle `feed_status.sources` MUST equal the ordered projection of retained
 `source.products`: `file` is `product_id`, `ok` is whether `failure` is null, and source,
 origin, observation time and retrieval time retain their exact declared values.
@@ -249,6 +262,9 @@ Current top-level destinations are:
 Canvas views require keyboard-native alternatives and persistent selected facts. The tour
 is modal, focus-trapped and skippable. Current source/epoch/observer/provider/limits are
 presented independently from pending work. Cancellation and failure retain valid state.
+Only an actually pending solar calculation may be reported as cancelled. Hiding the
+document or changing surfaces MUST preserve completed, failed and idle statuses; an
+obsolete request's settlement cannot clear a replacement request's pending identity.
 System animation validates each proposed epoch before changing displayed time or invoking
 the raw position path. An unsupported step pauses at the last valid epoch with an
 actionable status. Returning to a visible System view supersedes an entry cancelled

@@ -8,10 +8,11 @@ This inventory records all modified and untracked candidate files in the dedicat
 It is not a commit, publication attestation or claim that every acceptance gate passed.
 See [LOCAL_IMPLEMENTATION](LOCAL_IMPLEMENTATION.md) for the original implementation,
 [coverage and WASM gate evidence](PR105_COVERAGE_WASM_GATES.md),
-[admission/review corrections](PR105_REVIEW_ROUND5.md), and
-[final-review corrections](PR105_REVIEW_ROUND6.md) for results and release limits.
+[admission/review corrections](PR105_REVIEW_ROUND5.md),
+[prior review corrections](PR105_REVIEW_ROUND6.md), and
+[observation/lifecycle corrections](PR105_REVIEW_ROUND7.md) for results and release limits.
 
-There are 332 payload paths: 110 modified and 222 new. This inventory itself is
+There are 335 payload paths: 110 modified and 225 new. This inventory itself is
 one additional new file and is excluded from its own hash table to avoid self-reference.
 Ignored build, coverage and independent review evidence are not source payload entries.
 Hashes identify raw local file bytes (including line endings); Git blob IDs can differ.
@@ -97,7 +98,7 @@ No source files were deleted.
 | [apps/web/js/systemContract.js](../apps/web/js/systemContract.js) | new | 3022 | `e8abfaf2a7cae75b2f99a018b6457795163f0c2fa69cdfd55978ca53e589c8a4` |
 | [apps/web/js/systemWorker.js](../apps/web/js/systemWorker.js) | new | 1138 | `264b0c9ee7f22b10332495253868197e084055d5023c17c716adf1e85eeb6cc5` |
 | [apps/web/js/systemWorkerClient.js](../apps/web/js/systemWorkerClient.js) | new | 637 | `b96d98598cdf8952d20befa8e56548f494588d7b52289bcc863812dbdd061413` |
-| [apps/web/js/timeline.js](../apps/web/js/timeline.js) | modified | 6529 | `01c5eaa1075b9d421e277f5c5c209159d51b28532298434474bf1bd49ab8f4f3` |
+| [apps/web/js/timeline.js](../apps/web/js/timeline.js) | modified | 6920 | `35c36cd49ce2535c14cc19ffbfed176b2e410480f8b6c90b3c12588a2f12d4a1` |
 | [apps/web/js/tour.js](../apps/web/js/tour.js) | modified | 5382 | `69e191cf52cf812166ae15f00d20b9ddd6123c0f80e5534b44d71ac5d006f5c7` |
 | [apps/web/js/view.js](../apps/web/js/view.js) | modified | 3136 | `86ceae17ed467db285e25227e965b73aa23f961fdc134f81df9e382836b9f7c0` |
 | [apps/web/js/viewEvidence.js](../apps/web/js/viewEvidence.js) | new | 976 | `bf610027dd205742a5a661391e96d2b21d12e2831b0ef481884ea932a1de3803` |
@@ -107,16 +108,18 @@ No source files were deleted.
 | [apps/web/sw.js](../apps/web/sw.js) | modified | 8866 | `94c2d0a8b3efb2970aa4902dcb3464626aed8c134f6a24d7e24ec733d96263fe` |
 | [Cargo.lock](../Cargo.lock) | modified | 483 | `7ae745098fb042d00306890429eef7adc4586877a7575a73bc15052a6b4c196e` |
 | [crates/solar-cli/src/bundle_intake.rs](../crates/solar-cli/src/bundle_intake.rs) | new | 52857 | `eec792b612452a5bb9f0587557a72751c2dc97ddc5ef0d48888fbbcdaab31bb4` |
-| [crates/solar-cli/src/main.rs](../crates/solar-cli/src/main.rs) | modified | 29468 | `7f75fff143d5d2dad633a989c1c329b7b6e752d0069c95a32c9b29c53e53cf2a` |
+| [crates/solar-cli/src/main.rs](../crates/solar-cli/src/main.rs) | modified | 29765 | `1fcf1dd5907bb61a446de07ac1abc7043dfcc6f772c1ad92b6a220fec2ddf4ab` |
 | [crates/solar-cli/src/provenance.rs](../crates/solar-cli/src/provenance.rs) | new | 60 | `65811aba2d84ac7cce3d27e3a2db97202e471f9041e7e75c38555ca30386c6cb` |
 | [crates/solar-cli/src/snapshot_validation_v2.rs](../crates/solar-cli/src/snapshot_validation_v2.rs) | new | 14457 | `cd0cc39bbdef57e4832d25dc7d8e4db74b34159dd9917c970d5d66e4a58f4812` |
-| [crates/solar-cli/src/snapshot_validation.rs](../crates/solar-cli/src/snapshot_validation.rs) | new | 22837 | `a9efd86baff9ca8f964aa98a87c573fce65957889bdd03aeedd5267858cfed85` |
+| [crates/solar-cli/src/snapshot_validation.rs](../crates/solar-cli/src/snapshot_validation.rs) | new | 24331 | `5f7902bdf80ec58266d14c45cf21dee9f4361f424e6fc0ff0a692c274a5b6c72` |
 | [crates/solar-cli/tests/cli.rs](../crates/solar-cli/tests/cli.rs) | modified | 21228 | `bfa0814fa7e36d7750f8e473913f72555d92e43284905665db9d365fada6408d` |
 | [crates/solar-cli/tests/ingest_attribution.rs](../crates/solar-cli/tests/ingest_attribution.rs) | new | 9522 | `2378921236c16974befbcc45d43dfa4d2a02972553413ac04f1f7ecdf0105cf0` |
+| [crates/solar-cli/tests/observation_contract.rs](../crates/solar-cli/tests/observation_contract.rs) | new | 9028 | `f7941ab142d6355976047b11dc1f857e26f60dbd1b9c5628b10434b365727308` |
+| [crates/solar-cli/tests/source_pointer_timestamps.rs](../crates/solar-cli/tests/source_pointer_timestamps.rs) | new | 10650 | `ad7e0906aea5bf4f18e01ff823956d09112ab72fb48985f82cc9d8f644214f68` |
 | [crates/solar-cli/tests/standalone_provenance.rs](../crates/solar-cli/tests/standalone_provenance.rs) | new | 6463 | `75df5b3f94492b1772eb7f5d0fb2dad8fe07ddd6bfb165b81d838515cd038103` |
 | [crates/solar-core/src/active_region.rs](../crates/solar-core/src/active_region.rs) | modified | 779 | `38e22b833c64b334dfde3fd580e6eaf9cab1f477b49c9ea4dbec2905e801624b` |
 | [crates/solar-core/src/assimilation.rs](../crates/solar-core/src/assimilation.rs) | modified | 11270 | `8ef88b3c6c19fe80c392bd14d4d4d00ae319a22bc69a5b06205d1ab8ed2cf330` |
-| [crates/solar-core/src/contracts.rs](../crates/solar-core/src/contracts.rs) | modified | 24048 | `03b8266d7c16ff2193407e9d4fe85e1389273a84da4dc5ae5d5830e31c14917b` |
+| [crates/solar-core/src/contracts.rs](../crates/solar-core/src/contracts.rs) | modified | 25352 | `af72c202cc1ff6daeb3bd06f66ab6017f301624be23b67c214022c0fb8fada64` |
 | [crates/solar-core/src/flux_transport.rs](../crates/solar-core/src/flux_transport.rs) | modified | 34369 | `44972b4851f608ccefa4957d7295d02e51c3425a73e74c71a0c402db977f675a` |
 | [crates/solar-core/src/grid.rs](../crates/solar-core/src/grid.rs) | modified | 2755 | `c8da744f8c165b73b92ece9a1f0fd78e16b2678e5d9f0714bad3a3456906da7d` |
 | [crates/solar-core/src/json_read.rs](../crates/solar-core/src/json_read.rs) | modified | 16667 | `b2d53ab4eef197ad25628607f0e78614db9c6403a35a3a19481c9bb6ab54a627` |
@@ -130,7 +133,7 @@ No source files were deleted.
 | [crates/solar-ephemeris/src/earth_orientation.rs](../crates/solar-ephemeris/src/earth_orientation.rs) | modified | 7116 | `ac63a151e8e194a5e958f01d5b93ca9bc654aa7193c5d6eeefa99af5b83c4583` |
 | [crates/solar-ephemeris/src/lib.rs](../crates/solar-ephemeris/src/lib.rs) | modified | 57634 | `f882c58ec8702235305f2352d0c1866d8f78e6f26d6af290d57d5465f0b8ecb8` |
 | [crates/solar-ingest/Cargo.toml](../crates/solar-ingest/Cargo.toml) | modified | 458 | `f0106fb21030fed6145bb1ba168456868a7344c779ca62329a59eb848d932fe0` |
-| [crates/solar-ingest/src/lib.rs](../crates/solar-ingest/src/lib.rs) | modified | 43237 | `84a928c626bdeb5563836dd80cbd55371dbd8722b94e1aae45101088d2235697` |
+| [crates/solar-ingest/src/lib.rs](../crates/solar-ingest/src/lib.rs) | modified | 47809 | `e7eb36faf1af5c2a02b8c477e846e37f03f2716d47348e733bbc17b87747f91a` |
 | [crates/solar-wasm/src/lib.rs](../crates/solar-wasm/src/lib.rs) | modified | 7144 | `2b432727bab62e1ad05b379c39d06505769245836422e19d7f108207a121a4f1` |
 | [docs/ACCURACY_CONTRACT.md](../docs/ACCURACY_CONTRACT.md) | modified | 10382 | `91fcae92a56c1916e2b467e1448ef997629d768324fda69dbdde076a0532d6f3` |
 | [docs/accuracy-evidence-v1.schema.json](../docs/accuracy-evidence-v1.schema.json) | new | 3467 | `f9a41a836c912407fe816e915dc9510ab94e65679a66714fba3a289ca11e3d81` |
@@ -166,6 +169,7 @@ No source files were deleted.
 | [docs/PR105_REVIEW_ROUND4.md](../docs/PR105_REVIEW_ROUND4.md) | new | 6928 | `deb0d77d37dd97d3ca70a7f6489f7ec1db1ff30e31d00e916871d9031e4a812e` |
 | [docs/PR105_REVIEW_ROUND5.md](../docs/PR105_REVIEW_ROUND5.md) | new | 9804 | `82746e450a0e441bdaab8671e1616d948171147fe2db30442b0f384117f95632` |
 | [docs/PR105_REVIEW_ROUND6.md](../docs/PR105_REVIEW_ROUND6.md) | new | 12454 | `115896c314314a131c8d06b1dbf4418d2240d2f8021847cb7bb89f42ebed9319` |
+| [docs/PR105_REVIEW_ROUND7.md](../docs/PR105_REVIEW_ROUND7.md) | new | 4738 | `f1e019882446d3a47140f308f2bead34ae8bcdb243ed0b806dff65d684402bb8` |
 | [docs/public-data-cache-manifest-v2.schema.json](../docs/public-data-cache-manifest-v2.schema.json) | new | 2964 | `07e4693ea61fe17d57a09ceb578829164f4200daed2bb638a396d54c30012c30` |
 | [docs/qualification-evidence-v1.schema.json](../docs/qualification-evidence-v1.schema.json) | new | 3365 | `919d395117b59a9906c5b176d0fc82d375325711793daa362d11e44311feb57e` |
 | [docs/RELEASE_DELIVERY.md](../docs/RELEASE_DELIVERY.md) | new | 19988 | `4036800dd4c7f8c7cfaed2781092b3d963011596bd99fd8ceb06cf9e2f0a5a81` |
@@ -180,7 +184,7 @@ No source files were deleted.
 | [docs/SOLAR_V3_MIGRATION.md](../docs/SOLAR_V3_MIGRATION.md) | new | 9681 | `1edf5a528537f53a668c454af8688396c5fba351c967272d4c4beff9d829b9a5` |
 | [docs/solar-image-registration-v1.schema.json](../docs/solar-image-registration-v1.schema.json) | new | 2469 | `de7add4cbf9962748bae85fecb677286a7be70514ed01702229e5d8e45935ee8` |
 | [docs/solar-state-snapshot-v3.schema.json](../docs/solar-state-snapshot-v3.schema.json) | new | 14684 | `53cf3491925b076ee236c311f215f9e3a57461aa22f14b9a8068420c6f0883be` |
-| [docs/SPEC.md](../docs/SPEC.md) | modified | 16780 | `501c3fc1ce5394bb754944ab2141ed50dfc970b6edeb8af61465bd6edfd835ad` |
+| [docs/SPEC.md](../docs/SPEC.md) | modified | 17976 | `59028bff498da53d9fb7c1caad2ee2b0b402550aa1d663cc189457b39c5f3332` |
 | [docs/STATUS.md](../docs/STATUS.md) | modified | 5333 | `b521638ca3d1aba35d82e6310ece12b9a838cb912b6291e4ce1899c15a054d77` |
 | [docs/superpowers/plans/2026-09-12-coverage-wasm-gates.md](../docs/superpowers/plans/2026-09-12-coverage-wasm-gates.md) | new | 6510 | `1884111ecf5ce54ee21bef96b0826793471793b2818feff2f88d1ad44eda578f` |
 | [docs/superpowers/plans/2026-09-12-pr105-comment-contracts.md](../docs/superpowers/plans/2026-09-12-pr105-comment-contracts.md) | new | 8650 | `2cde2b04e7ef1a43de247d8968b1767784dbc3d5c05d48ada07ecf4475bbe5d0` |
@@ -225,7 +229,7 @@ No source files were deleted.
 | [tests/powershell/HelperContracts.Tests.ps1](../tests/powershell/HelperContracts.Tests.ps1) | new | 7154 | `e8beb47ba88d899180ddded40848dc7e2bf7dfe534b8aae77f6cc5392bb8f722` |
 | [tests/python/test_browser_executable.py](../tests/python/test_browser_executable.py) | new | 11133 | `37094232e322c4c2dff97dd15be0d44221a80abc87077fbd0b37bf5b6c848ab6` |
 | [tests/python/test_bundle_build.py](../tests/python/test_bundle_build.py) | new | 2241 | `e547ebd1359b2e47360ea9663e285ad67601aa047986680404abab8523fa5538` |
-| [tests/python/test_bundle_observation_provenance.py](../tests/python/test_bundle_observation_provenance.py) | new | 12030 | `269bdda7355ee11c92e36c5b9bcc7e035bc3e505e75ee65462d277136499f530` |
+| [tests/python/test_bundle_observation_provenance.py](../tests/python/test_bundle_observation_provenance.py) | new | 16792 | `4d52ea7ea0a748b88f3d47ab8a41d05b2bd47ca90ed31a488366bb1c5f225103` |
 | [tests/python/test_bundle_semantics.py](../tests/python/test_bundle_semantics.py) | new | 6270 | `136ab23560a71d1a49c5f5117423c49480965413c95736c926118307b11be3c0` |
 | [tests/python/test_contract_validators.py](../tests/python/test_contract_validators.py) | modified | 7323 | `27c3e18898b298cba738c62ec4604ec486d3449c733b0c0c64af4a83c279ee2d` |
 | [tests/python/test_data_bundles.py](../tests/python/test_data_bundles.py) | new | 24164 | `48e3a5f63d03c3dfed88cca333223f2dc162dc95d5515b3fd45f31a3a35a6be6` |
@@ -235,7 +239,7 @@ No source files were deleted.
 | [tests/python/test_ephemeris_helper.py](../tests/python/test_ephemeris_helper.py) | new | 1351 | `2fdcb1a22ed6ffca146b336d6aeb9af08e5dd71ab086aa70488c6c5634055fc8` |
 | [tests/python/test_ephemeris_native_v3.py](../tests/python/test_ephemeris_native_v3.py) | new | 3158 | `fbf5c35c1af58ba0b92bab34e54cc304ecd9c7d34b653be3a4d38b46a295c38f` |
 | [tests/python/test_ephemeris_v3.py](../tests/python/test_ephemeris_v3.py) | new | 1462 | `0f6541ebcaadfe1861c8d3a7856640ea06296173ab2e5b656049c1357e045d97` |
-| [tests/python/test_feed_commands.py](../tests/python/test_feed_commands.py) | new | 8528 | `1c9775707bc0c21c8fe30c0b8824190bc90c4c4062daadb03cb663727db89c27` |
+| [tests/python/test_feed_commands.py](../tests/python/test_feed_commands.py) | new | 10021 | `c6cd622caf6a4a775f62b49cf7d806aefc2c27564777f5926e208ad7f34db231` |
 | [tests/python/test_feed_transaction.py](../tests/python/test_feed_transaction.py) | new | 7684 | `3dae0e2a7ba133d2020e6c263894e6b8271e42001b928e2951a654f524631685` |
 | [tests/python/test_future_freshness.py](../tests/python/test_future_freshness.py) | new | 3667 | `a416b0949dd8274a5df7f70c890e7f0a7cd7e4a2be9eff532c0418d21d72ed50` |
 | [tests/python/test_moon_generation.py](../tests/python/test_moon_generation.py) | new | 7093 | `f62a900afc45c2aaae8ffebaef5dbdceb7a1ecebc6b664083150742eecd51d7b` |
@@ -299,7 +303,7 @@ No source files were deleted.
 | [tests/web/systemContract.test.mjs](../tests/web/systemContract.test.mjs) | new | 1997 | `8c029f5eb2b46e9876a607b37704b4e82165ea63079dd42eae713bd432c867f0` |
 | [tests/web/systemMetadataRefresh.test.mjs](../tests/web/systemMetadataRefresh.test.mjs) | new | 2745 | `aa7acb3f8a5ba59dc0b573a2af4b0e837cf5e4e24038d5db45a4fdcc12d8edd0` |
 | [tests/web/systemRecovery.test.mjs](../tests/web/systemRecovery.test.mjs) | new | 4314 | `1f7d90b3242a2ef57fb7bc27eab3f90b00fac1b214df3720851a218eb3e972f5` |
-| [tests/web/timelineCoverage.test.mjs](../tests/web/timelineCoverage.test.mjs) | new | 6267 | `6c9cda66057df71f9af2d6231c26e140573690aed21a94aad8f6746e4f573625` |
+| [tests/web/timelineCoverage.test.mjs](../tests/web/timelineCoverage.test.mjs) | new | 8676 | `07f6e9d70940f0bfda582859eac93eb6cc042b26cc6af06e29a525ef3fe02ba3` |
 | [tests/web/viewEvidence.test.mjs](../tests/web/viewEvidence.test.mjs) | new | 902 | `7fdae20f5f36f26a09d7396988349ec9b24f43547590ef0741fa991c36197d40` |
 | [tests/web/wavelength_review_regressions.test.mjs](../tests/web/wavelength_review_regressions.test.mjs) | new | 6846 | `161a93d01a5f6a44ec220af53d1a65bf75a3e46f298f96486aa0b56708bf13d4` |
 | [tests/web/workerClient.test.mjs](../tests/web/workerClient.test.mjs) | new | 4161 | `81f2ca049b1d1b8015c4a51c4a53ccc02c54323947b6a29e87438eaaff3ef35b` |
@@ -316,9 +320,9 @@ No source files were deleted.
 | [tools/delivery_lifecycle.py](../tools/delivery_lifecycle.py) | new | 17272 | `dfa47c78b050514a911ecd347b6e0c2c3e9cae4861c4fbe85596cc433723dc8a` |
 | [tools/ephemeris-data/generation-manifest.json](../tools/ephemeris-data/generation-manifest.json) | new | 3292 | `00848b3b835128c28b40dd7b5a05990bb0d22bdecb2796cb360cf71dbf0bb649` |
 | [tools/ephemeris-data/README.md](../tools/ephemeris-data/README.md) | modified | 2114 | `eca81b307b4f190b760ddfcf24efba5ec636eabea38a9ca8378b8cee5d3aa4cf` |
-| [tools/experience_validation.mjs](../tools/experience_validation.mjs) | new | 18600 | `48f299111cb4a1e12d5957d4795a7a4bdc25df90e2c6ed1e1ee28197d865f2d2` |
+| [tools/experience_validation.mjs](../tools/experience_validation.mjs) | new | 19613 | `72514fc80bd6e150dd1b01c80e79f0908ec31776b4c28eec8f9af81809d959dd` |
 | [tools/fetch_public_data.py](../tools/fetch_public_data.py) | modified | 14449 | `9fddba185a75a6937d51d578c823eb19541209ea1a5ac64c5bcf62d5afbb3f17` |
-| [tools/generate_fixture_snapshot.py](../tools/generate_fixture_snapshot.py) | modified | 40767 | `27fd4a8ceff2c620e253cc6f55634cd800c7ba7fcd22992ff34a277d9e1cc641` |
+| [tools/generate_fixture_snapshot.py](../tools/generate_fixture_snapshot.py) | modified | 41592 | `b9788f9cf949e740b7996460dd73b942622b83ad6b79497e45ccff983f9f0714` |
 | [tools/generate_moons.py](../tools/generate_moons.py) | modified | 19128 | `0c070352991b48283a9ab9aa40425b50df9406a5d36dd1788f5c8d34290f86f9` |
 | [tools/generate_series.py](../tools/generate_series.py) | modified | 7858 | `b289ad7b5c9ad18babfce30a169348ba8439b63c1a2550508ad42b0ce16caa0b` |
 | [tools/install_daily_ingest_task.ps1](../tools/install_daily_ingest_task.ps1) | modified | 4442 | `52c5e1c02d0a5acd544b0d44aa50da7229acdb7ae8990305773e031cf922bb65` |

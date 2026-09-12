@@ -101,7 +101,21 @@ class FeedCommandTests(unittest.TestCase):
         self.assertEqual(generate.rows({"none":None}),[])
         self.assertEqual(generate.latest_numeric([{"time_tag":"2026-09-10","bad":None},{"time_tag":"2026-09-11","bad":"x","good":"4"}],"bad","good"),4)
         self.assertEqual(generate.latest_numeric([{"value":""},{"value":"2"}],"value"),2)
+        self.assertEqual(generate.latest_numeric([{"value":"2"},{"time_tag":"not-a-time","value":"9"}],"value"),2)
+        self.assertIsNone(generate.latest_numeric([{"time_tag":"not-a-time","value":"9"}],"value"))
+        for invalid_time in ("", " ", True, 7, [], {}):
+            with self.subTest(invalid_time=invalid_time):
+                self.assertEqual(generate.latest_numeric([{"value":"2"},{"time_tag":invalid_time,"value":"9"}],"value"),2)
+        self.assertEqual(generate.latest_numeric([{"value":"1"},{"time_tag":None,"value":"2"}],"value"),2)
         self.assertIsNone(generate.numeric("bad"));self.assertIsNone(generate.numeric(""));self.assertIsNone(generate.numeric(None))
+        self.assertIsNone(generate.numeric(False));self.assertIsNone(generate.numeric(True))
+        for nonfinite in ("NaN", "Infinity", "-Infinity", float("nan"), float("inf"), float("-inf")):
+            with self.subTest(nonfinite=nonfinite):
+                self.assertIsNone(generate.numeric(nonfinite))
+        self.assertEqual(generate.latest_numeric([
+            {"time_tag":"2026-09-10T00:00:00Z","value":"150"},
+            {"time_tag":"2026-09-11T00:00:00Z","value":"Infinity"},
+        ],"value"),150)
         self.assertEqual(generate.clamp_float(None,1,2),1);self.assertEqual(generate.format_optional(None,1),"n/a")
         self.assertIsNone(generate.parse_time_tag("bad"));self.assertIsNone(generate.parse_time_tag(None))
         self.assertIsNotNone(generate.parse_time_tag("2026-09-11T00:00:00"))
@@ -111,5 +125,13 @@ class FeedCommandTests(unittest.TestCase):
         candidate["data"]=[{"time_tag":"bad"}];self.assertEqual(generate.evaluate_freshness([candidate]),({},[]))
         cycle={"id":"swpc-observed-cycle-indices","source_mode":"fixture","data":[{"f10.7":140}]}
         self.assertEqual(generate.build_observed_context([cycle])["space_weather_signals"]["latest_f107"],140)
+
+    def test_latest_numeric_orders_utc_equivalents_and_fractional_instants(self):
+        rows = [
+            {"time_tag": "2026-09-11T00:00:00Z", "value": "1"},
+            {"time_tag": "2026-09-11T00:00:00.500000+00:00", "value": "2"},
+        ]
+        self.assertEqual(generate.latest_numeric(rows, "value"), 2.0)
+        self.assertEqual(generate.latest_numeric([{"value": "1"}, {"value": "2"}], "value"), 2.0)
 
 if __name__=="__main__":unittest.main()

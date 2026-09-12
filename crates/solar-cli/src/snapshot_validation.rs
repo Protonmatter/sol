@@ -217,6 +217,74 @@ fn unique_ids(items: &[JsonValue], path: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub(crate) fn validate_observation_frame(frame: &JsonValue) -> Result<(), String> {
+    if !["synthetic", "observed", "blended", "inferred", "degraded"]
+        .contains(&string(frame, "layer_kind")?)
+        || string(frame, "source_mode")?.is_empty()
+    {
+        return Err("invalid observation layer_kind or source_mode".into());
+    }
+    let provenance = member(frame, "provenance")?;
+    if !attributable_source(string(provenance, "source")?) {
+        return Err("observation provenance.source must be attributable".into());
+    }
+    member(provenance, "active")?;
+    if !matches!(
+        member(provenance, "raw_source_metadata")?,
+        JsonValue::Object(_)
+    ) {
+        return Err("raw_source_metadata must be object".into());
+    }
+    if array(frame, "quality_flags")?.is_empty() {
+        return Err("observation quality_flags must be nonempty".into());
+    }
+    Ok(())
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct ObservedContextAssessment {
+    pub activity_index: f64,
+    pub fresh: usize,
+    pub total: usize,
+}
+
+pub(crate) fn assess_observed_context(
+    context: &JsonValue,
+) -> Result<ObservedContextAssessment, String> {
+    if !matches!(context, JsonValue::Object(_)) {
+        return Err("observed_context must be an object".into());
+    }
+    let activity_index = number(context, "activity_index")?;
+    if !(0.0..=1.0).contains(&activity_index) {
+        return Err("observed_context.activity_index must be finite and in [0, 1]".into());
+    }
+    let freshness = member(context, "signal_freshness")?;
+    let JsonValue::Object(entries) = freshness else {
+        return Err("observed_context.signal_freshness must be an object".into());
+    };
+    let mut fresh = 0;
+    for (_, entry) in entries {
+        if !matches!(entry, JsonValue::Object(_)) {
+            return Err("signal_freshness entries must be objects".into());
+        }
+        let stale = member(entry, "stale")?
+            .as_bool()
+            .ok_or("signal_freshness.stale must be a boolean")?;
+        if entry
+            .get("age_hours")
+            .is_some_and(|age| age.as_f64().is_none_or(|value| !value.is_finite()))
+        {
+            return Err("signal_freshness.age_hours must be finite when present".into());
+        }
+        fresh += usize::from(!stale);
+    }
+    Ok(ObservedContextAssessment {
+        activity_index,
+        fresh,
+        total: entries.len(),
+    })
+}
+
 pub fn validate(raw: &str) -> Result<(), String> {
     let value = parse_json(raw).map_err(|err| format!("snapshot JSON: {err}"))?;
     if value.get("schema_version").and_then(JsonValue::as_str) != Some("solar-state-snapshot.v3") {
@@ -348,26 +416,7 @@ fn semantics(value: &JsonValue) -> Result<(), String> {
             return Err("observations require observation-frame.v1 and source_mode".into());
         }
         for frame in array(report, "frames")? {
-            if !["synthetic", "observed", "blended", "inferred", "degraded"]
-                .contains(&string(frame, "layer_kind")?)
-                || string(frame, "source_mode")?.is_empty()
-            {
-                return Err("invalid observation layer_kind or source_mode".into());
-            }
-            let provenance = member(frame, "provenance")?;
-            if !attributable_source(string(provenance, "source")?) {
-                return Err("observation provenance.source must be attributable".into());
-            }
-            member(provenance, "active")?;
-            if !matches!(
-                member(provenance, "raw_source_metadata")?,
-                JsonValue::Object(_)
-            ) {
-                return Err("raw_source_metadata must be object".into());
-            }
-            if array(frame, "quality_flags")?.is_empty() {
-                return Err("observation quality_flags must be nonempty".into());
-            }
+            validate_observation_frame(frame)?;
         }
     }
     let readiness = member(value, "operational_readiness")?;

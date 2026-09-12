@@ -94,3 +94,55 @@ test("solver failure retains selection and recovery publishes only a validated r
   assert.match(h.nodes.get("liveStatus").textContent, /activity 0.40.*modeled regions/);
   h.api.prepareBundlePublication(); assert.equal(h.intervals.size, 0);
 });
+
+test("lifecycle cancellation preserves idle, completed and failed calculation status", async () => {
+  for (const outcome of ["idle", "completed", "failed"]) {
+    const h = await fixture();
+    h.nodes.get("liveStatus").textContent = "Latest loaded feed context";
+    if (outcome !== "idle") {
+      const request = h.api.runLiveEngine();
+      if (outcome === "completed") h.requests[0].resolve(structuredClone(snapshot));
+      else h.requests[0].reject(Error("solver unavailable"));
+      await request;
+    }
+    const priorStatus = h.nodes.get("liveStatus").textContent;
+    const priorState = h.store.state;
+    h.api.cancelLiveEngine(); // the handler used for hidden documents and surface switches
+    h.api.cancelLiveEngine();
+    assert.equal(h.nodes.get("liveStatus").textContent, priorStatus, outcome);
+    assert.equal(h.store.state, priorState, outcome);
+  }
+});
+
+test("settlement of superseded work cannot clear the replacement cancellation state", async () => {
+  for (const outcome of ["success", "failure"]) {
+    const h = await fixture();
+    const first = h.api.runLiveEngine();
+    const second = h.api.runLiveEngine();
+    if (outcome === "success") h.requests[0].resolve(structuredClone(snapshot));
+    else h.requests[0].reject(Error("superseded failure"));
+    await first;
+    assert.match(h.nodes.get("liveStatus").textContent, /Running/);
+    h.api.cancelLiveEngine();
+    assert.match(h.nodes.get("liveStatus").textContent, /cancelled/);
+    const cancellationStatus = h.nodes.get("liveStatus").textContent;
+    h.requests[1].resolve(structuredClone(snapshot));
+    await second;
+    assert.equal(h.nodes.get("liveStatus").textContent, cancellationStatus);
+    assert.equal(h.store.state, snapshot);
+  }
+});
+
+test("bundle and timeline invalidation clear pending intent before later lifecycle events", async () => {
+  for (const navigate of [h => h.api.prepareBundlePublication(), h => h.api.goLive(), h => h.api.setTimelineFrame(2)]) {
+    const h = await fixture();
+    const request = h.api.runLiveEngine();
+    navigate(h);
+    h.nodes.get("liveStatus").textContent = "Newly displayed context";
+    h.api.cancelLiveEngine();
+    assert.equal(h.nodes.get("liveStatus").textContent, "Newly displayed context");
+    h.requests[0].resolve(structuredClone(snapshot));
+    await request;
+    assert.equal(h.nodes.get("liveStatus").textContent, "Newly displayed context");
+  }
+});

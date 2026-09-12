@@ -11,10 +11,13 @@ import { assertSolarSnapshot } from "./solarContract.js?v=dcca6290db";
 // bails if it changed, so a slow-resolving simulate can't overwrite state the user
 // has since navigated away from.
 let navGeneration = 0;
+// Displayed local results outlive their requests; liveEngineRun is not pending state.
+let activeRunGeneration = 0;
 
 // Called only at the validated bundle publication boundary; no render or await.
 export function prepareBundlePublication() {
   navGeneration++;
+  activeRunGeneration = 0;
   cancelSolarSimulation();
   stopPlay();
 }
@@ -22,6 +25,7 @@ export function prepareBundlePublication() {
 export function setTimelineFrame(index) {
   if (!store.seriesFrames.length) return;
   navGeneration++;
+  activeRunGeneration = 0;
   cancelSolarSimulation();
   store.liveEngineRun = false;
   store.timelineIndex = Math.max(0, Math.min(store.seriesFrames.length - 1, index));
@@ -37,6 +41,7 @@ export function setTimelineFrame(index) {
 export function goLive() {
   stopPlay();
   navGeneration++;
+  activeRunGeneration = 0;
   cancelSolarSimulation();
   store.liveEngineRun = false;
   store.timelineIndex = -1;
@@ -52,6 +57,7 @@ export async function runLiveEngine() {
   const slider = /** @type {HTMLInputElement|null} */ (document.getElementById("liveActivity"));
   const activity = Number(slider?.value || 0.9);
   const gen = ++navGeneration; // this run supersedes any earlier nav/run in flight
+  activeRunGeneration = gen;
   if (status) status.textContent = "Running the engine…"; // pending feedback while the WASM fetch/solve runs
   try {
     const start = performance.now();
@@ -73,14 +79,18 @@ export async function runLiveEngine() {
   } catch (error) {
     if (gen !== navGeneration) return;
     if (status) status.textContent = `Engine result unavailable: ${error.message}. Last valid model and selection retained; retry the calculation.`;
+  } finally {
+    if (activeRunGeneration === gen) activeRunGeneration = 0;
   }
 }
 
 export function cancelLiveEngine() {
+  const wasPending = activeRunGeneration !== 0;
   navGeneration++;
+  activeRunGeneration = 0;
   cancelSolarSimulation();
   const status = document.getElementById("liveStatus");
-  if(status) status.textContent = "Calculation cancelled. Last valid model retained; Simulate starts a new bounded request.";
+  if(status && wasPending) status.textContent = "Calculation cancelled. Last valid model retained; Simulate starts a new bounded request.";
 }
 
 export function stepTimeline(direction = 1) {

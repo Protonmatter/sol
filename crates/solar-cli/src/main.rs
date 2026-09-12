@@ -96,6 +96,7 @@ fn simulate_command(args: &[String]) -> Result<(), String> {
             let mut request = SnapshotRequest::synthetic(seed, steps, dt_hours, analysis_activity);
             request.source_mode = &o.source_mode;
             request.observations_json = Some(&o.observations_json);
+            request.observed_context_json = Some(&o.observed_context_json);
             for warning in &o.warnings {
                 request.warnings.push(warning);
             }
@@ -143,8 +144,11 @@ struct ObservationOutcome {
     usable_frames: usize,
     source_mode: String,
     /// Embedded verbatim into the snapshot's `observations` array: the report envelope
-    /// with its frames, minus bulk (adapter_health / observed_context).
+    /// with only inadmissible frames removed.
     observations_json: String,
+    /// The validated context that determined activity and freshness, preserved at the
+    /// snapshot top level for audit and deterministic reproduction.
+    observed_context_json: String,
     warnings: Vec<String>,
 }
 
@@ -174,45 +178,24 @@ fn assess_observations(
         .get("frames")
         .and_then(|v| v.as_array())
         .unwrap_or(&[]);
-    // Only frames with attributable provenance qualify as embeddable evidence — the
-    // snapshot contract requires provenance.source on every attached frame, and it is
-    // right to: evidence you cannot attribute is not evidence. The rest still informed
-    // the pipeline's activity index; they are counted and disclosed, not embedded.
+    // Use the same complete frame contract as replay. Evidence rejected here cannot
+    // influence the analysis or make a newly produced snapshot fail later admission.
     let evidence: Vec<JsonValue> = frames
         .iter()
-        .filter(|frame| {
-            frame
-                .get("provenance")
-                .and_then(|p| p.get("source"))
-                .and_then(|s| s.as_str())
-                .is_some_and(provenance::attributable_source)
-        })
+        .filter(|frame| snapshot_validation::validate_observation_frame(frame).is_ok())
         .cloned()
         .collect();
-    let observed_activity = report
-        .get("observed_context")
-        .and_then(|c| c.get("activity_index"))
-        .and_then(|v| v.as_f64())
-        .filter(|v| v.is_finite() && (0.0..=1.0).contains(v));
+    let context = report.get("observed_context").and_then(|value| {
+        snapshot_validation::assess_observed_context(value)
+            .ok()
+            .map(|assessment| (value, assessment))
+    });
+    let observed_activity = context.map(|(_, assessment)| assessment.activity_index);
     // Freshness is judged from the report's own generation-time evaluation (age vs the
     // per-feed limits), so the run is reproducible from the file alone: the gain is the
     // fraction of feeds that were fresh when the report was written.
-    let (fresh, total) = report
-        .get("observed_context")
-        .and_then(|c| c.get("signal_freshness"))
-        .map(|freshness| match freshness {
-            JsonValue::Object(entries) => {
-                let total = entries.len();
-                let fresh = entries
-                    .iter()
-                    .filter(|(_, entry)| {
-                        entry.get("stale").and_then(|s| s.as_bool()) == Some(false)
-                    })
-                    .count();
-                (fresh, total)
-            }
-            _ => (0, 0),
-        })
+    let (fresh, total) = context
+        .map(|(_, assessment)| (assessment.fresh, assessment.total))
         .unwrap_or((0, 0));
     let freshness_gain = if total == 0 {
         0.0
@@ -222,14 +205,19 @@ fn assess_observations(
     let report_source_mode = report
         .get("source_mode")
         .and_then(|v| v.as_str())
-        .unwrap_or("unknown");
+        .filter(|mode| !mode.is_empty());
 
-    let usable = observed_activity.is_some() && !evidence.is_empty() && freshness_gain > 0.0;
+    let usable = observed_activity.is_some()
+        && !evidence.is_empty()
+        && freshness_gain > 0.0
+        && report_source_mode.is_some();
     if !usable {
         let reason = if observed_activity.is_none() {
-            "no finite observed_context.activity_index in [0, 1]"
+            "no valid observed_context activity/freshness values"
         } else if evidence.is_empty() {
-            "no observation frames with attributable provenance"
+            "no complete observation frames with attributable provenance"
+        } else if report_source_mode.is_none() {
+            "no nonempty observation report source_mode"
         } else {
             "every observation feed was stale at generation"
         };
@@ -241,11 +229,13 @@ fn assess_observations(
             usable_frames: 0,
             source_mode: "synthetic".to_string(),
             observations_json: String::new(),
+            observed_context_json: String::new(),
             warnings: vec![format!(
                 "Observation report was not usable ({reason}); the run remains synthetic."
             )],
         });
     }
+    let report_source_mode = report_source_mode.ok_or("validated report source_mode missing")?;
 
     let obs = ActivityObservation {
         value: observed_activity.unwrap_or(f64::from(forecast_activity)) as f32,
@@ -255,19 +245,21 @@ fn assess_observations(
     let (analysis_activity, analysis_variance) =
         assimilate_activity(forecast_activity, ACTIVITY_FORECAST_VARIANCE, &obs);
 
-    // Embed the report envelope + frames (order preserved) as the snapshot's evidence.
-    let embedded = vec![
-        (
-            "schema_version".to_string(),
-            JsonValue::String(schema.to_string()),
-        ),
-        (
-            "source_mode".to_string(),
-            JsonValue::String(report_source_mode.to_string()),
-        ),
-        ("frames".to_string(), JsonValue::Array(evidence.clone())),
-    ];
-    let observations_json = JsonValue::Array(vec![JsonValue::Object(embedded)]).to_compact_string();
+    // Preserve the accepted report semantically and in field order, replacing only its
+    // frame array with the complete admissible projection.
+    let mut embedded_report = report.clone();
+    let JsonValue::Object(fields) = &mut embedded_report else {
+        return Err("observations report must be an object".into());
+    };
+    let frames_field = fields
+        .iter_mut()
+        .find(|(name, _)| name == "frames")
+        .ok_or("observations report frames missing")?;
+    frames_field.1 = JsonValue::Array(evidence.clone());
+    let observations_json = JsonValue::Array(vec![embedded_report]).to_compact_string();
+    let observed_context_json = context
+        .map(|(value, _)| value.to_compact_string())
+        .ok_or("validated observed_context missing")?;
 
     let mut warnings = vec![
         "Assimilation corrected the scalar activity index only; surface fields remain synthetic."
@@ -282,7 +274,7 @@ fn assess_observations(
     }
     if evidence.len() < frames.len() {
         warnings.push(format!(
-            "{} of {} observation frames lacked attributable provenance and are not embedded as evidence (they still informed the pipeline's activity index).",
+            "{} of {} observation frames lacked attributable provenance or required metadata and are not embedded as evidence.",
             frames.len() - evidence.len(),
             frames.len()
         ));
@@ -296,6 +288,7 @@ fn assess_observations(
         usable_frames: evidence.len(),
         source_mode: format!("assimilated+{report_source_mode}"),
         observations_json,
+        observed_context_json,
         warnings,
     })
 }
@@ -654,9 +647,11 @@ mod tests {
       },
       "frames": [
         {"id": "swpc-rtsw-mag-1m", "source_mode": "cached", "schema_version": "observation-frame.v1",
-         "provenance": {"source": "SOLAR1", "time_tag": "2026-07-02T03:19:00"}},
+         "layer_kind": "observed", "provenance": {"source": "SOLAR1", "active": true,
+         "raw_source_metadata": {}, "time_tag": "2026-07-02T03:19:00"}, "quality_flags": ["test"]},
         {"id": "swpc-solar-regions", "source_mode": "cached", "schema_version": "observation-frame.v1",
-         "provenance": {"active": true}}
+         "layer_kind": "observed", "provenance": {"active": true,
+         "raw_source_metadata": {}}, "quality_flags": ["test"]}
       ]
     }"#;
 

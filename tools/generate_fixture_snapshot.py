@@ -68,8 +68,11 @@ def parse_time_tag(value: Any) -> dt.datetime | None:
     return parsed
 
 
+ROW_TIME_KEYS = ("time_tag", "time", "date", "begin_time")
+
+
 def row_time(row: dict[str, Any]) -> str | None:
-    for key in ("time_tag", "time", "date", "begin_time"):
+    for key in ROW_TIME_KEYS:
         value = row.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
@@ -750,13 +753,27 @@ def latest_numeric_observation(row_values: list[dict[str, Any]], *keys: str) -> 
     planetary_k_index and the GOES X-ray series are oldest-first — so order by time_tag
     instead of assuming a direction. (Assuming oldest-first shipped a six-week-old F10.7
     labelled "latest" and skewed the derived activity index.) ISO time tags compare
-    correctly as strings; rows without a time tag fall back to the old reversed scan.
+    correctly only after parsing to instants. Rows without a time tag fall back to the
+    old reversed scan; rows with an explicitly invalid timestamp cannot supply a signal.
     """
-    stamped = [(tag, row) for row in row_values if (tag := row_time(row)) is not None]
+    stamped: list[tuple[dt.datetime, dict[str, Any]]] = []
+    unstamped: list[dict[str, Any]] = []
+    for row in row_values:
+        tag = row_time(row)
+        if tag is None:
+            # Missing/null clocks retain the legacy unstamped ordering. An explicit
+            # malformed value is not missing and cannot lend an unaged signal.
+            if any(key in row and row[key] is not None for key in ROW_TIME_KEYS):
+                continue
+            unstamped.append(row)
+            continue
+        parsed = parse_time_tag(tag)
+        if parsed is not None:
+            stamped.append((parsed, row))
     if stamped:
         ordered = [row for _, row in sorted(stamped, key=lambda pair: pair[0], reverse=True)]
     else:
-        ordered = list(reversed(row_values))
+        ordered = list(reversed(unstamped))
     for row in ordered:
         for key in keys:
             if key in row:
@@ -767,16 +784,22 @@ def latest_numeric_observation(row_values: list[dict[str, Any]], *keys: str) -> 
 
 
 def numeric(value: Any) -> float | None:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        stripped = value.strip()
-        if not stripped:
+    if isinstance(value, bool):
+        return None
+    try:
+        if isinstance(value, (int, float)):
+            parsed = float(value)
+        elif isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return None
+            parsed = float(stripped)
+        else:
             return None
-        try:
-            return float(stripped)
-        except ValueError:
-            return None
+    except (ValueError, OverflowError):
+        return None
+    if math.isfinite(parsed):
+        return parsed
     return None
 
 
