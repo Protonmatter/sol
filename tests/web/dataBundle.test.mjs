@@ -99,11 +99,13 @@ test("the actual loader retains its complete publication for invalid rehashed ev
   await context.loadState();
   const before={snapshot:store.state,identity:store.dataBundleIdentity,status:store.feedStatus,series:store.seriesRecords};
   assert.equal(before.identity.bundle_id,"good");
-  for(const candidate of [bad,seriesFixture("series_frame:00")]){
+  const wrongLongitude=fixture("wrong-longitude",v=>{v.snapshot.active_regions[0].model_position.lon_deg=(v.snapshot.active_regions[0].model_position.lon_deg+30)%360;});
+  const wrongSource=fixture("wrong-source",v=>{v.source_manifest.products[0].source="\u001cUNKNOWN\u0085";});
+  for(const candidate of [bad,seriesFixture("series_frame:00"),wrongLongitude,wrongSource]){
     selected=candidate;await context.loadState();
     assert.equal(store.state,before.snapshot);assert.equal(store.liveState,before.snapshot);
     assert.equal(store.dataBundleIdentity,before.identity);assert.equal(store.feedStatus,before.status);assert.equal(store.seriesRecords,before.series);
-    assert.match(store.dataError,/observations|Orphan series/);
+    assert.match(store.dataError,/observations|Orphan series|longitude|attributable source product/);
   }
   selected=good;await context.loadState();assert.equal(store.dataError,null);
 });
@@ -118,6 +120,24 @@ test("attribution whitespace is the same as daily derivation including control s
     const fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
     const accepted=await readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto});
     assert.equal(accepted.snapshot.observations[0].frames.length,source==="\ufeff"?3:2);
+  }
+});
+
+test("source products retain FEFF attribution in hash-valid bundles",async()=>{
+  for(const source of ["\ufeff", "\ufeffUNKNOWN", "UNKNOWN\ufeff", "\u001cNOAA\u0085"]){
+    const a=fixture("a",values=>{values.source_manifest.products[0].source=source;});
+    const before=[...a.files].map(([url,raw])=>[url,hash(raw)]);
+    const fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+    assert.equal((await readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto})).bundleId,"a");
+    assert.deepEqual([...a.files].map(([url,raw])=>[url,hash(raw)]),before);
+  }
+});
+
+test("source products reject shared whitespace and Unicode unknown before admission",async()=>{
+  for(const source of ["\u001c", "\u001d", "\u001e", "\u001f", "\u0085", "\u001c UnKnOwN\u001f", "un\u212anown"]){
+    const a=fixture("a",values=>{values.source_manifest.products[0].source=source;});
+    const fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+    await assert.rejects(readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto}),/attributable source product/,JSON.stringify(source));
   }
 });
 
@@ -142,7 +162,7 @@ test("declared gaps retain all manifest indices and fixture health cannot become
   await assert.rejects(readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto}),/degradation/);
 });
 test("release-bound bundle uses immutable manifest and critical asset size/hash identities",async()=>{
-  const a=fixture("a"),prefix="https://example.invalid/sol/releases/release-a/",files=new Map();
+  const a=fixture("a",values=>{values.source_manifest.products[0].source="\ufeffUNKNOWN";}),prefix="https://example.invalid/sol/releases/release-a/",files=new Map();
   for(const [url,raw]of a.files)files.set(url.replace("https://example.invalid/",prefix),raw);
   const descriptor=JSON.parse(new TextDecoder().decode(a.pointer));
   const release={schema_version:"web-release-manifest.v1",release_id:"release-a",namespace:"releases/release-a/",base_path:"/sol/",data_bundle_id:"a",

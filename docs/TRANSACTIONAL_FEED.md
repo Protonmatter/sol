@@ -53,6 +53,10 @@ Attribution requires a string with nonempty trimmed content other than case-inse
 `unknown`. Producer and readers use an explicit shared whitespace set:
 U+0009--U+000D, U+001C--U+0020, U+0085, U+00A0, U+1680, U+2000--U+200A,
 U+2028, U+2029, U+202F, U+205F and U+3000. U+FEFF is not whitespace in this rule.
+Each runtime uses this same predicate for source-manifest products and report frames,
+including Unicode lowercase comparison. Thus U+FEFF followed by `UNKNOWN` remains
+attributable, while control-only sources and `unknown` surrounded by the shared
+whitespace are rejected. This admission comparison never trims the stored source text.
 Comparison ignores object member ordering, preserves array ordering and distinguishes
 booleans from numbers. Compared numeric values outside +/-9007199254740991 are
 rejected even when identical: native/browser binary64 parsing cannot reliably distinguish

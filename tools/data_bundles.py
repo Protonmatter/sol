@@ -150,7 +150,7 @@ def validate_source_manifest(value: dict) -> None:
         relative_path(product["path"])
         if not IDENTITY.fullmatch(product["product_id"]) or product["product_id"].lower() in ids or product["path"].lower() in paths:
             raise ValueError("duplicate/invalid source product identity")
-        if not product["source"].strip() or product["source"].strip().lower() == "unknown" or not HASH.fullmatch(product["sha256"]):
+        if not attributable_source(product["source"]) or not HASH.fullmatch(product["sha256"]):
             raise ValueError("unattributable source/hash")
         timestamp(product["observation_time_utc"], nullable=True)
         timestamp(product["retrieved_at_utc"], nullable=True)

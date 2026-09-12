@@ -18,20 +18,52 @@ const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-co
 const unix = (snapshot.time.jd_utc - 2440587.5) * 86400;
 const capturedHash = "#sky=0,0,1782872026.9999936,0";
 
+// Record the real renderer's output at the Canvas boundary, including invalid
+// coordinates browsers silently ignore. No projection or overlay logic is replaced.
+function canvasRecorder() {
+  const strokes = [], coordinates = [], stack = [];
+  let path = [], dash = [];
+  const ctx = {
+    strokes, coordinates, strokeStyle: "#000", fillStyle: "#000", globalAlpha: 1,
+    clearRect() { strokes.length = 0; coordinates.length = 0; },
+    beginPath() { path = []; },
+    moveTo(x, y) { path.push(["moveTo", x, y]); coordinates.push([x, y]); },
+    lineTo(x, y) { path.push(["lineTo", x, y]); coordinates.push([x, y]); },
+    arc(x, y, r, start, end) { coordinates.push([x, y, r, start, end]); },
+    ellipse(x, y, rx, ry, rotation, start, end) { coordinates.push([x, y, rx, ry, rotation, start, end]); },
+    fillText(_text, x, y) { coordinates.push([x, y]); },
+    fillRect(x, y, w, h) { coordinates.push([x, y, w, h]); },
+    translate(x, y) { coordinates.push([x, y]); },
+    rotate(angle) { coordinates.push([angle]); },
+    setLineDash(value) { dash = Array.from(value); },
+    stroke() { strokes.push({ path: structuredClone(path), dash: [...dash], alpha: this.globalAlpha }); },
+    save() { stack.push({ strokeStyle: this.strokeStyle, fillStyle: this.fillStyle, globalAlpha: this.globalAlpha, dash: [...dash] }); },
+    restore() { const saved = stack.pop(); dash = saved.dash; Object.assign(this, saved); },
+    clip() {}, fill() {}, closePath() {},
+  };
+  return ctx;
+}
+
 // Execute the complete Sky controller and real privacy/contract/worker-client modules.
 // Only browser host I/O is controlled: DOM, clock, permission callbacks, clipboard,
 // and worker messages. Stamping uses the same token substitution as build_web.py.
 function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol/releases/A/index.html", clipboard,
-  savedProvider = null, storedObserver = JSON.stringify({ lat: 0, lon: 0, elev: 0 }), recipientBase = "" } = {}) {
+  savedProvider = null, storedObserver = JSON.stringify({ lat: 0, lon: 0, elev: 0 }), recipientBase = "", canvas = false } = {}) {
   const nodes = new Map(), intervals = new Map(), positions = [], workers = [], saved = new Map();
+  const drawing = canvas ? canvasRecorder() : null;
   let focused = null;
   const node = (id = "") => ({
-    id, textContent: "", value: "", hidden: false, children: [], attributes: {}, listeners: new Map(),
+    id, textContent: "", value: "", hidden: false, children: [], attributes: {}, dataset: {}, listeners: new Map(),
     classList: { toggle() {} },
     addEventListener(type, callback) { this.listeners.set(type, callback); },
-    click() { return this.listeners.get("click")?.({ target: this }); },
+    click() { return this.onclick ? this.onclick() : this.listeners.get("click")?.({ target: this }); },
     setAttribute(key, value) { this.attributes[key] = value; },
     appendChild(child) { this.children.push(child); if (child.id) nodes.set(child.id, child); },
+    insertBefore(child, before) {
+      const old = this.children.indexOf(child); if (old >= 0) this.children.splice(old, 1);
+      const index = before ? this.children.indexOf(before) : this.children.length;
+      this.children.splice(index, 0, child);
+    },
     remove() { nodes.delete(this.id); },
     focus() { focused = this; },
     select() { this.selectionStart = 0; this.selectionEnd = this.value.length; },
@@ -43,6 +75,14 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
   }
   nodes.get("skySharePreview").hidden = true;
   nodes.get("skyConsent").hidden = true;
+  if (canvas) {
+    for (const id of ["skyCanvas", "skyList", "skyConst", "skyTraj"]) nodes.set(id, node(id));
+    Object.assign(nodes.get("skyCanvas"), {
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 600, height: 600 }),
+      getContext: () => drawing,
+    });
+    nodes.get("skyList").ownerDocument = { createElement: () => node() };
+  }
   const location = new URL(href), store = {};
   const context = vm.createContext({
     store, URL, Event, Blob, AbortController, structuredClone, navigator: {
@@ -73,7 +113,7 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
   t.after(() => context.leaveSky());
   context.enterSky();
   return {
-    context, nodes, positions, saved, location, store, focused: () => focused,
+    context, nodes, positions, saved, location, store, drawing, focused: () => focused,
     click: id => nodes.get(id).click(),
     tick: () => intervals.get(1)(),
     async publishSnapshot() {
@@ -85,6 +125,57 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
     },
   };
 }
+
+function setOverlay(h, id, checked) {
+  const node = h.nodes.get(id);
+  node.checked = checked;
+  node.listeners.get("change")({ target: node });
+}
+
+function assertFiniteDrawing(drawing) {
+  assert.ok(drawing.coordinates.length > 0, "dome must emit drawing coordinates");
+  assert.ok(drawing.coordinates.every(values => values.every(Number.isFinite)), "every Canvas coordinate must be finite");
+}
+
+test("v3 snapshots draw finite constellation paths and preserve overlay toggling", async t => {
+  const h = skyHarness(t, { canvas: true });
+  await h.publishSnapshot();
+  assertFiniteDrawing(h.drawing);
+  const visible = structuredClone(h.drawing.strokes);
+  setOverlay(h, "skyConst", false);
+  assertFiniteDrawing(h.drawing);
+  const hidden = structuredClone(h.drawing.strokes);
+  const lineCount = strokes => strokes.filter(stroke => stroke.path.some(command => command[0] === "lineTo")).length;
+  assert.ok(lineCount(visible) > lineCount(hidden), "enabled constellation figures must add visible line segments");
+  setOverlay(h, "skyConst", true);
+  assert.deepEqual(h.drawing.strokes, visible, "reenabling the overlay must restore the same constellation geometry");
+  // A changed input observer cannot move the retained snapshot's overlays.
+  h.store.sky.observer.lat = 70;
+  h.context.resizeSky();
+  assert.deepEqual(h.drawing.strokes, visible, "constellations must stay bound to the displayed v3 observer");
+});
+
+test("selecting a v3 catalogue star draws finite past and future paths and preserves trajectory toggling", async t => {
+  const h = skyHarness(t, { canvas: true });
+  await h.publishSnapshot();
+  setOverlay(h, "skyConst", false);
+  const baseline = structuredClone(h.drawing.strokes);
+  h.nodes.get("skyList").children.find(row => row.dataset.objectId === "Sirius").click();
+  assertFiniteDrawing(h.drawing);
+  const visible = structuredClone(h.drawing.strokes);
+  const trajectories = visible.filter(stroke => stroke.path.length > 2);
+  assert.equal(trajectories.length, 2, "selected star must draw both halves of its above-horizon diurnal arc");
+  assert.ok(trajectories[0].dash.length > 0, "past trajectory must be dashed");
+  assert.equal(trajectories[1].dash.length, 0, "future trajectory must be solid");
+  assert.ok(trajectories[0].alpha < trajectories[1].alpha, "past trajectory must remain dimmer than future");
+  setOverlay(h, "skyTraj", false);
+  assert.deepEqual(h.drawing.strokes, baseline, "disabling trajectory must remove its paths and horizon markers");
+  setOverlay(h, "skyTraj", true);
+  assert.deepEqual(h.drawing.strokes, visible, "reenabling trajectory must restore the selected star's geometry");
+  h.store.sky.observer.lat = 70;
+  h.context.resizeSky();
+  assert.deepEqual(h.drawing.strokes, visible, "trajectory must stay bound to the displayed v3 observer");
+});
 
 test("saved remote preference is restored but each session requires fresh recipient consent", async t => {
   const requests=[];

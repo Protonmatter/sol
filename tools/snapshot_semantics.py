@@ -22,6 +22,10 @@ REQUIRED_GATE_IDS = (
     "swpc_product_comparison",
     "operational_monitoring",
 )
+# Rust f32 births are serialized to six decimals. Their rounding changes the
+# derived longitude by <1.3e-6 degrees over the producer's 14-day region lifetime.
+# A fixed allowance prevents a large age from hiding an inconsistent anchor.
+LONGITUDE_TOLERANCE_DEG = 1.0e-5
 
 
 def finite_number(value: Any) -> bool:
@@ -142,6 +146,20 @@ def semantic_checks(data: Any) -> list[str]:
                     errors.append(f"active_regions[{index}].birth is in the future")
             if position.get("at_time_seconds") != time_seconds or position.get("lat_deg") != birth_info.get("lat_deg"):
                 errors.append(f"active_regions[{index}].model_position current time/latitude mismatch")
+            birth_latitude = birth_info.get("lat_deg")
+            birth_longitude = birth_info.get("lon_deg")
+            current_longitude = position.get("lon_deg")
+            if all(finite_number(value) for value in (birth, time_seconds, birth_latitude, birth_longitude, current_longitude)):
+                # Match solar-core's fixed law without evolving or repairing data.
+                sine = math.sin(math.radians(birth_latitude))
+                rate = 14.713 - 2.396 * sine * sine - 1.787 * sine ** 4 - 14.1844
+                longitude = birth_longitude + rate * (time_seconds - birth) / 86400.0
+                if not math.isfinite(longitude) or math.ulp(1.0) * max(1.0, abs(longitude)) > LONGITUDE_TOLERANCE_DEG:
+                    errors.append(f"active_regions[{index}].model_position longitude exceeds numeric precision")
+                else:
+                    difference = abs(current_longitude - longitude % 360.0)
+                    if min(difference, 360.0 - difference) > LONGITUDE_TOLERANCE_DEG:
+                        errors.append(f"active_regions[{index}].model_position longitude inconsistent with birth and model age")
         if len(ids) != len(set(ids)):
             errors.append("active_regions ids must be unique")
 

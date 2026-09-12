@@ -343,7 +343,7 @@ function drawDome(snap) {
   domeGeom = g;
   plotted = [];
   const lst = snap.time ? snap.time.lst_deg : 0;
-  const lat = snap.observer ? snap.observer.lat_deg : observer.lat;
+  const lat = snap.observer ? snap.observer.terrestrial_lat_deg : observer.lat;
 
   ctx.clearRect(0, 0, w, h);
   // Dome (sky) coloured by the Sun's altitude; constellation figures clipped inside it.

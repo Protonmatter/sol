@@ -78,6 +78,10 @@ function validateSchema(value, schema, path = "snapshot") {
 
 const GATES = ["snapshot_contract", "coordinate_frame_explicit", "deterministic_replay", "public_data_provenance", "normalized_units_disclosed", "calibrated_physical_units", "historical_validation", "swpc_product_comparison", "operational_monitoring"];
 const KINDS = ["synthetic", "observed", "blended", "inferred", "degraded"];
+// Rust stores births as f32 and serializes them to six decimals. Over its
+// 14-day region lifetime, rounding changes the derived longitude by <1.3e-6
+// degrees. Keep this allowance fixed so a large age cannot hide a bad anchor.
+const LONGITUDE_TOLERANCE_DEG = 1e-5;
 function unique(items, path) { if (new Set(items).size !== items.length) fail(path, "duplicate identities"); }
 function freezeTree(value) {
   if (value && typeof value === "object") { Object.values(value).forEach(freezeTree); Object.freeze(value); }
@@ -118,6 +122,15 @@ export function assertSolarSnapshot(data) {
   for (const region of data.active_regions) {
     if (region.birth.time_seconds > run.time_seconds) fail("active_regions", "birth in future");
     if (region.model_position.at_time_seconds !== run.time_seconds || region.model_position.lat_deg !== region.birth.lat_deg) fail("active_regions.model_position", "invalid current anchor time/latitude");
+    // Verify the existing solar-core law; this boundary never evolves a model.
+    const sine = Math.sin(region.birth.lat_deg * (Math.PI / 180));
+    const rate = 14.713 - 2.396 * sine * sine - 1.787 * sine ** 4 - 14.1844;
+    const longitude = region.birth.lon_deg + rate * (run.time_seconds - region.birth.time_seconds) / 86400;
+    if (!Number.isFinite(longitude) || Number.EPSILON * Math.max(1, Math.abs(longitude)) > LONGITUDE_TOLERANCE_DEG) fail("active_regions.model_position.lon_deg", "derived longitude exceeds numeric precision");
+    let expectedLongitude = longitude % 360;
+    if (expectedLongitude < 0) expectedLongitude += 360;
+    const difference = Math.abs(region.model_position.lon_deg - expectedLongitude);
+    if (Math.min(difference, 360 - difference) > LONGITUDE_TOLERANCE_DEG) fail("active_regions.model_position.lon_deg", "longitude inconsistent with birth and model age");
   }
   for (const report of data.observations) {
     if (report.schema_version !== "observation-frame.v1" || !report.source_mode || !Array.isArray(report.frames)) fail("observations", "invalid report");

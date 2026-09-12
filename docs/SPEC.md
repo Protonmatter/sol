@@ -89,6 +89,8 @@ longitude-contiguous storage. It removes the old spatial magnetic-variance field
 Confidence is explicitly heuristic, not probability. Birth positions remain immutable;
 current model anchors share the snapshot epoch. Every producer and parsed worker result
 must pass the canonical closed schema and cross-field semantics before recursive freezing.
+Live intake also checks circular longitude agreement with the declared fixed
+differential-rotation law; a hash-valid but inconsistent model anchor is not publishable.
 See [solar v3](SOLAR_V3_MIGRATION.md) and ADR 0006 for units and exact conventions.
 
 ### `ephemeris-snapshot.v3`
@@ -215,6 +217,8 @@ while hidden; an obsolete completion cannot publish or clear the replacement ent
 Sky groups use geometric altitude strictly greater than zero, not refraction. Invalid
 observer/time input is rejected rather than clamped; device civil timezone or UTC is
 explicit and observer timezone is not inferred.
+Constellation and fixed-star trajectory overlays use the displayed v3 snapshot's
+`observer.terrestrial_lat_deg`, not pending input or a removed historical observer alias.
 
 Remote Sky is disabled unless configured and requires session-only recipient-specific
 consent before health or snapshot calls. Both fetches reject redirects before another

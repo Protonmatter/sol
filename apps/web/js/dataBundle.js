@@ -43,11 +43,16 @@ function sameJson(left,right){
   const keys=Object.keys(left);
   return keys.length===Object.keys(right).length&&keys.every(key=>Object.hasOwn(right,key)&&sameJson(left[key],right[key]));
 }
-function observationCoherence(snapshot,report){
-  // Match daily derivation's attributed evidence projection without changing either input.
+function attributableSource(value){
+  if(typeof value!=="string")return false;
   // Explicit cross-runtime whitespace (U+FEFF is deliberately not stripped).
   const whitespace=/^[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g;
-  const frames=report.frames.filter(frame=>{const value=frame?.provenance?.source;if(typeof value!=="string")return false;const source=value.replace(whitespace,"");return source!==""&&source.toLowerCase()!=="unknown";});
+  const source=value.replace(whitespace,"");
+  return source!==""&&source.toLowerCase()!=="unknown";
+}
+function observationCoherence(snapshot,report){
+  // Match daily derivation's attributed evidence projection without changing either input.
+  const frames=report.frames.filter(frame=>attributableSource(frame?.provenance?.source));
   if(!sameJson(snapshot.observations,[{...report,frames}]))fail("Snapshot embedded observations disagree with normalized observations");
   if(!Object.hasOwn(snapshot,"observed_context")||!sameJson(snapshot.observed_context,report.observed_context??{}))fail("Snapshot observation context disagrees with normalized observations");
 }
@@ -110,7 +115,7 @@ export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedRe
   const degraded=source.failures.length>0||source.products.some(p=>p.origin!=="current-fetch"||p.failure!==null);
   if(status.status!==(degraded?"degraded":"ok"))fail("Feed status must preserve source degradation");
   const productIds=new Set(),productPaths=new Set();
-  for(const product of source.products){relative(product.path);if(!ID.test(product.product_id)||productIds.has(product.product_id.toLowerCase())||productPaths.has(product.path.toLowerCase())||!product.source.trim()||product.source.trim().toLowerCase()==="unknown"||!HASH.test(product.sha256))fail("Invalid attributable source product");productIds.add(product.product_id.toLowerCase());productPaths.add(product.path.toLowerCase());utc(product.observation_time_utc,true);utc(product.retrieved_at_utc,true);}
+  for(const product of source.products){relative(product.path);if(!ID.test(product.product_id)||productIds.has(product.product_id.toLowerCase())||productPaths.has(product.path.toLowerCase())||!attributableSource(product.source)||!HASH.test(product.sha256))fail("Invalid attributable source product");productIds.add(product.product_id.toLowerCase());productPaths.add(product.path.toLowerCase());utc(product.observation_time_utc,true);utc(product.retrieved_at_utc,true);}
   if(data.observations.schema_version!=="observation-frame.v1"||!Array.isArray(data.observations.frames)||!data.observations.source_mode)fail("Invalid normalized observations");
   const snapshot=parseSolarSnapshot(new TextDecoder().decode(raws.snapshot));
   observationCoherence(snapshot,data.observations);

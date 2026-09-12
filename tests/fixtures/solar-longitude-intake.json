@@ -1,0 +1,20 @@
+[
+  {"id":"birth-anchor", "birth_time_seconds":0, "at_time_seconds":0, "lat_deg":30, "birth_lon_deg":359, "model_lon_deg":359, "accepted":true},
+  {"id":"equator-wrap-forward", "birth_time_seconds":0, "at_time_seconds":172800, "lat_deg":0, "birth_lon_deg":359, "model_lon_deg":0.0572, "accepted":true},
+  {"id":"north-thirty", "birth_time_seconds":0, "at_time_seconds":172800, "lat_deg":30, "birth_lon_deg":359, "model_lon_deg":358.635825, "accepted":true},
+  {"id":"south-thirty", "birth_time_seconds":0, "at_time_seconds":172800, "lat_deg":-30, "birth_lon_deg":359, "model_lon_deg":358.635825, "accepted":true},
+  {"id":"north-sixty", "birth_time_seconds":0, "at_time_seconds":172800, "lat_deg":60, "birth_lon_deg":359, "model_lon_deg":354.452825, "accepted":true},
+  {"id":"north-pole-wrap-backward", "birth_time_seconds":0, "at_time_seconds":1209600, "lat_deg":90, "birth_lon_deg":0, "model_lon_deg":308.8384, "accepted":true},
+  {"id":"south-pole-wrap-backward", "birth_time_seconds":0, "at_time_seconds":1209600, "lat_deg":-90, "birth_lon_deg":0, "model_lon_deg":308.8384, "accepted":true},
+  {"id":"fractional-age-after-nonzero-birth", "birth_time_seconds":7200.125, "at_time_seconds":28800.125, "lat_deg":45, "birth_lon_deg":1, "model_lon_deg":0.7209625, "accepted":true},
+  {"id":"rust-f32-birth-six-decimal-rounding", "birth_time_seconds":0, "at_time_seconds":0, "lat_deg":0, "birth_lon_deg":359.999969, "model_lon_deg":359.999969482421875, "accepted":true},
+  {"id":"circular-serialization-precision", "birth_time_seconds":0, "at_time_seconds":86400, "lat_deg":0, "birth_lon_deg":359.4714, "model_lon_deg":359.9999998, "accepted":true},
+  {"id":"long-age-keeps-fixed-precision", "birth_time_seconds":0, "at_time_seconds":864000000, "lat_deg":0, "birth_lon_deg":10, "model_lon_deg":256, "accepted":true},
+  {"id":"arbitrary-in-range-longitude", "birth_time_seconds":0, "at_time_seconds":172800, "lat_deg":0, "birth_lon_deg":359, "model_lon_deg":30, "accepted":false},
+  {"id":"nonzero-age-cannot-retain-birth-longitude", "birth_time_seconds":0, "at_time_seconds":172800, "lat_deg":0, "birth_lon_deg":359, "model_lon_deg":359, "accepted":false},
+  {"id":"latitude-dependent-rate-required", "birth_time_seconds":0, "at_time_seconds":172800, "lat_deg":60, "birth_lon_deg":359, "model_lon_deg":0.0572, "accepted":false},
+  {"id":"longitude-outside-serialization-tolerance", "birth_time_seconds":0, "at_time_seconds":172800, "lat_deg":0, "birth_lon_deg":359, "model_lon_deg":0.05722, "accepted":false},
+  {"id":"long-age-does-not-expand-tolerance", "birth_time_seconds":0, "at_time_seconds":864000000, "lat_deg":0, "birth_lon_deg":10, "model_lon_deg":256.00002, "accepted":false},
+  {"id":"unresolvable-f64-longitude", "birth_time_seconds":0, "at_time_seconds":1e20, "lat_deg":0, "birth_lon_deg":0, "model_lon_deg":0, "accepted":false},
+  {"id":"overflowed-derived-longitude", "birth_time_seconds":0, "at_time_seconds":1e308, "lat_deg":90, "birth_lon_deg":0, "model_lon_deg":0, "accepted":false}
+]

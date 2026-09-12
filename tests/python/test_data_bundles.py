@@ -99,6 +99,36 @@ class BundleTests(unittest.TestCase):
             source=source or self.source(), generated_at_utc="2026-09-11T12:00:00Z",
             components=components, stage_hook=hook)
 
+    def test_source_products_share_attribution_and_preserve_bytes_and_selection(self):
+        selected = self.source()
+        pointer = self.root / "source/current.json"
+        before = pointer.read_bytes()
+        manifest = json.loads(selected.manifest_raw)
+        accepted = ["\ufeff", "\ufeffUNKNOWN", "UNKNOWN\ufeff", "\u001cNOAA\u0085"]
+        rejected = ["\u001c", "\u001d", "\u001e", "\u001f", "\u0085", "\u001c UnKnOwN\u001f", "un\u212anown"]
+        for source in accepted + rejected:
+            with self.subTest(source=source):
+                value = copy.deepcopy(manifest)
+                value["products"][0]["source"] = source
+                raw = bundles.json_bytes(value)
+                selected.manifest_path.write_bytes(raw)
+                candidate = self.root / "source/candidate.json"
+                descriptor = json.loads(before)
+                descriptor["manifest_sha256"] = bundles.digest(raw)
+                candidate.write_bytes(bundles.json_bytes(descriptor))
+                if source in accepted:
+                    resolved = bundles.resolve_source_bundle(candidate)
+                    self.assertEqual(resolved.manifest_raw, raw)
+                    derived = self.derived("attribution-" + str(accepted.index(source)), source=resolved)
+                    self.assertEqual(derived.component("source_manifest").raw, raw)
+                else:
+                    with self.assertRaisesRegex(ValueError, "unattributable"):
+                        bundles.resolve_source_bundle(candidate)
+                self.assertEqual(selected.manifest_path.read_bytes(), raw)
+                self.assertEqual(pointer.read_bytes(), before)
+        selected.manifest_path.write_bytes(selected.manifest_raw)
+        self.assertEqual(bundles.resolve_source_bundle(pointer).bundle_id, selected.bundle_id)
+
     def test_resolve_once_survives_pointer_switch_and_rollback(self):
         a = self.derived()
         b = self.derived("derived-b", source=bundles.resolve_source_bundle(self.root / "source/current.json"))
@@ -150,6 +180,24 @@ class BundleTests(unittest.TestCase):
                         generated_at_utc="2026-09-11T12:00:00Z", components=components)
                 self.assertEqual(pointer.read_bytes(), before)
                 self.assertEqual(bundles.resolve_derived_bundle(pointer).bundle_id, selected.bundle_id)
+
+    def test_rehashed_wrong_longitude_retains_selected_bundle(self):
+        selected = self.derived()
+        pointer = self.root / "derived/current.json"
+        before = pointer.read_bytes()
+        components = self.components()
+        snapshot = json.loads(components["snapshot"][2])
+        position = snapshot["active_regions"][0]["model_position"]
+        position["lon_deg"] = (position["lon_deg"] + 30) % 360
+        components["snapshot"] = (*components["snapshot"][:2], bundles.json_bytes(snapshot))
+        status = json.loads(components["feed_status"][2]); status["bundle_id"] = "wrong-longitude"
+        components["feed_status"] = (*components["feed_status"][:2], bundles.json_bytes(status))
+        with self.assertRaisesRegex(ValueError, "longitude"):
+            bundles.create_derived_bundle(self.root / "derived", bundle_id="wrong-longitude",
+                source=bundles.resolve_source_bundle(self.root / "source/current.json"),
+                generated_at_utc="2026-09-11T12:00:00Z", components=components)
+        self.assertEqual(pointer.read_bytes(), before)
+        self.assertEqual(bundles.resolve_derived_bundle(pointer).bundle_id, selected.bundle_id)
 
     def test_top_level_context_must_match_even_when_embedded_report_agrees(self):
         components = self.components()

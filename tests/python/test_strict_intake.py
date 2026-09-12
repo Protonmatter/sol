@@ -19,6 +19,25 @@ from snapshot_semantics import semantic_checks
 
 
 class StrictIntakeTests(unittest.TestCase):
+    def test_shared_longitude_semantics(self):
+        baseline = json.loads((ROOT / "apps/web/data/latest-state.json").read_text())
+        cases = json.loads((ROOT / "tests/fixtures/solar-longitude-intake.json").read_text())
+        for case in cases:
+            with self.subTest(case=case["id"]):
+                data = copy.deepcopy(baseline)
+                epoch = case["at_time_seconds"]
+                data["run"].update(steps=1, dt_hours=epoch / 3600, time_seconds=epoch)
+                data["uncertainty"]["activity"]["at_time_seconds"] = epoch
+                data["active_regions"] = [data["active_regions"][0]]
+                region = data["active_regions"][0]
+                region["birth"] = {"time_seconds": case["birth_time_seconds"], "lat_deg": case["lat_deg"], "lon_deg": case["birth_lon_deg"]}
+                region["model_position"].update(at_time_seconds=epoch, lat_deg=case["lat_deg"], lon_deg=case["model_lon_deg"])
+                errors = validate_snapshot.validate(validate_snapshot.loads_strict(json.dumps(data)))
+                if case["accepted"]:
+                    self.assertEqual(errors, [])
+                else:
+                    self.assertTrue(any("longitude" in error for error in errors), errors)
+
     def test_shared_snapshot_mutations(self):
         baseline = json.loads((ROOT / "apps/web/data/latest-state.json").read_text())
         cases = json.loads((ROOT / "tests/fixtures/snapshot-intake.json").read_text())

@@ -73,3 +73,22 @@ test("browser agrees with Rust and Python on the shared lexical and snapshot cor
     else assert.throws(() => parseSolarSnapshot(JSON.stringify(value)), undefined, fixture.id);
   }
 });
+
+test("raw and structured intake bind longitude to immutable birth and model age", () => {
+  const cases = JSON.parse(fs.readFileSync(new URL("../fixtures/solar-longitude-intake.json", import.meta.url), "utf8"));
+  for (const fixture of cases) {
+    const value = JSON.parse(fixtureText);
+    value.run.steps = 1;
+    value.run.dt_hours = fixture.at_time_seconds / 3600;
+    value.run.time_seconds = fixture.at_time_seconds;
+    value.uncertainty.activity.at_time_seconds = fixture.at_time_seconds;
+    value.active_regions = [value.active_regions[0]];
+    const region = value.active_regions[0];
+    region.birth = { time_seconds: fixture.birth_time_seconds, lat_deg: fixture.lat_deg, lon_deg: fixture.birth_lon_deg };
+    Object.assign(region.model_position, { at_time_seconds: fixture.at_time_seconds, lat_deg: fixture.lat_deg, lon_deg: fixture.model_lon_deg });
+    for (const intake of [() => parseSolarSnapshot(JSON.stringify(value)), () => assertSolarSnapshot(structuredClone(value))]) {
+      if (fixture.accepted) assert.doesNotThrow(intake, fixture.id);
+      else assert.throws(intake, /longitude/, fixture.id);
+    }
+  }
+});

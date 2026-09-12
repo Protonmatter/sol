@@ -157,8 +157,7 @@ fn source_semantics(source: &JsonValue) -> Result<(), String> {
         }
         relative(Path::new(""), string(p, "path")?)?;
         hash(string(p, "sha256")?)?;
-        let provenance = string(p, "source")?.trim();
-        if provenance.is_empty() || provenance.eq_ignore_ascii_case("unknown") {
+        if !attributable_source(string(p, "source")?) {
             return Err("source provenance unavailable".into());
         }
         time(get(p, "observation_time_utc")?, true)?;
@@ -194,6 +193,19 @@ fn semantic_json_equal(left: &JsonValue, right: &JsonValue) -> bool {
     }
 }
 
+fn attributable_source(source: &str) -> bool {
+    // Shared with the daily producer and browser reader; Rust's default trim
+    // omits U+001C..U+001F. U+FEFF is deliberately not whitespace.
+    let source = source.trim_matches(|ch| {
+        matches!(ch,
+            '\u{0009}'..='\u{000d}' | '\u{001c}'..='\u{0020}' |
+            '\u{0085}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' |
+            '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}'
+        )
+    });
+    !source.is_empty() && source.to_lowercase() != "unknown"
+}
+
 fn observation_coherence(snapshot: &JsonValue, report: &JsonValue) -> Result<(), String> {
     let frames: Vec<JsonValue> = array(report, "frames")?
         .iter()
@@ -202,18 +214,7 @@ fn observation_coherence(snapshot: &JsonValue, report: &JsonValue) -> Result<(),
                 .get("provenance")
                 .and_then(|p| p.get("source"))
                 .and_then(JsonValue::as_str)
-                .is_some_and(|source| {
-                    // Shared with the daily producer and browser reader; Rust's
-                    // default trim omits U+001C..U+001F. U+FEFF is not blank.
-                    let source = source.trim_matches(|ch| {
-                        matches!(ch,
-                            '\u{0009}'..='\u{000d}' | '\u{001c}'..='\u{0020}' |
-                            '\u{0085}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' |
-                            '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}'
-                        )
-                    });
-                    !source.is_empty() && source.to_lowercase() != "unknown"
-                })
+                .is_some_and(attributable_source)
         })
         .cloned()
         .collect();
@@ -812,6 +813,77 @@ mod tests {
                 resolve(&fixture.root.join("current.json"), false).is_ok(),
                 "safe boundary {counter} remains valid"
             );
+        }
+    }
+
+    #[test]
+    fn rehashed_wrong_longitude_is_rejected_before_replay() {
+        let mut fixture = DerivedFixture::new();
+        let mut snapshot = fixture.component("snapshot");
+        let position = field_mut(
+            &mut items_mut(field_mut(&mut snapshot, "active_regions"))[0],
+            "model_position",
+        );
+        let longitude = get(position, "lon_deg").unwrap().as_f64().unwrap();
+        *field_mut(position, "lon_deg") = JsonValue::Number((longitude + 30.0) % 360.0);
+        fixture.replace("snapshot", &snapshot.to_compact_string());
+        assert!(resolve(&fixture.root.join("current.json"), false)
+            .err()
+            .is_some_and(|e| e.contains("longitude")));
+        let out = fixture.root.join("replay");
+        fs::create_dir_all(&out).unwrap();
+        let target = out.join("snapshot-00000.json");
+        fs::write(&target, "last valid snapshot").unwrap();
+        let args = vec![
+            "--bundle-pointer".into(),
+            fixture.root.join("current.json").display().to_string(),
+            "--out".into(),
+            out.display().to_string(),
+        ];
+        assert!(crate::replay_command(&args).is_err_and(|e| e.contains("longitude")));
+        assert_eq!(fs::read_to_string(&target).unwrap(), "last valid snapshot");
+        assert!(!out.join("replay-manifest.json").exists());
+    }
+
+    #[test]
+    fn source_products_use_shared_attribution_in_rehashed_derived_bundles() {
+        for (source, accepted) in [
+            ("\u{feff}", true),
+            ("\u{feff}UNKNOWN", true),
+            ("UNKNOWN\u{feff}", true),
+            ("\u{001c}NOAA\u{0085}", true),
+            ("\u{001c}", false),
+            ("\u{001d}", false),
+            ("\u{001e}", false),
+            ("\u{001f}", false),
+            ("\u{0085}", false),
+            ("\u{001c} UnKnOwN\u{001f}", false),
+            ("un\u{212a}nown", false),
+        ] {
+            let mut fixture = DerivedFixture::new();
+            let mut manifest = fixture.component("source_manifest");
+            *field_mut(
+                &mut items_mut(field_mut(&mut manifest, "products"))[0],
+                "source",
+            ) = JsonValue::String(source.into());
+            let raw = manifest.to_compact_string();
+            *field_mut(&mut fixture.manifest, "source_manifest_sha256") =
+                JsonValue::String(sha256(raw.as_bytes()));
+            fixture.replace("source_manifest", &raw);
+            let before = fs::read(fixture.root.join("current.json")).unwrap();
+            let result = resolve(&fixture.root.join("current.json"), false);
+            if accepted {
+                assert!(result.is_ok(), "source {source:?}: {:?}", result.err());
+            } else {
+                assert!(
+                    result
+                        .err()
+                        .is_some_and(|e| e.contains("source provenance")),
+                    "source {source:?} must be rejected"
+                );
+            }
+            assert_eq!(fixture.component("source_manifest"), manifest);
+            assert_eq!(fs::read(fixture.root.join("current.json")).unwrap(), before);
         }
     }
 

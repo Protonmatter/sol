@@ -298,6 +298,12 @@
     "accepted": false
   },
   {
+    "id": "anchor-longitude-must-follow-birth",
+    "path": ["active_regions", 0, "model_position", "lon_deg"],
+    "value": 123,
+    "accepted": false
+  },
+  {
     "id": "birth-longitude-bound",
     "path": [
       "active_regions",

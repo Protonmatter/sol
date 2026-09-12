@@ -31,6 +31,20 @@ latitude = birth_latitude
 
 Coordinates are west-positive Carrington. Only the 14.1844 degree/day reference is implemented; constructor, serializer and intake reject another value. The independent reference cases at birth longitude 359 degrees, elapsed two days and latitudes 0, -30 and 60 degrees yield 0.0572, 358.635825 and 354.452825 degrees. A diffusion-disabled isolated bipole centroid test uses a predeclared one-degree longitudinal cell tolerance. This is a reduced transport-model test, not observed feature-tracking accuracy. Model time and uncertainty timestamps use round-trippable numeric serialization, avoiding disagreements at fractional timesteps.
 
+All live raw/structured snapshot and bundle readers recompute the wrapped longitude
+from serialized immutable birth coordinates and elapsed model seconds under this law.
+Circular disagreement greater than `1e-5` degrees rejects the candidate before
+publication. Rust stores birth coordinates as f32 and serializes them to six decimals:
+each serialized coordinate differs by at most `0.5e-6` degree, and the absolute rate
+derivative is bounded by `(2.396 + 2*1.787)*pi/180 < 0.105` degree/day per degree.
+Over the producer's existing 14-day retained-region lifetime, the resulting longitude
+error is below `1.3e-6` degree. The fixed `1e-5` allowance covers this serialization
+precision; it does not grow with input age. Older inputs must satisfy the same bound.
+Nonfinite unwrapped longitude, or binary64 `EPSILON * max(1, abs(unwrapped_longitude))`
+greater than `1e-5`, is rejected as insufficient numeric precision rather than widening
+the tolerance. This is numeric contract consistency, not observed feature-tracking
+accuracy. Historical v2 validation remains unchanged.
+
 ## Separate image evidence, currently unavailable for compositing
 
 `docs/solar-image-registration-v1.schema.json` defines closed bounded metadata: source and SHA-256 asset identity; capture UTC, JD TT and declared time precision; TT-minus-UTC; L0, B0 and P angles; disk center/radius and image dimensions; west-positive longitude and explicit image-axis/P-angle conventions. JS `assessSolarImageRegistration` and Python `assess_registration` compare that metadata to an independently supplied selected-asset descriptor and the snapshot epoch. They check finite bounds, a real ISO UTC calendar instant, disk containment and consistency of UTC-to-TT conversion and model time within declared precision (0.001–1 second).

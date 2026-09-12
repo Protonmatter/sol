@@ -1,6 +1,11 @@
 //! Live v3 snapshot-copy validation. Frozen historical v2 has a separate explicit path.
 use solar_core::{parse_json, JsonValue};
 
+// Six-decimal serialization of Rust f32 births changes the derived longitude by
+// <1.3e-6 degrees over the producer's 14-day region lifetime. Never scale this
+// allowance with age: a large age must not hide an inconsistent anchor.
+const LONGITUDE_TOLERANCE_DEG: f64 = 1.0e-5;
+
 pub(crate) fn validate_document(raw: &str, schema_raw: &str) -> Result<JsonValue, String> {
     let value = parse_json(raw).map_err(|e| e.to_string())?;
     let schema = parse_json(schema_raw).map_err(|e| e.to_string())?;
@@ -301,6 +306,24 @@ fn semantics(value: &JsonValue) -> Result<(), String> {
         {
             return Err("active_regions current anchor time/latitude mismatch".into());
         }
+        let longitude = number(birth, "lon_deg")?
+            + solar_core::differential_rotation::carrington_advection_deg_per_day(number(
+                birth, "lat_deg",
+            )?) * (time - number(birth, "time_seconds")?)
+                / 86400.0;
+        if !longitude.is_finite()
+            || f64::EPSILON * longitude.abs().max(1.0) > LONGITUDE_TOLERANCE_DEG
+        {
+            return Err("active_regions model_position longitude exceeds numeric precision".into());
+        }
+        let expected_longitude = solar_core::differential_rotation::wrap360(longitude);
+        let difference = (number(position, "lon_deg")? - expected_longitude).abs();
+        if difference.min(360.0 - difference) > LONGITUDE_TOLERANCE_DEG {
+            return Err(
+                "active_regions model_position longitude inconsistent with birth and model age"
+                    .into(),
+            );
+        }
     }
     let activity = member(member(value, "uncertainty")?, "activity")?;
     if number(activity, "at_time_seconds")? != time {
@@ -385,6 +408,52 @@ fn semantics(value: &JsonValue) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn accepts_real_rust_transport_anchors_with_rounded_f32_births() {
+        use solar_core::{
+            advance_flux_transport, solar_state_snapshot_json, ActiveRegion, FluxTransportConfig,
+            Polarity, SnapshotRequest, SolarGrid, SolarMode, SolarState,
+        };
+        let mut state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
+        for (index, latitude) in [
+            -89.123_46,
+            -60.123_455,
+            -30.123_455,
+            0.123_456_7,
+            30.123_455,
+            60.123_455,
+            89.123_46,
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            state.active_regions.push(ActiveRegion {
+                id: index as u64 + 1,
+                birth_seconds: 0.0,
+                lat_deg: latitude,
+                lon_deg: 359.999_97,
+                flux_norm: 1.0,
+                area_msh: 100.0,
+                tilt_deg: 0.0,
+                complexity: 0.5,
+                polarity: Polarity::LeadingPositive,
+                confidence: 0.65,
+            });
+        }
+        advance_flux_transport(&mut state, 1_209_600.0, &FluxTransportConfig::default());
+        assert_eq!(state.active_regions.len(), 7);
+        let raw = solar_state_snapshot_json(&state, &SnapshotRequest::synthetic(42, 14, 24.0, 0.9));
+        assert_eq!(validate(&raw), Ok(()));
+        let value = parse_json(&raw).unwrap();
+        let birth = member(&array(&value, "active_regions").unwrap()[0], "birth").unwrap();
+        // Published decimal rounding differs from the f32 used by the producer.
+        assert_eq!(number(birth, "lon_deg").unwrap(), 359.999_969);
+        assert_ne!(
+            number(birth, "lon_deg").unwrap(),
+            f64::from(state.active_regions[0].lon_deg)
+        );
+    }
+
     fn mutate(value: &mut JsonValue, path: &[JsonValue], replacement: Option<&JsonValue>) {
         let (key, rest) = path.split_first().unwrap();
         match value {
@@ -420,6 +489,79 @@ mod tests {
                 }
             }
             _ => panic!("invalid fixture mutation path"),
+        }
+    }
+
+    #[test]
+    fn shared_longitude_semantics() {
+        let baseline =
+            parse_json(include_str!("../../../apps/web/data/latest-state.json")).unwrap();
+        let cases = parse_json(include_str!(
+            "../../../tests/fixtures/solar-longitude-intake.json"
+        ))
+        .unwrap();
+        for case in cases.as_array().unwrap() {
+            let mut snapshot = baseline.clone();
+            let epoch = number(case, "at_time_seconds").unwrap();
+            let mut region = array(&snapshot, "active_regions").unwrap()[0].clone();
+            for (path, replacement) in [
+                (
+                    "[\"birth\",\"time_seconds\"]",
+                    member(case, "birth_time_seconds").unwrap().clone(),
+                ),
+                (
+                    "[\"birth\",\"lat_deg\"]",
+                    member(case, "lat_deg").unwrap().clone(),
+                ),
+                (
+                    "[\"birth\",\"lon_deg\"]",
+                    member(case, "birth_lon_deg").unwrap().clone(),
+                ),
+                (
+                    "[\"model_position\",\"at_time_seconds\"]",
+                    JsonValue::Number(epoch),
+                ),
+                (
+                    "[\"model_position\",\"lat_deg\"]",
+                    member(case, "lat_deg").unwrap().clone(),
+                ),
+                (
+                    "[\"model_position\",\"lon_deg\"]",
+                    member(case, "model_lon_deg").unwrap().clone(),
+                ),
+            ] {
+                mutate(
+                    &mut region,
+                    parse_json(path).unwrap().as_array().unwrap(),
+                    Some(&replacement),
+                );
+            }
+            for (path, replacement) in [
+                ("[\"run\",\"steps\"]", JsonValue::Number(1.0)),
+                ("[\"run\",\"dt_hours\"]", JsonValue::Number(epoch / 3600.0)),
+                ("[\"run\",\"time_seconds\"]", JsonValue::Number(epoch)),
+                (
+                    "[\"uncertainty\",\"activity\",\"at_time_seconds\"]",
+                    JsonValue::Number(epoch),
+                ),
+                ("[\"active_regions\"]", JsonValue::Array(vec![region])),
+            ] {
+                mutate(
+                    &mut snapshot,
+                    parse_json(path).unwrap().as_array().unwrap(),
+                    Some(&replacement),
+                );
+            }
+            let result = validate(&snapshot.to_compact_string());
+            let id = string(case, "id").unwrap();
+            assert_eq!(
+                result.is_ok(),
+                member(case, "accepted").unwrap().as_bool().unwrap(),
+                "{id}: {result:?}"
+            );
+            if let Err(error) = result {
+                assert!(error.contains("longitude"), "{id}: {error}");
+            }
         }
     }
 
