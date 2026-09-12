@@ -1,21 +1,14 @@
 name: Publish solar-ephemeris to crates.io
 
-# Publishes the solar-ephemeris crate to crates.io on a weekly schedule (and on demand).
-# The crate already carries the crates.io-ready metadata (description, keywords,
-# categories, license, readme) — this closes the release loop.
-#
-# Publishing a version that already exists on crates.io is a hard error, so the guard
-# step skips the publish when the current workspace version is already live. That keeps
-# the scheduled run green between releases: bump the workspace version (Cargo.toml) and
-# the next scheduled (or manually dispatched) run pushes it.
-#
-# Requires a crates.io API token in the repository secret CARGO_REGISTRY_TOKEN
-# (Settings -> Secrets and variables -> Actions -> New repository secret).
-
+# Registry publication is deliberately held. A schedule may no longer turn a
+# version bump or registry outage into publication authority.
 on:
-  schedule:
-    - cron: "30 7 * * 1" # Mondays 07:30 UTC
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact reviewed source SHA for package qualification
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -25,36 +18,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: cargo publish -p solar-ephemeris
+  package:
+    name: Qualify exact source package (publication held)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Validate exact requested source
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: '[[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]'
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
-
-      - name: Skip if this version is already on crates.io
-        id: guard
+      - name: Test and package exact source without registry credentials
         run: |
           set -euo pipefail
-          name="solar-ephemeris"
-          version="$(cargo metadata --format-version 1 --no-deps \
-            | jq -r --arg name "$name" '.packages[] | select(.name == $name) | .version')"
-          echo "Resolved ${name} version: ${version}"
-          # crates.io requires a User-Agent; -f makes a 404 (not yet published) a clean skip.
-          if curl -sSfL -o /dev/null \
-              -A "solar-ephemeris-publish (github actions; https://github.com/Protonmatter/sol)" \
-              "https://crates.io/api/v1/crates/${name}/${version}"; then
-            echo "already-published=true" >> "$GITHUB_OUTPUT"
-            echo "${name} ${version} is already on crates.io — skipping publish."
-          else
-            echo "already-published=false" >> "$GITHUB_OUTPUT"
-            echo "${name} ${version} is not on crates.io — will publish."
-          fi
-
-      - name: cargo publish -p solar-ephemeris
-        if: steps.guard.outputs.already-published == 'false'
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish -p solar-ephemeris --locked
+          mkdir -p build/crate-evidence
+          test "$(git rev-parse HEAD)" = "${{ inputs.source_sha }}"
+          cargo test -p solar-ephemeris --locked
+          cargo package --list -p solar-ephemeris --locked > build/crate-evidence/package-list.txt
+          cargo publish --dry-run -p solar-ephemeris --locked 2>&1 | tee build/crate-evidence/dry-run.txt
+          candidates=(target/package/solar-ephemeris-*.crate)
+          test "${#candidates[@]}" = 1
+          python tools/release_crate.py --package "${candidates[0]}" --source-sha "${{ inputs.source_sha }}" --dry-run-log build/crate-evidence/dry-run.txt --dry-run-exit 0 > build/crate-evidence/package-evidence.json
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: qualified-crate-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/package/*.crate
+            build/crate-evidence
+          if-no-files-found: error
+          retention-days: 90
+      - name: Explicit publication authority boundary
+        run: |
+          echo '::error::Publication held: exact-source CI, accepted package digest/contents/notices and separate protected registry authority are required. No registry credential was loaded.'
+          exit 1

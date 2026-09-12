@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "qualification-evidence.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "profile",
+    "kind",
+    "qualified_on",
+    "cases",
+    "components",
+    "platforms",
+    "source_sha",
+    "manifest_sha256",
+    "evidence",
+    "reviewed_by",
+    "acceptance_id",
+    "reference",
+    "allow_reuse"
+  ],
+  "properties": {
+    "case_scope": {"type": "object", "additionalProperties": {"type": "object", "additionalProperties": false,
+      "required": ["quantities", "epoch_start_jd", "epoch_end_jd"], "properties": {
+        "quantities": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "epoch_start_jd": {"type": "number"}, "epoch_end_jd": {"type": "number"}
+      }}},
+    "schema_version": {
+      "const": "qualification-evidence.v1"
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "enum": [
+        "corrective",
+        "experience-milestone"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "manual",
+        "scientific"
+      ]
+    },
+    "qualified_on": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Exact character and semantic constraints are enforced by the release validator."
+    },
+    "cases": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "pass",
+          "fail",
+          "pending"
+        ]
+      }
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/sha256"
+      }
+    },
+    "platforms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source_sha": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 40,
+      "description": "Exact character and semantic constraints are enforced by the release validator."
+    },
+    "manifest_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          }
+        }
+      }
+    },
+    "reviewed_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "acceptance_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "query_id",
+        "acquired_on",
+        "eop_margin_days"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "query_id": {
+          "type": "string"
+        },
+        "acquired_on": {
+          "type": "string"
+        },
+        "eop_margin_days": {
+          "type": "integer"
+        }
+      }
+    },
+    "allow_reuse": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "description": "Exact character and semantic constraints are enforced by the release validator."
+    }
+  }
+}

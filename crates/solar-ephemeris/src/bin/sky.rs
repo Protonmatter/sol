@@ -1,4 +1,4 @@
-//! CLI: print an ephemeris-snapshot.v1 for a Unix time + observer.
+//! CLI: print a live ephemeris-snapshot.v3 for a Unix time + observer.
 //! Usage: sky <unix_seconds> <lat_deg> <lon_deg_east> <elev_m>
 
 fn main() {
@@ -12,5 +12,10 @@ fn main() {
     let lon: f64 = args[2].parse().expect("lon_deg_east");
     let elev: f64 = args[3].parse().expect("elev_m");
     let jd = solar_ephemeris::time::jd_from_unix(unix);
-    println!("{}", solar_ephemeris::sky_snapshot_json(jd, lat, lon, elev));
+    let json = solar_ephemeris::sky_snapshot_json(jd, lat, lon, elev);
+    if json.starts_with("{\"error\"") {
+        eprintln!("{json}");
+        std::process::exit(2);
+    }
+    println!("{json}");
 }

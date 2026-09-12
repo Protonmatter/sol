@@ -2,8 +2,9 @@
 
 Status: **Historical design intent — built and shipped.** Kept as the record of why the
 solar-system/sky engine is shaped the way it is. Where this document and the code disagree,
-the code wins: the contract shipped as `ephemeris-snapshot.v2` (see ADR 0002), not the
-`ephemeris-snapshot.v1` drafted below, and current normative decisions live in `SPEC.md`,
+the v1 contract drafted below was superseded by v2 (ADR 0002); the current local preview
+uses `ephemeris-snapshot.v3` (RFC 0002 and [EPHEMERIS_V3.md](EPHEMERIS_V3.md)). The legacy
+examples and historical aggregate accuracy numbers below are not v3 fixtures or qualification evidence. Current normative decisions live in `SPEC.md`,
 `RFC_ALIGNMENT.md`, and `docs/adr/`. Implemented behaviour is reported in `STATUS.md`.
 Date: 2026-06-28 (status note updated 2026-07-25)
 Relationship: extends the Solar Maximum Engine. Reuses the Rust→WASM deterministic

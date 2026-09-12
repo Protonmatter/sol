@@ -8,10 +8,10 @@ import { WAVELENGTHS, BASE_IMAGES } from "./config.js?v=dcca6290db";
 import { renderAll } from "./view.js?v=dcca6290db";
 import { baseImageState, retryBaseImage } from "./data.js?v=dcca6290db";
 
-function updateWavelengthCaption() {
+export function updateWavelengthCaption() {
   const node = document.getElementById("wavelengthCaption");
   if (!node) return;
-  if (store.wavelength === "model") {
+  if (store.wavelength === "model" || store.timelineIndex >= 0 || store.liveEngineRun) {
     node.textContent = "Synthetic engine view — the solar-cycle model's own photosphere, sunspots, and magnetic dipoles. Toggle the overlays below.";
     return;
   }
@@ -22,10 +22,10 @@ function updateWavelengthCaption() {
   // two adjacent labels used to disagree about whether you were looking at the real Sun.
   const status = baseImageState(store.wavelength);
   const provenance = status === "live"
-    ? "(live NASA SDO)"
+    ? "(observed NASA SDO browse image; capture time unavailable; no registered model overlay)"
     : status === "failed"
-      ? "(live image unavailable — showing the synthetic model)"
-      : "(loading the live image…)";
+      ? "(observed image unavailable — showing the synthetic model)"
+      : "(loading observed image; synthetic model shown until available)";
   node.textContent = "";
   const strong = document.createElement("strong");
   strong.textContent = cfg.label;

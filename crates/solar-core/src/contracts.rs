@@ -1,6 +1,6 @@
 use crate::{ActiveRegion, Field2D, Polarity, SolarMode, SolarState};
 
-pub const SOLAR_STATE_SNAPSHOT_SCHEMA: &str = "solar-state-snapshot.v2";
+pub const SOLAR_STATE_SNAPSHOT_SCHEMA: &str = "solar-state-snapshot.v3";
 pub const OBSERVATION_FRAME_SCHEMA: &str = "observation-frame.v1";
 pub const MODEL_RUN_MANIFEST_SCHEMA: &str = "model-run-manifest.v1";
 
@@ -16,6 +16,9 @@ pub struct SnapshotRequest<'a> {
     /// Trusted JSON array produced by the ingest layer. The serializer verifies
     /// that it is a balanced JSON array envelope before embedding it.
     pub observations_json: Option<&'a str>,
+    /// Accepted observation context used to derive the analysis. The serializer
+    /// verifies that it is a balanced JSON object before preserving it verbatim.
+    pub observed_context_json: Option<&'a str>,
 }
 
 impl<'a> SnapshotRequest<'a> {
@@ -33,6 +36,7 @@ impl<'a> SnapshotRequest<'a> {
                 "Research and learning use only; not operational space-weather forecasting.",
             ],
             observations_json: None,
+            observed_context_json: None,
         }
     }
 }
@@ -95,15 +99,12 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     out.push_str("  \"run\": {\n");
     out.push_str(&format!("    \"seed\": {},\n", request.seed));
     out.push_str(&format!("    \"steps\": {},\n", request.steps));
-    out.push_str(&format!("    \"dt_hours\": {:.6},\n", request.dt_hours));
+    out.push_str(&format!("    \"dt_hours\": {},\n", request.dt_hours));
     out.push_str(&format!(
         "    \"activity_index\": {:.6},\n",
         request.activity_index
     ));
-    out.push_str(&format!(
-        "    \"time_seconds\": {:.6},\n",
-        state.time_seconds
-    ));
+    out.push_str(&format!("    \"time_seconds\": {},\n", state.time_seconds));
     json_string_field(&mut out, 2, "mode", solar_mode_name(&state.mode), false);
     out.push_str("  },\n");
 
@@ -174,8 +175,8 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     out.push_str("  \"layers\": [\n");
     out.push_str("    {\"id\":\"br_normalized\",\"label\":\"Radial magnetic field\",\"kind\":\"synthetic\",\"units\":\"normalized magnetic field\"},\n");
     out.push_str("    {\"id\":\"continuum_proxy\",\"label\":\"Continuum brightness proxy\",\"kind\":\"inferred\",\"units\":\"relative intensity\"},\n");
-    out.push_str("    {\"id\":\"confidence\",\"label\":\"Model confidence\",\"kind\":\"inferred\",\"units\":\"0..1\"},\n");
-    out.push_str("    {\"id\":\"active_regions\",\"label\":\"Active region births\",\"kind\":\"synthetic\",\"units\":\"normalized metadata\"}\n");
+    out.push_str("    {\"id\":\"confidence\",\"label\":\"Heuristic model score — not probability\",\"kind\":\"inferred\",\"units\":\"0..1\"},\n");
+    out.push_str("    {\"id\":\"active_regions\",\"label\":\"Modeled region anchors and immutable births\",\"kind\":\"synthetic\",\"units\":\"normalized metadata\"}\n");
     out.push_str("  ],\n");
 
     out.push_str("  \"fields\": {\n");
@@ -188,13 +189,6 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     );
     field_json(
         &mut out,
-        "br_variance_normalized",
-        &state.br_variance,
-        "normalized variance",
-        true,
-    );
-    field_json(
-        &mut out,
         "continuum_proxy",
         &state.continuum,
         "relative intensity",
@@ -203,12 +197,21 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     field_json(&mut out, "confidence", &state.confidence, "0..1", false);
     out.push_str("  },\n");
 
+    let mut uncertainty = state.activity_uncertainty.clone();
+    uncertainty
+        .forecast_to(state.time_seconds)
+        .expect("snapshot uncertainty time");
+    out.push_str(&format!("  \"uncertainty\": {{\"activity\": {{\"variance\":{},\"units\":\"activity_index_squared\",\"method\":\"freshness_damped_diagonal_proxy.v1\",\"status\":\"illustrative\",\"at_time_seconds\":{},\"last_analysis_time_seconds\":{},\"process_noise_per_day\":{},\"process_noise_status\":\"{}\"}},\"magnetic\":{{\"status\":\"unavailable\",\"reason\":\"Scalar activity observations do not determine spatial magnetic covariance.\"}}}},\n",
+        uncertainty.variance(), state.time_seconds,
+        uncertainty.last_analysis_time_seconds().map(|t| t.to_string()).unwrap_or_else(|| "null".into()),
+        uncertainty.process_noise_per_day(), if uncertainty.process_noise_per_day() == 0.0 { "disabled" } else { "illustrative" }));
+
     out.push_str("  \"active_regions\": [");
     for (index, region) in state.active_regions.iter().enumerate() {
         if index > 0 {
             out.push(',');
         }
-        active_region_json(&mut out, region);
+        active_region_json(&mut out, region, state.time_seconds);
     }
     out.push_str("],\n");
 
@@ -222,6 +225,12 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
     );
     json_string_field(&mut out, 2, "plain_language_insight", insight(state), false);
     out.push_str("  },\n");
+
+    if let Some(raw) = request.observed_context_json {
+        out.push_str("  \"observed_context\": ");
+        out.push_str(raw.trim());
+        out.push_str(",\n");
+    }
 
     out.push_str("  \"observations\": ");
     match request.observations_json {
@@ -245,6 +254,11 @@ pub fn solar_state_snapshot_json(state: &SolarState, request: &SnapshotRequest<'
 }
 
 fn validate_snapshot_inputs(state: &SolarState, request: &SnapshotRequest<'_>) {
+    assert_eq!(
+        state.grid.coordinates.rotation_reference_deg_per_day,
+        crate::constants::CARRINGTON_SIDEREAL_DEG_PER_DAY,
+        "only the supported Carrington reference can be serialized"
+    );
     assert!(!request.model_version.is_empty());
     assert!(!request.source_mode.is_empty());
     assert!(request.dt_hours.is_finite() && request.dt_hours >= 0.0);
@@ -253,16 +267,10 @@ fn validate_snapshot_inputs(state: &SolarState, request: &SnapshotRequest<'_>) {
     assert!(state.time_seconds.is_finite() && state.time_seconds >= 0.0);
 
     let expected = state.grid.len();
-    for field in [
-        &state.br,
-        &state.br_variance,
-        &state.continuum,
-        &state.confidence,
-    ] {
+    for field in [&state.br, &state.continuum, &state.confidence] {
         assert_eq!(field.values.len(), expected);
         assert!(field.values.iter().all(|value| value.is_finite()));
     }
-    assert!(state.br_variance.values.iter().all(|value| *value >= 0.0));
     assert!(state
         .confidence
         .values
@@ -285,11 +293,25 @@ fn validate_snapshot_inputs(state: &SolarState, request: &SnapshotRequest<'_>) {
             "observations_json must be a balanced JSON array"
         );
     }
+    if let Some(raw) = request.observed_context_json {
+        assert!(
+            balanced_json_object_envelope(raw),
+            "observed_context_json must be a balanced JSON object"
+        );
+    }
 }
 
 fn balanced_json_array_envelope(raw: &str) -> bool {
+    balanced_json_envelope(raw, '[', ']')
+}
+
+fn balanced_json_object_envelope(raw: &str) -> bool {
+    balanced_json_envelope(raw, '{', '}')
+}
+
+fn balanced_json_envelope(raw: &str, opening: char, closing: char) -> bool {
     let text = raw.trim();
-    if !text.starts_with('[') || !text.ends_with(']') {
+    if !text.starts_with(opening) || !text.ends_with(closing) {
         return false;
     }
 
@@ -305,7 +327,8 @@ fn balanced_json_array_envelope(raw: &str) -> bool {
             match character {
                 '\\' => escaped = true,
                 '"' => in_string = false,
-                control if control.is_control() => return false,
+                // JSON forbids unescaped U+0000..U+001F, not the C1 controls.
+                control if control < '\u{0020}' => return false,
                 _ => {}
             }
             continue;
@@ -397,7 +420,11 @@ fn field_json(out: &mut String, id: &str, field: &Field2D, units: &str, trailing
     push_escaped(out, id);
     out.push_str("\": {\"units\":\"");
     push_escaped(out, units);
-    out.push_str("\",\"values\":[");
+    if id == "confidence" {
+        out.push_str("\",\"semantics\":\"heuristic_model_score\",\"interpretation\":\"not probability or calibrated uncertainty\",\"values\":[");
+    } else {
+        out.push_str("\",\"values\":[");
+    }
     for (index, value) in field.values.iter().enumerate() {
         if index > 0 {
             out.push(',');
@@ -411,12 +438,21 @@ fn field_json(out: &mut String, id: &str, field: &Field2D, units: &str, trailing
     out.push('\n');
 }
 
-fn active_region_json(out: &mut String, region: &ActiveRegion) {
+fn active_region_json(out: &mut String, region: &ActiveRegion, time_seconds: f64) {
     out.push('{');
     out.push_str(&format!("\"id\":{},", region.id));
-    out.push_str(&format!("\"birth_seconds\":{:.6},", region.birth_seconds));
-    out.push_str(&format!("\"lat_deg\":{:.6},", region.lat_deg));
-    out.push_str(&format!("\"lon_deg\":{:.6},", region.lon_deg));
+    out.push_str(&format!(
+        "\"birth\":{{\"time_seconds\":{},\"lat_deg\":{:.6},\"lon_deg\":{:.6}}},",
+        region.birth_seconds, region.lat_deg, region.lon_deg
+    ));
+    let longitude = crate::differential_rotation::wrap360(
+        f64::from(region.lon_deg)
+            + crate::differential_rotation::carrington_advection_deg_per_day(f64::from(
+                region.lat_deg,
+            )) * (time_seconds - region.birth_seconds)
+                / 86400.0,
+    );
+    out.push_str(&format!("\"model_position\":{{\"lat_deg\":{:.6},\"lon_deg\":{},\"at_time_seconds\":{},\"semantics\":\"advected_model_anchor\"}},", region.lat_deg, longitude, time_seconds));
     out.push_str(&format!("\"flux_norm\":{:.6},", region.flux_norm));
     out.push_str(&format!("\"area_msh\":{:.6},", region.area_msh));
     out.push_str(&format!("\"tilt_deg\":{:.6},", region.tilt_deg));
@@ -500,7 +536,7 @@ mod tests {
     fn snapshot_contract_includes_coordinate_semantics() {
         let state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
         let json = solar_state_snapshot_json(&state, &SnapshotRequest::synthetic(42, 0, 1.0, 0.9));
-        assert!(json.contains("\"schema_version\": \"solar-state-snapshot.v2\""));
+        assert!(json.contains("\"schema_version\": \"solar-state-snapshot.v3\""));
         assert!(json.contains("\"frame\": \"heliographic_carrington\""));
         assert!(json.contains("\"longitude_positive\": \"west\""));
         assert!(json.contains("\"index_formula\": \"lat_i * lon_count + lon_i\""));
@@ -532,6 +568,52 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "observed_context_json must be a balanced JSON object")]
+    fn malformed_observed_context_envelope_is_rejected() {
+        let state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
+        let mut request = SnapshotRequest::synthetic(42, 0, 1.0, 0.9);
+        request.observed_context_json = Some("{\"broken\":true");
+        let _ = solar_state_snapshot_json(&state, &request);
+    }
+
+    #[test]
+    fn observation_envelope_preserves_json_permitted_control_characters() {
+        let state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
+        for character in ['\u{007f}', '\u{0080}', '\u{0085}', '\u{009f}'] {
+            let source = format!("observatory{character}");
+            let observations = format!(r#"[{{"provenance":{{"source":"{source}"}}}}]"#);
+            let mut request = SnapshotRequest::synthetic(42, 0, 1.0, 0.9);
+            request.observations_json = Some(&observations);
+            let parsed = crate::parse_json(&solar_state_snapshot_json(&state, &request)).unwrap();
+            assert_eq!(
+                parsed.get("observations").unwrap().as_array().unwrap()[0]
+                    .get("provenance")
+                    .unwrap()
+                    .get("source")
+                    .unwrap()
+                    .as_str(),
+                Some(source.as_str())
+            );
+        }
+    }
+
+    #[test]
+    fn observation_envelope_rejects_unescaped_json_controls_and_broken_structure() {
+        for character in ['\u{0000}', '\u{0009}', '\u{001f}'] {
+            assert!(!balanced_json_array_envelope(&format!(
+                r#"[{{"source":"observatory{character}"}}]"#
+            )));
+        }
+        for raw in [
+            r#"[{"source":"unterminated}]"#,
+            r#"[{"source":true]]"#,
+            r#"[{"source":true}}]"#,
+        ] {
+            assert!(!balanced_json_array_envelope(raw));
+        }
+    }
+
+    #[test]
     #[should_panic]
     fn nonfinite_run_parameters_are_rejected_before_serialization() {
         let state = SolarState::new(SolarGrid::new(8, 4), SolarMode::Synthetic);
@@ -543,11 +625,11 @@ mod tests {
     fn schema_file_documents_all_emitted_modes_and_gates() {
         let schema = std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../docs/solar-state-snapshot-v2.schema.json"
+            "/../../docs/solar-state-snapshot-v3.schema.json"
         ))
-        .expect("read docs/solar-state-snapshot-v2.schema.json");
+        .expect("read docs/solar-state-snapshot-v3.schema.json");
 
-        assert!(schema.contains("solar-state-snapshot.v2"));
+        assert!(schema.contains("solar-state-snapshot.v3"));
         for mode in [
             solar_mode_name(&SolarMode::Synthetic),
             solar_mode_name(&SolarMode::Assimilation),

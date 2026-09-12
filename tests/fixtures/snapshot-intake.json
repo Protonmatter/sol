@@ -1,0 +1,383 @@
+[
+  {
+    "id": "valid-live-v3",
+    "path": [
+      "operational_use"
+    ],
+    "value": false,
+    "accepted": true
+  },
+  {
+    "id": "integer-valued-number",
+    "path": [
+      "run",
+      "steps"
+    ],
+    "value": 0,
+    "accepted": true
+  },
+  {
+    "id": "longitude-dimension-minimum",
+    "path": [
+      "grid",
+      "lon_count"
+    ],
+    "value": 7,
+    "accepted": false
+  },
+  {
+    "id": "latitude-dimension-minimum",
+    "path": [
+      "grid",
+      "lat_count"
+    ],
+    "value": 3,
+    "accepted": false
+  },
+  {
+    "id": "dimension-field-mismatch",
+    "path": [
+      "grid",
+      "lon_count"
+    ],
+    "value": 73,
+    "accepted": false
+  },
+  {
+    "id": "fractional-dimension",
+    "path": [
+      "grid",
+      "lon_count"
+    ],
+    "value": 72.5,
+    "accepted": false
+  },
+  {
+    "id": "activity-upper-bound",
+    "path": [
+      "run",
+      "activity_index"
+    ],
+    "value": 1.0001,
+    "accepted": false
+  },
+  {
+    "id": "negative-duration",
+    "path": [
+      "run",
+      "dt_hours"
+    ],
+    "value": -0.01,
+    "accepted": false
+  },
+  {
+    "id": "duration-inconsistent",
+    "path": [
+      "run",
+      "time_seconds"
+    ],
+    "value": 3600,
+    "accepted": false
+  },
+  {
+    "id": "derived-duration-overflow",
+    "path": [
+      "run"
+    ],
+    "value": {
+      "seed": 42,
+      "steps": 1e+30,
+      "dt_hours": 1e+308,
+      "activity_index": 0.9,
+      "time_seconds": 0,
+      "mode": "Synthetic"
+    },
+    "accepted": false
+  },
+  {
+    "id": "large-finite-zero-step-duration",
+    "path": [
+      "run"
+    ],
+    "value": {
+      "seed": 42,
+      "steps": 0,
+      "dt_hours": 1e+100,
+      "activity_index": 0.9,
+      "time_seconds": 0,
+      "mode": "Synthetic"
+    },
+    "accepted": true
+  },
+  {
+    "id": "angle-exclusive-bound",
+    "path": [
+      "coordinates",
+      "central_meridian_longitude_deg"
+    ],
+    "value": 360,
+    "accepted": false
+  },
+  {
+    "id": "negative-variance",
+    "path": [
+      "uncertainty",
+      "activity",
+      "variance"
+    ],
+    "value": -0.1,
+    "accepted": false
+  },
+  {
+    "id": "confidence-upper-bound",
+    "path": [
+      "fields",
+      "confidence",
+      "values",
+      0
+    ],
+    "value": 1.1,
+    "accepted": false
+  },
+  {
+    "id": "boolean-field-value",
+    "path": [
+      "fields",
+      "br_normalized",
+      "values",
+      0
+    ],
+    "value": true,
+    "accepted": false
+  },
+  {
+    "id": "wrong-run-shape",
+    "path": [
+      "run"
+    ],
+    "value": [],
+    "accepted": false
+  },
+  {
+    "id": "empty-model-version",
+    "path": [
+      "model_version"
+    ],
+    "value": "",
+    "accepted": false
+  },
+  {
+    "id": "empty-warnings",
+    "path": [
+      "warnings"
+    ],
+    "value": [],
+    "accepted": false
+  },
+  {
+    "id": "missing-fields",
+    "path": [
+      "fields"
+    ],
+    "remove": true,
+    "accepted": false
+  },
+  {
+    "id": "legacy-version-not-live",
+    "path": [
+      "schema_version"
+    ],
+    "value": "solar-state-snapshot.v2",
+    "accepted": false
+  },
+  {
+    "id": "old-spatial-covariance-rejected",
+    "path": [
+      "fields",
+      "br_variance_normalized"
+    ],
+    "value": {
+      "units": "normalized variance",
+      "values": [
+        0.1
+      ]
+    },
+    "accepted": false
+  },
+  {
+    "id": "nonzero-noise-cannot-be-disabled",
+    "path": [
+      "uncertainty",
+      "activity",
+      "process_noise_per_day"
+    ],
+    "value": 0.02,
+    "accepted": false
+  },
+  {
+    "id": "zero-noise-cannot-be-illustrative",
+    "path": [
+      "uncertainty",
+      "activity",
+      "process_noise_status"
+    ],
+    "value": "illustrative",
+    "accepted": false
+  },
+  {
+    "id": "analysis-cannot-be-future",
+    "path": [
+      "uncertainty",
+      "activity",
+      "last_analysis_time_seconds"
+    ],
+    "value": 1,
+    "accepted": false
+  },
+  {
+    "id": "uncertainty-current-epoch",
+    "path": [
+      "uncertainty",
+      "activity",
+      "at_time_seconds"
+    ],
+    "value": 1,
+    "accepted": false
+  },
+  {
+    "id": "magnetic-unavailable-not-estimated",
+    "path": [
+      "uncertainty",
+      "magnetic",
+      "status"
+    ],
+    "value": "estimated",
+    "accepted": false
+  },
+  {
+    "id": "confidence-not-probability",
+    "path": [
+      "fields",
+      "confidence",
+      "semantics"
+    ],
+    "value": "probability",
+    "accepted": false
+  },
+  {
+    "id": "birth-time-future",
+    "path": [
+      "active_regions",
+      0,
+      "birth",
+      "time_seconds"
+    ],
+    "value": 1,
+    "accepted": false
+  },
+  {
+    "id": "anchor-current-epoch",
+    "path": [
+      "active_regions",
+      0,
+      "model_position",
+      "at_time_seconds"
+    ],
+    "value": 1,
+    "accepted": false
+  },
+  {
+    "id": "anchor-latitude-must-preserve-birth",
+    "path": [
+      "active_regions",
+      0,
+      "model_position",
+      "lat_deg"
+    ],
+    "value": 89,
+    "accepted": false
+  },
+  {
+    "id": "anchor-longitude-must-follow-birth",
+    "path": ["active_regions", 0, "model_position", "lon_deg"],
+    "value": 123,
+    "accepted": false
+  },
+  {
+    "id": "birth-longitude-bound",
+    "path": [
+      "active_regions",
+      0,
+      "birth",
+      "lon_deg"
+    ],
+    "value": 360,
+    "accepted": false
+  },
+  {
+    "id": "anchor-longitude-bound",
+    "path": [
+      "active_regions",
+      0,
+      "model_position",
+      "lon_deg"
+    ],
+    "value": -1,
+    "accepted": false
+  },
+  {
+    "id": "assimilation-with-valid-attributable-frame",
+    "path": [
+      "run",
+      "mode"
+    ],
+    "value": "Assimilation",
+    "accepted": true
+  },
+  {
+    "id": "assimilation-with-empty-observations",
+    "mutations": [
+      {
+        "path": ["run", "mode"],
+        "value": "Assimilation"
+      },
+      {
+        "path": ["observations"],
+        "value": []
+      },
+      {
+        "path": ["operational_readiness", "data_state", "observation_mode"],
+        "value": "none"
+      }
+    ],
+    "accepted": false
+  },
+  {
+    "id": "assimilation-with-empty-report-frames",
+    "mutations": [
+      {
+        "path": ["run", "mode"],
+        "value": "Assimilation"
+      },
+      {
+        "path": ["observations", 0, "frames"],
+        "value": []
+      }
+    ],
+    "accepted": false
+  },
+  {
+    "id": "synthetic-without-observations",
+    "mutations": [
+      {
+        "path": ["observations"],
+        "value": []
+      },
+      {
+        "path": ["operational_readiness", "data_state", "observation_mode"],
+        "value": "none"
+      }
+    ],
+    "accepted": true
+  }
+]

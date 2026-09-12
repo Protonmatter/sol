@@ -1,12 +1,27 @@
 # Implementation plan
 
 Status: active  
-Updated: 2026-07-28
+Updated: 2026-09-11
 
 This plan describes delivery work, while `STATUS.md` describes implemented product behavior
 and `ROADMAP.md` records longer-horizon product direction.
 
-## Current objective: executable SDLC and full validation
+## Active milestone: correctness, delivery integrity and experience
+
+The September 11 review is translated into a detailed, specification-driven
+[implementation package](plans/2026-09-11-correctness-and-experience/README.md) and
+[Accepted RFC 0002](rfcs/0002-correctness-delivery-and-experience.md). It covers all 22 review
+findings, 35 acceptance criteria, atomic scientific contract migrations, a material
+three-destination UI/UX redesign, complete test traceability and tested-artifact CI/CD.
+
+The user authorized local implementation on September 11. The source candidate now includes
+v3 contracts, the redesigned interface, worker lifecycle controls, immutable feed/artifact
+transactions, regression tests and gated workflow definitions. RFC status remains Accepted,
+not Implemented: full scientific/manual/cross-platform qualification and production promotion
+are not established by local source changes. No commit, push, settings change or deployment
+was performed. See `STATUS.md` and the implementation package for evidence boundaries.
+
+## Prior objective: executable SDLC and full validation
 
 Acceptance outcome: a contributor can move from requirement to design, implementation,
 verification, review, and tested-SHA deployment using repository guidance and CI evidence.
@@ -60,4 +75,3 @@ Each pull request updates this file when it completes, adds, removes, or materia
 an objective or exit criterion. Do not use completion percentages without a defined
 denominator. Completed historical implementation detail belongs in `STATUS.md`, an RFC, or
 an ADR rather than accumulating indefinitely here.
-

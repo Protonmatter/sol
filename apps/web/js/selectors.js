@@ -3,6 +3,8 @@
 import { store } from "./store.js?v=dcca6290db";
 import { controls } from "./dom.js?v=dcca6290db";
 import { BASE_IMAGES } from "./config.js?v=dcca6290db";
+import { solarRegionFacts } from "./solarRegionFacts.js?v=dcca6290db";
+import { assessFeedFreshness } from "./presentationState.js?v=dcca6290db";
 import {
   number, numberOrNa, compactNumberOrNa, plural, countBy, formatCounts,
   readableMode, humanizeId, complexityLabel
@@ -33,15 +35,17 @@ export function visibleLayers() {
   const layerMap = new Map((store.state.layers || []).map((layer) => [layer.id, layer]));
   const out = [];
   // The base solar image: the chosen wavelength channel, or the synthetic model.
-  if (store.wavelength === "model") {
+  if (store.presentation?.sourceKind === "synthetic" || store.wavelength === "model") {
     out.push({ id: "model", label: "Synthetic model", kind: "synthetic" });
   } else {
     const cfg = BASE_IMAGES[store.wavelength];
     out.push({ id: store.wavelength, label: cfg ? cfg.label : store.wavelength, kind: "observed" });
   }
   // Overlays on top of whatever base.
-  if (controls.confidence.checked) out.push(layerMap.get("confidence") || { id: "confidence", label: "Model confidence", kind: "degraded" });
-  if (controls.regions.checked) out.push(layerMap.get("active_regions") || { id: "active_regions", label: "Active regions", kind: "synthetic" });
+  if (store.presentation?.showModelOverlays !== false) {
+    if (controls.confidence.checked) out.push({ id: "confidence", label: "Heuristic model score — not probability", kind: "inferred" });
+    if (controls.regions.checked) out.push({ id: "active_regions", label: store.presentation?.coordinateLabel || "Modeled region birth positions", kind: "synthetic" });
+  }
   return out;
 }
 
@@ -101,18 +105,15 @@ export function readinessClass() {
 // silent dishonesty the provenance labels exist to prevent. `nowMs` is injectable
 // for tests.
 export function feedOverdueHours(nowMs = Date.now()) {
-  if (!store.feedStatus || !store.feedStatus.next_recommended_run_utc) return null;
-  const due = Date.parse(store.feedStatus.next_recommended_run_utc);
-  if (!Number.isFinite(due)) return null;
-  const graceMs = 6 * 3600 * 1000;
-  const overdueMs = nowMs - due - graceMs;
-  return overdueMs > 0 ? overdueMs / 3600 / 1000 : null;
+  return assessFeedFreshness(store.feedStatus, nowMs).overdueHours;
 }
 
 export function feedStateLabel() {
   if (!store.feedStatus) return "not run";
   if (store.feedStatus.status === "ok") {
-    const overdue = feedOverdueHours();
+    const assessment = assessFeedFreshness(store.feedStatus, Date.now());
+    if (assessment.freshness === "unknown") return "unknown";
+    const overdue = assessment.overdueHours;
     if (overdue !== null) {
       return overdue >= 48 ? `stale ${Math.floor(overdue / 24)}d` : "overdue";
     }
@@ -137,11 +138,12 @@ export function feedStateClass() {
 }
 
 export function regionLocation(region) {
-  return `lat ${number(region.lat_deg, 1)}°, lon ${number(region.lon_deg, 1)}°`;
+  const position = region.model_position || region;
+  return `${region.model_position ? "modeled anchor" : "birth position"}: lat ${number(position.lat_deg, 1)}°, lon ${number(position.lon_deg, 1)}° W`;
 }
 
 export function selectedRegionSummary(region) {
-  return `AR ${region.id} is at ${regionLocation(region)} with normalized flux ${number(region.flux_norm, 2)}, complexity ${complexityLabel(region.complexity)}, area ${number(region.area_msh, 0)} MSH (millionths of the solar hemisphere), tilt ${number(region.tilt_deg, 1)}°, and confidence ${number(region.confidence, 2)}.`;
+  return solarRegionFacts(region,store.state.run?.time_seconds);
 }
 
 export function selectedRegionSentence() {

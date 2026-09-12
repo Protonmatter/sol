@@ -1,85 +1,74 @@
-# Data Sources and Cost Status
+# Data sources, provenance and acquisition boundaries
 
-## Summary
+Updated: 2026-09-11. This is an offline inventory of repository-declared sources, not
+a live availability/pricing/terms review. No source was contacted for this update.
 
-The core data sources for this project are public/free to access, but they are not all identical operationally.
+## Source roles
 
-| Source | Cost | Registration | Best use | Caveat |
-|---|---:|---:|---|---|
-| NOAA/SWPC Data Service | Free/public | No | JSON/text/image space-weather products | Product schemas can change; watch SWPC notices. |
-| NOAA/NCEI SWPC Archive | Free/public | Usually no | Historical SWPC data | Archive layout differs from real-time service. |
-| NASA Heliophysics data portals | Free/open access | Varies by service | Discovery of heliophysics mission data | Some mission archives/tools have their own access flow. |
-| Helioviewer API | Free/public | No | SDO/AIA, SDO/HMI quicklook imagery | Use for visualization/assimilation prototypes; cache politely. |
-| JSOC / SDO HMI | Free/public data | Email registration for exports | Science-grade HMI/AIA records, FITS workflows | Staged export flow; large data volumes. |
-| GOES XRS via SWPC | Free/public | No | X-ray flux / flare detection | Operational data; account for service changes. |
-| NOAA/SWPC Kp and F10.7 JSON | Free/public | No | Space-weather and solar-activity learning context | Use as observed context, not app-owned warning authority. |
-| NOAA WSA-Enlil product | Public product page | No | Public operational-model family for education and future comparison | Do not claim this app reproduces WSA-Enlil. |
-| Natural Earth 1:110m vectors | Free/public domain | No | Earth's coastlines, lakes and permanent ice in the 3-D view | Cartographic scale — 1:110m is a whole-globe generalisation, not a survey. |
-| IAU/USGS Gazetteer of Planetary Nomenclature | Free/public domain (US Gov) | No | Named surface features (the Moon's maria) with centre and extent | Records position and size, **never albedo** — see the geography README. |
-| JPL Horizons | Free/public domain (US Gov) | No | Multi-epoch satellite osculating elements + interleaved validation state vectors | Interpolated positions are supported only inside the January 2021–December 2030 checked interval. |
-| JPL SSD satellite physical parameters | Free/public domain (US Gov) | No | Moon radii, GM, densities | `0.00000` means unmeasured, not zero — normalise it away. |
+| Source family | Role in this repository | Interpretation limit |
+| --- | --- | --- |
+| NOAA/SWPC JSON/text and GOES XRS | Observed space-weather/activity learning context and fixtures | Preserve source/active/quality and observation time; not Sol warning authority |
+| NOAA/NCEI archives | Historical context | Archive records and live feeds have different provenance/time semantics |
+| Helioviewer / NASA SDO quicklook | Observed imagery or explicit fallback | Not calibrated magnetic data and not automatically registered model overlays |
+| JSOC/HMI science records | Potential science-grade workflow | Separate export/access/volume requirements; no implemented calibration claim |
+| IERS Earth orientation | Bundled rapid/predicted EOP and degraded outside-coverage state | Current coverage/freshness must be checked, not inferred from a source name |
+| JPL Horizons | Optional provider and separately acquired reference records | Network permission, response metadata, frame/time scale and immutable evidence required |
+| VSOP2013 / ELP-MPP02 / TOP2013 tables | On-device analytic calculations | Missing upstream input/serializer/notice correspondence; see coefficient inventory |
+| Hipparcos and named-star/constellation catalogues | Catalogue-backed positions and labels | Derived stellar estimates are labelled; absent parallax cannot supply a distance |
+| Natural Earth / IAU-USGS features | Globe-scale geography / feature locations | Cartographic generalization; positions and extents do not measure albedo |
+| JPL satellite elements/vectors/physical records | Bounded major-moon interpolation and held-out checks | Not an extrapolatable navigation or mutual-event ephemeris |
 
-## Static reference data (committed, not fetched at runtime)
+Earlier documents recorded many of these as public/free. That history is not a guarantee
+of current access, registration, terms, rate limits or bandwidth. Verify those separately
+before an authorized refresh; do not silently introduce a new service or identity.
 
-The bottom four rows above are different in kind from the space-weather feeds: they are
-**time-independent reference data**, fetched once into `tools/ephemeris-data/` by a networked
-script that CI never runs, then compiled offline into committed modules whose regeneration is
-byte-gated. Nothing in the deployed app reaches out for them.
+## Immutable committed reference inventories
 
-| Committed under | Fetched by | Compiled by | Gated by |
-|---|---|---|---|
-| `tools/ephemeris-data/stars/` | manual | `generate_star_catalog.py`, `generate_constellations.py` | `validate_star_catalog.py` |
-| `tools/ephemeris-data/geography/` | `fetch_geography.py` | `generate_geography.py` | `generate_geography.py --check` |
-| `tools/ephemeris-data/moons/` | `fetch_moons.py` | `generate_moons.py` | `validate_moons.py` |
+| Inventory | Generation / validation | Status distinction |
+| --- | --- | --- |
+| [Coefficients](COEFFICIENT_PROVENANCE.md) | Binary decoders in `solar-ephemeris` | Exact local hashes/lineage; all three blobs non-regenerable from current supplied tools |
+| [Stars](../tools/ephemeris-data/stars/README.md) | `generate_star_catalog.py`, `generate_constellations.py`, `validate_star_catalog.py` | Committed source package versions/hashes; not a new external catalogue audit |
+| [Geography](../tools/ephemeris-data/geography/README.md) | `generate_geography.py --check` | Committed vector/feature sources |
+| [Moons](../tools/ephemeris-data/moons/README.md) | `generate_moons.py`, `validate_moons.py` | Source/output manifest exists; canonical Linux x86_64 qualification remains pending |
 
-## Implementation recommendation
+The current major-moon window is January 2021–December 2030 as defined by the committed
+generated model. Previously recorded 11,985 held-out checks and their numerical errors
+describe that reference/model pair, not independent qualification of the new v3 apparent-
+place, observer-range or event fields. The current ephemeris evidence registry has eight
+TOP2013 source-parity samples only. No unretained live Moon range response is used as evidence.
 
-Use this order:
+## Acquisition and derivation
 
-1. SWPC JSON/text for low-friction Kp, F10.7, real-time solar wind, solar-region, cycle, and GOES XRS context.
-2. Helioviewer for quick HMI/AIA image assimilation and UI overlays.
-3. JSOC/SunPy bridge only when higher-fidelity FITS/magnetogram workflows are required.
+Default validation is offline. Explicit acquisition produces
+`public-data-cache-manifest.v2` source bundles retaining original bytes, hashes,
+source, `current-fetch`/`cached-fallback`/`fixture` origin, observation/retrieval times,
+quality and failures. Fixture fallback remains labelled fixture, and cached fallback
+does not acquire a newer observation epoch.
 
-For v0.1.2, live public-data access is intentionally separated from deterministic validation:
+Derivation produces one `research-data-bundle.v1` binding solar snapshot v3, observations,
+feed status v2, source manifest and cycle files. Only a complete validated bundle becomes
+the derived pointer. The browser validates the full selected unit before publication;
+failed/mixed data retains last-valid state. Local acquisition and derivation are not
+approval, merge, deployment or served verification.
 
-```bash
-python tools/fetch_public_data.py --cache .cache/solar-data
-python tools/generate_fixture_snapshot.py --cache .cache/solar-data --out apps/web/data/latest-state.json --observations-out tests/fixtures/live-swpc-normalized.json --seed 42
-```
+Use [OPERATIONS](OPERATIONS.md) for offline existing-bundle commands and the separately
+governed [DATA_UPDATE_PLAYBOOK](DATA_UPDATE_PLAYBOOK.md) for authorized refresh/rollback.
+Do not regenerate fixed live aliases independently, run scheduled acquisition without
+authority, or present synthetic cycle examples as observed history.
 
-The app and notebooks should keep using checked-in fixtures unless a live-cache run is explicitly intended. Cached rows must retain source URL, local path, `source`, `active`, quality flags, and any raw-reference metadata needed to debug schema drift.
+## SWPC schema-change context
 
-For continuous research updates, run:
+The repository retains Service Change Notice 26-21 and legacy/new schema fixtures:
+replacement RTSW products use `/json/rtsw/`, numeric values can be JSON numbers rather
+than quoted legacy numerics, and source/active metadata is preserved. This is the
+implemented adapter compatibility context, not a new live availability verification.
+See [SWPC schema change](SWPC_SCHEMA_CHANGE_2026_03_31.md) for the archived notice,
+field mappings and retention requirements.
 
-```bash
-python tools/run_daily_ingest.py --include-jpl
-```
+## Claims that remain prohibited
 
-This writes `apps/web/data/feed-status.json` and archives daily source files under `.cache/solar-data/history/<YYYY-MM-DD>`. Critical failures are limited to SWPC RTSW magnetic-field and solar-wind products; other public sources are optional research context and are reported as degraded feed health if unavailable.
-
-Current optional SWPC impact-learning context includes `planetary_k_index_1m.json`, `f107_cm_flux.json`, `goes/primary/xrays-1-day.json`, and `goes/primary/xray-flares-7-day.json`.
-
-## Do not assume
-
-- Do not assume unlimited rate or bandwidth.
-- Do not assume JSON schema stability without tests.
-- Do not treat Helioviewer quicklook imagery as a substitute for calibrated science-grade FITS when precision matters.
-- Do not use this app for operational warning without validation against SWPC products.
-- Do not claim SpaceX equivalence or proprietary internal JPL/SpaceX algorithms.
-
-
-## SWPC SCN 26-21 impact
-
-The NOAA/SWPC source remains free/public, but the adapter must follow NWS Service Change Notice 26-21:
-
-- Several SWPC products changed to standard JSON object/array forms on/about 2026-03-31.
-- Numeric values other than `time_tag` are no longer quoted.
-- Deprecated RTSW solar-wind endpoints under `/products/solar-wind/` are removed on/about 2026-04-30.
-- Replacement RTSW endpoints are under `/json/rtsw/`:
-  - `rtsw_ephemerides_1h.json`
-  - `rtsw_mag_1m.json`
-  - `rtsw_wind_1m.json`
-- Replacement RTSW rows expose `source` and `active` metadata. Preserve both fields in provenance.
-- For old 3-day and 7-day windows, retrieve and retain the replacement 1-day file locally.
-
-See `docs/SWPC_SCHEMA_CHANGE_2026_03_31.md` for the implementation checklist and field mapping.
+Do not assume unlimited access or stable upstream schemas. Do not infer calibrated
+magnetic units, registered geometry, forecast probability, deep-time topocentric precision,
+or operational warning authority from a public source name. Do not claim proprietary
+JPL/NOAA/commercial algorithms or independent accuracy from source parity. Original
+third-party notice correspondence remains a separate distribution review.

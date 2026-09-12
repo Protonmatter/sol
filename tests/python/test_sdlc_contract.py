@@ -4,8 +4,13 @@ import copy
 import contextlib
 import io
 import json
+import os
+import re
+import shutil
+import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -24,6 +29,90 @@ class SdlcContractTests(unittest.TestCase):
 
     def test_repository_contract_passes(self) -> None:
         self.assertEqual(validate_sdlc.validate(ROOT), [])
+
+    def wasm_job(self) -> str:
+        source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        match = re.search(r"^  wasm:\n(.*?)(?=^  [a-zA-Z0-9_-]+:|\Z)", source, re.MULTILINE | re.DOTALL)
+        self.assertIsNotNone(match, "CI must publish the required WASM build check")
+        return match.group(0)
+
+    def test_required_wasm_status_is_published(self) -> None:
+        inventory, errors = validate_sdlc.workflow_inventory(ROOT)
+        self.assertEqual(errors, [])
+        self.assertIn("WASM build (wasm32-unknown-unknown)", inventory["CI"])
+
+    def test_node_only_coverage_step_cannot_be_removed_or_made_advisory(self) -> None:
+        check = getattr(validate_sdlc, "validate_node_coverage_job", None)
+        self.assertTrue(callable(check), "Node-only coverage remains a mandatory executable step")
+        source = (ROOT / ".github/workflows/coverage.yml").read_text(encoding="utf-8")
+        self.assertEqual(check(source), [])
+        step = "      - name: Node-tested production-module line, branch, and function gates\n        run: node tools/check_node_coverage.mjs"
+        self.assertIn(step, source)
+        for replacement in ("", step.replace("        run:", "        if: false\n        run:"),
+                step.replace("        run:", "        continue-on-error: true\n        run:"),
+                step + "\n        if: false", step + "\n        continue-on-error: true",
+                step + " || true", step.replace("node tools/check_node_coverage.mjs", "npm test")):
+            with self.subTest(replacement=replacement):
+                self.assertTrue(check(source.replace(step, replacement)))
+        self.assertTrue(check(source.replace("  javascript:\n", "  javascript:\n    if: false\n")))
+
+    def test_missing_required_wasm_status_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / ".github", root / ".github")
+            path = root / ".github/workflows/ci.yml"
+            source = re.sub(r"^  wasm:\n.*?(?=^  [a-zA-Z0-9_-]+:|\Z)", "",
+                            path.read_text(encoding="utf-8"), flags=re.MULTILINE | re.DOTALL)
+            source = source.replace("artifact, wasm, coverage", "artifact, coverage")
+            path.write_text(source, encoding="utf-8")
+            errors = validate_sdlc.validate_workflows(root)
+            self.assertTrue(any("required WASM" in error for error in errors), errors)
+
+    def test_weakened_wasm_verification_is_rejected(self) -> None:
+        job = self.wasm_job()
+        mutations = (
+            ("WASM build (wasm32-unknown-unknown)", "Optional WASM check"),
+            ("    needs: artifact", "    needs: candidate"),
+            ("    if: always()", "    if: success()"),
+            ("    runs-on: ubuntu-latest", "    continue-on-error: true\n    runs-on: ubuntu-latest"),
+            ('os.environ["ARTIFACT_RESULT"] != "success"', 'os.environ["ARTIFACT_RESULT"] == "success"'),
+            ("ARTIFACT_RESULT: ${{ needs.artifact.result }}", "ARTIFACT_RESULT: success"),
+            ("--expected-sha256 \"$MANIFEST_SHA256\"", ""),
+            ("--source-sha \"$GITHUB_SHA\"", ""),
+            ("--run-attempt \"$GITHUB_RUN_ATTEMPT\"", ""),
+            ("name: web-candidate-${{ github.run_id }}-${{ github.run_attempt }}", "name: web-candidate-1-1"),
+            ("          path: build/site", "          path: build/site\n          run-id: 1"),
+            ("        shell: python", "        if: false\n        shell: python"),
+        )
+        for before, after in mutations:
+            with self.subTest(mutation=before), tempfile.TemporaryDirectory() as directory:
+                self.assertIn(before, job)
+                root = Path(directory)
+                shutil.copytree(ROOT / ".github", root / ".github")
+                path = root / ".github/workflows/ci.yml"
+                source = path.read_text(encoding="utf-8")
+                path.write_text(source.replace(job, job.replace(before, after)), encoding="utf-8")
+                errors = validate_sdlc.validate_workflows(root)
+                self.assertTrue(any("required WASM" in error for error in errors), errors)
+
+    def test_wasm_prerequisite_step_executes_fail_closed(self) -> None:
+        match = re.search(r"        shell: python\n        run: \|\n((?:          .*\n)+)", self.wasm_job())
+        self.assertIsNotNone(match, "WASM prerequisite guard must execute before downloading the artifact")
+        script = textwrap.dedent(match.group(1))
+        for result, artifact_id, digest, success in (
+            ("success", "123", "a" * 64, True),
+            ("failure", "123", "a" * 64, False),
+            ("skipped", "123", "a" * 64, False),
+            ("cancelled", "123", "a" * 64, False),
+            ("", "123", "a" * 64, False),
+            ("success", "", "a" * 64, False),
+            ("success", "123", "", False),
+        ):
+            with self.subTest(result=result, artifact_id=artifact_id, digest=digest):
+                completed = subprocess.run([sys.executable, "-c", script], env={**os.environ,
+                    "ARTIFACT_RESULT": result, "ARTIFACT_ID": artifact_id, "MANIFEST_SHA256": digest},
+                    capture_output=True, text=True, timeout=10, check=False)
+                self.assertEqual(completed.returncode == 0, success, completed.stderr)
 
     def test_duplicate_requirement_is_rejected(self) -> None:
         data = copy.deepcopy(self.requirements)

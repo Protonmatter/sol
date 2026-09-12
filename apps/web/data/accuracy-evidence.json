@@ -1,0 +1,236 @@
+{
+  "schema_version": "accuracy-evidence.v1",
+  "records": [
+    {
+      "id": "top2013-0-5000",
+      "body": "Jupiter",
+      "quantity": "heliocentric_ecliptic_j2000_position",
+      "tested_epochs_jd": [
+        4277795
+      ],
+      "time_scale": "TT_model_argument",
+      "method": "source_theory_parity",
+      "observer_domain": "not_applicable_heliocentric",
+      "reference": {
+        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
+        "path": "crates/solar-ephemeris/src/top2013.rs",
+        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
+        "symbol": "tests::matches_top2013_source_deep_time",
+        "vector_au": [
+          -4.32774859,
+          -3.36860619,
+          0.11833825
+        ]
+      },
+      "measured_error": {
+        "metric": "relative_vector_norm_arcsec",
+        "value": 0.0002058985020796671,
+        "acceptance_threshold": 0.5
+      },
+      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+    },
+    {
+      "id": "top2013-0--5000",
+      "body": "Jupiter",
+      "quantity": "heliocentric_ecliptic_j2000_position",
+      "tested_epochs_jd": [
+        625295
+      ],
+      "time_scale": "TT_model_argument",
+      "method": "source_theory_parity",
+      "observer_domain": "not_applicable_heliocentric",
+      "reference": {
+        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
+        "path": "crates/solar-ephemeris/src/top2013.rs",
+        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
+        "symbol": "tests::matches_top2013_source_deep_time",
+        "vector_au": [
+          -4.78884702,
+          -2.48413965,
+          0.12775014
+        ]
+      },
+      "measured_error": {
+        "metric": "relative_vector_norm_arcsec",
+        "value": 0.0002033052934756709,
+        "acceptance_threshold": 0.5
+      },
+      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+    },
+    {
+      "id": "top2013-1-5000",
+      "body": "Saturn",
+      "quantity": "heliocentric_ecliptic_j2000_position",
+      "tested_epochs_jd": [
+        4277795
+      ],
+      "time_scale": "TT_model_argument",
+      "method": "source_theory_parity",
+      "observer_domain": "not_applicable_heliocentric",
+      "reference": {
+        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
+        "path": "crates/solar-ephemeris/src/top2013.rs",
+        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
+        "symbol": "tests::matches_top2013_source_deep_time",
+        "vector_au": [
+          7.09745989,
+          -6.89521046,
+          -0.24948087
+        ]
+      },
+      "measured_error": {
+        "metric": "relative_vector_norm_arcsec",
+        "value": 0.00003444256054926199,
+        "acceptance_threshold": 0.5
+      },
+      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+    },
+    {
+      "id": "top2013-1--5000",
+      "body": "Saturn",
+      "quantity": "heliocentric_ecliptic_j2000_position",
+      "tested_epochs_jd": [
+        625295
+      ],
+      "time_scale": "TT_model_argument",
+      "method": "source_theory_parity",
+      "observer_domain": "not_applicable_heliocentric",
+      "reference": {
+        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
+        "path": "crates/solar-ephemeris/src/top2013.rs",
+        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
+        "symbol": "tests::matches_top2013_source_deep_time",
+        "vector_au": [
+          -8.3634907,
+          4.39065942,
+          0.16433556
+        ]
+      },
+      "measured_error": {
+        "metric": "relative_vector_norm_arcsec",
+        "value": 0.00015919185787553384,
+        "acceptance_threshold": 0.5
+      },
+      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+    },
+    {
+      "id": "top2013-2-5000",
+      "body": "Uranus",
+      "quantity": "heliocentric_ecliptic_j2000_position",
+      "tested_epochs_jd": [
+        4277795
+      ],
+      "time_scale": "TT_model_argument",
+      "method": "source_theory_parity",
+      "observer_domain": "not_applicable_heliocentric",
+      "reference": {
+        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
+        "path": "crates/solar-ephemeris/src/top2013.rs",
+        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
+        "symbol": "tests::matches_top2013_source_deep_time",
+        "vector_au": [
+          -12.78922132,
+          13.37406412,
+          0.18478171
+        ]
+      },
+      "measured_error": {
+        "metric": "relative_vector_norm_arcsec",
+        "value": 0.00005596229459233995,
+        "acceptance_threshold": 0.5
+      },
+      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+    },
+    {
+      "id": "top2013-2--5000",
+      "body": "Uranus",
+      "quantity": "heliocentric_ecliptic_j2000_position",
+      "tested_epochs_jd": [
+        625295
+      ],
+      "time_scale": "TT_model_argument",
+      "method": "source_theory_parity",
+      "observer_domain": "not_applicable_heliocentric",
+      "reference": {
+        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
+        "path": "crates/solar-ephemeris/src/top2013.rs",
+        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
+        "symbol": "tests::matches_top2013_source_deep_time",
+        "vector_au": [
+          -11.04731187,
+          14.82682534,
+          0.23011759
+        ]
+      },
+      "measured_error": {
+        "metric": "relative_vector_norm_arcsec",
+        "value": 0.00003705132693430364,
+        "acceptance_threshold": 0.5
+      },
+      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+    },
+    {
+      "id": "top2013-3-5000",
+      "body": "Neptune",
+      "quantity": "heliocentric_ecliptic_j2000_position",
+      "tested_epochs_jd": [
+        4277795
+      ],
+      "time_scale": "TT_model_argument",
+      "method": "source_theory_parity",
+      "observer_domain": "not_applicable_heliocentric",
+      "reference": {
+        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
+        "path": "crates/solar-ephemeris/src/top2013.rs",
+        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
+        "symbol": "tests::matches_top2013_source_deep_time",
+        "vector_au": [
+          10.61844988,
+          27.83186896,
+          -0.82077486
+        ]
+      },
+      "measured_error": {
+        "metric": "relative_vector_norm_arcsec",
+        "value": 0.000039922513615877085,
+        "acceptance_threshold": 0.5
+      },
+      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+    },
+    {
+      "id": "top2013-3--5000",
+      "body": "Neptune",
+      "quantity": "heliocentric_ecliptic_j2000_position",
+      "tested_epochs_jd": [
+        625295
+      ],
+      "time_scale": "TT_model_argument",
+      "method": "source_theory_parity",
+      "observer_domain": "not_applicable_heliocentric",
+      "reference": {
+        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
+        "path": "crates/solar-ephemeris/src/top2013.rs",
+        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
+        "symbol": "tests::matches_top2013_source_deep_time",
+        "vector_au": [
+          -30.224436,
+          -0.64202797,
+          0.70168486
+        ]
+      },
+      "measured_error": {
+        "metric": "relative_vector_norm_arcsec",
+        "value": 0.00003858837332976884,
+        "acceptance_threshold": 0.5
+      },
+      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+    }
+  ],
+  "unvalidated_quantities": [
+    "geocentric_range_km",
+    "observer_range_km",
+    "apparent_topocentric_coordinates",
+    "rise_transit_set"
+  ],
+  "limitations": "No immutable raw Horizons reference was located for the proposed v3 Moon range counterexample; synthetic vector tests are correctness checks, not accuracy qualification."
+}

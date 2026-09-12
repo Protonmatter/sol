@@ -5,6 +5,9 @@ import { controls, text } from "./dom.js?v=dcca6290db";
 import { clamp, hash01 } from "./format.js?v=dcca6290db";
 import { selectedRegion } from "./selectors.js?v=dcca6290db";
 import { currentBaseImage } from "./data.js?v=dcca6290db";
+import { projectSolarPoint, regionAnchor, confidenceEncoding } from "./solarProjection.js?v=dcca6290db";
+import { seriesPosition } from "./seriesModel.js?v=dcca6290db";
+import { updateWavelengthCaption } from "./wavelength.js?v=dcca6290db";
 
 export function drawSolarDisk() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("solarCanvas"));
@@ -36,8 +39,12 @@ export function drawSolarDisk() {
     store.activeBaseKind = "synthetic";
     store.activeBaseLabel = "synthetic photosphere";
   }
-  drawMagneticPatches(ctx, cx, cy, radius);
-  drawModeOverlay(ctx, cx, cy, radius);
+  // Browse imagery has no capture-epoch registration: no modeled markers or
+  // fields may be composited as though they were observations.
+  if (!base) {
+    drawMagneticPatches(ctx, cx, cy, radius);
+    drawModeOverlay(ctx, cx, cy, radius);
+  }
 
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -45,7 +52,7 @@ export function drawSolarDisk() {
   ctx.lineWidth = Math.max(1.5, width * 0.0025);
   ctx.stroke();
 
-  if (controls.regions.checked) {
+  if (!base && controls.regions.checked) {
     drawActiveRegions(ctx, cx, cy, radius);
   }
 
@@ -53,6 +60,9 @@ export function drawSolarDisk() {
   text("baseLabel", `Base: ${store.activeBaseLabel} (${observed ? "observed" : "synthetic"})`);
   const baseNode = document.getElementById("baseLabel");
   if (baseNode) baseNode.className = `base-label ${observed ? "observed" : "synthetic"}`;
+  // Timeline/local-model transitions can reuse a ready image without a load event.
+  // Refresh its source disclosure whenever the displayed disk changes.
+  updateWavelengthCaption();
 }
 
 function drawObservedBase(ctx, entry, cx, cy, radius) {
@@ -130,9 +140,9 @@ function drawSurfaceTexture(ctx, cx, cy, radius) {
 
 function drawMagneticPatches(ctx, cx, cy, radius) {
   // Synthetic sunspots + magnetic dipoles belong to the "Model" view (the real SDO images already show
-  // them). Only the confidence overlay may sit on top of a real wavelength image.
-  const model = store.wavelength === "model";
-  if (!model && !controls.confidence.checked) return;
+  // them). No model overlay is admitted over an unregistered observed image.
+  const model = store.activeBaseKind === "synthetic";
+  if (!model) return;
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
@@ -140,7 +150,7 @@ function drawMagneticPatches(ctx, cx, cy, radius) {
 
   for (const region of store.state.active_regions || []) {
     const point = projectRegion(region, cx, cy, radius);
-    if (!point || point.z < -0.2) continue;
+    if (!point || point.z <= 1e-12) continue;
     const baseSize = radius * (0.032 + 0.07 * clamp(region.complexity || 0.35, 0, 1));
     const tilt = ((region.tilt_deg || 0) / 180) * Math.PI;
     const dx = Math.cos(tilt) * baseSize * 0.72;
@@ -152,12 +162,28 @@ function drawMagneticPatches(ctx, cx, cy, radius) {
       drawSpot(ctx, point.x + dx, point.y + dy, baseSize * flux, "rgba(90,105,220,0.5)", "rgba(90,105,220,0)");  // + polarity
       drawSpot(ctx, point.x - dx, point.y - dy, baseSize * flux, "rgba(236,64,126,0.48)", "rgba(236,64,126,0)"); // − polarity
     }
-    if (controls.confidence.checked) {
-      drawSpot(ctx, point.x, point.y, baseSize * 1.35, "rgba(97,224,155,0.22)", "rgba(97,224,155,0)");
-    }
   }
 
+  if (controls.confidence.checked) drawConfidenceField(ctx, cx, cy, radius);
+
   ctx.restore();
+}
+
+function drawConfidenceField(ctx, cx, cy, radius) {
+  const grid = store.state.grid;
+  const values = store.state.fields?.confidence?.values;
+  if (!grid || !values || values.length !== grid.lon_count * grid.lat_count) return;
+  for (let row = 0; row < grid.lat_count; row++) {
+    for (let col = 0; col < grid.lon_count; col++) {
+      const point = projectSolarPoint(-90 + (row + 0.5) * grid.dlat_deg, (col + 0.5) * grid.dlon_deg, store.state.coordinates);
+      const encoding = confidenceEncoding(values[row * grid.lon_count + col]);
+      if (!point?.visible || !encoding) continue;
+      ctx.fillStyle = `rgba(97,224,155,${encoding.opacity})`;
+      ctx.beginPath();
+      ctx.ellipse(cx + point.x * radius, cy + point.y * radius, Math.max(1, radius * Math.PI / grid.lon_count * point.z), Math.max(1, radius * Math.PI / (2 * grid.lat_count)), 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 }
 
 function drawSpot(ctx, x, y, radius, inner, outer) {
@@ -174,7 +200,7 @@ function drawActiveRegions(ctx, cx, cy, radius) {
   const selected = selectedRegion();
   for (const region of store.state.active_regions || []) {
     const point = projectRegion(region, cx, cy, radius);
-    if (!point || point.z < -0.15) continue;
+    if (!point || point.z <= 1e-12) continue;
     store.projectedRegions.push({ ...point, region });
     const isSelected = selected && selected.id === region.id;
     const size = (isSelected ? 6 : 4) + 12 * clamp(region.complexity || 0.3, 0, 1);
@@ -237,7 +263,7 @@ function drawButterflySeries(ctx, width, height) {
   const plotH = bottom - top;
   const count = store.seriesFrames.length;
   const latToY = (lat) => top + (1 - (lat + 45) / 90) * plotH;
-  const frameToX = (i) => padLeft + (count === 1 ? 0.5 : i / (count - 1)) * (width - padLeft - padRight);
+  const frameToX = (i) => padLeft + (seriesPosition(store.seriesRecords, i) ?? (count === 1 ? 0.5 : i / (count - 1))) * (width - padLeft - padRight);
 
   ctx.strokeStyle = "#313742";
   ctx.lineWidth = 1;
@@ -261,8 +287,15 @@ function drawButterflySeries(ctx, width, height) {
 
   store.seriesFrames.forEach((frame, i) => {
     const x = frameToX(i);
+    if (!frame) {
+      ctx.strokeStyle = "#aeb4bd";
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
     for (const region of frame.active_regions || []) {
-      const lat = region.lat_deg || 0;
+      const lat = regionAnchor(region).lat_deg;
       const y = latToY(lat);
       const size = 1.4 + 4 * clamp(region.complexity || 0.3, 0, 1);
       ctx.beginPath();
@@ -294,13 +327,14 @@ function drawButterflySnapshot(ctx, width, height) {
   const regions = store.state.active_regions || [];
   regions.forEach((region, index) => {
     const x = 30 + (index / Math.max(regions.length - 1, 1)) * (width - 60);
-    const y = height / 2 - ((region.lat_deg || 0) / 45) * (height * 0.42);
+    const lat = regionAnchor(region).lat_deg;
+    const y = height / 2 - (lat / 45) * (height * 0.42);
     const isSelected = store.selectedRegionId === region.id;
     const size = (isSelected ? 6 : 3) + 8 * clamp(region.complexity || 0.3, 0, 1);
     store.projectedButterflyRegions.push({ x, y, region });
     ctx.beginPath();
     ctx.arc(x, y, size, 0, Math.PI * 2);
-    ctx.fillStyle = isSelected ? "#f7b733" : region.lat_deg >= 0 ? "rgba(247,183,51,0.85)" : "rgba(64,214,200,0.85)";
+    ctx.fillStyle = isSelected ? "#f7b733" : lat >= 0 ? "rgba(247,183,51,0.85)" : "rgba(64,214,200,0.85)";
     ctx.fill();
   });
   ctx.fillStyle = "#aeb4bd";
@@ -323,12 +357,12 @@ function resizeCanvasToDisplaySize(canvas, maxSize) {
 }
 
 export function projectRegion(region, cx, cy, radius) {
-  const lon = (((region.lon_deg || 0) / 360) * Math.PI * 2) - Math.PI;
-  const lat = ((region.lat_deg || 0) / 180) * Math.PI;
-  const z = Math.cos(lat) * Math.cos(lon);
+  const anchor = regionAnchor(region);
+  const point = projectSolarPoint(anchor.lat_deg, anchor.lon_deg, store.state.coordinates);
+  if (!point) return null;
   return {
-    x: cx + radius * Math.cos(lat) * Math.sin(lon),
-    y: cy - radius * Math.sin(lat),
-    z
+    x: cx + radius * point.x,
+    y: cy + radius * point.y,
+    z: point.z
   };
 }

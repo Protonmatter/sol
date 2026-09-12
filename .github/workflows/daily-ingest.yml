@@ -1,147 +1,48 @@
 name: Daily data ingest
 
-# Closes the freshness loop the app promises: fetch today's public SWPC/Helioviewer
-# context, regenerate + validate apps/web/data/, and commit the result to master.
-# The commit triggers CI, and the Pages deploy runs only off a green CI on that SHA
-# (deploy-pages.yml is workflow_run-gated), so fresh data reaches the live site with
-# the same integrity gates as any code change.
-#
-# Before this workflow existed the only scheduler was a per-user Scheduled Task on a
-# dev machine that updated a local checkout and committed nothing — the deployed
-# "today" snapshot silently froze (it sat at 2026-07-02 for 16 days while the UI
-# said "feed: daily ok"). The client now also recomputes staleness on its own
-# (selectors.js feedOverdueHours), so even a broken scheduler can no longer present
-# frozen health as current — this workflow is what keeps that pill green honestly.
-#
-# NOTE (branch protection): master requires PRs + green checks, and on THIS repo the PR path
-# below is the permanent steady state, not a degraded mode. The publish step tries a direct
-# push, protection refuses it, and it falls back to opening a data PR, dispatching CI at that
-# branch, and setting auto-merge — which lands the refresh unattended. The run stays green
-# either way. The data files it touches are generated artifacts validated in-run.
-#
-# Why the direct push can't be made to work here (verified 2026-07-25, don't go hunting again):
-#   * The classic-protection option "Allow specified actors to bypass required pull requests"
-#     is an organization/Team feature and is simply not offered on this personal repo.
-#   * Even with it, "Require status checks to pass" would still refuse the push: a freshly
-#     pushed commit has no check runs yet, which is the "N of N expected" half of the GH006.
-# The direct-push attempt is kept because it costs one command and is the right behaviour on
-# repos/plans where a bypass IS available.
-#
-# A bot push or PR does not itself trigger CI (GitHub's recursion guard), which is why the
-# fallback dispatches ci.yml explicitly at the data branch; those check runs attach to the
-# branch SHA, satisfy the PR's required checks, and let auto-merge complete.
-
+# Candidate only. Enabling the owned rolling PR adapter in a protected environment
+# requires separate approval. Never push master or auto-merge.
 on:
   schedule:
-    # 05:40 UTC, daily: after SWPC's daily-product rollover, before US mornings.
     - cron: "40 5 * * *"
   workflow_dispatch:
 
-# An explicit block makes every UNLISTED scope `none`, so each one here is load-bearing:
-#   contents      — commit + push the refreshed data (both the direct and branch paths)
-#   issues        — open/refresh the failure tracking issue
-#   pull-requests — `gh pr create` / `gh pr merge --auto` on the protection fallback
-#   actions       — `gh workflow run ci.yml` to dispatch CI at the data branch
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  actions: write
+  contents: read
 
 concurrency:
-  group: daily-ingest
+  group: daily-research-feed-candidate
   cancel-in-progress: false
 
 jobs:
-  ingest:
-    name: Fetch, regenerate, validate, publish
+  candidate:
+    name: Generate and validate candidate; publication held
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: master
+          persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
-
-      - name: Run the daily ingest (fetch + regenerate + validate)
-        # --fail-on-degraded: a partial fetch must fail loudly here rather than
-        # publish quietly degraded data — the committed feed-status records per-source
-        # health either way, and the run_daily_ingest validators gate the artifacts.
+      - name: Acquire, stage, validate and select local bundle
         run: python tools/run_daily_ingest.py --fail-on-degraded
-
-      - name: Validate the regenerated artifacts once more, standalone
-        run: |
-          python tools/validate_snapshot.py apps/web/data/latest-state.json
-          python tools/validate_operational_readiness.py apps/web/data/latest-state.json
-          python tools/validate_web_static.py --root apps/web
-
-      - name: Commit and publish refreshed data (no-op when nothing changed)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          if ! git status --porcelain -- apps/web/data | grep -q .; then
-            echo "Data unchanged since the last run; nothing to publish."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/web/data
-          STAMP="$(date -u +%Y-%m-%dT%H:%MZ)"
-          git commit -m "data: daily ingest ${STAMP}" \
-                     -m "Automated refresh of apps/web/data from public sources (SWPC, Helioviewer). Validated by run_daily_ingest + standalone validators in this run."
-
-          # Fast path: straight to master. This succeeds only when github-actions[bot]
-          # is allowed to bypass the required-PR rule. If branch protection refuses,
-          # that is a repo-configuration state, NOT a pipeline error — fall through to
-          # the PR path instead of failing the run and paging via the issue below.
-          if git push origin HEAD:master 2>push.err; then
-            echo "Published refreshed data directly to master."
-            exit 0
-          fi
-          sed 's/^/    /' push.err
-          echo "::warning::Direct push to master was refused (branch protection); publishing via a data PR instead."
-
-          BRANCH="data/daily-ingest-$(date -u +%Y%m%d%H%M)"
-          git push origin "HEAD:refs/heads/${BRANCH}"
-          gh pr create --base master --head "${BRANCH}" \
-            --title "data: daily ingest ${STAMP}" \
-            --body "Automated daily data refresh of \`apps/web/data\` from public sources (SWPC, Helioviewer).
-
-          Artifacts were validated inside the ingest run by \`run_daily_ingest\` plus the standalone
-          snapshot / operational-readiness / static-web validators, and CI must still pass here.
-
-          This PR is how the daily refresh is meant to land: \`master\` requires pull requests plus
-          green checks, so the ingest publishes through one. CI was dispatched against this branch
-          (a bot-opened PR does not trigger it automatically), and auto-merge will land this once
-          the required checks pass — no action needed."
-
-          # A PR opened with the default GITHUB_TOKEN does not trigger workflows, so CI
-          # would never report and the required checks could never go green. Dispatch is
-          # the documented exception, so kick CI at the branch: those check runs attach
-          # to this SHA and satisfy the PR. (Needs workflow_dispatch on ci.yml.)
-          gh workflow run ci.yml --ref "${BRANCH}"
-
-          # Merge on green where the repo allows it; otherwise leave the PR ready to click.
-          if ! gh pr merge --auto --squash "${BRANCH}" 2>merge.err; then
-            sed 's/^/    /' merge.err
-            echo "::warning::Auto-merge is unavailable (enable it in Settings → General → Pull Requests); merge the data PR once CI is green."
-          fi
-
-      - name: Open/refresh a tracking issue on failure
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TITLE="Daily ingest is failing"
-          BODY="The scheduled data ingest failed on $(date -u +%Y-%m-%d). See the run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Until this is fixed the live site serves its last committed snapshot, and the app's feed pill will read overdue/stale on its own."
-          EXISTING="$(gh issue list --state open --search "in:title \"${TITLE}\"" --json number --jq '.[0].number // empty')"
-          if [ -n "${EXISTING}" ]; then
-            gh issue comment "${EXISTING}" --body "${BODY}"
-          else
-            gh issue create --title "${TITLE}" --body "${BODY}"
-          fi
+      - name: Record validated candidate and explicit approval hold
+        run: python tools/delivery_lifecycle.py --pointer apps/web/data/current.json --out build/feed-candidate-lifecycle.json
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: daily-feed-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/web/data/current.json
+            apps/web/data/bundles
+            apps/web/data/attempts
+            .cache/solar-data/current.json
+            .cache/solar-data/bundles
+            .cache/solar-data/attempts
+            build/feed-candidate-lifecycle.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

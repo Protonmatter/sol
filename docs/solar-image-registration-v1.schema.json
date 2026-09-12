@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "solar-image-registration.v1",
+  "description": "Structure/epoch evidence only; not proof of image geometry calibration or permission to composite. UTC domain [2017-01-01,2027-01-01); IERS Bulletin C72.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source",
+    "image_id",
+    "image_sha256",
+    "capture_timestamp",
+    "capture_jd_tt",
+    "tt_minus_utc_seconds",
+    "timestamp_precision_seconds",
+    "l0_deg",
+    "b0_deg",
+    "p_deg",
+    "disk_center_x_px",
+    "disk_center_y_px",
+    "disk_radius_px",
+    "width_px",
+    "height_px",
+    "longitude_positive",
+    "image_x_positive",
+    "image_y_positive",
+    "p_angle_convention"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "solar-image-registration.v1"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "image_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "image_sha256": {
+      "type": "string",
+      "minLength": 64
+    },
+    "capture_timestamp": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capture_jd_tt": {
+      "type": "number",
+      "minimum": 2457754.5,
+      "maximum": 2461407.5
+    },
+    "tt_minus_utc_seconds": {
+      "const": 69.184
+    },
+    "timestamp_precision_seconds": {
+      "type": "number",
+      "minimum": 0.001,
+      "maximum": 1
+    },
+    "l0_deg": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 360
+    },
+    "b0_deg": {
+      "type": "number",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "p_deg": {
+      "type": "number",
+      "minimum": -180,
+      "maximum": 180
+    },
+    "disk_center_x_px": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 32768
+    },
+    "disk_center_y_px": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 32768
+    },
+    "disk_radius_px": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 16384
+    },
+    "width_px": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 32768
+    },
+    "height_px": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 32768
+    },
+    "longitude_positive": {
+      "const": "west"
+    },
+    "image_x_positive": {
+      "const": "right"
+    },
+    "image_y_positive": {
+      "const": "down"
+    },
+    "p_angle_convention": {
+      "const": "solar_north_east_of_image_north"
+    }
+  }
+}

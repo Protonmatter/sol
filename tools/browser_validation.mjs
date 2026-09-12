@@ -3,14 +3,20 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import coverageModule from "istanbul-lib-coverage";
 import puppeteer from "puppeteer-core";
 import v8ToIstanbul from "v8-to-istanbul";
+import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
 import {
   ROOT,
   WEB,
   absolutePageModules,
   relativePageModules,
+  releaseSourceMap,
+  sourceCoverage,
+  addUnexecutedCoverage,
+  GENERATED_MODULES,
 } from "./js_coverage_scope.mjs";
 import {
   assertBlueEarth,
@@ -93,11 +99,15 @@ function mimeType(file) {
   })[path.extname(file).toLowerCase()] || "application/octet-stream";
 }
 
-async function staticServer(webRoot) {
+async function staticServer(webRoot, basePath = "/") {
   const root = path.resolve(webRoot);
   const server = http.createServer((request, response) => {
     const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
-    const relative = decodeURIComponent(requestUrl.pathname).replace(/^\/+/, "") || "index.html";
+    if (!requestUrl.pathname.startsWith(basePath)) {
+      response.writeHead(404).end("outside site base path");
+      return;
+    }
+    const relative = decodeURIComponent(requestUrl.pathname.slice(basePath.length)).replace(/^\/+/, "") || "index.html";
     const file = path.resolve(root, relative);
     if (file !== root && !file.startsWith(`${root}${path.sep}`)) {
       response.writeHead(403).end("forbidden");
@@ -128,10 +138,11 @@ async function staticServer(webRoot) {
   });
   const address = server.address();
   return {
-    base: `http://127.0.0.1:${address.port}`,
-    close: () => new Promise((resolve, reject) =>
-      server.close((error) => error ? reject(error) : resolve())
-    ),
+    base: `http://127.0.0.1:${address.port}${basePath.replace(/\/$/, "")}`,
+    close: () => new Promise((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+      server.closeAllConnections();
+    }),
   };
 }
 
@@ -208,13 +219,13 @@ async function assertDisclosureContract(page) {
   await page.waitForFunction(() => document.getElementById("sunWeather")?.open === false);
 }
 
-async function exerciseSun(page) {
+async function exerciseSun(page, solarSchema, workerCoverage) {
   await page.waitForFunction(
-    () => document.querySelectorAll("#regionList button[data-region-id]").length > 0
-      && document.body.textContent.includes("solar-state-snapshot.v2"),
-    { timeout: 20_000 }
+    (schema) => document.querySelectorAll("#regionList button[data-object-id]").length > 0
+      && document.body.textContent.includes(schema),
+    { timeout: 20_000 }, solarSchema
   );
-  await page.click("#regionList button[data-region-id]");
+  await page.click("#regionList button[data-object-id]");
 
   const wavelengthSelectors = await page.$$eval("#wavelengthBar .wl-chip", (nodes) =>
     nodes.map((node) => `#wavelengthBar .wl-chip[data-id="${node.dataset.id}"]`)
@@ -249,7 +260,7 @@ async function exerciseSun(page) {
   await page.click("#nowBtn");
   await page.click("#liveRun");
   await page.waitForFunction(
-    () => document.getElementById("liveStatus")?.textContent.includes("Computed in your browser"),
+    () => document.getElementById("liveStatus")?.textContent.includes("Computed on your device by solar-core"),
     { timeout: 20_000 }
   );
   await setValue(page, "#liveActivity", "0.65", "change");
@@ -257,6 +268,7 @@ async function exerciseSun(page) {
     () => document.getElementById("liveStatus")?.textContent.includes("activity 0.65"),
     { timeout: 20_000 }
   );
+  await workerCoverage.collect();
   await page.click("#nowBtn");
 
   await page.$eval("#butterflyCanvas", (canvas) => {
@@ -314,7 +326,7 @@ async function exerciseSky(page) {
     await setChecked(page, id, true);
   }
 
-  const row = await page.$('#skyList .sky-row[role="button"]');
+  const row = await page.$('#skyList button.sky-row');
   if (row) {
     await row.hover();
     await row.focus();
@@ -338,9 +350,11 @@ async function exerciseSky(page) {
 
   await page.click("#skyShare");
   await page.click("#skyExport");
-  // Exercise the optional provider's explicit local fallback; this static test server
-  // intentionally has no /api/sky endpoint.
+  // Authorize only the isolated fixture recipient, then retain the last-valid result
+  // on its intentional failure. Local recovery is a separate explicit user action.
   await page.click("#skyProviderServer");
+  await page.waitForSelector("#skyConsent:not([hidden])");
+  await page.click("#skyConsentAllow");
   await page.waitForFunction(
     () => document.getElementById("skyProvenance")?.textContent.includes("unavailable"),
     { timeout: 10_000 }
@@ -523,7 +537,9 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   const placed = {};
   for (const span of host.querySelectorAll("span")) {
     if (span.style.display === "none") continue;
-    placed[span.textContent] = [parseFloat(span.style.left), parseFloat(span.style.top)];
+    const projected = [Number.parseFloat(span.dataset.projectionX), Number.parseFloat(span.dataset.projectionY)];
+    if (!projected.every(Number.isFinite)) throw new Error(`missing renderer projection anchor for ${span.textContent}`);
+    placed[span.textContent] = projected;
   }
   host.style.visibility = "hidden";
 
@@ -556,6 +572,7 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
     residuals.push(Math.hypot(placed[planet][0] - at[0], placed[planet][1] - at[1]));
   }
 
+  if (!placed[planet] || residuals.length < 2) throw new Error("camera calibration requires the planet and at least one visible moon anchor");
   const projectedShadows = shadows.map((shadow) => {
     const c = shadow.center;
     const world = math.add(P, toWorld([rEq * c[0], rEq * c[1], rEq * c[2] * oblate]));
@@ -659,6 +676,7 @@ async function moonShadowAssertions(page, visualDirectory) {
   }
 
   const frame = async (name, options) => {
+    console.log(`Browser validation: moon-shadow frame ${name}`);
     const plan = await page.evaluate(planMoonShadowFrame, options);
     // One settled frame: the repaint above is synchronous, but the compositor still has to hand
     // the canvas to the screenshot.
@@ -773,6 +791,7 @@ async function visualAssertions(page, visualDirectory) {
       const node = document.getElementById("orreryAccuracy");
       samples.push({
         text: node?.textContent || "",
+        disclosure: (node?.textContent || "").split(" — ").slice(1).join(" — "),
         height: node?.getBoundingClientRect().height || 0,
       });
       if (samples.length >= 12) resolve(samples);
@@ -780,7 +799,9 @@ async function visualAssertions(page, visualDirectory) {
     };
     requestAnimationFrame(sample);
   }));
-  if (new Set(disclosureFrames.map((sample) => sample.text)).size !== 1
+  // The prefix MUST advance with rendered time (AC-18). Stability applies to
+  // the unchanged scientific/rotation disclosure and its layout, not a frozen date.
+  if (new Set(disclosureFrames.map((sample) => sample.disclosure)).size !== 1
       || new Set(disclosureFrames.map((sample) => sample.height)).size !== 1) {
     throw new Error(`1 d/s navigation disclosure reflowed across frames: ${
       JSON.stringify(disclosureFrames)
@@ -851,7 +872,11 @@ async function exerciseOrrery(page, visualDirectory) {
     throw new Error(`3-D readiness timed out: ${JSON.stringify(state)}`, { cause: error });
   }
   await setChecked(page, "#orreryAnimate", false);
-  await page.waitForNetworkIdle({ idleTime: 400, timeout: 15_000 });
+  // Network idleness is not scene readiness: cancelled workers and offline-cache
+  // installation can keep the driver's network accounting busy after the view is
+  // ready. Require native fonts/frame delivery, then the exact material/pixel gates
+  // below establish that actual assets rendered. No performance threshold is inferred.
+  await page.evaluate(async()=>{await document.fonts.ready;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
   await visualAssertions(page, visualDirectory);
 
   for (const id of [
@@ -955,10 +980,12 @@ async function exerciseOrrery(page, visualDirectory) {
   await page.$eval("#orreryGalaxy", (button) => button.click());
 }
 
-function coverageLocalPath(entryUrl, webRoot) {
+function coverageLocalPath(entryUrl, webRoot, basePath = "/") {
   let pathname;
   try {
-    pathname = decodeURIComponent(new URL(entryUrl).pathname).replace(/^\/+/, "");
+    const urlPath = new URL(entryUrl).pathname;
+    if (!urlPath.startsWith(basePath)) return null;
+    pathname = decodeURIComponent(urlPath.slice(basePath.length)).replace(/^\/+/, "");
   } catch {
     return null;
   }
@@ -967,19 +994,24 @@ function coverageLocalPath(entryUrl, webRoot) {
 }
 
 async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
+  const mapping = releaseSourceMap(webRoot);
+  const pageRoot = mapping ? path.join(webRoot, mapping.manifest.namespace) : webRoot;
   const expectedLoaded = new Set(
-    relativePageModules({ includeGenerated: true }).map((file) => path.resolve(webRoot, file))
+    relativePageModules({ includeGenerated: true }).map((file) => path.resolve(pageRoot, file))
   );
   const included = new Set(absolutePageModules().map((file) => path.resolve(file)));
   const seen = new Set();
   const coverage = createCoverageMap({});
 
-  for (const entry of entries) {
-    const local = coverageLocalPath(entry.url, webRoot);
+  for (let entry of entries) {
+    const local = coverageLocalPath(entry.url, webRoot, mapping?.manifest.base_path || "/");
     if (!local || !expectedLoaded.has(local)) continue;
     seen.add(local);
-    if (!included.has(local)) continue;
-    const converter = v8ToIstanbul(local, 0, {
+    const declared = mapping?.assets.get(local);
+    const source = declared?.source || local;
+    if (!included.has(source)) continue;
+    if (declared) entry = sourceCoverage(entry, declared.original, mapping.manifest);
+    const converter = v8ToIstanbul(source, 0, {
       source: entry.text || fs.readFileSync(local, "utf8"),
     });
     await converter.load();
@@ -996,13 +1028,18 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
     coverage.merge(converter.toIstanbul());
   }
 
-  const missing = [...expectedLoaded].filter((file) => !seen.has(file));
+  const missing = [...expectedLoaded].filter((file) => !seen.has(file)
+    && GENERATED_MODULES.has(path.relative(pageRoot, file).split(path.sep).join("/")));
   if (missing.length) {
     throw new Error(
       "production modules were omitted from Chromium's execution-collected denominator:\n"
       + missing.map((file) => `  - ${path.relative(ROOT, file)}`).join("\n")
     );
   }
+  const unexecuted = [...included].filter(file => !coverage.files().includes(file));
+  if (unexecuted.length) console.log("Browser zero-execution modules (retained in denominator): "
+    + unexecuted.map(file => path.relative(WEB, file)).join(", "));
+  await addUnexecutedCoverage(coverage, [...included]);
   const coveredFiles = new Set(coverage.files().map((file) => path.resolve(file)));
   const missingHandWritten = [...included].filter((file) => !coveredFiles.has(file));
   if (missingHandWritten.length) {
@@ -1025,21 +1062,35 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
 }
 
 async function main() {
+  let phase="setup";
   const webRoot = path.resolve(argument("web-root", WEB));
   const outputDirectory = path.resolve(argument("output-dir", path.join(ROOT, "coverage", "browser")));
+  const mapping = releaseSourceMap(webRoot);
+  if (mapping) {
+    const validation = spawnSync(process.env.PYTHON || "python", [path.join(ROOT, "tools", "validate_release_manifest.py"), path.join(webRoot, "web-release-manifest.json")], { stdio: "inherit" });
+    if (validation.error || validation.status !== 0) throw new Error("staged artifact validation failed");
+  }
+  const pageRoot = mapping ? path.join(webRoot, mapping.manifest.namespace) : webRoot;
   for (const required of [
     "index.html",
     "pkg/solar_wasm.wasm",
     "pkg/solar_ephemeris.wasm",
   ]) {
-    const file = path.join(webRoot, required);
+    const file = path.join(pageRoot, required);
     if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
       throw new Error(`built browser artifact is missing: ${file}`);
     }
   }
 
-  const server = await staticServer(webRoot);
-  const browser = await puppeteer.launch({
+  const server = await staticServer(webRoot, mapping?.manifest.base_path || "/");
+  let browser;
+  let workerCoverage;
+  let diagnosticPage;
+  const started = Date.now();
+  const progress = setInterval(() => console.log(`Browser validation: ${phase} still running (${Math.round((Date.now()-started)/1000)}s elapsed)`), 30_000);
+  progress.unref();
+  try {
+  browser = await puppeteer.launch({
     executablePath: browserBinary(),
     headless: true,
     args: [
@@ -1054,11 +1105,19 @@ async function main() {
       "--enable-unsafe-swiftshader",
       "--use-angle=swiftshader",
       "--use-gl=angle",
+      "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
     ],
   });
 
-  try {
+    console.log("Browser validation: Chromium launched");
     const page = await browser.newPage();
+    diagnosticPage=page;
+    await page.setBypassServiceWorker(true);
+    workerCoverage=await startWorkerCoverage(page);
+    console.log("Browser validation: worker coverage armed");
+    const networkSession=await page.createCDPSession();
+    await networkSession.send("Network.enable");
+    await networkSession.send("Network.setBlockedURLs",{urls:["https://*","http://localhost/*"]});
     await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
     await page.emulateMediaFeatures([
       { name: "prefers-reduced-motion", value: "reduce" },
@@ -1080,13 +1139,12 @@ async function main() {
       globalThis.Date = FixedDate;
       // Configure a same-origin endpoint which the static server deliberately answers
       // with 404. This keeps the production default private/offline while making the
-      // optional-provider fallback executable in CI. Pre-grant only this disposable test
-      // endpoint so a modal consent prompt cannot suspend the headless run.
+      // optional-provider failure executable in CI. The scenario explicitly grants
+      // this disposable endpoint through the real recipient-confirmation UI.
       const ephemerisBase = `${serverBase}/__missing_ephemeris`;
       globalThis.SOL_EPHEMERIS_SERVER = ephemerisBase;
       try {
         localStorage.setItem("sol-tour-seen", "1");
-        localStorage.setItem(`sol-ephemeris-server-consent:${ephemerisBase}`, "granted");
       } catch {}
     }, { fixedNow: FIXED_UNIX_MS, serverBase: server.base });
 
@@ -1100,15 +1158,8 @@ async function main() {
         failures.push(`console: ${message.text()}`);
       }
     });
-    await page.setRequestInterception(true);
-    page.on("request", (request) => {
-      const url = request.url();
-      if (url.startsWith(server.base) || url.startsWith("data:") || url.startsWith("blob:")) {
-        request.continue();
-      } else {
-        request.abort("blockedbyclient");
-      }
-    });
+    // Page-scoped Fetch interception can strand module-worker imports. Host resolution
+    // and CDP blocks above prevent external traffic without intercepting loopback workers.
 
     await page.coverage.startJSCoverage({
       includeRawScriptCoverage: true,
@@ -1120,18 +1171,47 @@ async function main() {
       waitUntil: "networkidle0",
       timeout: 30_000,
     });
+    phase="disclosure";console.log(`Browser validation: ${phase}`);
     await assertDisclosureContract(page);
-    await exerciseSun(page);
+    const solarSchema = mapping ? mapping.manifest.schemas.find((schema) => schema.startsWith("solar-state-snapshot."))
+      : JSON.parse(fs.readFileSync(path.join(pageRoot, "data/latest-state.json"), "utf8")).schema_version;
+    if (!solarSchema) throw new Error("staged release does not declare its solar schema");
+    phase="Sun";console.log(`Browser validation: ${phase}`);
+    await exerciseSun(page, solarSchema, workerCoverage);
+    phase="Sky";console.log(`Browser validation: ${phase}`);
     await exerciseSky(page);
+    await workerCoverage.collect();
+    phase="System/WebGL";console.log(`Browser validation: ${phase}`);
     await exerciseOrrery(page, path.join(outputDirectory, "visual"));
-    const entries = await page.coverage.stopJSCoverage();
+    await workerCoverage.collect();
+    const entries = [...await page.coverage.stopJSCoverage(),...workerCoverage.entries];
+    failures.push(...workerCoverage.errors.map(error=>"worker coverage: "+error));
     if (failures.length) {
       throw new Error(`browser runtime errors:\n${failures.map((item) => `  - ${item}`).join("\n")}`);
     }
+    phase="coverage mapping";console.log(`Browser validation: ${phase}`);
     await writeBrowserCoverage(entries, webRoot, outputDirectory);
+  } catch(error) {
+    let timer;
+    try {
+      const diagnostic=await Promise.race([diagnosticPage?.evaluate(()=>({
+        surface:document.body.dataset.surface,
+        skyRows:document.querySelectorAll("#skyList .sky-row").length,
+        skyInsight:document.getElementById("skyInsight")?.textContent,
+        skyInputError:document.getElementById("skyInputError")?.textContent,
+        skyProvider:document.getElementById("skyProviderStatus")?.textContent,
+      })),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("diagnostic deadline")),5000);})]);
+      fs.writeFileSync(path.join(outputDirectory,"failure.json"),JSON.stringify({phase,error:error.message,diagnostic,workerErrors:workerCoverage?.errors},null,2)+"\n");
+    } catch(diagnosticError) {console.error(`Failure diagnostics unavailable: ${diagnosticError.message}`);}
+    finally {clearTimeout(timer);}
+    console.error(`Browser validation failed during ${phase}: ${error.message}`);throw error;
   } finally {
-    await browser.close();
-    await server.close();
+    clearInterval(progress);
+    console.log(`Browser validation: cleanup after ${phase}`);
+    try {
+      if (workerCoverage) await workerCoverage.dispose();
+      if (browser) await closeOwnedBrowser(browser);
+    } finally { await server.close(); }
   }
   console.log("OK: Chromium runtime coverage and WebGL visual assertions passed");
 }

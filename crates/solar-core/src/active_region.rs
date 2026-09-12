@@ -4,7 +4,7 @@ pub enum Polarity {
     LeadingNegative,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ActiveRegion {
     pub id: u64,
     pub birth_seconds: f64,

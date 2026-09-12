@@ -1,0 +1,109 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "source_bundle_id",
+    "status",
+    "generated_at_utc",
+    "observation_time_utc",
+    "delivery_state",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "daily-ingest-status.v2"
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "degraded"
+      ]
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observation_time_utc": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "delivery_state": {
+      "const": "validated"
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "last_run_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "next_recommended_run_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "source",
+          "ok",
+          "origin",
+          "observation_time_utc",
+          "retrieved_at_utc"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "origin": {
+            "enum": [
+              "current-fetch",
+              "cached-fallback",
+              "fixture"
+            ]
+          },
+          "observation_time_utc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "retrieved_at_utc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

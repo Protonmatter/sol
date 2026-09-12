@@ -105,13 +105,8 @@ function centerTourCard() {
 }
 
 export function maybeAutoStartTour() {
-  // Never hijack a deep-linked or restored non-Sun surface: startTour() forces the mode
-  // back to "today", which would strand a "#sky=…" share-link recipient. The tour stays
-  // one click away on the CTA.
-  if (store.activeMode !== "today") return;
-  let seen = null;
-  try { seen = localStorage.getItem("sol-tour-seen"); } catch (error) { seen = "1"; }
-  if (!seen) startTour();
+  // Onboarding is intentionally opt-in through Help. Keep the loader hook for
+  // compatibility; first paint and deep links never open a modal or move focus.
 }
 
 // Trap Tab within the card's buttons (belt-and-suspenders on top of the inert

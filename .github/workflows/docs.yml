@@ -5,6 +5,7 @@ name: Docs
 # dependency automation, immutable action pins, coverage thresholds, and release semantics.
 
 on:
+  workflow_call:
   push:
     branches: [master, "precision/**", "redesign/**"]
   pull_request:

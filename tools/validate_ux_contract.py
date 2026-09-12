@@ -24,16 +24,19 @@ ESSENTIAL_IDS = {
     "orreryPositions",
     "tourCard",
     "panelToggle",
+    "skyInsight",
+    "orreryDetail",
 }
 
 DYNAMIC_STATUS_IDS = {
     "baseLabel",
-    "skyInsight",
+    "skyInputError",
+    "skyResultCount",
     "skyLocLabel",
     "skyTimeLabel",
     "skyProvenance",
     "orreryInsight",
-    "orreryDetail",
+    "orrerySelectionStatus",
     "liveStatus",
 }
 
@@ -146,8 +149,14 @@ def validate(root: Path) -> list[str]:
         attrs = parser.ids.get(status_id)
         if attrs is None:
             errors.append(f"missing dynamic status #{status_id}")
-        elif attrs.get("aria-live") not in {"polite", "assertive"}:
-            errors.append(f"dynamic status #{status_id} must declare aria-live")
+        elif attrs.get("aria-live") not in {"polite", "assertive"} and attrs.get("role") not in {"status", "alert"}:
+            errors.append(f"dynamic status #{status_id} must declare aria-live or a live status role")
+    # AC-19: stable facts remain accessible, but per-frame subtree changes must
+    # not repeatedly interrupt the reader. Explicit selection/error status is separate.
+    for element_id in ("skyInsight", "orreryDetail"):
+        attrs = parser.ids.get(element_id, {})
+        if attrs.get("aria-live") in {"polite", "assertive"} or attrs.get("role") in {"status", "alert", "log"}:
+            errors.append(f"#{element_id} must not be a continuously announced live region")
 
     modes = {item.get("data-mode"): item for item in parser.modes}
     if set(modes) != {"today", "sky", "orrery"}:

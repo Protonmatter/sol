@@ -1,7 +1,7 @@
 # Requirements and traceability
 
 Status: current  
-Updated: 2026-07-28
+Updated: 2026-09-11
 
 `requirements.json` is the machine-readable source of truth. Each record connects a
 normative statement to its governing specification, implementation, verification, and CI
@@ -33,7 +33,10 @@ unrecognized status, and incomplete workflow enforcement.
 
 - New normative behavior receives a new stable ID; IDs are never recycled.
 - Changed meaning receives a new requirement or an explicit supersession record.
-- `implemented` means both implementation and automated evidence exist.
+- `implemented` means mapped local implementation and automated test surfaces exist;
+  it does not mean every requirement instance has passed independent review, every mapped
+  test is wired into the same CI job, a full fresh coverage/manual/scientific matrix passed,
+  or the source was merged/deployed. Existing statuses do not erase open review findings.
 - `planned` means the requirement may guide design but cannot support a product claim.
 - `deprecated` preserves history and names its replacement.
 - A pull request lists all affected IDs and explains why unaffected adjacent requirements
@@ -41,8 +44,19 @@ unrecognized status, and incomplete workflow enforcement.
 
 ## Traceability review
 
+The September mapping now points to live v3 schemas, strict solar/ephemeris intake,
+worker/request identity, presentation/object controls, recipient privacy, atomic source/
+derived bundle readers and artifact/served-evidence tools. Historical v2 remains separate.
+The coefficient provenance inventory is documentation of missing regeneration/notice
+correspondence, not evidence that those gaps are resolved. Canonical moon generation,
+independent v3 astronomy, physical-device/manual accessibility and protected release
+qualification retain their own holds. RFC 0002 remains Accepted.
+
+CI gate names identify the governing workflow/job; a path's presence in this registry
+does not prove a hosted run or imply that every standalone local harness is run there.
+Review the actual command inventory and retained source/artifact-bound results.
+
 Review starts at the requirement, follows its source to the intended behavior, follows its
 implementation paths to the code, and then follows verification and CI gates to executable
 evidence. A path existing is necessary but not sufficient: reviewers still inspect whether
 the test proves the statement and whether exceptions are visible.
-

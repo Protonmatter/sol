@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a deterministic solar-cycle snapshot series for web timeline playback.
 
-Each frame is a valid solar-state-snapshot.v2. It copies the validated base
+Each frame is a valid solar-state-snapshot.v3. It copies the validated base
 snapshot and replaces every field whose semantics change for the synthetic
 cycle, including operational-readiness data-state metadata. Active-region
 latitudes follow an idealized butterfly diagram (Spoerer's law): emergence
@@ -17,7 +17,8 @@ import math
 import random
 from pathlib import Path
 
-from generate_fixture_snapshot import build_field, continuum_from_br, hale_polarity
+from generate_fixture_snapshot import build_field, continuum_from_br, hale_polarity, illustrative_uncertainty, region_snapshot, score_field
+from validate_snapshot import loads_strict, validate
 
 STAGES = [
     (0.00, 0.12, "solar minimum"),
@@ -104,7 +105,10 @@ def main() -> int:
     parser.add_argument("--months-span", type=float, default=132.0)
     args = parser.parse_args()
 
-    base = json.loads(Path(args.base).read_text(encoding="utf-8"))
+    base = loads_strict(Path(args.base).read_text(encoding="utf-8"))
+    errors = validate(base)
+    if errors:
+        raise ValueError("series requires valid live v3 base: " + "; ".join(errors))
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -119,7 +123,6 @@ def main() -> int:
         regions = build_cycle_regions(rng, count, phase)
         br, confidence = build_field(lon, lat, regions)
         continuum = [continuum_from_br(value) for value in br]
-        variance = [round(max(0.04, 1.0 - conf), 6) for conf in confidence]
         months = round(phase * args.months_span, 1)
 
         frame = copy.deepcopy(base)
@@ -135,14 +138,11 @@ def main() -> int:
         }
         frame["fields"] = {
             "br_normalized": {"units": "normalized magnetic field", "values": br},
-            "br_variance_normalized": {
-                "units": "normalized variance",
-                "values": variance,
-            },
             "continuum_proxy": {"units": "relative intensity", "values": continuum},
-            "confidence": {"units": "0..1", "values": confidence},
+            "confidence": score_field(confidence),
         }
-        frame["active_regions"] = regions
+        frame["active_regions"] = [region_snapshot(region, 0.0) for region in regions]
+        frame["uncertainty"] = illustrative_uncertainty()
         frame["run"] = dict(frame.get("run", {}))
         frame["run"]["seed"] = args.seed + i * 7919
         frame["run"]["activity_index"] = activity

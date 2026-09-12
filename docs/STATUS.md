@@ -1,218 +1,90 @@
 # Sol status
 
-- Updated: 2026-07-28
-- Production branch: `master` (normal Pages deployment consumes its successful CI SHA)
-- Published crate: [`solar-ephemeris` 0.2.0](https://crates.io/crates/solar-ephemeris)
+Updated: 2026-09-11. Scope: inspected local implementation, not production activation.
 
-This document reports implemented behavior. Historical design intent remains in `WEB_REDESIGN_SPEC.md` and `SOLAR_SYSTEM_SPEC.md`; current normative decisions are in `SPEC.md`, `RFC_ALIGNMENT.md`, and `docs/adr/`.
+## Implementation versus qualification
+
+RFC 0002 remains **Accepted**. Local completion of a bounded task does not mean every
+acceptance case has passed, the change is merged, or an artifact is deployable.
+The existing public website and previously published crate are separate, unverified
+artifacts for this status update.
+
+See [the local implementation ledger](LOCAL_IMPLEMENTATION.md) for concrete candidate
+evidence and open gates. In particular, the separate Node 90/90/90 gate currently fails;
+a passing whole-web line merge does not make the candidate release-ready.
 
 ## Current architecture
 
-- Dependency-free static web application using native ES modules.
-- Two audited Rust engines compiled to raw WebAssembly:
-  - `solar-wasm` for deterministic reduced solar-surface simulation.
-  - `solar-ephemeris` for local sky and solar-system calculations.
-- Optional Python JPL Horizons/DE441 provider implementing the same provider-neutral ephemeris contract.
-- Immutable, versioned JSON boundaries:
-  - `solar-state-snapshot.v2`
-  - `ephemeris-snapshot.v2`
-  - `system-snapshot.v1`
-- Real star catalogue behind every surface that draws stars: the naked-eye Hipparcos
-  set (8,867 stars, V ≤ 6.5 — true J2000 positions, parallax distances, B−V colours)
-  generated deterministically from committed sources by `tools/generate_star_catalog.py`
-  and gated by `tools/validate_star_catalog.py`. The on-device engine reduces the
-  108-star bright subset with proper motion.
-- Python generators and validators for deterministic fixtures, public-data normalization, schemas, semantic invariants, and external evidence.
+- Static native ES-module UI; deterministic Rust solar and ephemeris engines through raw WASM.
+- Live solar v3, ephemeris v3 and System v1 contracts. Strict schema/semantic validation,
+  sparse-array and duplicate-key rejection where applicable, immutable publication and
+  explicit historical v2 inspection.
+- Solar scalar activity uncertainty is illustrative; magnetic uncertainty unavailable.
+  Region birth and current model anchor are separate. No current image-registration
+  assessment permits compositing.
+- Ephemeris separates geocentric/observer ranges, mean-solar-day event occurrence from
+  calculation status, supported compute bounds from accuracy claims, and source parity
+  from independent references.
+- Bounded latest-intent workers for solar solving, Sky events/tracks and System metadata;
+  stale replies cannot publish. The System position fast path is fixed at nine bodies.
+- Transactional source and derived data bundles. Local readers resolve a pointer once;
+  staged readers resolve their immutable release's bundle. Validation completes before
+  one coherent store publication; failure retains the prior valid bundle.
 
-## Precision-hardening status
+## User-visible behavior implemented locally
 
-### Solar engine
+Sun, My Sky and Solar System expose selected non-canvas facts, native object controls,
+visible mode/source/epoch/limitations and bounded lists. The timeline distinguishes
+idealized cycle frames from observed data and treats missing frames as gaps.
+Observed imagery and synthetic model presentation are separate.
 
-Implemented:
+Sky uses geometric altitude greater than zero for above-horizon groups, not refracted
+altitude. Invalid observer/time inputs retain valid state. Device civil timezone is
+disclosed and is not inferred from location. Remote configuration requires fresh
+recipient-specific consent; denial sends no health or snapshot request; redirects fail
+before another destination is contacted. Provider failure has explicit recovery without
+silent local fallback. Share/export requires a captured-data preview.
 
-- Explicit west-positive heliographic Carrington coordinates.
-- Explicit latitude-major, longitude-contiguous grid storage.
-- Carrington-relative differential rotation.
-- Partition-invariant Poisson event scheduling.
-- Fixed-clock transport checkpoint/replay so target state does not depend on caller partitioning.
-- Event-timed bipolar source injection.
-- Exact exponential decay per integration segment.
-- Strict finite/range checks before serialization.
-- Readiness metadata derived from actual source and observation state.
-- Complete semantic validation of all readiness gates.
+The retained star, constellation, geography and moon catalogues have their own provenance
+and approximation limits. Display orbit/size inflation never changes the underlying
+physical quantities. Historical interpolation measurements are not a new v3 accuracy
+qualification.
 
-Limits remain explicit:
+## Validation observed, with bounded scope
 
-- Magnetic fields are normalized, not calibrated Gauss/Mx.
-- Diffusion is a tuned reduced flat-grid operator, not the exact spherical Laplacian.
-- Meridional circulation is not implemented.
-- No operational forecast authority is claimed.
+Task reports retain exact commands and source/artifact hashes. Local targeted Rust,
+Python and Node tests, strict contract corpora, staged Chromium worker/interaction tests
+and synthetic release-policy/transaction fixtures have been exercised. Sky's redirect
+correction additionally used two local origins: zero destination requests, retained valid
+snapshot and no hidden fallback. These are bounded regression observations, not blanket
+coverage or browser certification.
 
-### Ephemeris engine
+Required coverage floors remain 90% for the configured Rust/Python/whole-web denominators
+and 90% Node lines/branches/functions. Every hand-written worker remains in the runtime
+denominator. No claim is made here that a complete fresh shared coverage run passed.
 
-Implemented:
+## Held qualification and release work
 
-- Separate geocentric and topocentric apparent RA/Dec.
-- Explicit UTC, TAI, TT, UT1, DUT1, leap-second, polar-motion, and EOP-quality metadata.
-- Bundled IERS Bulletin A rapid/predicted EOP data with explicit degradation outside coverage.
-- Release and weekly gates requiring at least 90 days of remaining EOP prediction coverage.
-- VSOP2013/ELP-MPP02 apparent-place path and TOP2013 orbit-view support.
-- JPL Horizons validation tooling.
-- Body-specific rise/set thresholds:
-  - planets/stars: standard refraction threshold;
-  - Sun/Moon: refraction plus instantaneous apparent semidiameter after topocentric parallax.
-- Rise/transit/set solved within the observer's local mean-solar day.
-- Transit altitude reports the true topocentric centre altitude rather than the crossing margin.
-- Nullable events where no event occurs; no fabricated values.
+- Independent astronomical reference acquisition for current v3 ranges/apparent place/events;
+  the eight current TOP2013 records are source-parity samples only.
+- Original coefficient input/serializer and upstream notice correspondence:
+  [inventory and gaps](COEFFICIENT_PROVENANCE.md).
+- Canonical Linux x86_64 moon-generation qualification; diagnostic ARM runs are not acceptance.
+- Full acceptance/failure matrix, cross-platform performance and physical mobile/browser
+  checks; manual screen-reader, focus, contrast and complete accessibility evidence.
+- Real-image registration and empirical magnetic/forecast uncertainty calibration.
+- Hosted job metadata/settings, protected profile/acceptance evidence, registry, served
+  bytes, returning-client transitions and executed production rollback.
 
-Accuracy scope remains explicit:
+The local release path builds one immutable candidate, then verifies its exact artifact
+rather than rebuilding during promotion. Missing protected settings or accepted evidence
+holds promotion; see [delivery](RELEASE_DELIVERY.md). No local report grants deployment,
+registry publication, scheduling or external data-acquisition authority.
 
-- Near-present apparent-place claims depend on current EOP coverage and the committed validation matrix.
-- Deep-time heliocentric geometry does not imply deep-time topocentric pointing accuracy.
-- Not for navigation, occultation prediction, mission safety, or safety-critical timing.
+## Operational boundary
 
-### Provider continuity
-
-Implemented:
-
-- Local WASM and optional JPL server both emit `ephemeris-snapshot.v2`.
-- The browser validates either provider through one runtime guard.
-- Mixed v1/v2 responses are rejected.
-- Geocentric/topocentric lunar aliasing is rejected.
-- The optional server does not fabricate rise/transit/set values.
-- The public web app no longer defaults to `localhost` for the remote provider.
-- Remote provider controls are disabled unless a deployment explicitly configures an endpoint.
-- First remote use requires consent to transmit selected latitude, longitude, elevation, and time.
-
-## Web and UX status
-
-Implemented:
-
-- Real NASA/SDO solar imagery with deterministic synthetic fallback.
-- Sun-first newcomer path and progressively disclosed research details.
-- Solar cycle playback and idealized latitude-vs-time butterfly diagram.
-- Wavelength views, active-region inspection, space-weather learning context, and provenance/readiness display.
-- My Sky observer view with geolocation/manual coordinates, time selection, share links, and JSON export.
-- Solar System 3-D and top-down views rendered with WebGL2 (the earlier WebGPU path was
-  retired during the orrery rewrite; see SOLAR_SYSTEM_SPEC P5 note).
-- Milky-Way (galactic-scale) view with the Sun's orbit, differential-rotation shear, and
-  deep-sky landmarks, plus a light-year-scale **Solar neighbourhood** sub-view placing the
-  catalogue stars at their true parallax-derived 3-D positions around the Sun.
-- Star rendering is catalogue-backed, not procedural: real positions, magnitudes, and B−V
-  colours. Derived physics (luminosity, temperature, radius, and a labelled main-sequence
-  mass estimate) lives in `apps/web/js/starphysics.js`.
-- All 88 IAU constellation figures on both the 3-D sky and the My Sky dome, generated from
-  committed IAU line data as RA/Dec polylines (`tools/generate_constellations.py`) rather
-  than joined by star name.
-- The 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune are drawn in their real
-  orbits, lit and clickable. Orbits interpolate multi-epoch JPL Horizons osculating elements;
-  `tools/validate_moons.py` gates the result in CI at worst 0.1384° angular and 0.1893% radial
-  error across 11,985 interleaved, held-out checks. Satellite systems are inflated by one factor
-  each so the inner moons clear their planet's disc *and rings* without distorting the spacing.
-  This is a view, not a satellite ephemeris — not for occultations or mutual events, and the
-  layer withholds itself rather than extrapolate: moons are drawn only inside the shared
-  January 2021–December 2030 validation interval, and a moon is dropped when the animation clock
-  outruns its orbit past the Nyquist rate. Both suppressions are explained in the accuracy line
-  rather than left silent.
-  Moons appear in the keyboard/screen-reader positions list, nested under their planet.
-- Transiting moons cast their umbra/penumbra on the parent disc and darken inside its shadow
-  cone, all computed in the planet's body frame from physical planetocentric positions with the
-  spheroid handled exactly — display orbits are inflated, so the Overlays panel explains why the
-  shadow does not sit under the drawn moon. Moon luminance is anchored to published geometric albedo (JPL Horizons
-  physical-data blocks) through the sRGB transfer, within the browse products' residual stretch; `tools/validate_body_motion.py` gates every
-  body's measured spin, sense, tilt and the moons' knot-implied periods in CI.
-- Real surface geography ships with the repository independently of the committed
-  photographic baseline: Earth's coastlines, lakes and permanent ice come from committed
-  Natural Earth 1:110m vectors and the Moon's maria from the IAU/USGS gazetteer, generated by
-  `tools/generate_geography.py` and rasterised in the browser by `apps/web/js/surfacemap.js`.
-  Mars and Mercury deliberately stay procedural — the catalogue gives their features' positions
-  and sizes but never their albedo, and a type-based guess gets Hellas Planitia backwards.
-  Polygon interiors are honoured: GeoJSON inner rings subtract via an even-odd fill rather than
-  being painted solid. The generated maps are independent of the "NASA textures"
-  control, which governs only the photographic maps it names.
-  A real photographic map from `tools/fetch_textures.py` still takes priority wherever present.
-- Body orientation follows the full IAU WGCCRE convention, including the secular α0/δ0 rates that
-  were previously omitted. Earth's axis precesses on its true cone rather than along the IAU's
-  linear tangent, which is only valid near J2000 and would otherwise invert the prime meridian
-  across the whole pre-J2000 half of the ±5000-year date slider.
-- Clicking a body in the 3-D view opens a facts card built from `apps/web/js/bodyData.js`.
-  The Moon's card states that its rotation is synchronous with its orbit and reports
-  libration, so that the Moon visibly turning in the view reads as tidal locking rather
-  than as a contradiction of it. Locking is emergent from the IAU rotation elements, not a
-  stored flag, and `tests/web/moonlock.test.mjs` gates the sub-Earth point against winding.
-- Named stars are clickable in both the sky and the neighbourhood view, opening a facts
-  card that separates measured catalogue rows from derived ones, names the method for each,
-  and withholds what it cannot honestly compute — everything distance-dependent when a star
-  has no usable parallax, and the mass of an evolved star, where the main-sequence
-  mass–luminosity relation does not apply.
-- The ~370 KB catalogue module is lazy-loaded only when the 3-D view opens, so the Sun and
-  My Sky first paint are unaffected — enforced by the `@lazy-module` rule in
-  `tools/validate_web_static.py`.
-- Keyboard-accessible region/body lists and canvas alternatives.
-- Focus-trapped onboarding dialog with focus restoration.
-- Reduced-motion CSS and 3-D auto-animation gating.
-- Browser/device timezone disclosure for civil event times; UTC/JD remain authoritative in exports.
-- Explicit remote-provider privacy disclosure.
-
-Known product limitations:
-
-- Observer IANA timezone is not inferred from coordinates; displayed civil times use the browser/device timezone.
-- Deep-time topocentric precision is EOP/delta-T limited.
-- Photographic textures are a committed baseline (planets, Earth's Moon, and ten catalogued-moon
-  USGS mosaics); the eleven moons without a usable published global product render procedurally,
-  each absence recorded with its reason in `tools/fetch_textures.py`'s `NO_MOSAIC`.
-- Deep-time axis orientation is first-order. Earth precesses on its true cone, but nutation, the
-  slow change in obliquity, and the non-Earth bodies' linear IAU rates all remain approximations
-  that soften toward the ends of the ±5000-year range.
-- The remote DE441 provider requires a separately deployed endpoint.
-
-## Build and release integrity
-
-Implemented:
-
-- Specification-driven SDLC with 16 stable `SOL-*` requirements mapped to governing
-  specifications, implementation, verification, and named CI gates.
-- Internal RFC process/template, ADR alignment, contributor guide, and pull-request evidence
-  checklist.
-- Independent governance CI job validating requirement/RFC structure, evidence paths,
-  dependency automation, immutable action pins, coverage thresholds, docs, UX structure,
-  and exact-SHA deployment semantics.
-- Rust workspace tests with locked dependencies.
-- rustfmt and Clippy with warnings denied.
-- WASM builds for both engines.
-- Solar and ephemeris schema/semantic validation.
-- Deterministic fixture and cycle-series regeneration.
-- Offline local/server provider compatibility tests.
-- EOP freshness gate.
-- Native ES-module syntax checks.
-- Built-WASM headless Chromium smoke tests for the Sun, My Sky, and 3-D Solar System paths.
-- Static and real-browser progressive-disclosure assertions, including initial state,
-  native keyboard toggling, destination state, panel state, and provider recovery.
-- Denominator-complete Node + Chromium JavaScript line coverage at 90% or higher, with
-  independent 90% Node line/branch/function gates.
-- WebGL visual assertions for Sun colour, Earth visibility, and camera-orbit continuity.
-- Immutable commit-SHA pins for external GitHub Actions.
-- Pages deployment only after successful CI on `master` and only for the exact tested SHA.
-- Procedural texture fallback by default; mutable remote texture fetching is reviewed opt-in behavior.
-
-Repository-setting follow-up:
-
-- Require CI, Coverage, and Docs checks and reviewed pull requests on `master`.
-- Configure `github-pages` environment reviewers if the repository's risk policy requires
-  human release approval.
-- Approve security scope, supported versions, reporting ownership, severity context, and
-  response expectations before adding a root `SECURITY.md`.
-- Complete a scoped manual WCAG 2.2 AA audit before making any accessibility-conformance
-  claim.
-
-## Release boundary
-
-The application is research- and learning-ready. `space_weather_operational` remains `false` until all of the following exist:
-
-1. Calibrated physical magnetic units.
-2. Historical forecast validation and published skill evidence.
-3. Comparison against operational SWPC products.
-4. Adapter freshness monitoring and alerting.
-5. Documented operational ownership, approval, and incident response.
-
-No UI, snapshot, or deployment may represent Sol as an operational warning or mission-safety system before those gates pass.
+`space_weather_operational` is false. Fields are normalized, transport is reduced,
+meridional circulation is not implemented, and no operational warning, navigation or
+mission-safety use is supported. Research/learning intent does not itself establish a
+qualified release. See [SPEC](SPEC.md), [validation](VALIDATION_PLAN.md) and
+[RFC alignment](RFC_ALIGNMENT.md).

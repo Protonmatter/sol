@@ -1,0 +1,172 @@
+{
+  "description": "Synthetic structure/epoch test only. No candidate permits compositing or claims measured image calibration.",
+  "registration": {
+    "schema_version": "solar-image-registration.v1",
+    "source": "Synthetic test geometry only; not a measured image",
+    "image_id": "synthetic-registration-control",
+    "image_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "capture_timestamp": "2019-12-31T23:58:50.816Z",
+    "capture_jd_tt": 2458849.5,
+    "tt_minus_utc_seconds": 69.184,
+    "timestamp_precision_seconds": 0.001,
+    "l0_deg": 10,
+    "b0_deg": 7,
+    "p_deg": -12,
+    "disk_center_x_px": 512,
+    "disk_center_y_px": 512,
+    "disk_radius_px": 500,
+    "width_px": 1024,
+    "height_px": 1024,
+    "longitude_positive": "west",
+    "image_x_positive": "right",
+    "image_y_positive": "down",
+    "p_angle_convention": "solar_north_east_of_image_north"
+  },
+  "reference_epoch_jd_tt": 2458849.5,
+  "cases": [
+    {
+      "id": "matching-structure-epoch",
+      "path": [
+        "l0_deg"
+      ],
+      "value": 10,
+      "compatible": true
+    },
+    {
+      "id": "l0-bound",
+      "path": [
+        "l0_deg"
+      ],
+      "value": 360,
+      "compatible": false
+    },
+    {
+      "id": "b0-bound",
+      "path": [
+        "b0_deg"
+      ],
+      "value": 90.1,
+      "compatible": false
+    },
+    {
+      "id": "p-bound",
+      "path": [
+        "p_deg"
+      ],
+      "value": 181,
+      "compatible": false
+    },
+    {
+      "id": "disk-outside-image",
+      "path": [
+        "disk_radius_px"
+      ],
+      "value": 513,
+      "compatible": false
+    },
+    {
+      "id": "nonpositive-radius",
+      "path": [
+        "disk_radius_px"
+      ],
+      "value": 0,
+      "compatible": false
+    },
+    {
+      "id": "fractional-dimension",
+      "path": [
+        "width_px"
+      ],
+      "value": 1024.5,
+      "compatible": false
+    },
+    {
+      "id": "missing-source",
+      "path": [
+        "source"
+      ],
+      "value": " unknown ",
+      "compatible": false
+    },
+    {
+      "id": "wrong-offset",
+      "path": [
+        "tt_minus_utc_seconds"
+      ],
+      "value": 68.184,
+      "compatible": false
+    },
+    {
+      "id": "inconsistent-capture-tt",
+      "path": [
+        "capture_jd_tt"
+      ],
+      "value": 2458849.51,
+      "compatible": false
+    },
+    {
+      "id": "invalid-calendar",
+      "path": [
+        "capture_timestamp"
+      ],
+      "value": "2020-02-30T00:00:00Z",
+      "compatible": false
+    },
+    {
+      "id": "before-offset-domain",
+      "path": [
+        "capture_timestamp"
+      ],
+      "value": "2016-12-31T23:59:59Z",
+      "compatible": false
+    },
+    {
+      "id": "after-offset-domain",
+      "path": [
+        "capture_timestamp"
+      ],
+      "value": "2027-01-01T00:00:00Z",
+      "compatible": false
+    },
+    {
+      "id": "unknown-orientation",
+      "path": [
+        "image_y_positive"
+      ],
+      "value": "up",
+      "compatible": false
+    },
+    {
+      "id": "wrong-hash-shape",
+      "path": [
+        "image_sha256"
+      ],
+      "value": "not-a-hash",
+      "compatible": false
+    },
+    {
+      "id": "overstated-timestamp-precision",
+      "path": [
+        "timestamp_precision_seconds"
+      ],
+      "value": 0,
+      "compatible": false
+    },
+    {
+      "id": "unbounded-timestamp-tolerance",
+      "path": [
+        "timestamp_precision_seconds"
+      ],
+      "value": 2,
+      "compatible": false
+    },
+    {
+      "id": "wrong-evidence-version",
+      "path": [
+        "schema_version"
+      ],
+      "value": "solar-image-registration.v2",
+      "compatible": false
+    }
+  ]
+}

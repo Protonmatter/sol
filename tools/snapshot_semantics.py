@@ -1,14 +1,15 @@
-"""Cross-field checks for solar-state-snapshot.v2."""
+"""Cross-field checks for live solar-state-snapshot.v3."""
 
 from __future__ import annotations
 
 import math
 from typing import Any
 
+from observation_provenance import attributable_source
+
 ALLOWED_LAYER_KINDS = {"synthetic", "observed", "blended", "inferred", "degraded"}
 REQUIRED_FIELDS = {
     "br_normalized",
-    "br_variance_normalized",
     "continuum_proxy",
     "confidence",
 }
@@ -23,6 +24,10 @@ REQUIRED_GATE_IDS = (
     "swpc_product_comparison",
     "operational_monitoring",
 )
+# Rust f32 births are serialized to six decimals. Their rounding changes the
+# derived longitude by <1.3e-6 degrees over the producer's 14-day region lifetime.
+# A fixed allowance prevents a large age from hiding an inconsistent anchor.
+LONGITUDE_TOLERANCE_DEG = 1.0e-5
 
 
 def finite_number(value: Any) -> bool:
@@ -30,16 +35,26 @@ def finite_number(value: Any) -> bool:
 
 
 def positive_int(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+    return finite_number(value) and value > 0 and int(value) == value
 
 
 def semantic_checks(data: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(data, dict):
         return errors
+    for key in ("run", "coordinates", "grid", "fields"):
+        if key in data and not isinstance(data[key], dict):
+            errors.append(f"{key} must be an object")
+    fields = data.get("fields", {})
+    if isinstance(fields, dict):
+        for key, field in fields.items():
+            if not isinstance(field, dict):
+                errors.append(f"fields.{key} must be an object")
+    if errors:
+        return errors
 
-    if data.get("schema_version") != "solar-state-snapshot.v2":
-        errors.append("schema_version must be solar-state-snapshot.v2")
+    if data.get("schema_version") != "solar-state-snapshot.v3":
+        errors.append("schema_version must be solar-state-snapshot.v3; historical v2 has a separate validator")
     if "normalized" not in str(data.get("calibration_state", "")).lower():
         errors.append("calibration_state must disclose normalized units")
 
@@ -54,7 +69,9 @@ def semantic_checks(data: Any) -> list[str]:
     if all(finite_number(value) for value in (steps, dt_hours, time_seconds)):
         expected_time = float(steps) * float(dt_hours) * 3600.0
         tolerance = max(1.0e-6, abs(expected_time) * 1.0e-12)
-        if abs(float(time_seconds) - expected_time) > tolerance:
+        if not math.isfinite(expected_time):
+            errors.append("run.steps*dt_hours*3600 must produce a finite duration")
+        elif abs(float(time_seconds) - expected_time) > tolerance:
             errors.append(
                 f"run.time_seconds {time_seconds} != steps*dt_hours*3600 {expected_time}"
             )
@@ -96,8 +113,6 @@ def semantic_checks(data: Any) -> list[str]:
         if not all(finite_number(value) for value in values):
             errors.append(f"fields.{field_id}.values must contain only finite JSON numbers")
             continue
-        if field_id == "br_variance_normalized" and any(float(value) < 0.0 for value in values):
-            errors.append("fields.br_variance_normalized.values must be non-negative")
         if field_id == "confidence" and any(not 0.0 <= float(value) <= 1.0 for value in values):
             errors.append("fields.confidence.values must be in [0, 1]")
 
@@ -122,12 +137,44 @@ def semantic_checks(data: Any) -> list[str]:
             if not isinstance(region, dict):
                 continue
             ids.append(region.get("id"))
-            birth = region.get("birth_seconds")
+            birth_info = region.get("birth") or {}
+            position = region.get("model_position") or {}
+            if not isinstance(birth_info, dict) or not isinstance(position, dict):
+                errors.append("active region birth/model_position must be objects")
+                continue
+            birth = birth_info.get("time_seconds")
             if finite_number(birth) and finite_number(time_seconds):
-                if float(birth) > float(time_seconds) + 1.0e-6:
-                    errors.append(f"active_regions[{index}].birth_seconds is in the future")
+                if float(birth) > float(time_seconds):
+                    errors.append(f"active_regions[{index}].birth is in the future")
+            if position.get("at_time_seconds") != time_seconds or position.get("lat_deg") != birth_info.get("lat_deg"):
+                errors.append(f"active_regions[{index}].model_position current time/latitude mismatch")
+            birth_latitude = birth_info.get("lat_deg")
+            birth_longitude = birth_info.get("lon_deg")
+            current_longitude = position.get("lon_deg")
+            if all(finite_number(value) for value in (birth, time_seconds, birth_latitude, birth_longitude, current_longitude)):
+                # Match solar-core's fixed law without evolving or repairing data.
+                sine = math.sin(math.radians(birth_latitude))
+                rate = 14.713 - 2.396 * sine * sine - 1.787 * sine ** 4 - 14.1844
+                longitude = birth_longitude + rate * (time_seconds - birth) / 86400.0
+                if not math.isfinite(longitude) or math.ulp(1.0) * max(1.0, abs(longitude)) > LONGITUDE_TOLERANCE_DEG:
+                    errors.append(f"active_regions[{index}].model_position longitude exceeds numeric precision")
+                else:
+                    difference = abs(current_longitude - longitude % 360.0)
+                    if min(difference, 360.0 - difference) > LONGITUDE_TOLERANCE_DEG:
+                        errors.append(f"active_regions[{index}].model_position longitude inconsistent with birth and model age")
         if len(ids) != len(set(ids)):
             errors.append("active_regions ids must be unique")
+
+    uncertainty = data.get("uncertainty") or {}
+    activity = uncertainty.get("activity") if isinstance(uncertainty, dict) else None
+    if isinstance(activity, dict):
+        if activity.get("at_time_seconds") != time_seconds:
+            errors.append("uncertainty.activity.at_time_seconds must equal run.time_seconds")
+        analysis_time = activity.get("last_analysis_time_seconds")
+        if analysis_time is not None and finite_number(analysis_time) and finite_number(time_seconds) and analysis_time > time_seconds:
+            errors.append("uncertainty.activity last analysis time is in the future")
+        if (activity.get("process_noise_per_day") == 0) != (activity.get("process_noise_status") == "disabled"):
+            errors.append("uncertainty.activity process noise status disagrees with rate")
 
     observation_reports = data.get("observations")
     observation_errors: list[str] = []
@@ -199,9 +246,9 @@ def validate_observation_report(index: int, value: Any) -> list[str]:
         if not isinstance(provenance, dict):
             errors.append(f"observations[{index}].frames[{frame_index}].provenance must be an object")
         else:
-            if not provenance.get("source"):
+            if not attributable_source(provenance.get("source")):
                 errors.append(
-                    f"observations[{index}].frames[{frame_index}].provenance.source is required"
+                    f"observations[{index}].frames[{frame_index}].provenance.source must be attributable"
                 )
             if "active" not in provenance:
                 errors.append(

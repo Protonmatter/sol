@@ -1,7 +1,10 @@
 // ES module: loads the solar-ephemeris engine (WebAssembly) and validates
-// provider-neutral ephemeris-snapshot.v2 responses from both local and server tiers.
+// provider-neutral ephemeris-snapshot.v3 responses from both local and server tiers.
 
-import { assertEphemerisSnapshotV2 } from "./ephemerisContract.js?v=dcca6290db";
+import { assertEphemerisSnapshotV3, parseEphemerisSnapshot, assertEphemerisRequestBinding } from "./ephemerisContract.js?v=dcca6290db";
+import { validateSkyWork } from "./skyLimits.js?v=dcca6290db";
+import { normalizeRecipient } from "./skyPrivacy.js?v=dcca6290db";
+import { EngineError } from "./workerClient.js?v=dcca6290db";
 
 let wasmExports = null;
 let loadPromise = null;
@@ -12,7 +15,7 @@ export function loadSkyEngine() {
     // no-cache (revalidate, reuse on 304) rather than no-store: this module embeds the
     // packed VSOP2013/ELP/TOP tables (~0.5 MB) — re-downloading it on every visit was
     // the single largest repeat-load cost in the app.
-    const response = await fetch("pkg/solar_ephemeris.wasm?v=dcca6290db", { cache: "no-cache" });
+    const response = await fetch(new URL("../pkg/solar_ephemeris.wasm?v=dcca6290db",import.meta.url), { cache: "no-cache" });
     if (!response.ok) throw new Error(`ephemeris wasm HTTP ${response.status}`);
     const bytes = await response.arrayBuffer();
     const { instance } = await WebAssembly.instantiate(bytes, {});
@@ -28,12 +31,13 @@ function readResult(ptr, len) {
   return JSON.parse(new TextDecoder("utf-8").decode(view));
 }
 
-// Returns a validated ephemeris-snapshot.v2 for a Unix time + observer.
+// Returns a validated ephemeris-snapshot.v3 for a Unix time + observer.
 export function skySnapshot(unixSeconds, lat, lonEast, elev) {
+  validateSkyRequest(unixSeconds,lat,lonEast,elev);
   if (!wasmExports) throw new Error("sky engine not loaded");
   const ptr = wasmExports.sky_snapshot(unixSeconds, lat, lonEast, elev);
   const len = wasmExports.result_len();
-  return assertEphemerisSnapshotV2(readResult(ptr, len));
+  return parseEphemerisSnapshot(new TextDecoder("utf-8").decode(new Uint8Array(wasmExports.memory.buffer, ptr, len)));
 }
 
 // Returns system-snapshot.v1: heliocentric ecliptic positions for the orbit view.
@@ -67,10 +71,13 @@ export const BODY_INDEX = {
 };
 
 export function bodyTrack(bodyIndex, lat, lonEast, elev, unix0, dtSeconds, n) {
+  validateSkyWork({operation:"track",bodyIndex,lat,lon:lonEast,elev,unix:unix0,dtSeconds,samples:n});
   if (!wasmExports) throw new Error("sky engine not loaded");
   const ptr = wasmExports.body_track(bodyIndex, lat, lonEast, elev, unix0, dtSeconds, n);
   const len = wasmExports.result_len();
-  return readResult(ptr, len);
+  const result=readResult(ptr,len);
+  if (result?.error) throw new EngineError(result.code||"engine_failed",result.error);
+  return result;
 }
 
 // The optional provider must be explicitly configured by the deployment.
@@ -99,40 +106,20 @@ function configureServerControl() {
 }
 configureServerControl();
 
-function consentKey() {
-  return `sol-ephemeris-server-consent:${SERVER_BASE}`;
-}
-
-function ensureServerConsent() {
-  if (typeof window === "undefined") return true;
-  try {
-    if (window.localStorage.getItem(consentKey()) === "granted") return true;
-  } catch (_) {
-    // Continue with session-only consent.
-  }
-  const granted = window.confirm(
-    "Use the optional JPL DE441 server?\n\n"
-    + "The selected latitude, longitude, elevation, and observation time will be sent "
-    + "to the configured Sol ephemeris server. The default on-device engine sends nothing."
-  );
-  if (!granted) return false;
-  try { window.localStorage.setItem(consentKey(), "granted"); } catch (_) { /* session only */ }
-  return true;
-}
-
-export async function checkServerHealth(base = SERVER_BASE) {
-  if (!base) return false;
+export async function checkServerHealth(base = SERVER_BASE, consent = null) {
+  if (!base || !consent?.allows(base)) return false;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
   try {
     const response = await fetch(`${base}/health`, {
       mode: "cors",
       cache: "no-store",
+      redirect: "error", // Consent names this endpoint, never a redirect recipient.
       signal: controller.signal,
     });
     if (!response.ok) return false;
     const health = await response.json();
-    return health.status === "ok" && health.schema_version === "ephemeris-snapshot.v2";
+    return health.status === "ok" && health.schema_version === "ephemeris-snapshot.v3";
   } catch (_) {
     return false;
   } finally {
@@ -150,29 +137,43 @@ function discloseBrowserAugmentation(snapshot) {
   return snapshot;
 }
 
-export async function fetchServerSky(unixSeconds, lat, lonEast, elev, base = SERVER_BASE) {
-  if (!base) throw new Error("JPL DE441 server is not configured for this deployment");
-  if (!ensureServerConsent()) throw new Error("remote ephemeris request was not authorized");
+function validateSkyRequest(unixSeconds, lat, lonEast, elev) {
+  if (!Number.isFinite(unixSeconds) || unixSeconds < -62135596800 || unixSeconds >= 253402300800) throw new Error("Selected epoch is outside supported proleptic Gregorian years 1 through 9999");
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lonEast) || lonEast < -360 || lonEast > 360 || !Number.isFinite(elev) || elev < -12000 || elev > 100000) throw new Error("Invalid observer: latitude [-90,90], longitude [-360,360], elevation [-12000,100000] required");
+}
 
-  const url = new URL(`${base.replace(/\/+$/, "")}/v2/sky`, window.location.href);
+export async function fetchServerSky(unixSeconds, lat, lonEast, elev, base = SERVER_BASE, {consent=null,signal=null} = {}) {
+  validateSkyRequest(unixSeconds,lat,lonEast,elev);
+  if (!base) throw new Error("JPL DE441 server is not configured for this deployment");
+  base=normalizeRecipient(base);
+  if (!consent?.allows(base)) throw new EngineError("consent_required","Authorize this specific recipient before sending location and time");
+  if (signal?.aborted) throw new EngineError("cancelled","Remote request cancelled");
+
+  const url = new URL(`${base}/v3/sky`);
   url.searchParams.set("unix", String(unixSeconds));
   url.searchParams.set("lat", String(lat));
   url.searchParams.set("lon", String(lonEast));
   url.searchParams.set("elev", String(elev));
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 45000);
+  const abort=()=>controller.abort();
+  signal?.addEventListener("abort",abort,{once:true});
+  const timer = setTimeout(abort,22000);
   try {
     const response = await fetch(url, {
       mode: "cors",
       cache: "no-store",
+      redirect: "error", // Reject before location/time can reach another recipient.
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(`ephemeris server HTTP ${response.status}`);
-    const snapshot = await response.json();
+    const snapshot = parseEphemerisSnapshot(await response.text());
+    assertEphemerisRequestBinding(snapshot,unixSeconds,lat,lonEast,elev);
     if (snapshot.error) throw new Error(snapshot.error);
-    return discloseBrowserAugmentation(assertEphemerisSnapshotV2(snapshot));
+    if (!consent.allows(base)||signal?.aborted) throw new EngineError("cancelled","Consent revoked or request cancelled");
+    return discloseBrowserAugmentation(assertEphemerisSnapshotV3(snapshot));
   } finally {
+    signal?.removeEventListener("abort",abort);
     clearTimeout(timer);
   }
 }

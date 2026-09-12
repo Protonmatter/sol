@@ -132,6 +132,7 @@ export function renderSmallDetail(s) {
 export function renderDetail(name, live) {
   const host = document.getElementById("orreryDetail"); if (!host) return;
   const phys = BODY[name];
+  if(phys && host.querySelector(".system-detail > strong")?.textContent === name){updateLiveDetailFacts(live);return;}
   host.textContent = "";
   if (!phys) {
     const row = document.createElement("div");
@@ -155,7 +156,7 @@ export function renderDetail(name, live) {
       btn.setAttribute("aria-label", `What is ${k}?`); btn.textContent = "?";
       dt.append(" ", btn);
     }
-    const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd);
+    const dd = document.createElement("dd"); dd.textContent = v; dd.dataset.metric=k; dl.append(dt, dd);
   };
   add("Equatorial radius", `${fmt(phys.radiusKm)} km${phys.polarKm !== phys.radiusKm ? ` · oblate (polar ${fmt(phys.polarKm)} km)` : ""}`, phys.polarKm !== phys.radiusKm ? "oblateness" : null);
   // massKg has been in the table since day one but was never rendered anywhere.
@@ -203,4 +204,25 @@ export function renderDetail(name, live) {
       : "procedural model (no dated SDO frame available)");
   }
   card.appendChild(dl); host.appendChild(card);
+}
+
+// Keep glossary buttons and the selected card stable while mutable display facts
+// change. Positions are current; speed/phase/temperature retain their disclosed
+// asynchronous metadata epoch. This is formatting, not a second physics engine.
+export function updateLiveDetailFacts(live) {
+  if(!live)return;
+  const host=document.getElementById("orreryDetail");
+  if(host?.querySelector(".system-detail > strong")?.textContent!==live.name)return;
+  const values={
+    "Distance from Sun":`${fmt(live.dist_au,3)} AU`,
+    "Distance from Earth":`${fmt(live.geo_dist_au,3)} AU · light ${fmt(live.geo_dist_au*8.317,1)} min`,
+    "Orbital speed":`${fmt(live.speed_kms,2)} km/s`,
+    "Illuminated":live.illuminated_fraction==null ? "Unavailable" : `${fmt(live.illuminated_fraction*100,1)}% · phase ${fmt(live.phase_angle_deg,1)}°`,
+    "Apparent magnitude":fmt(live.magnitude,1),
+    "Equilibrium temp":`${fmt(live.equilibrium_temp_k)} K — black-body from sunlight alone (excludes greenhouse & internal heat)`,
+  };
+  for(const node of host.querySelectorAll("[data-metric]")) {
+    const value=values[node.getAttribute("data-metric")];
+    if(value!==undefined&&node.textContent!==value)node.textContent=value;
+  }
 }

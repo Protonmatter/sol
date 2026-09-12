@@ -20,6 +20,18 @@ class UxContractTests(unittest.TestCase):
     def test_repository_contract_passes(self) -> None:
         self.assertEqual(validate_ux_contract.validate(WEB), [])
 
+    def test_dynamic_inspectors_are_not_continuously_announced(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "web"
+            self._copy_web_contract(target)
+            index = (target / "index.html").read_text(encoding="utf-8")
+            index = index.replace('id="orreryDetail"', 'id="orreryDetail" aria-live="polite"')
+            index = index.replace('id="skyInputError"', 'id="skyInputErrorMissing"')
+            (target / "index.html").write_text(index, encoding="utf-8")
+            errors = validate_ux_contract.validate(target)
+            self.assertTrue(any("#orreryDetail must not be a continuously announced" in e for e in errors))
+            self.assertTrue(any("missing dynamic status #skyInputError" in e for e in errors))
+
     def _copy_web_contract(self, target: Path) -> None:
         target.mkdir()
         shutil.copy2(WEB / "index.html", target / "index.html")
@@ -103,8 +115,8 @@ class UxContractTests(unittest.TestCase):
                  '<details class="orrery-group" open>\n                <summary>Overlays</summary>'),
                 ('id="regionList"', 'id="regionListMissing"'),
                 ('role="dialog" aria-modal="true" aria-labelledby="tourTitle"', 'role="region"'),
-                ('id="panelToggle" class="panel-toggle" type="button" aria-label="Collapse the control panel" aria-expanded="true"',
-                 'id="panelToggle" class="panel-toggle" type="button" aria-label="Collapse the control panel" aria-expanded="false"'),
+                ('id="panelToggle" class="panel-toggle" type="button" aria-label="Hide inspector" aria-controls="viewInspector" aria-expanded="true"',
+                 'id="panelToggle" class="panel-toggle" type="button" aria-label="Hide inspector" aria-controls="viewInspector" aria-expanded="false"'),
                 ("</body>", '<button id="unnamed"></button></body>'),
             )
             for old, new in replacements:

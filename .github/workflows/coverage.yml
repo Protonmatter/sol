@@ -1,6 +1,14 @@
 name: Coverage
 
 on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        required: true
+        type: string
+      manifest_sha256:
+        required: true
+        type: string
   push:
     branches: [master]
   pull_request:
@@ -38,7 +46,7 @@ jobs:
           name: rust-coverage-${{ github.sha }}
           path: coverage/rust.lcov
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 90
 
   javascript:
     name: JavaScript coverage (Node + Chromium, >= 90%)
@@ -59,29 +67,38 @@ jobs:
           targets: wasm32-unknown-unknown
       - name: Install locked browser-coverage tooling
         run: npm ci --ignore-scripts
-      - name: Node-tested production-module line, branch, and function gates
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        if: inputs.artifact_name != ''
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: build/site
+      - name: Standalone diagnostic staging
+        if: inputs.artifact_name == ''
         run: |
-          node --test --experimental-test-coverage \
-            --test-coverage-include='apps/web/**/*.js' \
-            --test-coverage-lines=90 \
-            --test-coverage-branches=90 \
-            --test-coverage-functions=90 \
-            tests/web/*.test.mjs
+          python tools/build_wasm.py --locked --out-root build/wasm
+          python tools/build_web.py --wasm-dir build/wasm --out-root build/site --release-id "coverage-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --source-sha "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --base-path /sol/
+      - name: Validate exact staged candidate
+        env:
+          EXPECTED_MANIFEST: ${{ inputs.manifest_sha256 }}
+        run: |
+          args=()
+          if [ -n "$EXPECTED_MANIFEST" ]; then args+=(--expected-sha256 "$EXPECTED_MANIFEST"); fi
+          python tools/validate_release_manifest.py build/site/web-release-manifest.json --source-sha "$GITHUB_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" "${args[@]}"
+      - name: Node-tested production-module line, branch, and function gates
+        run: node tools/check_node_coverage.mjs
       - name: Collect denominator-complete Node coverage
         # c8 --all seeds every hand-written runtime module at zero, including modules
         # that Node cannot import because they require the DOM or WebGL. Chromium's
         # execution coverage is merged into this map below.
-        run: node tools/collect_node_coverage.mjs
-      - name: Build browser engines and deterministic cache tokens
-        run: |
-          python tools/build_wasm.py
-          python tools/build_web.py
+        run: node tools/collect_node_coverage.mjs --web-root=build/site
+      - name: Headless browser smoke against staged bytes
+        run: python tools/browser_smoke.py --web-root build/site
       - name: Chromium execution coverage and WebGL visual assertions
-        run: node tools/browser_validation.mjs
+        run: node tools/browser_validation.mjs --web-root=build/site
       - name: Whole-web Node + Chromium line gate
         # Generated catalogues must load in the browser but are deliberately omitted
         # from the percentage so declarative data rows cannot inflate application coverage.
-        run: node tools/merge_web_coverage.mjs --minimum-lines=90
+        run: node tools/merge_web_coverage.mjs --web-root=build/site --minimum-lines=90
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
@@ -90,8 +107,9 @@ jobs:
             coverage/browser
             coverage/combined
             coverage/node/coverage-final.json
+            coverage/node-executed
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 90
 
   python:
     name: Python coverage (>= 90%)
@@ -99,6 +117,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked tooling for Python-driven browser regressions
+        # These tests invoke the real Node driver, including URL admission before launch.
+        run: npm ci --ignore-scripts
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
@@ -115,15 +140,15 @@ jobs:
             --source=services/ephemeris-server,tools \
             -m unittest discover -s tests/python -p 'test_*.py' -v
           coverage report \
-            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py' \
+            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py,tools/release_policy.py,tools/build_web.py,tools/build_wasm.py,tools/validate_release_manifest.py,tools/release_changes.py,tools/release_evidence.py,tools/release_crate.py,tools/verify_served_release.py,tools/data_bundles.py,tools/delivery_lifecycle.py,tools/fetch_public_data.py,tools/run_daily_ingest.py,tools/generate_fixture_snapshot.py,tools/observation_provenance.py' \
             --fail-under=90 --show-missing
           mkdir -p coverage
           coverage xml -o coverage/python.xml \
-            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py'
+            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py,tools/release_policy.py,tools/build_web.py,tools/build_wasm.py,tools/validate_release_manifest.py,tools/release_changes.py,tools/release_evidence.py,tools/release_crate.py,tools/verify_served_release.py,tools/data_bundles.py,tools/delivery_lifecycle.py,tools/fetch_public_data.py,tools/run_daily_ingest.py,tools/generate_fixture_snapshot.py,tools/observation_provenance.py'
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
           name: python-coverage-${{ github.sha }}
           path: coverage/python.xml
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 90

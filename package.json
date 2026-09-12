@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/web/*.test.mjs",
-    "test:web": "node --test tests/web/*.test.mjs",
+    "test": "node --experimental-vm-modules --test tests/web/*.test.mjs",
+    "test:web": "node --experimental-vm-modules --test tests/web/*.test.mjs",
     "validate:governance": "python tools/validate_sdlc.py",
     "validate:ux": "python tools/validate_ux_contract.py",
     "coverage:node": "node tools/collect_node_coverage.mjs",

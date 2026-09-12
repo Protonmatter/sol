@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
 import jsonschema_min
-import validate_ephemeris_snapshot as validator
+import validate_ephemeris_snapshot_v2 as validator
 
 
 class JsonSchemaSubsetTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class JsonSchemaSubsetTests(unittest.TestCase):
         self.assertTrue(jsonschema_min.validate(True, {"const": 1}))
         self.assertTrue(jsonschema_min.validate(1, {"enum": [True]}))
         self.assertTrue(jsonschema_min.validate(1, {"$ref": "other.json"}))
-        self.assertEqual(jsonschema_min.validate(1, "not a schema"), [])
+        self.assertTrue(jsonschema_min.validate(1, "not a schema"))
 
     def test_diagnostics_cover_all_json_type_names_and_pointer_escaping(self):
         class Custom:

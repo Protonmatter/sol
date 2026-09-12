@@ -8,8 +8,11 @@ import datetime as dt
 import json
 import math
 import random
+import re
 from pathlib import Path
 from typing import Any
+
+from data_bundles import attributable_source
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,6 +26,15 @@ FRESHNESS_LIMITS_HOURS = {
     "swpc-solar-regions": 48.0,
     "swpc-sunspot-report": 48.0,
     "swpc-goes-xray-flares-7-day": 48.0,
+}
+
+CONTEXT_NUMERIC_KEYS = {
+    "rtsw_mag_1m.json": ("bz_gsm", "bz", "bzgsm"),
+    "rtsw_wind_1m.json": ("speed", "bulk_speed", "proton_speed", "velocity"),
+    "swpc-planetary-k-index-1m": ("estimated_kp", "kp_index"),
+    "swpc-goes-xrays-1-day": ("flux", "observed_flux"),
+    "swpc-f107-cm-flux": ("flux",),
+    "swpc-observed-cycle-indices": ("f10.7", "f10_7", "observed_f10.7", "f107"),
 }
 
 
@@ -44,12 +56,31 @@ def content_bytes(path: Path) -> int:
     return len(path.read_bytes().replace(b"\r\n", b"\n"))
 
 
+_DATE_PATTERN = r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
+_CLOCK_PATTERN = r"[0-9]{2}:[0-9]{2}:[0-9]{2}"
+_TIME_TAG_PATTERN = re.compile(
+    rf"(?:{_DATE_PATTERN}Z?|{_DATE_PATTERN}T{_CLOCK_PATTERN}(?:Z|\+00:00)?|"
+    rf"{_DATE_PATTERN} {_CLOCK_PATTERN}Z?|"
+    rf"{_DATE_PATTERN}T{_CLOCK_PATTERN}\.[0-9]+(?:Z|\+00:00))",
+    re.ASCII,
+)
+
+
 def parse_time_tag(value: Any) -> dt.datetime | None:
-    if not isinstance(value, str) or not value.strip():
+    if not isinstance(value, str) or not value:
         return None
-    text = value.strip().replace("Z", "+00:00")
+    text = value
+    if _TIME_TAG_PATTERN.fullmatch(text) is None:
+        return None
+    if text.endswith("Z"):
+        normalized = text[:-1]
+        if len(normalized) == 10:
+            normalized += "T00:00:00"
+        normalized += "+00:00"
+    else:
+        normalized = text
     try:
-        parsed = dt.datetime.fromisoformat(text)
+        parsed = dt.datetime.fromisoformat(normalized)
     except ValueError:
         return None
     if parsed.tzinfo is None:
@@ -57,12 +88,26 @@ def parse_time_tag(value: Any) -> dt.datetime | None:
     return parsed
 
 
+ROW_TIME_KEYS = ("time_tag", "time", "date", "begin_time")
+
+
 def row_time(row: dict[str, Any]) -> str | None:
-    for key in ("time_tag", "time", "date", "begin_time"):
+    for key in ROW_TIME_KEYS:
         value = row.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+        if isinstance(value, str) and value:
+            return value
     return None
+
+
+def admitted_row_time(row: dict[str, Any]) -> tuple[bool, dt.datetime | None]:
+    """Classify a row's clock once for both value and count-based context."""
+    tag = row_time(row)
+    if tag is not None:
+        parsed = parse_time_tag(tag)
+        return parsed is not None, parsed
+    # Preserve legacy rows that genuinely omit a clock or explicitly use null.
+    unstamped = all(key not in row or row[key] is None for key in ROW_TIME_KEYS)
+    return unstamped, None
 
 
 OPTIONAL_CACHE_SOURCES = [
@@ -164,10 +209,19 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--lon-count", type=int, default=72)
     parser.add_argument("--lat-count", type=int, default=36)
-    parser.add_argument("--cache", help="Optional public-data cache directory to use before deterministic SWPC fixtures.")
+    source_group = parser.add_mutually_exclusive_group()
+    source_group.add_argument("--cache", help="Explicit historical/migration cache input; not live bundle authority.")
+    source_group.add_argument("--source-pointer", type=Path, help="Resolve and validate all immutable source bytes exactly once.")
+    parser.add_argument("--evaluated-at-utc", help="Explicit deterministic evaluation clock required with --source-pointer.")
     args = parser.parse_args()
 
-    observations = build_observation_report(Path(args.cache) if args.cache else None)
+    if args.source_pointer:
+        import data_bundles as bundles
+        if not args.evaluated_at_utc: parser.error("--source-pointer requires --evaluated-at-utc")
+        bundles.timestamp(args.evaluated_at_utc)
+        observations = build_bundle_observation_report(bundles.resolve_source_bundle(args.source_pointer), evaluated_at_utc=args.evaluated_at_utc)
+    else:
+        observations = build_observation_report(Path(args.cache) if args.cache else None)
     snapshot = build_snapshot(args.seed, args.lon_count, args.lat_count, observations)
     write_json(Path(args.out), snapshot)
     write_json(Path(args.observations_out), observations)
@@ -189,7 +243,7 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
     all_frames = observations.get("frames") or []
     attributable_frames = [
         frame for frame in all_frames
-        if str((frame.get("provenance") or {}).get("source") or "").strip()
+        if attributable_source((frame.get("provenance") or {}).get("source"))
     ]
     unattributed_count = len(all_frames) - len(attributable_frames)
     snapshot_observations = {**observations, "frames": attributable_frames}
@@ -198,11 +252,10 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
     active_regions = build_regions(rng, count=region_count)
     br, confidence = build_field(lon_count, lat_count, active_regions)
     continuum = [continuum_from_br(value) for value in br]
-    variance = [round(max(0.04, 1.0 - conf), 6) for conf in confidence]
 
     source_mode = snapshot_source_mode(observations)
     return {
-        "schema_version": "solar-state-snapshot.v2",
+        "schema_version": "solar-state-snapshot.v3",
         "model_version": "0.2.0",
         "source_mode": source_mode,
         "operational_use": False,
@@ -247,17 +300,17 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
         "layers": [
             {"id": "br_normalized", "label": "Radial magnetic field", "kind": "synthetic", "units": "normalized magnetic field"},
             {"id": "continuum_proxy", "label": "Continuum brightness proxy", "kind": "inferred", "units": "relative intensity"},
-            {"id": "confidence", "label": "Model confidence", "kind": "inferred", "units": "0..1"},
-            {"id": "active_regions", "label": "Active region births", "kind": "synthetic", "units": "normalized metadata"},
+            {"id": "confidence", "label": "Heuristic model score — not probability", "kind": "inferred", "units": "0..1"},
+            {"id": "active_regions", "label": "Modeled region anchors and immutable births", "kind": "synthetic", "units": "normalized metadata"},
             {"id": "swpc_context", "label": "SWPC solar-wind context", "kind": "observed", "units": "provenance metadata"},
         ],
         "fields": {
             "br_normalized": {"units": "normalized magnetic field", "values": br},
-            "br_variance_normalized": {"units": "normalized variance", "values": variance},
             "continuum_proxy": {"units": "relative intensity", "values": continuum},
-            "confidence": {"units": "0..1", "values": confidence},
+            "confidence": score_field(confidence),
         },
-        "active_regions": active_regions,
+        "uncertainty": illustrative_uncertainty(),
+        "active_regions": [region_snapshot(region, 0.0) for region in active_regions],
         "learning": {
             "cycle_stage": "solar maximum",
             "plain_language_insight": insight_from_context(observed_context),
@@ -272,7 +325,7 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
                 [
                     f"{unattributed_count} of {len(all_frames)} observation frames lacked "
                     "attributable provenance and are not embedded as snapshot evidence "
-                    "(they still informed the observed context; see the observations report)."
+                    "(see retained source metadata in the observations report)."
                 ]
                 if unattributed_count
                 else []
@@ -289,6 +342,38 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
             "Research and learning use only; not operational space-weather forecasting.",
         ],
     }
+
+
+def illustrative_uncertainty(time_seconds: float = 0.0) -> dict[str, Any]:
+    """Uncalibrated scalar prior, never inferred from a spatial score or source feed."""
+    return {"activity": {"variance": 0.04, "units": "activity_index_squared",
+            "method": "freshness_damped_diagonal_proxy.v1", "status": "illustrative",
+            "at_time_seconds": time_seconds, "last_analysis_time_seconds": None,
+            "process_noise_per_day": 0.0, "process_noise_status": "disabled"},
+            "magnetic": {"status": "unavailable", "reason": "Scalar activity context does not determine spatial magnetic covariance."}}
+
+
+def score_field(values: list[float]) -> dict[str, Any]:
+    return {"units": "0..1", "semantics": "heuristic_model_score",
+            "interpretation": "not probability or calibrated uncertainty", "values": values}
+
+
+def region_snapshot(region: dict[str, Any], time_seconds: float) -> dict[str, Any]:
+    """Producer-derived anchor under the same constant-latitude Carrington law as Rust.
+
+    Static/cycle fixtures are generated at age zero; this is not a v2 intake adapter.
+    """
+    birth_time = region["birth_seconds"]
+    if not math.isfinite(time_seconds) or time_seconds < birth_time:
+        raise ValueError("region snapshot time must be finite and not before birth")
+    latitude, longitude = region["lat_deg"], region["lon_deg"]
+    sine = math.sin(math.radians(latitude))
+    rate = 14.713 - 2.396 * sine * sine - 1.787 * sine ** 4 - 14.1844
+    current_longitude = (longitude + rate * ((time_seconds - birth_time) / 86400.0)) % 360.0
+    metadata = {key: value for key, value in region.items() if key not in ("birth_seconds", "lat_deg", "lon_deg")}
+    return {**metadata, "birth": {"time_seconds": birth_time, "lat_deg": latitude, "lon_deg": longitude},
+            "model_position": {"lat_deg": latitude, "lon_deg": current_longitude,
+                               "at_time_seconds": time_seconds, "semantics": "advected_model_anchor"}}
 
 
 def hale_polarity(rng: random.Random, hemi: float) -> str:
@@ -383,6 +468,52 @@ def build_observation_report(cache_dir: Path | None = None) -> dict[str, Any]:
     mag = read_json_candidate(cache_dir, "rtsw_mag_1m.json", Path("tests/swpc_scn26_21/rtsw_mag_1m_new.json"))
     wind = read_json_candidate(cache_dir, "rtsw_wind_1m.json", Path("tests/swpc_scn26_21/rtsw_wind_1m_new.json"))
     optional_candidates = [read_optional_cache_candidate(cache_dir, source) for source in OPTIONAL_CACHE_SOURCES]
+    return report_from_candidates(mag, wind, optional_candidates)
+
+
+def build_bundle_observation_report(source, *, evaluated_at_utc: str) -> dict[str, Any]:
+    """Derive solely from captured bundle bytes; no directory fallback or wall clock."""
+    from data_bundles import loads_strict
+    metadata = {p["product_id"]: p for p in loads_strict(source.manifest_raw.decode())["products"]}
+    by_file = {item.role: item for item in source.components}
+    def candidate(name: str, descriptor: dict[str, Any] | None = None) -> dict[str, Any]:
+        descriptor = descriptor or {}
+        context_keys = CONTEXT_NUMERIC_KEYS.get(descriptor.get("id", name), ())
+        item = by_file.get(name)
+        if item is None:
+            data, row, mode, count = None, {}, "missing", 0
+        else:
+            data = loads_strict(item.raw.decode("utf-8"))
+            row, mode, count = first_row(data), "fixture" if metadata[name]["origin"] == "fixture" else "cached", len(item.raw)
+            # Only attributable rows may inform bundle-derived context. The immutable
+            # bundle keeps every original byte; explicit invalid sources never inherit
+            # the manifest source, and invalid-only report metadata remains inspectable.
+            data = [entry for entry in rows(data)
+                    if attributable_source(entry.get("source", metadata[name]["source"]))]
+            selected = latest_numeric_observation(
+                data,
+                *context_keys,
+                reject_inactive=descriptor.get("id") == "swpc-f107-cm-flux",
+            ) if context_keys else None
+            if selected is not None:
+                row = selected[1]
+            elif data:
+                row = first_row(data)
+        result = {"data":data, "row":row, "id":descriptor.get("id",name), "layer_kind":descriptor.get("layer_kind","observed"),
+                  "source_mode":mode, "local_path":f"bundle:{source.bundle_id}/{name}", "raw_bytes":count, "evaluated_at_utc":evaluated_at_utc}
+        if item is not None:
+            result["manifest_source"] = metadata[name]["source"]
+            if context_keys:
+                result["freshness_rows"] = [selected[1]] if selected is not None else []
+        result.update({key:descriptor[key] for key in ("name","url") if key in descriptor})
+        return result
+    if not {"rtsw_mag_1m.json", "rtsw_wind_1m.json"} <= by_file.keys():
+        raise ValueError("source bundle requires attributable mag and wind payloads; no mutable/fixture fallback")
+    return report_from_candidates(candidate("rtsw_mag_1m.json"), candidate("rtsw_wind_1m.json"),
+                                  [candidate(d["cache_name"],d) for d in OPTIONAL_CACHE_SOURCES])
+
+
+def report_from_candidates(mag: dict[str, Any], wind: dict[str, Any], optional_candidates: list[dict[str, Any]]) -> dict[str, Any]:
     all_candidates = [mag, wind, *optional_candidates]
     source_mode = "cached" if any(candidate["source_mode"] == "cached" for candidate in all_candidates) else "fixture"
     observed_context = build_observed_context(all_candidates)
@@ -516,7 +647,9 @@ def frame_from_row(frame_id: str, layer_kind: str, candidate: dict[str, Any]) ->
         "raw_bytes": candidate["raw_bytes"],
         "provenance": {
             "time_tag": first_non_empty(row, "time_tag", "time", "date", "begin_time", "peak_time", "issue_datetime"),
-            "source": row.get("source"),
+            # A validated bundle may attribute rows that omit source; explicit row
+            # values (including invalid ones) never inherit over their own metadata.
+            "source": row.get("source", candidate.get("manifest_source")),
             "active": row.get("active"),
             "raw_source_metadata": {key: row.get(key) for key in ("source", "active", "satellite", "observatory", "instrument") if key in row},
         },
@@ -534,55 +667,67 @@ def evaluate_freshness(candidates: list[dict[str, Any]]) -> tuple[dict[str, Any]
     Only cached feeds are evaluated: fixture-mode outputs must stay byte-deterministic
     across runs, and canned fixtures have no meaningful age. The quality flags always
     promised "cached data freshness must be evaluated" — this is the evaluation.
+    Bundle numeric feeds bind freshness to their selected value's row, so newer
+    nonnumeric metadata cannot make an older signal appear fresh.
     """
-    now = dt.datetime.now(dt.timezone.utc)
+    supplied = next((item["evaluated_at_utc"] for item in candidates if "evaluated_at_utc" in item), None)
+    now = dt.datetime.fromisoformat(supplied.replace("Z", "+00:00")) if supplied else dt.datetime.now(dt.timezone.utc)
     report: dict[str, Any] = {}
     stale: list[str] = []
     for candidate in candidates:
         if candidate.get("source_mode") != "cached":
             continue
         newest: dt.datetime | None = None
-        for row in rows(candidate.get("data")):
+        for row in candidate.get("freshness_rows", rows(candidate.get("data"))):
             parsed = parse_time_tag(row_time(row))
             if parsed is not None and (newest is None or parsed > newest):
                 newest = parsed
         if newest is None:
             continue
-        age_hours = round((now - newest).total_seconds() / 3600.0, 1)
+        exact_age_hours = (now - newest).total_seconds() / 3600.0
+        age_hours = round(exact_age_hours, 1)
         limit = FRESHNESS_LIMITS_HOURS.get(candidate["id"], 48.0)
         entry = {
-            "latest_time_tag": newest.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "latest_time_tag": newest.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "age_hours": age_hours,
-            "stale": age_hours > limit,
+            # Round for display only: even a one-second future timestamp or
+            # a value just beyond the age limit must not be classified fresh.
+            "stale": exact_age_hours < 0 or exact_age_hours > limit,
         }
         report[candidate["id"]] = entry
-        if entry["stale"]:
+        if exact_age_hours < 0:
+            stale.append(f"{candidate['id']} (newest row is future-dated relative to evaluation time)")
+        elif entry["stale"]:
             stale.append(f"{candidate['id']} (newest row {age_hours} h old)")
     return report, stale
 
 
 def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     by_id = {candidate["id"]: candidate for candidate in candidates}
-    rtsw_mag = rows(by_id.get("rtsw_mag_1m.json", {}).get("data"))
-    rtsw_wind = rows(by_id.get("rtsw_wind_1m.json", {}).get("data"))
-    solar_regions = rows(by_id.get("swpc-solar-regions", {}).get("data"))
-    sunspots = rows(by_id.get("swpc-sunspot-report", {}).get("data"))
-    kp_rows = rows(by_id.get("swpc-planetary-k-index-1m", {}).get("data"))
-    f107_rows = rows(by_id.get("swpc-f107-cm-flux", {}).get("data"))
-    xray_rows = rows(by_id.get("swpc-goes-xrays-1-day", {}).get("data"))
-    xray_flares = rows(by_id.get("swpc-goes-xray-flares-7-day", {}).get("data"))
-    cycle_rows = rows(by_id.get("swpc-observed-cycle-indices", {}).get("data"))
+    rtsw_mag = context_rows(by_id.get("rtsw_mag_1m.json", {}).get("data"))
+    rtsw_wind = context_rows(by_id.get("rtsw_wind_1m.json", {}).get("data"))
+    solar_regions = context_rows(by_id.get("swpc-solar-regions", {}).get("data"))
+    sunspots = context_rows(by_id.get("swpc-sunspot-report", {}).get("data"))
+    kp_rows = context_rows(by_id.get("swpc-planetary-k-index-1m", {}).get("data"))
+    f107_rows = context_rows(by_id.get("swpc-f107-cm-flux", {}).get("data"))
+    xray_rows = context_rows(by_id.get("swpc-goes-xrays-1-day", {}).get("data"))
+    xray_flares = context_rows(by_id.get("swpc-goes-xray-flares-7-day", {}).get("data"))
+    cycle_rows = context_rows(by_id.get("swpc-observed-cycle-indices", {}).get("data"))
     region_count = len(solar_regions)
     sunspot_count = len(sunspots)
     flare_count = len(xray_flares)
-    latest_direct_f107 = latest_numeric(f107_rows, "flux")
+    latest_direct_f107 = latest_numeric(
+        f107_rows,
+        *CONTEXT_NUMERIC_KEYS["swpc-f107-cm-flux"],
+        reject_inactive=True,
+    )
     latest_f107 = latest_direct_f107
     if latest_f107 is None:
-        latest_f107 = latest_numeric(cycle_rows, "f10.7", "f10_7", "observed_f10.7", "f107")
-    latest_kp = latest_numeric(kp_rows, "estimated_kp", "kp_index")
-    latest_xray_flux = latest_numeric(xray_rows, "flux", "observed_flux")
-    latest_wind_speed = latest_numeric(rtsw_wind, "speed", "bulk_speed", "proton_speed", "velocity")
-    latest_bz = latest_numeric(rtsw_mag, "bz_gsm", "bz", "bzgsm")
+        latest_f107 = latest_numeric(cycle_rows, *CONTEXT_NUMERIC_KEYS["swpc-observed-cycle-indices"])
+    latest_kp = latest_numeric(kp_rows, *CONTEXT_NUMERIC_KEYS["swpc-planetary-k-index-1m"])
+    latest_xray_flux = latest_numeric(xray_rows, *CONTEXT_NUMERIC_KEYS["swpc-goes-xrays-1-day"])
+    latest_wind_speed = latest_numeric(rtsw_wind, *CONTEXT_NUMERIC_KEYS["rtsw_wind_1m.json"])
+    latest_bz = latest_numeric(rtsw_mag, *CONTEXT_NUMERIC_KEYS["rtsw_mag_1m.json"])
 
     proxies = []
     if region_count:
@@ -635,40 +780,75 @@ def rows(value: Any) -> list[dict[str, Any]]:
     return []
 
 
-def latest_numeric(row_values: list[dict[str, Any]], *keys: str) -> float | None:
-    """Newest parseable value for any of `keys`.
+def context_rows(value: Any) -> list[dict[str, Any]]:
+    return [row for row in rows(value) if admitted_row_time(row)[0]]
+
+
+def latest_numeric(
+    row_values: list[dict[str, Any]],
+    *keys: str,
+    reject_inactive: bool = False,
+) -> float | None:
+    selected = latest_numeric_observation(row_values, *keys, reject_inactive=reject_inactive)
+    return selected[0] if selected is not None else None
+
+
+def latest_numeric_observation(
+    row_values: list[dict[str, Any]],
+    *keys: str,
+    reject_inactive: bool = False,
+) -> tuple[float, dict[str, Any]] | None:
+    """Newest parseable value and its row, shared by context and bundle evidence.
 
     SWPC feeds disagree on row order — rtsw_* and f107_cm_flux are NEWEST-first while
     planetary_k_index and the GOES X-ray series are oldest-first — so order by time_tag
     instead of assuming a direction. (Assuming oldest-first shipped a six-week-old F10.7
     labelled "latest" and skewed the derived activity index.) ISO time tags compare
-    correctly as strings; rows without a time tag fall back to the old reversed scan.
+    correctly only after parsing to instants. Rows without a time tag fall back to the
+    old reversed scan; rows with an explicitly invalid timestamp cannot supply a signal.
     """
-    stamped = [(tag, row) for row in row_values if (tag := row_time(row)) is not None]
+    stamped: list[tuple[dt.datetime, int, dict[str, Any]]] = []
+    unstamped: list[dict[str, Any]] = []
+    for index, row in enumerate(row_values):
+        if reject_inactive and row.get("active") is False:
+            continue
+        admitted, parsed = admitted_row_time(row)
+        if not admitted:
+            continue
+        if parsed is None:
+            unstamped.append(row)
+            continue
+        stamped.append((parsed, index, row))
     if stamped:
-        ordered = [row for _, row in sorted(stamped, key=lambda pair: pair[0], reverse=True)]
+        ordered = [row for _, _, row in sorted(stamped, key=lambda pair: (pair[0], pair[1]), reverse=True)]
     else:
-        ordered = list(reversed(row_values))
+        ordered = list(reversed(unstamped))
     for row in ordered:
         for key in keys:
             if key in row:
                 value = numeric(row.get(key))
                 if value is not None:
-                    return value
+                    return value, row
     return None
 
 
 def numeric(value: Any) -> float | None:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        stripped = value.strip()
-        if not stripped:
+    if isinstance(value, bool):
+        return None
+    try:
+        if isinstance(value, (int, float)):
+            parsed = float(value)
+        elif isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return None
+            parsed = float(stripped)
+        else:
             return None
-        try:
-            return float(stripped)
-        except ValueError:
-            return None
+    except (ValueError, OverflowError):
+        return None
+    if math.isfinite(parsed):
+        return parsed
     return None
 
 

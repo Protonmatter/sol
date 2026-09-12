@@ -1,7 +1,10 @@
 # Solar Maximum Engine Specification
 
 Status: current architecture contract  
-Updated: 2026-07-28
+Updated: 2026-09-11
+
+This contract describes implemented-local behavior and required gates. RFC 0002 remains
+Accepted; manual/scientific qualification and production activation are not implied.
 
 Normative architectural decisions are recorded under `docs/adr/`. Repository RFCs,
 standards scope, and requirement-to-evidence traceability are defined by `docs/rfcs/`,
@@ -14,7 +17,7 @@ Build an uncertainty-aware state-estimation and learning system:
 ```text
 reduced solar-surface physics -> forecast
 observations -> correction
-confidence model -> uncertainty-aware state
+illustrative scalar activity variance + explicit unavailable magnetic uncertainty -> state
 versioned snapshots -> browser views
 ```
 
@@ -29,7 +32,9 @@ Scientific and source claims remain anchored to public methods and data: NOAA/SW
 - The frontend uses native ES modules and consumes immutable JSON snapshots.
 - Python tools generate deterministic fixtures, validate schemas and semantics, and perform external evidence checks.
 - The optional JPL server and local WASM ephemeris implement the same provider-neutral contract.
-- Production deployment is static and is permitted only for a commit that passed the complete CI gate.
+- Full solar/Sky work and System metadata use bounded latest-intent workers; structured replies are validated before publication. A fixed nine-body raw position path is the documented System rendering exception.
+- Source and derived data are immutable hash-bound bundles. Readers select once and publish a complete validated bundle; malformed/mixed input retains the last valid state.
+- Production is static, but CI success alone does not authorize promotion. Protected exact-artifact qualification, settings and served verification are separate gates; promotion never rebuilds source.
 
 ## Canonical solar state
 
@@ -39,7 +44,7 @@ SolarState {
   mode,
   grid,
   br,
-  br_variance,
+  scalar_activity_variance_and_forecast_anchor,
   continuum,
   confidence,
   active_regions,
@@ -48,14 +53,20 @@ SolarState {
 ```
 
 The private transport checkpoint makes the state at a requested target time invariant to how a caller partitions the interval. External assimilation or replacement of transport fields must explicitly rebase that checkpoint.
+Pending source events remain queued until their birth epoch. An intermediate snapshot's
+active regions include only events born at or before its epoch and within the existing
+lifetime bound; hiding future regions must not discard their eventual source injection.
+Live snapshot admission MUST also enforce the producer's inclusive 14-day active-region
+lifetime. `Assimilation` mode requires at least one fully validated, attributable attached
+observation frame; an empty report cannot establish an assimilated result.
 
 ## Snapshot contracts
 
-### `solar-state-snapshot.v2`
+### `solar-state-snapshot.v3`
 
 ```text
-SolarStateSnapshotV2 {
-  schema_version = "solar-state-snapshot.v2"
+SolarStateSnapshotV3 {
+  schema_version = "solar-state-snapshot.v3"
   model_version
   source_mode
   operational_use = false
@@ -67,7 +78,8 @@ SolarStateSnapshotV2 {
   grid
   layers
   fields
-  active_regions
+  active_regions { immutable birth, current model_position }
+  uncertainty { illustrative scalar activity, unavailable magnetic }
   learning
   observed_context?
   observations: ObservationFrameV1[]
@@ -75,15 +87,22 @@ SolarStateSnapshotV2 {
 }
 ```
 
-The v2 solar contract explicitly declares west-positive heliographic Carrington coordinates and latitude-major, longitude-contiguous storage. Every producer must pass the same JSON Schema and cross-field semantic validator.
+The v3 solar contract retains west-positive Carrington coordinates and latitude-major,
+longitude-contiguous storage. It removes the old spatial magnetic-variance field.
+Confidence is explicitly heuristic, not probability. Birth positions remain immutable;
+current model anchors share the snapshot epoch. Every producer and parsed worker result
+must pass the canonical closed schema and cross-field semantics before recursive freezing.
+Live intake also checks circular longitude agreement with the declared fixed
+differential-rotation law; a hash-valid but inconsistent model anchor is not publishable.
+See [solar v3](SOLAR_V3_MIGRATION.md) and ADR 0006 for units and exact conventions.
 
-### `ephemeris-snapshot.v2`
+### `ephemeris-snapshot.v3`
 
 Both the local Rust/WASM engine and optional JPL Horizons provider emit:
 
 ```text
-EphemerisSnapshotV2 {
-  schema_version = "ephemeris-snapshot.v2"
+EphemerisSnapshotV3 {
+  schema_version = "ephemeris-snapshot.v3"
   engine_version
   provider?
   time {
@@ -101,15 +120,28 @@ EphemerisSnapshotV2 {
     apparent topocentric aliases ra_deg/dec_deg,
     explicit geocentric apparent RA/Dec,
     explicit topocentric apparent RA/Dec,
-    distance, true and refracted alt/az,
+    geocentric_range_km, observer_range_km, true and refracted alt/az,
     visibility, compass, angular size, parallax,
-    nullable rise/transit/set fields
+    events with separate calculation_status and occurrence_status,
+    nullable rise/transit/set values bound to a half-open mean-solar-day window
   }
   warnings
 }
 ```
 
-Mixed v1/v2 providers are rejected. Missing values are `null`; they are never fabricated.
+Unsupported live versions are rejected. Historical v2 is explicit, not an automatic adapter.
+Missing values are `null`, never fabricated. Calculated absence is `none_in_window`;
+uncomputed events are `not_calculated`/`unknown`; unresolved numerical ambiguity is
+`failed`/`unknown`. Observer range controls apparent angular size; geocentric range controls
+parallax. Stars retain the documented null-range pair. Exact observer and request epoch
+binding precedes acceptance; hybrid merges also bind instantaneous epochs and day windows.
+See [ephemeris v3](EPHEMERIS_V3.md) for strict schemas, bounds and evidence limitations.
+
+Snapshot, observations, feed status, source manifest and all available cycle frames form
+one `research-data-bundle.v1`. A local `bundle-pointer.v1` or immutable release descriptor
+binds its manifest hash. `daily-ingest-status.v2` says validated, not deployed; acquisition,
+observation, derivation and served time are distinct. Failure cannot partially replace the
+browser store or make old observations appear current.
 
 ## Operational boundary
 
@@ -146,7 +178,7 @@ Meridional circulation, spherical metric factors, and calibrated Gauss/Mx units 
 
 ## Assimilation model
 
-Sol uses a diagonal Kalman-style correction:
+Sol uses an illustrative scalar activity correction (not spatial magnetic covariance):
 
 ```text
 K_i = P_f / (P_f + R)
@@ -155,7 +187,77 @@ x_a = x_f + g_i * (y - x_f)
 P_a = (1 - g_i) * P_f
 ```
 
-This is intentionally simpler than an Ensemble Kalman Filter. Observation provenance, quality, freshness, and active-source metadata remain attached to the resulting snapshot.
+This is intentionally simpler than an Ensemble Kalman Filter. Forecast variance is
+`P(anchor) + q * elapsed_days`; default q is zero/disabled and positive q is labelled
+illustrative, not empirically calibrated. Accepted analysis rebases the forecast anchor;
+invalid/stale/unattributable data does not create an analysis. Observation provenance,
+quality, freshness and active-source metadata remain attached. Magnetic uncertainty
+remains unavailable; scalar assimilation must not invent a magnetic variance field.
+
+## Admission consistency
+
+Standalone v3 snapshots, native ingestion and simulation, image registration and bundle intake MUST apply the same
+source-attribution predicate without rewriting retained source evidence. It requires
+a string that is nonempty after removing the shared boundary-whitespace set and whose
+Unicode lowercase form is not `unknown`. The set is U+0009–U+000D, U+001C–U+0020,
+U+0085, U+00A0, U+1680, U+2000–U+200A, U+2028, U+2029, U+202F, U+205F and U+3000.
+U+FEFF is deliberately not removed. This is an admission rule, not proof of source
+authenticity. RFC 8259 permits C1 characters inside JSON strings; only unescaped
+U+0000–U+001F are rejected by the serializer's string-envelope guard.
+
+Cached-feed freshness MUST use the unrounded age relative to the report evaluation
+clock. Negative ages and ages above the existing per-feed limit are stale; zero and
+the exact upper limit remain admissible. The rounded display age does not determine
+classification. Future-dated rows remain retained and explicitly warned, including
+in illustrative fixture context; all-stale reports do not create a scalar analysis.
+Ingestion MUST reject unattributable records before selecting the newest usable row
+or deriving observed activity. Valid magnetic or wind evidence cannot authorize an
+activity value derived from an unattributable F10.7 row.
+Explicitly malformed clocks MUST be excluded from count-based region, sunspot and flare
+proxies as well as numeric signals. Python row-time parsing retains only native-supported
+calendar date/whole-second legacy forms and full explicit-UTC `Z`/`+00:00` forms with
+optional fractions; compact ISO and nonzero/negative-zero offsets do not qualify.
+Timestamp strings are checked exactly as retained: surrounding whitespace does not
+qualify and MUST NOT be stripped into a usable clock.
+Missing/null clocks retain the existing legacy unstamped path. Equal parsed instants
+select the last original payload position, consistently with native ingestion, without
+rewriting the selected source strings or immutable source bytes.
+
+Native simulation MUST validate observation envelopes and frames before they influence
+assimilation or enter an exported v3 snapshot. Accepted aggregate observation context,
+including the activity value and per-signal freshness used by assimilation, MUST remain
+attached to the result without rewriting its values. Projecting admissible frames MUST
+preserve their order and the accepted report's other provenance metadata.
+
+Numeric signal selection MUST reject booleans and nonfinite values. Declared timestamps
+must parse before a row can supply a signal; malformed timestamps cannot become an
+unstamped fallback or disappear from freshness while still affecting activity. Selection
+orders parsed instants, not timestamp spellings. Native source intake supports the source
+contract's fractional-second `Z` and `+00:00` forms with precision retained for ordering
+and unrounded freshness. Original timestamp/source evidence remains unchanged.
+F10.7 scalar selection MUST also exclude rows whose `active` value is the literal
+JSON boolean `false`, matching native ingestion. Missing or other legacy activity
+metadata does not mean false. Inactive records remain available as diagnostic source
+evidence, but cannot bind a selected F10.7 value or its signal freshness.
+
+Derived bundle `feed_status.sources` MUST equal the ordered projection of retained
+`source.products`: `file` is `product_id`, `ok` is whether `failure` is null, and source,
+origin, observation time and retrieval time retain their exact declared values.
+Unavailable acquisitions recorded only in `source.failures` do not imply invented
+product rows. Every available series entry MUST bind its index to its array position,
+stage to `learning.cycle_stage`, activity to `run.activity_index`, and region count
+to `active_regions.length`. Gaps retain their positions and may omit their index;
+a declared index still MUST match. Illustrative cycle months are not physical elapsed
+snapshot time. Rejection MUST preserve the prior complete browser publication.
+
+Each ephemeris v3 body's `compass` MUST describe its serialized `az_deg` using the 16
+clockwise sectors of width 22.5 degrees, with exact midpoints (11.25 degrees from a
+sector center) assigned clockwise. A provider's rounded 360 degrees normalizes to
+zero before deriving the label; internal full-precision physics remains unchanged.
+
+Browser admission code (`dataBundle.js` and its shared `sourceAttribution.js` helper)
+MUST participate in the scientific component fingerprint. Admission-only edits
+invalidate prior scientific qualification even if WASM and data bytes are unchanged.
 
 ## UI contract
 
@@ -173,12 +275,60 @@ Current top-level destinations are:
 2. **My Sky** — observer-centric local horizon using the on-device engine by default.
 3. **Solar System** — 3-D and top-down heliocentric views with progressive detail.
 
-Canvas views require keyboard-accessible or textual alternatives. The tour is modal, focus-trapped, and skippable. The remote ephemeris provider is disabled unless explicitly configured and requires location-sharing consent.
+Canvas views require keyboard-native alternatives and persistent selected facts. The tour
+is modal, focus-trapped and skippable. Current source/epoch/observer/provider/limits are
+presented independently from pending work. Cancellation and failure retain valid state.
+Only an actually pending solar calculation may be reported as cancelled. Hiding the
+document or changing surfaces MUST preserve completed, failed and idle statuses; an
+obsolete request's settlement cannot clear a replacement request's pending identity.
+System animation validates each proposed epoch before changing displayed time or invoking
+the raw position path. An unsupported step pauses at the last valid epoch with an
+actionable status. Returning to a visible System view supersedes an entry cancelled
+while hidden; an obsolete completion cannot publish or clear the replacement entry.
+An accepted asynchronous System metadata refresh MUST update its visible metadata
+epoch and selected-body facts together. Delayed metadata cannot rewind positions
+already rendered for a newer valid epoch.
+Sky groups use geometric altitude strictly greater than zero, not refraction. Invalid
+observer/time input is rejected rather than clamped; device civil timezone or UTC is
+explicit and observer timezone is not inferred.
+Live Sky admission MUST reconcile geometric horizontal and topocentric equatorial
+directions using the declared sidereal angle and polar-motion-corrected latitude.
+The consistency limit is one arcminute in unit-vector angular separation, plus a
+`1e-12` chord-distance roundoff margin. This bounded consistency rule accommodates
+the optional server's disclosed approximate mean sidereal/EOP metadata; it is not
+an external accuracy or calibration guarantee. A vector comparison avoids singular
+azimuth differences at zenith/nadir and handles the 0/360-degree wrap.
+Constellation and fixed-star trajectory overlays use the displayed v3 snapshot's
+`observer.terrestrial_lat_deg`, not pending input or a removed historical observer alias.
+
+Remote Sky is disabled unless configured and requires session-only recipient-specific
+consent before health or snapshot calls. Both fetches reject redirects before another
+recipient is contacted. Endpoint changes revoke permission. Recovery to local is explicit,
+not hidden fallback. Share/export previews disclose a captured snapshot's exact location
+and time before copying/downloading.
+
+Observed imagery cannot be composited with model geometry unless separately qualified.
+The current registration assessor always returns `compositing_permitted: false`, even
+when synthetic structure/epoch metadata agrees. The cycle is idealized and missing frames
+remain gaps, not silently connected observed history. These implemented structures are
+not a complete manual accessibility or scientific registration qualification.
+From the separate Latest state, Previous MUST select the last available cycle frame
+and Next MUST select the first; unavailable slots count as skipped, and wraparound
+within the cycle retains its existing order.
 
 The initial view exposes the primary task and current source/feed/readiness state. Advanced,
 rare, and research controls use clearly labelled disclosure controls and do not normally
 exceed two disclosure levels. Accuracy, privacy, degraded-state, and consent information
 must remain visible at the point a user needs it.
+The feed pill, detailed feed summary, retained-Kp aurora caveat and explanatory
+presentation MUST share one refresh-clock assessment. Unknown current freshness must
+qualify previously reported health/source availability and retained Kp; invalid refresh
+dates must not be normalized into seemingly valid next-run dates.
+A missing, empty, malformed, non-UTC or invalid-calendar `next_recommended_run_utc` is unknown
+and MUST NOT present as daily ok/live. Existing optional-field bundle admission is
+unchanged. Valid explicit UTC timestamps support fractional seconds, and the existing
+six-hour overdue grace is inclusive at its exact endpoint. Explicit failed/degraded
+feed states and the last valid publication remain distinct from clock uncertainty.
 
 ## Validation and release gates
 
@@ -194,12 +344,18 @@ A releasable commit must pass:
 - EOP prediction-window freshness.
 - static web/module validation and content-derived cache stamping.
 - SDLC requirements/RFC/evidence validation and progressive-disclosure structure checks.
-- real-browser progressive-disclosure, provider-fallback, WASM, and WebGL flows.
+- real-browser progressive-disclosure, worker cancellation/identity, explicit provider recovery, WASM, and WebGL flows.
 - semantic Sun/Earth/camera visual assertions with retained diagnostics.
 - Rust, Python, Node, and denominator-complete Node+Chromium coverage gates.
-- independent external Horizons evidence workflow where network access is available.
+- independent scientific references within declared quantity/epoch/platform scope, acquired only with network authorization; unavailable required evidence holds qualification.
 
-GitHub Pages deploys only the exact `master` SHA whose CI workflow succeeded.
+GitHub Pages promotion uses the exact verified candidate artifact for the selected master
+SHA, complete same-run jobs, protected accepted evidence and a post-approval eligibility
+recheck. Missing manual/scientific/settings evidence is a hold. Registry publication is
+separately held. See [release delivery](RELEASE_DELIVERY.md). Source tests, historical
+accuracy numbers, coefficient hashes and workflow definitions do not prove those gates
+passed. The [coefficient inventory](COEFFICIENT_PROVENANCE.md) explicitly identifies
+non-regenerable assets; current TOP2013 evidence is source parity, not independent accuracy.
 
 ## Non-goals
 

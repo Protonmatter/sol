@@ -2,9 +2,16 @@
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
 import { store } from "./store.js?v=dcca6290db";
-import { loadSkyEngine, skySnapshot, fetchServerSky, bodyTrack, BODY_INDEX } from "./skyEngine.js?v=dcca6290db";
+import { fetchServerSky, BODY_INDEX, SERVER_BASE } from "./skyEngine.js?v=dcca6290db";
+import { createSkyWorkerClient } from "./skyWorkerClient.js?v=dcca6290db";
+import { validateSkyWork } from "./skyLimits.js?v=dcca6290db";
+import { SkyConsent, makeSkyPreview, parseSkyLink } from "./skyPrivacy.js?v=dcca6290db";
+import { skyRows, parseSkyTime, formatSkyTimeInput } from "./skyPresentation.js?v=dcca6290db";
+import { syncObjectRows } from "./objectBrowser.js?v=dcca6290db";
 import { CONSTELLATIONS } from "./celestial.js?v=dcca6290db";
 import { epochAccuracy, epochLabel } from "./accuracy.js?v=dcca6290db";
+import { resolveSkyPresentation } from "./presentationState.js?v=dcca6290db";
+import { assertEphemerisSnapshotV3, mergeLocalEvents } from "./ephemerisContract.js?v=dcca6290db";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
@@ -54,8 +61,10 @@ let showTrajectory = true;
 // inspectable from one place like the rest of the app — the same object, no copies.
 // Rendering internals (plotted/domeGeom/hover state above) stay module-local.
 const skyState = (store.sky = {
-  observer: { lat: 40.71, lon: -74.01, elev: 0, label: "New York (default)" },
+  presentation: /** @type {any} */ (null),
+  observer: { lat: 40.71, lon: -74.01, elev: 0, label: "New York example location" },
   provider: "local", // "local" = on-device WASM (default), "server" = DE441 high-precision tier
+  displayMode: "device",
   chosenUnix: null,  // null = live "now"; otherwise a frozen instant (seconds)
 });
 const observer = skyState.observer;
@@ -63,7 +72,24 @@ let timer = 0;
 let active = false;
 let lastSnap = null;    // most recent snapshot, for Export
 let deepLinkApplied = false; // the #sky= hash is applied ONCE, not on every surface switch
+let workerClient = null;
+let remoteController = null;
+let computingSnapshot = false;
+const consent = new SkyConsent();
+let selectedName = "Moon";
+let query = "", group = "all";
+let pendingPreview = null;
+let consentPanelRecipient = "";
+let displayedObserverLabel = observer.label;
+const skyInput = id => /** @type {HTMLInputElement|null} */ (document.getElementById(id));
+function inputError(message) { const node=document.getElementById("skyInputError");if(node)node.textContent=message; }
+function getWorker() { return workerClient||(workerClient=createSkyWorkerClient()); }
+function recipient() {
+  const configured=typeof window==="undefined"?SERVER_BASE:/** @type {any} */(window).SOL_EPHEMERIS_SERVER;
+  return consent.setRecipient(typeof configured==="string"?configured:"");
+}
 let renderGen = 0;      // stale-response guard for the async server tier
+let geolocationGen = 0; // observer intent survives unrelated snapshot/time refreshes
 
 // --- Persistence: My Sky is a repeat-use surface; losing the observer/provider on every
 // reload (and re-prompting for geolocation) was real friction. localStorage can throw in
@@ -79,18 +105,17 @@ function saveSkyPrefs() {
 
 function restoreSkyPrefs() {
   try {
+    const provider = localStorage.getItem("sol-sky-provider");
+    // Remember the preferred provider, never the session's permission to contact it.
+    if (provider === "local" || provider === "server") skyState.provider = provider;
+  } catch (_) { /* storage unavailable */ }
+  try {
     const raw = localStorage.getItem("sol-sky-observer");
     if (raw) {
       const saved = JSON.parse(raw);
-      if (Number.isFinite(saved.lat) && Number.isFinite(saved.lon)) {
-        observer.lat = Math.max(-90, Math.min(90, saved.lat));
-        observer.lon = Math.max(-180, Math.min(180, saved.lon));
-        observer.elev = Number.isFinite(saved.elev) ? saved.elev : 0;
-        observer.label = typeof saved.label === "string" && saved.label ? saved.label : "Saved location";
-      }
+      validateSkyWork({operation:"snapshot",lat:saved.lat,lon:saved.lon,elev:saved.elev,unix:0});
+      Object.assign(observer,{lat:saved.lat,lon:saved.lon,elev:saved.elev,label:"Saved location (on this device)"});
     }
-    const savedProvider = localStorage.getItem("sol-sky-provider");
-    if (savedProvider === "server" || savedProvider === "local") skyState.provider = savedProvider;
   } catch (_) { /* storage unavailable */ }
 }
 restoreSkyPrefs();
@@ -118,14 +143,10 @@ function setTimeLabel() {
   const stateText = skyState.chosenUnix == null
     ? "Live — updating every minute."
     : "Frozen at the chosen time. Press Now to return to live.";
-  node.textContent = `${stateText} Rise, transit, and set times use ${browserTimeZoneLabel()}, the browser/device timezone.`;
+  node.textContent = `${stateText} UI dates use the proleptic Gregorian calendar. Historical times approximate UT1. Events belong to the observer mean-solar day and display in ${skyState.displayMode==="utc"?"UTC":browserTimeZoneLabel()+" (device civil timezone, not observer timezone)"}. Device daylight-saving repeats use the earlier occurrence; choose UTC for an unambiguous instant.`;
 }
 
-function toLocalInput(unix) {
-  const d = new Date(unix * 1000);
-  const p = (x) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
+function toLocalInput(unix) { return formatSkyTimeInput(unix,skyState.displayMode); }
 
 function syncTimeInput() {
   const input = /** @type {HTMLInputElement|null} */ (document.getElementById("skyTime"));
@@ -138,13 +159,12 @@ function syncTimeInput() {
 function applyDeepLink() {
   if (deepLinkApplied) return;
   deepLinkApplied = true; // latch on the first check — a hash written later by "share" must never re-apply
-  const m = /sky=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)(?:,(\d+))?/.exec(location.hash);
-  if (!m) return;
-  observer.lat = Math.max(-90, Math.min(90, parseFloat(m[1])));
-  const lon = parseFloat(m[2]);
-  observer.lon = lon >= -180 && lon <= 180 ? lon : ((lon % 360) + 540) % 360 - 180; // wrap: longitude is an angle
-  observer.label = "Shared location";
-  if (m[3]) skyState.chosenUnix = parseInt(m[3], 10);
+  try {
+    const request=parseSkyLink(location.hash,currentUnix());
+    if(!request)return;
+    Object.assign(observer,{lat:request.lat,lon:request.lon,elev:request.elev,label:"Shared location"});
+    if(location.hash.split(",").length>=3)skyState.chosenUnix=request.unix;
+  } catch(error) { inputError(error.message); }
 }
 
 // Drop the #sky= hash once the user overrides what it encoded (goes live, moves, or
@@ -162,16 +182,17 @@ export function enterSky() {
   setLocLabel();
   setTimeLabel();
   syncTimeInput();
-  loadSkyEngine().then(renderSky).catch(() => {
-    const node = document.getElementById("skyInsight");
-    if (node) node.textContent = "Sky engine unavailable (the ephemeris WebAssembly module failed to load).";
-  });
+  renderSky();
   // Auto-tick only while live; a frozen time stays put.
   if (!timer) timer = window.setInterval(() => { if (active && skyState.chosenUnix == null) { renderSky(); syncTimeInput(); } }, 60000);
 }
 
 export function leaveSky() {
   active = false;
+  ++geolocationGen;
+  ++renderGen; computingSnapshot=false;
+  remoteController?.abort();workerClient?.dispose();workerClient=null;
+  trajCache={key:null,pts:null};hideTooltip();
   if (timer) { window.clearInterval(timer); timer = 0; }
 }
 
@@ -182,70 +203,56 @@ export function resizeSky() {
   if (active) redraw();
 }
 
-export function renderSky() {
-  const unix = currentUnix();
-  const gen = ++renderGen; // drop out-of-order server responses (older fetch resolving last)
-  if (skyState.provider === "server") {
-    setProvenance("Fetching high-precision positions (DE441)…");
-    fetchServerSky(unix, observer.lat, observer.lon, observer.elev)
-      .then((snap) => {
-        if (!active || skyState.provider !== "server" || gen !== renderGen) return;
-        lastSnap = enrichWithLocal(snap, unix);
-        drawDome(lastSnap);
-        updateList(lastSnap);
-        updateSkyAccuracy();
-        setProvenance("Source: JPL Horizons / DE441 for the Sun, Moon, and planets; sidereal time, rise/set, and the star catalogue come from the on-device engine.");
-      })
-      .catch((error) => {
-        if (!active || skyState.provider !== "server" || gen !== renderGen) return;
-        // Graceful fall back to the on-device engine when the optional server is down.
-        renderLocal();
-        setProvenance(`High-precision server unavailable (${error.message}) — showing the on-device engine.`);
-      });
-    return;
-  }
-  renderLocal();
-  setProvenance("Source: on-device engine — VSOP2013 + ELP-MPP02; ≤ ~4″ vs JPL Horizons near today (Moon ≤ ~1.5″).");
-}
-
-// The DE441 server returns high-precision Sun/Moon/planet positions, but no local sidereal time, no
-// rise/transit/set, and no star catalogue. Backfill those from the on-device engine (same instant and
-// observer) so the dome keeps its constellations, star list, and rise/set — what the provenance promises.
-function enrichWithLocal(serverSnap, unix) {
-  let local;
-  try { local = skySnapshot(unix, observer.lat, observer.lon, observer.elev); }
-  catch (_) { return serverSnap; }
-  if (local.time) serverSnap.time = { ...(serverSnap.time || {}), lst_deg: local.time.lst_deg, obliquity_deg: local.time.obliquity_deg };
-  serverSnap.bodies = serverSnap.bodies || [];
-  const localByName = new Map((local.bodies || []).map((b) => [b.name, b]));
-  for (const b of serverSnap.bodies) {
-    const l = localByName.get(b.name);
-    if (l) { b.rise_jd = l.rise_jd; b.transit_jd = l.transit_jd; b.set_jd = l.set_jd; b.transit_alt_deg = l.transit_alt_deg; }
-  }
-  // Append objects the server omits (the bright-star catalogue) so figures + the list stay complete.
-  const have = new Set(serverSnap.bodies.map((b) => b.name));
-  for (const l of local.bodies || []) if (!have.has(l.name)) serverSnap.bodies.push(l);
-  return serverSnap;
-}
-
-function renderLocal() {
-  let snap;
+export async function renderSky() {
+  if (!active) return;
+  const gen=++renderGen;
+  const requestedProvider=skyState.provider;
+  const requestedObserverLabel=observer.label;
+  const request={operation:"snapshot",unix:currentUnix(),lat:observer.lat,lon:observer.lon,elev:observer.elev};
+  remoteController?.abort();getWorker().cancel();
+  computingSnapshot=true;trajCache={key:null,pts:null};
   try {
-    snap = skySnapshot(currentUnix(), observer.lat, observer.lon, observer.elev);
-  } catch (error) {
-    // Engine not instantiated yet (e.g. Set/Now pressed during the WASM fetch): say so and
-    // finish the render once it lands — the old silent return produced a dead button.
-    // Retry ONLY for the not-loaded case; retrying an engine trap would loop forever.
-    if (String(error && error.message).includes("not loaded")) {
-      setProvenance("Sky engine is still loading — this will render in a moment.");
-      loadSkyEngine().then(() => { if (active) renderSky(); }).catch(() => {});
+    validateSkyWork(request);
+    let snap;
+    if (requestedProvider==="server") {
+      const base=recipient();
+      if (!consent.allows(base)) { showConsent();throw new Error("Recipient consent required; no request sent"); }
+      remoteController=new AbortController();
+      setProvenance("Requesting positions from the authorized recipient…");
+      snap=await fetchServerSky(request.unix,request.lat,request.lon,request.elev,base,{consent,signal:remoteController.signal});
+      if (!active||gen!==renderGen)return;
+      try {
+        const local=await getWorker().request(request);
+        if (!active||gen!==renderGen)return;
+        snap=mergeLocalEvents(snap,local);
+      } catch(error) {
+        if (!active||gen!==renderGen)return;
+        // Valid remote positions remain usable; missing local events stay explicitly uncomputed.
+        snap=structuredClone(snap);snap.warnings.push("On-device event/star augmentation unavailable: "+error.message);
+      }
+    } else {
+      setProvenance("Computing Sky on this device…");
+      snap=await getWorker().request(request);
     }
-    return;
-  }
-  lastSnap = snap;
-  drawDome(snap);
-  updateList(snap);
-  updateSkyAccuracy();
+    if (!active||gen!==renderGen||requestedProvider!==skyState.provider)return;
+    lastSnap=assertEphemerisSnapshotV3(snap);
+    displayedObserverLabel=requestedObserverLabel;
+    computingSnapshot=false;
+    publishSkyPresentation(lastSnap,requestedProvider);
+    drawDome(lastSnap);updateList(lastSnap);updateSkyAccuracy();
+    inputError("");
+    setProvenance(requestedProvider==="server"?"Source: configured Sol server / JPL Horizons; any on-device event/star augmentation retains separate source metadata.":"Source: computed on device, VSOP2013 + ELP-MPP02; source parity is not independent accuracy qualification.");
+  } catch(error) {
+    if (!active||gen!==renderGen)return;
+    publishSkyPresentation(lastSnap,skyState.presentation?.actualProvider||"local",error.message);
+    inputError(error.message);
+    setProvenance("Requested Sky unavailable. Retaining only the last validated snapshot; its displayed time and observer remain authoritative. Choose On your device to recover locally.");
+  } finally { if(gen===renderGen)computingSnapshot=false; }
+}
+
+function publishSkyPresentation(snapshot, actualProvider, error = null) {
+  skyState.presentation = resolveSkyPresentation({ snapshot, observerLabel: displayedObserverLabel, actualProvider, requestedProvider: skyState.provider, error });
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("sol:presentation"));
 }
 
 function sunAltitude(snap) {
@@ -280,18 +287,18 @@ function project(alt, az, g) {
 // --- Moon phase (Meeus Ch. 48) ---------------------------------------------------------------
 // Illuminated fraction k, waxing/waning sense, and a name, computed from the snapshot's geocentric
 // Sun & Moon (RA/Dec + distance). k = (1 + cos i)/2 with phase angle i from the Sun–Moon elongation.
-function moonPhaseInfo(snap) {
+export function moonPhaseInfo(snap) {
   const bodies = snap.bodies || [];
   const sun = bodies.find((b) => b.name === "Sun");
   const moon = bodies.find((b) => b.name === "Moon");
-  if (!sun || !moon || !moon.distance_km || !sun.distance_km) return null;
+  if (!sun || !moon || !moon.geocentric_range_km || !sun.geocentric_range_km) return null;
   const d = Math.PI / 180;
-  const cosPsi = Math.sin(sun.dec_deg * d) * Math.sin(moon.dec_deg * d)
-    + Math.cos(sun.dec_deg * d) * Math.cos(moon.dec_deg * d) * Math.cos((sun.ra_deg - moon.ra_deg) * d);
+  const cosPsi = Math.sin(sun.geocentric_apparent_dec_deg * d) * Math.sin(moon.geocentric_apparent_dec_deg * d)
+    + Math.cos(sun.geocentric_apparent_dec_deg * d) * Math.cos(moon.geocentric_apparent_dec_deg * d) * Math.cos((sun.geocentric_apparent_ra_deg - moon.geocentric_apparent_ra_deg) * d);
   const psi = Math.acos(Math.max(-1, Math.min(1, cosPsi)));                 // geocentric elongation
-  const i = Math.atan2(sun.distance_km * Math.sin(psi), moon.distance_km - sun.distance_km * Math.cos(psi));
+  const i = Math.atan2(sun.geocentric_range_km * Math.sin(psi), moon.geocentric_range_km - sun.geocentric_range_km * Math.cos(psi));
   const k = (1 + Math.cos(i)) / 2;                                          // illuminated fraction
-  const waxing = ((((moon.ra_deg - sun.ra_deg) % 360) + 360) % 360) < 180;  // Moon east of Sun ⇒ waxing
+  const waxing = ((((moon.geocentric_apparent_ra_deg - sun.geocentric_apparent_ra_deg) % 360) + 360) % 360) < 180;  // Moon east of Sun ⇒ waxing
   return { k, waxing, name: moonPhaseName(k, waxing), glyph: moonPhaseGlyph(k, waxing) };
 }
 function moonPhaseName(k, waxing) {
@@ -336,7 +343,7 @@ function drawDome(snap) {
   domeGeom = g;
   plotted = [];
   const lst = snap.time ? snap.time.lst_deg : 0;
-  const lat = snap.observer ? snap.observer.lat_deg : observer.lat;
+  const lat = snap.observer ? snap.observer.terrestrial_lat_deg : observer.lat;
 
   ctx.clearRect(0, 0, w, h);
   // Dome (sky) coloured by the Sun's altitude; constellation figures clipped inside it.
@@ -361,7 +368,7 @@ function drawDome(snap) {
 
   // Catalogue stars (full engine reduction) first, so Sun/Moon/planets draw on top.
   for (const b of snap.bodies || []) {
-    if (BODY_STYLE[b.name] || !b.above_horizon) continue; // BODY_STYLE = Sun/Moon/planets
+    if (BODY_STYLE[b.name] || !(b.alt_deg > 0)) continue; // BODY_STYLE = Sun/Moon/planets
     const [x, y] = project(b.alt_deg, b.az_deg, g);
     const mag = b.magnitude == null ? 2 : b.magnitude;
     const size = Math.max(1.2, (2.6 - mag) * r * 0.0055);
@@ -386,7 +393,7 @@ function drawDome(snap) {
   const sunDome = sunBody ? project(sunBody.alt_deg, sunBody.az_deg, g) : null;
   for (const b of snap.bodies || []) {
     const style = BODY_STYLE[b.name]; if (!style) continue;
-    if (b.above_horizon) {
+    if (b.alt_deg > 0) {
       const [x, y] = project(b.alt_deg, b.az_deg, g);
       const size = Math.max(2.5, r * style.size);
       if (activeName === b.name) {
@@ -460,16 +467,17 @@ function trajectoryPoints(b, lstNow, lat) {
     for (let k = 0; k <= N; k++) pts.push(altAz(b.ra_deg, b.dec_deg, lstNow - 180 + 360 * (k / N), lat));
     return pts;
   }
-  const now = currentUnix();
-  const key = `${b.name}|${Math.round(now / 300)}|${observer.lat.toFixed(3)},${observer.lon.toFixed(3)}`;
-  if (trajCache.key === key && trajCache.body === b.name) return trajCache.pts;
-  const N = 180, dt = (24 * 3600) / N;
-  let track;
-  try { track = bodyTrack(BODY_INDEX[b.name], observer.lat, observer.lon, observer.elev, now - 12 * 3600, dt, N + 1); }
-  catch (_) { return null; }
-  const pts = track.map((s) => ({ alt: s.alt, az: s.az }));
-  trajCache = { key, body: b.name, pts };
-  return pts;
+  if (!lastSnap||computingSnapshot||!active) return null;
+  const now=(lastSnap.time.jd_utc-2440587.5)*86400;
+  const o=lastSnap.observer;
+  const key=JSON.stringify([b.name,lastSnap.time.jd_utc,o.terrestrial_lat_deg,o.terrestrial_lon_deg_east,o.elev_m]);
+  if (trajCache.key===key) return trajCache.pts;
+  const generation=renderGen;
+  trajCache={key,pts:null};
+  getWorker().request({operation:"track",bodyIndex:BODY_INDEX[b.name],lat:o.terrestrial_lat_deg,lon:o.terrestrial_lon_deg_east,elev:o.elev_m,unix:now-43200,dtSeconds:480,samples:181})
+    .then(pts=>{if(active&&generation===renderGen&&trajCache.key===key){trajCache={key,pts};redraw();}})
+    .catch(error=>{if(active&&generation===renderGen&&trajCache.key===key)inputError("Trajectory unavailable: "+error.message);});
+  return null;
 }
 
 function drawTrajectory(ctx, g, b, lstNow, lat) {
@@ -500,6 +508,13 @@ function drawTrajectory(ctx, g, b, lstNow, lat) {
   }
 }
 
+export function eventLabel(event) {
+  if (Number.isFinite(event.jd)) return jdToLocal(event.jd);
+  if (event.calculation_status === "calculated" && event.occurrence_status === "none_in_window") return "none in local mean-solar day";
+  if (event.calculation_status === "not_calculated") return "not calculated";
+  return "-- (unavailable; occurrence unknown)";
+}
+
 function jdToLocal(jd) {
   if (jd == null || !Number.isFinite(jd)) return "--";
   const unix = (jd - 2440587.5) * 86400;
@@ -507,90 +522,41 @@ function jdToLocal(jd) {
     hour: "2-digit",
     minute: "2-digit",
     timeZoneName: "short",
+    ...(skyState.displayMode==="utc"?{timeZone:"UTC"}:{}),
   });
 }
 
-function rowFor(b, titleText, detailText) {
-  const row = document.createElement("div");
-  row.className = "sky-row sky-hoverable";
-  row.dataset.name = b.name;
-  row.tabIndex = 0;
-  row.setAttribute("role", "button");
-  const title = document.createElement("strong"); title.textContent = titleText;
-  const detail = document.createElement("span"); detail.className = "muted"; detail.textContent = detailText;
-  row.append(title, detail);
-  // Focus and hover both preview the body on the dome — keyboard parity with mouse.
-  const previewOn = () => { if (pinned) return; activeName = b.name; redraw(); };
-  const previewOff = () => { if (pinned) return; if (activeName === b.name) { activeName = null; redraw(); } };
-  row.addEventListener("mouseenter", previewOn);
-  row.addEventListener("mouseleave", previewOff);
-  row.addEventListener("focus", previewOn);
-  row.addEventListener("blur", previewOff);
-  // Enter/Space AND click/tap toggle a pin — parity with clicking the body on the dome.
-  // (The row advertised role="button" + cursor:pointer but had no click handler, so mouse
-  // and iOS users got less than keyboard users.)
-  const togglePin = () => {
-    const pinThis = !(pinned && activeName === b.name);
-    pinned = pinThis;
-    activeName = pinThis ? b.name : null;
-    const listEl = row.parentElement;
-    if (listEl) listEl.querySelectorAll('.sky-row[role="button"]').forEach((r) => r.setAttribute("aria-pressed", "false"));
-    row.setAttribute("aria-pressed", String(pinThis));
-    redraw();
-  };
-  row.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    togglePin();
-  });
-  row.addEventListener("click", togglePin);
-  row.setAttribute("aria-pressed", String(pinned && activeName === b.name));
-  return row;
+function updateSelectedFacts(snap) {
+  const node=document.getElementById("skySelectedFacts");if(!node)return;
+  const body=snap.bodies.find(b=>b.name===selectedName);
+  if(!body){node.textContent="Selected object is not present in this validated snapshot.";return;}
+  fillTooltip(node,body);
+  const details=document.createElement("p");
+  details.textContent=`Geometric altitude ${body.alt_deg.toFixed(4)}°; refracted altitude ${body.alt_refracted_deg.toFixed(4)}°. Apparent topocentric RA ${body.topocentric_apparent_ra_deg.toFixed(4)}°, declination ${body.topocentric_apparent_dec_deg.toFixed(4)}° (true equator/equinox of date). Observer range ${body.observer_range_km===null?"unavailable (infinite catalogue-star approximation)":body.observer_range_km+" km"}; geocentric range ${body.geocentric_range_km===null?"unavailable":body.geocentric_range_km+" km"}. Snapshot JD ${snap.time.jd_utc}, observer ${snap.observer.terrestrial_lat_deg}°, ${snap.observer.terrestrial_lon_deg_east}° E, ${snap.observer.elev_m} m. Events source: ${body.events.transit.source.engine} ${body.events.transit.source.version}. Above-horizon does not imply visibility: daylight, weather, extinction, terrain and glare are not modelled.`;
+  node.appendChild(details);
 }
-
+function selectObject(name) {
+  selectedName=name;activeName=name;pinned=true;
+  if(lastSnap){updateList(lastSnap);redraw();}
+}
 function updateList(snap) {
-  const list = document.getElementById("skyList");
-  if (!list) return;
-  list.textContent = "";
-  const bodies = snap.bodies || [];
-  const up = bodies.filter((b) => b.above_horizon).sort((a, b) => b.alt_deg - a.alt_deg);
-  if (!up.length) {
-    const row = document.createElement("div");
-    row.className = "sky-row";
-    row.textContent = "Nothing is above your horizon right now.";
-    list.appendChild(row);
-  }
-  const phase = moonPhaseInfo(snap);
-  for (const b of up) {
-    const magText = (!BODY_STYLE[b.name] && b.magnitude != null) ? `mag ${b.magnitude.toFixed(1)}, ` : "";
-    const isMoon = b.name === "Moon" && phase;
-    const title = isMoon
-      ? `Moon ${phase.glyph} ${phase.name} - ${Math.round(b.alt_deg)}° up in the ${b.compass}`
-      : `${b.name} - ${Math.round(b.alt_deg)}° up in the ${b.compass}`;
-    const litText = isMoon ? `${Math.round(phase.k * 100)}% lit, ` : "";
-    list.appendChild(rowFor(b, title,
-      `${litText}${magText}azimuth ${Math.round(b.az_deg)}°, rises ${jdToLocal(b.rise_jd)}, sets ${jdToLocal(b.set_jd)}`));
-  }
-
-  // Below the horizon: the Sun / Moon / planets you can't see yet, and when they rise ("outside the view").
-  const below = bodies.filter((b) => BODY_STYLE[b.name] && !b.above_horizon)
-    .sort((a, b) => (Number.isFinite(a.rise_jd) ? a.rise_jd : 1e9) - (Number.isFinite(b.rise_jd) ? b.rise_jd : 1e9));
-  if (below.length) {
-    const head = document.createElement("div");
-    head.className = "sky-row sky-subhead";
-    head.textContent = "Below the horizon";
-    list.appendChild(head);
-    for (const b of below) {
-      list.appendChild(rowFor(b, `${b.name} - below the ${b.compass} horizon`,
-        Number.isFinite(b.rise_jd) ? `rises ${jdToLocal(b.rise_jd)}` : "does not rise today"));
-    }
-  }
+  const list=document.getElementById("skyList");if(!list)return;
+  const rows=skyRows(snap.bodies,query,group,selectedName);
+  syncObjectRows(list,rows,selectObject);
+  const count=document.getElementById("skyResultCount");
+  if(count)count.textContent=`${rows.filter(r=>!r.hidden).length} matching objects; ${snap.bodies.filter(b=>b.alt_deg>0).length} geometrically above, ${snap.bodies.filter(b=>b.alt_deg<=0).length} at/below horizon. Selection is retained when filtered out.`;
+  updateSelectedFacts(snap);
 }
+for(const id of ["skySearch","skyFilter"])document.getElementById(id)?.addEventListener(id==="skySearch"?"input":"change",()=>{
+  query=skyInput("skySearch")?.value||"";group=skyInput("skyFilter")?.value||"all";
+  if(lastSnap)updateList(lastSnap);
+});
 
 function redraw() { if (lastSnap) drawDome(lastSnap); }
 
 // --- Observer controls ---
 document.getElementById("skyGeo")?.addEventListener("click", () => {
+  const generation=++geolocationGen;
   const label = document.getElementById("skyLocLabel");
   if (!navigator.geolocation) {
     if (label) label.textContent = "This browser has no geolocation — enter coordinates manually.";
@@ -599,51 +565,36 @@ document.getElementById("skyGeo")?.addEventListener("click", () => {
   if (label) label.textContent = "Locating…"; // pending feedback while the permission prompt is open
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      observer.lat = pos.coords.latitude;
-      observer.lon = pos.coords.longitude;
-      observer.elev = pos.coords.altitude || 0;
-      observer.label = "Your location";
+      if (!active || generation!==geolocationGen) return;
+      try { validateSkyWork({operation:"snapshot",lat:pos.coords.latitude,lon:pos.coords.longitude,elev:pos.coords.altitude||0,unix:currentUnix()}); }
+      catch(error){inputError(error.message);return;}
+      Object.assign(observer,{lat:pos.coords.latitude,lon:pos.coords.longitude,elev:pos.coords.altitude||0,label:"Your device location"});
       clearDeepLinkHash();
       saveSkyPrefs();
       setLocLabel();
       renderSky();
     },
     () => {
+      if (!active || generation!==geolocationGen) return;
       if (label) label.textContent = "Location permission denied - enter coordinates manually.";
     }
   );
 });
 
 document.getElementById("skySet")?.addEventListener("click", () => {
-  const lat = Number(/** @type {HTMLInputElement} */ (document.getElementById("skyLat")).value);
-  const lon = Number(/** @type {HTMLInputElement} */ (document.getElementById("skyLon")).value);
-  const label = document.getElementById("skyLocLabel");
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    if (label) label.textContent = "Enter a numeric latitude and longitude — e.g. 40.71, -74.01.";
-    return;
-  }
-  const clampedLat = Math.max(-90, Math.min(90, lat));
-  // Longitude is an ANGLE: wrap it into [-180, 180] instead of clamping. Clamping sent a
-  // pasted 0–360-style value like 270 (= 90°W) to +180 — the wrong meridian entirely.
-  // Only touch out-of-range values: the modulo arithmetic carries float error, so wrapping
-  // an in-range −0.13 returned −0.12999999999999545 and spuriously showed the wrap notice.
-  const wrappedLon = lon >= -180 && lon <= 180 ? lon : ((lon % 360) + 540) % 360 - 180;
-  observer.lat = clampedLat;
-  observer.lon = wrappedLon;
-  observer.label = "Set location";
-  clearDeepLinkHash();
-  saveSkyPrefs();
-  setLocLabel();
-  if (clampedLat !== lat && label) {
-    label.textContent = `Latitude out of range — clamped to ${clampedLat}° (valid: -90° to 90°).`;
-  } else if (wrappedLon !== lon && label) {
-    label.textContent = `Longitude wrapped to ${wrappedLon.toFixed(2)}° (east-positive; e.g. 270 means 90°W).`;
-  }
-  renderSky();
+  try {
+    const values=["skyLat","skyLon","skyElev"].map(id=>skyInput(id)?.value.trim());
+    if(values.some(v=>!v))throw new Error("Enter latitude, longitude and elevation; empty values are not zero.");
+    const [lat,lon,elev]=values.map(Number);
+    validateSkyWork({operation:"snapshot",lat,lon,elev,unix:currentUnix()});
+    ++geolocationGen;
+    Object.assign(observer,{lat,lon,elev,label:"Set location"});
+    inputError("");clearDeepLinkHash();saveSkyPrefs();setLocLabel();renderSky();
+  } catch(error) {inputError(error.message);}
 });
 
 // Enter in either coordinate field commits it — same as pressing Set.
-for (const id of ["skyLat", "skyLon"]) {
+for (const id of ["skyLat", "skyLon", "skyElev"]) {
   document.getElementById(id)?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -666,7 +617,18 @@ function setProvider(p) {
   if (active) renderSky();
 }
 document.getElementById("skyProviderLocal")?.addEventListener("click", () => setProvider("local"));
-document.getElementById("skyProviderServer")?.addEventListener("click", () => setProvider("server"));
+function showConsent() {
+  consentPanelRecipient=recipient();
+  const panel=document.getElementById("skyConsent"),text=document.getElementById("skyConsentText");
+  if(panel)panel.hidden=false;
+  if(text)text.textContent=`Send the selected precise latitude, longitude, elevation and observation time to ${consentPanelRecipient||"no configured recipient"}? That Sol server sends the location and time onward to JPL Horizons. On-device mode sends none of these values. Consent lasts this page session only.`;
+}
+document.getElementById("skyProviderServer")?.addEventListener("click", () => {try{showConsent();}catch(error){inputError(error.message);}});
+document.getElementById("skyConsentAllow")?.addEventListener("click",()=>{
+  try {if(recipient()!==consentPanelRecipient){showConsent();throw new Error("Recipient changed; review the new destination before allowing it.");}consent.grant();const p=document.getElementById("skyConsent");if(p)p.hidden=true;setProvider("server");}catch(error){inputError(error.message);}
+});
+document.getElementById("skyConsentDeny")?.addEventListener("click",()=>{consent.revoke();remoteController?.abort();const p=document.getElementById("skyConsent");if(p)p.hidden=true;setProvider("local");});
+document.getElementById("skyConsentRevoke")?.addEventListener("click",()=>{consent.revoke();remoteController?.abort();setProvider("local");inputError("Remote consent revoked. Computation stays on this device.");});
 // Reflect the restored provider in the buttons at boot (without triggering a render).
 document.getElementById("skyProviderLocal")?.classList.toggle("active", skyState.provider === "local");
 document.getElementById("skyProviderServer")?.classList.toggle("active", skyState.provider === "server");
@@ -674,15 +636,14 @@ document.getElementById("skyProviderLocal")?.setAttribute("aria-pressed", String
 document.getElementById("skyProviderServer")?.setAttribute("aria-pressed", String(skyState.provider === "server"));
 
 // --- Time controls (plan for any date/time, not just "now") ---
+document.getElementById("skyTimeMode")?.addEventListener("change",()=>{
+  skyState.displayMode=skyInput("skyTimeMode")?.value==="utc"?"utc":"device";
+  syncTimeInput();setTimeLabel();if(lastSnap)updateList(lastSnap);
+});
 document.getElementById("skyTime")?.addEventListener("change", (event) => {
   const v = /** @type {HTMLInputElement} */ (event.target).value;
-  const t = v ? new Date(v).getTime() : NaN;
-  const label = document.getElementById("skyTimeLabel");
-  if (!Number.isFinite(t)) {
-    if (label) label.textContent = "Enter a valid date and time, or press Now for live.";
-    return;
-  }
-  skyState.chosenUnix = t / 1000;
+  try {skyState.chosenUnix=parseSkyTime(v,skyState.displayMode);inputError("");}
+  catch(error){inputError(error.message);return;}
   clearDeepLinkHash();
   setTimeLabel();
   if (active) renderSky();
@@ -698,25 +659,49 @@ document.getElementById("skyNow")?.addEventListener("click", () => {
 });
 
 // --- Share link + export (deep-link the location/time; download the snapshot) ---
-document.getElementById("skyShare")?.addEventListener("click", () => {
-  const u = Math.round(currentUnix());
-  location.hash = `sky=${observer.lat.toFixed(4)},${observer.lon.toFixed(4)},${u}`;
-  const label = document.getElementById("skyTimeLabel");
-  const msg = "Shareable link copied to the address bar.";
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(location.href).then(() => { if (label) label.textContent = msg; }, () => {});
-  } else if (label) {
-    label.textContent = "Link is in the address bar — copy it to share.";
+function previewSky(kind) {
+  if(!lastSnap){inputError("Compute a validated snapshot before sharing or exporting.");return;}
+  document.getElementById("skyShareManualCopy")?.remove();
+  const o=lastSnap.observer;
+  // Staged release URLs expire; the deployment root forwards the captured Sky hash.
+  const releaseBasePath="__SOL_BASE_PATH__";
+  const shareBase=releaseBasePath.startsWith("__")?location.href:new URL(releaseBasePath,location.href).href;
+  const preview=makeSkyPreview({lat:o.terrestrial_lat_deg,lon:o.terrestrial_lon_deg_east,elev:o.elev_m,unix:(lastSnap.time.jd_utc-2440587.5)*86400},shareBase);
+  pendingPreview={...preview,kind,snapshot:lastSnap};
+  const panel=document.getElementById("skySharePreview"),text=document.getElementById("skySharePreviewText"),confirm=document.getElementById("skyShareConfirm");
+  if(panel)panel.hidden=false;if(text)text.textContent=preview.text+(kind==="export"?" Raw JSON also includes source/model metadata.":" "+preview.url);
+  if(confirm)confirm.textContent=kind==="export"?"Download precise snapshot":"Copy precise share link";
+}
+function offerManualShareCopy(url) {
+  let field=/** @type {HTMLTextAreaElement|null} */(document.getElementById("skyShareManualCopy"));
+  if(!field){
+    field=document.createElement("textarea");field.id="skyShareManualCopy";field.readOnly=true;
+    field.setAttribute("aria-label","Precise Sky share link for manual copying");
+    document.getElementById("skySharePreview")?.appendChild(field);
   }
-});
-document.getElementById("skyExport")?.addEventListener("click", () => {
-  if (!lastSnap) return;
-  const blob = new Blob([JSON.stringify(lastSnap, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `sky-${Math.round(currentUnix())}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  field.value=url;field.focus();field.select();
+  inputError("Automatic copying unavailable. Copy the selected precise share link manually.");
+}
+document.getElementById("skyShare")?.addEventListener("click",()=>previewSky("share"));
+document.getElementById("skyExport")?.addEventListener("click",()=>previewSky("export"));
+document.getElementById("skyShareCancel")?.addEventListener("click",()=>{pendingPreview=null;document.getElementById("skyShareManualCopy")?.remove();const p=document.getElementById("skySharePreview");if(p)p.hidden=true;});
+document.getElementById("skyShareConfirm")?.addEventListener("click",async()=>{
+  const preview=pendingPreview;if(!preview)return;
+  try{
+    if(preview.kind==="share"){
+      if(typeof navigator.clipboard?.writeText!=="function")throw new Error("Clipboard API unavailable");
+      await navigator.clipboard.writeText(preview.url);
+    }
+    else {
+      const blob=new Blob([JSON.stringify(preview.snapshot,null,2)],{type:"application/json"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="sky-snapshot-v3.json";a.click();URL.revokeObjectURL(url);
+    }
+    if(pendingPreview!==preview)return;
+    pendingPreview=null;document.getElementById("skyShareManualCopy")?.remove();const p=document.getElementById("skySharePreview");if(p)p.hidden=true;inputError(preview.kind==="share"?"Share link copied.":"Snapshot downloaded.");
+  }catch(error){
+    if(pendingPreview!==preview)return;
+    if(preview.kind==="share")offerManualShareCopy(preview.url);else inputError("Sharing failed: "+error.message);
+  }
 });
 
 // --- Overlay toggles ---
@@ -732,7 +717,7 @@ function ensureTooltip() {
 // Build the tooltip via DOM nodes + textContent (never innerHTML): with the
 // "NASA JPL (live)" provider, b.name/b.compass come from a fetched JSON response,
 // so string-interpolating them into innerHTML would be an injection vector.
-function fillTooltip(t, b) {
+export function fillTooltip(t, b) {
   t.textContent = "";
   const line = (text, cls) => {
     const d = document.createElement("div");
@@ -746,7 +731,7 @@ function fillTooltip(t, b) {
   nameRow.appendChild(strong);
   t.appendChild(nameRow);
 
-  line(b.above_horizon
+  line(b.alt_deg > 0
     ? `${Math.round(b.alt_deg)}° above the ${b.compass} horizon · az ${Math.round(b.az_deg)}°`
     : `below the ${b.compass} horizon`, "tt-line");
   if (b.name === "Moon" && lastSnap) {
@@ -754,12 +739,13 @@ function fillTooltip(t, b) {
     if (ph) line(`${ph.glyph} ${ph.name} · ${Math.round(ph.k * 100)}% lit`, "tt-line");
   }
   if (b.magnitude != null) line(`magnitude ${b.magnitude.toFixed(1)}`, "tt-line");
-  if (b.distance_km != null && b.distance_km > 0) {
-    const lm = b.distance_km / 299792.458 / 60; // light-minutes
-    line(lm >= 1 ? `${(b.distance_km / 1.495978707e8).toFixed(3)} AU · light ${lm.toFixed(1)} min`
-      : `${Math.round(b.distance_km).toLocaleString()} km away`, "tt-line");
+  if (b.observer_range_km != null && b.observer_range_km > 0) {
+    const lm = b.observer_range_km / 299792.458 / 60; // light-minutes
+    line(lm >= 1 ? `${(b.observer_range_km / 1.495978707e8).toFixed(3)} AU · light ${lm.toFixed(1)} min`
+      : `${Math.round(b.observer_range_km).toLocaleString()} km away`, "tt-line");
   }
-  line(`rises ${jdToLocal(b.rise_jd)} · transits ${jdToLocal(b.transit_jd)} (${Math.round(b.transit_alt_deg)}°) · sets ${jdToLocal(b.set_jd)}`, "tt-line");
+  const transitAltitude = b.events.transit.altitude_deg == null ? "" : ` (${Math.round(b.events.transit.altitude_deg)}°)`;
+  line(`rises ${eventLabel(b.events.rise)} · transits ${eventLabel(b.events.transit)}${transitAltitude} · sets ${eventLabel(b.events.set)}`, "tt-line");
   line("trajectory: dashed = past, solid = ahead", "tt-line muted");
 }
 function showTooltip(b, clientX, clientY) {
@@ -799,7 +785,7 @@ if (skyCanvasEl) {
   });
   skyCanvasEl.addEventListener("click", (ev) => {
     const hit = hitTest(ev);
-    if (hit) { activeName = hit.name; pinned = true; showTooltip(hit.body, ev.clientX, ev.clientY); redraw(); }
+    if (hit) { selectObject(hit.name); showTooltip(hit.body, ev.clientX, ev.clientY); }
     else if (pinned || activeName) { pinned = false; activeName = null; hideTooltip(); redraw(); }
   });
 }
@@ -808,5 +794,5 @@ if (skyCanvasEl) {
 // boxes, dome geometry, and the alt/az helper.
 if (typeof window !== "undefined") {
   /** @type {any} */ (window).__skyDebug =
-    () => ({ snap: lastSnap, plotted, geom: domeGeom, altAz, bodyTrack, skySnapshot, BODY_INDEX, observer, currentUnix });
+    () => ({ snap: lastSnap, plotted, geom: domeGeom, altAz, BODY_INDEX, observer, currentUnix, selectedName });
 }

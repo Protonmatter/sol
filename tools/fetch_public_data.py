@@ -3,8 +3,8 @@
 
 The simulator and tests can run without this script. Use it for research
 ingest runs that need current public NOAA/SWPC, Helioviewer, and optional
-JPL Horizons context. The script writes latest files plus an optional daily
-history copy and a manifest with provenance, timestamps, and quality flags.
+JPL Horizons context. It stages immutable source bundles with provenance,
+timestamps and quality flags, then selects one manifest pointer. No latest aliases.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+import uuid
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -26,6 +27,51 @@ TIMEOUT_SECONDS = 20
 USER_AGENT = "solar-maximum-engine/0.1.3 research-learning-daily-ingest"
 LOGGER = logging.getLogger("fetch_public_data")
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def acquire_bundle(cache: Path, *, bundle_id: str, stamp: date, acquired_at_utc: str,
+                   include_jpl: bool = False, timeout_seconds: int = TIMEOUT_SECONDS):
+    """One bounded acquisition, with explicit attributable fallback; no aliases."""
+    import data_bundles as bundles
+    previous = bundles.resolve_source_bundle(cache / "current.json") if (cache / "current.json").exists() else None
+    previous_products = {p["product_id"]:p for p in bundles.loads_strict(previous.manifest_raw.decode())["products"]} if previous else {}
+    products, failures = [], []
+    try:
+        for endpoint in build_endpoints(include_jpl=include_jpl, start_date=stamp):
+            failure = None
+            try:
+                raw = fetch(endpoint.url, timeout_seconds=timeout_seconds)
+                validate_payload(endpoint.file, raw)
+            except Exception as exc:
+                failure = type(exc).__name__
+                failures.append({"product_id":endpoint.file,"critical":endpoint.critical,"error_type":failure})
+                if endpoint.file not in previous_products:
+                    if endpoint.critical: raise ValueError("critical fetch failed without attributable fallback: " + endpoint.file) from exc
+                    # Record unavailable optional input separately, not as a fabricated payload.
+                    bundles._write_new(cache / "attempts" / (uuid.uuid4().hex + ".json"), bundles.json_bytes({"product_id":endpoint.file,"status":"unavailable","error_type":failure}))
+                    continue
+                old = previous_products[endpoint.file]
+                products.append({**{k:v for k,v in old.items() if k not in ("path","size_bytes","sha256")},
+                                 "origin":"fixture" if old["origin"] == "fixture" else "cached-fallback", "failure":failure, "payload":previous.component(endpoint.file).raw,
+                                 "quality":[*old["quality"], "current fetch failed; original payload timestamps retained"]})
+                continue
+            data = bundles.loads_strict(raw.decode("utf-8"))
+            # Only explicit UTC instants in source rows qualify; never infer from fetch time.
+            times = []
+            for row in data if isinstance(data,list) else [data]:
+                if isinstance(row,dict):
+                    value = row.get("time_tag") or row.get("time")
+                    try: bundles.timestamp(value)
+                    except ValueError: continue
+                    times.append(value)
+            products.append({"product_id":endpoint.file,"source":endpoint.source,"origin":"current-fetch",
+                             "observation_time_utc":max(times,key=lambda t:datetime.fromisoformat(t.replace("Z","+00:00"))) if times else None,"retrieved_at_utc":acquired_at_utc,
+                             "quality":[endpoint.quality_note,"not operational truth"],"failure":failure,
+                             "license":"public upstream source; original source terms apply", "critical":endpoint.critical,"payload":raw})
+        return bundles.create_source_bundle(cache,bundle_id=bundle_id,acquired_at_utc=acquired_at_utc,products=products,failures=failures)
+    except BaseException as exc:
+        bundles._write_new(cache / "attempts" / (uuid.uuid4().hex + ".json"), bundles.json_bytes({"bundle_id":bundle_id,**bundles.failure_outcome(exc)}))
+        raise
 
 
 def display_path(path: Path) -> str:
@@ -63,84 +109,16 @@ def main() -> int:
     cache = Path(args.cache)
     cache.mkdir(parents=True, exist_ok=True)
 
-    manifest = fetch_cache(
-        cache=cache,
-        include_jpl=args.include_jpl,
-        archive_history=args.archive_history,
-        stamp=stamp,
-        timeout_seconds=args.timeout_seconds,
-    )
-    manifest_path = cache / "manifest.json"
-    write_json(manifest_path, manifest)
+    bundle = acquire_bundle(cache, bundle_id="source-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%S") + "-" + uuid.uuid4().hex[:12],
+                            acquired_at_utc=datetime.now(UTC).isoformat(), stamp=stamp,
+                            include_jpl=args.include_jpl, timeout_seconds=args.timeout_seconds)
     if args.manifest_out:
-        write_json(Path(args.manifest_out), manifest)
-    LOGGER.info("wrote cache=%s", cache)
-    LOGGER.info("manifest=%s status=%s", manifest_path, manifest["status"])
-    return 0 if not manifest["critical_failures"] else 1
+        # Explicit export is historical evidence only, never current reader authority.
+        write_json(Path(args.manifest_out), json.loads(bundle.manifest_raw))
+    LOGGER.info("selected immutable source bundle=%s", bundle.bundle_id)
+    return 0
 
 
-def fetch_cache(
-    *,
-    cache: Path,
-    include_jpl: bool,
-    archive_history: bool,
-    stamp: date,
-    timeout_seconds: int = TIMEOUT_SECONDS,
-) -> dict[str, Any]:
-    fetched_at = datetime.now(UTC)
-    history_dir = cache / "history" / stamp.isoformat()
-    if archive_history:
-        history_dir.mkdir(parents=True, exist_ok=True)
-
-    records: list[dict[str, Any]] = []
-    for endpoint in build_endpoints(include_jpl=include_jpl, start_date=stamp):
-        target = cache / endpoint.file
-        record = {
-            **asdict(endpoint),
-            "ok": False,
-            "bytes": 0,
-            "fetched_at_utc": fetched_at.isoformat(),
-            "local_path": display_path(target),
-            "history_path": display_path(history_dir / endpoint.file) if archive_history else None,
-            "error": None,
-            "quality_flags": [
-                endpoint.quality_note,
-                "public online source",
-                "not promoted to operational truth",
-            ],
-        }
-        try:
-            raw = fetch(endpoint.url, timeout_seconds=timeout_seconds)
-            validate_payload(endpoint.file, raw)
-            atomic_write_bytes(target, raw)
-            if archive_history:
-                shutil.copy2(target, history_dir / endpoint.file)
-            record["ok"] = True
-            record["bytes"] = len(raw)
-        except Exception as exc:  # noqa: BLE001 - external fetch failures must be recorded.
-            record["error"] = str(exc)
-            LOGGER.warning("%s fetch failed: %s", endpoint.file, exc)
-        records.append(record)
-        time.sleep(0.2)
-
-    critical_failures = [item["file"] for item in records if item["critical"] and not item["ok"]]
-    failed = [item["file"] for item in records if not item["ok"]]
-    status = "ok" if not failed else "degraded"
-    if critical_failures:
-        status = "failed"
-    return {
-        "schema_version": "public-data-cache-manifest.v1",
-        "generated_by": "tools/fetch_public_data.py",
-        "fetched_at_utc": fetched_at.isoformat(),
-        "history_date": stamp.isoformat(),
-        "cache_dir": display_path(cache),
-        "history_dir": display_path(history_dir) if archive_history else None,
-        "include_jpl": include_jpl,
-        "status": status,
-        "critical_failures": critical_failures,
-        "failed": failed,
-        "fetched": records,
-    }
 
 
 def build_endpoints(*, include_jpl: bool, start_date: date) -> list[Endpoint]:
@@ -277,7 +255,10 @@ def fetch(url: str, *, timeout_seconds: int, attempts: int = 3) -> bytes:
     for attempt in range(attempts):
         try:
             with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-                return response.read()
+                from data_bundles import LIMIT
+                raw = response.read(LIMIT + 1)
+                if len(raw) > LIMIT: raise ValueError("source response exceeds 16 MiB limit")
+                return raw
         except Exception as exc:  # noqa: BLE001 - retried, then recorded by the caller.
             last_error = exc
             if attempt + 1 < attempts:
@@ -290,7 +271,10 @@ def validate_payload(file_name: str, raw: bytes) -> None:
     maintenance pages do this) — the old code cached it, recorded ok=true, and the
     failure surfaced later as a confusing parse error in the fixture generator."""
     if file_name.endswith(".json"):
-        json.loads(raw.decode("utf-8"))
+        from data_bundles import loads_strict, LIMIT
+        if len(raw) > LIMIT: raise ValueError("source payload exceeds size limit")
+        value = loads_strict(raw.decode("utf-8"))
+        if not isinstance(value, (dict,list)) or not value: raise ValueError("source JSON must be nonempty")
 
 
 def horizons_url(start: date) -> str:

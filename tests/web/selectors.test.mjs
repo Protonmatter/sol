@@ -48,6 +48,14 @@ test("feedOverdueHours: missing or malformed inputs never throw, just decline to
   assert.equal(feedOverdueHours(T0), null);
 });
 
+test("an ok feed with an unknown refresh clock never receives the healthy label or tone", () => {
+  for (const next_recommended_run_utc of [undefined, "", "not a date", "2026-02-30T00:00:00Z", "2026-07-03T01:40:00-04:00"]) {
+    store.feedStatus = { status: "ok", ...(next_recommended_run_utc === undefined ? {} : { next_recommended_run_utc }) };
+    assert.equal(feedStateLabel(), "unknown", String(next_recommended_run_utc));
+    assert.notEqual(feedStateClass(), "live", String(next_recommended_run_utc));
+  }
+});
+
 test("a multi-day-stale 'ok' feed reads stale and wears the failure tone", () => {
   // A next-run date far in the past is deterministically overdue on any real clock.
   store.feedStatus = { status: "ok", next_recommended_run_utc: "2000-01-01T00:00:00Z" };
@@ -149,11 +157,11 @@ test("feed labels and tones cover absent, late, degraded, failed, and unknown", 
 
 test("region copy preserves coordinates, units, and explicit selection", () => {
   const region = {
-    id: 42, lat_deg: -12.25, lon_deg: 130.75, flux_norm: 0.6,
+    id: 42, birth:{lat_deg:-12.25,lon_deg:130.75,time_seconds:0}, model_position:{lat_deg:-12.25,lon_deg:130.75,at_time_seconds:0}, flux_norm: 0.6,
     complexity: 0.9, area_msh: 340, tilt_deg: -3.2, confidence: 0.88,
   };
-  assert.equal(regionLocation(region), "lat -12.3°, lon 130.8°");
-  assert.match(selectedRegionSummary(region), /AR 42.*high \(0.90\).*340 MSH/);
+  assert.equal(regionLocation(region), "modeled anchor: lat -12.3°, lon 130.8° W");
+  assert.match(selectedRegionSummary(region), /AR 42.*340 millionths of the solar hemisphere.*Heuristic model score 0.88.*not probability/);
   store.state = { active_regions: [region] };
   store.selectedRegionId = 42;
   assert.match(selectedRegionSentence(), /^Selected AR 42/);

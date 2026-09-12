@@ -1,0 +1,6 @@
+{
+  "schema_version": "bundle-pointer.v1",
+  "bundle_id": "source",
+  "manifest_path": "bundles/source/manifest.json",
+  "manifest_sha256": "041bc95fc75f9442200de9d749af858214aa278080a1d7e96e8b1496e26387f4"
+}

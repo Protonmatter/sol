@@ -10,6 +10,8 @@ export const store = {
   /** @type {import('./config.js').Snapshot} */
   liveState: FALLBACK_STATE,
   feedStatus: /** @type {any} */ (null),
+  dataError: /** @type {string|null} */ (null),
+  presentation: /** @type {any} */ (null),
   activeMode: "today",
   /** @type {number|null} */
   selectedRegionId: null,
@@ -20,8 +22,10 @@ export const store = {
   activeBaseKind: "synthetic",
   activeBaseLabel: "synthetic photosphere",
   wavelength: "continuum", // which SDO channel drives the solar disk ("model" = synthetic engine view)
-  /** @type {import('./config.js').Snapshot[]} */
+  /** @type {Array<import('./config.js').Snapshot|null>} */
   seriesFrames: [],
+  seriesRecords: /** @type {any[]} */ ([]),
+  seriesError: /** @type {string|null} */ (null),
   seriesManifest: /** @type {any} */ (null),
   timelineIndex: -1, // -1 = live "now"; otherwise an index into seriesFrames
   playTimer: 0,

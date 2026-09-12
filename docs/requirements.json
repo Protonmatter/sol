@@ -1,6 +1,6 @@
 {
   "schema_version": "sol-requirements.v1",
-  "updated": "2026-07-28",
+  "updated": "2026-09-11",
   "requirements": [
     {
       "id": "SOL-ARCH-001",
@@ -10,12 +10,19 @@
       "implementation": [
         "crates/solar-core/src/contracts.rs",
         "apps/web/js/data.js",
-        "apps/web/js/ephemerisContract.js"
+        "apps/web/js/ephemerisContract.js",
+        "apps/web/js/solarContract.js",
+        "apps/web/js/workerClient.js",
+        "apps/web/js/dataBundle.js",
+        "apps/web/js/presentationState.js"
       ],
       "verification": [
         "tools/validate_snapshot.py",
         "tools/validate_ephemeris_snapshot.py",
-        "tools/test_ephemeris_contract.mjs"
+        "tools/test_ephemeris_contract.mjs",
+        "tests/web/workerClient.test.mjs",
+        "tests/web/solarPublication.test.mjs",
+        "tests/web/dataBundle.test.mjs"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation"
@@ -27,15 +34,19 @@
       "statement": "A contract change MUST version and update its schema, producers, consumers, fixtures, semantic validators, and compatibility tests in the same pull request.",
       "source": "docs/SDLC.md#contract-and-schema-changes",
       "implementation": [
-        "docs/solar-state-snapshot-v2.schema.json",
-        "docs/ephemeris-snapshot-v2.schema.json",
+        "docs/solar-state-snapshot-v3.schema.json",
+        "docs/ephemeris-snapshot-v3.schema.json",
         "crates/solar-core/src/contracts.rs",
         "apps/web/js/ephemerisContract.js"
       ],
       "verification": [
         "tools/validate_snapshot.py",
         "tools/validate_ephemeris_snapshot.py",
-        "tests/python/test_contract_validators.py"
+        "tests/python/test_contract_validators.py",
+        "tests/web/solarContract.test.mjs",
+        "tests/web/ephemerisV3.test.mjs",
+        "tests/python/test_ephemeris_v3.py",
+        "tests/python/test_ephemeris_native_v3.py"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation"
@@ -49,12 +60,19 @@
       "implementation": [
         "crates/solar-core/src/contracts.rs",
         "apps/web/js/panels.js",
-        "docs/ACCURACY_CONTRACT.md"
+        "docs/ACCURACY_CONTRACT.md",
+        "docs/adr/0006-scientific-contract-semantics.md",
+        "docs/COEFFICIENT_PROVENANCE.md",
+        "docs/EPHEMERIS_V3.md",
+        "docs/SOLAR_V3_MIGRATION.md"
       ],
       "verification": [
         "tools/validate_operational_readiness.py",
         "tools/validate_snapshot.py",
-        "tools/validate_body_constants.py"
+        "tools/validate_body_constants.py",
+        "tests/web/solarTruth.test.mjs",
+        "tests/web/solarRegistration.test.mjs",
+        "tests/python/test_ephemeris_helper.py"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation",
@@ -69,12 +87,17 @@
       "implementation": [
         "tools/run_daily_ingest.py",
         "tools/snapshot_semantics.py",
-        "apps/web/js/data.js"
+        "apps/web/js/data.js",
+        "tools/data_bundles.py",
+        "apps/web/js/dataBundle.js"
       ],
       "verification": [
         "tools/validate_snapshot.py",
         "tools/validate_ephemeris_snapshot.py",
-        "tests/python/test_contract_validators.py"
+        "tests/python/test_contract_validators.py",
+        "tests/python/test_data_bundles.py",
+        "tests/python/test_bundle_build.py",
+        "tests/web/dataBundle.test.mjs"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation",
@@ -89,7 +112,10 @@
       "implementation": [
         "tools/generate_fixture_snapshot.py",
         "tools/generate_series.py",
-        ".github/workflows/ci.yml"
+        ".github/workflows/ci.yml",
+        "tools/ephemeris-data/generation-manifest.json",
+        "docs/CANONICAL_GENERATION.md",
+        "docs/COEFFICIENT_PROVENANCE.md"
       ],
       "verification": [
         "crates/solar-cli/tests/cli.rs",
@@ -107,7 +133,9 @@
       "implementation": [
         "apps/web/index.html",
         "apps/web/styles.css",
-        "apps/web/js/view.js"
+        "apps/web/js/view.js",
+        "apps/web/js/presentationState.js",
+        "apps/web/app.js"
       ],
       "verification": [
         "tools/validate_ux_contract.py",
@@ -128,12 +156,16 @@
         "apps/web/index.html",
         "apps/web/styles.css",
         "apps/web/js/tour.js",
-        "apps/web/js/orrery.js"
+        "apps/web/js/orrery.js",
+        "apps/web/js/objectBrowser.js",
+        "apps/web/js/sky.js"
       ],
       "verification": [
         "tools/validate_ux_contract.py",
         "tools/browser_smoke.py",
-        "tools/browser_validation.mjs"
+        "tools/browser_validation.mjs",
+        "tests/web/objectBrowser.test.mjs",
+        "tools/sky_validation.mjs"
       ],
       "ci_gates": [
         "CI / Governance and specification contracts",
@@ -149,11 +181,16 @@
         "apps/web/index.html",
         "apps/web/js/data.js",
         "apps/web/js/sky.js",
-        "apps/web/js/timeline.js"
+        "apps/web/js/timeline.js",
+        "apps/web/js/workerClient.js",
+        "apps/web/js/skyPrivacy.js"
       ],
       "verification": [
         "tools/validate_ux_contract.py",
-        "tools/browser_validation.mjs"
+        "tools/browser_validation.mjs",
+        "tests/web/workerClient.test.mjs",
+        "tests/web/skyWorker.test.mjs",
+        "tools/sky_validation.mjs"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation"
@@ -166,11 +203,16 @@
       "source": "docs/adr/0003-location-time-and-privacy.md#decision",
       "implementation": [
         "apps/web/js/sky.js",
-        "apps/web/js/config.js"
+        "apps/web/js/config.js",
+        "apps/web/js/skyPrivacy.js",
+        "apps/web/js/skyEngine.js"
       ],
       "verification": [
         "tools/browser_validation.mjs",
-        "tools/validate_web_static.py"
+        "tools/validate_web_static.py",
+        "tests/web/skyPrivacy.test.mjs",
+        "tests/web/ephemerisRequestBinding.test.mjs",
+        "tools/sky_validation.mjs"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation"
@@ -242,11 +284,15 @@
       "implementation": [
         ".github/workflows/ci.yml",
         ".github/workflows/deploy-pages.yml",
-        ".github/workflows/coverage.yml"
+        ".github/workflows/coverage.yml",
+        "tools/release_policy.py",
+        "tools/validate_release_manifest.py"
       ],
       "verification": [
         "tools/validate_sdlc.py",
-        "tests/python/test_sdlc_contract.py"
+        "tests/python/test_sdlc_contract.py",
+        "tests/python/test_release_policy.py",
+        "tests/python/test_release_workflows.py"
       ],
       "ci_gates": [
         "CI / Governance and specification contracts"
@@ -297,11 +343,16 @@
       "implementation": [
         ".github/workflows/ci.yml",
         ".github/workflows/coverage.yml",
-        ".github/workflows/deploy-pages.yml"
+        ".github/workflows/deploy-pages.yml",
+        "tools/release_evidence.py",
+        "tools/verify_served_release.py",
+        "docs/RELEASE_DELIVERY.md"
       ],
       "verification": [
         "tools/validate_sdlc.py",
-        "tests/python/test_sdlc_contract.py"
+        "tests/python/test_sdlc_contract.py",
+        "tests/python/test_release_evidence.py",
+        "tests/python/test_release_served.py"
       ],
       "ci_gates": [
         "CI / Governance and specification contracts",

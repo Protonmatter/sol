@@ -31,7 +31,11 @@ impl SolarGrid {
         assert!(coordinates.reference_epoch_jd_tt.is_finite());
         assert!(coordinates.central_meridian_longitude_deg.is_finite());
         assert!(coordinates.rotation_reference_deg_per_day.is_finite());
-        assert!(coordinates.rotation_reference_deg_per_day > 0.0);
+        assert_eq!(
+            coordinates.rotation_reference_deg_per_day,
+            crate::constants::CARRINGTON_SIDEREAL_DEG_PER_DAY,
+            "only the supported 14.1844 deg/day Carrington reference is implemented"
+        );
         Self {
             lon_count,
             lat_count,

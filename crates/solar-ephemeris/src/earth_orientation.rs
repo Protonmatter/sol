@@ -76,9 +76,12 @@ pub fn coverage_days_remaining(jd_utc: f64) -> f64 {
     PREDICTION_END_MJD - (jd_utc - 2_400_000.5)
 }
 
-/// First-order IERS polar-motion correction from terrestrial geodetic latitude
-/// and east longitude to the instantaneous rotation-axis frame. Inputs xp/yp
-/// are arcseconds. The approximation is sub-milliarcsecond for Bulletin A values.
+/// Rotate the observer's geodetic normal into the instantaneous rotation frame.
+/// R_x(-yp) R_y(-xp) preserves the existing first-order IERS sign convention,
+/// without the tan(latitude) singularity. Inputs xp/yp are arcseconds.
+/// At an exact terrestrial pole the normal is independent of input longitude;
+/// its rotated horizontal projection defines longitude. With zero motion at a
+/// pole the caller's longitude is retained as the local meridian convention.
 pub fn corrected_observer_geodetic(
     lat_deg: f64,
     lon_east_deg: f64,
@@ -86,15 +89,26 @@ pub fn corrected_observer_geodetic(
     yp_arcsec: f64,
 ) -> (f64, f64) {
     const ARCSEC_TO_RAD: f64 = PI / (180.0 * 3600.0);
-    let lat = lat_deg.clamp(-89.999_999, 89.999_999).to_radians();
+    if xp_arcsec == 0.0 && yp_arcsec == 0.0 {
+        return (lat_deg, lon_east_deg.rem_euclid(360.0));
+    }
+    let lat = lat_deg.to_radians();
     let lon = lon_east_deg.to_radians();
     let xp = xp_arcsec * ARCSEC_TO_RAD;
     let yp = yp_arcsec * ARCSEC_TO_RAD;
-    let delta_lat = xp * lon.cos() - yp * lon.sin();
-    let delta_lon = (xp * lon.sin() + yp * lon.cos()) * lat.tan();
+    let horizontal = if lat_deg.abs() == 90.0 {
+        0.0
+    } else {
+        lat.cos()
+    };
+    let (x, y, z) = (horizontal * lon.cos(), horizontal * lon.sin(), lat.sin());
+    let x1 = xp.cos() * x - xp.sin() * z;
+    let z1 = xp.sin() * x + xp.cos() * z;
+    let y2 = yp.cos() * y + yp.sin() * z1;
+    let z2 = -yp.sin() * y + yp.cos() * z1;
     (
-        (lat + delta_lat).to_degrees(),
-        (lon + delta_lon).to_degrees().rem_euclid(360.0),
+        z2.atan2(x1.hypot(y2)).to_degrees(),
+        y2.atan2(x1).to_degrees().rem_euclid(360.0),
     )
 }
 
@@ -145,6 +159,21 @@ fn bulletin_prediction(mjd: f64) -> EarthOrientation {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exact_poles_remain_valid_under_nonzero_polar_motion() {
+        for lat in [-90.0, 90.0] {
+            for lon in [0.0, 71.0, 180.0, -90.0] {
+                let (corrected, longitude) =
+                    corrected_observer_geodetic(lat, lon, 0.20547, 0.38864);
+                assert!((-90.0..=90.0).contains(&corrected), "{corrected}");
+                assert!((0.0..360.0).contains(&longitude));
+                let reference = corrected_observer_geodetic(lat, 0.0, 0.20547, 0.38864);
+                assert!((corrected - reference.0).abs() < 1e-10);
+                assert!((longitude - reference.1).abs() < 1e-8);
+            }
+        }
+    }
 
     #[test]
     fn exact_rapid_sample_is_preserved() {

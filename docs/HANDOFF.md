@@ -1,5 +1,11 @@
 # Handoff — Sol web redesign (v0.2)
 
+> Historical v0.2 handoff. For the September 11 correctness/experience implementation,
+> use [LOCAL_IMPLEMENTATION.md](LOCAL_IMPLEMENTATION.md), [STATUS.md](STATUS.md),
+> accepted RFC 0002 and ADRs 0006–0008. The remaining content records an earlier design;
+> its completion, daily-publication, deploy-rebuild and observed-image claims are not
+> current release evidence or operational instructions.
+
 For the next engineer or agent picking this up. Read
 [SDLC.md](SDLC.md), [REQUIREMENTS.md](REQUIREMENTS.md), and
 [STATUS.md](STATUS.md) first. [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) is the active

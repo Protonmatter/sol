@@ -193,11 +193,22 @@ fn parse_number(bytes: &[u8], pos: &mut usize) -> Result<JsonValue, JsonError> {
     if bytes.get(*pos) == Some(&b'-') {
         *pos += 1;
     }
-    while *pos < bytes.len() && bytes[*pos].is_ascii_digit() {
-        *pos += 1;
+    match bytes.get(*pos) {
+        Some(b'0') => {
+            *pos += 1;
+        }
+        Some(b'1'..=b'9') => {
+            while bytes.get(*pos).is_some_and(u8::is_ascii_digit) {
+                *pos += 1;
+            }
+        }
+        _ => return Err(err(*pos, "number requires an integer digit")),
     }
     if bytes.get(*pos) == Some(&b'.') {
         *pos += 1;
+        if !bytes.get(*pos).is_some_and(u8::is_ascii_digit) {
+            return Err(err(*pos, "fraction requires a digit after decimal point"));
+        }
         while *pos < bytes.len() && bytes[*pos].is_ascii_digit() {
             *pos += 1;
         }
@@ -206,6 +217,9 @@ fn parse_number(bytes: &[u8], pos: &mut usize) -> Result<JsonValue, JsonError> {
         *pos += 1;
         if matches!(bytes.get(*pos), Some(b'+') | Some(b'-')) {
             *pos += 1;
+        }
+        if !bytes.get(*pos).is_some_and(u8::is_ascii_digit) {
+            return Err(err(*pos, "exponent requires a digit"));
         }
         while *pos < bytes.len() && bytes[*pos].is_ascii_digit() {
             *pos += 1;
@@ -343,6 +357,9 @@ fn parse_object(bytes: &[u8], pos: &mut usize, depth: usize) -> Result<JsonValue
             return Err(err(*pos, "expected string key"));
         }
         let key = parse_string(bytes, pos)?;
+        if entries.iter().any(|(existing, _)| existing == &key) {
+            return Err(err(*pos, "duplicate object key"));
+        }
         skip_ws(bytes, pos);
         if bytes.get(*pos) != Some(&b':') {
             return Err(err(*pos, "expected ':' after key"));
@@ -367,6 +384,20 @@ fn parse_object(bytes: &[u8], pos: &mut usize, depth: usize) -> Result<JsonValue
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_strict_intake_corpus() {
+        let cases = parse(include_str!("../../../tests/fixtures/strict-intake.json")).unwrap();
+        for case in cases.as_array().unwrap() {
+            let result = parse(case.get("text").unwrap().as_str().unwrap());
+            assert_eq!(
+                result.is_ok(),
+                case.get("accepted").unwrap().as_bool().unwrap(),
+                "case {}: {result:?}",
+                case.get("id").unwrap().as_str().unwrap()
+            );
+        }
+    }
 
     #[test]
     fn parses_scalars_and_containers() {

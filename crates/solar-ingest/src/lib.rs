@@ -5,8 +5,10 @@
 //! old and new SWPC JSON shapes during migrations and tests must pin the
 //! canonical field mappings for RTSW replacement products.
 
+use solar_core::{parse_json, provenance::attributable_source, JsonValue};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Basic status metadata for the data sources used by the simulator.
 pub struct SourceStatus {
@@ -197,7 +199,7 @@ pub fn normalize_numeric(value: &str) -> Option<f64> {
     {
         return None;
     }
-    trimmed.parse::<f64>().ok()
+    trimmed.parse::<f64>().ok().filter(|v| v.is_finite())
 }
 
 /// Map old RTSW plasma field names to the replacement wind product names.
@@ -243,6 +245,19 @@ pub fn swpc_observation_report_json(
     cache_dir: Option<&Path>,
     fallback_dir: Option<&Path>,
 ) -> Result<String, String> {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|err| format!("freshness clock: {err}"))?
+        .as_secs();
+    swpc_observation_report_json_at(cache_dir, fallback_dir, now)
+}
+
+/// Reproducible ingestion with freshness evaluated at an explicit Unix UTC instant.
+pub fn swpc_observation_report_json_at(
+    cache_dir: Option<&Path>,
+    fallback_dir: Option<&Path>,
+    as_of_unix_seconds: u64,
+) -> Result<String, String> {
     let mag = read_candidate(
         cache_dir,
         fallback_dir,
@@ -257,8 +272,108 @@ pub fn swpc_observation_report_json(
         "rtsw_wind_1m_new.json",
         SwpcEndpoint::RtswWind1m,
     )?;
+    let f107 = cache_dir
+        .map(|dir| dir.join("f107_cm_flux.json"))
+        .filter(|path| path.is_file())
+        .map(|path| read_source(path, "cached", SwpcEndpoint::Flux10cm30Day))
+        .transpose()?;
+    report_from_candidates(mag, wind, f107, as_of_unix_seconds)
+}
 
-    let source_mode = if mag.mode == "cached" || wind.mode == "cached" {
+/// Consume already validated, captured bundle payloads without touching a cache or
+/// substituting fixtures. Tuple fields are product id, declared origin, raw JSON.
+pub fn swpc_observation_report_from_payloads(
+    bundle_id: &str,
+    payloads: &[(String, String, String)],
+    as_of_unix_seconds: u64,
+) -> Result<String, String> {
+    let captured: Vec<_> = payloads
+        .iter()
+        .map(|(id, origin, raw)| (id.as_str(), origin.as_str(), None, raw.as_str()))
+        .collect();
+    report_from_bundle_payloads(bundle_id, &captured, as_of_unix_seconds)
+}
+
+/// Consume hash-validated bundle products with their manifest attribution.
+/// Tuple fields are product id, declared origin, manifest source, original raw JSON.
+/// Manifest attribution fills an absent row source, never an explicitly invalid one.
+pub fn swpc_observation_report_from_attributed_payloads(
+    bundle_id: &str,
+    payloads: &[(String, String, String, String)],
+    as_of_unix_seconds: u64,
+) -> Result<String, String> {
+    if payloads
+        .iter()
+        .any(|(_, _, source, _)| !attributable_source(source))
+    {
+        return Err("bundle product source provenance unavailable".into());
+    }
+    let captured: Vec<_> = payloads
+        .iter()
+        .map(|(id, origin, source, raw)| {
+            (
+                id.as_str(),
+                origin.as_str(),
+                Some(source.as_str()),
+                raw.as_str(),
+            )
+        })
+        .collect();
+    report_from_bundle_payloads(bundle_id, &captured, as_of_unix_seconds)
+}
+
+fn report_from_bundle_payloads(
+    bundle_id: &str,
+    payloads: &[(&str, &str, Option<&str>, &str)],
+    as_of_unix_seconds: u64,
+) -> Result<String, String> {
+    let candidate =
+        |name: &str, endpoint: SwpcEndpoint| -> Result<Option<SourceCandidate>, String> {
+            let Some((_, origin, manifest_source, raw)) =
+                payloads.iter().find(|(id, _, _, _)| *id == name)
+            else {
+                return Ok(None);
+            };
+            let mode = match *origin {
+                "fixture" => "fixture",
+                "current-fetch" | "cached-fallback" => "cached",
+                _ => return Err("unknown bundle product origin".into()),
+            };
+            Ok(Some(SourceCandidate {
+                endpoint,
+                path: PathBuf::from(format!("bundle:{bundle_id}/{name}")),
+                mode,
+                raw: (*raw).to_owned(),
+                manifest_source: manifest_source.map(str::to_owned),
+                parsed: parse_json(raw).map_err(|e| e.to_string())?,
+            }))
+        };
+    let mag = candidate("rtsw_mag_1m.json", SwpcEndpoint::RtswMag1m)?
+        .ok_or("source bundle missing magnetometer")?;
+    let wind = candidate("rtsw_wind_1m.json", SwpcEndpoint::RtswWind1m)?
+        .ok_or("source bundle missing solar wind")?;
+    let f107 = candidate("f107_cm_flux.json", SwpcEndpoint::Flux10cm30Day)?;
+    report_from_candidates(mag, wind, f107, as_of_unix_seconds)
+}
+
+fn report_from_candidates(
+    mag: SourceCandidate,
+    wind: SourceCandidate,
+    f107: Option<SourceCandidate>,
+    as_of_unix_seconds: u64,
+) -> Result<String, String> {
+    let signal = f107.as_ref().and_then(|candidate| {
+        newest_record(
+            &candidate.parsed,
+            true,
+            candidate.manifest_source.as_deref(),
+        )
+    });
+
+    let source_mode = if mag.mode == "cached"
+        || wind.mode == "cached"
+        || f107.as_ref().is_some_and(|p| p.mode == "cached")
+    {
         "cached"
     } else {
         "fixture"
@@ -269,6 +384,21 @@ pub fn swpc_observation_report_json(
     json_string_field(&mut out, 1, "schema_version", "observation-frame.v1", true);
     json_string_field(&mut out, 1, "generated_by", "solar-ingest", true);
     json_string_field(&mut out, 1, "source_mode", source_mode, true);
+    if let Some(row) = signal {
+        let flux = numeric_field(row, "flux").ok_or("selected F10.7 signal has no finite flux")?;
+        let timestamp = row
+            .get("time_tag")
+            .and_then(JsonValue::as_str)
+            .ok_or("selected signal has no time_tag")?;
+        let observed =
+            timestamp_microseconds(timestamp).ok_or("selected signal time_tag is invalid")?;
+        let age_microseconds = i128::from(as_of_unix_seconds) * 1_000_000 - i128::from(observed);
+        let age_hours = age_microseconds as f64 / 3_600_000_000.0;
+        let stale = !(0..=48 * 3_600_000_000i128).contains(&age_microseconds);
+        // Same documented F10.7 normalization and 48 h policy as the Python producer.
+        let activity = ((flux - 65.0) / 170.0).clamp(0.25, 1.0);
+        out.push_str(&format!("  \"observed_context\": {{\"activity_index\": {activity:.6}, \"signal_freshness\": {{\"swpc-f107-cm-flux\": {{\"age_hours\": {age_hours:.6}, \"stale\": {stale}}}}}, \"evaluated_at_unix_seconds\": {as_of_unix_seconds}}},\n"));
+    }
     out.push_str("  \"adapters\": [\n");
     for (idx, adapter) in PUBLIC_ADAPTERS.iter().enumerate() {
         if idx > 0 {
@@ -279,7 +409,10 @@ pub fn swpc_observation_report_json(
     out.push_str("\n  ],\n");
     out.push_str("  \"frames\": [\n");
     candidate_json(&mut out, &mag, "swpc-rtsw-mag-1m", true);
-    candidate_json(&mut out, &wind, "swpc-rtsw-wind-1m", false);
+    candidate_json(&mut out, &wind, "swpc-rtsw-wind-1m", signal.is_some());
+    if let (Some(candidate), Some(row)) = (f107.as_ref(), signal) {
+        candidate_json_record(&mut out, candidate, "swpc-f107-cm-flux", Some(row), false);
+    }
     out.push_str("  ],\n");
     out.push_str("  \"warnings\": [");
     if source_mode == "fixture" {
@@ -290,6 +423,9 @@ pub fn swpc_observation_report_json(
         out.push_str(
             "\"Cached public data was used; freshness depends on the external fetch workflow.\"",
         );
+    }
+    if signal.is_none() {
+        out.push_str(",\"Metadata-only inputs contain no attributable finite F10.7 activity signal; simulations remain Synthetic.\"");
     }
     out.push_str("]\n");
     out.push_str("}\n");
@@ -302,6 +438,8 @@ struct SourceCandidate {
     path: PathBuf,
     mode: &'static str,
     raw: String,
+    manifest_source: Option<String>,
+    parsed: JsonValue,
 }
 
 fn read_candidate(
@@ -343,11 +481,14 @@ fn read_source(
     endpoint: SwpcEndpoint,
 ) -> Result<SourceCandidate, String> {
     let raw = fs::read_to_string(&path).map_err(|err| format!("{}: {err}", path.display()))?;
+    let parsed = parse_json(&raw).map_err(|err| format!("{}: {err}", path.display()))?;
     Ok(SourceCandidate {
         endpoint,
         path,
         mode,
         raw,
+        manifest_source: None,
+        parsed,
     })
 }
 
@@ -362,12 +503,42 @@ fn adapter_json(out: &mut String, adapter: &PublicDataAdapter) {
 }
 
 fn candidate_json(out: &mut String, candidate: &SourceCandidate, id: &str, trailing: bool) {
+    candidate_json_record(
+        out,
+        candidate,
+        id,
+        newest_record(
+            &candidate.parsed,
+            false,
+            candidate.manifest_source.as_deref(),
+        ),
+        trailing,
+    );
+}
+
+fn candidate_json_record(
+    out: &mut String,
+    candidate: &SourceCandidate,
+    id: &str,
+    row: Option<&JsonValue>,
+    trailing: bool,
+) {
     out.push_str("    {\n");
     json_string_field(out, 3, "id", id, true);
     json_string_field(out, 3, "schema_version", "observation-frame.v1", true);
     json_string_field(out, 3, "layer_kind", "observed", true);
     json_string_field(out, 3, "source_mode", candidate.mode, true);
-    json_string_field(out, 3, "endpoint", candidate.endpoint.url(), true);
+    json_string_field(
+        out,
+        3,
+        "endpoint",
+        if id == "swpc-f107-cm-flux" {
+            "https://services.swpc.noaa.gov/json/f107_cm_flux.json"
+        } else {
+            candidate.endpoint.url()
+        },
+        true,
+    );
     json_string_field(
         out,
         3,
@@ -380,7 +551,7 @@ fn candidate_json(out: &mut String, candidate: &SourceCandidate, id: &str, trail
     string_pair(
         out,
         "time_tag",
-        extract_json_scalar(&candidate.raw, "time_tag")
+        row.and_then(|r| scalar(r, "time_tag"))
             .as_deref()
             .unwrap_or("unknown"),
         true,
@@ -388,18 +559,20 @@ fn candidate_json(out: &mut String, candidate: &SourceCandidate, id: &str, trail
     string_pair(
         out,
         "source",
-        extract_json_scalar(&candidate.raw, "source")
-            .as_deref()
+        row.and_then(|r| record_source(r, candidate.manifest_source.as_deref()))
             .unwrap_or("unknown"),
         true,
     );
     out.push_str("\"active\": ");
+    out.push_str(match row.and_then(|r| scalar(r, "active")).as_deref() {
+        Some("true") => "true",
+        Some("false") => "false",
+        _ => "null",
+    });
+    out.push_str(", \"raw_source_metadata\": ");
     out.push_str(
-        match extract_json_scalar(&candidate.raw, "active").as_deref() {
-            Some("true") => "true",
-            Some("false") => "false",
-            _ => "null",
-        },
+        &row.map(JsonValue::to_compact_string)
+            .unwrap_or_else(|| "{}".into()),
     );
     out.push_str(", ");
     string_pair(
@@ -417,19 +590,140 @@ fn candidate_json(out: &mut String, candidate: &SourceCandidate, id: &str, trail
     out.push('\n');
 }
 
-fn extract_json_scalar(raw: &str, key: &str) -> Option<String> {
-    let needle = format!("\"{key}\"");
-    let start = raw.find(&needle)?;
-    let after_key = &raw[start + needle.len()..];
-    let colon = after_key.find(':')?;
-    let mut value = after_key[colon + 1..].trim_start();
-    if value.starts_with('"') {
-        value = &value[1..];
-        let end = value.find('"')?;
-        return Some(value[..end].to_string());
+fn scalar(row: &JsonValue, key: &str) -> Option<String> {
+    match row.get(key)? {
+        JsonValue::String(s) => Some(s.clone()),
+        JsonValue::Bool(b) => Some(b.to_string()),
+        JsonValue::Number(n) => Some(n.to_string()),
+        _ => None,
     }
-    let end = value.find([',', '}', ']']).unwrap_or(value.len());
-    Some(value[..end].trim().trim_matches('"').to_string())
+}
+
+fn numeric_field(row: &JsonValue, key: &str) -> Option<f64> {
+    let value = row.get(key)?;
+    value
+        .as_f64()
+        .or_else(|| value.as_str().and_then(normalize_numeric))
+        .filter(|v| v.is_finite())
+}
+
+fn record_source<'a>(row: &'a JsonValue, manifest_source: Option<&'a str>) -> Option<&'a str> {
+    match row.get("source") {
+        None => manifest_source,
+        Some(value) => value.as_str(),
+    }
+    .filter(|source| attributable_source(source))
+}
+
+fn newest_record<'a>(
+    value: &'a JsonValue,
+    require_flux: bool,
+    manifest_source: Option<&str>,
+) -> Option<&'a JsonValue> {
+    let records = match value {
+        JsonValue::Array(items) => items.as_slice(),
+        _ => std::slice::from_ref(value),
+    };
+    records
+        .iter()
+        .filter(|row| {
+            record_source(row, manifest_source).is_some()
+                && (!require_flux
+                    || (numeric_field(row, "flux").is_some()
+                        && row.get("active").and_then(JsonValue::as_bool) != Some(false)))
+        })
+        .filter_map(|row| {
+            let time = timestamp_microseconds(row.get("time_tag")?.as_str()?)?;
+            Some((time, row))
+        })
+        .max_by_key(|(time, _)| *time)
+        .map(|(_, row)| row)
+}
+
+/// SWPC legacy dates / whole seconds plus source-contract explicit UTC timestamps.
+/// Fractional precision follows Python `datetime`: pad to, or truncate at, microseconds.
+fn timestamp_microseconds(text: &str) -> Option<i64> {
+    if !text.is_ascii() {
+        return None;
+    }
+    let (text, suffix) = if let Some(value) = text.strip_suffix("+00:00") {
+        (value, 2u8)
+    } else if let Some(value) = text.strip_suffix('Z') {
+        (value, 1u8)
+    } else {
+        (text, 0u8)
+    };
+    let (base, fraction) = match text.split_once('.') {
+        Some((base, fraction))
+            if !fraction.is_empty() && fraction.bytes().all(|byte| byte.is_ascii_digit()) =>
+        {
+            (base, Some(fraction))
+        }
+        Some(_) => return None,
+        None => (text, None),
+    };
+    if base.len() != 10 && base.len() != 19 {
+        return None;
+    }
+    if suffix == 2 && base.len() != 19 {
+        return None;
+    }
+    if fraction.is_some() && (suffix == 0 || base.get(10..11) != Some("T")) {
+        return None;
+    }
+    if suffix == 2 && base.get(10..11) != Some("T") {
+        return None;
+    }
+    if &base[4..5] != "-" || &base[7..8] != "-" {
+        return None;
+    }
+    let number = |start: usize, end: usize| {
+        let value = base.get(start..end)?;
+        value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit())
+            .then(|| value.parse::<i64>().ok())?
+    };
+    let year = number(0, 4)?;
+    let month = number(5, 7)?;
+    let day = number(8, 10)?;
+    if year == 0 {
+        return None;
+    }
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return None,
+    };
+    if day < 1 || day > days_in_month {
+        return None;
+    }
+    let (hour, minute, second): (i64, i64, i64) = if base.len() == 19 {
+        if !["T", " "].contains(&&base[10..11]) || &base[13..14] != ":" || &base[16..17] != ":" {
+            return None;
+        }
+        (number(11, 13)?, number(14, 16)?, number(17, 19)?)
+    } else {
+        (0, 0, 0)
+    };
+    if !(0..24).contains(&hour) || !(0..60).contains(&minute) || !(0..60).contains(&second) {
+        return None;
+    }
+    // Gregorian civil date to days from Unix epoch (400-year era decomposition).
+    let y = year - i64::from(month <= 2);
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = month + if month > 2 { -3 } else { 9 };
+    let doy = (153 * mp + 2) / 5 + day - 1;
+    let days = era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+    let fraction_microseconds = fraction.map_or(0, |digits| {
+        let width = digits.len().min(6);
+        digits[..width].parse::<i64>().unwrap() * 10i64.pow((6 - width) as u32)
+    });
+    Some((days * 86400 + hour * 3600 + minute * 60 + second) * 1_000_000 + fraction_microseconds)
 }
 
 fn raw_excerpt(raw: &str) -> String {
@@ -480,7 +774,185 @@ fn push_escaped(out: &mut String, value: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn attributed_f107_payloads(raw: &str) -> Vec<(String, String, String, String)> {
+        vec![
+            (
+                "rtsw_mag_1m.json".into(),
+                "fixture".into(),
+                "NOAA/SWPC RTSW".into(),
+                include_str!("../../../tests/swpc_scn26_21/rtsw_mag_1m_new.json").into(),
+            ),
+            (
+                "rtsw_wind_1m.json".into(),
+                "fixture".into(),
+                "NOAA/SWPC RTSW".into(),
+                include_str!("../../../tests/swpc_scn26_21/rtsw_wind_1m_new.json").into(),
+            ),
+            (
+                "f107_cm_flux.json".into(),
+                "fixture".into(),
+                "NOAA/SWPC F10.7".into(),
+                raw.into(),
+            ),
+        ]
+    }
+
+    #[test]
+    fn manifest_attribution_fills_only_an_absent_row_source() {
+        for (field, expected) in [
+            ("", Some("NOAA/SWPC F10.7")),
+            (r#", "source":"row instrument""#, Some("row instrument")),
+            (r#", "source":"""#, None),
+            (r#", "source":"  ""#, None),
+            (r#", "source":" UNKNOWN ""#, None),
+            (r#", "source":null"#, None),
+            (r#", "source":42"#, None),
+        ] {
+            let raw = format!(r#"[{{"time_tag":"2026-09-11T00:00:00Z","flux":150{field}}}]"#);
+            let payloads = attributed_f107_payloads(&raw);
+            let report =
+                swpc_observation_report_from_attributed_payloads("source", &payloads, 1789084800)
+                    .unwrap();
+            let parsed = parse_json(&report).unwrap();
+            assert_eq!(
+                parsed.get("observed_context").is_some(),
+                expected.is_some(),
+                "{field}"
+            );
+            let signal = parsed
+                .get("frames")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f.get("id").and_then(JsonValue::as_str) == Some("swpc-f107-cm-flux"));
+            assert_eq!(
+                signal
+                    .and_then(|f| f.get("provenance"))
+                    .and_then(|p| p.get("source"))
+                    .and_then(JsonValue::as_str),
+                expected,
+                "{field}"
+            );
+            if let Some(signal) = signal {
+                assert_eq!(
+                    signal
+                        .get("provenance")
+                        .unwrap()
+                        .get("raw_source_metadata")
+                        .unwrap(),
+                    &parse_json(&raw).unwrap().as_array().unwrap()[0]
+                );
+            }
+            assert_eq!(payloads[2].3, raw);
+        }
+    }
+
+    #[test]
+    fn missing_or_invalid_manifest_attribution_cannot_invent_a_signal() {
+        let mut payloads =
+            attributed_f107_payloads(r#"[{"time_tag":"2026-09-11T00:00:00Z","flux":150}]"#);
+        let legacy: Vec<_> = payloads
+            .iter()
+            .map(|(id, origin, _, raw)| (id.clone(), origin.clone(), raw.clone()))
+            .collect();
+        let report = swpc_observation_report_from_payloads("source", &legacy, 1789084800).unwrap();
+        assert!(parse_json(&report)
+            .unwrap()
+            .get("observed_context")
+            .is_none());
+        for source in ["", " ", "unknown", " UNKNOWN "] {
+            payloads[2].2 = source.into();
+            assert!(
+                swpc_observation_report_from_attributed_payloads("source", &payloads, 1789084800)
+                    .is_err(),
+                "{source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn manifest_attribution_does_not_rescue_newer_explicit_unknown_signal() {
+        let payloads = attributed_f107_payloads(
+            r#"[
+            {"time_tag":"2026-09-10T00:00:00Z","flux":150},
+            {"time_tag":"2026-09-11T00:00:00Z","flux":235,"source":" UNKNOWN "}
+        ]"#,
+        );
+        let report =
+            swpc_observation_report_from_attributed_payloads("source", &payloads, 1789084800)
+                .unwrap();
+        let parsed = parse_json(&report).unwrap();
+        assert_eq!(
+            parsed
+                .get("observed_context")
+                .unwrap()
+                .get("activity_index")
+                .and_then(JsonValue::as_f64),
+            Some(0.5)
+        );
+        let signal = parsed
+            .get("frames")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .last()
+            .unwrap();
+        assert_eq!(
+            signal
+                .get("provenance")
+                .unwrap()
+                .get("time_tag")
+                .and_then(JsonValue::as_str),
+            Some("2026-09-10T00:00:00Z")
+        );
+    }
+
+    #[test]
+    fn captured_bundle_payloads_preserve_fixture_mode_and_never_fallback() {
+        let mut payloads = vec![
+            (
+                "rtsw_mag_1m.json".into(),
+                "fixture".into(),
+                include_str!("../../../tests/swpc_scn26_21/rtsw_mag_1m_new.json").into(),
+            ),
+            (
+                "rtsw_wind_1m.json".into(),
+                "fixture".into(),
+                include_str!("../../../tests/swpc_scn26_21/rtsw_wind_1m_new.json").into(),
+            ),
+        ];
+        let report =
+            swpc_observation_report_from_payloads("fixture-source", &payloads, 1789128000).unwrap();
+        let parsed = parse_json(&report).unwrap();
+        assert_eq!(
+            parsed.get("source_mode").and_then(JsonValue::as_str),
+            Some("fixture")
+        );
+        assert!(report.contains("bundle:fixture-source"));
+        payloads[0].1 = "invalid".into();
+        assert!(
+            swpc_observation_report_from_payloads("fixture-source", &payloads, 1789128000).is_err()
+        );
+        payloads[0].1 = "cached-fallback".into();
+        assert!(
+            swpc_observation_report_from_payloads("fixture-source", &payloads, 1789128000)
+                .unwrap()
+                .contains("\"cached\"")
+        );
+        payloads.pop();
+        assert!(
+            swpc_observation_report_from_payloads("fixture-source", &payloads, 1789128000).is_err()
+        );
+        assert!(swpc_observation_report_from_payloads("fixture-source", &[], 1789128000).is_err());
+    }
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn extract_json_scalar(raw: &str, key: &str) -> Option<String> {
+        let parsed = parse_json(raw).ok()?;
+        scalar(newest_record(&parsed, false, None)?, key)
+    }
 
     fn temp_dir(label: &str) -> PathBuf {
         let nonce = SystemTime::now()
@@ -680,5 +1152,170 @@ mod tests {
         let excerpt = raw_excerpt(&long);
         assert_eq!(excerpt.chars().count(), 240);
         assert!(!excerpt.contains('\u{0000}'));
+    }
+
+    #[test]
+    fn structural_selection_uses_newest_attributable_record_not_embedded_text() {
+        let raw = r#"[{"time_tag":"2026-09-10T01:00:00Z","source":"OLD","active":true},
+          {"note":"source: misleading","time_tag":"2026-09-11T01:00:00Z","source":"NEW","active":false},
+          {"time_tag":"2026-09-12T01:00:00Z","source":"","active":true}]"#;
+        assert_eq!(extract_json_scalar(raw, "source"), Some("NEW".into()));
+        assert_eq!(extract_json_scalar(raw, "active"), Some("false".into()));
+    }
+
+    #[test]
+    fn numeric_normalization_rejects_nonfinite() {
+        for value in ["inf", "Infinity", "1e999", "\"NaN\""] {
+            assert_eq!(normalize_numeric(value), None);
+        }
+    }
+
+    #[test]
+    fn newest_signal_ignores_metadata_only_and_inactive_records() {
+        let parsed = parse_json(
+            r#"[
+          {"time_tag":"2026-09-12T00:00:00Z","source":"NEW-METADATA"},
+          {"time_tag":"2026-09-11T00:00:00Z","source":"F107","flux":"150","active":true},
+          {"time_tag":"2026-09-13T00:00:00Z","source":"INACTIVE","flux":235,"active":false},
+          {"time_tag":"2026-09-10T00:00:00Z","source":"OLDER","flux":235}
+        ]"#,
+        )
+        .unwrap();
+        let selected = newest_record(&parsed, true, None).unwrap();
+        assert_eq!(scalar(selected, "source"), Some("F107".into()));
+        assert_eq!(numeric_field(selected, "flux"), Some(150.0));
+        assert_eq!(timestamp_microseconds("1970-01-01T00:00:00Z"), Some(0));
+        assert_eq!(
+            timestamp_microseconds("2026-09-11T00:00:00Z"),
+            Some(1_789_084_800_000_000)
+        );
+        for invalid in [
+            "2026-02-29",
+            "2026-09-31",
+            "2026-13-01",
+            "2026-09-11T24:00:00Z",
+            "2026-09-11T12:00:00+02:00",
+        ] {
+            assert!(timestamp_microseconds(invalid).is_none(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn explicit_utc_timestamps_preserve_microseconds_for_ordering() {
+        for value in ["2026-09-11T00:00:00.500Z", "2026-09-11T00:00:00.500+00:00"] {
+            assert_eq!(timestamp_microseconds(value), Some(1_789_084_800_500_000));
+        }
+        for value in ["2026-09-11T00:00:00Z", "2026-09-11T00:00:00+00:00"] {
+            assert_eq!(timestamp_microseconds(value), Some(1_789_084_800_000_000));
+        }
+        assert_eq!(
+            timestamp_microseconds("2026-09-11T00:00:00.123456789Z"),
+            Some(1_789_084_800_123_456),
+            "fractional precision follows Python datetime microseconds"
+        );
+        for legacy in [
+            "2026-09-11",
+            "2026-09-11Z",
+            "2026-09-11T00:00:00",
+            "2026-09-11 00:00:00",
+            "2026-09-11 00:00:00Z",
+        ] {
+            assert_eq!(
+                timestamp_microseconds(legacy),
+                Some(1_789_084_800_000_000),
+                "legacy timestamp {legacy:?}"
+            );
+        }
+
+        let parsed = parse_json(
+            r#"[
+              {"time_tag":"2026-09-11T00:00:00.900Z","source":"NEWER","flux":150},
+              {"time_tag":"2026-09-11T00:00:00.100+00:00","source":"OLDER","flux":235}
+            ]"#,
+        )
+        .unwrap();
+        assert_eq!(
+            scalar(newest_record(&parsed, true, None).unwrap(), "source"),
+            Some("NEWER".into())
+        );
+
+        for invalid in [
+            "0000-01-01T00:00:00Z",
+            "2026-09-11T00:00:00.Z",
+            "2026-09-11T00:00:00.1.2Z",
+            "2026-09-11T00:00:00-00:00",
+            "2026-09-11T00:00:00.1-00:00",
+            "2026-09-11T00:00:00+02:00",
+            "2026-09-11T00:00:60Z",
+            "2026-09-11T00:00:00.1µZ",
+        ] {
+            assert!(timestamp_microseconds(invalid).is_none(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn fractional_freshness_uses_the_unrounded_boundary_age() {
+        let root = temp_dir("fractional-freshness");
+        fs::write(root.join("rtsw_mag_1m.json"), "[]").unwrap();
+        fs::write(root.join("rtsw_wind_1m.json"), "[]").unwrap();
+        for (time_tag, stale) in [
+            ("2026-09-11T00:00:00.000001Z", false),
+            ("2026-09-10T23:59:59.999999+00:00", true),
+        ] {
+            fs::write(
+                root.join("f107_cm_flux.json"),
+                format!(r#"[{{"time_tag":"{time_tag}","source":"F107","flux":150}}]"#),
+            )
+            .unwrap();
+            let report = swpc_observation_report_json_at(Some(&root), None, 1_789_257_600)
+                .expect("fractional UTC F10.7 record remains usable");
+            let parsed = parse_json(&report).unwrap();
+            let freshness = parsed
+                .get("observed_context")
+                .unwrap()
+                .get("signal_freshness")
+                .unwrap()
+                .get("swpc-f107-cm-flux")
+                .unwrap();
+            assert_eq!(freshness.get("age_hours").unwrap().as_f64(), Some(48.0));
+            assert_eq!(freshness.get("stale").unwrap().as_bool(), Some(stale));
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cached_f107_freshness_is_saved_at_the_requested_evaluation_time() {
+        let root = temp_dir("freshness");
+        fs::write(root.join("rtsw_mag_1m.json"), "[]").unwrap();
+        fs::write(root.join("rtsw_wind_1m.json"), "[]").unwrap();
+        fs::write(
+            root.join("f107_cm_flux.json"),
+            r#"[{"time_tag":"2026-09-11T00:00:00Z","source":"F107","flux":150}]"#,
+        )
+        .unwrap();
+        for (at, stale) in [
+            (1789084800, false),
+            (1789257600, false),
+            (1789257601, true),
+            (1789084799, true),
+        ] {
+            let report = swpc_observation_report_json_at(Some(&root), None, at).unwrap();
+            let parsed = parse_json(&report).unwrap();
+            let context = parsed.get("observed_context").unwrap();
+            assert_eq!(context.get("activity_index").unwrap().as_f64(), Some(0.5));
+            let freshness = context
+                .get("signal_freshness")
+                .unwrap()
+                .get("swpc-f107-cm-flux")
+                .unwrap();
+            assert_eq!(freshness.get("stale").unwrap().as_bool(), Some(stale));
+        }
+        fs::write(root.join("f107_cm_flux.json"), r#"[{"flux":1,"flux":2}]"#).unwrap();
+        assert!(
+            swpc_observation_report_json_at(Some(&root), None, 1789084800)
+                .unwrap_err()
+                .contains("duplicate")
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 }
