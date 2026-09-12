@@ -193,7 +193,7 @@ remains unavailable; scalar assimilation must not invent a magnetic variance fie
 
 ## Admission consistency
 
-Standalone v3 snapshots, native simulation and bundle intake MUST apply the same
+Standalone v3 snapshots, native ingestion and simulation, image registration and bundle intake MUST apply the same
 source-attribution predicate without rewriting retained source evidence. It requires
 a string that is nonempty after removing the shared boundary-whitespace set and whose
 Unicode lowercase form is not `unknown`. The set is U+0009–U+000D, U+001C–U+0020,
@@ -207,6 +207,9 @@ clock. Negative ages and ages above the existing per-feed limit are stale; zero 
 the exact upper limit remain admissible. The rounded display age does not determine
 classification. Future-dated rows remain retained and explicitly warned, including
 in illustrative fixture context; all-stale reports do not create a scalar analysis.
+Ingestion MUST reject unattributable records before selecting the newest usable row
+or deriving observed activity. Valid magnetic or wind evidence cannot authorize an
+activity value derived from an unattributable F10.7 row.
 
 Derived bundle `feed_status.sources` MUST equal the ordered projection of retained
 `source.products`: `file` is `product_id`, `ok` is whether `failure` is null, and source,
@@ -250,6 +253,9 @@ System animation validates each proposed epoch before changing displayed time or
 the raw position path. An unsupported step pauses at the last valid epoch with an
 actionable status. Returning to a visible System view supersedes an entry cancelled
 while hidden; an obsolete completion cannot publish or clear the replacement entry.
+An accepted asynchronous System metadata refresh MUST update its visible metadata
+epoch and selected-body facts together. Delayed metadata cannot rewind positions
+already rendered for a newer valid epoch.
 Sky groups use geometric altitude strictly greater than zero, not refraction. Invalid
 observer/time input is rejected rather than clamped; device civil timezone or UTC is
 explicit and observer timezone is not inferred.
@@ -267,11 +273,23 @@ The current registration assessor always returns `compositing_permitted: false`,
 when synthetic structure/epoch metadata agrees. The cycle is idealized and missing frames
 remain gaps, not silently connected observed history. These implemented structures are
 not a complete manual accessibility or scientific registration qualification.
+From the separate Latest state, Previous MUST select the last available cycle frame
+and Next MUST select the first; unavailable slots count as skipped, and wraparound
+within the cycle retains its existing order.
 
 The initial view exposes the primary task and current source/feed/readiness state. Advanced,
 rare, and research controls use clearly labelled disclosure controls and do not normally
 exceed two disclosure levels. Accuracy, privacy, degraded-state, and consent information
 must remain visible at the point a user needs it.
+The feed pill, detailed feed summary, retained-Kp aurora caveat and explanatory
+presentation MUST share one refresh-clock assessment. Unknown current freshness must
+qualify previously reported health/source availability and retained Kp; invalid refresh
+dates must not be normalized into seemingly valid next-run dates.
+A missing, empty, malformed, non-UTC or invalid-calendar `next_recommended_run_utc` is unknown
+and MUST NOT present as daily ok/live. Existing optional-field bundle admission is
+unchanged. Valid explicit UTC timestamps support fractional seconds, and the existing
+six-hour overdue grace is inclusive at its exact endpoint. Explicit failed/degraded
+feed states and the last valid publication remain distinct from clock uncertainty.
 
 ## Validation and release gates
 

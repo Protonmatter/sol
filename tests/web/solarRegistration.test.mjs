@@ -9,6 +9,37 @@ test("registration evidence cannot be usable without a bounded structure/epoch g
   assert.equal(guard.assessSolarImageRegistration(null, null, null).status, "unavailable");
 });
 
+test("registration applies the literal shared source-attribution corpus without rewriting evidence", () => {
+  const sources = JSON.parse(fs.readFileSync(new URL("../fixtures/standalone-provenance.json", import.meta.url)));
+  const corpus = JSON.parse(fs.readFileSync(new URL("../fixtures/solar-registration.json", import.meta.url)));
+  const snapshot = JSON.parse(fs.readFileSync(new URL("../../apps/web/data/latest-state.json", import.meta.url)));
+  snapshot.coordinates.reference_epoch_jd_tt = corpus.reference_epoch_jd_tt;
+
+  for (const sourceCase of sources) {
+    const registration = structuredClone(corpus.registration);
+    registration.source = structuredClone(sourceCase.source);
+    const originalSource = structuredClone(sourceCase.source);
+    const asset = {
+      image_id: registration.image_id,
+      sha256: registration.image_sha256,
+      capture_timestamp: registration.capture_timestamp,
+    };
+
+    const result = guard.assessSolarImageRegistration(registration, structuredClone(snapshot), asset);
+
+    assert.equal(
+      result.status === "structure_epoch_compatible",
+      sourceCase.attributable,
+      `${sourceCase.id}: ${result.reason}`,
+    );
+    assert.equal(result.compositing_permitted, false, sourceCase.id);
+    assert.deepEqual(registration.source, originalSource, `${sourceCase.id}: input source changed`);
+    if (sourceCase.attributable) {
+      assert.deepEqual(result.evidence.source, originalSource, `${sourceCase.id}: retained evidence changed`);
+    }
+  }
+});
+
 test("registration shared corpus bounds identity, UTC/TT, epoch and image geometry without enabling compositing", () => {
   const corpus = JSON.parse(fs.readFileSync(new URL("../fixtures/solar-registration.json", import.meta.url)));
   const base = JSON.parse(fs.readFileSync(new URL("../../apps/web/data/latest-state.json", import.meta.url)));

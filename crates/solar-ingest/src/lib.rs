@@ -5,7 +5,7 @@
 //! old and new SWPC JSON shapes during migrations and tests must pin the
 //! canonical field mappings for RTSW replacement products.
 
-use solar_core::{parse_json, JsonValue};
+use solar_core::{parse_json, provenance::attributable_source, JsonValue};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -603,10 +603,6 @@ fn numeric_field(row: &JsonValue, key: &str) -> Option<f64> {
         .as_f64()
         .or_else(|| value.as_str().and_then(normalize_numeric))
         .filter(|v| v.is_finite())
-}
-
-fn attributable_source(source: &str) -> bool {
-    !source.trim().is_empty() && !source.trim().eq_ignore_ascii_case("unknown")
 }
 
 fn record_source<'a>(row: &'a JsonValue, manifest_source: Option<&'a str>) -> Option<&'a str> {

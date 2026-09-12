@@ -82,6 +82,9 @@ test("panels present current numeric facts, source limitations and keyboard glos
   assert.equal(h.nodes.get("dataState").className, "state-pill fixture");
   assert.equal(h.nodes.get("readinessState").textContent, "readiness: research ready");
   assert.equal(h.nodes.get("ingestState").textContent, "feed: not run");
+  assert.equal(h.nodes.get("feedHealth").textContent, "Daily ingest has not run in this web data directory.");
+  assert.match(h.nodes.get("auroraOutlook").textContent, /Kp is retained from the displayed snapshot; current feed freshness is unknown/);
+  assert.doesNotMatch(h.nodes.get("auroraOutlook").textContent, /last feed report/);
   assert.equal(h.nodes.get("warningList").textContent, "Research only; No warning authority");
   assert.equal(h.nodes.get("selectionTitle").textContent, "Click an active region");
   const legend = h.nodes.get("layerLegend");
@@ -154,7 +157,8 @@ test("feed panels disclose failed sources, overdue age and stale Kp without rela
     sources: [{ ok: true, file: "kp.json" }, { ok: false, source: "wind" }, { ok: false }] };
   h.store.sky = { observer: { lat: 65, lon: -20, label: "Test observer" } };
   h.panels.updateText();
-  assert.match(h.nodes.get("feedHealth").textContent, /ok \(at last run\).*1 of 3 public sources.*3 days overdue/);
+  assert.match(h.nodes.get("feedHealth").textContent, /Last feed report: status ok; 1 of 3 public sources succeeded/);
+  assert.match(h.nodes.get("feedHealth").textContent, /Current feed freshness is overdue by 3 days/);
   assert.match(h.nodes.get("feedHealth").textContent, /Failed sources: wind, unknown/);
   assert.equal(h.nodes.get("ingestState").className, "state-pill degraded");
   assert.match(h.nodes.get("auroraOutlook").textContent, /Test observer/);
@@ -162,7 +166,7 @@ test("feed panels disclose failed sources, overdue age and stale Kp without rela
   h.store.feedStatus.next_recommended_run_utc = "2026-09-12T00:00:00Z";
   h.store.feedStatus.sources = null;
   h.panels.updateText();
-  assert.match(h.nodes.get("feedHealth").textContent, /daily feed is overdue;/);
+  assert.match(h.nodes.get("feedHealth").textContent, /Current feed freshness is overdue;/);
   assert.match(h.nodes.get("feedHealth").textContent, /No source failures are reported/);
   assert.equal(h.nodes.get("ingestState").textContent, "feed: overdue");
   h.store.state.observed_context.space_weather_signals.latest_kp = null;
@@ -230,16 +234,54 @@ test("fresh and unknown feed records distinguish source failure from overdue dat
   h.panels.updateText();
   assert.equal(h.nodes.get("ingestState").textContent, "feed: daily ok");
   assert.equal(h.nodes.get("ingestState").className, "state-pill live");
-  assert.match(h.nodes.get("feedHealth").textContent, /Daily feed status is ok\. 1 of 2 public sources/);
+  assert.match(h.nodes.get("feedHealth").textContent, /Last feed report: status ok; 1 of 2 public sources succeeded/);
+  assert.match(h.nodes.get("feedHealth").textContent, /Current feed freshness is within the recommended refresh window/);
   assert.match(h.nodes.get("feedHealth").textContent, /Failed sources: missing-wind.json/);
-  assert.doesNotMatch(h.nodes.get("feedHealth").textContent, /overdue|at last run/);
-  assert.doesNotMatch(h.nodes.get("auroraOutlook").textContent, /Kp is from the last completed/);
+  assert.doesNotMatch(h.nodes.get("feedHealth").textContent, /overdue|freshness is unknown/);
+  assert.doesNotMatch(h.nodes.get("auroraOutlook").textContent, /last completed|freshness is unknown/);
   h.store.feedStatus = {};
   h.panels.updateText();
   assert.equal(h.nodes.get("ingestState").textContent, "feed: unknown");
   assert.equal(h.nodes.get("ingestState").className, "state-pill blocked");
-  assert.match(h.nodes.get("feedHealth").textContent, /Daily feed status is unknown\. 0 of 0 public sources/);
-  assert.doesNotMatch(h.nodes.get("feedHealth").textContent, /overdue|at last run/);
+  assert.match(h.nodes.get("feedHealth").textContent, /Last feed report: status unknown; 0 of 0 public sources succeeded/);
+  assert.match(h.nodes.get("feedHealth").textContent, /Current feed freshness is unknown/);
+  assert.match(h.nodes.get("feedHealth").textContent, /Next suggested run: unknown/);
+  assert.doesNotMatch(h.nodes.get("feedHealth").textContent, /overdue/);
+  assert.match(h.nodes.get("auroraOutlook").textContent, /Kp is retained from the displayed snapshot; current feed freshness is unknown/);
+});
+
+test("unknown refresh clocks retain report evidence without inventing current feed or Kp health", async () => {
+  const h = await panelHarness();
+  const cases = [
+    ["omitted", undefined],
+    ["impossible calendar", "2026-02-30T00:00:00Z"],
+    ["non-UTC", "2026-09-12T08:00:00-04:00"],
+  ];
+  for (const [name, next_recommended_run_utc] of cases) {
+    h.store.feedStatus = {
+      status: "ok", last_run_utc: "2026-09-12T00:00:00Z",
+      ...(next_recommended_run_utc === undefined ? {} : { next_recommended_run_utc }),
+      sources: [{ ok: true, file: "kp.json" }, { ok: false, file: "wind.json" }],
+    };
+    h.panels.updateText();
+    assert.equal(h.nodes.get("ingestState").textContent, "feed: unknown", name);
+    assert.equal(h.nodes.get("ingestState").className, "state-pill blocked", name);
+    assert.match(h.nodes.get("feedHealth").textContent, /Last feed report: status ok; 1 of 2 public sources succeeded/, name);
+    assert.match(h.nodes.get("feedHealth").textContent, /Current feed freshness is unknown/, name);
+    assert.match(h.nodes.get("feedHealth").textContent, /Next suggested run: unknown/, name);
+    assert.doesNotMatch(h.nodes.get("feedHealth").textContent, /Mar 2|Sep 12, 2026, 12:00 PM/, name);
+    assert.match(h.nodes.get("auroraOutlook").textContent, /Kp is retained from the displayed snapshot; current feed freshness is unknown/, name);
+  }
+});
+
+test("historical non-ok report statuses remain explicit when current freshness is unknown", async () => {
+  const h = await panelHarness();
+  for (const status of ["degraded", "failed", "aborted"]) {
+    h.store.feedStatus = { status, sources: [{ ok: false, file: "source.json" }] };
+    h.panels.updateText();
+    assert.match(h.nodes.get("feedHealth").textContent, new RegExp(`Last feed report: status ${status}; 0 of 1 public sources succeeded`));
+    assert.match(h.nodes.get("feedHealth").textContent, /Current feed freshness is unknown/);
+  }
 });
 
 test("tour starts only on request, makes background inert, and restores the opener on exit", async () => {

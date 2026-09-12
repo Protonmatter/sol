@@ -21,8 +21,9 @@ export function seriesPosition(records, index) {
 
 export function nextAvailableFrame(records, current, direction = 1) {
   if (!records.length) return null;
+  const start = current === -1 && direction === -1 ? records.length : current;
   for (let offset = 1; offset <= records.length; offset++) {
-    const index = ((current + offset * direction) % records.length + records.length) % records.length;
+    const index = ((start + offset * direction) % records.length + records.length) % records.length;
     if (records[index].status === "ready") return { index, skipped: offset - 1 };
   }
   return null;

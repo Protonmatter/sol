@@ -4,6 +4,7 @@ import { store } from "./store.js?v=dcca6290db";
 import { controls } from "./dom.js?v=dcca6290db";
 import { BASE_IMAGES } from "./config.js?v=dcca6290db";
 import { solarRegionFacts } from "./solarRegionFacts.js?v=dcca6290db";
+import { assessFeedFreshness } from "./presentationState.js?v=dcca6290db";
 import {
   number, numberOrNa, compactNumberOrNa, plural, countBy, formatCounts,
   readableMode, humanizeId, complexityLabel
@@ -104,18 +105,15 @@ export function readinessClass() {
 // silent dishonesty the provenance labels exist to prevent. `nowMs` is injectable
 // for tests.
 export function feedOverdueHours(nowMs = Date.now()) {
-  if (!store.feedStatus || !store.feedStatus.next_recommended_run_utc) return null;
-  const due = Date.parse(store.feedStatus.next_recommended_run_utc);
-  if (!Number.isFinite(due)) return null;
-  const graceMs = 6 * 3600 * 1000;
-  const overdueMs = nowMs - due - graceMs;
-  return overdueMs > 0 ? overdueMs / 3600 / 1000 : null;
+  return assessFeedFreshness(store.feedStatus, nowMs).overdueHours;
 }
 
 export function feedStateLabel() {
   if (!store.feedStatus) return "not run";
   if (store.feedStatus.status === "ok") {
-    const overdue = feedOverdueHours();
+    const assessment = assessFeedFreshness(store.feedStatus, Date.now());
+    if (assessment.freshness === "unknown") return "unknown";
+    const overdue = assessment.overdueHours;
     if (overdue !== null) {
       return overdue >= 48 ? `stale ${Math.floor(overdue / 24)}d` : "overdue";
     }

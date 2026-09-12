@@ -30,6 +30,30 @@ test("missing month twelve retains its identity and month twenty-four position",
   assert.equal(nextAvailableFrame(makeSeriesRecords(manifest, [null, null, null]), 0, 1), null);
 });
 
+test("reverse navigation from Latest selects the final ready frame and reports skipped gaps", () => {
+  assert.deepEqual(
+    nextAvailableFrame([{ status: "ready" }, { status: "ready" }, { status: "ready" }], -1, -1),
+    { index: 2, skipped: 0 },
+  );
+  assert.deepEqual(
+    nextAvailableFrame([{ status: "ready" }, { status: "unavailable" }, { status: "ready" }, { status: "unavailable" }], -1, -1),
+    { index: 2, skipped: 1 },
+  );
+});
+
+test("cycle navigation preserves direction, wrap, skipped counts and boundary controls", () => {
+  const records = [{ status: "ready" }, { status: "unavailable" }, { status: "ready" }, { status: "unavailable" }];
+  assert.deepEqual(nextAvailableFrame(records, 0, -1), { index: 2, skipped: 1 });
+  assert.deepEqual(nextAvailableFrame(records, 2, 1), { index: 0, skipped: 1 });
+  assert.deepEqual(nextAvailableFrame(records, -1, 1), { index: 0, skipped: 0 });
+  assert.deepEqual(nextAvailableFrame([{ status: "unavailable" }, { status: "ready" }], -1, 1), { index: 1, skipped: 1 });
+  assert.deepEqual(nextAvailableFrame([{ status: "ready" }], -1, -1), { index: 0, skipped: 0 });
+  assert.deepEqual(nextAvailableFrame([{ status: "ready" }], 0, 1), { index: 0, skipped: 0 });
+  assert.equal(nextAvailableFrame([], -1, -1), null);
+  assert.equal(nextAvailableFrame([{ status: "unavailable" }], -1, -1), null);
+  assert.equal(nextAvailableFrame(records.map(() => ({ status: "unavailable" })), 0, 1), null);
+});
+
 test("synthetic regions and stale context never become observations in presentation", () => {
   const snapshot = { run: { time_seconds: 3600 }, active_regions: [{ lat_deg: 0, lon_deg: 0 }], coordinates: { central_meridian_longitude_deg: 0 }, learning: { cycle_stage: "solar maximum" } };
   const before = JSON.stringify(snapshot);

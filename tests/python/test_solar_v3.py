@@ -11,10 +11,34 @@ sys.path.insert(0, str(ROOT / "tools"))
 import validate_snapshot
 import validate_snapshot_v2
 from generate_fixture_snapshot import build_snapshot, build_observation_report, region_snapshot
+from observation_provenance import attributable_source
 from solar_image_registration import assess_registration
 
 
 class SolarV3Tests(unittest.TestCase):
+    def test_registration_matches_literal_shared_source_attribution_corpus(self):
+        sources = json.loads((ROOT / "tests/fixtures/standalone-provenance.json").read_text(encoding="utf-8"))
+        corpus = json.loads((ROOT / "tests/fixtures/solar-registration.json").read_text(encoding="utf-8"))
+        snapshot = json.loads((ROOT / "apps/web/data/latest-state.json").read_text(encoding="utf-8"))
+        snapshot["coordinates"]["reference_epoch_jd_tt"] = corpus["reference_epoch_jd_tt"]
+        for source_case in sources:
+            with self.subTest(case=source_case["id"]):
+                registration = copy.deepcopy(corpus["registration"])
+                registration["source"] = copy.deepcopy(source_case["source"])
+                original_registration = copy.deepcopy(registration)
+                asset = {
+                    "image_id": registration["image_id"],
+                    "sha256": registration["image_sha256"],
+                    "capture_timestamp": registration["capture_timestamp"],
+                }
+
+                result = assess_registration(registration, snapshot, asset)
+
+                self.assertEqual(attributable_source(source_case["source"]), source_case["attributable"])
+                self.assertEqual(result["status"] == "structure_epoch_compatible", source_case["attributable"], result["reason"])
+                self.assertFalse(result["compositing_permitted"])
+                self.assertEqual(registration, original_registration)
+
     def test_shared_registration_corpus_never_permits_compositing(self):
         corpus = json.loads((ROOT / "tests/fixtures/solar-registration.json").read_text(encoding="utf-8"))
         snapshot = json.loads((ROOT / "apps/web/data/latest-state.json").read_text(encoding="utf-8"))

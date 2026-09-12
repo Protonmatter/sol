@@ -15,6 +15,7 @@ pub mod field;
 pub mod flux_transport;
 pub mod grid;
 pub mod json_read;
+pub mod provenance;
 pub mod synthetic;
 
 pub use active_region::{ActiveRegion, Polarity};

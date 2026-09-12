@@ -48,6 +48,14 @@ test("feedOverdueHours: missing or malformed inputs never throw, just decline to
   assert.equal(feedOverdueHours(T0), null);
 });
 
+test("an ok feed with an unknown refresh clock never receives the healthy label or tone", () => {
+  for (const next_recommended_run_utc of [undefined, "", "not a date", "2026-02-30T00:00:00Z", "2026-07-03T01:40:00-04:00"]) {
+    store.feedStatus = { status: "ok", ...(next_recommended_run_utc === undefined ? {} : { next_recommended_run_utc }) };
+    assert.equal(feedStateLabel(), "unknown", String(next_recommended_run_utc));
+    assert.notEqual(feedStateClass(), "live", String(next_recommended_run_utc));
+  }
+});
+
 test("a multi-day-stale 'ok' feed reads stale and wears the failure tone", () => {
   // A next-run date far in the past is deterministically overdue on any real clock.
   store.feedStatus = { status: "ok", next_recommended_run_utc: "2000-01-01T00:00:00Z" };

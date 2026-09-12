@@ -1,11 +1,35 @@
 // Pure, immutable explanatory revision. No clock reads, DOM, I/O, or physical evolution.
 import { projectSolarPoint, regionAnchor } from "./solarProjection.js?v=dcca6290db";
 
+const FEED_GRACE_MS = 6 * 3600 * 1000;
+
+function explicitUtcMs(value) {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|\+00:00)$/.exec(value);
+  if (!match) return null;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText] = match;
+  const [year, month, day, hour, minute, second] = [yearText, monthText, dayText, hourText, minuteText, secondText].map(Number);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > monthDays[month - 1] || hour > 23 || minute > 59 || second > 59) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Pure UI assessment; admitted feed records may retain an absent or legacy clock. */
+export function assessFeedFreshness(feedStatus, nowMs) {
+  const due = explicitUtcMs(feedStatus?.next_recommended_run_utc);
+  if (due === null || !Number.isFinite(nowMs)) return Object.freeze({ freshness: "unknown", overdueHours: null });
+  const overdueMs = nowMs - due - FEED_GRACE_MS;
+  return overdueMs > 0
+    ? Object.freeze({ freshness: "stale", overdueHours: overdueMs / 3600000 })
+    : Object.freeze({ freshness: "within_refresh_window", overdueHours: null });
+}
+
 /** @param {any} input */
 export function resolvePresentation(input) {
   const { snapshot = {}, wavelength = "model", imageState = "pending", feedStatus, timeline, liveEngineRun = false, dataError = null, nowMs = 0 } = input;
-  const due = Date.parse(feedStatus?.next_recommended_run_utc || "");
-  const freshness = Number.isFinite(due) ? (nowMs > due + 6 * 3600000 ? "stale" : "within_refresh_window") : "unknown";
+  const { freshness } = assessFeedFreshness(feedStatus, nowMs);
   const observed = !timeline && !liveEngineRun && wavelength !== "model" && imageState === "live";
   const count = snapshot.active_regions?.length || 0;
   const visible = (snapshot.active_regions || []).filter(region => {

@@ -155,7 +155,7 @@ export function assessSolarImageRegistration(registration, snapshot, asset) {
     validateSchema(registration, solarImageRegistrationSchema, "registration");
     assertSolarSnapshot(snapshot);
     const r = registration;
-    if (!r.source.trim() || r.source.trim().toLowerCase() === "unknown" || !/^[a-f0-9]{64}$/.test(r.image_sha256)) fail("registration", "unattributable source or invalid SHA-256");
+    if (!attributableSource(r.source) || !/^[a-f0-9]{64}$/.test(r.image_sha256)) fail("registration", "unattributable source or invalid SHA-256");
     if (!asset || asset.image_id !== r.image_id || asset.sha256 !== r.image_sha256 || asset.capture_timestamp !== r.capture_timestamp) fail("registration", "selected image identity/capture mismatch");
     const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/.exec(r.capture_timestamp);
     const unixMs = Date.parse(r.capture_timestamp);

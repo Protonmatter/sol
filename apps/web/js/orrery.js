@@ -589,6 +589,7 @@ async function refreshSystemMetadata() {
     state.metadataUnix=unix;state.engineError="";lastFullSnapshot=performance.now();
     // Never replace current-time marker coordinates with a delayed metadata epoch.
     rebuildPositions();buildSceneLines();
+    updateOrreryAccuracy();
     if(!state.animate)paint();
   } catch(error) {
     if(generation===systemGeneration&&state.active){metadataFailed=true;state.engineError=`Orbital metadata unavailable: ${error.message}; prior metadata retained. Retry explicitly to resume metadata updates.`;updateOrreryAccuracy();}
