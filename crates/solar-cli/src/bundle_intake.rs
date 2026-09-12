@@ -166,6 +166,94 @@ fn source_semantics(source: &JsonValue) -> Result<(), String> {
     }
     Ok(())
 }
+
+// JSON objects are unordered; arrays and scalar types are not interchangeable.
+// The parser already rejects duplicate keys and non-finite numbers.
+fn semantic_json_equal(left: &JsonValue, right: &JsonValue) -> bool {
+    match (left, right) {
+        (JsonValue::Object(a), JsonValue::Object(b)) => {
+            a.len() == b.len()
+                && a.iter().all(|(key, value)| {
+                    right
+                        .get(key)
+                        .is_some_and(|other| semantic_json_equal(value, other))
+                })
+        }
+        (JsonValue::Array(a), JsonValue::Array(b)) => {
+            a.len() == b.len()
+                && a.iter()
+                    .zip(b)
+                    .all(|(value, other)| semantic_json_equal(value, other))
+        }
+        // Beyond the shared safe range, distinct raw integers can round to the
+        // same f64. Reject even matching unsafe values rather than assert coherence.
+        (JsonValue::Number(a), JsonValue::Number(b)) => {
+            a.abs() <= 9_007_199_254_740_991.0 && b.abs() <= 9_007_199_254_740_991.0 && a == b
+        }
+        _ => left == right,
+    }
+}
+
+fn observation_coherence(snapshot: &JsonValue, report: &JsonValue) -> Result<(), String> {
+    let frames: Vec<JsonValue> = array(report, "frames")?
+        .iter()
+        .filter(|frame| {
+            frame
+                .get("provenance")
+                .and_then(|p| p.get("source"))
+                .and_then(JsonValue::as_str)
+                .is_some_and(|source| {
+                    // Shared with the daily producer and browser reader; Rust's
+                    // default trim omits U+001C..U+001F. U+FEFF is not blank.
+                    let source = source.trim_matches(|ch| {
+                        matches!(ch,
+                            '\u{0009}'..='\u{000d}' | '\u{001c}'..='\u{0020}' |
+                            '\u{0085}' | '\u{00a0}' | '\u{1680}' | '\u{2000}'..='\u{200a}' |
+                            '\u{2028}' | '\u{2029}' | '\u{202f}' | '\u{205f}' | '\u{3000}'
+                        )
+                    });
+                    !source.is_empty() && source.to_lowercase() != "unknown"
+                })
+        })
+        .cloned()
+        .collect();
+    let JsonValue::Object(entries) = report else {
+        return Err("observations report must be object".into());
+    };
+    let normalized = JsonValue::Object(
+        entries
+            .iter()
+            .map(|(key, value)| {
+                (
+                    key.clone(),
+                    if key == "frames" {
+                        JsonValue::Array(frames.clone())
+                    } else {
+                        value.clone()
+                    },
+                )
+            })
+            .collect(),
+    );
+    if !semantic_json_equal(
+        get(snapshot, "observations")?,
+        &JsonValue::Array(vec![normalized]),
+    ) {
+        return Err(
+            "snapshot observations differ from normalized bundle observations report".into(),
+        );
+    }
+    let empty = JsonValue::Object(Vec::new());
+    let context = match report.get("observed_context") {
+        None | Some(JsonValue::Null) => &empty,
+        Some(context) => context,
+    };
+    if !semantic_json_equal(get(snapshot, "observed_context")?, context) {
+        return Err("snapshot observed_context differs from bundle observations report".into());
+    }
+    Ok(())
+}
+
 pub(crate) fn resolve(pointer: &Path, source: bool) -> Result<Bundle, String> {
     resolve_with_hook(pointer, source, |_| {})
 }
@@ -290,6 +378,8 @@ fn resolve_with_hook(
             return Err("observations schema mismatch".into());
         }
         array(&observations, "frames")?;
+        let snapshot = parse_json(component("snapshot")?).map_err(|e| e.to_string())?;
+        observation_coherence(&snapshot, &observations)?;
         let series = parse_json(component("series_manifest")?).map_err(|e| e.to_string())?;
         if string(&series, "schema_version")? != "series-manifest.v1" {
             return Err("series schema mismatch".into());
@@ -412,6 +502,425 @@ fn sha256(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn field_mut<'a>(value: &'a mut JsonValue, key: &str) -> &'a mut JsonValue {
+        let JsonValue::Object(entries) = value else {
+            panic!("expected object")
+        };
+        &mut entries.iter_mut().find(|(name, _)| name == key).unwrap().1
+    }
+
+    fn items_mut(value: &mut JsonValue) -> &mut Vec<JsonValue> {
+        let JsonValue::Array(items) = value else {
+            panic!("expected array")
+        };
+        items
+    }
+
+    struct DerivedFixture {
+        root: PathBuf,
+        folder: PathBuf,
+        manifest: JsonValue,
+        pointer: JsonValue,
+    }
+
+    impl DerivedFixture {
+        fn new() -> Self {
+            let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/web/data");
+            let pointer =
+                parse_json(&fs::read_to_string(source.join("current.json")).unwrap()).unwrap();
+            let source_manifest = source.join(string(&pointer, "manifest_path").unwrap());
+            let manifest = parse_json(&fs::read_to_string(&source_manifest).unwrap()).unwrap();
+            let nonce = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!(
+                "sol-observation-coherence-{}-{nonce}",
+                std::process::id()
+            ));
+            let folder = root
+                .join("bundles")
+                .join(string(&pointer, "bundle_id").unwrap());
+            fs::create_dir_all(&folder).unwrap();
+            for component in array(&manifest, "components").unwrap() {
+                let path = string(component, "path").unwrap();
+                let destination = folder.join(path);
+                fs::create_dir_all(destination.parent().unwrap()).unwrap();
+                fs::copy(source_manifest.parent().unwrap().join(path), destination).unwrap();
+            }
+            let mut fixture = Self {
+                root,
+                folder,
+                manifest,
+                pointer,
+            };
+            fixture.rehash_manifest();
+            fixture
+        }
+
+        fn component(&self, role: &str) -> JsonValue {
+            let component = array(&self.manifest, "components")
+                .unwrap()
+                .iter()
+                .find(|c| string(c, "role").unwrap() == role)
+                .unwrap();
+            parse_json(
+                &fs::read_to_string(self.folder.join(string(component, "path").unwrap())).unwrap(),
+            )
+            .unwrap()
+        }
+
+        fn replace(&mut self, role: &str, raw: &str) {
+            let component = items_mut(field_mut(&mut self.manifest, "components"))
+                .iter_mut()
+                .find(|c| string(c, "role").unwrap() == role)
+                .unwrap();
+            fs::write(self.folder.join(string(component, "path").unwrap()), raw).unwrap();
+            *field_mut(component, "size_bytes") = JsonValue::Number(raw.len() as f64);
+            *field_mut(component, "sha256") = JsonValue::String(sha256(raw.as_bytes()));
+            self.rehash_manifest();
+        }
+
+        fn rehash_manifest(&mut self) {
+            let raw = self.manifest.to_compact_string();
+            fs::write(self.folder.join("manifest.json"), &raw).unwrap();
+            *field_mut(&mut self.pointer, "manifest_sha256") =
+                JsonValue::String(sha256(raw.as_bytes()));
+            fs::write(
+                self.root.join("current.json"),
+                self.pointer.to_compact_string(),
+            )
+            .unwrap();
+        }
+    }
+
+    impl Drop for DerivedFixture {
+        fn drop(&mut self) {
+            fs::remove_dir_all(&self.root).unwrap();
+        }
+    }
+
+    #[test]
+    fn rehashed_mixed_observation_bundles_are_rejected_before_cli_output() {
+        for mutation in [
+            "frame",
+            "source",
+            "order",
+            "mode",
+            "context",
+            "raw bool",
+            "envelope metadata",
+        ] {
+            let mut fixture = DerivedFixture::new();
+            let mut report = fixture.component("observations");
+            match mutation {
+                "frame" => {
+                    *field_mut(&mut items_mut(field_mut(&mut report, "frames"))[0], "id") =
+                        JsonValue::String("different-frame".into())
+                }
+                "source" => {
+                    *field_mut(
+                        field_mut(
+                            &mut items_mut(field_mut(&mut report, "frames"))[0],
+                            "provenance",
+                        ),
+                        "source",
+                    ) = JsonValue::String("different-source".into())
+                }
+                "order" => items_mut(field_mut(&mut report, "frames")).reverse(),
+                "mode" => {
+                    *field_mut(&mut report, "source_mode") = JsonValue::String("cached".into())
+                }
+                "context" => {
+                    *field_mut(field_mut(&mut report, "observed_context"), "activity_index") =
+                        JsonValue::Number(0.123)
+                }
+                "raw bool" => {
+                    *field_mut(
+                        field_mut(
+                            field_mut(
+                                &mut items_mut(field_mut(&mut report, "frames"))[0],
+                                "provenance",
+                            ),
+                            "raw_source_metadata",
+                        ),
+                        "active",
+                    ) = JsonValue::Number(1.0)
+                }
+                "envelope metadata" => {
+                    *field_mut(&mut report, "generated_by") =
+                        JsonValue::String("other-generator".into())
+                }
+                _ => unreachable!(),
+            }
+            fixture.replace("observations", &report.to_compact_string());
+            let out = fixture.root.join("output");
+            fs::create_dir_all(&out).unwrap();
+            let target = out.join("latest-state.json");
+            fs::write(&target, "last valid snapshot").unwrap();
+            let args = vec![
+                "--bundle-pointer".into(),
+                fixture.root.join("current.json").display().to_string(),
+                "--out".into(),
+                out.display().to_string(),
+            ];
+            let result = crate::replay_command(&args);
+            assert!(
+                result
+                    .as_ref()
+                    .is_err_and(|error| error.contains("observation")),
+                "{mutation}: {result:?}"
+            );
+            assert_eq!(
+                fs::read_to_string(&target).unwrap(),
+                "last valid snapshot",
+                "{mutation}"
+            );
+            assert!(!out.join("replay-manifest.json").exists(), "{mutation}");
+            let args = vec![
+                "--bundle-pointer".into(),
+                fixture.root.join("current.json").display().to_string(),
+                "--steps".into(),
+                "0".into(),
+                "--out".into(),
+                target.display().to_string(),
+            ];
+            let result = crate::simulate_command(&args);
+            assert!(
+                result
+                    .as_ref()
+                    .is_err_and(|error| error.contains("observation")),
+                "{mutation}: {result:?}"
+            );
+            assert_eq!(
+                fs::read_to_string(&target).unwrap(),
+                "last valid snapshot",
+                "{mutation}"
+            );
+        }
+    }
+
+    fn reverse_object_keys(value: &mut JsonValue) {
+        match value {
+            JsonValue::Object(entries) => {
+                entries.reverse();
+                for (_, item) in entries {
+                    reverse_object_keys(item);
+                }
+            }
+            JsonValue::Array(items) => {
+                for item in items {
+                    reverse_object_keys(item);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn daily_bundle_accepts_object_reordering_numeric_equivalence_and_filtered_frames() {
+        let mut fixture = DerivedFixture::new();
+        assert!(
+            resolve(&fixture.root.join("current.json"), false).is_ok(),
+            "current daily fixture remains compatible"
+        );
+        let mut report = fixture.component("observations");
+        let original = report.get("frames").unwrap().as_array().unwrap()[0].clone();
+        for source in [
+            JsonValue::Null,
+            JsonValue::Bool(true),
+            JsonValue::Number(1.0),
+            JsonValue::String("".into()),
+            JsonValue::String("  ".into()),
+            JsonValue::String(" UnKnOwN ".into()),
+            JsonValue::String("unKnown".into()),
+        ] {
+            let mut frame = original.clone();
+            *field_mut(field_mut(&mut frame, "provenance"), "source") = source;
+            items_mut(field_mut(&mut report, "frames")).push(frame);
+        }
+        let mut missing = original;
+        let JsonValue::Object(provenance) = field_mut(&mut missing, "provenance") else {
+            unreachable!()
+        };
+        provenance.retain(|(name, _)| name != "source");
+        items_mut(field_mut(&mut report, "frames")).push(missing);
+        reverse_object_keys(&mut report);
+        let raw = report
+            .to_compact_string()
+            .replace("\"raw_bytes\":215", "\"raw_bytes\":215.0");
+        assert!(raw.contains("\"raw_bytes\":215.0"));
+        fixture.replace("observations", &raw);
+        assert!(resolve(&fixture.root.join("current.json"), false).is_ok());
+    }
+
+    #[test]
+    fn raw_provenance_numbers_outside_safe_range_cannot_pass_coherence() {
+        let mut incorrectly_accepted = Vec::new();
+        for report_counter in ["9007199254740992", "9007199254740993"] {
+            let mut fixture = DerivedFixture::new();
+            let mut report = fixture.component("observations");
+            let raw_metadata = field_mut(
+                field_mut(
+                    &mut items_mut(field_mut(&mut report, "frames"))[0],
+                    "provenance",
+                ),
+                "raw_source_metadata",
+            );
+            let JsonValue::Object(entries) = raw_metadata else {
+                unreachable!()
+            };
+            entries.push(("counter".into(), JsonValue::Number(9_007_199_254_740_992.0)));
+            let mut snapshot = fixture.component("snapshot");
+            *field_mut(&mut snapshot, "observations") = JsonValue::Array(vec![report.clone()]);
+            fixture.replace("snapshot", &snapshot.to_compact_string());
+            let raw = report.to_compact_string().replace(
+                "\"counter\":9007199254740992",
+                &format!("\"counter\":{report_counter}"),
+            );
+            assert!(raw.contains(&format!("\"counter\":{report_counter}")));
+            fixture.replace("observations", &raw);
+            if resolve(&fixture.root.join("current.json"), false).is_ok() {
+                incorrectly_accepted.push(report_counter);
+            }
+        }
+        assert!(incorrectly_accepted.is_empty(), "unsafe raw counters accepted despite indistinguishable f64 values: {incorrectly_accepted:?}");
+    }
+
+    #[test]
+    fn raw_provenance_numbers_at_safe_range_boundaries_remain_accepted() {
+        for counter in [-9_007_199_254_740_991.0, 9_007_199_254_740_991.0] {
+            let mut fixture = DerivedFixture::new();
+            let mut report = fixture.component("observations");
+            let raw_metadata = field_mut(
+                field_mut(
+                    &mut items_mut(field_mut(&mut report, "frames"))[0],
+                    "provenance",
+                ),
+                "raw_source_metadata",
+            );
+            let JsonValue::Object(entries) = raw_metadata else {
+                unreachable!()
+            };
+            entries.push(("counter".into(), JsonValue::Number(counter)));
+            let mut snapshot = fixture.component("snapshot");
+            *field_mut(&mut snapshot, "observations") = JsonValue::Array(vec![report.clone()]);
+            fixture.replace("snapshot", &snapshot.to_compact_string());
+            fixture.replace("observations", &report.to_compact_string());
+            assert!(
+                resolve(&fixture.root.join("current.json"), false).is_ok(),
+                "safe boundary {counter} remains valid"
+            );
+        }
+    }
+
+    #[test]
+    fn attribution_uses_shared_control_whitespace_for_blank_and_unknown_sources() {
+        for source in [
+            "\u{001c}",
+            "\u{0085}",
+            "\u{001c} UnKnOwN\u{001c}",
+            "\u{0085}unknown\u{0085}",
+        ] {
+            let mut fixture = DerivedFixture::new();
+            let mut report = fixture.component("observations");
+            let mut frame = array(&report, "frames").unwrap()[0].clone();
+            *field_mut(field_mut(&mut frame, "provenance"), "source") =
+                JsonValue::String(source.into());
+            items_mut(field_mut(&mut report, "frames")).push(frame);
+            fixture.replace("observations", &report.to_compact_string());
+            assert!(
+                resolve(&fixture.root.join("current.json"), false).is_ok(),
+                "source {source:?} must be filtered"
+            );
+        }
+    }
+
+    #[test]
+    fn byte_order_mark_source_is_attributable_and_must_be_embedded() {
+        let mut fixture = DerivedFixture::new();
+        let mut report = fixture.component("observations");
+        let mut frame = array(&report, "frames").unwrap()[0].clone();
+        *field_mut(field_mut(&mut frame, "provenance"), "source") =
+            JsonValue::String("\u{feff}".into());
+        items_mut(field_mut(&mut report, "frames")).push(frame.clone());
+        fixture.replace("observations", &report.to_compact_string());
+        assert!(
+            resolve(&fixture.root.join("current.json"), false)
+                .err()
+                .is_some_and(|error| error.contains("observations")),
+            "report-only U+FEFF source cannot be filtered away"
+        );
+        let mut snapshot = fixture.component("snapshot");
+        items_mut(field_mut(
+            &mut items_mut(field_mut(&mut snapshot, "observations"))[0],
+            "frames",
+        ))
+        .push(frame);
+        fixture.replace("snapshot", &snapshot.to_compact_string());
+        assert!(
+            resolve(&fixture.root.join("current.json"), false).is_ok(),
+            "matching U+FEFF source is attributable"
+        );
+    }
+
+    #[test]
+    fn top_level_context_must_match_even_when_embedded_report_matches() {
+        let mut fixture = DerivedFixture::new();
+        let mut snapshot = fixture.component("snapshot");
+        *field_mut(
+            field_mut(&mut snapshot, "observed_context"),
+            "activity_index",
+        ) = JsonValue::Number(0.123);
+        fixture.replace("snapshot", &snapshot.to_compact_string());
+        let result = resolve(&fixture.root.join("current.json"), false);
+        assert!(result
+            .err()
+            .is_some_and(|error| error.contains("observed_context")));
+    }
+
+    #[test]
+    fn absent_and_null_report_context_require_an_empty_snapshot_context() {
+        for null_context in [false, true] {
+            let mut fixture = DerivedFixture::new();
+            let mut report = fixture.component("observations");
+            if null_context {
+                *field_mut(&mut report, "observed_context") = JsonValue::Null;
+            } else {
+                let JsonValue::Object(entries) = &mut report else {
+                    unreachable!()
+                };
+                entries.retain(|(name, _)| name != "observed_context");
+            }
+            let mut snapshot = fixture.component("snapshot");
+            *field_mut(&mut snapshot, "observations") = JsonValue::Array(vec![report.clone()]);
+            *field_mut(&mut snapshot, "observed_context") = JsonValue::Object(Vec::new());
+            fixture.replace("observations", &report.to_compact_string());
+            fixture.replace("snapshot", &snapshot.to_compact_string());
+            assert!(resolve(&fixture.root.join("current.json"), false).is_ok());
+            let JsonValue::Object(entries) = &mut snapshot else {
+                unreachable!()
+            };
+            entries.retain(|(name, _)| name != "observed_context");
+            fixture.replace("snapshot", &snapshot.to_compact_string());
+            assert!(resolve(&fixture.root.join("current.json"), false)
+                .err()
+                .is_some_and(|error| error.contains("observed_context")));
+        }
+    }
+
+    #[test]
+    fn snapshot_cannot_add_a_second_observation_envelope() {
+        let mut fixture = DerivedFixture::new();
+        let mut snapshot = fixture.component("snapshot");
+        let observations = items_mut(field_mut(&mut snapshot, "observations"));
+        observations.push(observations[0].clone());
+        fixture.replace("snapshot", &snapshot.to_compact_string());
+        assert!(resolve(&fixture.root.join("current.json"), false)
+            .err()
+            .is_some_and(|error| error.contains("observations")));
+    }
     #[test]
     fn source_reader_captures_once_and_rejects_corrupt_products() {
         let nonce = std::time::SystemTime::now()

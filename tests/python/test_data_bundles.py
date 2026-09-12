@@ -124,6 +124,80 @@ class BundleTests(unittest.TestCase):
                 self.assertEqual(bundles.resolve_derived_bundle(self.root / "derived/current.json").bundle_id, a.bundle_id)
         self.assertEqual(len(list((self.root / "derived/attempts").glob("*.json"))), 5)
 
+    def test_coherent_hashes_do_not_admit_conflicting_observation_evidence(self):
+        selected = self.derived()
+        pointer = self.root / "derived/current.json"
+        before = pointer.read_bytes()
+        source = bundles.resolve_source_bundle(self.root / "source/current.json")
+        changes = {
+            "frame-source": lambda report: report["frames"][0]["provenance"].update(source="other instrument"),
+            "frame-order": lambda report: report["frames"].reverse(),
+            "missing-frame": lambda report: report["frames"].pop(),
+            "mode": lambda report: report.update(source_mode="cached"),
+            "context": lambda report: report["observed_context"].update(activity_index=0.2),
+            "typed-raw": lambda report: report["frames"][0]["provenance"]["raw_source_metadata"].update(active=1),
+        }
+        for name, change in changes.items():
+            with self.subTest(name=name):
+                components = self.components()
+                report = json.loads(components["observations"][2])
+                change(report)
+                components["observations"] = (*components["observations"][:2], bundles.json_bytes(report))
+                status = json.loads(components["feed_status"][2]); status["bundle_id"] = name
+                components["feed_status"] = (*components["feed_status"][:2], bundles.json_bytes(status))
+                with self.assertRaisesRegex(ValueError, "snapshot.*observations|observation.*context"):
+                    bundles.create_derived_bundle(self.root / "derived", bundle_id=name, source=source,
+                        generated_at_utc="2026-09-11T12:00:00Z", components=components)
+                self.assertEqual(pointer.read_bytes(), before)
+                self.assertEqual(bundles.resolve_derived_bundle(pointer).bundle_id, selected.bundle_id)
+
+    def test_top_level_context_must_match_even_when_embedded_report_agrees(self):
+        components = self.components()
+        snapshot = json.loads(components["snapshot"][2])
+        snapshot["observed_context"]["activity_index"] = 0.2
+        components["snapshot"] = (*components["snapshot"][:2], bundles.json_bytes(snapshot))
+        with self.assertRaisesRegex(ValueError, "observation.*context"):
+            bundles.create_derived_bundle(self.root / "derived", bundle_id="derived-a", source=self.source(),
+                generated_at_utc="2026-09-11T12:00:00Z", components=components)
+        self.assertFalse((self.root / "derived/current.json").exists())
+
+    def test_equivalent_report_key_order_and_unattributed_frame_projection_are_accepted(self):
+        components = self.components()
+        report = json.loads(components["observations"][2])
+        for invalid in (None, "", "  ", " unknown ", 17, False):
+            frame = copy.deepcopy(report["frames"][0])
+            frame["provenance"]["source"] = invalid
+            report["frames"].append(frame)
+        # Object member order is not evidence order; numeric JSON spellings are equivalent.
+        report["observed_context"]["synthetic_region_count"] = float(report["observed_context"]["synthetic_region_count"])
+        def reorder(value):
+            if isinstance(value, dict): return {k: reorder(v) for k, v in reversed(list(value.items()))}
+            if isinstance(value, list): return [reorder(v) for v in value]
+            return value
+        raw = (json.dumps(reorder(report)) + "\n").encode()
+        components["observations"] = (*components["observations"][:2], raw)
+        result = bundles.create_derived_bundle(self.root / "derived", bundle_id="derived-a", source=self.source(),
+            generated_at_utc="2026-09-11T12:00:00Z", components=components)
+        self.assertEqual(result.component("observations").raw, raw)
+
+    def test_numeric_evidence_outside_cross_runtime_exact_integer_range_is_rejected(self):
+        source = self.source()
+        for index, number in enumerate((9007199254740992, 9007199254740993, -9007199254740992)):
+            with self.subTest(number=number):
+                components = self.components()
+                snapshot = json.loads(components["snapshot"][2])
+                report = json.loads(components["observations"][2])
+                snapshot["observations"][0]["frames"][0]["provenance"]["raw_source_metadata"]["counter"] = number
+                report["frames"][0]["provenance"]["raw_source_metadata"]["counter"] = number
+                name = f"unsafe-{index}"
+                status = json.loads(components["feed_status"][2]); status["bundle_id"] = name
+                for role, value in (("snapshot", snapshot), ("observations", report), ("feed_status", status)):
+                    components[role] = (*components[role][:2], bundles.json_bytes(value))
+                with self.assertRaisesRegex(ValueError, "snapshot.*observations"):
+                    bundles.create_derived_bundle(self.root / "derived", bundle_id=name, source=source,
+                        generated_at_utc="2026-09-11T12:00:00Z", components=components)
+                self.assertFalse((self.root / "derived/current.json").exists())
+
     def test_locked_pointer_preserves_previous_and_after_select_is_complete(self):
         self.derived()
         before = (self.root / "derived/current.json").read_bytes()

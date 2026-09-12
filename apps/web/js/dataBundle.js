@@ -34,6 +34,23 @@ function utc(value, nullable=false) {
   if(year===0||month<1||month>12||day<1||day>days[month-1]||hour>23||minute>59||second>59)fail("Invalid UTC calendar timestamp");
 }
 function freeze(value){if(value&&typeof value==="object"){Object.values(value).forEach(freeze);Object.freeze(value);}return value;}
+function sameJson(left,right){
+  // Reject oversized numeric metadata instead of equating distinct rounded counters.
+  if(typeof left==="number"&&typeof right==="number")return Math.abs(left)<=Number.MAX_SAFE_INTEGER&&Math.abs(right)<=Number.MAX_SAFE_INTEGER&&left===right;
+  if(left===right)return true;
+  if(!left||!right||typeof left!=="object"||typeof right!=="object")return false;
+  if(Array.isArray(left)||Array.isArray(right))return Array.isArray(left)&&Array.isArray(right)&&left.length===right.length&&left.every((v,i)=>sameJson(v,right[i]));
+  const keys=Object.keys(left);
+  return keys.length===Object.keys(right).length&&keys.every(key=>Object.hasOwn(right,key)&&sameJson(left[key],right[key]));
+}
+function observationCoherence(snapshot,report){
+  // Match daily derivation's attributed evidence projection without changing either input.
+  // Explicit cross-runtime whitespace (U+FEFF is deliberately not stripped).
+  const whitespace=/^[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g;
+  const frames=report.frames.filter(frame=>{const value=frame?.provenance?.source;if(typeof value!=="string")return false;const source=value.replace(whitespace,"");return source!==""&&source.toLowerCase()!=="unknown";});
+  if(!sameJson(snapshot.observations,[{...report,frames}]))fail("Snapshot embedded observations disagree with normalized observations");
+  if(!Object.hasOwn(snapshot,"observed_context")||!sameJson(snapshot.observed_context,report.observed_context??{}))fail("Snapshot observation context disagrees with normalized observations");
+}
 async function read(url,fetcher){
   const response=await fetcher(url,{cache:"no-cache"});
   if(!response.ok)fail(`Bundle HTTP ${response.status}`);
@@ -96,6 +113,7 @@ export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedRe
   for(const product of source.products){relative(product.path);if(!ID.test(product.product_id)||productIds.has(product.product_id.toLowerCase())||productPaths.has(product.path.toLowerCase())||!product.source.trim()||product.source.trim().toLowerCase()==="unknown"||!HASH.test(product.sha256))fail("Invalid attributable source product");productIds.add(product.product_id.toLowerCase());productPaths.add(product.path.toLowerCase());utc(product.observation_time_utc,true);utc(product.retrieved_at_utc,true);}
   if(data.observations.schema_version!=="observation-frame.v1"||!Array.isArray(data.observations.frames)||!data.observations.source_mode)fail("Invalid normalized observations");
   const snapshot=parseSolarSnapshot(new TextDecoder().decode(raws.snapshot));
+  observationCoherence(snapshot,data.observations);
   const series=data.series_manifest;
   if(series.schema_version!=="series-manifest.v1")fail("Invalid series schema");
   makeSeriesRecords(series,[]);

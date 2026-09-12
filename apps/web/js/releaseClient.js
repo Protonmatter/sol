@@ -17,7 +17,7 @@ export function identifyWaitingRelease(worker, basePath, createChannel = ()=>new
 export async function registerOfflineRelease({serviceWorker,location,document,basePath,releaseId,createChannel = ()=>new MessageChannel()}) {
   const status = document.getElementById("releaseStatus"), button = document.getElementById("releaseUpdate");
   let reloadRequested = false;
-  serviceWorker.addEventListener("controllerchange",()=>{if(reloadRequested) location.assign(basePath);});
+  serviceWorker.addEventListener("controllerchange",()=>{if(reloadRequested) location.assign(basePath+location.hash);});
   try {
     const registration = await serviceWorker.register(`${basePath}sw.js?v=${releaseId}`,{scope:basePath,updateViaCache:"none"});
     const offerUpdate = ()=>{

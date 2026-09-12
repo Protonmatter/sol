@@ -8,7 +8,7 @@ import { WAVELENGTHS, BASE_IMAGES } from "./config.js?v=dcca6290db";
 import { renderAll } from "./view.js?v=dcca6290db";
 import { baseImageState, retryBaseImage } from "./data.js?v=dcca6290db";
 
-function updateWavelengthCaption() {
+export function updateWavelengthCaption() {
   const node = document.getElementById("wavelengthCaption");
   if (!node) return;
   if (store.wavelength === "model" || store.timelineIndex >= 0 || store.liveEngineRun) {

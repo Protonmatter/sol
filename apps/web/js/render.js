@@ -7,6 +7,7 @@ import { selectedRegion } from "./selectors.js?v=dcca6290db";
 import { currentBaseImage } from "./data.js?v=dcca6290db";
 import { projectSolarPoint, regionAnchor, confidenceEncoding } from "./solarProjection.js?v=dcca6290db";
 import { seriesPosition } from "./seriesModel.js?v=dcca6290db";
+import { updateWavelengthCaption } from "./wavelength.js?v=dcca6290db";
 
 export function drawSolarDisk() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("solarCanvas"));
@@ -59,6 +60,9 @@ export function drawSolarDisk() {
   text("baseLabel", `Base: ${store.activeBaseLabel} (${observed ? "observed" : "synthetic"})`);
   const baseNode = document.getElementById("baseLabel");
   if (baseNode) baseNode.className = `base-label ${observed ? "observed" : "synthetic"}`;
+  // Timeline/local-model transitions can reuse a ready image without a load event.
+  // Refresh its source disclosure whenever the displayed disk changes.
+  updateWavelengthCaption();
 }
 
 function drawObservedBase(ctx, entry, cx, cy, radius) {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
+import vm from "node:vm";
 import { createHash, webcrypto } from "node:crypto";
 import { readDataBundle, BUNDLE_SCHEMAS } from "../../apps/web/js/dataBundle.js";
 
@@ -10,6 +11,8 @@ const snapshot=JSON.parse(fs.readFileSync(new URL("../../apps/web/data/latest-st
 function fixture(id, mutate=()=>{}){
   const source={schema_version:"public-data-cache-manifest.v2",bundle_id:"source",acquired_at_utc:"2026-09-11T00:00:00Z",failures:[],products:[{product_id:"fixture.json",source:"fixture",origin:"fixture",observation_time_utc:null,retrieved_at_utc:null,quality:["fixture"],failure:null,license:"fixture",critical:true,path:"payloads/fixture.json",size_bytes:2,sha256:hash(bytes({}))}]};
   const values={snapshot,observations:snapshot.observations[0],feed_status:{schema_version:"daily-ingest-status.v2",bundle_id:id,source_bundle_id:"source",status:"degraded",generated_at_utc:"2026-09-11T00:00:00Z",observation_time_utc:null,delivery_state:"validated",warnings:["fixture"]},series_manifest:{schema_version:"series-manifest.v1",frames:[]},source_manifest:source};
+  values.snapshot=structuredClone(snapshot);
+  values.observations=structuredClone(snapshot.observations[0]);
   mutate(values);
   const root=`https://example.invalid/data/bundles/${id}/`,files=new Map(),components=[];
   for(const [role,value] of Object.entries(values)){const raw=bytes(value),path=`${role}.json`;files.set(root+path,raw);components.push({role,path,schema_version:value.schema_version,size_bytes:raw.length,sha256:hash(raw)});}
@@ -46,6 +49,86 @@ test("hash mismatch never falls back to mutable aliases",async()=>{
   const fetcher=async url=>{seen.push(url);if(url.endsWith("current.json"))return new Response(a.pointer);if(url.endsWith("feed_status.json"))return new Response("{}");return new Response(a.files.get(url));};
   await assert.rejects(readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto}),/hash|size/);
   assert.ok(seen.every(url=>!url.endsWith("latest-state.json")));
+});
+
+test("hash-bound but conflicting snapshot and observation evidence is rejected",async()=>{
+  const changes={
+    source:v=>{v.observations.frames[0].provenance.source="other instrument";},
+    order:v=>{v.observations.frames.reverse();},
+    omitted:v=>{v.observations.frames.pop();},
+    mode:v=>{v.observations.source_mode="cached";},
+    context:v=>{v.observations.observed_context.activity_index=0.2;},
+    topContext:v=>{v.snapshot.observed_context.activity_index=0.2;},
+    rawType:v=>{v.observations.frames[0].provenance.raw_source_metadata.active=1;},
+    reportCount:v=>{v.snapshot.observations.push(structuredClone(v.snapshot.observations[0]));},
+  };
+  for(const [name,change] of Object.entries(changes)){
+    const a=fixture("a",change);
+    const fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+    await assert.rejects(readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto}),/snapshot.*observations|observation.*context/i,name);
+  }
+});
+
+test("object key order and excluded unattributed report frames do not create false mismatches",async()=>{
+  const reorder=value=>Array.isArray(value)?value.map(reorder):value&&typeof value==="object"?Object.fromEntries(Object.entries(value).reverse().map(([key,item])=>[key,reorder(item)])):value;
+  const a=fixture("a",values=>{
+    for(const invalid of [null,"","  "," unknown ",17,false]){
+      const frame=structuredClone(values.observations.frames[0]);frame.provenance.source=invalid;
+      values.observations.frames.push(frame);
+    }
+    values.observations=reorder(values.observations);
+  });
+  const fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+  const accepted=await readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto});
+  assert.equal(accepted.observations.frames.length,8);
+  assert.equal(accepted.snapshot.observations[0].frames.length,2);
+  assert.equal(accepted.snapshot.observed_context.activity_index,0.9);
+});
+
+test("the actual loader retains its complete publication when rehashed evidence disagrees",async()=>{
+  const good=fixture("good"),bad=fixture("bad",v=>{v.observations.observed_context.activity_index=0.2;});
+  let selected=good;
+  const fetcher=async url=>new Response(url.endsWith("current.json")?selected.pointer:selected.files.get(url));
+  const store={state:null,timelineIndex:-1,selectedRegionId:null};
+  const source=fs.readFileSync(new URL("../../apps/web/js/data.js",import.meta.url),"utf8")
+    .replace(/^import .*;\r?\n/gm,"").replaceAll("export ","").replaceAll("import.meta.url",'"https://example.invalid/js/data.js"');
+  const context=vm.createContext({store,URL,Image:class{},FALLBACK_STATE:{fallback:true},BASE_IMAGES:{},
+    document:{getElementById:()=>null},window:{},renderAll:()=>{},maybeAutoStartTour:()=>{},prepareBundlePublication:()=>{},
+    readDataBundle:()=>readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto})});
+  vm.runInContext(source,context);
+  await context.loadState();
+  const before={snapshot:store.state,identity:store.dataBundleIdentity,status:store.feedStatus,series:store.seriesRecords};
+  assert.equal(before.identity.bundle_id,"good");
+  selected=bad;await context.loadState();
+  assert.equal(store.state,before.snapshot);assert.equal(store.liveState,before.snapshot);
+  assert.equal(store.dataBundleIdentity,before.identity);assert.equal(store.feedStatus,before.status);assert.equal(store.seriesRecords,before.series);
+  assert.match(store.dataError,/observations/);
+  selected=good;await context.loadState();assert.equal(store.dataError,null);
+});
+
+test("attribution whitespace is the same as daily derivation including control separators",async()=>{
+  for(const source of ["\u0085","\u001c","\u001d","\u001e","\u001f","\u0085unknown\u001c","un\u212anown","\ufeff"]){
+    const a=fixture("a",values=>{
+      const frame=structuredClone(values.observations.frames[0]);frame.provenance.source=source;
+      values.observations.frames.push(frame);
+      if(source==="\ufeff")values.snapshot.observations[0].frames.push(structuredClone(frame));
+    });
+    const fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+    const accepted=await readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto});
+    assert.equal(accepted.snapshot.observations[0].frames.length,source==="\ufeff"?3:2);
+  }
+});
+
+test("numeric evidence outside the shared comparison range cannot be silently rounded into agreement",async()=>{
+  for(const counter of [Number.MAX_SAFE_INTEGER, -Number.MAX_SAFE_INTEGER, 9007199254740992, -9007199254740992, 1e30]){
+    const a=fixture("a",values=>{
+      for(const report of [values.observations,values.snapshot.observations[0]])report.frames[0].provenance.raw_source_metadata.counter=counter;
+    });
+    const fetcher=async url=>new Response(url.endsWith("current.json")?a.pointer:a.files.get(url));
+    const result=readDataBundle({pointerUrl:"https://example.invalid/data/current.json",fetcher,crypto:webcrypto});
+    if(Math.abs(counter)<=Number.MAX_SAFE_INTEGER)assert.equal((await result).snapshot.observations[0].frames[0].provenance.raw_source_metadata.counter,counter);
+    else await assert.rejects(result,/snapshot.*observations/i);
+  }
 });
 test("declared gaps retain all manifest indices and fixture health cannot become ok",async()=>{
   const a=fixture("a",values=>{values.series_manifest.frames=[{file:"a.json",months:0,availability:"unavailable",reason:"fixture gap"},{file:"b.json",months:24,availability:"unavailable",reason:"fixture gap"}];});

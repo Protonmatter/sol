@@ -11,6 +11,8 @@ import random
 from pathlib import Path
 from typing import Any
 
+from data_bundles import attributable_source
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Feeds whose cached copies should be flagged when older than this many hours.
@@ -198,7 +200,7 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
     all_frames = observations.get("frames") or []
     attributable_frames = [
         frame for frame in all_frames
-        if str((frame.get("provenance") or {}).get("source") or "").strip()
+        if attributable_source((frame.get("provenance") or {}).get("source"))
     ]
     unattributed_count = len(all_frames) - len(attributable_frames)
     snapshot_observations = {**observations, "frames": attributable_frames}
@@ -441,6 +443,8 @@ def build_bundle_observation_report(source, *, evaluated_at_utc: str) -> dict[st
             row, mode, count = first_row(data), "fixture" if metadata[name]["origin"] == "fixture" else "cached", len(item.raw)
         result = {"data":data, "row":row, "id":descriptor.get("id",name), "layer_kind":descriptor.get("layer_kind","observed"),
                   "source_mode":mode, "local_path":f"bundle:{source.bundle_id}/{name}", "raw_bytes":count, "evaluated_at_utc":evaluated_at_utc}
+        if item is not None:
+            result["manifest_source"] = metadata[name]["source"]
         result.update({key:descriptor[key] for key in ("name","url") if key in descriptor})
         return result
     if not {"rtsw_mag_1m.json", "rtsw_wind_1m.json"} <= by_file.keys():
@@ -583,7 +587,9 @@ def frame_from_row(frame_id: str, layer_kind: str, candidate: dict[str, Any]) ->
         "raw_bytes": candidate["raw_bytes"],
         "provenance": {
             "time_tag": first_non_empty(row, "time_tag", "time", "date", "begin_time", "peak_time", "issue_datetime"),
-            "source": row.get("source"),
+            # A validated bundle may attribute rows that omit source; explicit row
+            # values (including invalid ones) never inherit over their own metadata.
+            "source": row.get("source", candidate.get("manifest_source")),
             "active": row.get("active"),
             "raw_source_metadata": {key: row.get(key) for key in ("source", "active", "satellite", "observatory", "instrument") if key in row},
         },

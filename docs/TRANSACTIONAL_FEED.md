@@ -17,7 +17,8 @@ Reusing a fixture after a failed refresh keeps its `fixture` origin, original cl
 and bytes; the new acquisition records the failure/degradation separately. Reuse cannot
 promote fixture data to observed cached data.
 
-Native source-pointer intake carries the validated product source into row selection.
+Native source-pointer intake and Python daily derivation carry the validated product
+source into row selection and normalized-frame provenance, respectively.
 When an F10.7 row omits `source`, the manifest attribution is used without changing
 the original row or raw payload. A valid row source takes precedence; an explicit
 blank, unknown, null or non-string row source remains rejected. Legacy cache/payload
@@ -30,6 +31,27 @@ reason. Every declared component is read, sized, hashed, parsed, and validated b
 the result is returned. A missing/corrupt declared frame rejects the candidate; it is
 not silently removed from the timeline. Images and planetary catalogs remain separate
 release assets, not physical observations of the solar simulation.
+
+Before admission, all three derived-bundle readers (Python, browser and native CLI)
+reconcile the snapshot with the separate normalized observation report. The snapshot
+must embed exactly one complete report envelope with the same ordered attributable
+frames, and its top-level `observed_context` must equal the report context (an absent
+or null report context maps to an explicit empty object). Unattributable frames remain
+unchanged in the full report but are excluded from the embedded frame projection.
+The current daily producer already emits this envelope; standalone native simulation
+and historical snapshot interfaces are not changed by this derived-bundle rule.
+
+Attribution requires a string with nonempty trimmed content other than case-insensitive
+`unknown`. Producer and readers use an explicit shared whitespace set:
+U+0009--U+000D, U+001C--U+0020, U+0085, U+00A0, U+1680, U+2000--U+200A,
+U+2028, U+2029, U+202F, U+205F and U+3000. U+FEFF is not whitespace in this rule.
+Comparison ignores object member ordering, preserves array ordering and distinguishes
+booleans from numbers. Compared numeric values outside +/-9007199254740991 are
+rejected even when identical: native/browser binary64 parsing cannot reliably distinguish
+oversized integer counters. This is bounded semantic admission, not arbitrary-precision
+JSON support. Original bytes are retained; readers never rewrite, coerce or repair a
+candidate to satisfy coherence. A hash-valid but inconsistent candidate fails before
+pointer selection, browser publication or CLI output replacement.
 
 Both roots select one immutable manifest through `bundle-pointer.v1` at `current.json`:
 

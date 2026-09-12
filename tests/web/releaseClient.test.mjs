@@ -10,12 +10,31 @@ test("A registration with B worker content activates B using verified identity, 
   const waiting={scriptURL:origin+"/sol/sw.js?v=A",postMessage(message,ports=[]){messages.push(message);return b.event("message",{data:message,ports,source:{url:origin+"/sol/releases/A/index.html"}});}};
   const registration={waiting,active:{},addEventListener(){}};
   const serviceWorker={register:async()=>registration,addEventListener:(type,fn)=>listeners[type]=fn};
-  await registerOfflineRelease({serviceWorker,location:{assign:path=>navigations.push(path)},document:{getElementById:id=>id==="releaseUpdate"?button:status},basePath:"/sol/",releaseId:"A",createChannel:()=>new MessageChannel()});
+  await registerOfflineRelease({serviceWorker,location:{hash:"",assign:path=>navigations.push(path)},document:{getElementById:id=>id==="releaseUpdate"?button:status},basePath:"/sol/",releaseId:"A",createChannel:()=>new MessageChannel()});
   assert.equal(button.hidden,false);assert.deepEqual(navigations,[]);
   await button.onclick();await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(messages.at(-1),{type:"ACTIVATE_RELEASE",release_id:"B"});assert.deepEqual(b.actions,["skipWaiting"]);
   listeners.controllerchange();assert.deepEqual(navigations,["/sol/"]);
 });
+
+for(const basePath of ["/","/sol/","/research/sol/"]) {
+  test(`explicit offline update preserves the current Sky fragment under ${basePath}`,async()=>{
+    const b=harness("B",await release("B",basePath),new Map(),basePath);await b.event("install");
+    const button={hidden:true},status={},listeners={},navigations=[];
+    const location={hash:"#sky=0,0,0,0",assign:path=>navigations.push(path)};
+    const waiting={postMessage:(message,ports=[])=>b.event("message",{data:message,ports,source:{url:origin+basePath+"releases/A/index.html"}})};
+    const registration={waiting,active:{},addEventListener(){}};
+    const serviceWorker={register:async()=>registration,addEventListener:(type,fn)=>listeners[type]=fn};
+    await registerOfflineRelease({serviceWorker,location,document:{getElementById:id=>id==="releaseUpdate"?button:status},basePath,releaseId:"A",createChannel:()=>new MessageChannel()});
+    listeners.controllerchange();assert.deepEqual(navigations,[],"controller changes alone cannot authorize navigation");
+    await button.onclick();await new Promise(resolve=>setImmediate(resolve));
+    // The user may change the shared observer/time while activation is pending.
+    location.hash="#sky=1e-8,-2.3456789,-1,123.5";
+    listeners.controllerchange();
+    assert.deepEqual(navigations,[basePath+"#sky=1e-8,-2.3456789,-1,123.5"]);
+    assert.deepEqual(b.actions,["skipWaiting"]);
+  });
+}
 test("handshake rejects wrong-scope, unknown identity, and timeout",async()=>{
   for(const packet of [{type:"RELEASE_ID",release_id:"B",base_path:"/wrong/",namespace:"releases/B/"},{type:"wrong"},{type:"RELEASE_ID",release_id:"../x",base_path:"/sol/"}]) {
     await assert.rejects(identifyWaitingRelease({postMessage:(_,ports)=>ports[0].postMessage(packet)},"/sol/",()=>new MessageChannel(),30),/identity/);

@@ -105,6 +105,11 @@ function saveSkyPrefs() {
 
 function restoreSkyPrefs() {
   try {
+    const provider = localStorage.getItem("sol-sky-provider");
+    // Remember the preferred provider, never the session's permission to contact it.
+    if (provider === "local" || provider === "server") skyState.provider = provider;
+  } catch (_) { /* storage unavailable */ }
+  try {
     const raw = localStorage.getItem("sol-sky-observer");
     if (raw) {
       const saved = JSON.parse(raw);

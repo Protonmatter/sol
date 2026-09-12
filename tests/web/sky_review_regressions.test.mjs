@@ -21,11 +21,13 @@ const capturedHash = "#sky=0,0,1782872026.9999936,0";
 // Execute the complete Sky controller and real privacy/contract/worker-client modules.
 // Only browser host I/O is controlled: DOM, clock, permission callbacks, clipboard,
 // and worker messages. Stamping uses the same token substitution as build_web.py.
-function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol/releases/A/index.html", clipboard } = {}) {
+function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol/releases/A/index.html", clipboard,
+  savedProvider = null, storedObserver = JSON.stringify({ lat: 0, lon: 0, elev: 0 }), recipientBase = "" } = {}) {
   const nodes = new Map(), intervals = new Map(), positions = [], workers = [], saved = new Map();
   let focused = null;
   const node = (id = "") => ({
     id, textContent: "", value: "", hidden: false, children: [], attributes: {}, listeners: new Map(),
+    classList: { toggle() {} },
     addEventListener(type, callback) { this.listeners.set(type, callback); },
     click() { return this.listeners.get("click")?.({ target: this }); },
     setAttribute(key, value) { this.attributes[key] = value; },
@@ -35,10 +37,12 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
     select() { this.selectionStart = 0; this.selectionEnd = this.value.length; },
   });
   for (const id of ["skyGeo", "skySet", "skyLat", "skyLon", "skyElev", "skyLocLabel", "skyInputError",
-    "skyProvenance", "skyShare", "skyShareConfirm", "skyShareCancel", "skySharePreview", "skySharePreviewText"]) {
+    "skyProvenance", "skyShare", "skyShareConfirm", "skyShareCancel", "skySharePreview", "skySharePreviewText",
+    "skyProviderLocal", "skyProviderServer", "skyConsent", "skyConsentText", "skyConsentAllow", "skyConsentDeny", "skyConsentRevoke"]) {
     nodes.set(id, node(id));
   }
   nodes.get("skySharePreview").hidden = true;
+  nodes.get("skyConsent").hidden = true;
   const location = new URL(href), store = {};
   const context = vm.createContext({
     store, URL, Event, Blob, AbortController, structuredClone, navigator: {
@@ -47,11 +51,11 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
     location, history: { replaceState(_state, _title, value) { location.href = new URL(value, location).href; } },
     Date: class extends Date { static now() { return unix * 1000; } },
     localStorage: {
-      getItem(key) { return key === "sol-sky-observer" ? JSON.stringify({ lat: 0, lon: 0, elev: 0 }) : null; },
+      getItem(key) { return key === "sol-sky-observer" ? storedObserver : key === "sol-sky-provider" ? savedProvider : null; },
       setItem(key, value) { saved.set(key, value); },
     },
     document: { getElementById: id => nodes.get(id) || null, createElement: () => node() },
-    window: { dispatchEvent() {}, setInterval(callback) { intervals.set(1, callback); return 1; }, clearInterval(id) { intervals.delete(id); } },
+    window: { SOL_EPHEMERIS_SERVER: recipientBase, dispatchEvent() {}, setInterval(callback) { intervals.set(1, callback); return 1; }, clearInterval(id) { intervals.delete(id); } },
     fetchServerSky, BODY_INDEX, SERVER_BASE,
     createSkyWorkerClient: () => createSkyWorkerClient({
       createWorker: () => {
@@ -81,6 +85,49 @@ function skyHarness(t, { basePath = "/sol/", href = "https://example.invalid/sol
     },
   };
 }
+
+test("saved remote preference is restored but each session requires fresh recipient consent", async t => {
+  const requests=[];
+  t.mock.method(globalThis,"fetch",async url=>{requests.push(new URL(url).pathname);return new Response("offline fixture",{status:502});});
+  const options={savedProvider:"server",recipientBase:"https://recipient.invalid"};
+  const h=skyHarness(t,options);
+  assert.equal(h.store.sky.provider,"server");
+  assert.equal(h.nodes.get("skyProviderServer").attributes["aria-pressed"],"true");
+  assert.equal(h.nodes.get("skyProviderLocal").attributes["aria-pressed"],"false");
+  assert.equal(h.nodes.get("skyConsent").hidden,false);
+  assert.match(h.nodes.get("skyConsentText").textContent,/https:\/\/recipient\.invalid/);
+  h.tick();await h.context.renderSky();
+  assert.deepEqual(requests,[],"restoration and refresh cannot send health or snapshot requests before consent");
+  assert.equal(h.saved.size,0,"restoration cannot rewrite stored preferences");
+  h.click("skyConsentAllow");
+  assert.deepEqual(requests,["/v3/sky"]);
+  assert.equal(h.saved.get("sol-sky-provider"),"server");
+  const reloaded=skyHarness(t,{...options,savedProvider:h.saved.get("sol-sky-provider")});
+  await reloaded.context.renderSky();
+  assert.equal(reloaded.store.sky.provider,"server");
+  assert.equal(reloaded.nodes.get("skyConsent").hidden,false);
+  assert.deepEqual(requests,["/v3/sky"],"saved provider cannot carry consent into another page session");
+  reloaded.click("skyConsentDeny");
+  assert.equal(reloaded.store.sky.provider,"local");
+  assert.equal(reloaded.saved.get("sol-sky-provider"),"local");
+  assert.deepEqual(requests,["/v3/sky"]);
+});
+
+test("malformed saved observer does not discard a separately valid saved remote preference", t => {
+  const h=skyHarness(t,{savedProvider:"server",storedObserver:"{invalid",recipientBase:"https://recipient.invalid"});
+  assert.equal(h.store.sky.provider,"server");
+  assert.equal(h.store.sky.observer.lat,40.71);
+  assert.equal(h.nodes.get("skyConsent").hidden,false);
+});
+
+test("unknown saved provider values retain the on-device default", t => {
+  for(const savedProvider of [null,"local","SERVER","unknown",'"server"',"https://recipient.invalid"]) {
+    const h=skyHarness(t,{savedProvider,recipientBase:"https://recipient.invalid"});
+    assert.equal(h.store.sky.provider,"local");
+    assert.equal(h.nodes.get("skyProviderLocal").attributes["aria-pressed"],"true");
+    assert.equal(h.nodes.get("skyConsent").hidden,true);
+  }
+});
 
 const locationResult = { coords: { latitude: 12.345678, longitude: -76.54321, altitude: 123.5 } };
 

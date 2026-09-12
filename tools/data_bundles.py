@@ -24,6 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LIMIT = 16 * 1024 * 1024
 IDENTITY = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}\Z")
 HASH = re.compile(r"[a-f0-9]{64}\Z")
+# Explicit shared attribution whitespace; U+FEFF is not whitespace here.
+ATTRIBUTION_WHITESPACE = "\u0009\u000a\u000b\u000c\u000d\u001c\u001d\u001e\u001f\u0020\u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000"
 SCHEMAS = {name: ROOT / "docs" / file for name, file in {
     "bundle-pointer.v1": "bundle-pointer-v1.schema.json",
     "public-data-cache-manifest.v2": "public-data-cache-manifest-v2.schema.json",
@@ -183,6 +185,47 @@ def resolve_derived_manifest(path: Path, bundle_id: str, manifest_sha256: str) -
     return _resolve_derived(value, raw, path, None)
 
 
+def _same_json(left: Any, right: Any) -> bool:
+    """JSON equality: object order is irrelevant, array order and scalar types are not."""
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(_same_json(v, right[k]) for k, v in left.items())
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(_same_json(a, b) for a, b in zip(left, right))
+    if isinstance(left, bool) or isinstance(right, bool):
+        return type(left) is type(right) and left == right
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        # Native/browser JSON uses f64. Never admit oversized counters after rounding.
+        return abs(left) <= 9007199254740991 and abs(right) <= 9007199254740991 and left == right
+    return type(left) is type(right) and left == right
+
+
+def attributable_source(value: Any) -> bool:
+    """Shared producer/reader rule; language-default whitespace sets differ."""
+    if not isinstance(value, str):
+        return False
+    source = value.strip(ATTRIBUTION_WHITESPACE)
+    return bool(source) and source.lower() != "unknown"
+
+
+def _validate_observation_coherence(snapshot: dict, report: dict) -> None:
+    # Daily derivation embeds the report envelope with only attributable frames.
+    # Preserve all other report data and exact frame ordering; never repair a reader input.
+    frames = []
+    for frame in report["frames"]:
+        provenance = frame.get("provenance") if isinstance(frame, dict) else None
+        source = provenance.get("source") if isinstance(provenance, dict) else None
+        if attributable_source(source):
+            frames.append(frame)
+    expected = {**report, "frames": frames}
+    if not _same_json(snapshot["observations"], [expected]):
+        raise ValueError("snapshot embedded observations disagree with normalized observations")
+    context = report.get("observed_context")
+    if context is None:
+        context = {}
+    if "observed_context" not in snapshot or not _same_json(snapshot["observed_context"], context):
+        raise ValueError("snapshot observation context disagrees with normalized observations")
+
+
 def _resolve_derived(value: dict, raw: bytes, path: Path, component_hook) -> ResolvedBundle:
     timestamp(value["generated_at_utc"])
     if not IDENTITY.fullmatch(value["source_bundle_id"]) or not HASH.fullmatch(value["source_manifest_sha256"]):
@@ -222,6 +265,7 @@ def _resolve_derived(value: dict, raw: bytes, path: Path, component_hook) -> Res
     errors = validate_snapshot(data["snapshot"])
     if errors:
         raise ValueError("invalid snapshot: " + "; ".join(errors))
+    _validate_observation_coherence(data["snapshot"], observations)
     series = data["series_manifest"]
     if series.get("schema_version") != "series-manifest.v1" or not isinstance(series.get("frames"), list):
         raise ValueError("invalid series manifest")
