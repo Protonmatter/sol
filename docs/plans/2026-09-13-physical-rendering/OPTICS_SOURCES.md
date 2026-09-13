@@ -66,8 +66,10 @@ explicit approximation if the renderer does not provide a linear scene-color tar
 The on-disk path must not be replaced with an additive halo or scalar-alpha attenuation.
 The density profile and optical transfer themselves have no dependence on displayed
 body inflation. Ray steps and bounding intersections are fixed and deterministic.
-Eight Gauss-Legendre nodes integrate each density component, clipped at its own
-12-scale-height support (or profile top). Twelve nodes integrate each monotonic
+The offline reference uses eight Gauss-Legendre nodes for each density component,
+clipped at its own 12-scale-height support (or profile top). Production uses the
+qualified immutable column fields described below for those nested integrals.
+Twelve nodes integrate each monotonic
 illuminated view segment. Intersections at closest approach and at the analytic
 planet-shadow boundary split those segments, so grazing density maxima and twilight
 discontinuities cannot fall between unsplit sample nodes. The usual surface path
@@ -132,10 +134,81 @@ checks source and copied artifacts. Runtime independently checks the optical pro
 encoding and hash, domain/format, exact byte count, finite decoded values and asset hash.
 Loads have a single 20-second deadline, cancellation and a two-entry context-owned
 cache. The selected/focused body requests its field at inspection size; resident
-fields are reusable. Loading/unavailable fields retain straight incident transfer and
-show that refraction state explicitly. Toggle optical transfer to retry. Departure,
+fields are reusable. Reference optical transfer now waits for both the incident and
+density-column fields. Loading/unavailable fields retain the explicitly illustrative
+limb; the UI states that numerical optics are not active. Toggle optical transfer to retry. Departure,
 visibility or selection changes abort obsolete pending work; context loss discards
 its GPU resources. A late result cannot upload after its demand/context changes.
+
+## Immutable density-column lookup and fragment work
+
+`atmosphereColumnField.js` replaces only the reference density-column evaluator in
+the production shared shader. The scattering, phase, source-density, shadow-split,
+view attenuation and linear composition expressions remain the original text.
+The original `atmosphereShaders.js` quadrature and incident-field generator remain
+byte-for-byte unchanged; the incident assets retain their original solver identity.
+The actual GPU gate imports the production lookup version for both the sphere and
+shell and binds the admitted textures. It does not test the old quadrature as a
+substitute for production behavior.
+
+Run `node tools/prepare_atmosphere_columns.mjs` only for explicit preparation. For
+each Earth/Mars profile it computes outward molecular and aerosol density columns
+using the original eight-node monotonic rule and support bounds. A 512-by-512 grid
+uses `height = top * v²` and `cos(zenith) = u²`; these axes resolve both terrestrial
+low-altitude aerosols and grazing paths. The paired RG32F data occupies exactly
+2,097,152 bytes per body. The two files total 4,194,304 bytes and are optional
+release assets, excluded from installation precache. Generation has a conservative
+8,388,608 density-exponential evaluation bound for both bodies, independent of
+framebuffer size, camera distance, terrain LOD or animation duration.
+
+For a physical ray, the renderer divides its body-frame z components by the polar
+ratio, normalizes that transformed direction and retains its length as the exact
+path-length Jacobian. This is an exact reduction for the admitted ellipsoidally
+stratified density model, not the local-curvature approximation used by incident
+refraction. Outward cumulative columns at the two endpoints recover a monotonic
+finite segment by subtraction. A segment crossing closest approach uses the two
+outward halves. Below the reference radius, the model's existing density clamp is
+integrated analytically at density one; real signed terrain elevations are retained.
+The maximum support and missing-field states never trigger runtime quadrature.
+
+Each outward lookup reads four nearest texels and explicitly interpolates both
+components, requiring no floating-point filtering extension. An optical-depth call
+uses at most three outward lookups (12 texel fetches). The analytical planet shadow
+can leave two illuminated intervals; their single closest point can split at most
+one, producing at most three monotonic pieces and 36 scattering samples per view
+ray. Consequently the conservative view-transfer bound is 73 optical-depth calls and
+876 texel fetches. The original nested evaluator could use up to
+2,336 scalar density exponentials in those same calls. The 72 source-density and
+219 transmission exponentials remain bounded and unchanged. These are conservative
+operation bounds, not measured frame rates; scattering still scales with rendered
+pixels, and whole-scene performance must be measured separately. Direct incident
+refraction retains its existing eight-fetch vertex lookup; its out-of-domain
+straight-ray fallback uses the new bounded column evaluator.
+If a surface fragment uses straight incident attenuation instead of interpolated
+incident transmission, it adds at most one optical-depth call, twelve texel fetches
+and three transmission exponentials. The complete conservative surface-fragment
+ceiling is therefore 74 depth calls, 888 texel fetches and 294 retained exponentials;
+the corresponding removed density work is at most 2,368 exponentials. The separate
+vertex fallback has its own bounded column call and is not counted as fragment work.
+
+The two-entry context cache owns at most 6,596,704 bytes of incident plus column
+texture data, without mip chains. Each grouped load shares caller cancellation and
+a first failure aborts its companion. The column loader admits profile identity,
+exact shape/format/path, a fixed two-MiB byte count, SHA-256 and finite nonnegative
+values under one 20-second deadline. It cancels and unlocks its reader on exit.
+Upload exceptions delete both textures and restore active texture unit zero; late
+load completion cannot publish through an obsolete demand or context.
+
+The initial lookup candidate passed all 187 existing actual GPU assertions against
+the independent Python float64 reference, with unchanged transmission, scattering,
+material and incident-refraction tolerances. The permanent CPU tests additionally
+check 2,000 deterministic off-grid samples per body, short 0.01 km paths, inward and
+outward rays, closest crossings, subdatum endpoints, interior crossings and oblate
+polar scaling against independent 16,384-step midpoint integration. Their optical
+transmission difference must remain below 0.0001. Exact offline generation must
+reproduce every shipped Float32 byte and manifest hash. These sampled comparisons
+are not a uniform all-rays proof; final staged numerical and performance checks
+remain required.
 
 Profile identity uses `serializeAtmosphereProfile()` and the version
 `atmosphere-profile-binary32-v1`. Its SHA-256 covers UTF-8 JSON with the envelope

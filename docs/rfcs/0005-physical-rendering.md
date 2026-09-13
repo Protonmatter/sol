@@ -49,7 +49,11 @@ can be demand-loaded within byte limits. Unsupported bodies retain qualified map
 disclosed smooth geometry; irregular shapes require their own source qualification.
 
 Use dimensioned Earth/Mars reference atmospheres, a deterministic double-precision
-reference and bounded GLSL quadrature. Apply solar transmittance to reflected direct
+reference, immutable density-column fields and bounded GLSL scattering quadrature.
+Production fragments MUST NOT run nested density-column quadrature. Retain the
+reference density support, phase functions, shadow splits and view-node count;
+qualify lookup interpolation against the independent reference without widening
+the existing optical tolerances. Apply solar transmittance to reflected direct
 light, then view transmittance and in-scattering in linear color. Night emission is
 attenuated on its view path only. Dense-cloud multiple scattering and general refraction
 require their own validated models before the UI can claim they are active.
@@ -64,6 +68,18 @@ uploads unchanged; it MUST NOT substitute decimal truncation or relax numerical
 admission tolerances. Independent source/generator hashes, exact domain checks and
 data hashes remain required. The exact encoding is documented in the
 [optics source record](../plans/2026-09-13-physical-rendering/OPTICS_SOURCES.md).
+
+The paired molecular/aerosol column fields use a fixed 512-by-512 RG32F grid per
+admitted body, with quadratic physical-height and outward-cosine axes. Exact
+ellipsoid-to-sphere coordinates and the physical path-length Jacobian preserve
+oblateness; endpoint differences and a closest-point split recover finite paths.
+Below-reference-radius density retains the reference model's constant extension.
+Generation is an explicit offline action, never a build or frame-time side effect.
+Both numerical fields must pass profile, hash, size and value admission before
+reference optics become active. A failed companion load cancels the other load;
+unavailable optics retain the explicitly illustrative limb rather than executing
+the expensive quadrature as a fallback. Texture failure and context changes release
+both numerical textures. Mesh, source texture detail and terrain LOD are unchanged.
 
 The Sun has a visible photosphere mode and an identified reconstructed EUV mode.
 Pinned NASA SDO source frames retain finite-distance WCS registration and source-facing
@@ -86,11 +102,15 @@ Use native keyboard controls, pause and reduced-motion defaults. Loading, held, 
 and ready states must be distinguishable. Existing selection and camera controls remain.
 Source playback pauses when its view or texture layer becomes unavailable and requires
 an explicit restart. Restart retains ready/loading solar atlas entries and retries only
-an unavailable entry. The two admitted incident fields are optional release assets:
+an unavailable entry. The two incident and two density-column fields are optional release assets:
 installation does not fetch them; demand-time size and hash admission remains mandatory.
-Leaving the workspace cancels pending physical-detail requests;
+Leaving the workspace cancels pending physical-detail and mapped-image requests;
 ready bounded cache entries may remain warm. Re-enabling terrain explicitly retries
 the currently demanded failed detail without turning ordinary paints into retry loops.
+The mission gallery offers a native Retry image button only after transfer, integrity,
+decode or dimension failure, including single-observation bodies. It retains source
+captions and the selected observation, coalesces repeat activation while loading, and
+preserves generation/abort guards on selection changes and disposal.
 
 ## Security and privacy
 
@@ -134,6 +154,14 @@ reconstruction is not empirical validation of 3-D plasma or atmospheric conditio
    explicit resource bounds and the existing independent direction/transmission gates.
    The complete application must pass the unchanged browser deadlines at its declared
    deployment base path, including hidden-view cancellation and context restoration.
+
+Ordinary bodies, moons and illustrative shells use a compile-time atmosphere-disabled
+sphere program. Admitted Earth/Mars fields select a separate physical sphere program
+with its own uniform locations; deferred resources retain the ordinary program.
+Both variants retain explicit attribute locations and are recreated on context restore.
+Disabled-material GPU parity and routing tests must accompany this specialization.
+Its purpose is to isolate first-use physical shader cost from ordinary scene startup;
+it does not establish a general frame-rate improvement.
 
 ## Validation
 

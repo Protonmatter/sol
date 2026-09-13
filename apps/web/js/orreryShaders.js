@@ -2,7 +2,7 @@
 // constants — extracted from orrery.js so the renderer file holds plumbing, not shader
 // text. NOISE is the shared value-noise/fbm/crater library interpolated into SPHERE_FS.
 
-import { ATMOSPHERE_GLSL } from './atmosphereShaders.js';
+import { ATMOSPHERE_RENDER_GLSL as ATMOSPHERE_GLSL } from './atmosphereColumnField.js';
 import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 
@@ -424,6 +424,17 @@ void main(){
   if(reference&&u_earthIce==1){ vec4 ice=referenceSample(u_iceTex,p); col=mix(col,ice.rgb,ice.a); }
   o=vec4(col,1.0);
 }`;
+
+// The ordinary sphere path must compile without the physical transfer branches.
+// A dynamic zero uniform still leaves their first-use pipeline compilation on
+// every body. Keep the full source above unchanged for admitted Earth/Mars fields.
+function baseSphereSource(source) {
+  const declaration = 'uniform int u_atmosphereEnabled;';
+  if (source.split(declaration).length !== 2) throw new Error('Atmosphere specialization declaration changed');
+  return source.replace(declaration, 'const int u_atmosphereEnabled = 0;');
+}
+export const BASE_SPHERE_VS = baseSphereSource(SPHERE_VS);
+export const BASE_SPHERE_FS = baseSphereSource(SPHERE_FS);
 
 export const LINE_VS = `#version 300 es
 layout(location=0) in vec3 a_pos; layout(location=1) in vec3 a_col;

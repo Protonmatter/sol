@@ -51,6 +51,7 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js",
     "terrainAssets.js", "terrainGeometry.js", "terrainShadowShaders.js", "terrain.worker.js", "terrainWorkerClient.js",
     "solarAppearance.js", "solarAppearanceManifest.js", "solarVolumeShaders.js", "atmosphereOptics.js", "atmosphereShaders.js", "atmosphereIncident.js", "atmosphereIncidentManifest.js",
+    "atmosphereColumnField.js", "atmosphereColumnManifest.js",
     "planetPhenomena.js", "planetPhenomenaManifest.js", "solarAssetLoader.js", "physicalRendering.js"})
 
 
@@ -108,7 +109,8 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     critical_visual_paths = {namespace + path for path in critical_visuals}
     # These verified numerical fields load on optical demand, not SW install.
     # Keep their manifests, runtime modules and all other data critical.
-    optional_incident_paths = {namespace + f"data/optics/{body}-incident-v1.f32" for body in ("earth", "mars")}
+    optional_optical_paths = {namespace + f"data/optics/{body}-{kind}-v1.f32"
+                              for body in ("earth", "mars") for kind in ("incident", "columns")}
     source_map: dict[str, dict] = {}
     try:
         for file in sorted(source_root.rglob("*")):
@@ -181,7 +183,7 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
                 continue
             relative = file.relative_to(temporary).as_posix()
             current = relative in ("index.html", "sw.js") or relative.startswith(namespace)
-            role = "optional" if (not current or relative in optional_incident_paths
+            role = "optional" if (not current or relative in optional_optical_paths
                                   or ("/textures/" in relative and relative not in critical_visual_paths)) else "critical"
             assets.append({"path": relative, "size": file.stat().st_size, "sha256": digest(file),
                            "role": role, **source_map.get(relative, {})})

@@ -11,7 +11,7 @@ import unittest
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tools'))
-from validate_physical_assets import validate_physical_source,validate_terrain,validate_solar,validate_incident_fields,incident_generator_glsl
+from validate_physical_assets import validate_physical_source,validate_terrain,validate_solar,validate_incident_fields,validate_atmosphere_columns,incident_generator_glsl
 from build_web import build_site
 
 
@@ -43,6 +43,21 @@ class PhysicalAssetsTests(unittest.TestCase):
         module=self.root/'js/atmosphereIncidentManifest.js'
         heading=module.read_text().splitlines()[0]
         module.write_text(heading+'\nexport const INCIDENT_FIELDS=Object.freeze('+json.dumps(records,indent=2)+');\n',encoding='utf-8')
+
+    def install_columns(self):
+        names=('js/atmosphereColumnManifest.js','js/atmosphereColumnField.js','js/atmosphereShaders.js',
+               'js/atmosphereOptics.js','data/optics/earth-columns-v1.f32','data/optics/mars-columns-v1.f32')
+        for name in names:
+            destination=self.root/name;destination.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copyfile(ROOT/'apps/web'/name,destination)
+
+    def column_records(self):
+        return json.loads((self.root/'js/atmosphereColumnManifest.js').read_text().split('Object.freeze(',1)[1][:-3])
+
+    def write_column_records(self, records):
+        module=self.root/'js/atmosphereColumnManifest.js'
+        heading=module.read_text().splitlines()[0]
+        module.write_text(heading+'\nexport const ATMOSPHERE_COLUMN_FIELDS=Object.freeze('+json.dumps(records,indent=2)+');\n',encoding='utf-8')
 
     def test_historical_source_without_physical_runtime_remains_compatible(self):
         self.assertEqual(validate_physical_source(self.root),{'terrain':0,'solar':0})
@@ -139,6 +154,84 @@ class PhysicalAssetsTests(unittest.TestCase):
                                          (generator,solver+'\nexport const ATMOSPHERE_GLSL = `duplicate`;')):
             with self.subTest(generator=bad_generator,solver=bad_solver),self.assertRaisesRegex(ValueError,'template'):
                 incident_generator_glsl(bad_generator,bad_solver)
+
+    def test_columns_admit_both_current_fields_and_require_their_manifest(self):
+        self.install_columns()
+        self.assertEqual(validate_atmosphere_columns(self.root),2)
+        self.assertEqual(validate_physical_source(self.root),{'terrain':0,'solar':0,'columns':2})
+        (self.root/'js/atmosphereColumnManifest.js').unlink()
+        with self.assertRaisesRegex(ValueError,'requires.*manifest'):validate_physical_source(self.root)
+
+    def test_columns_require_both_assets_and_all_identity_modules(self):
+        self.install_columns()
+        for name in ('data/optics/earth-columns-v1.f32','data/optics/mars-columns-v1.f32',
+                     'js/atmosphereColumnField.js','js/atmosphereOptics.js','js/atmosphereShaders.js'):
+            file=self.root/name;raw=file.read_bytes();file.unlink()
+            try:
+                with self.subTest(name=name),self.assertRaisesRegex(ValueError,'missing|requires'):
+                    validate_atmosphere_columns(self.root)
+            finally:file.write_bytes(raw)
+
+    def test_columns_reject_truncation_and_same_length_byte_corruption(self):
+        self.install_columns()
+        for body in ('earth','mars'):
+            file=self.root/f'data/optics/{body}-columns-v1.f32';raw=file.read_bytes()
+            corrupt=bytearray(raw);corrupt[20]^=1
+            for bad in (raw[:-4],corrupt):
+                file.write_bytes(bad)
+                try:
+                    with self.subTest(body=body,size=len(bad)),self.assertRaisesRegex(ValueError,'sized|hash mismatch'):
+                        validate_atmosphere_columns(self.root)
+                finally:file.write_bytes(raw)
+
+    def test_columns_pin_shape_path_encoding_and_source_identity_metadata(self):
+        self.install_columns();records=self.column_records()
+        changes=(('dimensions',[512,512,3]),('bytes',2097148),('format','unsupported'),
+                 ('path','../data/optics/mars-columns-v1.f32'),('profile_encoding','float64-v0'),
+                 ('profile_sha256','not-a-digest'),('generator_source_sha256','0'*64),
+                 ('field_source_sha256','0'*64),('solver_source_sha256','0'*64),
+                 ('profile_source_sha256','0'*64),('unreviewed_domain',{'topKm':200}))
+        for key,value in changes:
+            bad=copy.deepcopy(records);bad['Earth'][key]=value;self.write_column_records(bad)
+            with self.subTest(key=key),self.assertRaises(ValueError):validate_atmosphere_columns(self.root)
+        for key in ('profile_encoding','field_source_sha256'):
+            bad=copy.deepcopy(records);bad['Earth'].pop(key);self.write_column_records(bad)
+            with self.subTest(missing=key),self.assertRaises(ValueError):validate_atmosphere_columns(self.root)
+
+    def test_columns_reject_actual_source_changes(self):
+        self.install_columns()
+        for name in ('js/atmosphereColumnField.js','js/atmosphereShaders.js','js/atmosphereOptics.js'):
+            file=self.root/name;raw=file.read_bytes();file.write_bytes(raw+b'\n// changed source\n')
+            try:
+                with self.subTest(name=name),self.assertRaisesRegex(ValueError,'identity changed'):
+                    validate_atmosphere_columns(self.root)
+            finally:file.write_bytes(raw)
+
+    def test_column_samples_remain_bounded_even_if_the_asset_digest_is_rebound(self):
+        self.install_columns();records=self.column_records()
+        for body in ('Earth','Mars'):
+            file=self.root/f'data/optics/{body.lower()}-columns-v1.f32';raw=file.read_bytes()
+            for value in (float('nan'),float('inf'),-1.0,2000.1):
+                bad=bytearray(raw);struct.pack_into('<f',bad,0,value);file.write_bytes(bad)
+                current=copy.deepcopy(records);current[body]['sha256']=hashlib.sha256(bad).hexdigest();self.write_column_records(current)
+                try:
+                    with self.subTest(body=body,value=value),self.assertRaisesRegex(ValueError,'numerical sample'):
+                        validate_atmosphere_columns(self.root)
+                finally:file.write_bytes(raw);self.write_column_records(records)
+
+    def test_column_manifest_duplicate_and_nonfinite_metadata_fail_closed(self):
+        self.install_columns();module=self.root/'js/atmosphereColumnManifest.js';raw=module.read_text()
+        for bad in (raw.replace('"Earth": {','"Earth": {}, "Earth": {',1),
+                    raw.replace('"bytes": 2097152','"bytes": NaN',1)):
+            module.write_text(bad,encoding='utf-8')
+            with self.assertRaisesRegex(ValueError,'duplicate|nonfinite'):validate_atmosphere_columns(self.root)
+
+    def test_column_source_identity_accepts_platform_line_endings(self):
+        self.install_columns()
+        for name in ('js/atmosphereColumnField.js','js/atmosphereColumnManifest.js',
+                     'js/atmosphereShaders.js','js/atmosphereOptics.js'):
+            file=self.root/name;file.write_bytes(file.read_text().replace('\n','\r\n').encode())
+        self.assertEqual(validate_atmosphere_columns(self.root),2)
 
     def test_generated_browser_data_drift_is_rejected(self):
         self.install();file=self.root/'js/solarAppearanceManifest.js'

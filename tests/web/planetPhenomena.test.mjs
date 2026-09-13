@@ -98,3 +98,38 @@ test('stale image results cannot replace selection; failures retain source evide
   dispose();assert.ok(pending[1].signal.aborted);assert.deepEqual(revoked,[]);
   renderPlanetPhenomena(host,'Earth');assert.ok(host.hidden);assert.equal(host.children.length,0);
 });
+
+test('one-option Neptune gallery retries a failed image in place and retains the verified result',async()=>{
+  const host=dom(),pending=[],revoked=[];let created=0;
+  const dispose=renderPlanetPhenomena(host,'Neptune',{loadImage:(id,{signal})=>new Promise((resolve,reject)=>pending.push({id,signal,resolve,reject})),objectUrls:{createObjectURL:()=>`blob:retry-${created++}`,revokeObjectURL:url=>revoked.push(url)}});
+  const nodes=descendants(host),retry=nodes.find(x=>x.className==='planet-phenomena__retry'),image=nodes.find(x=>x.tagName==='img');
+  assert.ok(retry,'a native retry button must be available for the failed selection');
+  assert.equal(retry.tagName,'button');assert.equal(retry.type,'button');assert.equal(retry.hidden,true);
+  assert.equal(nodes.find(x=>x.tagName==='select').children.length,1);
+  pending[0].reject(Error('offline'));await tick();assert.equal(retry.hidden,false);assert.match(host.textContent,/unavailable/);
+  retry.dispatch('click');retry.dispatch('click');assert.equal(pending.length,2,'double activation cannot restart pending work');
+  assert.equal(pending[0].signal.aborted,true);assert.equal(retry.hidden,true);assert.equal(retry.disabled,true);
+  assert.equal(pending[1].id,pending[0].id);
+  pending[1].resolve(new Blob(['recovered']));await tick();
+  [image.naturalWidth,image.naturalHeight]=phenomenaForBody('Neptune')[0].asset.dimensions;
+  image.onload();assert.equal(image.hidden,false);assert.match(host.textContent,/Source image verified/);assert.equal(retry.hidden,true);
+  retry.dispatch('click');assert.equal(pending.length,2,'a hidden ready-state retry cannot discard the verified image');
+  dispose();assert.deepEqual(revoked,['blob:retry-0']);
+});
+
+test('gallery decode and dimension failures expose retry, with stale and disposed callbacks inert',async()=>{
+  const host=dom(),pending=[],revoked=[];let created=0;
+  const dispose=renderPlanetPhenomena(host,'Saturn',{loadImage:(id,{signal})=>new Promise((resolve,reject)=>pending.push({id,signal,resolve,reject})),objectUrls:{createObjectURL:()=>`blob:decode-${created++}`,revokeObjectURL:url=>revoked.push(url)}});
+  const nodes=descendants(host),retry=nodes.find(x=>x.className==='planet-phenomena__retry'),image=nodes.find(x=>x.tagName==='img'),select=nodes.find(x=>x.tagName==='select');
+  assert.ok(retry);
+  pending[0].resolve(new Blob(['image']));await tick();const staleLoad=image.onload,staleError=image.onerror;
+  image.onerror();assert.equal(retry.hidden,false);assert.deepEqual(revoked,['blob:decode-0']);
+  retry.dispatch('click');assert.equal(pending.length,2);staleError();assert.equal(retry.hidden,true);
+  pending[1].resolve(new Blob(['image']));await tick();image.naturalWidth=1;image.naturalHeight=1;image.onload();
+  assert.equal(retry.hidden,false);assert.match(host.textContent,/unexpected dimensions/);assert.deepEqual(revoked,['blob:decode-0','blob:decode-1']);
+  retry.dispatch('click');const abandoned=pending[2];select.value='saturn-decagon';select.dispatch('change');
+  assert.equal(abandoned.signal.aborted,true);abandoned.resolve(new Blob(['old']));await tick();assert.equal(created,2);
+  staleLoad();staleError();assert.equal(retry.hidden,true);
+  dispose();const count=pending.length;retry.dispatch('click');assert.equal(pending.length,count);
+  pending.at(-1).resolve(new Blob(['disposed']));await tick();assert.equal(created,2);assert.equal(host.children.length,0);
+});

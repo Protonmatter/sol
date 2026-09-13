@@ -30,12 +30,21 @@ async function moduleFile(relative){
   assert.ok(asset,`${relative} absent from release`);assert.equal(hashes[relative],asset.sha256,`${relative} hash mismatch`);}
  return import(pathToFileURL(file).href);
 }
-const {ATMOSPHERE_GLSL,ATMOSPHERE_VS,ATMOSPHERE_FS}=await moduleFile('js/atmosphereShaders.js');
+const {ATMOSPHERE_VS}=await moduleFile('js/atmosphereShaders.js');
+const {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS}=await moduleFile('js/atmosphereColumnField.js');
+const {ATMOSPHERE_COLUMN_FIELDS}=await moduleFile('js/atmosphereColumnManifest.js');
 const {getAtmosphereProfile,atmosphereUniformValues}=await moduleFile('js/atmosphereOptics.js');
 const {SPHERE_VS,SPHERE_FS}=await moduleFile('js/orreryShaders.js');
 const {INCIDENT_FIELDS}=await moduleFile('js/atmosphereIncidentManifest.js');
 const {sampleIncidentField}=await moduleFile('js/atmosphereIncident.js');
 const fields={};
+const columns={};
+for(const [body,reference]of Object.entries(ATMOSPHERE_COLUMN_FIELDS)){
+ const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
+ assert.equal(bytes.length,reference.bytes);assert.equal(digest(bytes),reference.sha256);hashes[relative]=digest(bytes);
+ if(release){const entry=release.assets.find(a=>a.path===path.relative(webRoot,file).split(path.sep).join('/'));assert.equal(entry?.sha256,reference.sha256);}
+ columns[body]={values:Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4)),width:512,height:512};
+}
 for(const [body,reference]of Object.entries(INCIDENT_FIELDS)){
  const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
  assert.equal(bytes.length,reference.bytes);assert.equal(digest(bytes),reference.sha256);
@@ -44,6 +53,7 @@ for(const [body,reference]of Object.entries(INCIDENT_FIELDS)){
  fields[body]={values:Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4)),width:reference.dimensions[0],height:reference.dimensions[1]*reference.dimensions[2]};
 }
 assert.doesNotMatch(SPHERE_VS,/atmosphereCurvedRay|atmosphereRayDerivative/,'rendering must never integrate incident rays');
+assert.doesNotMatch(SPHERE_FS+ATMOSPHERE_FS,/atmosphereColumnSegment|float atmosphereColumn\(/,'production fragments must not integrate density columns');
 await moduleFile('js/terrainShadowShaders.js');
 hashes.reference=digest(fs.readFileSync(path.join(ROOT,'tools/atmosphere_reference.py')));
 // Fixed admission tolerances, separate from the measured errors in evidence.
@@ -170,7 +180,7 @@ try {
  evidence.browser_version=await browser.version();
  const page=await browser.newPage(); await page.setRequestInterception(true);page.on('request',request=>request.abort());
  await page.setContent('<canvas width=1 height=1></canvas>');
- const actual=await page.evaluate(({cases,materials,refractionCases,fields,shared,shellVs,shellFs,sphereVs,sphereFs})=>{
+ const actual=await page.evaluate(({cases,materials,refractionCases,fields,columns,shared,shellVs,shellFs,sphereVs,sphereFs})=>{
   const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false});
   if(!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('float WebGL2 unavailable');
   const shader=(kind,source)=>{const s=gl.createShader(kind);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
@@ -181,9 +191,17 @@ try {
   const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,1,1);
   const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
   if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('incomplete float target');
+  const columnTextures={};
+  for(const [body,field]of Object.entries(columns)){
+    gl.activeTexture(gl.TEXTURE7);const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RG32F,field.width,field.height,0,gl.RG,gl.FLOAT,new Float32Array(field.values));
+    for(const param of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,param,gl.NEAREST);
+    for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);columnTextures[body]=texture;
+  }
+  const bindColumns=(program,body)=>{gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,columnTextures[body]);gl.uniform1i(gl.getUniformLocation(program,'u_atmosphereColumnField'),7);gl.activeTexture(gl.TEXTURE0);};
   gl.useProgram(p);
   const upload=(name,value)=>{const u=gl.getUniformLocation(p,name);if(Array.isArray(value)) {if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);} else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
-  const transfer=cases.map(c=>{for(const [key,value]of Object.entries(c.uniforms))upload(key,value);upload('u_probeOrigin',c.origin);upload('u_probeDir',c.direction);upload('u_probeMax',c.maximum);
+  const transfer=cases.map(c=>{bindColumns(p,c.profile.body);for(const [key,value]of Object.entries(c.uniforms))upload(key,value);upload('u_probeOrigin',c.origin);upload('u_probeDir',c.direction);upload('u_probeMax',c.maximum);
    const result={};for(const [kind,key]of [[0,'transmittance'],[1,'scattering']]){upload('u_probeKind',kind);gl.drawArrays(gl.TRIANGLES,0,3);const raw=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,raw);result[key]=Array.from(raw).slice(0,3);}if(gl.getError()!==gl.NO_ERROR)throw Error('GL readback error');return result;});
   const refractiveProgram=program(sphereVs,'#version 300 es\nprecision highp float;out vec4 o;void main(){o=vec4(0);}', ['v_incidentSunBody','v_incidentSunWorld','v_incidentTransmission']);
   gl.useProgram(refractiveProgram);
@@ -196,6 +214,7 @@ try {
   }
   const feedback=gl.createBuffer();gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER,feedback);gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER,36,gl.DYNAMIC_READ);gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER,0,feedback);
   const refractiveResults=refractionCases.map(c=>{
+    bindColumns(refractiveProgram,c.profile.body);
     gl.activeTexture(gl.TEXTURE6);gl.bindTexture(gl.TEXTURE_2D,fieldTextures[c.profile.body]);
     gl.uniform1i(gl.getUniformLocation(refractiveProgram,'u_incidentField'),6);
     gl.uniform1i(gl.getUniformLocation(refractiveProgram,'u_incidentFieldReady'),1);
@@ -227,6 +246,7 @@ try {
   for(let i=0;i<ridge.length;i++){const longitude=((i%720+.5)/720)*360;if(longitude>2&&longitude<4)ridge[i]=20;}
   gl.activeTexture(gl.TEXTURE3);const terrain=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,terrain);gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,720,360,0,gl.RED,gl.FLOAT,ridge);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
   const materialResults=materials.map(c=>{
+    bindColumns(materialProgram,'Earth');
     mat('u_style',-1);mat('u_mode',0);mat('u_useTex',c.reference===false?0:1);mat('u_texMode',3);mat('u_mapNoData',0);mat('u_moonShadowCount',0);
     mat('u_earthNight',c.night?1:0);mat('u_earthWeather',0);mat('u_earthIce',0);
     mat('u_tex',0);mat('u_nightTex',1);mat('u_weatherTex',2);mat('u_iceTex',2);mat('u_ringTex',2);mat('u_terrainHeight',3);
@@ -243,7 +263,7 @@ try {
     if(gl.getError()!==gl.NO_ERROR)throw Error('combined material GL readback error');return Array.from(raw).slice(0,3);
   });
   return {transfer,materials:materialResults,refraction:refractiveResults};
- },{cases,materials:materialCases,refractionCases,fields,shared:ATMOSPHERE_GLSL,shellVs:ATMOSPHERE_VS,shellFs:ATMOSPHERE_FS,sphereVs:SPHERE_VS,sphereFs:SPHERE_FS});
+ },{cases,materials:materialCases,refractionCases,fields,columns,shared:ATMOSPHERE_GLSL,shellVs:ATMOSPHERE_VS,shellFs:ATMOSPHERE_FS,sphereVs:SPHERE_VS,sphereFs:SPHERE_FS});
  evidence.checks=cases.flatMap((c,i)=>['transmittance','scattering'].map(key=>{
   const reference=expected[i][key], measured=actual.transfer[i][key];
   const tolerances=reference.map(value=>value===0?ZERO_TOLERANCE:ABSOLUTE_TOLERANCE+RELATIVE_TOLERANCE*Math.abs(value));

@@ -9,6 +9,7 @@ import puppeteer from "puppeteer-core";
 import v8ToIstanbul from "v8-to-istanbul";
 import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
 import { waitForCanvasGeometry } from "./canvas_capture.mjs";
+import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
 import { assertCaptionLayouts } from "./caption_layout.mjs";
 import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
 import { waitForReferenceReadiness } from "./reference_readiness.mjs";
@@ -913,52 +914,7 @@ async function visualAssertions(page, visualDirectory) {
   await page.$eval('#orrerySpeedPresets button[data-dps="7"]', (button) => button.click());
   await new Promise((resolve) => setTimeout(resolve, 250));
   await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-before.png"));
-  const spinProbe = await page.evaluate(async () => {
-    const entry = document.querySelector('script[type="module"][src^="app.js"]');
-    const { store } = await import(`./js/store.js${entry ? new URL(entry.src).search : ""}`);
-    const gl = document.getElementById("orreryCanvas").getContext("webgl2");
-    const original = gl.drawElements;
-    const samples = [], locations = new Map();
-    const draws = { submitted: 0, surface: 0, earth: 0, duplicateEpoch: 0 };
-    let sampleError = "";
-    gl.drawElements = function (...args) {
-      const result = original.apply(this, args); // Always submit the unchanged production draw.
-      draws.submitted++;
-      if (samples.length >= 120 || sampleError) return result;
-      try {
-        const program = gl.getParameter(gl.CURRENT_PROGRAM);
-        if (!locations.has(program)) locations.set(program, Object.fromEntries(
-          ["u_mode", "u_model", "u_nmat"].map(name => [name, gl.getUniformLocation(program, name)])));
-        const loc = locations.get(program);
-        if (!loc.u_mode || !loc.u_model || !loc.u_nmat || gl.getUniform(program, loc.u_mode) !== 0) return result;
-        draws.surface++;
-        const earth = store.orrery.bodies.find(body => body.name === "Earth");
-        const model = Array.from(gl.getUniform(program, loc.u_model));
-        if (!earth || Math.hypot(model[12] - earth.x_au, model[13] - earth.y_au, model[14] - earth.z_au) > 1e-5) return result;
-        draws.earth++;
-        const epoch = store.orrery.renderUnix;
-        if (samples.at(-1)?.epoch === epoch) { draws.duplicateEpoch++; return result; }
-        samples.push({ epoch, rate: store.orrery.yearsPerSec * 365.25 * 86400,
-          normal: Array.from(gl.getUniform(program, loc.u_nmat)), model });
-      } catch (error) { sampleError = String(error); }
-      return result;
-    };
-    try {
-      // Require actual submitted frames, not an assumed SwiftShader frame rate.
-      // Bounded waiting keeps a stopped renderer red while tolerating a busy host.
-      await new Promise(resolve => {
-        const deadline = setTimeout(done, 5000);
-        const poll = setInterval(() => { if (samples.length >= 4 || sampleError) done(); }, 50);
-        function done() { clearInterval(poll); clearTimeout(deadline); resolve(); }
-      });
-    } finally { gl.drawElements = original; }
-    return { samples, sampleError, drawCounts: draws, state: {
-      active: store.orrery.active, animate: store.orrery.animate,
-      hidden: document.hidden, contextLost: gl.isContextLost(),
-      anchor: store.orrery.anchor, selected: store.orrery.selected,
-      engineError: store.orrery.engineError,
-    } };
-  });
+  const spinProbe = await page.evaluate(collectSubmittedEarthSpin);
   // Preserve the probe even when no frames arrive or an assertion fails. A stalled
   // renderer, a stopped clock, and a mismatched draw must remain distinguishable
   // in hosted evidence without relaxing the bounded wait or the spin contract.
@@ -1287,6 +1243,7 @@ async function main() {
   let browser;
   let workerCoverage;
   let diagnosticPage;
+  const failures = [];
   const started = Date.now();
   const progress = setInterval(() => console.log(`Browser validation: ${phase} still running (${Math.round((Date.now()-started)/1000)}s elapsed)`), 30_000);
   progress.unref();
@@ -1349,7 +1306,7 @@ async function main() {
       } catch {}
     }, { fixedNow: FIXED_UNIX_MS, serverBase: server.base });
 
-    const failures = [], moduleRequests = [];
+    const moduleRequests = [];
     page.on("request", request => moduleRequests.push(request.url()));
     page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
@@ -1407,9 +1364,9 @@ async function main() {
     phase="coverage mapping";console.log(`Browser validation: ${phase}`);
     await writeBrowserCoverage(entries, webRoot, outputDirectory);
   } catch(error) {
-    let timer;
+    let timer, diagnostic, diagnosticError;
     try {
-      const diagnostic=await Promise.race([diagnosticPage?.evaluate(()=>({
+      diagnostic=await Promise.race([diagnosticPage?.evaluate(()=>({
         surface:document.body.dataset.surface,
         skyRows:document.querySelectorAll("#skyList .sky-row").length,
         skyInsight:document.getElementById("skyInsight")?.textContent,
@@ -1420,9 +1377,10 @@ async function main() {
         activeSunMode:document.querySelector('[data-sun-mode][aria-pressed="true"]')?.getAttribute('data-sun-mode'),
         workerResources:performance.getEntriesByType('resource').filter(item=>/Worker|worker|\.wasm/.test(item.name)).map(item=>({url:item.name,duration:item.duration})),
       })),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("diagnostic deadline")),5000);})]);
-      fs.writeFileSync(path.join(outputDirectory,"failure.json"),JSON.stringify({phase,error:error.message,diagnostic,workerErrors:workerCoverage?.errors},null,2)+"\n");
-    } catch(diagnosticError) {console.error(`Failure diagnostics unavailable: ${diagnosticError.message}`);}
+    } catch(failure) {diagnosticError=failure.message;console.error(`Failure diagnostics unavailable: ${diagnosticError}`);}
     finally {clearTimeout(timer);}
+    fs.writeFileSync(path.join(outputDirectory,"failure.json"),JSON.stringify({phase,error:error.message,
+      diagnostic,diagnosticError,runtimeErrors:[...failures],workerErrors:workerCoverage?.errors},null,2)+"\n");
     console.error(`Browser validation failed during ${phase}: ${error.message}`);throw error;
   } finally {
     clearInterval(progress);

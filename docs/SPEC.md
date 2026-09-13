@@ -59,7 +59,15 @@ their apparent solar direction and curved-path attenuation drive direct illumina
 Ray shooting runs during explicit offline preparation, not per vertex or animation
 frame. Field loading, fallback and retry remain explicit, with bounded same-origin
 assets and independent direction/transmission admission before enablement.
-The two admitted incident-field binaries are optional in the immutable release
+The observer/scattered-light density integrals use fixed 512-by-512 paired
+molecular/aerosol column fields. Their exact oblate coordinate reduction retains
+physical path lengths and signed terrain endpoints. Production fragments retain
+bounded scattering samples but must not run nested density-column quadrature or
+generate a field at runtime. Source textures, terrain LOD and numerical acceptance
+tolerances remain unchanged. Both incident and column fields must pass admission;
+failed or pending fields retain the explicitly illustrative limb. Companion loads
+share cancellation, and upload failure releases both numerical textures.
+The two incident and two density-column binaries are optional in the immutable release
 inventory: installation does not fetch them, and demand-time loading verifies their
 bytes before caching or upload. Their absence does not block core installation.
 Field identity binds exact binary32 profile values and complete semantic metadata
@@ -80,6 +88,12 @@ The Sun inspection hides other display bodies and guides without moving any engi
 state; returning to Our system restores the scene. A source/date/band-aware observation
 gallery presents Jupiter storms/aurorae, Saturn's north hexagon and south decagon, and
 Neptune's aurora in their published views. It does not claim globally registered weather.
+Failed mission images expose an in-place native Retry image action, including galleries
+with one observation. Loading and verified images cannot be restarted by that action;
+selection changes and departure still cancel work and reject stale completion callbacks.
+Leaving the System view also cancels pending mapped-image requests while retaining
+ready textures in the existing bounded cache. Reentry issues fresh demand for cancelled
+images and may explicitly retry failed references.
 
 ## Architecture
 

@@ -36,7 +36,7 @@ function moduleFile(relative) {
   return {file, bytes};
 }
 const shadersFile = moduleFile("js/orreryShaders.js"), mappingFile = moduleFile("js/surfaceMapping.js"), rendererFile = moduleFile("js/orrery.js");
-const { SPHERE_VS, SPHERE_FS } = await import(pathToFileURL(shadersFile.file).href);
+const { SPHERE_VS, SPHERE_FS, BASE_SPHERE_VS, BASE_SPHERE_FS } = await import(pathToFileURL(shadersFile.file).href);
 const { surfaceUv, srgbToLinear, linearToSrgb, nightLightWeight } = await import(pathToFileURL(mappingFile.file).href);
 const upload = rendererFile.bytes.toString("utf8").match(/function makeTexture\(img, repeatS, nearest = false(?:, premultiplyAlpha = false)?\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(upload, "actual image upload function could not be isolated");
@@ -72,7 +72,9 @@ const evidence = {schema_version: "planet-appearance-validation.v1", web_root: w
   release_namespace: release?.namespace ?? null, started_at: new Date().toISOString(),
   scope: "Synthetic fiducials through actual SPHERE_VS/SPHERE_FS and makeTexture; not astronomical calibration or application qualification",
   source_sha256: {shaders: digest(shadersFile.bytes), surface_mapping: digest(mappingFile.bytes), renderer: digest(rendererFile.bytes)},
-  fixture_sha256: Object.fromEntries([...fixtures].map(([key, value]) => [key, digest(value)])), checks: []};
+  compiled_shader_sha256: {physical_vertex:digest(SPHERE_VS),physical_fragment:digest(SPHERE_FS),
+    base_vertex:digest(BASE_SPHERE_VS),base_fragment:digest(BASE_SPHERE_FS)},
+  fixture_sha256: Object.fromEntries([...fixtures].map(([key, value]) => [key, digest(value)])), checks: [], disabled_material_parity: []};
 fs.mkdirSync(out, {recursive: true});
 let browser, server, launchPromise, deadlineTimer, expired = false;
 const controller = new AbortController();
@@ -111,7 +113,7 @@ async function run() {
   const cdp = await page.createCDPSession(); await cdp.send("Network.enable");
   await cdp.send("Network.setBlockedURLs", {urls: ["https://*", "http://localhost/*"]});
   await page.goto(`http://127.0.0.1:${server.address().port}/fixture.html`, {waitUntil: "domcontentloaded", timeout: 15000});
-  evidence.gpu = await page.evaluate(async ({vertex, fragment, upload, images}) => {
+  evidence.gpu = await page.evaluate(async ({vertex, fragment, baseVertex, baseFragment, upload, images}) => {
     const gl = document.querySelector("canvas").getContext("webgl2", {antialias: false, preserveDrawingBuffer: true});
     if (!gl) throw new Error("WebGL2 unavailable for actual shader gate");
     const compile = (type, source) => {
@@ -119,9 +121,14 @@ async function run() {
       if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
       return shader;
     };
-    const program = gl.createProgram(); gl.attachShader(program, compile(gl.VERTEX_SHADER, vertex));
-    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragment)); gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+    const link = (vs, fs) => {
+      const result = gl.createProgram(); gl.attachShader(result, compile(gl.VERTEX_SHADER, vs));
+      gl.attachShader(result, compile(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(result);
+      if (!gl.getProgramParameter(result, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(result));
+      return result;
+    };
+    const programs = {physical:link(vertex, fragment), base:link(baseVertex, baseFragment)};
+    let program = programs.physical;
     gl.useProgram(program); gl.disable(gl.DITHER); gl.disable(gl.BLEND); gl.viewport(0, 0, 1, 1);
     const textureFactory = new Function("gl", `${upload}; return makeTexture;`)(gl);
     const flippedFactory = new Function("gl", `${upload.replace("UNPACK_FLIP_Y_WEBGL, false", "UNPACK_FLIP_Y_WEBGL, true")}; return makeTexture;`)(gl);
@@ -147,6 +154,9 @@ async function run() {
     const identity = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
     const bind = (unit, sampler, name) => {gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, textures[name]); i(sampler, unit);};
     window.probe = options => {
+      program = programs[options.shaderVariant || 'physical'];
+      if (!program) throw new Error('Unknown disabled-material shader variant');
+      gl.useProgram(program); i('u_atmosphereEnabled', 0);
       const p = options.position || [0, 1, 1], e = .0001;
       const vertices = [[-1,-1], [1,-1], [-1,1], [-1,1], [1,-1], [1,1]];
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices.flatMap(([x,y]) => [p[0]+e*x,p[1]+e*y,p[2]])), gl.STATIC_DRAW);
@@ -156,15 +166,15 @@ async function run() {
       gl.uniformMatrix4fv(location("u_mvp"), false, mvp); gl.uniformMatrix4fv(location("u_model"), false, identity);
       gl.uniformMatrix3fv(location("u_nmat"), false, options.normalMatrix || [1,0,0,0,1,0,0,0,1]);
       gl.vertexAttrib3fv(1, options.normal || [0,0,1]);
-      i("u_style", -1); i("u_mode", 0); i("u_useTex", 1); i("u_texMode", options.texMode ?? 3);
+      i("u_style", -1); i("u_mode", options.mode ?? 0); i("u_useTex", options.useTexture === false ? 0 : 1); i("u_texMode", options.texMode ?? 3);
       const shadows = options.shadows || [];
       if (shadows.length > 4) throw new Error("GPU fixture exceeds the shader's four shadow slots");
       const shadowPositions = new Float32Array(16), shadowAxes = new Float32Array(16);
       shadows.forEach((shadow, index) => {shadowPositions.set(shadow.position, 4*index); shadowAxes.set(shadow.axis, 4*index);});
       i("u_moonShadowCount", shadows.length);
       v4("u_moonShadowPos[0]", shadowPositions); v4("u_moonShadowAxis[0]", shadowAxes);
-      f("u_time", options.time || 0); f("u_atmoStr", 0);
-      gl.uniform2fv(location("u_ringRad"), [0, 0]); v3("u_atmo", [0,0,0]);
+      f("u_time", options.time || 0); f("u_atmoStr", options.atmosphereStrength || 0);
+      gl.uniform2fv(location("u_ringRad"), [0, 0]); v3("u_atmo", options.atmosphereColor || [0,0,0]);
       v3("u_base", options.base || [.2,.3,.4]); v3("u_light", options.light || [0,0,1]);
       v3("u_cam", options.camera || [0,0,5]); f("u_oblate", options.axisRatio || 1);
       v4("u_map", options.map || [.5,1,1,0]);
@@ -202,8 +212,21 @@ async function run() {
     };
     const debug = gl.getExtension("WEBGL_debug_renderer_info");
     return {renderer: debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), version: gl.getParameter(gl.VERSION), uploadPremultiplyStates};
-  }, {vertex: SPHERE_VS, fragment: SPHERE_FS, upload, images: [...fixtures.keys()]});
-  const probe = options => page.evaluate(options => window.probe(options), options);
+  }, {vertex: SPHERE_VS, fragment: SPHERE_FS, baseVertex: BASE_SPHERE_VS, baseFragment: BASE_SPHERE_FS, upload, images: [...fixtures.keys()]});
+  // Every existing material/registration assertion still receives the physical
+  // shader result. Independently execute the shipped constant-disabled program
+  // with identical inputs, including spatial derivative patches, and retain both.
+  const pairedProbe = async (method, options) => {
+    const result = await page.evaluate(({method, options}) => ({
+      physical:window[method]({...options,shaderVariant:'physical'}),
+      base:window[method]({...options,shaderVariant:'base'}),
+    }), {method, options});
+    const physical = result.physical.pixels || result.physical, base = result.base.pixels || result.base;
+    evidence.disabled_material_parity.push({method,options,physical,base,
+      passed:physical.length === base.length && physical.every((value,index) => value === base[index])});
+    return result.physical;
+  };
+  const probe = options => pairedProbe('probe', options);
   const rgba = rgb => [...rgb, 255];
   const fallback = [51, 77, 102, 255];
   check("each image upload sets its own alpha interpretation", evidence.gpu.uploadPremultiplyStates.map(state => Number(state.actual)),
@@ -244,7 +267,7 @@ async function run() {
   ];
   for (const [name,texMode,texture,expected,base] of spatialCases) {
     for (const crossing of [false,true]) {
-      const spatial = await page.evaluate(options=>window.spatialSeamProbe(options),{texMode,texture,crossing,base});
+      const spatial = await pairedProbe('spatialSeamProbe',{texMode,texture,crossing,base});
       check(`${name} spatial ${crossing ? 'longitude-wrap' : 'non-wrapping'} patch retains edge texels`,
         spatial.pixels, Array.from({length:spatial.width*spatial.height},()=>expected).flat(), 2);
     }
@@ -358,6 +381,24 @@ async function run() {
   const oblatePixel = await probe({normal,normalMatrix:[1,0,0,0,1,0,0,0,2]});
   check("ellipsoid inverse-transpose normal controls linear illumination", oblatePixel,
     rgba(colors[1].slice(0,3).map(value => 255*linearToSrgb(srgbToLinear(value/255)*(.001+.999*2/Math.sqrt(5))))));
+  // Cover the two production non-surface modes, untextured surfaces, and view
+  // dependence outside the original registered-material fixture cases.
+  for (const options of [
+    {mode:1,useTexture:false,base:[1,.98,.94],position:[0,0,1]},
+    {mode:1,useTexture:false,base:[1,.98,.94],normal:[1,0,0],position:[0,0,1]},
+    {mode:2,atmosphereColor:[.2,.5,1],atmosphereStrength:.8,normal:[1,0,0]},
+    {mode:2,atmosphereColor:[.7,.4,.1],atmosphereStrength:.5,normal:[1,0,0],light:[-1,0,0]},
+    {useTexture:false,base:[.4,.25,.1],normal:[0,0,1]},
+    {useTexture:false,base:[.4,.25,.1],normal:[0,0,1],light:[0,0,-1]},
+  ]) await probe(options);
+  check('constant-disabled base sphere preserves every material pixel',
+    evidence.disabled_material_parity.flatMap(item=>item.base),
+    evidence.disabled_material_parity.flatMap(item=>item.physical), 0);
+  const changedMaterial = await page.evaluate(() => ({
+    physical:window.probe({shaderVariant:'physical',mode:1,useTexture:false,base:[1,1,1],position:[0,0,1]}),
+    base:window.probe({shaderVariant:'base',mode:1,useTexture:false,base:[.1,.1,.1],position:[0,0,1]}),
+  }));
+  different('negative control: base material drift is visible to GPU parity',changedMaterial.base,changedMaterial.physical);
   if (errors.length) throw new Error(errors.join("; "));
   const failed = evidence.checks.filter(check => !check.passed);
   if (failed.length) throw new Error(`${failed.length} GPU/coordinate checks failed: ${failed.map(check => check.name).join(", ")}`);

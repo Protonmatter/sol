@@ -23,6 +23,7 @@ export async function orreryHarness(t, options = {}) {
   let textureUploadError = options.textureUploadError || 0;
   const uniformDraws = [], uniforms = new Map(); let currentProgram;
   const recordUniform = (location, value) => {
+    assert.equal(location.program,currentProgram,'Uniform map must belong to the active program');
     if (!uniforms.has(location.program)) uniforms.set(location.program, {});
     uniforms.get(location.program)[location.name] = typeof value === "number" ? value : Array.from(value);
   };
@@ -55,6 +56,8 @@ export async function orreryHarness(t, options = {}) {
     getShaderInfoLog: () => "test GPU shader compile failure",
     getProgramInfoLog: () => "test GPU program link failure",
     getAttribLocation: () => 0,
+    shaderSource: (shader,source) => { shader.source=source; },
+    attachShader: (program,shader) => { (program.sources??=[]).push(shader.source); },
     getUniformLocation: (program, name) => ({ program, name }),
     useProgram: program => { currentProgram = program; },
     uniform1i: recordUniform,
@@ -71,7 +74,7 @@ export async function orreryHarness(t, options = {}) {
       draws++; drawCalls.push(["elements", ...args]);
       const drawUniforms = { ...uniforms.get(currentProgram) };
       uniformDraws.push(drawUniforms);
-      gpuDraws.push({ uniforms: drawUniforms, textures: new Map(textureBindings) });
+      gpuDraws.push({ program: currentProgram, uniforms: drawUniforms, textures: new Map(textureBindings) });
       gpuSubmissions.push({kind:'elements',uniforms:drawUniforms,depthWrites,blend:[...blend]});
     },
     drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]);gpuSubmissions.push({kind:'arrays',uniforms:{...uniforms.get(currentProgram)},depthWrites,blend:[...blend]}); },
@@ -243,12 +246,17 @@ export async function orreryHarness(t, options = {}) {
   }
   const incidentBoundary={...await import('../../../apps/web/js/atmosphereIncident.js'),
     loadIncidentField:options.incidentField||(async()=>{throw Error('Incident field unavailable at the test I/O boundary');})};
+  const columnModule=await import('../../../apps/web/js/atmosphereColumnField.js');
+  const columnBoundary={...columnModule,loadAtmosphereFields:(body,{signal})=>columnModule.loadAtmosphereFields(body,{signal,
+    incidentLoader:incidentBoundary.loadIncidentField,
+    columnLoader:options.atmosphereColumns||(async()=>({values:new Float32Array([8,1.2]),width:1,height:1}))})};
   const [lifecycle] = await loadSourceModules(context, [moduleUrl], {
     resolveImport: (specifier,url) => options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
       ? {loadSolarAtlas:typeof options.solarAtlas==='function'?options.solarAtlas:async()=>({width:2048,height:1024,close(){}})}
       : options.terrainMesh && url.pathname.endsWith('/terrainWorkerClient.js')
         ? {requestTerrainMesh:options.terrainMesh}
-        : url.pathname.endsWith('/atmosphereIncident.js')?incidentBoundary:namespaces.get(specifier),
+        : url.pathname.endsWith('/atmosphereIncident.js')?incidentBoundary
+          :url.pathname.endsWith('/atmosphereColumnField.js')?columnBoundary:namespaces.get(specifier),
     // Optional catalogue downloads remain pending, as they can during first paint.
     importModuleDynamically: specifier => {
       const mode = specifier.includes("geography") ? options.geography || "pending" : optionalMode;

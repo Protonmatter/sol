@@ -286,6 +286,45 @@ def validate_incident_fields(root: Path) -> int:
     return len(records)
 
 
+def validate_atmosphere_columns(root: Path) -> int:
+    """Admit immutable optical columns without generating them during a build."""
+    module=root/'js/atmosphereColumnManifest.js'
+    if not module.exists() and not (root/'js/atmosphereColumnField.js').exists():return 0
+    if not module.is_file() or module.is_symlink():raise ValueError('column runtime requires field manifest')
+    match=re.fullmatch(r'//[^\n]*\nexport const ATMOSPHERE_COLUMN_FIELDS=Object.freeze\((\{.*\})\);\n',incident_module(module),re.S)
+    if not match:raise ValueError('invalid column field manifest')
+    def unique(entries):
+        result={}
+        for key,value in entries:
+            if key in result:raise ValueError('duplicate column field key')
+            result[key]=value
+        return result
+    def constant(value):raise ValueError('nonfinite column manifest value: '+value)
+    records=json.loads(match[1],object_pairs_hook=unique,parse_constant=constant)
+    if set(records)!={'Earth','Mars'}:raise ValueError('unsupported column field bodies')
+    files={'generator_source_sha256':ROOT/'tools/prepare_atmosphere_columns.mjs',
+           'field_source_sha256':root/'js/atmosphereColumnField.js',
+           'solver_source_sha256':root/'js/atmosphereShaders.js',
+           'profile_source_sha256':root/'js/atmosphereOptics.js'}
+    identities={key:hashlib.sha256(incident_module(file).encode()).hexdigest() for key,file in files.items()}
+    for body,ref in records.items():
+        if not isinstance(ref,dict) or set(ref)!={'path','dimensions','bytes','sha256','format','profile_encoding','profile_sha256',*identities}:
+            raise ValueError('invalid column field record')
+        if ref.get('profile_encoding')!='atmosphere-profile-binary32-v1' or ref.get('dimensions')!=[512,512,2] or ref.get('bytes')!=512*512*2*4 or ref.get('format')!='little-endian-rg32f-outward-columns-v1':
+            raise ValueError('column field shape or encoding changed')
+        if ref.get('path')!=f'../data/optics/{body.lower()}-columns-v1.f32':raise ValueError('column field path escaped')
+        for key in ('sha256','profile_sha256',*identities):sha(ref.get(key))
+        file=root/'data/optics'/f'{body.lower()}-columns-v1.f32'
+        if not file.is_file() or any(p.is_symlink() for p in (file,*file.parents)) or file.stat().st_size!=ref['bytes']:
+            raise ValueError('missing/linked/wrong-sized column field')
+        raw=file.read_bytes()
+        if hashlib.sha256(raw).hexdigest()!=ref['sha256']:raise ValueError('column field hash mismatch')
+        if any(not math.isfinite(value) or value<0 or value>2000 for (value,) in struct.iter_unpack('<f',raw)):
+            raise ValueError('invalid column field numerical sample')
+        if any(ref[key]!=value for key,value in identities.items()):raise ValueError('column generator/solver/profile source identity changed')
+    return len(records)
+
+
 def validate_physical_source(root: Path) -> dict:
     root=root.resolve();counts={"terrain":0,"solar":0}
     for kind,filename,runtimes in (("terrain","terrain-assets.v1.json",("js/terrainAssets.js","js/terrainGeometry.js")),
@@ -309,6 +348,8 @@ def validate_physical_source(root: Path) -> dict:
                 raise ValueError("browser terrain manifest drift")
     incident=validate_incident_fields(root)
     if incident:counts['incident']=incident
+    columns=validate_atmosphere_columns(root)
+    if columns:counts['columns']=columns
     return counts
 
 

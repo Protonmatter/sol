@@ -20,8 +20,9 @@ import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.j
 import {requestTerrainMesh} from './terrainWorkerClient.js';
 import {physicalCameraPosition,terrainDetailLevel,advanceReferencePlayback,createDetailCache} from './physicalRendering.js';
 import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms} from './atmosphereOptics.js';
-import {loadIncidentField,INCIDENT_FIELD_UNIFORMS} from './atmosphereIncident.js';
-import {ATMOSPHERE_VS,ATMOSPHERE_FS} from './atmosphereShaders.js';
+import {INCIDENT_FIELD_UNIFORMS} from './atmosphereIncident.js';
+import {ATMOSPHERE_VS} from './atmosphereShaders.js';
+import {ATMOSPHERE_RENDER_FS as ATMOSPHERE_FS,loadAtmosphereFields} from './atmosphereColumnField.js';
 import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,solarReferenceRotation,solarRenderUniforms,solarPlayback} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
@@ -43,7 +44,7 @@ import {
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
 } from "./orreryMath.js?v=dcca6290db";
 import {
-  SPHERE_VS, SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
+  SPHERE_VS, SPHERE_FS, BASE_SPHERE_VS, BASE_SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
 } from "./orreryShaders.js?v=dcca6290db";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
@@ -248,17 +249,24 @@ function initIncidentResources(){
   incidentFields?.dispose();incidentDemand='';
   const context=gl;
   const cache=createDetailCache({capacity:2,load:async(body,signal)=>{
-    const field=await loadIncidentField(body,{signal});
+    const [field,columns]=await loadAtmosphereFields(body,{signal});
     if(signal.aborted||incidentFields!==cache||incidentBodyDemand()!==body||incidentDemand!==body||gl!==context||context.isContextLost())throw new Error('Incident field graphics demand changed');
-    const texture=context.createTexture();context.activeTexture(context.TEXTURE0+6);context.bindTexture(context.TEXTURE_2D,texture);
+    let texture=null,columnTexture=null;
+    try{
+    texture=context.createTexture();context.activeTexture(context.TEXTURE0+6);context.bindTexture(context.TEXTURE_2D,texture);
     context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
     context.texImage2D(context.TEXTURE_2D,0,context.RGBA32F,field.width,field.height,0,context.RGBA,context.FLOAT,field.values);
     for(const parameter of [context.TEXTURE_MIN_FILTER,context.TEXTURE_MAG_FILTER])context.texParameteri(context.TEXTURE_2D,parameter,context.NEAREST);
     for(const parameter of [context.TEXTURE_WRAP_S,context.TEXTURE_WRAP_T])context.texParameteri(context.TEXTURE_2D,parameter,context.CLAMP_TO_EDGE);
-    context.activeTexture(context.TEXTURE0);
-    if(context.getError()!==context.NO_ERROR){context.deleteTexture(texture);throw new Error('GPU rejected incident field');}
-    return {texture,height:[field.domain.minHeightKm,field.domain.maxHeightKm,Number(field.domain.quadratic)]};
-  },release:value=>{if(value)context.deleteTexture(value.texture);},onChange:body=>{
+    columnTexture=context.createTexture();context.activeTexture(context.TEXTURE0+7);context.bindTexture(context.TEXTURE_2D,columnTexture);
+    context.texImage2D(context.TEXTURE_2D,0,context.RG32F,columns.width,columns.height,0,context.RG,context.FLOAT,columns.values);
+    for(const parameter of [context.TEXTURE_MIN_FILTER,context.TEXTURE_MAG_FILTER])context.texParameteri(context.TEXTURE_2D,parameter,context.NEAREST);
+    for(const parameter of [context.TEXTURE_WRAP_S,context.TEXTURE_WRAP_T])context.texParameteri(context.TEXTURE_2D,parameter,context.CLAMP_TO_EDGE);
+    if(context.getError()!==context.NO_ERROR)throw new Error('GPU rejected optical fields');
+    return {texture,columnTexture,height:[field.domain.minHeightKm,field.domain.maxHeightKm,Number(field.domain.quadratic)]};
+    }catch(error){if(texture)context.deleteTexture(texture);if(columnTexture)context.deleteTexture(columnTexture);throw error;}
+    finally{context.activeTexture(context.TEXTURE0);}
+  },release:value=>{if(value){context.deleteTexture(value.texture);context.deleteTexture(value.columnTexture);}},onChange:body=>{
     queueMicrotask(()=>{if(incidentFields!==cache||gl!==context)return;
       state.opticsStatus[body]=cache.status(body);updatePhysicalAppearance();if(state.active&&!document.hidden&&!state.animate)paint();});
   }});
@@ -275,11 +283,17 @@ function syncIncidentDemand(){
   if(demand!==incidentDemand){incidentFields?.abortPending();incidentDemand=demand;}
 }
 
-function bindIncidentField(body,profile){
+function bindIncidentField(body,profile,locations=P.sphereU){
   const field=profile?incidentFields?.get(body):null;
   gl.activeTexture(gl.TEXTURE0+6);gl.bindTexture(gl.TEXTURE_2D,field?.texture||whiteTex);
-  gl.uniform1i(P.sphereU.u_incidentField,6);gl.uniform1i(P.sphereU.u_incidentFieldReady,field?1:0);
-  gl.uniform3fv(P.sphereU.u_incidentFieldHeight,field?.height||[0,16,1]);gl.activeTexture(gl.TEXTURE0);
+  gl.uniform1i(locations.u_incidentField,6);gl.uniform1i(locations.u_incidentFieldReady,field?1:0);
+  gl.uniform3fv(locations.u_incidentFieldHeight,field?.height||[0,16,1]);gl.activeTexture(gl.TEXTURE0);
+}
+
+function bindAtmosphereColumns(body,locations){
+  const field=incidentFields?.get(body);
+  gl.activeTexture(gl.TEXTURE0+7);gl.bindTexture(gl.TEXTURE_2D,field?.columnTexture||whiteTex);
+  gl.uniform1i(locations.u_atmosphereColumnField,7);gl.activeTexture(gl.TEXTURE0);
 }
 
 function initTerrainResources() {
@@ -340,7 +354,7 @@ function updatePhysicalAppearance() {
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body]):'Terrain relief disabled.');
-  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?'Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, adaptive display exposure. Not current weather.':state.opticsStatus[body]==='loading'?'Reference scattering active; incident refraction field loading.':state.opticsStatus[body]==='unavailable'?'Reference scattering active; incident refraction unavailable. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
+  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?'Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, adaptive display exposure. Not current weather.':state.opticsStatus[body]==='loading'?'Reference optical fields loading; illustrative limb shown until ready.':state.opticsStatus[body]==='unavailable'?'Reference optical fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
   if(body==='Sun')notes.push(state.solarMode==='reconstructed-euv'?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
@@ -415,11 +429,11 @@ function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
   return true;
 }
 
-function bindTerrainShadow(mesh,physicalRadius) {
-  gl.uniform1f(P.sphereU.u_bodyRadiusKm,physicalRadius);
-  gl.uniform1i(P.sphereU.u_terrainShadowEnabled,mesh.heightTex?1:0);
-  gl.activeTexture(gl.TEXTURE0+5);gl.bindTexture(gl.TEXTURE_2D,mesh.heightTex||whiteTex);gl.uniform1i(P.sphereU.u_terrainHeight,5);
-  if(mesh.heightTex){gl.uniform4fv(P.sphereU.u_terrainShape,new Float32Array(mesh.shadow.shape));gl.uniform2fv(P.sphereU.u_terrainPoles,new Float32Array(mesh.shadow.poles));}
+function bindTerrainShadow(mesh,physicalRadius,locations=P.sphereU) {
+  gl.uniform1f(locations.u_bodyRadiusKm,physicalRadius);
+  gl.uniform1i(locations.u_terrainShadowEnabled,mesh.heightTex?1:0);
+  gl.activeTexture(gl.TEXTURE0+5);gl.bindTexture(gl.TEXTURE_2D,mesh.heightTex||whiteTex);gl.uniform1i(locations.u_terrainHeight,5);
+  if(mesh.heightTex){gl.uniform4fv(locations.u_terrainShape,new Float32Array(mesh.shadow.shape));gl.uniform2fv(locations.u_terrainPoles,new Float32Array(mesh.shadow.poles));}
   gl.activeTexture(gl.TEXTURE0);
 }
 
@@ -502,17 +516,21 @@ function requestReferenceTextures() {
   }
 }
 
-function syncReferenceDemand() {
-  referenceDemand = planReferenceDemand(referenceVisible, state);
-  const nextRequests = referenceDemand.filter(asset=>!['ready','unavailable'].includes(state.appearanceStatus[asset.id]))
-    .slice(0,MAX_REFERENCE_REQUESTS);
+function cancelPendingReferenceTextures(keep = []) {
   for (const [id,entry] of Object.entries(referenceTextures)) {
-    if (!entry.loading || nextRequests.some(a=>a.id===id)) continue;
+    if (!entry.loading || keep.some(a=>a.id===id)) continue;
     // Clear ownership before cancelling so even already queued callbacks cannot
     // upload an obsolete selection. The newly focused view gets the freed slot.
     delete referenceTextures[id]; state.appearanceStatus[id] = 'deferred';
     entry.image.onload = null; entry.image.onerror = null; entry.image.src = '';
   }
+}
+
+function syncReferenceDemand() {
+  referenceDemand = planReferenceDemand(referenceVisible, state);
+  const nextRequests = referenceDemand.filter(asset=>!['ready','unavailable'].includes(state.appearanceStatus[asset.id]))
+    .slice(0,MAX_REFERENCE_REQUESTS);
+  cancelPendingReferenceTextures(nextRequests);
   for (const asset of appearanceReferences()) {
     const wanted = referenceDemand.some(a=>a.id===asset.id);
     const status = state.appearanceStatus[asset.id];
@@ -698,7 +716,8 @@ function initGL(canvas) {
   gl = canvas.getContext("webgl2", { antialias: true, depth: true, alpha: false, premultipliedAlpha: false });
   if (!gl) return null;
   try {
-    P.sphere = program(SPHERE_VS, SPHERE_FS);
+    P.sphere = program(BASE_SPHERE_VS, BASE_SPHERE_FS);
+    P.physicalSphere = program(SPHERE_VS, SPHERE_FS);
     P.line = program(LINE_VS, LINE_FS);
     P.ring = program(RING_VS, RING_FS);
     P.pt = program(PT_VS, PT_FS);
@@ -720,8 +739,9 @@ function initGL(canvas) {
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
-  Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
-  P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS]);
+  Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
+  P.physicalSphereU=uloc(P.physicalSphere,Object.keys(P.sphereU));
+  P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,'u_atmosphereColumnField']);
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
 
   const s = buildSphere(48, 96);
@@ -1606,7 +1626,7 @@ function updateEarthLayerStatus() {
   if (caption) caption.textContent = `${ice?.label || 'Sea ice unavailable'} · ${ice?.observation_label || 'Date unavailable'}. Transparent areas have no displayed data.`;
 }
 
-function bindEarthTextures(enabled) {
+function bindEarthTextures(enabled,locations=P.sphereU) {
   for (const [role, active, flag, sampler, unit] of /** @type {[string,boolean,string,string,number][]} */ ([
     ['night-lights', state.earthNight, 'u_earthNight', 'u_nightTex', 2],
     [earthCloudRole(state), state.earthWeather, 'u_earthWeather', 'u_weatherTex', 3],
@@ -1615,10 +1635,10 @@ function bindEarthTextures(enabled) {
     const asset = appearanceReference('Earth', role);
     const tex = asset && referenceTextures[asset.id];
     const ready = !!(enabled && active && tex?.ready);
-    gl.uniform1i(P.sphereU[flag], ready ? 1 : 0);
+    gl.uniform1i(locations[flag], ready ? 1 : 0);
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, ready ? tex.tex : whiteTex);
-    gl.uniform1i(P.sphereU[sampler], unit);
+    gl.uniform1i(locations[sampler], unit);
   }
   gl.activeTexture(gl.TEXTURE0);
 }
@@ -1647,9 +1667,12 @@ function drawBody(b, vp, eye) {
   const mvp = mul(vp, model);
   const light = b.name === "Sun" ? [0, 0, 1] : norm([-b.x_au, -b.y_au, -b.z_au]);
   const lightObj=[dot(rot.slice(0,3),light),dot(rot.slice(4,7),light),dot(rot.slice(8,11),light)];
-  const profile=state.opticsEnabled&&pixelDiameter>=64?getAtmosphereProfile(b.name):null;
-  if(profile&&b.name===incidentDemand)incidentFields?.request(b.name);
-  state.opticsStatus[b.name]=profile?(incidentFields?.status(b.name)||'unavailable'):'deferred';
+  const requestedProfile=state.opticsEnabled&&pixelDiameter>=64?getAtmosphereProfile(b.name):null;
+  if(requestedProfile&&b.name===incidentDemand)incidentFields?.request(b.name);
+  state.opticsStatus[b.name]=requestedProfile?(incidentFields?.status(b.name)||'unavailable'):'deferred';
+  // Nested quadrature is never a frame-time fallback. Both immutable numerical
+  // fields must pass admission before reference optical transfer becomes active.
+  const profile=requestedProfile&&incidentFields?.get(b.name)?.columnTexture?requestedProfile:null;
   const distanceAu=b.name==='Sun'?1:Math.hypot(b.x_au,b.y_au,b.z_au);
   const opticalOptions={cameraBodyKm:physicalCameraPosition(eye,pos,rot,rEq,phys.radiusKm),sunDirectionBody:lightObj,
     polarRatio:phys.polarKm/phys.radiusKm,solarDistanceAu:distanceAu,exposure:distanceAu*distanceAu};
@@ -1659,28 +1682,30 @@ function drawBody(b, vp, eye) {
   const drawn = drawnMoonsFor(b.name, pos, rEq, eye);
   const shadows = moonShadowUniforms(phys, pos, rot, drawn);
 
-  gl.useProgram(P.sphere);
-  setAtmosphereUniforms(gl,P.sphereU,profile,opticalOptions);
-  bindIncidentField(b.name,profile);
-  bindTerrainShadow(mesh,phys.radiusKm);
-  gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mvp));
-  gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
+  const sphereUniforms=profile?P.physicalSphereU:P.sphereU;
+  gl.useProgram(profile?P.physicalSphere:P.sphere);
+  setAtmosphereUniforms(gl,sphereUniforms,profile,opticalOptions);
+  bindAtmosphereColumns(b.name,sphereUniforms);
+  bindIncidentField(b.name,profile,sphereUniforms);
+  bindTerrainShadow(mesh,phys.radiusKm,sphereUniforms);
+  gl.uniformMatrix4fv(sphereUniforms.u_mvp, false, new Float32Array(mvp));
+  gl.uniformMatrix4fv(sphereUniforms.u_model, false, new Float32Array(model));
   // Inverse transpose of R * diag(a,a,b), up to an irrelevant common factor.
   // Without this, oblate planets use mesh normals and the terminator is misplaced.
   const normals = normalMat3(rot), axisRatio = phys.polarKm / phys.radiusKm;
   for (let i = 6; i < 9; i++) normals[i] /= axisRatio;
-  gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array(normals));
-  gl.uniform1i(P.sphereU.u_style, -1); // unregistered surface detail stays neutral
-  gl.uniform1i(P.sphereU.u_mode, b.name === "Sun" ? 1 : 0);
-  gl.uniform1f(P.sphereU.u_time, state.renderUnix * 0.0002);
+  gl.uniformMatrix3fv(sphereUniforms.u_nmat, false, new Float32Array(normals));
+  gl.uniform1i(sphereUniforms.u_style, -1); // unregistered surface detail stays neutral
+  gl.uniform1i(sphereUniforms.u_mode, b.name === "Sun" ? 1 : 0);
+  gl.uniform1f(sphereUniforms.u_time, state.renderUnix * 0.0002);
   // The Sun emits white visible light (NASA SVS 13859). This slightly warm
   // display RGB is illustrative, not calibrated radiance or observed detail.
   // Keep u_style=-1: no unregistered disk, invented spots or granulation.
-  gl.uniform3fv(P.sphereU.u_base, b.name === "Sun" ? [1, 0.98, 0.94] : appearanceFallbackColor(b.name) || missingDetailColor(b.name));
-  gl.uniform3fv(P.sphereU.u_light, new Float32Array(light));
-  gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
-  gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(atmo));
-  gl.uniform1f(P.sphereU.u_atmoStr, atmoStr);
+  gl.uniform3fv(sphereUniforms.u_base, b.name === "Sun" ? [1, 0.98, 0.94] : appearanceFallbackColor(b.name) || missingDetailColor(b.name));
+  gl.uniform3fv(sphereUniforms.u_light, new Float32Array(light));
+  gl.uniform3fv(sphereUniforms.u_cam, new Float32Array(eye));
+  gl.uniform3fv(sphereUniforms.u_atmo, new Float32Array(atmo));
+  gl.uniform1f(sphereUniforms.u_atmoStr, atmoStr);
   // Surface-map priority: a real fetched photographic map (fetch_textures.py) beats the map we
   // generate from the committed vectors, which in turn beats the procedural shader. Only the
   // generated maps can ask to MODULATE rather than replace.
@@ -1698,40 +1723,40 @@ function drawBody(b, vp, eye) {
   const useTex = referenceTex || sunTexd || photoTexd || !!gen;
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, referenceTex ? referenceTex.tex : sunTexd ? sunTex.tex : (photoTexd ? textures[b.name].tex : (gen ? gen.tex : whiteTex)));
-  gl.uniform1i(P.sphereU.u_tex, 0);
-  gl.uniform1i(P.sphereU.u_useTex, useTex ? 1 : 0);
-  gl.uniform1i(P.sphereU.u_texMode, referenceTex ? 3 : gen ? gen.texMode : 0);
+  gl.uniform1i(sphereUniforms.u_tex, 0);
+  gl.uniform1i(sphereUniforms.u_useTex, useTex ? 1 : 0);
+  gl.uniform1i(sphereUniforms.u_texMode, referenceTex ? 3 : gen ? gen.texMode : 0);
   if (referenceTex) {
     const uniforms = appearanceUniforms(reference);
-    gl.uniform4fv(P.sphereU.u_map, new Float32Array(uniforms.map));
-    gl.uniform4fv(P.sphereU.u_mapLat, new Float32Array(uniforms.lat));
-    gl.uniform4fv(P.sphereU.u_mapWindow, new Float32Array(uniforms.window));
-    gl.uniform1i(P.sphereU.u_mapNoData, uniforms.nodata);
+    gl.uniform4fv(sphereUniforms.u_map, new Float32Array(uniforms.map));
+    gl.uniform4fv(sphereUniforms.u_mapLat, new Float32Array(uniforms.lat));
+    gl.uniform4fv(sphereUniforms.u_mapWindow, new Float32Array(uniforms.window));
+    gl.uniform1i(sphereUniforms.u_mapNoData, uniforms.nodata);
   }
-  bindEarthTextures(!!referenceTex && b.name === 'Earth');
-  gl.uniform3fv(P.sphereU.u_sunA, new Float32Array(sunTexd ? sunDiskBasis() : [1, 0, 0]));
+  bindEarthTextures(!!referenceTex && b.name === 'Earth',sphereUniforms);
+  gl.uniform3fv(sphereUniforms.u_sunA, new Float32Array(sunTexd ? sunDiskBasis() : [1, 0, 0]));
   // Ring-shadow inputs: the light direction expressed in the BODY frame (Rᵀ·light — rot's
   // upper 3×3 is orthonormal, column-major), the annulus radii in equatorial-radius units, the
   // oblateness ratio, and the radial opacity-profile texture on unit 1. Zeroed for ringless
   // bodies, and re-zeroed by drawMoons (same program, stale state).
-  gl.uniform3fv(P.sphereU.u_lightObj, new Float32Array([
+  gl.uniform3fv(sphereUniforms.u_lightObj, new Float32Array([
     rot[0] * light[0] + rot[1] * light[1] + rot[2] * light[2],
     rot[4] * light[0] + rot[5] * light[1] + rot[6] * light[2],
     rot[8] * light[0] + rot[9] * light[1] + rot[10] * light[2],
   ]));
-  gl.uniform2fv(P.sphereU.u_ringRad, new Float32Array(
+  gl.uniform2fv(sphereUniforms.u_ringRad, new Float32Array(
     phys.rings ? [phys.rings.innerKm / phys.radiusKm, phys.rings.outerKm / phys.radiusKm] : [0, 0],
   ));
-  gl.uniform1f(P.sphereU.u_oblate, phys.polarKm / phys.radiusKm);
+  gl.uniform1f(sphereUniforms.u_oblate, phys.polarKm / phys.radiusKm);
   // Transit shadows. count is 0 on all but a handful of frames per decade, and the shader skips
   // the whole block then — but the arrays are still uploaded so a stale caster from the previous
   // planet can never be read if the count is ever raised without them.
-  gl.uniform1i(P.sphereU.u_moonShadowCount, shadows.count);
-  gl.uniform4fv(P.sphereU["u_moonShadowPos[0]"], shadows.pos);
-  gl.uniform4fv(P.sphereU["u_moonShadowAxis[0]"], shadows.axis);
+  gl.uniform1i(sphereUniforms.u_moonShadowCount, shadows.count);
+  gl.uniform4fv(sphereUniforms["u_moonShadowPos[0]"], shadows.pos);
+  gl.uniform4fv(sphereUniforms["u_moonShadowAxis[0]"], shadows.axis);
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D, phys.rings ? ringShadowProfileTex(b.name, phys) : whiteTex);
-  gl.uniform1i(P.sphereU.u_ringTex, 1);
+  gl.uniform1i(sphereUniforms.u_ringTex, 1);
   gl.activeTexture(gl.TEXTURE0);
 
   bindBodyMesh(mesh);
@@ -1765,6 +1790,7 @@ function drawBody(b, vp, eye) {
     const shell=mul(translate(pos),mul(rot,scaleM([rEq*extent,rEq*extent,rPol*extent])));
     queueTransparent(pos,eye,()=>{
       gl.useProgram(P.atmosphere);setAtmosphereUniforms(gl,P.atmosphereU,profile,opticalOptions);
+      bindAtmosphereColumns(b.name,P.atmosphereU);
       gl.uniformMatrix4fv(P.atmosphereU.u_mvp,false,new Float32Array(mul(vp,shell)));
       bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.depthMask(false);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
       gl.drawElements(gl.TRIANGLES,sphere.count,gl.UNSIGNED_SHORT,0);
@@ -2576,6 +2602,7 @@ async function enterOrreryInner() {
 }
 export function leaveOrrery() {
   state.active = false;
+  cancelPendingReferenceTextures();
   incidentFields?.dispose();incidentFields=null;incidentDemand='';
   state.solarPlayback.playing=false;
   terrainDetails?.abortPending();solarDetail?.abortPending();
@@ -2925,9 +2952,7 @@ async function showFallback(msg) {
     solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
-    for (const entry of Object.values(referenceTextures)) {
-      if (entry.loading) { entry.image.onload = null; entry.image.onerror = null; entry.image.src = ''; }
-    }
+    cancelPendingReferenceTextures();
     referenceTextures = {}; referenceDemand = []; textureGeneration++;
     state.appearanceStatus = Object.fromEntries(appearanceReferences().map(a => [a.id, 'unavailable']));
     updateEarthLayerStatus(); updateOrreryAccuracy();

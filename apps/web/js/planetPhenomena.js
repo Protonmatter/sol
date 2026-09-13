@@ -96,19 +96,24 @@ export function renderPlanetPhenomena(container,body,{loadImage=loadPhenomenonIm
   const heading=node('strong','planet-phenomena__heading'),summary=node('p','planet-phenomena__summary');
   const epoch=node('p','planet-phenomena__epoch'),band=node('p','planet-phenomena__band');
   const status=node('p','planet-phenomena__status');status.setAttribute('role','status');
+  const retry=node('button','planet-phenomena__retry','Retry image');retry.type='button';retry.hidden=true;retry.disabled=true;
   const detail=node('details','planet-phenomena__detail'),detailTitle=node('summary','','Source and coverage');
   const coverage=node('p',''),color=node('p',''),credit=node('p','planet-phenomena__credit');
   const limitation=node('p','planet-phenomena__limit','Shown in the source view. Globe coordinates are not qualified for this observation.');
   const source=node('a','planet-phenomena__source','View NASA / JPL source ↗');source.target='_blank';source.rel='noopener noreferrer';
   detail.append(detailTitle,coverage,color,credit,limitation);caption.append(heading,epoch,band,summary,detail,source);
-  figure.append(image,status,caption);panel.append(title,intro,select,figure);container.append(panel);
-  let disposed=false,generation=0,url='';
+  figure.append(image,status,retry,caption);panel.append(title,intro,select,figure);container.append(panel);
+  let disposed=false,generation=0,url='',failed=false;
   /** @type {AbortController|null} */
   let controller=null;
   function release(){if(url){objectUrls.revokeObjectURL(url);url='';}image.removeAttribute('src');image.hidden=true;}
+  function unavailable(message){
+    release();failed=true;retry.hidden=false;retry.disabled=false;status.textContent=message;
+  }
   async function show(){
     const item=items.find(value=>value.id===select.value);if(!item||disposed)return;
     const version=++generation;controller?.abort();controller=new AbortController();release();
+    failed=false;retry.hidden=true;retry.disabled=true;
     heading.textContent=item.title;summary.textContent=item.description;
     epoch.textContent=item.observation.label+' · '+item.mission;
     band.textContent=item.instrument+' · '+item.band;
@@ -117,19 +122,20 @@ export function renderPlanetPhenomena(container,body,{loadImage=loadPhenomenonIm
     status.textContent='Loading verified mission image…';
     image.onload=()=>{
       if(version!==generation||disposed)return;
-      if(image.naturalWidth!==item.asset.dimensions[0]||image.naturalHeight!==item.asset.dimensions[1]){release();status.textContent='Mission image unavailable: unexpected dimensions.';return;}
+      if(image.naturalWidth!==item.asset.dimensions[0]||image.naturalHeight!==item.asset.dimensions[1]){unavailable('Mission image unavailable: unexpected dimensions.');return;}
       image.hidden=false;status.textContent='Source image verified · historical observation';
     };
-    image.onerror=()=>{if(version===generation&&!disposed){release();status.textContent='Mission image unavailable. The source and observation details remain below.';}};
+    image.onerror=()=>{if(version===generation&&!disposed)unavailable('Mission image unavailable. The source and observation details remain below.');};
     try{
       const blob=await loadImage(item.id,{signal:controller.signal});
       if(version!==generation||disposed)return;
       url=objectUrls.createObjectURL(blob);image.src=url;
     }catch(error){
       if(version!==generation||disposed)return;
-      status.textContent='Mission image unavailable. The source and observation details remain below.';
+      unavailable('Mission image unavailable. The source and observation details remain below.');
     }
   }
+  retry.addEventListener('click',()=>{if(failed&&!disposed)void show();});
   select.addEventListener('change',()=>{void show();});void show();
   return ()=>{if(disposed)return;disposed=true;generation++;controller?.abort();image.onload=null;image.onerror=null;release();container.replaceChildren();};
 }

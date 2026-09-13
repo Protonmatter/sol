@@ -486,8 +486,8 @@
       "status": "implemented",
       "statement": "Dynamic solar and planetary appearance MUST retain source band, frame, coverage, epoch, geometry provenance and bounded deterministic playback separate from orbital time.",
       "source": "docs/rfcs/0005-physical-rendering.md#requirements",
-      "implementation": ["apps/web/js/solarAppearance.js", "apps/web/js/solarVolumeShaders.js", "apps/web/js/solarAssetLoader.js", "apps/web/js/physicalRendering.js", "apps/web/js/orrery.js", "apps/web/solar-appearance.v1.json"],
-      "verification": ["tests/web/solarAppearance.test.mjs", "tests/web/solarAssetLoader.test.mjs", "tests/web/physicalRendering.test.mjs", "tests/web/orreryPhysicalLifecycle.test.mjs", "tests/python/test_solar_appearance.py", "tools/validate_physical_assets.py", "tools/solar_appearance_validation.mjs", "tools/physical_rendering_validation.mjs"],
+      "implementation": ["apps/web/js/solarAppearance.js", "apps/web/js/solarVolumeShaders.js", "apps/web/js/solarAssetLoader.js", "apps/web/js/physicalRendering.js", "apps/web/js/planetPhenomena.js", "apps/web/js/orrery.js", "apps/web/solar-appearance.v1.json"],
+      "verification": ["tests/web/solarAppearance.test.mjs", "tests/web/solarAssetLoader.test.mjs", "tests/web/physicalRendering.test.mjs", "tests/web/orreryPhysicalLifecycle.test.mjs", "tests/web/planetPhenomena.test.mjs", "tests/python/test_solar_appearance.py", "tools/validate_physical_assets.py", "tools/solar_appearance_validation.mjs", "tools/physical_rendering_validation.mjs"],
       "ci_gates": [
         "CI / Web, provider, and browser validation"
       ]

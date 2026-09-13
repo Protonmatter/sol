@@ -350,15 +350,16 @@ test("reference toggle retries only failed uploads and rejects callbacks from re
   assert.equal(JSON.stringify(h.state.bodies), bodies);
 });
 
-test("returning to the view retries a failed image without restarting pending or ready references", async t => {
+test("returning to the view retries failed and cancelled images while retaining ready references", async t => {
   const h = await start(t);
   const pendingDay = sourceImage(h, "Earth"), night = complete(h, "Earth", 'night-lights');
   const failed = sourceImage(h, "Earth", 'weather');
   failed.image.onerror();
   const count = h.images.length;
   h.leaveOrrery(); await h.enterOrrery();
-  assert.equal(h.images.length, count + 1);
-  assert.equal(sourceImage(h, "Earth").image, pendingDay.image);
+  assert.equal(h.images.length, count + 2);
+  assert.notEqual(sourceImage(h, "Earth").image, pendingDay.image);
+  assert.equal(pendingDay.image.src, '');
   assert.equal(sourceImage(h, "Earth", 'night-lights').image, night.image);
   assert.equal(h.state.appearanceStatus[failed.asset.id], "loading");
   complete(h, "Earth", 'weather'); complete(h, "Earth");
@@ -566,4 +567,35 @@ test('inactive or disabled views cannot upload a late image; galaxy views reques
   assert.ok(!Object.values(h.state.appearanceStatus).includes('loading'));
   h.state.galaxy = false; paint(h);
   assert.equal(Object.values(h.state.appearanceStatus).filter(status=>status==='loading').length,2);
+});
+
+test('leaving cancels only pending mapped images and reentry rejects their queued callbacks', async t => {
+  const h = await start(t);
+  const ready = complete(h,'Earth');
+  const pending = ['night-lights','weather'].map(role => sourceImage(h,'Earth',role));
+  const late = pending.map(({image,asset}) => {
+    [image.width,image.height] = asset.dimensions;
+    return {load:image.onload,error:image.onerror};
+  });
+  const uploads=h.textureRecords.length, releases=h.deletedTextures.length;
+  const epoch=h.state.renderUnix, bodies=JSON.stringify(h.state.bodies);
+  h.leaveOrrery(); h.leaveOrrery();
+  for(const {image,asset} of pending){
+    assert.equal(image.src,''); assert.equal(image.onload,null); assert.equal(image.onerror,null);
+    assert.equal(h.state.appearanceStatus[asset.id],'deferred');
+  }
+  assert.equal(h.state.appearanceStatus[ready.asset.id],'ready');
+  assert.equal(h.deletedTextures.length,releases,'ready textures stay in the bounded cache');
+  for(const callback of late){callback.load();callback.error();}
+  assert.equal(h.textureRecords.length,uploads,'departed callbacks cannot upload');
+  await h.enterOrrery();
+  for(const {image,asset} of pending){
+    assert.notEqual(h.images.findLast(value=>value.src===asset.path),image);
+    assert.equal(h.state.appearanceStatus[asset.id],'loading');
+  }
+  for(const callback of late){callback.load();callback.error();}
+  assert.equal(h.textureRecords.length,uploads,'old callbacks cannot replace fresh demand');
+  assert.equal(bodyDraw(h,paint(h)).textures.get(0),ready.texture);
+  assert.equal(h.state.renderUnix,epoch); assert.equal(JSON.stringify(h.state.bodies),bodies);
+  assert.ok(Object.values(h.state.appearanceStatus).filter(value=>value==='loading').length<=2);
 });
