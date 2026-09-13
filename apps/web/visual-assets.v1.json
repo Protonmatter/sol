@@ -1,0 +1,1370 @@
+{
+  "schema_version": "visual-assets.v1",
+  "reviewed_at": "2026-09-13",
+  "policy": "Identity, mapping, color, and release qualification are separate. Unknown detail stays unavailable.",
+  "assets": [
+    {
+      "id": "mercury",
+      "body": "Mercury",
+      "path": "textures/mercury.jpg",
+      "sha256": "5a5c80607f643496bac9a631e71957def35ed788895f18b678ac849c2b38e48a",
+      "bytes": 872555,
+      "label": "Mercury retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/MESSENGER",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_mercury.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/MESSENGER",
+      "metadata_evidence": []
+    },
+    {
+      "id": "venus",
+      "body": "Venus",
+      "path": "textures/venus.jpg",
+      "sha256": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac",
+      "bytes": 229696,
+      "label": "Venus retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Magellan + Pioneer Venus",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_venus_atmosphere.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Magellan + Pioneer Venus",
+      "metadata_evidence": []
+    },
+    {
+      "id": "earth",
+      "body": "Earth",
+      "path": "textures/earth.jpg",
+      "sha256": "5b54cc586c6cbf2b28762ef4d4011f6cf4227a8b93a637b818a0c54090ce6c2c",
+      "bytes": 238676,
+      "label": "Earth retained browse raster",
+      "credits": "NASA/GSFC; image by Reto Stockli (land surface, shallow water, clouds); legacy product attribution",
+      "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg",
+      "product_id": "Visible Earth 57752",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "earth",
+          "sha256": "5b54cc586c6cbf2b28762ef4d4011f6cf4227a8b93a637b818a0c54090ce6c2c",
+          "bytes": 238676,
+          "matches": true,
+          "final_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg",
+          "verified_at": "2026-09-13T01:49:29.439169+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "NASA Visible Earth \u2014 Blue Marble (public domain)",
+      "metadata_evidence": [
+        {
+          "url": "https://visibleearth.nasa.gov/images/57752/blue-marble-land-surface-shallow-water-and-shaded-topography",
+          "status": "search-index-only; current page redirects",
+          "note": "Indexed NASA record identifies Blue Marble 57752 and Reto Stockli credit. No observation time inferred."
+        }
+      ]
+    },
+    {
+      "id": "mars",
+      "body": "Mars",
+      "path": "textures/mars.jpg",
+      "sha256": "2d187f3e77a98eaa8cea5f4cc722f633c122ef170b9e94ace6b5fb6cbc3f8e01",
+      "bytes": 750547,
+      "label": "Mars retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Viking + MGS/MOLA",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_mars.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Viking + MGS/MOLA",
+      "metadata_evidence": []
+    },
+    {
+      "id": "jupiter",
+      "body": "Jupiter",
+      "path": "textures/jupiter.jpg",
+      "sha256": "b0f04d005350252636b0e3396fc592548cbd9e9126b269d32d5c6abd4b0e4f2b",
+      "bytes": 498976,
+      "label": "Jupiter retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini + Juno",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini + Juno",
+      "metadata_evidence": []
+    },
+    {
+      "id": "saturn",
+      "body": "Saturn",
+      "path": "textures/saturn.jpg",
+      "sha256": "54a900ca9bf7ab62e70f862852759abdf342e6d6436a95a2fe9ebdb6bcd3bbac",
+      "bytes": 199916,
+      "label": "Saturn retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_saturn.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini",
+      "metadata_evidence": []
+    },
+    {
+      "id": "uranus",
+      "body": "Uranus",
+      "path": "textures/uranus.jpg",
+      "sha256": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d",
+      "bytes": 77751,
+      "label": "Uranus retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_uranus.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "metadata_evidence": []
+    },
+    {
+      "id": "neptune",
+      "body": "Neptune",
+      "path": "textures/neptune.jpg",
+      "sha256": "cb42ea82709741d28b0af44d8b283cbc6dbd0c521a7f0e1e1e010ade00977df6",
+      "bytes": 241580,
+      "label": "Neptune retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_neptune.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "metadata_evidence": []
+    },
+    {
+      "id": "moon",
+      "body": "Moon",
+      "path": "textures/moon.jpg",
+      "sha256": "2764ba6535ea0481a062846ee033cc7a909dae05b31a8fd13f3e98f3a7fd92bd",
+      "bytes": 1053869,
+      "label": "Moon retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/LRO + Clementine",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_moon.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/LRO + Clementine",
+      "metadata_evidence": []
+    },
+    {
+      "id": "saturn_ring",
+      "body": "Saturn rings",
+      "path": "textures/saturn_ring.png",
+      "sha256": "4b0644b2f3ef259fd0bfaedd9dc52f9e7d9738f65f50363e8c4dd19f650d7334",
+      "bytes": 12119,
+      "label": "Saturn rings retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini ring photometry",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini ring photometry",
+      "metadata_evidence": []
+    },
+    {
+      "id": "sun",
+      "body": "Sun",
+      "path": "textures/sun.jpg",
+      "sha256": "eb299e3eae0a93bf1b53c4531e7d3e0edd258bd4ee539b2de5630f8f398b268c",
+      "bytes": 200751,
+      "label": "Sun retained browse raster",
+      "credits": "NASA SDO/HMI continuum \u2014 today's real Sun (public domain, NASA/SDO)",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "NASA SDO/HMI continuum \u2014 undated retained solar disk (public domain, NASA/SDO)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "io",
+      "body": "Io",
+      "path": "textures/io.jpg",
+      "sha256": "f772f466aa89291a99e0593048c16b23dfc082aefb19d03fe0125d6e349b31ba",
+      "bytes": 135333,
+      "label": "Io retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/b9102ce8-3ee4-4848-8558-3dab5f52091a/resource/19e9cb9d-a62e-4345-8778-9580db879922/download/full.jpg",
+      "product_id": "b9102ce8-3ee4-4848-8558-3dab5f52091a",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "io",
+          "sha256": "f772f466aa89291a99e0593048c16b23dfc082aefb19d03fe0125d6e349b31ba",
+          "bytes": 135333,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/b9102ce8-3ee4-4848-8558-3dab5f52091a/resource/19e9cb9d-a62e-4345-8778-9580db879922/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.495071+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Io Voyager/Galileo SSI Global Mosaic 1 km, browse rendering (public domain, NASA/JPL/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "europa",
+      "body": "Europa",
+      "path": "textures/europa.jpg",
+      "sha256": "96453723e4dd7d7b709cbc097282b9292360908139c72a617b0d26d9ae9ce5f9",
+      "bytes": 71532,
+      "label": "Europa retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/3647e7b3-425e-4dcf-951b-cc4a22fb0129/download/europa_voyager_galileossi_global_mosaic_500m_1024.jpg",
+      "product_id": "4080036f-afc5-422e-abe9-1c0c8e4f98ea",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "europa",
+          "sha256": "96453723e4dd7d7b709cbc097282b9292360908139c72a617b0d26d9ae9ce5f9",
+          "bytes": 71532,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/3647e7b3-425e-4dcf-951b-cc4a22fb0129/download/europa_voyager_galileossi_global_mosaic_500m_1024.jpg",
+          "verified_at": "2026-09-13T01:49:28.260585+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Europa Voyager/Galileo SSI Global Mosaic 500 m, browse rendering (public domain, NASA/JPL/USGS)",
+      "metadata_evidence": [
+        {
+          "url": "https://astrogeology.usgs.gov/search/map/europa_voyager_galileo_ssi_global_mosaic_500m",
+          "status": "search-index-only; direct retrieval 403",
+          "note": "Indexed official description identifies Simple Cylindrical projection at 500 m; exact browse coverage still unverified."
+        }
+      ]
+    },
+    {
+      "id": "ganymede",
+      "body": "Ganymede",
+      "path": "textures/ganymede.jpg",
+      "sha256": "e6e556175ebf2fd18592aa4a1ff3283f2690a84ce59e295608614587a26a8c25",
+      "bytes": 308952,
+      "label": "Ganymede retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/b2d0bf2c-1335-424b-a952-da3d8374723b/resource/19e807a2-9eee-4f24-9965-5e25f0bcb9fc/download/full.jpg",
+      "product_id": "b2d0bf2c-1335-424b-a952-da3d8374723b",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "ganymede",
+          "sha256": "e6e556175ebf2fd18592aa4a1ff3283f2690a84ce59e295608614587a26a8c25",
+          "bytes": 308952,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/b2d0bf2c-1335-424b-a952-da3d8374723b/resource/19e807a2-9eee-4f24-9965-5e25f0bcb9fc/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.332389+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Ganymede Voyager/Galileo Simple Cylindrical global mosaic, browse rendering (public domain, NASA/JPL/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "callisto",
+      "body": "Callisto",
+      "path": "textures/callisto.jpg",
+      "sha256": "6d9adc939fb5a2039ab7d04ab483b095b9fff511026e68781965a8b1b5eb52e3",
+      "bytes": 264772,
+      "label": "Callisto retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/842a3a75-af37-40ff-bf83-78ee5c76afb2/resource/b16c6dfd-199e-449e-9875-1361c1858af3/download/full.jpg",
+      "product_id": "842a3a75-af37-40ff-bf83-78ee5c76afb2",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "callisto",
+          "sha256": "6d9adc939fb5a2039ab7d04ab483b095b9fff511026e68781965a8b1b5eb52e3",
+          "bytes": 264772,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/842a3a75-af37-40ff-bf83-78ee5c76afb2/resource/b16c6dfd-199e-449e-9875-1361c1858af3/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.506097+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification. Legacy attribution reports latitude +/-87.6 degrees; never stretch this to the poles.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, browse rendering; mosaic spans \u00b187.6\u00b0 latitude (public domain, NASA/JPL/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "enceladus",
+      "body": "Enceladus",
+      "path": "textures/enceladus.jpg",
+      "sha256": "b6fb97de67f902ae7ca4738607f5693068e8c5fa72ed151eb215656eca7b4a78",
+      "bytes": 111639,
+      "label": "Enceladus retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/30bff65e-56bb-4fd1-bd04-edd9bc2e77d0/resource/19ba2e14-9ceb-45e6-8cc8-e784e36ed4f0/download/full.jpg",
+      "product_id": "30bff65e-56bb-4fd1-bd04-edd9bc2e77d0",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "enceladus",
+          "sha256": "b6fb97de67f902ae7ca4738607f5693068e8c5fa72ed151eb215656eca7b4a78",
+          "bytes": 111639,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/30bff65e-56bb-4fd1-bd04-edd9bc2e77d0/resource/19ba2e14-9ceb-45e6-8cc8-e784e36ed4f0/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.676544+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Enceladus Cassini Global Mosaic 110 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "tethys",
+      "body": "Tethys",
+      "path": "textures/tethys.jpg",
+      "sha256": "3bb0cc869a81bce4cfbb1fb6b65de323df07214a9655b5f2839a03d1cea83b7b",
+      "bytes": 128674,
+      "label": "Tethys retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/e40296c1-b4bf-46d8-86af-4b6cf0301b0c/resource/36d40203-d9b3-447e-9004-c3dc100bde04/download/full.jpg",
+      "product_id": "e40296c1-b4bf-46d8-86af-4b6cf0301b0c",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "tethys",
+          "sha256": "3bb0cc869a81bce4cfbb1fb6b65de323df07214a9655b5f2839a03d1cea83b7b",
+          "bytes": 128674,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/e40296c1-b4bf-46d8-86af-4b6cf0301b0c/resource/36d40203-d9b3-447e-9004-c3dc100bde04/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:29.146703+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Tethys Cassini Global Mosaic 293 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "dione",
+      "body": "Dione",
+      "path": "textures/dione.jpg",
+      "sha256": "3d4fadf8ae8e522f73fffcc706a9486fc13760dab4e3191f9ddccd4c2e7ce358",
+      "bytes": 123333,
+      "label": "Dione retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/acb98ae6-ec50-42df-9a74-142d177bbe6d/resource/8a6a8ada-42e1-4b92-b13e-c63493133efc/download/full.jpg",
+      "product_id": "acb98ae6-ec50-42df-9a74-142d177bbe6d",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "dione",
+          "sha256": "3d4fadf8ae8e522f73fffcc706a9486fc13760dab4e3191f9ddccd4c2e7ce358",
+          "bytes": 123333,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/acb98ae6-ec50-42df-9a74-142d177bbe6d/resource/8a6a8ada-42e1-4b92-b13e-c63493133efc/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.683987+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Dione Cassini/Voyager Global Mosaic 154 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "rhea",
+      "body": "Rhea",
+      "path": "textures/rhea.jpg",
+      "sha256": "1f1401668e26a42f33aa88ab337981dd621382b137fd04847286dc5f780a9f0b",
+      "bytes": 93406,
+      "label": "Rhea retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/22bc1015-d9c9-4212-86c3-e42061b204d4/resource/77fa77f8-6d6b-4072-9360-17138caa6e7d/download/full.jpg",
+      "product_id": "22bc1015-d9c9-4212-86c3-e42061b204d4",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "rhea",
+          "sha256": "1f1401668e26a42f33aa88ab337981dd621382b137fd04847286dc5f780a9f0b",
+          "bytes": 93406,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/22bc1015-d9c9-4212-86c3-e42061b204d4/resource/77fa77f8-6d6b-4072-9360-17138caa6e7d/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:29.149201+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Rhea Cassini/Voyager Global Mosaic 417 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "iapetus",
+      "body": "Iapetus",
+      "path": "textures/iapetus.jpg",
+      "sha256": "c8fae974a837a641769ca0e34efd9f5cf442804806b5e12f09f2080ce524cfd3",
+      "bytes": 113097,
+      "label": "Iapetus retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/6ac8ecfb-36e7-4113-8d16-c92ba857c3d7/resource/141c2d1e-aa01-4e2f-969a-e46a581db4b9/download/full.jpg",
+      "product_id": "6ac8ecfb-36e7-4113-8d16-c92ba857c3d7",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "iapetus",
+          "sha256": "c8fae974a837a641769ca0e34efd9f5cf442804806b5e12f09f2080ce524cfd3",
+          "bytes": 113097,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/6ac8ecfb-36e7-4113-8d16-c92ba857c3d7/resource/141c2d1e-aa01-4e2f-969a-e46a581db4b9/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:29.136334+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Iapetus Cassini/Voyager Global Mosaic 803 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "phobos",
+      "body": "Phobos",
+      "path": "textures/phobos.jpg",
+      "sha256": "d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4",
+      "bytes": 161960,
+      "label": "Phobos retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg",
+      "product_id": "85290c2c-7524-44ba-9251-61ea69fcd9dd",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "phobos",
+          "sha256": "d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4",
+          "bytes": 161960,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg",
+          "verified_at": "2026-09-13T01:49:29.636998+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Phobos Viking Global Mosaic (DLR control), browse rendering (public domain, NASA/JPL/DLR/USGS)",
+      "metadata_evidence": []
+    }
+  ],
+  "procedural_assets": [
+    {
+      "id": "titan-fallback",
+      "body": "Titan",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "mimas-fallback",
+      "body": "Mimas",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "triton-fallback",
+      "body": "Triton",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "miranda-fallback",
+      "body": "Miranda",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "ariel-fallback",
+      "body": "Ariel",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "umbriel-fallback",
+      "body": "Umbriel",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "titania-fallback",
+      "body": "Titania",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "oberon-fallback",
+      "body": "Oberon",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "deimos-fallback",
+      "body": "Deimos",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "proteus-fallback",
+      "body": "Proteus",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "nereid-fallback",
+      "body": "Nereid",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "earth-generated",
+      "path": "js/surfacemap.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Natural Earth geography rasterization; colors and relief are cartographic illustration."
+    },
+    {
+      "id": "moon-generated",
+      "path": "js/surfacemap.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Named feature extents do not establish measured albedo or crater relief."
+    },
+    {
+      "id": "surface-shaders",
+      "path": "js/orreryShaders.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Procedural craters, spots, bands, continents and granulation are illustrative and disabled for unqualified scientific surfaces."
+    },
+    {
+      "id": "galaxy-model",
+      "path": "js/orreryGalaxy.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Procedural galaxy point distribution is illustrative, not a NASA image."
+    },
+    {
+      "id": "solar-model",
+      "path": "js/render.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Modeled solar surface is not observed imagery."
+    },
+    {
+      "id": "ring-opacity-profile",
+      "path": "js/orreryMath.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Ring radial dimensions and gaps come from the bodyData.js catalogue. Neutral RGB is a display convention. Retained ringColorAt opacity and ringOpacityProfile shadows are illustrative, photometrically uncalibrated; no measured optical-depth claim.",
+      "geometry_source_path": "js/bodyData.js",
+      "rendering_use": "explicitly-labelled-illustration"
+    }
+  ],
+  "fallbacks": {
+    "Titan": {
+      "rgb": [
+        0.72,
+        0.48,
+        0.24
+      ],
+      "label": "Approximate orange haze; hue supported, RGB illustrative; surface detail unavailable.",
+      "source_url": "https://science.nasa.gov/resource/highlighting-titans-hazes/",
+      "credits": "NASA/JPL-Caltech/Space Science Institute"
+    }
+  },
+  "dynamic_sources": [
+    {
+      "id": "sdo-continuum",
+      "channel": "continuum",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg",
+      "mission": "SDO",
+      "instrument": "HMI",
+      "spectral_interpretation": "Visible continuum intensity browse",
+      "product_identity": "NASA SDO latest 1024 HMIIC.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the HMI science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-magnetogram",
+      "channel": "magnetogram",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIB.jpg",
+      "mission": "SDO",
+      "instrument": "HMI",
+      "spectral_interpretation": "Magnetogram browse; display tones encode magnetic polarity, not natural color",
+      "product_identity": "NASA SDO latest 1024 HMIB.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the HMI science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia1700",
+      "channel": "aia1700",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_1700.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "1700 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 1700.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia304",
+      "channel": "aia304",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0304.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "304 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0304.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia171",
+      "channel": "aia171",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0171.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "171 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0171.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia193",
+      "channel": "aia193",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0193.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "193 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0193.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia211",
+      "channel": "aia211",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0211.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "211 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0211.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia335",
+      "channel": "aia335",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0335.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "335 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0335.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia131",
+      "channel": "aia131",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0131.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "131 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0131.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia094",
+      "channel": "aia094",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0094.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "94 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0094.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    }
+  ],
+  "observed_images": [
+    {
+      "id": "sdo-aia171-20260912T000722Z",
+      "body": "Sun",
+      "path": "textures/solar-observation-171.jpg",
+      "label": "The Sun in extreme ultraviolet",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/browse/2026/09/12/20260912_000722_1024_0171.jpg",
+      "source_policy": "official-pinned-archive",
+      "sha256": "7429a6b0cebf8b61d4a35783937836ebc5218dd194de9508a6c3da848aa55c99",
+      "bytes": 182246,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "credits": "Courtesy of NASA/SDO and the AIA, EVE, and HMI science teams.",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "wavelength_angstrom": 171,
+      "is_false_color": true,
+      "interpretation": "AIA 171 angstrom extreme ultraviolet reveals structure in the solar corona. Gold is the channel's false color, not the Sun's visible-light appearance.",
+      "projection": "camera-disk",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "captured_at": "2026-09-12T00:07:22Z",
+      "capture_time_evidence": {
+        "status": "verified",
+        "caption": "SDO/AIA 171 2026-09-12 00:07:22 UT"
+      },
+      "retrieved_at": "2026-09-13T05:03:15Z",
+      "status": "archival",
+      "derivation": "Original NASA SDO archive JPEG bytes retained unchanged, including embedded instrument and UTC caption. Full image visually inspected at acquisition. No crop, recoloring, generated fill or geometric remapping.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "final_url": "https://sdo.gsfc.nasa.gov/assets/img/browse/2026/09/12/20260912_000722_1024_0171.jpg",
+          "sha256": "7429a6b0cebf8b61d4a35783937836ebc5218dd194de9508a6c3da848aa55c99",
+          "bytes": 182246,
+          "matches": true,
+          "verified_at": "2026-09-13T05:03:15Z"
+        }
+      },
+      "allowed_usages": [
+        "observed-image"
+      ],
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "scientific_analysis_allowed": false,
+      "limits": "Archived educational browse still; not live or synchronized to the model. Display the full image in its original camera plane. No model overlay, global sphere wrapping, heliographic coordinate measurement or calibrated analysis. NASA SDO browse products require principal-investigator consent for scientific analysis or publication.",
+      "metadata_sources": [
+        "https://sdo.gsfc.nasa.gov/data/channels.php",
+        "https://science.nasa.gov/photojournal/comparing-wavelengths/",
+        "https://sdo.gsfc.nasa.gov/data/rules.php"
+      ]
+    }
+  ]
+}

@@ -20,10 +20,13 @@ unrecognized status, and incomplete workflow enforcement.
 | `SOL-UX-001` | Primary task first; advanced and research depth disclosed on request |
 | `SOL-UX-002` | Accessible names, keyboard parity, focus, and non-canvas alternatives |
 | `SOL-UX-003` | Visible status, error recovery, fallback, and user control |
+| `SOL-UX-004` | Layered workspace with persistent essential state and contextual disclosure |
 | `SOL-PRIV-001` | On-device location by default and consent before remote transmission |
 | `SOL-TEST-001` | Lowest-useful-layer tests plus boundary-level regression coverage |
 | `SOL-COV-001` | At least 90% Rust, Python, and whole-web line coverage |
 | `SOL-VIS-001` | Semantic WebGL image and camera-continuity assertions |
+| `SOL-VIS-002` | Physical-scale integrity and deterministic display clearance |
+| `SOL-VIS-003` | Visual source identity, per-use qualification, and missing-detail fallback |
 | `SOL-CI-001` | SHA-pinned actions, least privilege, and deployment of the tested SHA |
 | `SOL-DOC-001` | Documentation, plans, instructions, and traceability updated with code |
 | `SOL-SUPPLY-001` | Locked dependencies and automated ecosystem update review |

@@ -168,16 +168,41 @@ async function clickMode(page, mode) {
     { timeout: 15_000 },
     mode
   );
+  if (mode === 'today') await page.click('#exploreResearch');
+  if (await page.$eval('#panelToggle', node => node.getAttribute('aria-expanded') === 'false')) {
+    await page.click('#panelToggle');
+  }
+  // These scenarios deliberately exercise full research controls; the separate
+  // experience suite verifies their initial disclosure and context-card entry.
+  if (mode !== 'today') await page.$$eval('#viewInspector details', nodes => nodes.forEach(node => { node.open = true; }));
 }
 
 async function assertDisclosureContract(page) {
+  await page.waitForFunction(()=>{
+    const image=document.getElementById('observationImage');
+    return image?.complete&&image.naturalWidth>0;
+  },{timeout:20000});
+  const observed=await page.evaluate(()=>({
+    visible:['solarObservation','observationImage','explorerOverview','observationStatus','viewSource','viewTime'].every(id=>document.getElementById(id)?.getClientRects().length>0),
+    modelVisible:['solarCanvas','dataState','ingestState','readinessState','regionCount','brMax','confidenceMean','layerConfidence','layerRegions','liveRun'].filter(id=>document.getElementById(id)?.getClientRects().length>0),
+    caption:document.getElementById('observationStatus').textContent,
+    source:document.getElementById('viewSource').textContent,
+    time:document.getElementById('viewTime').textContent,
+  }));
+  if(!observed.visible||observed.modelVisible.length||!/archiv/i.test(observed.caption)||!/observ|archiv/i.test(observed.source)||!/\d{4}/.test(observed.time)) {
+    throw new Error(`initial observed Explore provenance or separation failed: ${JSON.stringify(observed)}`);
+  }
+  await page.click('#exploreResearch');
+  if(await page.$eval('#solarObservation',node=>node.getClientRects().length>0)) throw new Error('Research must hide the separate observation surface');
   const initial = await page.evaluate(() => ({
     modes: Array.from(document.querySelectorAll(".mode-button")).map((button) => ({
       mode: button.dataset.mode,
       pressed: button.getAttribute("aria-pressed"),
     })),
     panelExpanded: document.getElementById("panelToggle")?.getAttribute("aria-expanded"),
-    statusVisible: document.querySelector(".summary-panel")?.getClientRects().length > 0,
+    statusVisible: ['viewSource', 'viewTime', 'dataState', 'ingestState', 'readinessState']
+      .every(id => document.getElementById(id)?.getClientRects().length > 0),
+    timelineHidden: document.getElementById('timeline')?.hidden,
     sunInside: document.getElementById("sunInside")?.open,
     sunExplore: document.getElementById("sunExplore")?.open,
     sunWeather: document.getElementById("sunWeather")?.open,
@@ -192,8 +217,9 @@ async function assertDisclosureContract(page) {
     throw new Error(`initial destination state violates the UX contract: ${JSON.stringify(initial.modes)}`);
   }
   if (
-    initial.panelExpanded !== "true"
+    initial.panelExpanded !== "false"
     || !initial.statusVisible
+    || initial.timelineHidden !== true
     || initial.sunInside !== false
     || initial.sunExplore !== true
     || initial.sunWeather !== false
@@ -203,6 +229,8 @@ async function assertDisclosureContract(page) {
   }
 
   // Native disclosure controls must work from the keyboard and expose their state.
+  await page.click('#panelToggle');
+  await page.click('#timelineToggle');
   await page.focus("#sunResearch > summary");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.getElementById("sunResearch")?.open === true);
@@ -675,8 +703,36 @@ async function moonShadowAssertions(page, visualDirectory) {
     if (overlayState[id]) await setChecked(page, `#${id}`, false);
   }
 
+  // Scientific pixel fixture: clientWidth is integer, while responsive CSS bounds may be
+  // fractional. Align the composited canvas to whole CSS pixels at this harness's DPR=1,
+  // so the production projection and screenshot use exactly the same origin and scale.
+  // Keep the page overlays in place: raw framebuffer capture would bypass occlusion checks.
+  const canvasStyle = await page.$eval("#orreryCanvas", canvas => {
+    const original = canvas.getAttribute("style");
+    if (devicePixelRatio !== 1) throw new Error("moon pixel fixture requires DPR=1");
+    canvas.style.setProperty("width", `${canvas.clientWidth}px`, "important");
+    canvas.style.setProperty("height", `${canvas.clientHeight}px`, "important");
+    canvas.style.setProperty("max-width", "none", "important");
+    const resized = canvas.getBoundingClientRect();
+    canvas.style.setProperty("transform", `translate(${Math.round(resized.left) - resized.left}px, ${Math.round(resized.top) - resized.top}px)`, "important");
+    return original;
+  });
+  await page.evaluate(async () => {
+    window.dispatchEvent(new Event("resize"));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    document.getElementById("orrerySize").dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
   const frame = async (name, options) => {
     console.log(`Browser validation: moon-shadow frame ${name}`);
+    await page.$eval("#orreryCanvas", canvas => {
+      const box = canvas.getBoundingClientRect();
+      if (![box.x, box.y, box.width, box.height].every(Number.isInteger)
+          || box.width !== canvas.clientWidth || box.height !== canvas.clientHeight
+          || canvas.width !== box.width || canvas.height !== box.height) {
+        throw new Error(`moon fixture pixel geometry is not aligned: ${JSON.stringify({ x: box.x, y: box.y, width: box.width, height: box.height, bufferWidth: canvas.width, bufferHeight: canvas.height })}`);
+      }
+    });
     const plan = await page.evaluate(planMoonShadowFrame, options);
     // One settled frame: the repaint above is synchronous, but the compositor still has to hand
     // the canvas to the screenshot.
@@ -720,6 +776,12 @@ async function moonShadowAssertions(page, visualDirectory) {
   const eclipseStats = assertEclipsedMoonMarker(
     eclipse.bytes, eclipseControl.bytes, eclipse.plan, eclipseControl.plan, "Io"
   );
+
+  await page.$eval("#orreryCanvas", (canvas, original) => {
+    if (original === null) canvas.removeAttribute("style");
+    else canvas.setAttribute("style", original);
+    window.dispatchEvent(new Event("resize"));
+  }, canvasStyle);
 
   // Hand the view back exactly as it was found: the clock to the harness's fixed epoch, the
   // camera to the caller's, the overlays to their own state, and the labels to visible.
@@ -808,19 +870,87 @@ async function visualAssertions(page, visualDirectory) {
     }`);
   }
 
-  // At one simulated week per real second the old renderer froze every planet's rotation.
-  // Compare two settled frames while the real production clock is running: the focused Earth
-  // must continue turning, including under the perceptual cap used to prevent low-FPS aliasing.
+  // A uniform low-detail sphere has no azimuthal texture from which pixels can prove spin.
+  // Background/orbit movement can also satisfy a pixel-change check while the globe is frozen.
+  // Keep both PNG artifacts, but inspect the actual Earth draw uniforms for this regression.
   await page.$eval('#orrerySpeedPresets button[data-dps="7"]', (button) => button.click());
   await new Promise((resolve) => setTimeout(resolve, 250));
-  const highSpeedBefore = await canvasScreenshot(
-    page, path.join(visualDirectory, "earth-week-per-second-before.png")
-  );
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  const highSpeedAfter = await canvasScreenshot(
-    page, path.join(visualDirectory, "earth-week-per-second-after.png")
-  );
-  const rotationStats = assertFrameChanged(highSpeedBefore, highSpeedAfter);
+  await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-before.png"));
+  const spinSamples = await page.evaluate(async () => {
+    const entry = document.querySelector('script[type="module"][src^="app.js"]');
+    const { store } = await import(`./js/store.js${entry ? new URL(entry.src).search : ""}`);
+    const gl = document.getElementById("orreryCanvas").getContext("webgl2");
+    const original = gl.drawElements;
+    const samples = [], locations = new Map();
+    let sampleError = "";
+    gl.drawElements = function (...args) {
+      const result = original.apply(this, args); // Always submit the unchanged production draw.
+      if (samples.length >= 120 || sampleError) return result;
+      try {
+        const program = gl.getParameter(gl.CURRENT_PROGRAM);
+        if (!locations.has(program)) locations.set(program, Object.fromEntries(
+          ["u_mode", "u_model", "u_nmat"].map(name => [name, gl.getUniformLocation(program, name)])));
+        const loc = locations.get(program);
+        if (!loc.u_mode || !loc.u_model || !loc.u_nmat || gl.getUniform(program, loc.u_mode) !== 0) return result;
+        const earth = store.orrery.bodies.find(body => body.name === "Earth");
+        const model = Array.from(gl.getUniform(program, loc.u_model));
+        if (!earth || Math.hypot(model[12] - earth.x_au, model[13] - earth.y_au, model[14] - earth.z_au) > 1e-5) return result;
+        const epoch = store.orrery.renderUnix;
+        if (samples.at(-1)?.epoch === epoch) return result;
+        samples.push({ epoch, rate: store.orrery.yearsPerSec * 365.25 * 86400,
+          normal: Array.from(gl.getUniform(program, loc.u_nmat)), model });
+      } catch (error) { sampleError = String(error); }
+      return result;
+    };
+    try {
+      // Require actual submitted frames, not an assumed SwiftShader frame rate.
+      // Bounded waiting keeps a stopped renderer red while tolerating a busy host.
+      await new Promise(resolve => {
+        const deadline = setTimeout(done, 5000);
+        const poll = setInterval(() => { if (samples.length >= 4 || sampleError) done(); }, 50);
+        function done() { clearInterval(poll); clearTimeout(deadline); resolve(); }
+      });
+    } finally { gl.drawElements = original; }
+    if (sampleError) throw new Error(`Earth draw inspection failed: ${sampleError}`);
+    return samples;
+  });
+  await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-after.png"));
+  const assertSubmittedSpin = (samples) => {
+    if (samples.length < 3) throw new Error(`insufficient Earth sphere draws: ${samples.length}`);
+    let totalAngle = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const sample = samples[i], n = sample.normal, model = sample.model;
+      if (n.length !== 9 || model.length !== 16 || ![...n, ...model, sample.epoch, sample.rate].every(Number.isFinite)) throw new Error("nonfinite Earth draw transform");
+      for (let column = 0; column < 3; column++) {
+        const axis = model.slice(column * 4, column * 4 + 3), length = Math.hypot(...axis);
+        if (!(length > 0)) throw new Error("degenerate Earth model axis");
+        for (let row = 0; row < 3; row++) if (Math.abs(axis[row] / length - n[column * 3 + row]) > 1e-5) throw new Error("Earth normal and submitted model rotation disagree");
+        for (let other = 0; other < 3; other++) {
+          const dot = n[column * 3] * n[other * 3] + n[column * 3 + 1] * n[other * 3 + 1] + n[column * 3 + 2] * n[other * 3 + 2];
+          if (Math.abs(dot - (column === other ? 1 : 0)) > 1e-5) throw new Error("Earth rotation is not orthonormal");
+        }
+      }
+      if (!i) continue;
+      const previous = samples[i - 1];
+      // Ephemeris advancement recovers the renderer's bounded simulated step, including its
+      // 50ms frame clamp. Wall-clock delay is not an appropriate expected-angle oracle.
+      const realStep = (sample.epoch - previous.epoch) / sample.rate;
+      const expected = realStep * (2 * Math.PI / 5);
+      const trace = n.reduce((sum, value, k) => sum + value * previous.normal[k], 0);
+      const angle = Math.acos(Math.max(-1, Math.min(1, (trace - 1) / 2)));
+      if (!(expected > 0) || Math.abs(angle - expected) > Math.max(1e-4, expected * .10)) throw new Error(`Earth submitted spin frozen or outside cap: angle=${angle}, expected=${expected}`);
+      totalAngle += angle;
+    }
+    if (totalAngle < .01) throw new Error("Earth submitted spin is frozen or undersampled");
+    return { draws: samples.length, radians: totalAngle };
+  };
+  const rotationStats = assertSubmittedSpin(spinSamples);
+  // A control preserving epochs but freezing both submitted transforms must fail this gate.
+  let frozenRejected = false;
+  try { assertSubmittedSpin(spinSamples.map(sample => ({ ...sample, normal: spinSamples[0].normal, model: spinSamples[0].model }))); }
+  catch (error) { frozenRejected = /frozen|outside cap/.test(error.message); }
+  if (!frozenRejected) throw new Error("spin gate accepted the original frozen-transform regression");
+  fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify({ samples: spinSamples, ...rotationStats, frozenRejected }, null, 2));
   const spinDisclosure = await page.$eval("#orreryAccuracy", (node) => node.textContent);
   if (!spinDisclosure.includes("Rotation display rate-limited")) {
     throw new Error(`high-speed rotation disclosure is missing: ${JSON.stringify(spinDisclosure)}`);
@@ -836,7 +966,7 @@ async function visualAssertions(page, visualDirectory) {
     `Sun G/R=${sunStats.greenRed.toFixed(3)} B/R=${sunStats.blueRed.toFixed(3)};`,
     `Earth blue pixels=${earthStats.bluePixels};`,
     `orbit mean delta=${orbitStats.meanDifference.toFixed(3)};`,
-    `high-speed rotation delta=${rotationStats.meanDifference.toFixed(3)}`
+    `high-speed submitted rotation=${rotationStats.radians.toFixed(4)} rad over ${rotationStats.draws} draws`
   );
   console.log(
     "moon-shadow assertions:",
@@ -1065,6 +1195,7 @@ async function main() {
   let phase="setup";
   const webRoot = path.resolve(argument("web-root", WEB));
   const outputDirectory = path.resolve(argument("output-dir", path.join(ROOT, "coverage", "browser")));
+  fs.mkdirSync(outputDirectory, { recursive: true });
   const mapping = releaseSourceMap(webRoot);
   if (mapping) {
     const validation = spawnSync(process.env.PYTHON || "python", [path.join(ROOT, "tools", "validate_release_manifest.py"), path.join(webRoot, "web-release-manifest.json")], { stdio: "inherit" });
@@ -1183,6 +1314,15 @@ async function main() {
     await workerCoverage.collect();
     phase="System/WebGL";console.log(`Browser validation: ${phase}`);
     await exerciseOrrery(page, path.join(outputDirectory, "visual"));
+    // Mapping holds intentionally prevent these archived vectors becoming a globe
+    // texture. Exercise their module contract separately, without enabling that
+    // unqualified rendering path or adding a first-paint runtime download.
+    await page.evaluate(async () => {
+      const entry = document.querySelector('script[type="module"][src^="app.js"]');
+      const geography = await import(`./js/geography.js${entry ? new URL(entry.src).search : ''}`);
+      if (geography.QUANT !== 20 || typeof geography.decodeRing !== 'function'
+          || !geography.EARTH || !geography.FEATURES) throw new Error('archived geography module contract failed');
+    });
     await workerCoverage.collect();
     const entries = [...await page.coverage.stopJSCoverage(),...workerCoverage.entries];
     failures.push(...workerCoverage.errors.map(error=>"worker coverage: "+error));

@@ -62,12 +62,12 @@ export function resolveSkyPresentation({ snapshot, observerLabel = "Example obse
   const scale = date.getUTCFullYear() < 1972 ? "UTC/UT approximation" : "UTC";
   return Object.freeze({ sourceKind: "inferred", headline: `${observerLabel}: ${above} objects above the geometric horizon. This does not guarantee visibility; weather, terrain and light pollution are not modeled.`,
     timeLabel: `${date.toISOString()} · ${scale}, proleptic Gregorian`, availability: error ? "last_valid" : "ready", actualProvider, requestedProvider, error,
-    providerLabel: actualProvider === "local" ? "Computed on your device" : "Configured remote provider", aboveCount: above,
+    providerLabel: actualProvider === "local" ? "Computed on your device" : "Configured remote provider", observerLabel, aboveCount: above,
     operationalLabel: "Research and learning only", revision: `${snapshot.schema_version}:${snapshot.time.jd_utc}:${actualProvider}:${error || "ok"}` });
 }
 
 export function resolveSystemPresentation({ renderUnix, scene = "system", selected = null, hasSnapshot = true, error = null }) {
   const date = new Date(renderUnix * 1000);
   const timeLabel = !hasSnapshot ? "No valid System positions available" : scene === "system" ? (Number.isFinite(date.getTime()) ? `${date.toISOString()} · proleptic Gregorian` : "Render time unavailable") : "Illustrative galactic model clock — distinct from planetary epoch";
-  return Object.freeze({ sourceKind: "inferred", headline: !hasSnapshot ? "System engine unavailable. Retry to load model positions." : scene === "system" ? `${selected ? selected + " selected. " : ""}Model positions; body sizes may be enlarged for visibility. Select an object for its scale and evidence.` : "Explore the galactic context. Distances, display scale and illustrative motion are labeled separately.", timeLabel, availability: !hasSnapshot ? "unavailable" : error ? "last_valid" : "ready", error, revision: `${scene}:${renderUnix}:${selected || "none"}:${hasSnapshot}:${error || "ok"}` });
+  return Object.freeze({ sourceKind: "inferred", providerLabel: scene === 'system' ? 'On-device planetary model' : 'Illustrative model and catalogue context', headline: !hasSnapshot ? "System engine unavailable. Retry to load model positions." : scene === "system" ? `${selected ? selected + " selected. " : ""}Model positions; body sizes may be enlarged for visibility. Select an object for its scale and evidence.` : "Explore the galactic context. Distances, display scale and illustrative motion are labeled separately.", timeLabel, availability: !hasSnapshot ? "unavailable" : error ? "last_valid" : "ready", error, revision: `${scene}:${renderUnix}:${selected || "none"}:${hasSnapshot}:${error || "ok"}` });
 }

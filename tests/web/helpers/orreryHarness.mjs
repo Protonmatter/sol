@@ -13,6 +13,7 @@ const source = fs.readFileSync(moduleUrl, "utf8");
 // metadata refresh, paint and the frame loop. Only browser/GPU and engine I/O are
 // doubled; no lifecycle or rendering function is replaced with a test implementation.
 export async function orreryHarness(t, options = {}) {
+  const events = [];
   const frames = new Map(), requests = [], errors = [], warnings = [], positionEpochs = [], presentations = [];
   const images = [], textureUploads = [], drawCalls = [], optionalLoads = [], canvasCommands = [];
   const idleTasks = new Map(); let idleId = 0;
@@ -156,12 +157,12 @@ export async function orreryHarness(t, options = {}) {
       bindings[name] = namespace[name];
     }
   }
-  const context = vm.createContext({ ...bindings, Event,
+  const context = vm.createContext({ ...bindings, Event, CustomEvent,
     Date: class extends Date { static now() { return wallUnix * 1000; } },
     console: { error: (...args) => errors.push(args), warn: (...args) => warnings.push(args) },
     document,
     window: { devicePixelRatio: options.dpr || 1, addEventListener() {},
-      dispatchEvent() { presentations.push(bindings.store.orrery.presentation); },
+      dispatchEvent(event) { events.push(event); presentations.push(bindings.store.orrery.presentation); },
       matchMedia: () => ({ matches: false }) },
     performance: { now: () => monotonicNow },
     requestAnimationFrame(fn) { const id = ++frameId; frames.set(id, fn); return id; },
@@ -190,7 +191,7 @@ export async function orreryHarness(t, options = {}) {
     },
   });
   const settle = () => new Promise(resolve => setImmediate(resolve));
-  return { nodes, frames, requests, errors, warnings, images, textureUploads, drawCalls, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery,
+  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, drawCalls, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery,
     ...lifecycle, settle,
     event(id, type, properties = {}) { return nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties }); },
     input(id, value, type = "input") { nodes[id].value = value; return this.event(id, type); },

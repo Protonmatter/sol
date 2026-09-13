@@ -40,7 +40,7 @@ try {
     if(target.type()!=="service_worker")return;
     try{const session=await target.createCDPSession();await session.send("Runtime.enable");session.on("Runtime.exceptionThrown",event=>evidence.workerErrors.push(event.exceptionDetails.exception?.description||event.exceptionDetails.text));}catch{}
   });
-  const page=await browser.newPage();await page.emulateMediaFeatures([{name:"prefers-reduced-motion",value:"reduce"}]);
+  const page=await browser.newPage();await page.setViewport({width:1440,height:900});await page.emulateMediaFeatures([{name:"prefers-reduced-motion",value:"reduce"}]);
   await page.goto(origin,{waitUntil:"domcontentloaded"});await ready(page);await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
   const old=await browser.newPage();await old.goto(`${origin}/${manifests[0].namespace}index.html`,{waitUntil:"domcontentloaded"});
@@ -53,6 +53,9 @@ try {
   assert.equal(new URL(page.url()).pathname,`/${manifests[0].namespace}index.html`,"waiting update cannot reload an open client");
   assert.equal(old.url(),oldUrl);
   await page.waitForSelector("#releaseUpdate:not([hidden])");
+  const offlineMenu=await page.$('.offline-menu > summary');
+  if(offlineMenu) await offlineMenu.click();
+  await page.waitForSelector("#releaseUpdate",{visible:true});
   const navigation=page.waitForNavigation({waitUntil:"domcontentloaded",timeout:30000});
   await page.click("#releaseUpdate");await navigation;
   assert.equal(new URL(page.url()).pathname,`/${manifests[1].namespace}index.html`,"explicit requester enters verified B");

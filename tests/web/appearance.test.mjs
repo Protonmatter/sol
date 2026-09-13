@@ -119,9 +119,9 @@ test("the renderer loads moon maps through the same path and toggle as the plane
 
 // ---------------------------------------------------------------- shader branches
 
-test("Europa gets its own low-crater ice style rather than the shared cratered one", () => {
+test("Europa retains its optional ice shader while unqualified surface rendering stays neutral", () => {
   assert.equal(STYLE_ID.moonIce, 12);
-  assert.match(repoFile("apps/web/js/orrery.js"), /m\.n === "Europa" \? STYLE_ID\.moonIce/);
+  assert.match(repoFile("apps/web/js/orrery.js"), /u_style, -1\); \/\/ no invented craters/);
   const branch = SPHERE_FS.split("u_style==12")[1].split("else if(u_style==")[0];
   assert.match(branch, /Bierhaus/, "the crater-count claim needs its citation in place");
   assert.match(branch, /ILLUSTRATIVE/, "the procedural lineae must be labelled, not implied real");

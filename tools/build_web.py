@@ -14,12 +14,29 @@ from pathlib import Path
 from validate_release_manifest import RELEASE_ID, base_path as validate_base_path, digest, validate_manifest
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def validate_visual_source(source_root: Path) -> None:
+    """Require hash-bound inventory for the visual runtime, without upgrading its holds."""
+    if not any((source_root / name).exists() for name in ("js/visualAssets.js", "js/solarObservation.js")):
+        return  # Historical artifacts without the visual runtime retain their contract.
+    from validate_visual_assets import browser_module, validate_inventory
+    inventory = source_root / "visual-assets.v1.json"
+    if not inventory.is_file() or inventory.is_symlink():
+        raise ValueError("visual runtime requires its reviewed inventory")
+    data = json.loads(inventory.read_text(encoding="utf-8"))
+    validate_inventory(data, source_root)
+    generated = source_root / "js/visualAssetManifest.js"
+    if not generated.is_file() or generated.read_text(encoding="utf-8") != browser_module(data):
+        raise ValueError("browser visual inventory drift")
+
 TOKEN = re.compile(r"\?v=[0-9a-zA-Z._-]+")
 WASM_FILES = ("solar_wasm.wasm", "solar_ephemeris.wasm")
 TRANSITION_SCHEMAS = {"solar-state-snapshot.v2", "solar-state-snapshot.v3", "ephemeris-snapshot.v2", "ephemeris-snapshot.v3"}
 SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "ephemerisSchema.js", "ephemerisContract.js", "ephemerisContractV2.js",
     "solarSchema.js", "solarContract.js", "systemContract.js", "dataBundle.js", "sourceAttribution.js",
     "solarProjection.js", "solarRegionFacts.js", "celestial.js", "engineLimits.js",
+    "displayGeometry.js", "visualAssets.js", "visualAssetManifest.js", "solarObservation.js", "orreryShaders.js",
     "bodyData.js", "moonelements.js", "moonorbits.js", "moonshadows.js", "starphysics.js", "starcatalog.js",
     "orreryMath.js", "orreryTime.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
     "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js"})
@@ -37,6 +54,7 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     if not RELEASE_ID.fullmatch(release_id):
         raise ValueError("invalid release ID")
     validate_base_path(base_path)
+    validate_visual_source(source_root)
     if schemas is None:
         solar_text = (source_root / "js/solarSchema.js").read_text(encoding="utf-8")
         declarations = [line.strip() for line in solar_text.splitlines() if line.strip() and not line.lstrip().startswith("//")]

@@ -140,11 +140,11 @@ jobs:
             --source=services/ephemeris-server,tools \
             -m unittest discover -s tests/python -p 'test_*.py' -v
           coverage report \
-            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py,tools/release_policy.py,tools/build_web.py,tools/build_wasm.py,tools/validate_release_manifest.py,tools/release_changes.py,tools/release_evidence.py,tools/release_crate.py,tools/verify_served_release.py,tools/data_bundles.py,tools/delivery_lifecycle.py,tools/fetch_public_data.py,tools/run_daily_ingest.py,tools/generate_fixture_snapshot.py,tools/observation_provenance.py' \
+            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py,tools/release_policy.py,tools/build_web.py,tools/build_wasm.py,tools/validate_release_manifest.py,tools/release_changes.py,tools/release_evidence.py,tools/release_crate.py,tools/verify_served_release.py,tools/data_bundles.py,tools/delivery_lifecycle.py,tools/fetch_public_data.py,tools/run_daily_ingest.py,tools/generate_fixture_snapshot.py,tools/observation_provenance.py,tools/validate_visual_assets.py' \
             --fail-under=90 --show-missing
           mkdir -p coverage
           coverage xml -o coverage/python.xml \
-            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py,tools/release_policy.py,tools/build_web.py,tools/build_wasm.py,tools/validate_release_manifest.py,tools/release_changes.py,tools/release_evidence.py,tools/release_crate.py,tools/verify_served_release.py,tools/data_bundles.py,tools/delivery_lifecycle.py,tools/fetch_public_data.py,tools/run_daily_ingest.py,tools/generate_fixture_snapshot.py,tools/observation_provenance.py'
+            --include='services/ephemeris-server/server.py,tools/jsonschema_min.py,tools/validate_ephemeris_snapshot.py,tools/validate_sdlc.py,tools/validate_ux_contract.py,tools/release_policy.py,tools/build_web.py,tools/build_wasm.py,tools/validate_release_manifest.py,tools/release_changes.py,tools/release_evidence.py,tools/release_crate.py,tools/verify_served_release.py,tools/data_bundles.py,tools/delivery_lifecycle.py,tools/fetch_public_data.py,tools/run_daily_ingest.py,tools/generate_fixture_snapshot.py,tools/observation_provenance.py,tools/validate_visual_assets.py'
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:

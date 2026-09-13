@@ -1,7 +1,7 @@
 # Solar Maximum Engine Specification
 
 Status: current architecture contract  
-Updated: 2026-09-11
+Updated: 2026-09-13
 
 This contract describes implemented-local behavior and required gates. RFC 0002 remains
 Accepted; manual/scientific qualification and production activation are not implied.
@@ -21,7 +21,14 @@ illustrative scalar activity variance + explicit unavailable magnetic uncertaint
 versioned snapshots -> browser views
 ```
 
-The first view teaches with the Sun, stage, and one plain-language insight. Equations, adapter health, raw provenance, accuracy limits, and caveats remain behind deliberate user intent.
+The first view teaches with an original NASA Sun observation, its capture/source context,
+and one plain-language insight. An explicit Research mode retains the model's stage,
+uncertainty, feed state and scientific controls without attaching them to the observation.
+Sky and Solar System retain this visual hierarchy through concise contextual cards and
+explicit search, location, time and details actions. Cards summarize admitted scene state;
+they never substitute pending observer/provider input or reference constants for a computed
+quantity. Selection does not automatically open all scientific controls. Camera shortcuts
+reuse the existing view transform without moving physical bodies.
 
 Scientific and source claims remain anchored to public methods and data: NOAA/SWPC products, Helioviewer quicklook imagery and metadata, IERS Earth-orientation data, JPL Horizons/DE441 validation, published analytic ephemerides, and NASA/IAU constants. Sol does not claim proprietary JPL, NOAA, or commercial forecasting algorithms.
 
@@ -261,6 +268,16 @@ invalidate prior scientific qualification even if WASM and data bytes are unchan
 
 ## UI contract
 
+RFC 0003 adds an observation-led workspace and visual provenance contract. Observe presents
+a preserved NASA image in its original plane, with archival time, false-color interpretation
+and unavailable/retry behavior. Research exposes the model with initially closed inspector
+and timeline; navigation and relevant source/time/feed/readiness remain outside them.
+Observation summary exports carry no model bundle identity. Physical-scale rendering ignores display
+exaggeration. Display clearance may constrain enlarged radii but cannot change physical
+centers, orbital evolution or real transits. Scientific textures require per-use identity,
+coverage and interpretation evidence; unverifiable global mapping uses a labeled neutral
+fallback. Official source-byte correspondence alone is not global-map qualification.
+
 Rendered layers are labeled as exactly one of:
 
 - synthetic
@@ -316,7 +333,8 @@ From the separate Latest state, Previous MUST select the last available cycle fr
 and Next MUST select the first; unavailable slots count as skipped, and wraparound
 within the cycle retains its existing order.
 
-The initial view exposes the primary task and current source/feed/readiness state. Advanced,
+The initial view exposes the primary task and its source, capture time and availability.
+Research exposes model source/feed/readiness state. Advanced,
 rare, and research controls use clearly labelled disclosure controls and do not normally
 exceed two disclosure levels. Accuracy, privacy, degraded-state, and consent information
 must remain visible at the point a user needs it.

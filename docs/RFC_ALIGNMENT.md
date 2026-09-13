@@ -23,6 +23,11 @@ and the traced requirements are authoritative.
 
 ## Acceptance-status interpretation
 
+RFC 0003 is accepted for the user-authorized local workspace implementation. It adds
+closed-on-entry contextual controls, persistent navigation, display clearance and visual
+asset provenance without weakening RFC 0002 qualification. No new production or complete
+NASA/JPL appearance qualification follows from inventory validity or source-byte matches.
+
 RFC 0002 is **Accepted**, not Implemented. Local v3/worker/UI/data-transaction changes
 are not a claim of merged/released behavior or complete AC/F-matrix qualification.
 ADR 0006 governs current scientific semantics. [ADR 0007](adr/0007-resolved-presentation-and-worker-boundaries.md)

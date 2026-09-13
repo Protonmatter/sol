@@ -4,8 +4,8 @@
 
 import { BODY, poleVector } from "./bodyData.js?v=dcca6290db";
 import { isRetrograde } from "./moonorbits.js?v=dcca6290db";
-import { MOON_ALBEDO, MOON_TEXTURE_FILES } from "./moonAppearance.js?v=dcca6290db";
-import { store } from "./store.js?v=dcca6290db";
+import { MOON_ALBEDO } from "./moonAppearance.js?v=dcca6290db";
+import { visualProvenanceText, visualBrowsePreview } from "./visualAssets.js";
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 
@@ -74,13 +74,9 @@ export function renderMoonDetail(m, unixSeconds) {
     + "good to a few degrees — enough to show which side of its planet it is on, not enough for "
     + "an occultation. Distances from the planet are scaled up with the planet's own exaggerated "
     + "size, so the spacing between moons stays true. "
-    + (MOON_TEXTURE_FILES[m.n]
-      ? "The surface is a real USGS global mosaic (see textures/ATTRIBUTION.txt); it is drawn "
-        + "without a spin model, so it shows what this moon looks like, not where a named "
-        + "feature currently faces. "
-      : "No global mosaic of this moon has been published, so its surface is procedural. ")
-    + "Hue is illustrative; how bright it is drawn comes from the published geometric albedo.";
+    + "Displayed surface detail follows the qualification stated below.";
   card.appendChild(note);
+  appendVisualSources(card, m.n);
   host.appendChild(card);
 }
 
@@ -124,6 +120,7 @@ export function renderSmallDetail(s) {
       + "it is a two-body Kepler propagation with no planetary perturbations — good to about a "
       + "degree, for orientation rather than navigation.";
   card.appendChild(note);
+  appendVisualSources(card, s.name);
   host.appendChild(card);
 }
 
@@ -196,14 +193,9 @@ export function renderDetail(name, live) {
   if (name === "Sun") {
     add("Luminosity", "3.828×10²⁶ W");
     add("Composition", "73% H, 25% He (by mass)");
-    // Say what the 3-D surface actually is — a dated SDO observation or the procedural model —
-    // rather than letting an aging baseline frame pass silently as "today's Sun".
-    const t = store.orrery ? store.orrery.sunImageUnix : null;
-    add("Surface imagery", t
-      ? `NASA SDO/HMI continuum, fetched ${new Date(t * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`
-      : "procedural model (no dated SDO frame available)");
+    add("Surface imagery", "3D imagery mapping held; retained solar disk has no verified observation time. Fetch time is not capture time.");
   }
-  card.appendChild(dl); host.appendChild(card);
+  card.appendChild(dl); appendVisualSources(card, name); host.appendChild(card);
 }
 
 // Keep glossary buttons and the selected card stable while mutable display facts
@@ -225,4 +217,45 @@ export function updateLiveDetailFacts(live) {
     const value=values[node.getAttribute("data-metric")];
     if(value!==undefined&&node.textContent!==value)node.textContent=value;
   }
+}
+
+// Original browse previews retain their rectangular coverage. A verified file is
+// not automatically a global map, calibrated color image, or current observation.
+function appendVisualSources(card, name) {
+  const disclosure = document.createElement("details");
+  disclosure.className = "visual-sources";
+  const summary = document.createElement("summary");
+  summary.textContent = "Image and rendering sources";
+  const provenance = document.createElement("p");
+  provenance.textContent = visualProvenanceText(name);
+  disclosure.append(summary, provenance);
+  if (BODY[name]?.rings) {
+    const rings = document.createElement("p");
+    rings.textContent = "Ring radius geometry follows the catalogued dimensions shown above. Neutral ring color is a display convention; the opacity and shadow profile is illustrative and photometrically uncalibrated.";
+    disclosure.appendChild(rings);
+  }
+  const preview = visualBrowsePreview(name);
+  if (preview) {
+    const figure = document.createElement("figure");
+    figure.style.margin = "0";
+    const img = document.createElement("img");
+    img.alt = `${name}: original browse image; coverage and color interpretation not qualified for globe mapping`;
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.style.width = "100%";
+    img.style.height = "auto";
+    img.style.objectFit = "contain";
+    img.src = preview.path;
+    const caption = document.createElement("figcaption");
+    caption.textContent = `${preview.credits}. Original browse image; not a current or globally registered view.`;
+    img.onerror = () => { img.hidden = true; caption.textContent = `Preview unavailable. ${preview.credits}`; };
+    const source = document.createElement("a");
+    source.textContent = "Official source image";
+    source.href = preview.sourceUrl;
+    source.target = "_blank";
+    source.rel = "noopener noreferrer";
+    figure.append(img, caption, source);
+    disclosure.appendChild(figure);
+  }
+  card.appendChild(disclosure);
 }

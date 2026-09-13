@@ -1,28 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { MOONS } from "../../apps/web/js/moons.js";
 import { MOON_ELEMENTS } from "../../apps/web/js/moonelements.js";
-import { renderMoonDetail } from "../../apps/web/js/orreryDetail.js";
+import { renderMoonDetail, renderDetail } from "../../apps/web/js/orreryDetail.js";
 
 // Snapshot the identity-only records the moment moons.js loads. The merge test below mutates
 // the shared objects, exactly as loadMoonCatalogue() does, so taking the copy here keeps the
 // pre-merge test independent of execution order.
 const PRE_MERGE = MOONS.map((m) => ({ ...m }));
 
-const source = readFileSync(
-  new URL("../../apps/web/js/orreryDetail.js", import.meta.url),
-  "utf8",
-);
-
-// Minimal DOM so the card can actually be built. The rest of this file asserts on source
-// text; the moon card below is executed, because the bug it guards against was a TypeError
-// that no amount of reading the source would have surfaced.
+// Execute the card builders against a minimal DOM; assertions inspect created nodes.
 function stubDocument() {
   const made = [];
-  const node = () => {
+  const node = (tag = "div") => {
     const el = {
-      children: [], text: [],
+      children: [], text: [], tagName: tag, style: {}, dataset: {},
+      querySelector() { return null; }, setAttribute(k,v) { el[k]=v; },
       set textContent(v) { if (v === "") { el.children.length = 0; } else { el.text.push(String(v)); } },
       set className(_v) {},
       append(...kids) { el.children.push(...kids); },
@@ -32,20 +25,40 @@ function stubDocument() {
     return el;
   };
   const host = node();
-  globalThis.document = { getElementById: () => host, createElement: () => node() };
-  return { host, textOf: () => made.flatMap((el) => el.text) };
+  globalThis.document = { getElementById: () => host, createElement: (tag) => node(tag) };
+  return { host, made, textOf: () => made.flatMap((el) => el.text) };
 }
 
-test("live Sun detail retains physical constants and labels the image epoch honestly", () => {
-  const liveEnd = source.indexOf('if (name === "Sun")');
-  const luminosity = source.indexOf('add("Luminosity"', liveEnd);
-  const imagery = source.indexOf('add("Surface imagery"', luminosity);
+test("Sun detail reports held mapping and retains physical constants", () => {
+  const dom = stubDocument();
+  renderDetail("Sun");
+  assert.ok(dom.textOf().some(t => t.includes("3.828")));
+  assert.ok(dom.textOf().some(t => /held.*observation time/i.test(t)));
+  assert.equal(dom.made.filter(el => el.tagName === "img").length, 0);
+});
 
-  assert.ok(liveEnd > source.indexOf("if (live)"), "Sun facts must follow the live-data block");
-  assert.ok(luminosity > liveEnd, "Sun luminosity must not be hidden in the no-live branch");
-  assert.ok(imagery > luminosity, "surface provenance remains on the Sun card");
-  assert.match(source.slice(liveEnd, imagery + 500), /NASA SDO\/HMI continuum, fetched/);
-  assert.doesNotMatch(source.slice(liveEnd, imagery + 500), /continuum, captured/);
+test("verified moon browse preserves aspect ratio and source attribution", () => {
+  const dom = stubDocument();
+  renderMoonDetail(PRE_MERGE.find(m => m.n === "Callisto"), 1767225600);
+  const img = dom.made.find(el => el.tagName === "img");
+  assert.ok(img);
+  assert.equal(img.src, "textures/callisto.jpg");
+  assert.equal(img.loading, "lazy");
+  assert.equal(img.style.height, "auto");
+  assert.equal(img.style.objectFit, "contain");
+  img.onerror();
+  assert.equal(img.hidden, true);
+  assert.ok(dom.textOf().some(t => /Preview unavailable/.test(t)));
+  assert.ok(dom.made.some(el => el.tagName === "a" && el.href.startsWith("https://astrogeology.usgs.gov/")));
+  assert.ok(dom.textOf().some(t => /Official source bytes verified/.test(t)));
+  assert.ok(dom.textOf().every(t => !/No global mosaic.*published|surface is a real USGS global mosaic/.test(t)));
+});
+
+test("unqualified moon detail has no fabricated preview", () => {
+  const dom = stubDocument();
+  renderMoonDetail(PRE_MERGE.find(m => m.n === "Nereid"), 1767225600);
+  assert.equal(dom.made.filter(el => el.tagName === "img").length, 0);
+  assert.ok(dom.textOf().some(t => /Surface detail unavailable/.test(t)));
 });
 
 // The element knots arrive lazily with moonelements.js, so between opening the Solar System

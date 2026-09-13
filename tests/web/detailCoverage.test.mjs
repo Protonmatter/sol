@@ -14,6 +14,7 @@ class ElementBoundary {
     this.tagName = tagName;
     this.children = [];
     this.dataset = {};
+    this.style = {};
     this.attributes = {};
     this.className = "";
     this.ownText = "";
@@ -219,17 +220,17 @@ test("static bodies retain rotation, magnetic, atmosphere, ring and lunar-librat
   glossary(h.host, "libration", "Libration");
 });
 
-test("Sun facts disclose procedural versus dated fetched imagery without losing live facts", async () => {
+test("Sun facts retain mapping hold regardless of fetch time without losing live facts", async () => {
   const h = await harness();
   h.renderDetail("Sun", live({ name: "Sun" }));
-  assert.equal(rows(h.host).get("Surface imagery"), "procedural model (no dated SDO frame available)");
+  assert.match(rows(h.host).get("Surface imagery"), /mapping held.*no verified observation time/);
   assert.equal(rows(h.host).get("Luminosity"), "3.828×10²⁶ W");
   assert.equal(rows(h.host).get("Composition"), "73% H, 25% He (by mass)");
   assert.equal(rows(h.host).get("Magnetic field"), "intrinsic field");
   h.renderDetail("Earth");
   h.store.orrery.sunImageUnix = Date.parse("2026-09-12T12:00:00Z") / 1000;
   h.renderDetail("Sun", live({ name: "Sun" }));
-  assert.match(rows(h.host).get("Surface imagery"), /^NASA SDO\/HMI continuum, fetched /);
+  assert.match(rows(h.host).get("Surface imagery"), /mapping held.*Fetch time is not capture time/);
   assert.doesNotMatch(rows(h.host).get("Surface imagery"), /captured|today/);
   assert.equal(rows(h.host).get("Distance from Sun"), "1.000 AU");
 });
@@ -248,7 +249,7 @@ test("unknown selection and absent host do not retain an unrelated facts card", 
   h.updateLiveDetailFacts(live());
 });
 
-test("moon cards keep identity available before knots and distinguish reflective surfaces from procedural mosaics", async () => {
+test("moon cards keep identity before knots and distinguish verified browse bytes from missing detail", async () => {
   const h = await harness();
   const moon = name => MOONS.find(item => item.n === name);
   h.renderMoonDetail(moon("Phobos"), 1767225600);
@@ -259,15 +260,20 @@ test("moon cards keep identity available before knots and distinguish reflective
   assert.match(rows(h.host).get("Mean radius"), /larger than Pluto/);
   h.renderMoonDetail(moon("Enceladus"), 1767225600);
   assert.equal(rows(h.host).get("Geometric albedo"), "1.04 — the most reflective surface known");
-  assert.match(h.host.textContent, /real USGS global mosaic/);
-  assert.match(h.host.textContent, /without a spin model/);
+  assert.match(h.host.textContent, /Official source bytes verified/);
+  assert.match(h.host.textContent, /coverage, orientation and color interpretation require qualification/);
+  const preview = descendants(h.host).find(node => node.tagName === "img");
+  assert.equal(preview.loading, "lazy");
+  assert.equal(preview.style.height, "auto");
+  assert.equal(preview.src, "textures/enceladus.jpg");
   h.renderMoonDetail(moon("Iapetus"), 1767225600);
   assert.match(rows(h.host).get("Orbital period"), /79\.331 d \(0\.22 yr\)/);
   assert.match(rows(h.host).get("Geometric albedo"), /bright hemisphere; the leading one is ~0.05/);
   h.renderMoonDetail(moon("Nereid"), 1767225600);
   assert.equal(rows(h.host).has("Mean density"), false);
   assert.equal(rows(h.host).has("GM"), false);
-  assert.match(h.host.textContent, /surface is procedural/);
+  assert.match(h.host.textContent, /Surface detail unavailable/);
+  assert.equal(descendants(h.host).some(node => node.tagName === "img"), false);
   assert.match(h.host.textContent, /not enough for an occultation/);
 });
 
@@ -307,4 +313,12 @@ test("small-body cards distinguish orbital elements from approximate spacecraft 
   h.renderSmallDetail({ ...sample, kind: "unclassified" });
   assert.match(h.host.textContent, /unclassified — Fixture/);
   assert.deepEqual([...rows(h.host).keys()], ["Distance from Sun"]);
+});
+
+test("ringed planets disclose illustrative opacity separately from sourced radius geometry", async () => {
+  const h = await harness();
+  h.renderDetail("Saturn");
+  assert.match(h.host.textContent, /Ring radius geometry/);
+  assert.match(h.host.textContent, /opacity and shadow profile.*illustrative.*uncalibrated/i);
+  assert.equal(rows(h.host).has("Rings"), true);
 });

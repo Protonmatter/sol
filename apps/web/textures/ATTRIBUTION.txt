@@ -1,3 +1,13 @@
+QUALIFICATION NOTICE (2026-09-13)
+The authoritative machine-readable inventory is ../visual-assets.v1.json.
+Earth and ten USGS moon rasters were byte-matched to their official URLs.
+Byte identity does not establish global coverage, color calibration or orientation.
+Detailed globe use remains held unless allowed_usages explicitly permits it.
+The retained solar file is undated; its fetch timestamp is NOT its observation time.
+Unmapped bodies use neutral missing-detail display, never fabricated craters.
+
+LEGACY SOURCE LABELS (retained credits; mission and availability claims below are unverified):
+
 Planetary texture maps used by the 3-D View (apps/web/js/orrery.js).
 
 mercury: Solar System Scope (CC-BY 4.0) · NASA/MESSENGER
@@ -56,3 +66,13 @@ Oberon: As Miranda — Voyager 2 southern-hemisphere coverage only, no global mo
 Deimos: Viking imaged Deimos, but USGS publishes a global mosaic for Phobos only; there is no Deimos entry in the mosaic archive.
 Proteus: Voyager 2 resolved Proteus at a few kilometres per pixel over part of one hemisphere. No map product exists.
 Nereid: Never resolved. Voyager 2's best images are a handful of pixels across.
+
+Bundled observation for the immersive Sun explorer:
+  textures/solar-observation-171.jpg — original NASA SDO/AIA 171 Angstrom browse image.
+  Capture: 2026-09-12 00:07:22 UTC (original embedded image caption).
+  Source: https://sdo.gsfc.nasa.gov/assets/img/browse/2026/09/12/20260912_000722_1024_0171.jpg
+  Courtesy of NASA/SDO and the AIA, EVE, and HMI science teams.
+  Gold is a false-color representation of extreme ultraviolet. This archival browse
+  image is for education/exploration, not raw quantitative analysis or a global map.
+  Original pixels, aspect and caption retained. No modeled regions are registered to it.
+  Byte identity and source-use evidence: observed_images in visual-assets.v1.json.

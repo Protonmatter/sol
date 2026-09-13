@@ -70,7 +70,8 @@ void main(){
     // bright full-circumference ring that made every planet look like an annular eclipse.
     float day=smoothstep(-0.32,0.22,dot(N,normalize(u_light)));
     o=vec4(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4*(0.04+0.96*day), 1.0); return; }
-  if(u_mode==1){ // Sun
+  if(u_mode==1){
+    if(u_style<0){ float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); o=vec4(u_base*(0.72+0.28*limb),1.0); return; } // Sun
     // procedural granulation + sunspots + limb darkening — the whole sphere when no SDO frame
     // is available, and always the far side (the SDO image only covers one hemisphere).
     float g=fbm(p*9.0+vec3(u_time*0.06)); float fac=fbm(p*22.0+vec3(u_time*0.1));

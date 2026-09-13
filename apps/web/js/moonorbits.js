@@ -157,7 +157,7 @@ export function moonOrbitPath(m, unixSeconds, steps = 72) {
  * spacing BETWEEN them stays true: Callisto still sits 4.46× farther out than Io, and the
  * Galilean rhythm is preserved. Returns 1 in true-scale mode, where nothing needs help.
  */
-export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU = 0) {
+export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU = 0, radiusOf = (_moon) => 0, offsetOf = null) {
   if (trueScale || !moons.length) return 1;
   let innermost = Infinity;
   for (const m of moons) innermost = Math.min(innermost, (m.a * (1 - m.e)) / AU_KM);
@@ -167,6 +167,18 @@ export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU
   // put it inside them, and Miranda and Proteus likewise sat within Uranus's and Neptune's.
   // Every one of those moons orbits comfortably beyond its planet's outer ring in reality, so
   // the drawing was inverting a real relationship.
-  const clearance = Math.max(planetDisplayRadiusAU * 1.7, ringOuterAU * 1.12);
-  return Math.max(1, clearance / innermost);
+  let scale = Math.max(1, Math.max(planetDisplayRadiusAU * 1.7, ringOuterAU * 1.12) / innermost);
+  for (const m of moons) {
+    const periapsis = m.a * (1 - m.e) / AU_KM;
+    if (periapsis > 0) scale = Math.max(scale,
+      (Math.max(planetDisplayRadiusAU, ringOuterAU) + radiusOf(m)) / (0.95 * periapsis));
+  }
+  // Optional bounded point comparison, never orbit-segment comparisons. The renderer instead
+  // caps sibling enlargement so conjunctions cannot expand the entire system without bound.
+  if (offsetOf) for (let i = 0; i < moons.length; i++) for (let j = i + 1; j < moons.length; j++) {
+    const a = offsetOf(moons[i], i), b = offsetOf(moons[j], j);
+    const distance = Math.hypot(...a.map((v, k) => v - b[k]));
+    if (distance > 0) scale = Math.max(scale, (radiusOf(moons[i]) + radiusOf(moons[j])) / (0.95 * distance));
+  }
+  return scale;
 }

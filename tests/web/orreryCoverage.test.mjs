@@ -154,6 +154,7 @@ test("Orrery rendering controls preserve accessible selection and expose the rea
   assert.equal(h.nodes.orrerySelectionStatus.textContent, "Sun selected");
   h.input("orreryAnchor", "Io", "change");
   assert.equal(h.state.selected, "Io"); assert.match(h.nodes.orreryDetail.textContent, /moon|Jupiter/);
+  h.check("orreryShowSmall", true);
   h.input("orreryAnchor", "Pluto", "change");
   assert.equal(h.state.radius, 4); assert.match(h.nodes.orreryDetail.textContent, /Dwarf planet/);
   const radius = h.state.radius;
@@ -162,7 +163,11 @@ test("Orrery rendering controls preserve accessible selection and expose the rea
   h.input("orrerySize", "2"); assert.equal(h.state.exaggeration, 2);
   h.check("orreryTrueScale", true);
   assert.match(h.nodes.orreryScaleStatus.textContent, /Physical scale/);
+  assert.equal(h.nodes.orrerySize.disabled, true);
+  assert.equal(h.nodes.orrerySize.value, "2");
   h.check("orreryTrueScale", false);
+  assert.equal(h.nodes.orrerySize.disabled, false);
+  assert.equal(h.nodes.orrerySize.value, "2");
   assert.match(h.nodes.orreryScaleStatus.textContent, /Enlarged for visibility/);
   for (const [control, property] of [["ShowOrbits", "showOrbits"], ["ShowSky", "showSky"], ["ShowConst", "showConst"], ["ShowLabels", "showLabels"], ["ShowSunEq", "showSunEq"], ["ShowSmall", "showSmall"], ["ShowMoons", "showMoons"], ["DeepSky", "galDeepSky"], ["Textures", "useTextures"]]) {
     for (const checked of [false, true]) {
@@ -272,27 +277,15 @@ test("Orrery failed optional catalogues remain disclosed and retry on a later en
   assert.equal(h.errors.length, 0);
 });
 
-test("Orrery image completion uploads original images and dates the Sun before exposing its texture", async t => {
-  const fetchedUnix = 1790000000;
-  const h = await orreryHarness(t, { controls: true, reducedMotion: true, sunMetadata: { fetched_unix: fetchedUnix } });
+test("Orrery rejects unregistered imagery even when fetch-epoch metadata is available", async t => {
+  const h = await orreryHarness(t, { controls: true, reducedMotion: true, sunMetadata: { fetched_unix: 1790000000 } });
   await h.enterOrrery(); await h.settle();
-  assert.equal(h.state.sunImageUnix, fetchedUnix);
-  const earth = h.images.find(image => image.src?.startsWith("textures/earth.jpg"));
-  const sun = h.images.find(image => image.src?.startsWith("textures/sun.jpg"));
-  assert.ok(earth && sun);
-  const draws = h.draws; earth.onload(); sun.onload();
-  assert.ok(h.textureUploads.some(args => args.at(-1) === earth));
-  assert.ok(h.textureUploads.some(args => args.at(-1) === sun));
-  assert.ok(h.draws > draws, "a paused view repaints after a decoded image arrives");
-  h.input("orreryAnchor", "Sun", "change");
-  assert.match(h.nodes.orreryDetail.textContent, /NASA SDO\/HMI continuum, fetched/);
-  const failures = h.images.filter(image => image !== earth && image !== sun);
-  failures[0].onerror(); failures[1].onerror();
-  assert.equal(h.warnings.filter(args => String(args[0]).includes("missing — using the procedural fallback")).length, 2);
-  assert.equal((h.nodes.orreryInsight.textContent.match(/Photographic surface maps aren't present/g) || []).length, 1);
+  assert.equal(h.state.sunImageUnix, null, "fetch time must not qualify an observation or map registration");
+  assert.equal(h.images.length, 0, "unqualified globe, ring and disk rasters must not be fetched");
+  assert.ok(h.draws > 0, "neutral surfaces keep the scene usable");
   h.check("orreryTextures", false); assert.equal(h.state.useTextures, false);
   h.check("orreryTextures", true); assert.equal(h.state.useTextures, true);
-  const inactiveDraws = h.draws; h.leaveOrrery(); earth.onload(); assert.equal(h.draws, inactiveDraws);
+  assert.equal(h.images.length, 0, "the advanced toggle cannot bypass asset qualification");
   assert.equal(h.errors.length, 0);
 });
 
@@ -349,7 +342,8 @@ test("Orrery canvas picks use the same real projected body and moon coordinates 
   h.input("orreryAnchor", "Sun", "change");
   h.input("orrerySearch", "Earth"); h.nodes.orreryPositions.children[0].click();
   clickLabel("Sun");
-  h.input("orreryAnchor", "Jupiter", "change"); clickLabel("Io");
+  h.input("orreryAnchor", "Io", "change"); clickLabel("Io");
+  h.check("orreryShowSmall", true);
   h.input("orreryAnchor", "Pluto", "change");
   h.input("orrerySearch", "Earth"); h.nodes.orreryPositions.children[0].click();
   clickLabel("Pluto");
@@ -375,40 +369,89 @@ test("Orrery canvas picks use the same real projected body and moon coordinates 
 });
 
 for (const idleScheduler of ["idle", "timeout"]) {
-  test(`Orrery generated surface maps yield through ${idleScheduler} before uploading committed geography`, async t => {
+  test(`Orrery holds unqualified generated maps with ${idleScheduler} scheduling available`, async t => {
     const h = await orreryHarness(t, { controls: true, geography: "ready", idleScheduler, reducedMotion: true });
     await h.enterOrrery(); await h.settleCatalogues();
-    assert.equal(h.idleTasks.size, 1); assert.equal(h.canvasCommands.length, 0, "first paint cannot synchronously rasterize the maps");
-    const draws = h.draws;
-    await h.flushIdleTasks();
-    assert.equal(h.idleTasks.size, 0); assert.ok(h.idleScheduled >= 10, "Earth's pixel bands yield repeatedly rather than blocking one callback");
-    const maps = h.textureUploads.map(args => args.at(-1)).filter(value => value?.tagName === "CANVAS");
-    assert.deepEqual(maps.map(canvas => [canvas.width, canvas.height]), [[2048, 1024], [1024, 512]]);
-    assert.ok(h.canvasCommands.some(command => command.canvas === maps[0] && command.method === "fill" && command.args[0] === "evenodd"));
-    assert.ok(h.canvasCommands.some(command => command.canvas === maps[0] && command.method === "putImageData"));
-    assert.ok(h.canvasCommands.some(command => command.canvas === maps[1] && command.method === "ellipse"));
-    assert.ok(h.draws > draws, "a paused surface repaints when generated maps complete");
-    const ring = h.images.find(image => image.src?.startsWith("textures/saturn_ring.png"));
-    ring.onload();
-    assert.ok(h.canvasCommands.some(command => command.method === "drawImage" && command.args[0] === ring), "photo-ring alpha readback uses the same decoded ring image");
+    assert.equal(h.idleTasks.size, 0);
+    assert.equal(h.canvasCommands.length, 0, "unqualified geography cannot generate invented surface detail");
+    assert.ok(!h.textureUploads.some(args => args.at(-1)?.tagName === "CANVAS"));
+    assert.equal(h.images.length, 0);
+    assert.ok(h.draws > 0);
     assert.equal(h.warnings.length, 0); assert.equal(h.errors.length, 0);
   });
 }
 
-test("Orrery generated maps stop before queued work when their GPU context disappears", async t => {
+test("Orrery held map work cannot upload after GPU context loss", async t => {
   const h = await orreryHarness(t, { controls: true, geography: "ready" });
   await h.enterOrrery(); await h.settleCatalogues();
-  assert.equal(h.idleTasks.size, 1);
+  assert.equal(h.idleTasks.size, 0);
   const uploads = h.textureUploads.length;
   h.event("orreryCanvas", "webglcontextlost"); await h.flushIdleTasks();
   assert.equal(h.canvasCommands.length, 0); assert.equal(h.textureUploads.length, uploads);
-  assert.equal(h.idleTasks.size, 0); assert.match(h.state.engineError, /context lost/);
+  assert.match(h.state.engineError, /context lost/);
 });
 
-test("Orrery geography-transfer failure leaves its procedural renderer usable", async t => {
+test("Orrery neutral surfaces require no geography transfer", async t => {
   const h = await orreryHarness(t, { controls: true, geography: "failed" });
   await h.enterOrrery(); await h.settleCatalogues();
-  assert.ok(h.warnings.some(args => args[0] === "geography unavailable:"));
+  assert.equal(h.warnings.length, 0);
   const draws = h.draws; h.frame(100); assert.ok(h.draws > draws);
   assert.equal(h.state.engineError, ""); assert.equal(h.errors.length, 0);
+});
+
+
+test("returning to orbit and from galaxy restores truthful shared help", async t => {
+  const h = await orreryHarness(t, { controls: true, reducedMotion: true });
+  await h.enterOrrery();
+  h.check("orreryFreeFly", true); h.check("orreryFreeFly", false);
+  const hint = h.nodes.orreryInsight.textContent;
+  assert.match(hint, /source-qualified/i);
+  assert.match(hint, /low.detail/i);
+  assert.match(hint, /enlarged.*physical/i);
+  assert.doesNotMatch(hint, /real photographic surface maps|correct sizes/);
+  h.event("orreryGalaxy", "click"); h.event("orreryGalaxy", "click");
+  assert.equal(h.nodes.orreryInsight.textContent, hint);
+});
+
+test("explicit neighbourhood star picks open the inspector, empty picks and frames do not", async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: "ready", reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  h.event("orreryLocal", "click");
+  const label = h.nodes.orreryLabels.children.find(node => node.style.display === "block" && !/^[0-9]|Sun/.test(node.textContent));
+  assert.ok(label, "a named neighbourhood star is visible");
+  const point = { pointerId: 1, clientX: Number(label.dataset.projectionX), clientY: Number(label.dataset.projectionY) };
+  const selectedEvents = () => h.events.filter(event => event.type === "sol:object-selected");
+  const before = selectedEvents().length;
+  h.event("orreryCanvas", "pointerdown", point); h.event("orreryCanvas", "pointerup", point);
+  assert.ok(h.state.selectedStar, "the label position selects a real star");
+  assert.equal(selectedEvents().length, before + 1);
+  assert.equal(selectedEvents().at(-1).detail.surface, "orrery");
+  h.frame(100);
+  const empty = { pointerId: 2, clientX: -1000, clientY: -1000 };
+  h.event("orreryCanvas", "pointerdown", empty); h.event("orreryCanvas", "pointerup", empty);
+  assert.equal(h.state.selectedStar, null);
+  assert.equal(selectedEvents().length, before + 1);
+});
+
+
+
+test("System opens with optional clutter hidden and guide and small-body controls restore layers", async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: "ready", reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  for (const key of ["showConst", "showSmall", "showSunEq"]) assert.equal(h.state[key], false, key);
+  for (const key of ["showOrbits", "showSky", "showLabels", "showMoons"]) assert.equal(h.state[key], true, key);
+  assert.equal(h.state.moonGuideMode, "context");
+  const drawsAfter = (control, on) => {
+    const before = h.drawCalls.length;
+    h.check(control, on);
+    return h.drawCalls.length - before;
+  };
+  const baseline = drawsAfter("orreryShowSunEq", false);
+  assert.ok(drawsAfter("orreryShowSunEq", true) > baseline, "reference geometry and drop lines add render calls");
+  assert.equal(drawsAfter("orreryShowSunEq", false), baseline, "reference geometry disappears immediately while paused");
+  assert.ok(drawsAfter("orreryShowSmall", true) > baseline, "retained optional bodies and paths can render");
+  assert.equal(drawsAfter("orreryShowSmall", false), baseline);
+  assert.ok(drawsAfter("orreryShowConst", true) > baseline, "constellation overlay remains available");
+  assert.equal(drawsAfter("orreryShowConst", false), baseline);
+  assert.ok(h.nodes.orreryPositions.children.some(node => node.textContent.startsWith("Pluto")), "hidden small bodies retain searchable catalogue facts");
 });

@@ -39,9 +39,10 @@ for (const mode of ["series", "snapshot"]) {
     const context = vm.createContext({ store, setTimeout, clearTimeout, URL,
       document: { getElementById: id => id === "butterflyCanvas" ? canvas : null },
       window: { devicePixelRatio: 1, addEventListener: events.addEventListener.bind(events) } });
-    Object.assign(context, ...await loadSourceModules(context, [moduleURL("render")], {
+    Object.assign(context, ...await loadSourceModules(context, [moduleURL("render"), moduleURL("explorer")], {
       resolveImport: (_specifier, url) => url.pathname.endsWith("/store.js") ? { store } : undefined,
     }));
+    context.explorer.choose("research");
     context.drawButterfly();
     const expectedY = mode === "series" ? [41, 149, 95] : [44, 156, 100];
     assert.deepEqual(circles.slice(0, 3).map(point => Math.round(point.y)), expectedY);
@@ -88,10 +89,11 @@ for (const initialFailure of [true, false]) {
       "solarWorkerClient.js": { requestSolarSimulation: context.requestSolarSimulation, cancelSolarSimulation: context.cancelSolarSimulation },
       "dataBundle.js": { readDataBundle: context.readDataBundle },
     };
-    Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view"].map(moduleURL), {
+    Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "explorer"].map(moduleURL), {
       resolveImport: (_specifier, url) => boundaries[url.pathname.split("/").at(-1)],
       initializeImportMeta: meta => { meta.url = "https://example.invalid/js/data.js"; },
     }));
+    context.explorer.choose("research"); // Model publication/recovery belongs to Research.
     await context.loadState();
     const failure = store.dataError;
     const retained = store.liveState;

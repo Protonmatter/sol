@@ -115,8 +115,8 @@ class UxContractTests(unittest.TestCase):
                  '<details class="orrery-group" open>\n                <summary>Overlays</summary>'),
                 ('id="regionList"', 'id="regionListMissing"'),
                 ('role="dialog" aria-modal="true" aria-labelledby="tourTitle"', 'role="region"'),
-                ('id="panelToggle" class="panel-toggle" type="button" aria-label="Hide inspector" aria-controls="viewInspector" aria-expanded="true"',
-                 'id="panelToggle" class="panel-toggle" type="button" aria-label="Hide inspector" aria-controls="viewInspector" aria-expanded="false"'),
+                ('id="panelToggle" class="panel-toggle research-control" type="button" aria-label="Open inspector" aria-controls="viewInspector" aria-expanded="false"',
+                 'id="panelToggle" class="panel-toggle research-control" type="button" aria-label="Open inspector" aria-controls="viewInspector" aria-expanded="true"'),
                 ("</body>", '<button id="unnamed"></button></body>'),
             )
             for old, new in replacements:
@@ -140,7 +140,7 @@ class UxContractTests(unittest.TestCase):
             )
             for module_path in (target / "js").glob("*.js"):
                 module_path.write_text(
-                    module_path.read_text(encoding="utf-8").replace(
+                    module_path.read_text(encoding="utf-8").replace("setAttribute('aria-expanded'", "setAttribute('expanded-regressed'").replace(
                         'setAttribute("aria-pressed"', 'setAttribute("pressed-regressed"'
                     ),
                     encoding="utf-8",
@@ -158,7 +158,7 @@ class UxContractTests(unittest.TestCase):
                 "textual alternative #regionList",
                 "interactive control #unnamed",
                 "labelled modal dialog",
-                "initially expanded state",
+                "initially collapsed state",
                 "visible keyboard-focus",
                 "respect reduced motion",
                 "responsive breakpoint",

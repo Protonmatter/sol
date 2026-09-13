@@ -1,6 +1,6 @@
 {
   "schema_version": "sol-requirements.v1",
-  "updated": "2026-09-11",
+  "updated": "2026-09-12",
   "requirements": [
     {
       "id": "SOL-ARCH-001",
@@ -334,6 +334,33 @@
       "ci_gates": [
         "CI / Governance and specification contracts"
       ]
+    },
+    {
+      "id": "SOL-UX-004",
+      "status": "implemented",
+      "statement": "The workspace MUST lead with a sourced observation, retain navigation and active-view source/time outside disclosures, and separate model controls and model feed state into explicit Research mode.",
+      "source": "docs/rfcs/0003-scientific-workspace-and-visual-provenance.md#requirements",
+      "implementation": ["apps/web/index.html", "apps/web/styles.css", "apps/web/js/workspace.js", "apps/web/js/explorer.js", "apps/web/js/destinationCards.js", "apps/web/js/destinationOverview.js"],
+      "verification": ["tests/web/workspace.test.mjs", "tests/web/explorer.test.mjs", "tests/web/destinationCards.test.mjs", "tests/web/destinationOverview.test.mjs", "tools/experience_validation.mjs", "tools/sky_validation.mjs"],
+      "ci_gates": ["CI / Web, provider, and browser validation"]
+    },
+    {
+      "id": "SOL-VIS-002",
+      "status": "implemented",
+      "statement": "Enlarged display geometry MUST preserve scientific centers, constrain artificial body penetration and share render, pick and camera transforms; physical scale MUST ignore exaggeration.",
+      "source": "docs/rfcs/0003-scientific-workspace-and-visual-provenance.md#requirements",
+      "implementation": ["apps/web/js/displayGeometry.js", "apps/web/js/orrery.js", "apps/web/js/moonorbits.js"],
+      "verification": ["tests/web/displayGeometry.test.mjs", "tests/web/orreryCoverage.test.mjs"],
+      "ci_gates": ["CI / Web, provider, and browser validation"]
+    },
+    {
+      "id": "SOL-VIS-003",
+      "status": "implemented",
+      "statement": "Scientific visuals MUST retain source identity, use qualification and missing-detail limits; unqualified global textures MUST NOT render as observed surfaces.",
+      "source": "docs/rfcs/0003-scientific-workspace-and-visual-provenance.md#requirements",
+      "implementation": ["apps/web/visual-assets.v1.json", "apps/web/js/visualAssets.js", "apps/web/js/solarObservation.js", "apps/web/js/orreryDetail.js", "tools/build_web.py"],
+      "verification": ["tools/validate_visual_assets.py", "tests/python/test_visual_assets.py", "tests/python/test_visual_asset_build.py", "tests/python/test_solar_observation.py", "tests/web/visualAssets.test.mjs", "tests/web/solarObservation.test.mjs"],
+      "ci_gates": ["CI / Governance and specification contracts", "CI / Web, provider, and browser validation"]
     },
     {
       "id": "SOL-REL-001",

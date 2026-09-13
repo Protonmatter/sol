@@ -6,6 +6,7 @@ import { renderAll } from "./view.js?v=dcca6290db";
 import { maybeAutoStartTour } from "./tour.js?v=dcca6290db";
 import { readDataBundle } from "./dataBundle.js?v=dcca6290db";
 import { prepareBundlePublication } from "./timeline.js?v=dcca6290db";
+import { dynamicSourceEligible } from "./visualAssets.js?v=dcca6290db";
 
 const baseImageCache = {};
 
@@ -13,6 +14,11 @@ function loadBaseImage(key) {
   if (baseImageCache[key]) return baseImageCache[key];
   const cfg = BASE_IMAGES[key];
   if (!cfg) return null;
+  if (!dynamicSourceEligible(key, cfg.url)) {
+    const denied = { img: null, cfg, failed: true };
+    baseImageCache[key] = denied;
+    return denied;
+  }
   const img = new Image();
   img.decoding = "async";
   const announce = () => window.dispatchEvent(new Event("sol:baseimage")); // caption provenance refresh

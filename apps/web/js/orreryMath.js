@@ -105,7 +105,7 @@ export function ringOpacityProfile(rings, n = 160) {
   return out;
 }
 
-export function buildRing(rings, rEqAU, radiusKm) {
+export function buildRing(rings, rEqAU, radiusKm, neutralColor = false) {
   const inner = (rings.innerKm / radiusKm) * rEqAU;
   const outer = (rings.outerKm / radiusKm) * rEqAU;
   const RAD = 56, ANG = 120, v = [];
@@ -127,7 +127,8 @@ export function buildRing(rings, rEqAU, radiusKm) {
   for (let i = 0; i + 1 < radii.length; i++) {
     const r0 = radii[i], r1 = radii[i + 1];
     const f0 = (r0 - inner) / (outer - inner), f1 = (r1 - inner) / (outer - inner);
-    const c = colorAt((r0 + r1) / 2);
+    const sampled = colorAt((r0 + r1) / 2);
+    const c = neutralColor ? [0.55, 0.55, 0.55, sampled[3]] : sampled;
     for (let j = 0; j < ANG; j++) {
       const t0 = (j / ANG) * 2 * Math.PI, t1 = ((j + 1) / ANG) * 2 * Math.PI;
       const p = (r, t, f) => v.push(r * Math.cos(t), r * Math.sin(t), 0, c[0], c[1], c[2], c[3], f);

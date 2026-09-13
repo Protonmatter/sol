@@ -23,23 +23,35 @@ const capturedHash = "#sky=0,0,1782872026.9999936,0";
 // Record the real renderer's output at the Canvas boundary, including invalid
 // coordinates browsers silently ignore. No projection or overlay logic is replaced.
 function canvasRecorder() {
-  const strokes = [], coordinates = [], stack = [];
+  const strokes = [], coordinates = [], texts = [], stack = [];
   let path = [], dash = [];
   const ctx = {
-    strokes, coordinates, strokeStyle: "#000", fillStyle: "#000", globalAlpha: 1,
-    clearRect() { strokes.length = 0; coordinates.length = 0; },
+    strokes, coordinates, texts, strokeStyle: "#000", fillStyle: "#000", globalAlpha: 1,
+    font: "10px sans-serif", textAlign: "start", textBaseline: "alphabetic",
+    clearRect() { strokes.length = 0; coordinates.length = 0; texts.length = 0; },
     beginPath() { path = []; },
     moveTo(x, y) { path.push(["moveTo", x, y]); coordinates.push([x, y]); },
     lineTo(x, y) { path.push(["lineTo", x, y]); coordinates.push([x, y]); },
     arc(x, y, r, start, end) { coordinates.push([x, y, r, start, end]); },
     ellipse(x, y, rx, ry, rotation, start, end) { coordinates.push([x, y, rx, ry, rotation, start, end]); },
-    fillText(_text, x, y) { coordinates.push([x, y]); },
+    // Deterministic host metrics, not a browser font/photometric qualification.
+    // Recording alignment and full bounds catches labels whose anchor is inside
+    // the canvas but whose trailing glyphs would be clipped.
+    measureText(text) { return { width: String(text).length * Number.parseFloat(this.font) * 0.6 }; },
+    fillText(text, x, y) {
+      const width = this.measureText(text).width, height = Number.parseFloat(this.font);
+      const left = x - (this.textAlign === "center" ? width / 2 : this.textAlign === "right" || this.textAlign === "end" ? width : 0);
+      const top = y - (this.textBaseline === "middle" ? height / 2 : this.textBaseline === "top" ? 0 : height * 0.8);
+      texts.push({ text, x, y, left, right: left + width, top, bottom: top + height });
+      coordinates.push([x, y]);
+    },
     fillRect(x, y, w, h) { coordinates.push([x, y, w, h]); },
     translate(x, y) { coordinates.push([x, y]); },
     rotate(angle) { coordinates.push([angle]); },
     setLineDash(value) { dash = Array.from(value); },
     stroke() { strokes.push({ path: structuredClone(path), dash: [...dash], alpha: this.globalAlpha }); },
-    save() { stack.push({ strokeStyle: this.strokeStyle, fillStyle: this.fillStyle, globalAlpha: this.globalAlpha, dash: [...dash] }); },
+    save() { stack.push({ strokeStyle: this.strokeStyle, fillStyle: this.fillStyle, globalAlpha: this.globalAlpha,
+      font: this.font, textAlign: this.textAlign, textBaseline: this.textBaseline, dash: [...dash] }); },
     restore() { const saved = stack.pop(); dash = saved.dash; Object.assign(this, saved); },
     clip() {}, fill() {}, closePath() {},
   };
@@ -50,7 +62,8 @@ function canvasRecorder() {
 // Only browser host I/O is controlled: DOM, clock, permission callbacks, clipboard,
 // and worker messages. Stamping uses the same token substitution as build_web.py.
 async function skyHarness(t, { basePath = "/sol/", stamped = false, href = "https://example.invalid/sol/releases/A/index.html", clipboard,
-  savedProvider = null, storedObserver = JSON.stringify({ lat: 0, lon: 0, elev: 0 }), recipientBase = "", canvas = false, controls = false } = {}) {
+  savedProvider = null, storedObserver = JSON.stringify({ lat: 0, lon: 0, elev: 0 }), recipientBase = "", canvas = false, controls = false,
+  canvasWidth = 600, canvasHeight = 600, devicePixelRatio = 1 } = {}) {
   const nodes = new Map(), intervals = new Map(), positions = [], workers = [], saved = new Map();
   const drawing = canvas ? canvasRecorder() : null;
   let focused = null;
@@ -83,7 +96,7 @@ async function skyHarness(t, { basePath = "/sol/", stamped = false, href = "http
   if (canvas) {
     for (const id of ["skyCanvas", "skyList", "skyConst", "skyTraj"]) nodes.set(id, node(id));
     Object.assign(nodes.get("skyCanvas"), {
-      getBoundingClientRect: () => ({ left: 0, top: 0, width: 600, height: 600 }),
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: canvasWidth, height: canvasHeight }),
       getContext: () => drawing,
     });
     nodes.get("skyList").ownerDocument = { createElement: () => node() };
@@ -100,7 +113,7 @@ async function skyHarness(t, { basePath = "/sol/", stamped = false, href = "http
       setItem(key, value) { saved.set(key, value); },
     },
     document: { getElementById: id => nodes.get(id) || null, createElement: () => node(), body: node("body") },
-    window: { SOL_EPHEMERIS_SERVER: recipientBase, innerWidth: 640, innerHeight: 640, devicePixelRatio: 1,
+    window: { SOL_EPHEMERIS_SERVER: recipientBase, innerWidth: 640, innerHeight: 640, devicePixelRatio,
       dispatchEvent() {}, setInterval(callback) { intervals.set(1, callback); return 1; }, clearInterval(id) { intervals.delete(id); } },
     fetchServerSky, BODY_INDEX, SERVER_BASE,
     createSkyWorkerClient: () => createSkyWorkerClient({
@@ -131,9 +144,9 @@ async function skyHarness(t, { basePath = "/sol/", stamped = false, href = "http
     context, nodes, positions, saved, location, store, drawing, workers, focused: () => focused,
     click: id => nodes.get(id).click(),
     tick: () => intervals.get(1)(),
-    async publishSnapshot() {
+    async publishSnapshot(value = snapshot) {
       const worker = workers.at(-1);
-      worker.onmessage({ data: { ...worker.sent, type: "result", value: { operation: "snapshot", snapshot: structuredClone(snapshot) } } });
+      worker.onmessage({ data: { ...worker.sent, type: "result", value: { operation: "snapshot", snapshot: structuredClone(value) } } });
       // Drain the worker-client and async render continuations before interacting.
       for (let index = 0; index < 6; index++) await Promise.resolve();
       assert.equal(store.sky.presentation.availability, "ready", nodes.get("skyInputError").textContent);
@@ -152,14 +165,57 @@ function assertFiniteDrawing(drawing) {
   assert.ok(drawing.coordinates.every(values => values.every(Number.isFinite)), "every Canvas coordinate must be finite");
 }
 
+test("narrow Sky keeps full compass, star and planet labels inside the canvas without moving their positions", async t => {
+  // Synthetic display-boundary fixture, never astronomical reference evidence:
+  // at latitude zero an object due east at altitude 0.1 degrees has declination
+  // zero and hour angle -89.9 degrees. Update every coordinate alias together so
+  // the unchanged v3 admission guard validates the renderer's input normally.
+  const nearHorizon = structuredClone(snapshot);
+  const ra = (nearHorizon.time.lst_deg + 89.9) % 360;
+  for (const name of ["Sirius", "Saturn"]) {
+    const body = nearHorizon.bodies.find(item => item.name === name);
+    Object.assign(body, { alt_deg: 0.1, alt_refracted_deg: 0.2, above_horizon: true,
+      az_deg: 90, compass: "E", ra_deg: ra, dec_deg: 0,
+      topocentric_apparent_ra_deg: ra, topocentric_apparent_dec_deg: 0 });
+    if (name === "Sirius") Object.assign(body, { geocentric_apparent_ra_deg: ra, geocentric_apparent_dec_deg: 0 });
+  }
+  assertEphemerisSnapshotV3(nearHorizon);
+  for (const [canvasWidth, canvasHeight, devicePixelRatio] of [[320, 400, 1], [288, 360, 2]]) {
+    const h = await skyHarness(t, { canvas: true, canvasWidth, canvasHeight, devicePixelRatio });
+    await h.publishSnapshot(nearHorizon);
+    assertFiniteDrawing(h.drawing);
+    const canvas = h.nodes.get("skyCanvas"), padding = 4 * devicePixelRatio;
+    const labels = new Map(h.drawing.texts.map(label => [label.text, label]));
+    for (const name of ["N", "S", "E", "W", "Sirius", "Saturn"]) {
+      const label = labels.get(name);
+      assert.ok(label, `${canvasWidth}px at DPR ${devicePixelRatio}: ${name} is rendered`);
+      assert.ok(label.left >= padding - 1e-6 && label.right <= canvas.width - padding + 1e-6,
+        `${name} glyph bounds ${label.left}..${label.right} must fit the ${canvas.width}px backing store`);
+      assert.ok(label.top >= 0 && label.bottom <= canvas.height,
+        `${name} vertical glyph bounds must remain visible`);
+    }
+    const { plotted, geom } = h.context.window.__skyDebug();
+    for (const name of ["Sirius", "Saturn"]) {
+      const point = plotted.find(item => item.name === name);
+      assert.ok(Math.abs(point.x - (geom.cx + geom.r * (1 - 0.1 / 90))) < 1e-6);
+      assert.ok(Math.abs(point.y - geom.cy) < 1e-6);
+      assert.ok(labels.get(name).left < point.x,
+        "the long east-limb label must move left while its astronomical marker stays in place");
+    }
+  }
+});
+
 test("v3 snapshots draw finite constellation paths and preserve overlay toggling", async t => {
   const h = await skyHarness(t, { canvas: true });
   await h.publishSnapshot();
   assertFiniteDrawing(h.drawing);
+  const initial = structuredClone(h.drawing.strokes);
+  setOverlay(h, "skyConst", true);
   const visible = structuredClone(h.drawing.strokes);
   setOverlay(h, "skyConst", false);
   assertFiniteDrawing(h.drawing);
   const hidden = structuredClone(h.drawing.strokes);
+  assert.deepEqual(hidden, initial, 'constellation scaffolding starts off without changing plotted positions');
   const lineCount = strokes => strokes.filter(stroke => stroke.path.some(command => command[0] === "lineTo")).length;
   assert.ok(lineCount(visible) > lineCount(hidden), "enabled constellation figures must add visible line segments");
   setOverlay(h, "skyConst", true);

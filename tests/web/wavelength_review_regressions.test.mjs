@@ -58,10 +58,11 @@ async function harness() {
     "tour.js": { maybeAutoStartTour: context.maybeAutoStartTour },
     "solarWorkerClient.js": { requestSolarSimulation: context.requestSolarSimulation, cancelSolarSimulation: context.cancelSolarSimulation },
   };
-  Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "render", "wavelength"].map(moduleURL), {
+  Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "render", "wavelength", "explorer"].map(moduleURL), {
     resolveImport: (_specifier, url) => boundaries[url.pathname.split("/").at(-1)],
     initializeImportMeta: meta => { meta.url = "https://example.invalid/js/data.js"; },
   }));
+  context.explorer.choose("research"); // These scenarios explicitly exercise Research image/model transitions.
   context.setWavelength("continuum");
   return { context, store, nodes, images, draws,
     ready() { images[0].complete = true; images[0].naturalWidth = 1024; images[0].onload(); },

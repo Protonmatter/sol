@@ -42,8 +42,76 @@ try {
   const prefix=new URL(".",page.url()).pathname;
   const token=await page.evaluate(async()=> (await (await fetch("app.js")).text()).match(/sky\.js(\?v=[A-Za-z0-9._-]+)/)?.[1]||"");
   const moduleUrl=`${prefix}js/sky.js${token}`;
+  await page.click('#exploreResearch');
   await page.click('[data-mode="sky"]');
   await page.waitForFunction(()=>window.__skyDebug?.().snap,{timeout:20000});
+  assert.equal(await page.$eval("#viewInspector",n=>n.hidden&&n.inert),true,"Sky inspector is initially closed and inert");
+  assert.equal(await page.$eval("#panelToggle",n=>n.getAttribute("aria-expanded")),"false");
+  assert.equal(await page.$eval("#timelineToggle",n=>n.textContent),"Date & time");
+  assert.equal(await page.$eval("#timeline",n=>n.hidden),true,"Sun timeline stays hidden on Sky");
+  assert.equal(await page.$eval('#destinationOverview',n=>n.hidden),false,'Sky starts with a concise context card');
+  assert.match(await page.$eval('#destinationFacts',n=>n.textContent),/example location.*Computed on your device/);
+  assert.match(await page.$eval('#destinationCaption',n=>n.textContent),/calculated positions, not a camera view/);
+  assert.equal(await page.$eval('#destinationPreview',n=>n.hidden),true,'Sky model facts never acquire an observed-image preview');
+  for(const width of [1440,900,390,320]) {
+    await page.setViewport({width,height:900});
+    await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,300)));
+    const layout=await page.evaluate(()=>({
+      overflow:document.documentElement.scrollWidth>innerWidth+1,
+      clipped:[...document.querySelectorAll('#destinationOverview button:not([hidden]), .mode-button')].filter(n=>{const r=n.getBoundingClientRect();return !r.width||r.left<0||r.right>innerWidth+1;}).map(n=>n.id||n.textContent),
+      visible:['destinationTitle','destinationFacts','viewSource','viewTime','destinationCaption'].every(id=>document.getElementById(id).getClientRects().length>0),
+    }));
+    assert.deepEqual(layout,{overflow:false,clipped:[],visible:true},`${width}: Sky context and evidence remain readable`);
+    assert.equal(await page.evaluate(()=>document.getElementById('skyCanvas').getBoundingClientRect().bottom<=document.querySelector('.destination-caption').getBoundingClientRect().top+1),true,`${width}: Sky caption reserves space outside the canvas`);
+    assert.equal(await page.$$eval('#destinationOverview .overview-cta:not([hidden])',nodes=>nodes.every(node=>node.getBoundingClientRect().height>=44)),true,`${width}: primary context actions meet the 44px target`);
+    await page.screenshot({path:path.join(out,`sky-context-${width}.png`),fullPage:true});
+    evidence.checks.push({skyContextWidth:width,layout});
+  }
+  await page.setViewport({width:1440,height:900});
+  await page.click('#destinationLocation');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'skyLat');
+  assert.equal(await page.$eval('#skyLocationControls',n=>n.open),true);
+  assert.equal(await page.$eval('#destinationOverview',n=>n.hidden),true,'context yields to explicit location tools');
+  await page.click('#inspectorClose');
+  await page.click('#destinationTime');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'skyTime');
+  assert.equal(await page.$eval('#skyTimeControls',n=>n.open),true);
+  await page.click('#inspectorClose');
+  await page.click("#timelineToggle");
+  assert.equal(await page.$eval("#viewInspector",n=>n.hidden||n.inert),false,"date shortcut opens the existing Sky controls");
+  assert.equal(await page.evaluate(()=>document.activeElement.id),"skyTime","date shortcut focuses the observation date");
+  await page.click("#focusToggle");
+  assert.equal(await page.$eval("#viewInspector",n=>n.hidden&&n.inert),true);
+  for(const id of ["viewSource","viewTime","viewAvailability","sourcesLink","tourStart"]) assert.equal(await page.$eval(`#${id}`,n=>n.getBoundingClientRect().height>0),true,`${id} remains visible in focus`);
+  await page.keyboard.press("Escape");
+  assert.equal(await page.$eval("#viewInspector",n=>n.hidden),false,"leaving focus restores Sky controls");
+  await page.click("#inspectorClose");
+  assert.equal(await page.evaluate(()=>document.activeElement.id),"panelToggle","closing the inspector restores focus to its opener");
+  // The layout emits resize and the 2-D canvas redraw is debounced by 120 ms.
+  // Pick from settled geometry, as a pointer user would after the drawer closes.
+  await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,300)));
+  await page.evaluate(()=>{window.__selectionEvents=[];window.addEventListener("sol:object-selected",event=>window.__selectionEvents.push(event.detail));});
+  const canvasPick=await page.evaluate(()=>{
+    const canvas=document.getElementById("skyCanvas"),r=canvas.getBoundingClientRect(),p=window.__skyDebug().plotted[0];
+    return {x:r.left+p.x*r.width/canvas.width,y:r.top+p.y*r.height/canvas.height,name:p.name};
+  });
+  await page.mouse.click(canvasPick.x,canvasPick.y);
+  assert.equal(await page.$eval("#viewInspector",n=>n.hidden&&n.inert),true,"deliberate canvas selection keeps Sky tools closed");
+  assert.equal(await page.$eval('#destinationOverview',n=>n.hidden),false);
+  assert.equal(await page.$eval('#destinationTitle',n=>n.textContent),canvasPick.name,'canvas selection updates the concise context');
+  assert.equal(await page.evaluate(()=>window.__skyDebug().selectedName),canvasPick.name);
+  assert.equal(await page.evaluate(()=>window.__selectionEvents.length),1,"canvas selection emits one disclosure event");
+  await page.click('#destinationDetails');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'skySelectedFacts');
+  assert.equal(await page.$eval('#skySelectedFacts',n=>n.closest('details').open),true);
+  await page.click('#inspectorClose');
+  await page.click('#destinationSearch');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'skySearch');
+  // These workflows deliberately request the complete scientific controls.
+  for(const id of ['skyLocationControls','skyTimeControls','skySourceControls']) {
+    if(!await page.$eval(`#${id}`,n=>n.open)) await page.click(`#${id} > summary`);
+  }
+  evidence.checks.push({workspaceDefaults:"closed",dateShortcut:"focused",focus:"restored",canvasSelection:"updates context without opening tools",contextActions:"open containing disclosure and focus target"});
   assert.ok(evidence.workers.some(url=>url.includes("skyWorker.js")),"real Sky snapshot uses a module worker");
   assert.match(await page.$eval("#skyLocLabel",n=>n.textContent),/example/);
   assert.equal(evidence.mockRequests,0);
@@ -61,10 +129,19 @@ try {
   await page.waitForFunction(()=>/Requested Sky unavailable/.test(document.getElementById("skyProvenance").textContent));
   assert.equal(evidence.redirectTargetRequests,0,"snapshot must never contact redirect destination");
   assert.equal(await page.evaluate(()=>JSON.stringify(window.__skyDebug().snap)),beforeRedirect,"redirect failure retains exact validated snapshot");
+  await page.click('#inspectorClose');
+  assert.match(await page.$eval('#destinationFacts',n=>n.textContent),/example location.*Computed on your device/,'failed remote request retains the displayed observer and actual local source');
+  assert.match(await page.$eval('#destinationNote',n=>n.textContent),/last validated snapshot/);
+  assert.match(await page.$eval('#viewSource',n=>n.textContent),/Computed on your device/);
+  await page.click('#panelToggle');
   assert.equal(evidence.workers.length,workersBeforeRedirect,"redirect failure never starts an implicit local fallback worker");
   await page.click("#skyConsentRevoke");await page.waitForFunction(()=>/Source: computed on device/.test(document.getElementById("skyProvenance").textContent),{timeout:20000});
   await page.evaluate(base=>{window.SOL_EPHEMERIS_SERVER=base+"/mock-one";},origin);
   await page.focus('#skyList [data-object-id="Moon"]');await page.keyboard.press("Enter");
+  assert.equal(await page.$eval('#viewInspector',n=>n.hidden),false,'keyboard list selection retains the deliberate open-tools choice');
+  assert.equal(await page.evaluate(()=>document.activeElement.dataset.objectId),'Moon','keyboard selection retains row focus');
+  assert.deepEqual(await page.evaluate(()=>window.__selectionEvents.at(-1)),{surface:"sky",objectId:"Moon"},"keyboard selection emits the same deliberate selection contract");
+  const selectionEventCount=await page.evaluate(()=>window.__selectionEvents.length);
   assert.match(await page.$eval("#skySelectedFacts",n=>n.textContent),/Moon/);
   const focus=await page.evaluate(async url=>{
     const module=await import(url),node=document.activeElement;
@@ -72,6 +149,7 @@ try {
     return true;
   },moduleUrl);
   assert.equal(focus,true,"ten actual worker refreshes preserve focused native row");
+  assert.equal(await page.evaluate(()=>window.__selectionEvents.length),selectionEventCount,"worker refreshes never emit user-selection events");
   await page.type("#skySearch","Mars");
   assert.match(await page.$eval("#skySelectedFacts",n=>n.textContent),/Moon/);
   assert.equal(await page.$$eval("#skyList button:not([hidden])",nodes=>nodes.length),1);
@@ -164,6 +242,8 @@ try {
   assert.equal(new URL(page.url()).pathname,immutablePath);assert.equal(new URL(page.url()).hash,capturedHash);
   await page.click('[data-mode="sky"]');
   await page.waitForFunction(()=>window.__skyDebug?.().snap,{timeout:20000});
+  assert.equal(await page.$eval("#viewInspector",n=>n.hidden),true,"reload begins a fresh disclosure session");
+  await page.click("#panelToggle");
   assert.match(await page.$eval("#skyLocLabel",n=>n.textContent),/Shared location/);
   const roundtrip=await page.evaluate(()=>{
     const [lat,lon,unix,elev]=location.hash.slice(5).split(",").map(Number),s=window.__skyDebug().snap;
