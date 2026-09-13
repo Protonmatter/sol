@@ -45,6 +45,56 @@ test('leaving retains ready terrain and atlas resources and preserves the paused
   assert.equal(h.state.renderUnix,epoch);assert.equal(JSON.stringify(h.state.bodies),bodies);h.leaveOrrery();
 });
 
+test('solar restart retains a ready atlas without another transfer, release or GPU upload',async t=>{
+  let loads=0;
+  const h=await orreryHarness(t,{controls:true,solarAtlas:async()=>{
+    loads++;if(loads>1)throw Error('source is now offline');return {width:2048,height:1024,close(){}};
+  }});
+  await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');await h.settle();
+  assert.equal(h.state.solarStatus,'ready');assert.equal(loads,1);
+  h.event('orrerySolarPlay','click');h.frame(100);assert.ok(h.state.solarPlayback.seconds>0);
+  const uploads=h.textureUploads.length,releases=h.deletedTextures.length,epoch=h.state.renderUnix,bodies=JSON.stringify(h.state.bodies);
+  h.event('orrerySolarRestart','click');
+  assert.equal(h.state.solarPlayback.seconds,0);assert.equal(h.state.solarPlayback.playing,false);
+  assert.equal(h.state.solarStatus,'ready','restart cannot temporarily discard the displayed observation');
+  await h.settle();assert.equal(loads,1);assert.equal(h.textureUploads.length,uploads);assert.equal(h.deletedTextures.length,releases);
+  assert.equal(h.nodes.orrerySolarPlay.disabled,false);assert.equal(h.nodes.orrerySolarPlay.getAttribute('aria-pressed'),'false');
+  h.event('orrerySolarPlay','click');h.frame(200);assert.ok(h.state.solarPlayback.seconds>0,'cached source remains playable offline');
+  assert.equal(h.state.renderUnix,epoch);assert.equal(JSON.stringify(h.state.bodies),bodies);h.leaveOrrery();
+});
+
+test('solar restart preserves a pending atlas request and uploads its completion once',async t=>{
+  const loads=[];let closed=0;
+  const h=await orreryHarness(t,{controls:true,solarAtlas:({signal})=>new Promise(resolve=>loads.push({signal,resolve}))});
+  await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');
+  assert.equal(h.state.solarStatus,'loading');assert.equal(loads.length,1);
+  h.input('orrerySolarTime','4');const uploads=h.textureUploads.length,releases=h.deletedTextures.length;
+  h.event('orrerySolarRestart','click');h.event('orrerySolarRestart','click');
+  assert.equal(h.state.solarPlayback.seconds,0);assert.equal(h.state.solarPlayback.playing,false);
+  assert.equal(loads.length,1,'restart must coalesce with the existing atlas request');
+  assert.equal(loads[0].signal.aborted,false);assert.equal(h.state.solarStatus,'loading');
+  assert.equal(h.textureUploads.length,uploads);assert.equal(h.deletedTextures.length,releases);
+  loads[0].resolve({width:2048,height:1024,close(){closed++;}});await h.settle();
+  assert.equal(h.state.solarStatus,'ready');assert.equal(closed,1);assert.equal(h.textureUploads.length,uploads+1);
+  assert.equal(h.deletedTextures.length,releases);assert.equal(h.nodes.orrerySolarPlay.disabled,false);h.leaveOrrery();
+});
+
+test('solar restart explicitly retries an unavailable atlas and retains the recovered entry',async t=>{
+  const loads=[];
+  const h=await orreryHarness(t,{controls:true,solarAtlas:({signal})=>new Promise((resolve,reject)=>loads.push({signal,resolve,reject}))});
+  await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');
+  loads[0].reject(Error('transient solar transfer'));await h.settle();assert.equal(h.state.solarStatus,'unavailable');
+  h.resize(800,600);await h.settle();assert.equal(loads.length,1,'ordinary paint must not retry a failed source');
+  h.input('orrerySolarTime','4');h.event('orrerySolarRestart','click');
+  assert.equal(loads.length,2);assert.equal(h.state.solarStatus,'loading');assert.equal(loads[1].signal.aborted,false);
+  assert.equal(h.state.solarPlayback.seconds,0);assert.equal(h.state.solarPlayback.playing,false);
+  loads[1].resolve({width:2048,height:1024,close(){}});await h.settle();assert.equal(h.state.solarStatus,'ready');
+  const uploads=h.textureUploads.length,releases=h.deletedTextures.length;
+  h.event('orrerySolarRestart','click');await h.settle();
+  assert.equal(loads.length,2);assert.equal(h.state.solarStatus,'ready');
+  assert.equal(h.textureUploads.length,uploads);assert.equal(h.deletedTextures.length,releases);h.leaveOrrery();
+});
+
 test('leaving cancels pending terrain and atlas work before GPU upload and reentry requests fresh work',async t=>{
   const terrain=[],solar=[];let closed=0;
   const h=await orreryHarness(t,{controls:true,

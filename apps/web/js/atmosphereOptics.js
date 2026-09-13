@@ -58,6 +58,36 @@ export function getAtmosphereProfile(name) {
   return Object.hasOwn(PROFILES, name) ? PROFILES[name] : null;
 }
 
+export const ATMOSPHERE_PROFILE_ENCODING = 'atmosphere-profile-binary32-v1';
+
+/** Identity only: retain the original physical profile and uniform upload path.
+ * ECMAScript transcendental results can differ by a float64 ULP across runtimes.
+ * Bind the binary32 values consumed by WebGL, including signed zero, instead.
+ * Typed nodes prevent numbers, strings, arrays and objects sharing an encoding;
+ * sorted object keys and big-endian hex words make the UTF-8 JSON deterministic.
+ * @param {unknown} profile @returns {string} */
+export function serializeAtmosphereProfile(profile) {
+  const word = new DataView(new ArrayBuffer(4));
+  /** @param {unknown} value @returns {unknown} */
+  function encode(value) {
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) throw new RangeError('Profile identity requires finite binary32 values');
+      const rounded = Math.fround(value);
+      if (!Number.isFinite(rounded)) throw new RangeError('Profile identity requires finite binary32 values');
+      word.setFloat32(0, rounded, false);
+      return ['binary32', word.getUint32(0, false).toString(16).padStart(8, '0')];
+    }
+    if (value === null) return ['null'];
+    if (typeof value === 'string' || typeof value === 'boolean') return [typeof value, value];
+    if (Array.isArray(value)) return ['array', Array.from(value, encode)];
+    if (typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+      return ['object', Object.keys(value).sort().map(key => [key, encode(value[key])])];
+    }
+    throw new TypeError('Unsupported profile identity value');
+  }
+  return JSON.stringify({encoding: ATMOSPHERE_PROFILE_ENCODING, profile: encode(profile)});
+}
+
 /** @param {number} value @param {string} name @param {boolean} [zero] */
 function positive(value, name, zero = false) {
   if (!Number.isFinite(value) || (zero ? value < 0 : value <= 0)) throw new RangeError(`${name} must be finite and ${zero ? 'nonnegative' : 'positive'}`);

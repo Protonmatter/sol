@@ -2843,7 +2843,11 @@ async function showFallback(msg) {
     state.solarPlayback.playing=!state.solarPlayback.playing;updatePhysicalAppearance();startLoop();
   });
   bind('orrerySolarTime','input',e=>{state.solarPlayback.seconds=Math.max(0,Math.min(20,Number(inputTarget(e).value)));state.solarPlayback.playing=false;syncSolarPlaybackControls();paint();});
-  bind('orrerySolarRestart','click',()=>{state.solarPlayback.seconds=0;state.solarPlayback.playing=false;solarDetail?.retry('reference');syncSolarPlaybackControls();paint();});
+  bind('orrerySolarRestart','click',()=>{
+    state.solarPlayback.seconds=0;state.solarPlayback.playing=false;
+    if(solarDetail?.status('reference')==='unavailable')solarDetail.retry('reference');
+    syncSolarPlaybackControls();paint();
+  });
   for (const [id, key] of [['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
     bind(id, 'change', e => { state[key] = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
   }

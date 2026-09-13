@@ -106,6 +106,9 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     temporary = Path(tempfile.mkdtemp(prefix=".sol-stage-", dir=out_root.parent))
     namespace = f"releases/{release_id}/"
     critical_visual_paths = {namespace + path for path in critical_visuals}
+    # These verified numerical fields load on optical demand, not SW install.
+    # Keep their manifests, runtime modules and all other data critical.
+    optional_incident_paths = {namespace + f"data/optics/{body}-incident-v1.f32" for body in ("earth", "mars")}
     source_map: dict[str, dict] = {}
     try:
         for file in sorted(source_root.rglob("*")):
@@ -178,7 +181,8 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
                 continue
             relative = file.relative_to(temporary).as_posix()
             current = relative in ("index.html", "sw.js") or relative.startswith(namespace)
-            role = "optional" if not current or ("/textures/" in relative and relative not in critical_visual_paths) else "critical"
+            role = "optional" if (not current or relative in optional_incident_paths
+                                  or ("/textures/" in relative and relative not in critical_visual_paths)) else "critical"
             assets.append({"path": relative, "size": file.stat().st_size, "sha256": digest(file),
                            "role": role, **source_map.get(relative, {})})
         data_assets = [asset for asset in assets if asset["path"].startswith(namespace + "data/")]

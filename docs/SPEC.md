@@ -59,10 +59,21 @@ their apparent solar direction and curved-path attenuation drive direct illumina
 Ray shooting runs during explicit offline preparation, not per vertex or animation
 frame. Field loading, fallback and retry remain explicit, with bounded same-origin
 assets and independent direction/transmission admission before enablement.
+The two admitted incident-field binaries are optional in the immutable release
+inventory: installation does not fetch them, and demand-time loading verifies their
+bytes before caching or upload. Their absence does not block core installation.
+Field identity binds exact binary32 profile values and complete semantic metadata
+using versioned, typed canonical encoding. Values must be finite before and after
+`Math.fround`; missing or unsupported encodings and hash mismatches are rejected.
+Reference formulas, uniform uploads and numerical tolerances remain unchanged.
+Separate source/generator hashes, exact domain checks and data hashes remain required; the
+[optics source record](plans/2026-09-13-physical-rendering/OPTICS_SOURCES.md) defines
+the encoding without arbitrary decimal rounding or epsilon-based hash comparison.
 Observer and scattered-light rays remain straight. Reference profiles are not present
 weather or dense-cloud radiative transfer; there is no qualified ocean glint mask.
 The Sun's EUV source playback is finite, reproducible, and independent of orbital time;
-the source-facing coverage remains fixed to its observation frame. Gold is an assigned
+restarting playback retains a ready or loading atlas and retries only a failed entry.
+The source-facing coverage remains fixed to its observation frame. Gold is an assigned
 EUV color. Elevated arcs are an educational model, and the unobserved hemisphere remains
 held. The visible-light approximation and all optical limitations stay identifiable.
 The Sun inspection hides other display bodies and guides without moving any engine

@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import puppeteer from 'puppeteer-core';
 import {ATMOSPHERE_GLSL,ATMOSPHERE_REFRACTION_GLSL} from '../apps/web/js/atmosphereShaders.js';
-import {getAtmosphereProfile,atmosphereUniformValues} from '../apps/web/js/atmosphereOptics.js';
+import {ATMOSPHERE_PROFILE_ENCODING,getAtmosphereProfile,serializeAtmosphereProfile,atmosphereUniformValues} from '../apps/web/js/atmosphereOptics.js';
 import {INCIDENT_FIELD_SIZE,incidentFieldDomain} from '../apps/web/js/atmosphereIncident.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -84,7 +84,7 @@ try{
   const relative=`../data/optics/${body.toLowerCase()}-incident-v1.f32`,destination=path.resolve(root,'apps/web/js',relative);
   fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,bytes);
   const sourceHash=relative=>sha(Buffer.from(fs.readFileSync(path.join(root,relative),'utf8').replace(/\r\n/g,'\n')));
-  manifest[body]={path:relative,bytes:bytes.length,sha256:sha(bytes),profile_sha256:sha(Buffer.from(JSON.stringify(profile))),domain,
+  manifest[body]={path:relative,bytes:bytes.length,sha256:sha(bytes),profile_encoding:ATMOSPHERE_PROFILE_ENCODING,profile_sha256:sha(Buffer.from(serializeAtmosphereProfile(profile))),domain,
     generator_sha256:generatorHash,generator_source_sha256:sourceHash('tools/prepare_atmosphere_incident.mjs'),solver_source_sha256:sourceHash('apps/web/js/atmosphereShaders.js'),
     profile_source_sha256:sourceHash('apps/web/js/atmosphereOptics.js'),field_source_sha256:sourceHash('apps/web/js/atmosphereIncident.js'),
     browser_version:await browser.version(),dimensions:[width,height,layers],format:'little-endian-rgba32f-bend-columns-v1'};

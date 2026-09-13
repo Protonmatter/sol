@@ -98,6 +98,18 @@ class PhysicalAssetsTests(unittest.TestCase):
             with self.subTest(key=key,value=value),self.assertRaises(ValueError):validate_incident_fields(self.root)
         self.write_incident_records(records)
 
+    def test_incident_fields_reject_missing_or_obsolete_profile_encoding(self):
+        self.install_incident();records=self.incident_records()
+        for body in ('Earth','Mars'):
+            for value in (None,'atmosphere-profile-float64-v0'):
+                bad=copy.deepcopy(records)
+                if value is None:bad[body].pop('profile_encoding')
+                else:bad[body]['profile_encoding']=value
+                self.write_incident_records(bad)
+                with self.subTest(body=body,value=value),self.assertRaisesRegex(ValueError,'profile encoding changed'):
+                    validate_incident_fields(self.root)
+        self.write_incident_records(records)
+
     def test_incident_nonfinite_or_invalid_samples_fail_even_with_rebound_asset_hash(self):
         self.install_incident();records=self.incident_records();file=self.root/'data/optics/mars-incident-v1.f32';raw=file.read_bytes()
         for index,value in ((0,float('nan')),(1,-1.0),(2,-1.0),(3,0.0)):

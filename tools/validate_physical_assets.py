@@ -266,6 +266,7 @@ def validate_incident_fields(root: Path) -> int:
              'Mars':{'minHeightKm':-24,'maxHeightKm':24,'quadratic':False}}
     for body,ref in records.items():
         if not isinstance(ref,dict):raise ValueError('invalid incident field record')
+        if ref.get('profile_encoding')!='atmosphere-profile-binary32-v1':raise ValueError('incident field profile encoding changed')
         if ref.get('dimensions')!=[385,65,3] or ref.get('bytes')!=385*65*3*16 or ref.get('format')!='little-endian-rgba32f-bend-columns-v1':
             raise ValueError('incident field shape/format changed')
         if ref.get('domain')!=domains[body] or type(ref['domain'].get('quadratic')) is not bool:

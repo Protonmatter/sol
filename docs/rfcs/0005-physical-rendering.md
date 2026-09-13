@@ -54,6 +54,17 @@ light, then view transmittance and in-scattering in linear color. Night emission
 attenuated on its view path only. Dense-cloud multiple scattering and general refraction
 require their own validated models before the UI can claim they are active.
 
+Precomputed incident fields bind the complete optical profile with versioned,
+deterministic binary32 identity, including semantic source and model metadata.
+Numeric values MUST be finite before and after the specified `Math.fround`
+conversion, and typed encoding MUST preserve signed zero and distinguish values
+from metadata containers. Unsupported encoding versions and identity mismatches
+MUST be rejected. This identity conversion leaves reference formulas and GPU uniform
+uploads unchanged; it MUST NOT substitute decimal truncation or relax numerical
+admission tolerances. Independent source/generator hashes, exact domain checks and
+data hashes remain required. The exact encoding is documented in the
+[optics source record](../plans/2026-09-13-physical-rendering/OPTICS_SOURCES.md).
+
 The Sun has a visible photosphere mode and an identified reconstructed EUV mode.
 Pinned NASA SDO source frames retain finite-distance WCS registration and source-facing
 coverage. Modeled elevated plasma is a bounded educational geometry with explicit
@@ -74,7 +85,10 @@ detail choices with concise source/mode/epoch text; keep numerical controls in R
 Use native keyboard controls, pause and reduced-motion defaults. Loading, held, failed
 and ready states must be distinguishable. Existing selection and camera controls remain.
 Source playback pauses when its view or texture layer becomes unavailable and requires
-an explicit restart. Leaving the workspace cancels pending physical-detail requests;
+an explicit restart. Restart retains ready/loading solar atlas entries and retries only
+an unavailable entry. The two admitted incident fields are optional release assets:
+installation does not fetch them; demand-time size and hash admission remains mandatory.
+Leaving the workspace cancels pending physical-detail requests;
 ready bounded cache entries may remain warm. Re-enabling terrain explicitly retries
 the currently demanded failed detail without turning ordinary paints into retry loops.
 
@@ -115,7 +129,8 @@ reconstruction is not empirical validation of 3-D plasma or atmospheric conditio
 6. Each admitted body/product has source and staged-browser evidence. Coverage gaps
    and unimplemented optical/meteorological effects remain explicit in the ledger.
 7. Incident-ray integration work must not multiply by terrain vertex count or run on
-   every animation frame. Any precomputed approximation must retain profile identity,
+   every animation frame. Any precomputed approximation must retain the versioned
+   binary32 profile identity and semantic metadata binding described above,
    explicit resource bounds and the existing independent direction/transmission gates.
    The complete application must pass the unchanged browser deadlines at its declared
    deployment base path, including hidden-view cancellation and context restoration.

@@ -128,14 +128,42 @@ the spherical geometric reduction, without changing actual body/terrain position
 
 Fields are pinned to the body profile, sampling domain, dimensions, format, source
 modules, expanded generator GLSL, generation browser and binary SHA-256. The build
-checks source and copied artifacts. Runtime independently checks the actual optical
-profile hash, domain/format, exact byte count, finite decoded values and asset hash.
+checks source and copied artifacts. Runtime independently checks the optical profile
+encoding and hash, domain/format, exact byte count, finite decoded values and asset hash.
 Loads have a single 20-second deadline, cancellation and a two-entry context-owned
 cache. The selected/focused body requests its field at inspection size; resident
 fields are reusable. Loading/unavailable fields retain straight incident transfer and
 show that refraction state explicitly. Toggle optical transfer to retry. Departure,
 visibility or selection changes abort obsolete pending work; context loss discards
 its GPU resources. A late result cannot upload after its demand/context changes.
+
+Profile identity uses `serializeAtmosphereProfile()` and the version
+`atmosphere-profile-binary32-v1`. Its SHA-256 covers UTF-8 JSON with the envelope
+`{encoding, profile}`. The profile is encoded recursively as typed tuples: numbers
+use `["binary32", "3f800000"]` for the example value 1, strings and booleans retain
+their values under their own type tags, null has a null tag, arrays retain element
+order, and objects retain sorted key/value pairs. The full profile remains bound,
+including body, model version, classification, source references and limitations.
+Distinct scalar and container tags prevent metadata from impersonating a numeric
+encoding. Numeric values must be finite both before and after `Math.fround`;
+nonfinite values, binary32 overflow and unsupported value types are rejected.
+Each numeric word is exactly eight lowercase hexadecimal digits from its big-endian
+IEEE 754 binary32 bits, preserving signed zero. This identity byte order is separate
+from the unchanged little-endian numerical field format.
+
+The conversion binds the shader-facing binary32 profile values. ECMAScript permits
+implementation-approximated exponentiation, while `Math.fround` specifies binary32
+rounding with ties to even. Equal binary32 values therefore share an identity even
+when a runtime's final binary64 coefficient bit differs; a changed binary32 word or
+semantic value changes the identity. See [ECMAScript exponentiation](https://tc39.es/ecma262/2025/multipage/ecmascript-data-types-and-values.html#sec-numeric-types-number-exponentiate)
+and [ECMAScript Math.fround](https://tc39.es/ecma262/2025/multipage/numbers-and-dates.html#sec-math.fround).
+Preparation and runtime use this same encoding, and manifests must declare its
+version; missing or unsupported encodings and mismatched profile hashes are rejected.
+This identity operation does not mutate reference profiles, alter physical formulas,
+or change uniform uploads, GLSL, field samples or numerical admission tolerances.
+It uses no arbitrary decimal rounding or epsilon-based hash comparison. Separate
+source/generator hashes, exact domain checks and data hashes continue to bind the
+prepared artifact.
 
 The committed fields were generated using Chrome 151.0.7922.174 / SwiftShader.
 Byte-for-byte replay across GPU implementations or browser versions is not claimed;

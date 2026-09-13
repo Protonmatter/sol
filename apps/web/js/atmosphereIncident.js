@@ -1,7 +1,7 @@
 // Incident transport is an immutable numerical field, not a frame-time ray solver.
 // The generator retains the bounded RK4 equations; rendering reads eight texels.
 import {INCIDENT_FIELDS} from './atmosphereIncidentManifest.js';
-import {getAtmosphereProfile} from './atmosphereOptics.js';
+import {ATMOSPHERE_PROFILE_ENCODING,getAtmosphereProfile,serializeAtmosphereProfile} from './atmosphereOptics.js';
 
 export const INCIDENT_FIELD_SIZE=Object.freeze([385,65,3]);
 export const INCIDENT_FIELD_UNIFORMS=Object.freeze(['u_incidentField','u_incidentFieldReady','u_incidentFieldHeight']);
@@ -72,6 +72,7 @@ async function digest(bytes){return [...new Uint8Array(await crypto.subtle.diges
 export async function loadIncidentField(body,{signal,fetcher=fetch,timeoutMs=20000}={}){
   const reference=INCIDENT_FIELDS[body],profile=getAtmosphereProfile(body);
   if(!reference||!profile)throw new RangeError('Incident field is not admitted');
+  if(reference.profile_encoding!==ATMOSPHERE_PROFILE_ENCODING)throw new Error('Incident field optical profile encoding changed');
   if(JSON.stringify(reference.domain)!==JSON.stringify(incidentFieldDomain(body))||JSON.stringify(reference.dimensions)!==JSON.stringify(INCIDENT_FIELD_SIZE)
     ||reference.format!=='little-endian-rgba32f-bend-columns-v1'||reference.bytes!==INCIDENT_FIELD_SIZE.reduce((a,b)=>a*b,16))throw new Error('Incident field domain or format changed');
   if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>20000)throw new RangeError('Invalid field deadline');
@@ -84,7 +85,7 @@ export async function loadIncidentField(body,{signal,fetcher=fetch,timeoutMs=200
   const timer=setTimeout(abort,timeoutMs);
   try{
     if(signal?.aborted)abort();
-    const identity=await Promise.race([digest(new TextEncoder().encode(JSON.stringify(profile)).buffer),aborted]);
+    const identity=await Promise.race([digest(new TextEncoder().encode(serializeAtmosphereProfile(profile)).buffer),aborted]);
     if(identity!==reference.profile_sha256)throw new Error('Incident field optical profile changed');
     const response=await Promise.race([fetcher(new URL(reference.path,import.meta.url),{signal:controller.signal,credentials:'same-origin',cache:'force-cache'}),aborted]);
     if(!response.ok||!response.body)throw new Error('Incident field transfer unavailable');

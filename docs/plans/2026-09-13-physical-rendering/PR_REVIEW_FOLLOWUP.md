@@ -198,3 +198,167 @@ Ignored build artifacts, screenshots, and raw validation evidence are not commit
 | `tools/prepare_atmosphere_incident.mjs` | Generate deterministic incident fields with the retained bounded solver and provenance identities. |
 | `tools/staged_preview_server.mjs` | Serve an immutable staged candidate under its declared site base path. |
 | `tools/validate_physical_assets.py` | Enforce field bytes, sample bounds, schema, source identities, and reviewed generator-template admission. |
+
+## Hosted Node 22 profile identity follow-up
+
+Commit `34eea2785cb63937755187361b1b805e8c1f95b5` published the review corrections
+above. All four inline threads were answered and resolved, and the older star-selection
+review received a response. Hosted CI then exposed an additional portability defect:
+Earth field admission failed under Node 22.23.2 before transfer. Mars admission passed.
+CI run `34775925042` failed jobs `103773896332` and `103773954708`; standalone Coverage
+run `34775924923` failed job `103773896206`. The release gate consequently failed.
+Rust tests, Rust coverage/lint, cross-OS engine determinism, WASM, immutable web staging,
+Python coverage and governance passed on that published head.
+
+The same two failing tests were reproduced locally with an official checksum-verified
+portable Node 22.23.2. Its middle Earth Rayleigh coefficient is
+`0.01355776244792022`; Node 24.18.0 produces `0.013557762447920221`. The raw serialized
+profile hashes differ even though the values map to the same GPU binary32 coefficient.
+The original immutable source and numerical-field bytes were intact; no data corruption
+was involved. Logs and the downloaded tool checksum remain in the ignored
+`build/pr107-review-34eea27/` evidence directory.
+
+The correction uses the shared `serializeAtmosphereProfile()` and the explicit
+`atmosphere-profile-binary32-v1` encoding. SHA-256 binds versioned UTF-8 JSON with
+typed nodes, sorted object keys, ordered arrays, semantic metadata and exact
+big-endian binary32 words. It preserves signed zero and rejects nonfinite, overflowing
+or unsupported values. Runtime admission, offline generation and the incident budget
+gate use the same serializer. Runtime and Python release admission reject missing or
+obsolete encodings; the former raw Float64 identity is no longer admitted.
+
+This is an identity correction. Independent comparisons against `34eea27` prove that
+the original Float64 profiles, uniform objects, derived radius-layer inputs and both
+1,201,200-byte numerical fields are unchanged. Expanded generation GLSL remains
+`6ea483ed5112d1eba16a0db8584a87da99858166fb8f0edc45e32d4fd3a97941`.
+Numerical formulas, physical parameters, shader code and tolerances are unchanged.
+
+Regressions retain the observed Node 22/24 coefficient pair, reject a changed adjacent
+binary32 coefficient, and test encoding version, metadata, ordering, type separation,
+signed zero, nonmutation and invalid inputs. Canonical replay produces identical full
+identities and hashes under both runtimes. The stream-deadline test also now waits for
+the reader to start before advancing its existing 10 ms mocked deadline. This removes
+a race in which real hashing could consume the test deadline before a reader existed;
+the production 20-second whole-operation deadline is unchanged.
+
+## Additional review on the published correction
+
+Review [5191828092](https://github.com/Protonmatter/sol/pull/107#pullrequestreview-5191828092)
+examined `34eea27` and identified two further P2 findings:
+
+| Review | Problem | Correction |
+| --- | --- | --- |
+| [Optional incident fields](https://github.com/Protonmatter/sol/pull/107#discussion_r4000560266) | Both numerical fields entered the critical service-worker precache, adding 2,402,400 bytes to every install | Keep the fields in the immutable release inventory as optional assets; retain on-demand hash verification and critical core assets |
+| [Ready solar atlas](https://github.com/Protonmatter/sol/pull/107#discussion_r4000560268) | Restarting playback evicted a ready texture and repeated immutable download, verification, decode and upload | Restart playback while retaining ready/loading entries; retry only an unavailable atlas |
+
+Both findings were reproduced by new regressions before the fixes. The build exception
+names only the two admitted `.f32` paths; other data, runtime modules, manifests, core
+HTML/JavaScript and both WASM engines retain their critical classification. Source and
+staged admission still require valid field bytes. The actual service-worker harness
+consumes an unedited generated manifest: installation and activation succeed with both
+optional responses missing, neither field is fetched at install, a same-size corrupt
+field is rejected and not cached, and a verified demanded field is cached. Missing core
+`app.js` still rejects installation. Three new build tests, 25 existing release-artifact
+tests and four service-worker tests passed.
+
+The playback handler now calls `retry('reference')` only when the live cache entry is
+`unavailable`. Three actual-Orrery regressions verify no extra transfer, texture release
+or upload for ready entries; no cancellation or duplicate request for loading entries;
+explicit recovery after failure; and reuse of the recovered entry. Cached source
+playback remains usable when the source becomes offline, and paused epoch/body records
+are unchanged. The focused Node 22 lifecycle suite passed 68 tests.
+
+### Final follow-up qualification
+
+The final source passes 926/926 JavaScript tests with both the checksum-verified
+Node 22.23.2 runtime and installed Node 24.18.0. The complete Python 3.14.3 suite passes
+356/356 tests with Node 22 on `PATH` for the service-worker integration. Type checking
+passes for 97 files and static web validation passes. Node-only coverage retains its
+complete denominator and 90% thresholds: lines/statements 22,462/22,917 (98.01%),
+branches 5,395/5,905 (91.36%), and functions 694/732 (94.80%). Source coverage JSON
+SHA-256 is `dd56d6f9e8134458b337fad1860eb2aa3761f18b94828f4c135ee3b3bd01b27f`.
+
+The immutable local preview is `pr107-review-candidate-03`, staged from `apps/web`
+with the previously verified locked WASM, `/sol/` base path, and 188 assets. Manifest
+SHA-256 is `c86408649eb00c48c60be893bbd3bd6385cb9ea2534f026607cc4cffc2da5640`.
+It records starting revision `34eea2785cb63937755187361b1b805e8c1f95b5`; per-file
+source hashes bind the working-tree preview. It is not an exact committed or hosted
+artifact. Both original field hashes are unchanged and their manifest roles are
+`optional`. The first staging invocation rejected a source root of `.` because source
+and output overlap; it created no candidate. The successful invocation uses `apps/web`.
+
+Candidate-03 graphics checks pass 187/187 optical assertions with the existing
+direction/transmission tolerances. The production incident-work gate passes at 4,753
+and 74,305 vertices, with finite day/night outputs and exactly zero maximum illumination
+difference across shared LOD points. Warm maximum-LOD vertex draw/readback took
+7.1-7.3 ms on software WebGL; this is component evidence, not full-scene native FPS.
+
+The full physical application passes 19 checks and 20 screenshot pairs, including
+source playback, Earth night-light/optics comparisons, Moon/Mars terrain, all five
+historical source images, context recovery and the 390-pixel layout. Native restoration
+arrived after 3.0 ms; actual terrain/optical rendering was ready after 15,490.2 ms, within
+the unchanged 10-second event and 40-second readiness limits. Source differences,
+page errors and console errors are empty. The run spanned 19:19:29.365-19:20:45.603 UTC
+on 13 September 2026. Root visually inspected the resulting Earth and Sun screenshots.
+
+The original browser journey also passes, with the existing 5-second rotation and
+75-second source-readiness deadlines. It records 0.1885 radians of Earth rotation
+over four submitted draws, zero orbit-frame mean pixel difference, and passing Sun,
+Earth and all four Io transit/eclipse/control frames. The frozen-transform negative
+control remains enforced. Browser-only line coverage is 86.27%; unexecuted modules
+remain in its denominator and this is not presented as the combined gate result.
+
+Fresh staged Node 22 collection passes 926/926 tests and retains 90 modules. Staged
+Node line coverage is 12,528/13,322 (94.03%); combined Node plus Chromium line coverage
+is 12,911/13,322 (96.91%), exceeding the unchanged 90% gate. Combined branch coverage
+is 5,857/6,201 (94.45%) and function coverage is 719/745 (96.51%). Staged source mapping
+and source-only execution reports have distinct denominators; they are not substituted
+for each other. Their coverage JSON SHA-256 identities are:
+
+- Staged Node: `ed183a5fd22b42af9ad7cf2deaa96fe577c4ac18955af115e22d6c1a18150df3`.
+- Chromium: `abcabcae3d3760292385cf577017766cbefa96faa8d2bba036dbc5a81ddbc871`.
+- Combined: `514c1dba7c22972e390cfb7577b4e36b73bee32b7deaac279b22ca2e9b278457`.
+
+Final commands include `node --experimental-vm-modules --test tests/web/*.test.mjs`
+under both runtimes, `python -m unittest discover -s tests/python -p 'test_*.py' -v`,
+`python tools/typecheck_web.py`, `python tools/validate_web_static.py`, and
+`node tools/check_node_coverage.mjs`. Staged gates use `--web-root` pointing at
+`build/pr107-review-candidate-03` with `tools/atmosphere_validation.mjs`,
+`tools/incident_budget_validation.mjs`, `tools/physical_rendering_validation.mjs`,
+`tools/browser_validation.mjs`, `tools/collect_node_coverage.mjs` and
+`tools/merge_web_coverage.mjs`. Exact commands, output paths and hashes are retained
+in `candidate03-commands.txt` and the coverage evidence files. Final docs, 23-requirement
+SDLC, UX structure, strict UTF-8 and diff checks pass.
+
+Local qualification is complete. Hosted results must be checked separately on the
+published head and synthetic merge. The earlier candidate-02 component results remain
+historical; unchanged shader and numerical-field bytes do not relabel that artifact.
+Native GPU frame rate, other browser engines, physical mobile devices and empirical
+atmospheric calibration remain unqualified. No merge or deployment is included.
+Evidence remains in ignored `build/pr107-review-34eea27/`.
+
+### Additional correction inventory
+
+These 18 paths change after `34eea27`. Numerical field files are unchanged. Combined
+with the preceding 36-file inventory, the complete review follow-up touches 39 unique
+paths; ignored build evidence and downloaded validation tools are excluded.
+
+| Path | Additional change |
+| --- | --- |
+| `apps/web/js/atmosphereOptics.js` | Define the shared versioned binary32 identity serializer without changing physical profiles. |
+| `apps/web/js/atmosphereIncident.js` | Require the encoding version and canonical profile digest before transfer. |
+| `apps/web/js/atmosphereIncidentManifest.js` | Record canonical profile identities and updated source bindings. |
+| `apps/web/js/orrery.js` | Preserve ready/loading solar atlas entries during playback restart. |
+| `tools/build_web.py` | Make only the two admitted incident fields optional installation assets. |
+| `tools/prepare_atmosphere_incident.mjs` | Use the shared identity when generating field metadata. |
+| `tools/incident_budget_validation.mjs` | Validate the shared identity and encoding version. |
+| `tools/validate_physical_assets.py` | Reject obsolete or missing encoding versions during build admission. |
+| `tests/web/atmosphereProfileIdentity.test.mjs` | Cover cross-runtime identity, changed GPU values, typed encoding and invalid inputs. |
+| `tests/web/atmosphereIncident.test.mjs` | Cover obsolete identity rejection and deterministic stream cancellation. |
+| `tests/web/orreryPhysicalLifecycle.test.mjs` | Cover ready/loading retention and explicit recovery on restart. |
+| `tests/python/test_physical_assets.py` | Cover encoding-version admission for both bodies. |
+| `tests/python/test_incident_release_build.py` | Cover optional installation, demand-time integrity and strict build inputs. |
+| `docs/SPEC.md` | Specify the stable profile identity contract. |
+| `docs/rfcs/0005-physical-rendering.md` | Align design and acceptance with the versioned encoding. |
+| `docs/plans/2026-09-13-physical-rendering/OPTICS_SOURCES.md` | Define the encoding, source bindings and unchanged numerical contract. |
+| `docs/requirements.json` | Link the new identity and installation regressions to `SOL-VIS-006`. |
+| `docs/plans/2026-09-13-physical-rendering/PR_REVIEW_FOLLOWUP.md` | Preserve review, reproduction, validation and changed-file evidence. |

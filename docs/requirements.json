@@ -476,7 +476,7 @@
       "statement": "Optical rendering MUST separate incident and view attenuation, scattering, reflection and emission, with dimensioned reference models and explicit qualification limits.",
       "source": "docs/rfcs/0005-physical-rendering.md#requirements",
       "implementation": ["apps/web/js/atmosphereOptics.js", "apps/web/js/atmosphereShaders.js", "apps/web/js/atmosphereIncident.js", "apps/web/js/atmosphereIncidentManifest.js", "apps/web/js/orreryShaders.js", "apps/web/js/orrery.js", "tools/prepare_atmosphere_incident.mjs"],
-      "verification": ["tests/web/atmosphereOptics.test.mjs", "tests/web/atmosphereIncident.test.mjs", "tests/web/orreryIncidentLifecycle.test.mjs", "tests/python/test_atmosphere_reference.py", "tests/python/test_physical_assets.py", "tools/atmosphere_reference.py", "tools/atmosphere_validation.mjs", "tools/incident_budget_validation.mjs", "tools/physical_rendering_validation.mjs"],
+      "verification": ["tests/web/atmosphereOptics.test.mjs", "tests/web/atmosphereIncident.test.mjs", "tests/web/atmosphereProfileIdentity.test.mjs", "tests/web/orreryIncidentLifecycle.test.mjs", "tests/python/test_atmosphere_reference.py", "tests/python/test_physical_assets.py", "tests/python/test_incident_release_build.py", "tools/atmosphere_reference.py", "tools/atmosphere_validation.mjs", "tools/incident_budget_validation.mjs", "tools/physical_rendering_validation.mjs"],
       "ci_gates": [
         "CI / Web, provider, and browser validation"
       ]

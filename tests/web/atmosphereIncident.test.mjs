@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {createHash} from 'node:crypto';
+import {getAtmosphereProfile} from '../../apps/web/js/atmosphereOptics.js';
 import {SPHERE_VS} from '../../apps/web/js/orreryShaders.js';
 import {INCIDENT_FIELDS} from '../../apps/web/js/atmosphereIncidentManifest.js';
 import {incidentFieldCoordinate,incidentFieldGeometry,incidentFieldWork,loadIncidentField,sampleIncidentField} from '../../apps/web/js/atmosphereIncident.js';
@@ -28,11 +30,21 @@ test('admitted immutable field verifies bytes and the model profile before decod
   await assert.rejects(loadIncidentField('Titan'),/not admitted/);
 });
 
-test('abort and deadline settle even when a returned stream ignores fetch cancellation',async()=>{
+test('abort and deadline settle even when a returned stream ignores fetch cancellation',async(t)=>{
   let cancellations=0;
-  const fetcher=async()=>({ok:true,body:{getReader:()=>({read:()=>new Promise(()=>{}),cancel:()=>{cancellations++;return new Promise(()=>{});}})}});
-  await assert.rejects(loadIncidentField('Earth',{fetcher,timeoutMs:10}),{name:'AbortError'});
+  let streamStarted;
+  const started=new Promise(resolve=>{streamStarted=resolve;});
+  const fetcher=async()=>({ok:true,body:{getReader:()=>({read:()=>{streamStarted();return new Promise(()=>{});},cancel:()=>{cancellations++;return new Promise(()=>{});}})}});
+  // Admission hashing may itself exceed 10ms on a busy runner. Admit the stream
+  // first, then advance the same whole-transfer deadline deterministically.
+  t.mock.timers.enable({apis:['setTimeout']});
+  const pending=loadIncidentField('Earth',{fetcher,timeoutMs:10});
+  const rejection=assert.rejects(pending,{name:'AbortError'});
+  await Promise.race([started,pending]);
+  t.mock.timers.tick(10);
+  await rejection;
   assert.ok(cancellations>0);
+  t.mock.timers.reset();
   const controller=new AbortController();controller.abort();
   await assert.rejects(loadIncidentField('Earth',{signal:controller.signal,fetcher}),{name:'AbortError'});
   await assert.rejects(loadIncidentField('Earth',{fetcher,timeoutMs:20001}),RangeError);
@@ -50,6 +62,24 @@ test('Mars field profile identity and runtime height domain are admitted indepen
     reference.domain=priorDomain;reference.profile_sha256='0'.repeat(64);
     await assert.rejects(loadIncidentField('Mars',{fetcher:async()=>new Response(bytes)}),/optical profile changed/);
   }finally{reference.domain=priorDomain;reference.profile_sha256=priorIdentity;}
+});
+
+test('both fields reject obsolete or missing identity encoding and the old float64 profile hash',async()=>{
+  for(const body of ['Earth','Mars']){
+    const reference=INCIDENT_FIELDS[body],encoding=reference.profile_encoding,identity=reference.profile_sha256;
+    let requests=0;
+    const fetcher=async()=>{requests++;throw Error('Invalid identity must fail before transfer');};
+    try{
+      for(const invalid of [undefined,'atmosphere-profile-float64-v0']){
+        reference.profile_encoding=invalid;
+        await assert.rejects(loadIncidentField(body,{fetcher}),/profile encoding changed/);
+      }
+      reference.profile_encoding=encoding;
+      reference.profile_sha256=createHash('sha256').update(JSON.stringify(getAtmosphereProfile(body))).digest('hex');
+      await assert.rejects(loadIncidentField(body,{fetcher}),/optical profile changed/);
+      assert.equal(requests,0);
+    }finally{reference.profile_encoding=encoding;reference.profile_sha256=identity;}
+  }
 });
 
 test('field coordinates preserve signed physical terrain heights and concentrate at the horizon',()=>{
