@@ -409,9 +409,55 @@ async function zoomIn(page, presses) {
 async function canvasScreenshot(page, output) {
   const canvas = await page.$("#orreryCanvas");
   if (!canvas) throw new Error("3-D canvas is missing");
-  const bytes = Buffer.from(await canvas.screenshot({ path: output, type: "png" }));
+  // ElementHandle.screenshot scrolls, then reads the bounding box and page offset
+  // separately. Beyond-viewport capture can also recompose viewport-relative CSS.
+  // The hosted failure included toolbar/caption pixels outside the canvas. Keep
+  // the real page overlays, but capture one settled, entirely visible rectangle.
+  await canvas.evaluate(node => node.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }));
+  const geometry = await canvas.evaluate(async node => {
+    await document.fonts.ready;
+    const started = performance.now();
+    let previous = '', stableSince = started;
+    while (performance.now() - started < 10_000) {
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      const rect = node.getBoundingClientRect();
+      const value = [rect.x, rect.y, rect.width, rect.height,
+        visualViewport.pageLeft, visualViewport.pageTop, node.width, node.height];
+      const key = JSON.stringify(value), now = performance.now();
+      if (key !== previous) { previous = key; stableSince = now; }
+      if (now - stableSince >= 200) {
+        if (rect.left < 0 || rect.top < 0 || rect.right > innerWidth || rect.bottom > innerHeight
+            || node.width !== Math.round(node.clientWidth * devicePixelRatio)
+            || node.height !== Math.round(node.clientHeight * devicePixelRatio)) {
+          throw new Error(`canvas capture geometry is not visible/aligned: ${key}`);
+        }
+        return value;
+      }
+    }
+    throw new Error(`canvas capture did not settle: ${previous}`);
+  });
+  const [x, y, width, height, pageLeft, pageTop] = geometry;
+  const clipX = Math.round(x + pageLeft), clipY = Math.round(y + pageTop);
+  const clip = { x: clipX, y: clipY,
+    width: Math.round(width + x + pageLeft - clipX),
+    height: Math.round(height + y + pageTop - clipY) };
+  const bytes = Buffer.from(await page.screenshot({ path: output, type: "png",
+    clip, captureBeyondViewport: false }));
+  const after = await canvas.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    return [rect.x, rect.y, rect.width, rect.height,
+      visualViewport.pageLeft, visualViewport.pageTop, node.width, node.height];
+  });
+  if (JSON.stringify(after) !== JSON.stringify(geometry)) {
+    throw new Error(`canvas geometry changed during capture: ${JSON.stringify({ before: geometry, after })}`);
+  }
+  fs.writeFileSync(output.replace(/\.png$/, ".geometry.json"), `${JSON.stringify({ before: geometry, after })}\n`);
   if (bytes.length < 10_000) {
     throw new Error(`3-D canvas screenshot is implausibly small (${bytes.length} bytes)`);
+  }
+  // PNG's IHDR dimensions detect a silently intersected or otherwise wrong crop.
+  if (bytes.readUInt32BE(16) !== clip.width || bytes.readUInt32BE(20) !== clip.height) {
+    throw new Error(`canvas screenshot dimensions differ from the measured clip: ${JSON.stringify(clip)}`);
   }
   return bytes;
 }
@@ -1019,6 +1065,31 @@ async function exerciseOrrery(page, visualDirectory) {
     throw new Error(`3-D readiness timed out: ${JSON.stringify(state)}`, { cause: error });
   }
   await setChecked(page, "#orreryAnimate", false);
+  // WebGL/context readiness precedes asynchronous image uploads. A before/after
+  // camera comparison must not compare different material-loading states.
+  await page.waitForFunction(async () => {
+    const entry = document.querySelector('script[type="module"][src^="app.js"]');
+    const token = entry ? new URL(entry.src).search : "";
+    const [{ store }, { appearanceReferences }] = await Promise.all([
+      import(`./js/store.js${token}`), import(`./js/planetAppearance.js${token}`),
+    ]);
+    const assets = appearanceReferences(), status = store.orrery?.appearanceStatus || {};
+    return assets.length > 0 && (assets.every(asset => status[asset.id] === 'ready')
+      || assets.some(asset => status[asset.id] === 'unavailable'));
+  }, { timeout: 75_000 });
+  const appearance = await page.evaluate(async () => {
+    const entry = document.querySelector('script[type="module"][src^="app.js"]');
+    const token = entry ? new URL(entry.src).search : "";
+    const [{ store }, { appearanceReferences }] = await Promise.all([
+      import(`./js/store.js${token}`), import(`./js/planetAppearance.js${token}`),
+    ]);
+    return Object.fromEntries(appearanceReferences().map(asset => [asset.id, store.orrery.appearanceStatus[asset.id]]));
+  });
+  if (Object.values(appearance).some(status => status !== 'ready')) {
+    throw new Error(`reference imagery unavailable before visual assertions: ${JSON.stringify(appearance)}`);
+  }
+  fs.mkdirSync(visualDirectory, { recursive: true });
+  fs.writeFileSync(path.join(visualDirectory, 'appearance-readiness.json'), `${JSON.stringify(appearance)}\n`);
   // Network idleness is not scene readiness: cancelled workers and offline-cache
   // installation can keep the driver's network accounting busy after the view is
   // ready. Require native fonts/frame delivery, then the exact material/pixel gates

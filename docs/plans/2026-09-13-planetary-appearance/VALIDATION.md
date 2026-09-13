@@ -56,6 +56,7 @@ must be read on that pushed head rather than inferred from the previous green he
 | `appearance-final-b` | `33f12c8a328004a1f170c2590e306d9d7d464cc84e243de5ed2917502977e69e` |
 | `appearance-final-c` | `9f0dbab30b8870b3a566788af9bc6475a2e49b72528d25ea7d80bf03184fe4ff` |
 | Final `appearance-final-d` | `464209f61a7372b0d7dd4f19fd29f589fa73508ca464ef6e0f37e9090f270b9e` |
+| Preview/capture follow-up `appearance-capture-fix` | `febbe52e96904bf10d01e889d367ddd751fd49f323e9cfa29ceb579afffe1893` |
 
 The final D artifact adds only a white CSS backing for the original transparent
 legend to C. Actual browser, GPU, source-bound coverage, screenshots, smoke and
@@ -71,8 +72,8 @@ and original acquisition evidence under `build/`.
 
 | Check | Result |
 | --- | --- |
-| Full Node tests | 743/743 passed |
-| Imported production-module Node coverage | 98.70% lines, 92.23% branches, 95.62% functions; all three floors 90% |
+| Full Node tests | 745/745 passed after preview retry regressions |
+| Imported production-module Node coverage | 98.70% lines, 92.25% branches, 95.62% functions; all three floors 90% |
 | Provider and repository Python tests | 28 + 290 passed |
 | Exact CI 20-file Python aggregate | 91.5483%, passing 90%; lines 93.3036%, branches 87.8838% |
 | TypeScript check | 79 files passed |
@@ -121,6 +122,34 @@ Source preparation commands are recorded in the linked source documents.
 
 ## Regression evidence and corrections
 
+- The `7c2e621` standalone hosted browser job retained an invalid camera-comparison
+  crop: the after image included toolbar and caption pixels outside the canvas.
+  Both images were 731 x 591, but they did not capture the same rendered rectangle.
+  Independent review found no inspector mutation in the synthetic drag path.
+  The retained evidence cannot distinguish a transient capture reflow from a late
+  layout update, so it does not establish a camera or image-registration defect.
+  The harness now explicitly scrolls, requires stable visible geometry and backing
+  dimensions, reads bounds and scroll offsets together, and captures without
+  beyond-viewport recomposition. It rejects changed geometry and wrong PNG sizes,
+  and saves geometry evidence next to the screenshots. All registered reference
+  uploads must also be ready before visual baselines begin. Pixel thresholds and
+  the camera gesture are unchanged. The local full browser run reports orbit
+  mean delta 0.000 and passes the original spin/transit/eclipse gates. Failed
+  hosted artifacts remain under `build/hosted-camera-failure-7c2e621/`.
+  An independent real-Chromium fixture executes the actual capture helper: stable
+  geometry with a composited DOM overlay passes, a forced 37 px layout move fails,
+  a real wrong-size crop fails, and restoring geometry yields byte-identical PNGs.
+  Evidence is in `coverage/capture-helper-diagnostic-20260913-01/`.
+- Archive preview failure previously persisted after switching to a destination
+  without a preview and returning. A new regression failed before the fix and
+  passes afterward. Retry now occurs only on a deliberate selection return;
+  ordinary frames do not repeat requests, successful images stay cached, and stale
+  callbacks cannot settle a newer same-URL attempt. Targeted tests pass 12/12;
+  the full suite passes 745/745. Red/green/full evidence is retained in
+  `coverage/pr107-preview-retry-{red,green,node}.log`. Follow-up runtime source
+  hashes are bound by `appearance-capture-fix` (parent `7c2e621` plus exact file
+  hashes), with browser evidence in `coverage/appearance-browser-capture-qualified/`
+  and executed-source coverage in `coverage/appearance-node-followup/`.
 - The first pushed appearance head `cb2c28e` failed the hosted static web gate:
   three newly added modules were missing from the HTML preload inventory. The
   standalone static command had been omitted from the initial local gate list.

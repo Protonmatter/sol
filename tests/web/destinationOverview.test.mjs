@@ -180,6 +180,53 @@ test('Earth archive preview retains attribution and handles decoded success or f
   assert.equal(nodes.destinationPreview.open, true);
 }));
 
+test('Returning to a failed archive retries once without accepting callbacks from its previous request', () => withDocument(({nodes}) => {
+  const earth = {selected: 'Earth'}, image = nodes.destinationImage;
+  renderDestinationOverview('orrery', undefined, earth);
+  const oldLoad = image.onload, oldError = image.onerror;
+  oldError();
+  for (let frame = 0; frame < 3; frame++) renderDestinationOverview('orrery', undefined, earth);
+  assert.equal(image.sourceAssignments, 1, 'a failed preview must not retry on every scene frame');
+  const source = nodes.destinationImageSource.href;
+  renderDestinationOverview('orrery', undefined, {selected: 'Mars'});
+  assert.equal(nodes.destinationPreview.hidden, true, 'Mars has no archive preview');
+  renderDestinationOverview('orrery', undefined, earth);
+  assert.equal(image.sourceAssignments, 2, 'returning to the failed source must make a new request');
+  assert.equal(image.src, 'textures/earth.jpg');
+  assert.equal(image.hidden, true);
+  assert.equal(nodes.destinationImageSource.href, source);
+  const loadingStatus = nodes.destinationImageStatus.textContent;
+  assert.match(loadingStatus, /Loading this object/);
+  image.currentSrc = 'https://sol.example.test/textures/earth.jpg';
+  oldLoad(); oldError();
+  assert.equal(image.hidden, true, 'an old callback for the same URL cannot settle the retry');
+  assert.equal(nodes.destinationImageStatus.textContent, loadingStatus);
+  image.onload();
+  assert.equal(image.hidden, false);
+  assert.match(nodes.destinationImageStatus.textContent, /Archive reference.*separate from the 3-D scene/);
+  oldError();
+  assert.equal(image.hidden, false, 'an obsolete error cannot hide the successfully retried image');
+  renderDestinationOverview('orrery', undefined, earth);
+  assert.equal(image.sourceAssignments, 2);
+  image.onerror();
+  renderDestinationOverview('sky', skyState(), {});
+  renderDestinationOverview('orrery', undefined, earth);
+  assert.equal(image.sourceAssignments, 3, 'another deliberate return can recover a subsequent failure');
+  renderDestinationOverview('orrery', undefined, earth);
+  assert.equal(image.sourceAssignments, 3, 'the new attempt also remains bounded while loading');
+}));
+
+test('Returning to a successfully decoded archive preserves the cached image without another request', () => withDocument(({nodes}) => {
+  renderDestinationOverview('orrery', undefined, {selected: 'Earth'});
+  nodes.destinationImage.onload();
+  renderDestinationOverview('orrery', undefined, {selected: 'Mars'});
+  renderDestinationOverview('orrery', undefined, {selected: 'Earth'});
+  assert.equal(nodes.destinationPreview.hidden, false);
+  assert.equal(nodes.destinationImage.hidden, false);
+  assert.equal(nodes.destinationImage.sourceAssignments, 1);
+  assert.match(nodes.destinationImageStatus.textContent, /Archive reference.*separate from the 3-D scene/);
+}));
+
 test('An archive change never pairs an old decoded bitmap with the newly selected source', async () => {
   const {doc, nodes} = fakeDocument();
   // Both previews are already source-admitted. Use the card-data boundary to exercise

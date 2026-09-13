@@ -38,15 +38,28 @@ export function renderDestinationOverview(surface, sky, system) {
   const preview = document.getElementById('destinationPreview');
   if (preview) preview.hidden = !card.preview;
   const image = /** @type {HTMLImageElement|null} */ (document.getElementById('destinationImage'));
-  if (image && card.preview && image.getAttribute('src') !== card.preview.path) {
+  const previewPath = card.preview?.path || '';
+  const previewChanged = image && image.dataset.previewPath !== previewPath;
+  if (image) image.dataset.previewPath = previewPath;
+  // Retry a failed source on a deliberate return; ordinary scene frames must not
+  // repeatedly request it. Successful and still-pending images retain their source.
+  if (image && card.preview && (image.getAttribute('src') !== previewPath
+      || (previewChanged && image.dataset.previewFailed === previewPath))) {
     const path = card.preview.path;
+    delete image.dataset.previewFailed;
     image.hidden = true;
     text('destinationImageStatus', 'Loading this object’s archive reference…');
-    image.onerror = () => { if (image.getAttribute('src') !== path) return; image.hidden = true; text('destinationImageStatus', 'Archive preview unavailable. Open its original source below.'); };
-    image.onload = () => {
-      if (image.getAttribute('src') !== path || (image.currentSrc && !image.currentSrc.endsWith(path))) return;
+    const onError = () => {
+      if (image.onerror !== onError || image.getAttribute('src') !== path) return;
+      image.dataset.previewFailed = path; image.hidden = true;
+      text('destinationImageStatus', 'Archive preview unavailable. Open its original source below.');
+    };
+    const onLoad = () => {
+      if (image.onload !== onLoad || image.getAttribute('src') !== path || (image.currentSrc && !image.currentSrc.endsWith(path))) return;
+      delete image.dataset.previewFailed;
       image.hidden = false; text('destinationImageStatus', 'Archive reference · separate from the 3-D scene');
     };
+    image.onerror = onError; image.onload = onLoad;
     image.alt = card.preview.label; image.src = card.preview.path;
   }
   const source = /** @type {HTMLAnchorElement|null} */ (document.getElementById('destinationImageSource'));
