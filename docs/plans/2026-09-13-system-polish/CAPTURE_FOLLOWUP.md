@@ -132,3 +132,58 @@ animation, drawing, layout, source imagery or scientific state.
 - Syntax, documentation and diff checks pass. This second follow-up changes only
   `tools/canvas_capture.mjs`, `tests/web/canvasCapture.test.mjs` and this record.
   Hosted results must still be verified on its newly pushed commit.
+
+## Static capture must not require an animation callback
+
+Commit `59348d071871fef388fb5f8f03aba6960fdb46c9` completed with 18 passing
+hosted checks. The standalone JavaScript coverage run passed, but the reusable
+JavaScript job and its dependent release gate failed. In the
+[reusable job](https://github.com/Protonmatter/sol/actions/runs/34753656625/job/103714338507),
+the diagnostic reported zero delivered frames, one initial geometry sample and
+10,000.6 ms elapsed. No later layout sample was possible because the helper
+still waited for an initial animation callback. This establishes the remaining
+scheduling dependency; it does not establish that layout was stationary during
+the unsampled interval or identify the cause of callback starvation.
+
+The final helper measures layout with bounded timers from the initial sample
+after font readiness. It requires 200 ms of identical observed geometry within
+the same ten-second deadline and polls no slower than every 50 ms when the main
+thread can run. Movement, scroll and drawing-buffer changes reset stability;
+late timers cannot bypass the deadline. Visibility, backing-buffer alignment,
+exact pre/post capture equality and PNG dimensions remain required.
+
+An animation callback is not evidence that the captured pixels are correct.
+The actual screenshot and the unchanged Sun/Earth, camera round-trip, submitted
+spin, transit and eclipse assertions continue to establish rendered output.
+Deterministic controls exercise blank and incorrect images through the actual
+pixel assertions. This adjustment removes only the animation-callback prerequisite
+from the geometry check; it adds no timeout, rendering fallback or weaker image
+threshold.
+
+## Final local validation
+
+- The prior helper fails stable geometry with no delivered frame in
+  `coverage/canvas-capture-no-raf-red.log`. The timer-only version passes the
+  corresponding case at 200 ms without requesting an animation callback.
+- `node --test tests/web/canvasCapture.test.mjs tests/web/visualAssertions.test.mjs`
+  passes 19/19: ten capture checks and nine unchanged pixel-assertion tests.
+  An independent review reran these tests, verified serialization and deadline
+  enforcement, and found no blocker. Obsolete frame-scheduler tests were replaced
+  with timer/mutation cases; blank and wrongly colored images fail actual assertions.
+- `node tools/check_node_coverage.mjs --output-dir=coverage/system-polish-node-static-final`
+  and `node tools/collect_node_coverage.mjs --web-root=build/system-polish-aee271f --output-dir=coverage/system-polish-node-static-all`
+  each pass 788/788. Production coverage is unchanged: 97.85% lines, 91.76%
+  branches and 95.22% functions.
+- `node tools/browser_validation.mjs --web-root=build/system-polish-aee271f --output-dir=coverage/system-polish-browser-static-final`
+  passes the full Chromium runtime and actual WebGL image gates. Sun G/R remains
+  0.980 and B/R 0.940; Earth has 2,557 blue pixels and zero camera-round-trip mean
+  difference. Submitted spin advances 0.1885 rad across four draws. Io transit
+  depth is 0.0504 versus 0.0505 predicted, with 0.5-pixel center error; transit
+  control and eclipse assertions pass.
+- `node tools/merge_web_coverage.mjs --web-root=build/system-polish-aee271f --node-input=coverage/system-polish-node-static-all/coverage-final.json --browser-input=coverage/system-polish-browser-static-final/coverage-final.json --output-dir=coverage/system-polish-combined-static-final`
+  passes the unchanged whole-web line gate at 96.50%.
+- Syntax, documentation and diff checks pass. Application source bytes are
+  unchanged; the previously recorded 304 Python tests, 77 mapping/lighting GPU
+  probes, ten ring GPU probes and 42 reviewed captures retain their original
+  provenance. This final follow-up changes only the helper, its tests and this
+  record. Hosted checks are verified separately against the pushed head.
