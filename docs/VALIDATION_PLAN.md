@@ -158,6 +158,7 @@ differences from the recorded base revision, so a preview is not a commit claim.
 python tools/validate_physical_assets.py
 python tools/validate_planet_phenomena.py
 node tools/atmosphere_validation.mjs --web-root=build/site --out=coverage/atmosphere
+node tools/incident_budget_validation.mjs --web-root=build/site --out=coverage/incident-budget
 node tools/terrain_shadow_validation.mjs --web-root=build/site --out=coverage/terrain-shadows
 node tools/solar_appearance_validation.mjs --web-root=build/site --out=coverage/solar-appearance
 node tools/planet_phenomena_validation.mjs --web-root=build/site --out=coverage/planet-phenomena
@@ -169,6 +170,11 @@ inspection/overview, light/terrain A/B changes, mobile width and physical-state 
 The context-loss flag verifies recreation rather than reusing dead GPU handles. Missing
 sources and compiler failures remain failures. CPU/GPU agreement qualifies the declared
 numerical reference cases, not observed atmospheric/weather accuracy or device frame rate.
+The incident budget gate executes the production vertex shader with ready, hash-checked
+fields on real MOLA meshes at 4,753 and 74,305 vertices. It checks finite normalized
+directions, bounded transmission, day/night separation, field-domain coverage and
+identical illumination at shared terrain samples. Reported draw/readback times are
+device-specific evidence; the whole-app deadlines remain unchanged.
 
 ## General local commands
 

@@ -141,9 +141,9 @@ vec3 atmosphereSurfaceColor(vec3 linearSurfaceColor,vec3 surfaceBodyKm){
 }
 `;
 
-// Incident solar refraction is evaluated at mesh vertices, then interpolated.
-// Fixed resource bound: six shooting iterations plus one final 96-step RK4 ray. This
-// does not bend the observer rays or the single-scattering illumination rays.
+// Offline incident-field generator only; never included in the production vertex
+// shader. Six shooting iterations plus one final 96-step RK4 ray provide each
+// immutable numerical sample. Observer and single-scattering rays remain straight.
 export const ATMOSPHERE_REFRACTION_GLSL = `
 struct AtmosphereRayState { vec3 position; vec3 direction; vec2 columns; };
 struct AtmosphereSolarRay { vec3 direction; vec3 transmission; };

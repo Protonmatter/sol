@@ -84,23 +84,65 @@ incorrectly erase real elevation. The mesh and physical orbital state are unchan
 
 ## Incident solar refraction and reflection boundary
 
-Earth and Mars direct surface illumination use a curved incident solar ray. At each
-mesh vertex the GPU solves `dx/ds = u` and
-`du/ds = (grad(n) - u*(u·grad(n)))/n`, shooting outward until the exit direction
-matches the physical Sun direction. The exponential refractive-index profile uses
-the same ellipsoidal altitude and gas scale height as molecular extinction. Dry-air
-and CO2 refractivities at 550 nm follow NASA PSG's dispersion equations. Earth's
-standard reference value is evaluated at 101325 Pa and 288.15 K; Mars CO2 scales
-the standard refractivity by `(610/101325)*(288.15/210)`. These are reference
-conditions, with no humidity, measured thermal inversions or chromatic ray splitting.
+Earth and Mars direct surface illumination use a qualified lookup of curved incident
+solar rays. The production vertex shader performs eight nearest-texel reads and
+explicit trilinear interpolation; it contains no shooting loop or RK4 integration.
+The ray solve therefore cannot multiply with terrain vertex count or animation frames.
+Physical terrain geometry, the engine epoch and orbital positions are unchanged.
 
-The shader uses at most six shooting iterations plus one final ray, each bounded
-to 96 RK4 steps. Density columns are integrated in those same RK4 states, so the
-incident attenuation follows the curved path. Apparent body-frame and world-frame
-Sun directions and transmission are interpolated across mesh triangles. Surface
-Lambert illumination and the terrain direct-shadow direction use the apparent ray;
-night-light emission remains independent of solar attenuation. If a ray fails its
-step bound, the model falls back to the existing straight incident path. This is
+The immutable numerical fields are generated explicitly by
+`node tools/prepare_atmosphere_incident.mjs`. This offline tool solves
+`dx/ds = u` and `du/ds = (grad(n) - u*(u·grad(n)))/n`, with up to six shooting
+iterations and one final ray, each capped at 96 RK4 steps. Molecular and aerosol
+density columns follow the same curved ray. Any nonfinite, negative-column or
+nonconverged sample fails admission. No build or browser frame invokes preparation.
+Dry-air and CO2 refractivities at 550 nm follow NASA PSG's dispersion equations.
+Earth's reference uses 101325 Pa and 288.15 K; Mars scales standard CO2 refractivity
+by `(610/101325)*(288.15/210)`. These are reference conditions, without humidity,
+measured thermal inversions, current weather or chromatic splitting.
+
+Each body has a 385 by 65 by 3 field with four float32 channels: signed small-angle
+bending, molecular column, aerosol column and integration-valid marker. Each file
+is 1,201,200 bytes; both total 2,402,400 bytes. Cosine addressing allocates 256 cells
+to solar-normal cosine `[-0.02, 0.02]`, concentrating samples near the horizon.
+The remaining cells cover zenith through 93 degrees. Earth altitude is 0 to 16 km
+with quadratic spacing; Mars is -24 to 24 km with linear spacing, preserving signed
+MOLA heights. Three curvature slices span 0.98 to 1.02 times the profile radius.
+Near a hidden-side boundary the generator retains the limiting tangent-ray columns;
+visibility is evaluated from the apparent direction independently. Interpolating a
+zero column from a blocked neighbor must not brighten a still-visible ray. The small
+bend is computed directly with `atan(cross, dot)`, avoiding cancellation between two
+large approximate inverse-trigonometric angles.
+
+The spherical field is applied to an oblate exponential atmosphere through a local
+density-gradient and normal-curvature reduction. For physical point `p`, axis ratio
+`q`, and profile radius `R`, let `rho = length(p.x, p.y, p.z/q)`,
+`gvec = (p.x, p.y, p.z/q²)/rho`, `g = length(gvec)`, and `h = rho - R`.
+The local normal is `gvec/g`; `t` is the unit Sun direction projected into its tangent
+plane. The density-coordinate tangent Hessian is
+`Htt = (t.x² + t.y² + t.z²/q²)/rho`. The field's equivalent spherical reference
+radius is `g²/Htt - h`, and its columns are divided by `g`. This matches local normal
+gradient and curvature through second order; it is an approximation to the full
+ellipsoidal ray, qualified against that independent reference below. It is exact in
+the spherical geometric reduction, without changing actual body/terrain positions.
+
+Fields are pinned to the body profile, sampling domain, dimensions, format, source
+modules, expanded generator GLSL, generation browser and binary SHA-256. The build
+checks source and copied artifacts. Runtime independently checks the actual optical
+profile hash, domain/format, exact byte count, finite decoded values and asset hash.
+Loads have a single 20-second deadline, cancellation and a two-entry context-owned
+cache. The selected/focused body requests its field at inspection size; resident
+fields are reusable. Loading/unavailable fields retain straight incident transfer and
+show that refraction state explicitly. Toggle optical transfer to retry. Departure,
+visibility or selection changes abort obsolete pending work; context loss discards
+its GPU resources. A late result cannot upload after its demand/context changes.
+
+The committed fields were generated using Chrome 151.0.7922.174 / SwiftShader.
+Byte-for-byte replay across GPU implementations or browser versions is not claimed;
+regeneration requires fresh independent numerical admission. Ordinary builds verify
+the pinned bytes and do not regenerate them. Lambert illumination and terrain direct
+shadows use the apparent ray; night emission remains independent of solar attenuation.
+Points outside the admitted field domain retain straight incident transport. This is
 neither a trapped-ray solver nor a ray-traced camera image.
 
 The observer/view path and the incident rays used by atmospheric single scattering
@@ -147,15 +189,29 @@ atmospheric validation or a mobile performance guarantee. The runtime integratio
 and final artifact require their separate staged-browser checks.
 
 The incident-refraction gate captures the actual production vertex shader's body
-direction, rotated world direction and transmission through transform feedback.
-Thirteen reference cases cover Earth zenith angles 0, 60, 80, 89, 90.2, 90.8 and
-92.5 degrees; Mars 80, 89 and 90.01 degrees; oblate Earth at latitude 45 degrees;
-10 km elevated terrain; and the `n -> 1` limit. The independent Python solver uses
-float64, fixed 0.2 km RK4 steps and up to sixteen shooting iterations. Acceptance
-is fixed at 0.003 degrees for a visible vertex ray and `0.0002 + 0.002*abs(T)`
-for each incident transmission channel. The initial measured maximum visible ray
-difference was below 0.000069 degrees and maximum absolute transmission difference
-below 0.00004. This is a reference-model solver comparison, not empirical calibration.
+direction, rotated world direction and transmission through transform feedback with
+ready, hash-checked fields. Thirty-six geometries cover the original thirteen rays
+plus fractional lookup cells, sub-kilometer Earth heights, signed Mars elevations
+through -22.37 and +20.73 km, polar/midlatitude meridional and diagonal rays, and a
+closely spaced sweep through the refracted-rise boundary. The independent Python
+solver uses float64, fixed 0.2 km RK4 steps and up to sixteen shooting iterations.
+Acceptance remains 0.003 degrees for a visible vertex ray and
+`0.0002 + 0.002*abs(T)` for each transmission channel. The v3 field candidate passed
+all 187 assertions without changing those tolerances: 26 transfer, 18 combined
+material, 108 physical incident-ray and 35 CPU/GPU field-interpolation comparisons.
+
+That candidate's largest direction difference was 0.0002353 degrees; the largest
+absolute transmission difference was 0.0003273. The largest fraction of the allowed
+transmission error was 0.451. CPU/GPU lookup comparisons independently require
+componentwise direction difference below `3e-6` and transmission difference below
+`5e-5`; measured maxima were `1.174e-6` and `2.523e-5`, respectively. These are
+point-sample model comparisons, not empirical calibration or a uniform all-rays
+error proof. Final staged validation remains required after any source or field change.
+
+`tools/incident_budget_validation.mjs` additionally runs the real production shader
+with the admitted MOLA terrain at 4,753 and 74,305 vertices, checks all output values,
+verifies the shared points agree, and rejects production RK4/shooting source. Its
+recorded timings describe that test machine only; no frame-rate threshold is relaxed.
 
 Run `node tools/atmosphere_validation.mjs --web-root=build/site --out=coverage/atmosphere`
 against the chosen staged artifact. The gate verifies the selected release's module
@@ -167,6 +223,6 @@ of night emission. Staged whole-app render checks remain required separately.
 The chord regression requires edge and cell-center samples to match the same
 analytic surface, including an oblique limb view and a surface elevated by 10 km.
 The original shader failed the three initial midpoint/elevation cases; the corrected
-shader passes them without loosening the material tolerance. The expanded gate has
+shader passes them without loosening the material tolerance. The original gate had
 83 assertions: 26 transfer, 18 combined-material, and 39 vertex-refraction checks.
 An actual staged Earth capture independently confirmed that the visible grid disappeared.

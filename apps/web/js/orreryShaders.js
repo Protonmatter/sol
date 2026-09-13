@@ -2,7 +2,8 @@
 // constants — extracted from orrery.js so the renderer file holds plumbing, not shader
 // text. NOISE is the shared value-noise/fbm/crater library interpolated into SPHERE_FS.
 
-import { ATMOSPHERE_GLSL, ATMOSPHERE_REFRACTION_GLSL } from './atmosphereShaders.js';
+import { ATMOSPHERE_GLSL } from './atmosphereShaders.js';
+import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 
 const NOISE = `
@@ -31,13 +32,13 @@ out vec3 v_obj; out vec3 v_world; out vec3 v_nrm;
 out float v_surfaceScale;
 out vec3 v_incidentSunBody,v_incidentSunWorld,v_incidentTransmission;
 ${ATMOSPHERE_GLSL}
-${ATMOSPHERE_REFRACTION_GLSL}
+${INCIDENT_FIELD_GLSL}
 void main(){
   v_obj=a_pos; v_surfaceScale=length(a_pos);
   v_world=(u_model*vec4(a_pos,1.0)).xyz; v_nrm=normalize(u_nmat*a_nrm);
   v_incidentSunBody=vec3(0,0,1);v_incidentSunWorld=vec3(0,0,1);v_incidentTransmission=vec3(1);
   if(u_atmosphereEnabled==1&&u_atmosphereRefractionEnabled==1){
-    AtmosphereSolarRay ray=atmosphereIncidentSun(vec3(a_pos.xy,a_pos.z*u_oblate)*u_bodyRadiusKm);
+    AtmosphereSolarRay ray=atmosphereIncidentLookup(vec3(a_pos.xy,a_pos.z*u_oblate)*u_bodyRadiusKm);
     v_incidentSunBody=ray.direction;
     // Model includes oblate scale; undo its Z component for a physical vector.
     v_incidentSunWorld=normalize(mat3(u_model)*vec3(ray.direction.xy,ray.direction.z/u_oblate));

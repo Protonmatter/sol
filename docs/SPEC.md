@@ -54,8 +54,11 @@ the terrain/solar manifests, numeric products, hashes and generated browser meta
 
 Atmosphere uses distinct incident attenuation and view-path transmission/scattering in
 linear color. Physical distance determines solar flux; adaptive display exposure is
-separate. Qualified Earth/Mars incident rays use bounded refractive shooting at vertices;
+separate. Qualified Earth/Mars incident rays use profile-bound precomputed fields;
 their apparent solar direction and curved-path attenuation drive direct illumination.
+Ray shooting runs during explicit offline preparation, not per vertex or animation
+frame. Field loading, fallback and retry remain explicit, with bounded same-origin
+assets and independent direction/transmission admission before enablement.
 Observer and scattered-light rays remain straight. Reference profiles are not present
 weather or dense-cloud radiative transfer; there is no qualified ocean glint mask.
 The Sun's EUV source playback is finite, reproducible, and independent of orbital time;

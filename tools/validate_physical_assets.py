@@ -208,6 +208,83 @@ def validate_solar(data: dict, root: Path) -> int:
     return 1
 
 
+def incident_module(file: Path) -> str:
+    """Read a bounded local identity input, canonicalizing platform line endings."""
+    if not file.is_file() or any(part.is_symlink() for part in (file,*file.parents)) or not 0<file.stat().st_size<=MANIFEST_CAP:
+        raise ValueError('missing, linked or oversized incident identity module')
+    return file.read_text(encoding='utf-8')
+
+
+def incident_generator_glsl(generator: str, solver: str) -> str:
+    """Expand the two reviewed, unescaped GLSL literals without executing JavaScript."""
+    def literal(content: str, declaration: str) -> str:
+        matches=re.findall(r'^'+re.escape(declaration)+r'\s*=\s*`([^`]*)`;',content,re.M)
+        if len(matches)!=1 or '\\' in matches[0]:raise ValueError('unsupported incident generator template format')
+        return matches[0]
+    fragment=literal(generator,'const fragment')
+    expected=('ATMOSPHERE_GLSL','ATMOSPHERE_REFRACTION_GLSL')
+    if sorted(re.findall(r'\$\{([^}]+)\}',fragment))!=sorted(expected):
+        raise ValueError('unsupported incident generator template expansion')
+    for name in expected:
+        value=literal(solver,'export const '+name)
+        if '${' in value:raise ValueError('unsupported nested incident generator template expansion')
+        fragment=fragment.replace('${'+name+'}',value)
+    if '${' in fragment:raise ValueError('unsupported incident generator template expansion')
+    return fragment
+
+
+def validate_incident_fields(root: Path) -> int:
+    """Pin offline fields and their input implementations without executing JS.
+
+    The runtime separately compares profile_sha256 with the actual serialized
+    profile. Here profile_source_sha256 binds that profile's implementation.
+    Regeneration is never a build side effect.
+    """
+    module=root/'js/atmosphereIncidentManifest.js'
+    if not module.exists() and not (root/'js/atmosphereIncident.js').exists():return 0
+    if not module.is_file() or module.is_symlink():raise ValueError('incident runtime requires field manifest')
+    match=re.fullmatch(r'//[^\n]*\nexport const INCIDENT_FIELDS=Object.freeze\((\{.*\})\);\n',incident_module(module),re.S)
+    if not match:raise ValueError('invalid incident field manifest')
+    def unique(entries):
+        result={}
+        for key,value in entries:
+            if key in result:raise ValueError('duplicate incident field manifest key')
+            result[key]=value
+        return result
+    def constant(value):raise ValueError('nonfinite incident manifest value: '+value)
+    records=json.loads(match[1],object_pairs_hook=unique,parse_constant=constant)
+    if set(records)!={'Earth','Mars'}:raise ValueError('unsupported incident field bodies')
+    sources={key:incident_module(file) for key,file in {
+        'solver_source_sha256':root/'js/atmosphereShaders.js',
+        'generator_source_sha256':ROOT/'tools/prepare_atmosphere_incident.mjs',
+        'profile_source_sha256':root/'js/atmosphereOptics.js',
+        'field_source_sha256':root/'js/atmosphereIncident.js',
+    }.items()}
+    identities={key:hashlib.sha256(value.encode()).hexdigest() for key,value in sources.items()}
+    identities['generator_sha256']=hashlib.sha256(incident_generator_glsl(sources['generator_source_sha256'],sources['solver_source_sha256']).encode()).hexdigest()
+    domains={'Earth':{'minHeightKm':0,'maxHeightKm':16,'quadratic':True},
+             'Mars':{'minHeightKm':-24,'maxHeightKm':24,'quadratic':False}}
+    for body,ref in records.items():
+        if not isinstance(ref,dict):raise ValueError('invalid incident field record')
+        if ref.get('dimensions')!=[385,65,3] or ref.get('bytes')!=385*65*3*16 or ref.get('format')!='little-endian-rgba32f-bend-columns-v1':
+            raise ValueError('incident field shape/format changed')
+        if ref.get('domain')!=domains[body] or type(ref['domain'].get('quadratic')) is not bool:
+            raise ValueError('incident field domain changed')
+        if ref.get('path')!=f'../data/optics/{body.lower()}-incident-v1.f32':raise ValueError('incident field path escaped')
+        for key in ('sha256','profile_sha256',*identities):sha(ref.get(key))
+        file=root/'data/optics'/f'{body.lower()}-incident-v1.f32'
+        if not file.is_file() or any(p.is_symlink() for p in (file,*file.parents)) or file.stat().st_size!=ref['bytes']:
+            raise ValueError('missing/linked/wrong-sized incident field')
+        raw=file.read_bytes()
+        if hashlib.sha256(raw).hexdigest()!=ref['sha256']:raise ValueError('incident field hash mismatch')
+        for bend,molecular,aerosol,valid in struct.iter_unpack('<ffff',raw):
+            if not all(math.isfinite(v) for v in (bend,molecular,aerosol,valid)) or molecular<0 or aerosol<0 or valid!=1:
+                raise ValueError('incident field invalid numerical sample')
+        if any(ref[key]!=value for key,value in identities.items()):
+            raise ValueError('incident field generator/solver/profile/domain source identity changed')
+    return len(records)
+
+
 def validate_physical_source(root: Path) -> dict:
     root=root.resolve();counts={"terrain":0,"solar":0}
     for kind,filename,runtimes in (("terrain","terrain-assets.v1.json",("js/terrainAssets.js","js/terrainGeometry.js")),
@@ -229,6 +306,8 @@ def validate_physical_source(root: Path) -> dict:
             expected="\nconst REFERENCES = "+json.dumps(data["references"],indent=2,allow_nan=False)+";\n"
             if content.count(start)!=1 or content.count(end)!=1 or content.split(start,1)[1].split(end,1)[0]!=expected:
                 raise ValueError("browser terrain manifest drift")
+    incident=validate_incident_fields(root)
+    if incident:counts['incident']=incident
     return counts
 
 

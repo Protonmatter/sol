@@ -151,3 +151,9 @@ source, and passes the complete browser journey, numerical gates, recovery and s
 checks. See [VERIFIED_BUILD](VERIFIED_BUILD.md) for the exact manifest, commands, source
 inventory, failed-run history and remaining product/model scope. The RFC remains
 Accepted; local qualification does not establish deployment or universal body coverage.
+
+### PR review follow-up
+
+The [PR review record](PR_REVIEW_FOLLOWUP.md) tracks the later rendering-budget,
+resource-lifecycle, selection and hosted-validation findings against PR 107. It preserves
+the preview04 evidence above and identifies the follow-up candidate separately.

@@ -15,7 +15,7 @@ const source = fs.readFileSync(moduleUrl, "utf8");
 export async function orreryHarness(t, options = {}) {
   const events = [];
   const frames = new Map(), requests = [], errors = [], warnings = [], positionEpochs = [], presentations = [];
-  const images = [], textureUploads = [], drawCalls = [], optionalLoads = [], canvasCommands = [];
+  const images = [], textureUploads = [], bufferUploads = [], drawCalls = [], optionalLoads = [], canvasCommands = [];
   const textureRecords = [], textureParameters = [], mipmapTextures = [], deletedTextures = [], gpuDraws = [], gpuSubmissions=[];
   let depthWrites=true,blend=[];
   const pixelStoreCalls = [], pixelStore = new Map();
@@ -85,6 +85,7 @@ export async function orreryHarness(t, options = {}) {
       textureRecords.push({ texture: textureBindings.get(activeTextureUnit), pixels, args, pixelStore: new Map(pixelStore) });
       pendingTextureError = typeof textureUploadError === "function" ? textureUploadError(pixels) : textureUploadError;
     },
+    bufferData: (...args) => { bufferUploads.push(args); },
     texParameteri: (_target, name, value) => { textureParameters.push({ texture: textureBindings.get(activeTextureUnit), name, value }); },
     generateMipmap: () => { mipmapTextures.push(textureBindings.get(activeTextureUnit)); },
     deleteTexture: texture => { deletedTextures.push(texture); },
@@ -216,7 +217,7 @@ export async function orreryHarness(t, options = {}) {
     }
   }
   const context = vm.createContext({ ...bindings, Event, CustomEvent,
-    AbortController,queueMicrotask,
+    AbortController,queueMicrotask:options.queueMicrotask||queueMicrotask,
     Date: class extends Date { static now() { return wallUnix * 1000; } },
     console: { error: (...args) => errors.push(args), warn: (...args) => warnings.push(args) },
     document,
@@ -227,6 +228,7 @@ export async function orreryHarness(t, options = {}) {
     requestAnimationFrame(fn) { const id = ++frameId; frames.set(id, fn); return id; },
     cancelAnimationFrame: id => frames.delete(id),
     Image: class { constructor() { this.width = 0; this.height = 0; images.push(this); } },
+    ...(options.terrainMesh ? {Worker:class {}} : {}),
     ...(options.solarAtlas ? {createImageBitmap:()=>{throw Error('The solar loader boundary owns this test decode');}} : {}),
     fetch: async () => options.sunMetadata === undefined ? { ok: false } : { ok: true, json: async () => options.sunMetadata },
     ...(options.reducedMotion === undefined ? {} : { matchMedia: () => ({ matches: options.reducedMotion }) }),
@@ -239,9 +241,14 @@ export async function orreryHarness(t, options = {}) {
     Object.defineProperty(globalThis, name, { value: context[name], configurable: true });
     t.after(() => prior ? Object.defineProperty(globalThis, name, prior) : delete globalThis[name]);
   }
+  const incidentBoundary={...await import('../../../apps/web/js/atmosphereIncident.js'),
+    loadIncidentField:options.incidentField||(async()=>{throw Error('Incident field unavailable at the test I/O boundary');})};
   const [lifecycle] = await loadSourceModules(context, [moduleUrl], {
     resolveImport: (specifier,url) => options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
-      ? {loadSolarAtlas:async()=>({width:2048,height:1024,close(){}})} : namespaces.get(specifier),
+      ? {loadSolarAtlas:typeof options.solarAtlas==='function'?options.solarAtlas:async()=>({width:2048,height:1024,close(){}})}
+      : options.terrainMesh && url.pathname.endsWith('/terrainWorkerClient.js')
+        ? {requestTerrainMesh:options.terrainMesh}
+        : url.pathname.endsWith('/atmosphereIncident.js')?incidentBoundary:namespaces.get(specifier),
     // Optional catalogue downloads remain pending, as they can during first paint.
     importModuleDynamically: specifier => {
       const mode = specifier.includes("geography") ? options.geography || "pending" : optionalMode;
@@ -252,7 +259,7 @@ export async function orreryHarness(t, options = {}) {
     },
   });
   const settle = () => new Promise(resolve => setImmediate(resolve));
-  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
+  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, bufferUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
     ...lifecycle, settle,
     event(id, type, properties = {}) { return nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties }); },
     input(id, value, type = "input") { nodes[id].value = value; return this.event(id, type); },

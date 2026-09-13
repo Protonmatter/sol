@@ -47,3 +47,18 @@ test('evicting the final resident detail publishes deferred instead of stale rea
   assert.deepEqual(released,['Moon:1']);cache.dispose();
   assert.equal(status.get('Mars:1'),'deferred');assert.equal(status.get('Mars:2'),'deferred');
 });
+test('suspending detail work aborts loading entries but retains completed resources',async()=>{
+  const pending=new Map(),released=[];
+  const cache=createDetailCache({capacity:2,load:(key,signal)=>new Promise(resolve=>pending.set(key,{signal,resolve})),release:value=>released.push(value)});
+  const ready=cache.request('ready');pending.get('ready').resolve('resident');await ready;
+  const old=cache.request('pending'),oldRequest=pending.get('pending');cache.abortPending();
+  assert.equal(pending.get('pending').signal.aborted,true);
+  assert.equal(cache.status('pending'),'deferred');assert.equal(cache.get('ready'),'resident');
+  const fresh=cache.request('pending'),freshRequest=pending.get('pending');
+  // The old task is allowed to ignore cancellation: its result must still be released.
+  assert.equal(freshRequest.signal.aborted,false);
+  oldRequest.resolve('late-old');await old;assert.equal(cache.status('pending'),'loading');
+  cache.abortPending();freshRequest.resolve('late-fresh');await fresh;
+  assert.deepEqual(released,['late-old','late-fresh']);assert.equal(cache.get('ready'),'resident');
+  cache.dispose();
+});

@@ -33,6 +33,17 @@ async function moduleFile(relative){
 const {ATMOSPHERE_GLSL,ATMOSPHERE_VS,ATMOSPHERE_FS}=await moduleFile('js/atmosphereShaders.js');
 const {getAtmosphereProfile,atmosphereUniformValues}=await moduleFile('js/atmosphereOptics.js');
 const {SPHERE_VS,SPHERE_FS}=await moduleFile('js/orreryShaders.js');
+const {INCIDENT_FIELDS}=await moduleFile('js/atmosphereIncidentManifest.js');
+const {sampleIncidentField}=await moduleFile('js/atmosphereIncident.js');
+const fields={};
+for(const [body,reference]of Object.entries(INCIDENT_FIELDS)){
+ const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
+ assert.equal(bytes.length,reference.bytes);assert.equal(digest(bytes),reference.sha256);
+ hashes[relative]=digest(bytes);
+ if(release){const entry=release.assets.find(a=>a.path===path.relative(webRoot,file).split(path.sep).join('/'));assert.equal(entry?.sha256,reference.sha256);}
+ fields[body]={values:Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4)),width:reference.dimensions[0],height:reference.dimensions[1]*reference.dimensions[2]};
+}
+assert.doesNotMatch(SPHERE_VS,/atmosphereCurvedRay|atmosphereRayDerivative/,'rendering must never integrate incident rays');
 await moduleFile('js/terrainShadowShaders.js');
 hashes.reference=digest(fs.readFileSync(path.join(ROOT,'tools/atmosphere_reference.py')));
 // Fixed admission tolerances, separate from the measured errors in evidence.
@@ -74,13 +85,13 @@ const expected=JSON.parse(execFileSync(argument('python','python'),['-c',script]
 // Independent fixed-step float64 shooting reference; actual production vertex
 // outputs are captured below, rather than reimplementing the shader in a probe.
 const refractionCases=[];
-function refractiveFixture(body,zenithDegrees,{q=1,latitude=0,altitude=0,vacuum=false}={}){
+function refractiveFixture(body,zenithDegrees,{q=1,latitude=0,altitude=0,azimuth=0,vacuum=false}={}){
  const original=getAtmosphereProfile(body), profile=vacuum?{...original,surfaceRefractivity:0}:original;
  const lat=latitude*Math.PI/180, radius=profile.radiusKm+altitude;
  const point=[radius*Math.cos(lat),0,radius*q*Math.sin(lat)];
  let up=[Math.cos(lat),0,Math.sin(lat)/q];const length=Math.hypot(...up);up=up.map(v=>v/length);
- const z=zenithDegrees*Math.PI/180, sun=up.map((value,j)=>value*Math.cos(z)+(j===1?Math.sin(z):0));
- refractionCases.push({name:`${body} incident ${zenithDegrees}deg q${q} lat${latitude} alt${altitude}${vacuum?' vacuum-index':''}`,profile,q,point,sun,
+ const z=zenithDegrees*Math.PI/180,az=azimuth*Math.PI/180,meridian=[up[2],0,-up[0]],tangent=meridian.map((v,j)=>v*Math.sin(az)+(j===1?Math.cos(az):0)),sun=up.map((value,j)=>value*Math.cos(z)+tangent[j]*Math.sin(z));
+ refractionCases.push({name:`${body} incident ${zenithDegrees}deg q${q} lat${latitude} alt${altitude} az${azimuth}${vacuum?' vacuum-index':''}`,profile,q,point,sun,vacuum,
   uniforms:atmosphereUniformValues(profile,{cameraBodyKm:[0,0,8000],sunDirectionBody:sun,polarRatio:q,solarDistanceAu:1,exposure:1})});
 }
 for(const angle of [0,60,80,89,90.2,90.8,92.5])refractiveFixture('Earth',angle);
@@ -88,6 +99,14 @@ for(const angle of [80,89,90.01])refractiveFixture('Mars',angle);
 refractiveFixture('Earth',89,{q:.9966,latitude:45});
 refractiveFixture('Earth',80,{altitude:10});
 refractiveFixture('Earth',80,{vacuum:true});
+// Interior table cells, signed DEM heights, curvature layers and near-rise
+// visibility boundaries. None of these geometries is a field-grid endpoint.
+for(const angle of [88.713,90.31,90.51,90.55,90.57,90.59,90.61])refractiveFixture('Earth',angle,{q:.9966,latitude:45,azimuth:45});
+for(const altitude of [.14,1.37,7.83,15.3])refractiveFixture('Earth',89.347,{altitude,q:.9966,latitude:80,azimuth:90});
+for(const angle of [89.735,89.993,90.001,90.004,90.007,90.009])refractiveFixture('Mars',angle,{q:.9941,latitude:45,azimuth:45});
+for(const altitude of [-22.37,-7.13,3.37,20.73])refractiveFixture('Mars',89.347,{altitude,q:.9941,latitude:80,azimuth:90});
+refractiveFixture('Earth',89.5,{q:.9966,latitude:90,azimuth:90});
+refractiveFixture('Mars',89.5,{q:.9941,latitude:90,azimuth:90});
 const refractiveScript=`import json,sys,math
 sys.path.insert(0,'tools')
 from atmosphere_reference import incident_solar_refraction
@@ -151,7 +170,7 @@ try {
  evidence.browser_version=await browser.version();
  const page=await browser.newPage(); await page.setRequestInterception(true);page.on('request',request=>request.abort());
  await page.setContent('<canvas width=1 height=1></canvas>');
- const actual=await page.evaluate(({cases,materials,refractionCases,shared,shellVs,shellFs,sphereVs,sphereFs})=>{
+ const actual=await page.evaluate(({cases,materials,refractionCases,fields,shared,shellVs,shellFs,sphereVs,sphereFs})=>{
   const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false});
   if(!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('float WebGL2 unavailable');
   const shader=(kind,source)=>{const s=gl.createShader(kind);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
@@ -168,8 +187,19 @@ try {
    const result={};for(const [kind,key]of [[0,'transmittance'],[1,'scattering']]){upload('u_probeKind',kind);gl.drawArrays(gl.TRIANGLES,0,3);const raw=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,raw);result[key]=Array.from(raw).slice(0,3);}if(gl.getError()!==gl.NO_ERROR)throw Error('GL readback error');return result;});
   const refractiveProgram=program(sphereVs,'#version 300 es\nprecision highp float;out vec4 o;void main(){o=vec4(0);}', ['v_incidentSunBody','v_incidentSunWorld','v_incidentTransmission']);
   gl.useProgram(refractiveProgram);
+  const fieldTextures={};
+  for(const [body,field]of Object.entries(fields)){
+    gl.activeTexture(gl.TEXTURE6);const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,field.width,field.height,0,gl.RGBA,gl.FLOAT,new Float32Array(field.values));
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);fieldTextures[body]=texture;
+  }
   const feedback=gl.createBuffer();gl.bindBuffer(gl.TRANSFORM_FEEDBACK_BUFFER,feedback);gl.bufferData(gl.TRANSFORM_FEEDBACK_BUFFER,36,gl.DYNAMIC_READ);gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER,0,feedback);
   const refractiveResults=refractionCases.map(c=>{
+    gl.activeTexture(gl.TEXTURE6);gl.bindTexture(gl.TEXTURE_2D,fieldTextures[c.profile.body]);
+    gl.uniform1i(gl.getUniformLocation(refractiveProgram,'u_incidentField'),6);
+    gl.uniform1i(gl.getUniformLocation(refractiveProgram,'u_incidentFieldReady'),1);
+    gl.uniform3fv(gl.getUniformLocation(refractiveProgram,'u_incidentFieldHeight'),c.profile.body==='Earth'?[0,16,1]:[-24,24,0]);
     for(const [name,value] of Object.entries(c.uniforms)){
       const u=gl.getUniformLocation(refractiveProgram,name);
       if(Array.isArray(value)){if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);}
@@ -213,7 +243,7 @@ try {
     if(gl.getError()!==gl.NO_ERROR)throw Error('combined material GL readback error');return Array.from(raw).slice(0,3);
   });
   return {transfer,materials:materialResults,refraction:refractiveResults};
- },{cases,materials:materialCases,refractionCases,shared:ATMOSPHERE_GLSL,shellVs:ATMOSPHERE_VS,shellFs:ATMOSPHERE_FS,sphereVs:SPHERE_VS,sphereFs:SPHERE_FS});
+ },{cases,materials:materialCases,refractionCases,fields,shared:ATMOSPHERE_GLSL,shellVs:ATMOSPHERE_VS,shellFs:ATMOSPHERE_FS,sphereVs:SPHERE_VS,sphereFs:SPHERE_FS});
  evidence.checks=cases.flatMap((c,i)=>['transmittance','scattering'].map(key=>{
   const reference=expected[i][key], measured=actual.transfer[i][key];
   const tolerances=reference.map(value=>value===0?ZERO_TOLERANCE:ABSOLUTE_TOLERANCE+RELATIVE_TOLERANCE*Math.abs(value));
@@ -224,7 +254,8 @@ try {
  evidence.checks.push(...materialCases.map((c,i)=>({name:c.name,expected:c.expected,actual:actual.materials[i],tolerances:[.0003,.0003,.0003],
   passed:actual.materials[i].every((value,j)=>Number.isFinite(value)&&Math.abs(value-c.expected[j])<=.0003)})));
  // 0.003 degrees for vertex direction; 0.2% + 0.0002 for curved-path
- // transmission. Interpolation and observer-ray refraction are not qualified.
+ // transmission. Lookup interpolation is compared below; triangle interpolation
+ // and observer-ray refraction remain outside this point-sample qualification.
  evidence.checks.push(...refractionCases.flatMap((c,i)=>{
   const reference=refractiveExpected[i], measured=actual.refraction[i];
   const directionError=Math.hypot(...measured.direction.map((v,j)=>v-reference.direction[j]));
@@ -238,6 +269,12 @@ try {
    {name:`${c.name} curved transmission`,expected:reference.transmission,actual:measured.transmission,tolerances,
     passed:measured.transmission.every((v,j)=>Number.isFinite(v)&&Math.abs(v-reference.transmission[j])<=tolerances[j])},
   ];
+ }));
+ evidence.checks.push(...refractionCases.filter(c=>!c.vacuum&&c.zenithDegrees!==0).map(c=>{
+   const measured=actual.refraction[refractionCases.indexOf(c)];
+   const reference=sampleIncidentField(new Float32Array(fields[c.profile.body].values),c.profile.body,c.point,c.sun,c.profile.radiusKm,c.q);
+   return {name:`${c.name} CPU GPU field interpolation`,expected:reference,actual:measured,
+     passed:reference.direction.every((v,j)=>Math.abs(v-measured.direction[j])<3e-6)&&reference.transmission.every((v,j)=>Math.abs(v-measured.transmission[j])<5e-5)};
  }));
  const failed=evidence.checks.filter(check=>!check.passed);
  assert.equal(failed.length,0,failed.map(check=>check.name).join('; '));

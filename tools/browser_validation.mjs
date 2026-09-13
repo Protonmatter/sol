@@ -913,15 +913,17 @@ async function visualAssertions(page, visualDirectory) {
   await page.$eval('#orrerySpeedPresets button[data-dps="7"]', (button) => button.click());
   await new Promise((resolve) => setTimeout(resolve, 250));
   await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-before.png"));
-  const spinSamples = await page.evaluate(async () => {
+  const spinProbe = await page.evaluate(async () => {
     const entry = document.querySelector('script[type="module"][src^="app.js"]');
     const { store } = await import(`./js/store.js${entry ? new URL(entry.src).search : ""}`);
     const gl = document.getElementById("orreryCanvas").getContext("webgl2");
     const original = gl.drawElements;
     const samples = [], locations = new Map();
+    const draws = { submitted: 0, surface: 0, earth: 0, duplicateEpoch: 0 };
     let sampleError = "";
     gl.drawElements = function (...args) {
       const result = original.apply(this, args); // Always submit the unchanged production draw.
+      draws.submitted++;
       if (samples.length >= 120 || sampleError) return result;
       try {
         const program = gl.getParameter(gl.CURRENT_PROGRAM);
@@ -929,11 +931,13 @@ async function visualAssertions(page, visualDirectory) {
           ["u_mode", "u_model", "u_nmat"].map(name => [name, gl.getUniformLocation(program, name)])));
         const loc = locations.get(program);
         if (!loc.u_mode || !loc.u_model || !loc.u_nmat || gl.getUniform(program, loc.u_mode) !== 0) return result;
+        draws.surface++;
         const earth = store.orrery.bodies.find(body => body.name === "Earth");
         const model = Array.from(gl.getUniform(program, loc.u_model));
         if (!earth || Math.hypot(model[12] - earth.x_au, model[13] - earth.y_au, model[14] - earth.z_au) > 1e-5) return result;
+        draws.earth++;
         const epoch = store.orrery.renderUnix;
-        if (samples.at(-1)?.epoch === epoch) return result;
+        if (samples.at(-1)?.epoch === epoch) { draws.duplicateEpoch++; return result; }
         samples.push({ epoch, rate: store.orrery.yearsPerSec * 365.25 * 86400,
           normal: Array.from(gl.getUniform(program, loc.u_nmat)), model });
       } catch (error) { sampleError = String(error); }
@@ -948,9 +952,19 @@ async function visualAssertions(page, visualDirectory) {
         function done() { clearInterval(poll); clearTimeout(deadline); resolve(); }
       });
     } finally { gl.drawElements = original; }
-    if (sampleError) throw new Error(`Earth draw inspection failed: ${sampleError}`);
-    return samples;
+    return { samples, sampleError, drawCounts: draws, state: {
+      active: store.orrery.active, animate: store.orrery.animate,
+      hidden: document.hidden, contextLost: gl.isContextLost(),
+      anchor: store.orrery.anchor, selected: store.orrery.selected,
+      engineError: store.orrery.engineError,
+    } };
   });
+  // Preserve the probe even when no frames arrive or an assertion fails. A stalled
+  // renderer, a stopped clock, and a mismatched draw must remain distinguishable
+  // in hosted evidence without relaxing the bounded wait or the spin contract.
+  fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify(spinProbe, null, 2));
+  if (spinProbe.sampleError) throw new Error(`Earth draw inspection failed: ${spinProbe.sampleError}`);
+  const spinSamples = spinProbe.samples;
   await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-after.png"));
   const assertSubmittedSpin = (samples) => {
     if (samples.length < 3) throw new Error(`insufficient Earth sphere draws: ${samples.length}`);
@@ -1000,7 +1014,7 @@ async function visualAssertions(page, visualDirectory) {
   try { assertSubmittedSpin(spinSamples.map(sample => ({ ...sample, normal: spinSamples[0].normal, model: spinSamples[0].model }))); }
   catch (error) { frozenRejected = /frozen|outside cap/.test(error.message); }
   if (!frozenRejected) throw new Error("spin gate accepted the original frozen-transform regression");
-  fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify({ samples: spinSamples, ...rotationStats, frozenRejected }, null, 2));
+  fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify({ ...spinProbe, ...rotationStats, frozenRejected }, null, 2));
   const spinDisclosure = await page.$eval("#orreryAccuracy", (node) => node.textContent);
   if (!spinDisclosure.includes("Rotation display rate-limited")) {
     throw new Error(`high-speed rotation disclosure is missing: ${JSON.stringify(spinDisclosure)}`);

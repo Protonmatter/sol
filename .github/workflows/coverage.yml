@@ -101,6 +101,8 @@ jobs:
         run: node tools/ring_appearance_validation.mjs --web-root=build/site --out=coverage/ring-appearance
       - name: Physical atmosphere transfer CPU and GPU comparison
         run: node tools/atmosphere_validation.mjs --web-root=build/site --out=coverage/atmosphere
+      - name: Incident lookup at minimum and maximum Mars terrain detail
+        run: node tools/incident_budget_validation.mjs --web-root=build/site --out=coverage/incident-budget
       - name: Terrain shadow CPU and GPU comparison
         run: node tools/terrain_shadow_validation.mjs --web-root=build/site --out=coverage/terrain-shadows
       - name: Registered solar volume GPU contract
@@ -125,6 +127,7 @@ jobs:
             coverage/planet-appearance
             coverage/ring-appearance
             coverage/atmosphere
+            coverage/incident-budget
             coverage/terrain-shadows
             coverage/solar-appearance
             coverage/planet-phenomena

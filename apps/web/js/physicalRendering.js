@@ -63,6 +63,7 @@ export function createDetailCache({capacity=2,load,release=()=>{},onChange=()=>{
     error(key){return entries.get(key)?.error||'';},
     request,
     retry(key){remove(key);return request(key);},
+    abortPending(){for(const [key,entry] of [...entries])if(entry.status==='loading')remove(key);},
     dispose(){for(const key of [...entries.keys()])remove(key);},
   };
 }

@@ -20,6 +20,7 @@ import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.j
 import {requestTerrainMesh} from './terrainWorkerClient.js';
 import {physicalCameraPosition,terrainDetailLevel,advanceReferencePlayback,createDetailCache} from './physicalRendering.js';
 import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms} from './atmosphereOptics.js';
+import {loadIncidentField,INCIDENT_FIELD_UNIFORMS} from './atmosphereIncident.js';
 import {ATMOSPHERE_VS,ATMOSPHERE_FS} from './atmosphereShaders.js';
 import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,solarReferenceRotation,solarRenderUniforms,solarPlayback} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
@@ -178,6 +179,8 @@ let referenceTextures = {}, textureGeneration = 0;
 let referenceDemand = [], referenceVisible = new Map(), referenceUseSerial = 0;
 let referenceViewport = {width:0,height:0};
 let terrainDetails=null;
+let incidentFields=null,incidentDemand='';
+let retryTerrainFailures=false;
 let solarDetail=null,solarRotation=null;
 let phenomenonBody='',disposePhenomena=()=>{};
 let ringShadowTex = {}; // per-planet 1-D radial ring-opacity profiles for the ring-shadow lookup
@@ -241,6 +244,44 @@ function makeTexture(img, repeatS, nearest = false, premultiplyAlpha = false) {
   return t;
 }
 
+function initIncidentResources(){
+  incidentFields?.dispose();incidentDemand='';
+  const context=gl;
+  const cache=createDetailCache({capacity:2,load:async(body,signal)=>{
+    const field=await loadIncidentField(body,{signal});
+    if(signal.aborted||incidentFields!==cache||incidentBodyDemand()!==body||incidentDemand!==body||gl!==context||context.isContextLost())throw new Error('Incident field graphics demand changed');
+    const texture=context.createTexture();context.activeTexture(context.TEXTURE0+6);context.bindTexture(context.TEXTURE_2D,texture);
+    context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+    context.texImage2D(context.TEXTURE_2D,0,context.RGBA32F,field.width,field.height,0,context.RGBA,context.FLOAT,field.values);
+    for(const parameter of [context.TEXTURE_MIN_FILTER,context.TEXTURE_MAG_FILTER])context.texParameteri(context.TEXTURE_2D,parameter,context.NEAREST);
+    for(const parameter of [context.TEXTURE_WRAP_S,context.TEXTURE_WRAP_T])context.texParameteri(context.TEXTURE_2D,parameter,context.CLAMP_TO_EDGE);
+    context.activeTexture(context.TEXTURE0);
+    if(context.getError()!==context.NO_ERROR){context.deleteTexture(texture);throw new Error('GPU rejected incident field');}
+    return {texture,height:[field.domain.minHeightKm,field.domain.maxHeightKm,Number(field.domain.quadratic)]};
+  },release:value=>{if(value)context.deleteTexture(value.texture);},onChange:body=>{
+    queueMicrotask(()=>{if(incidentFields!==cache||gl!==context)return;
+      state.opticsStatus[body]=cache.status(body);updatePhysicalAppearance();if(state.active&&!document.hidden&&!state.animate)paint();});
+  }});
+  incidentFields=cache;
+}
+
+function incidentBodyDemand(){
+  const body=state.active&&state.opticsEnabled&&!state.galaxy&&!state.selectedStar&&!document.hidden?(state.selected||state.anchor):'';
+  return getAtmosphereProfile(body)?body:'';
+}
+
+function syncIncidentDemand(){
+  const demand=incidentBodyDemand();
+  if(demand!==incidentDemand){incidentFields?.abortPending();incidentDemand=demand;}
+}
+
+function bindIncidentField(body,profile){
+  const field=profile?incidentFields?.get(body):null;
+  gl.activeTexture(gl.TEXTURE0+6);gl.bindTexture(gl.TEXTURE_2D,field?.texture||whiteTex);
+  gl.uniform1i(P.sphereU.u_incidentField,6);gl.uniform1i(P.sphereU.u_incidentFieldReady,field?1:0);
+  gl.uniform3fv(P.sphereU.u_incidentFieldHeight,field?.height||[0,16,1]);gl.activeTexture(gl.TEXTURE0);
+}
+
 function initTerrainResources() {
   terrainDetails?.dispose();
   if(typeof Worker!=='function'){terrainDetails=null;state.terrainStatus={Moon:'unavailable',Mars:'unavailable'};return;}
@@ -248,7 +289,7 @@ function initTerrainResources() {
   terrainDetails=createDetailCache({capacity:2,load:async(key,signal)=>{
     const [body,rawLevel]=key.split(':');const phys=BODY[body];
     const mesh=await requestTerrainMesh(body,Number(rawLevel),{equatorialRadiusKm:phys.radiusKm,polarRadiusKm:phys.polarKm},{signal});
-    if(signal.aborted||gl!==context||context.isContextLost())throw new Error('Terrain graphics generation changed');
+    if(signal.aborted||!state.active||gl!==context||context.isContextLost())throw new Error('Terrain graphics generation changed');
     const pos=context.createBuffer(),idx=context.createBuffer();
     context.bindBuffer(context.ARRAY_BUFFER,pos);context.bufferData(context.ARRAY_BUFFER,mesh.pos,context.STATIC_DRAW);
     context.bindBuffer(context.ELEMENT_ARRAY_BUFFER,idx);context.bufferData(context.ELEMENT_ARRAY_BUFFER,mesh.idx,context.STATIC_DRAW);
@@ -277,7 +318,11 @@ function detailMesh(body,pixels) {
   if(!state.terrainEnabled||!terrainReference(body)||!terrainDetails||state.galaxy)return null;
   const level=terrainDetailLevel(pixels);
   if(!level)return null;
-  if(level && (state.selected===body||state.anchor===body))terrainDetails.request(`${body}:${level}`);
+  if(state.selected===body||state.anchor===body){
+    const key=`${body}:${level}`;
+    if(retryTerrainFailures&&terrainDetails.status(key)==='unavailable')terrainDetails.retry(key);
+    else terrainDetails.request(key);
+  }
   for(let n=level;n>0;n--){const mesh=terrainDetails.get(`${body}:${n}`);if(mesh)return mesh;}
   return null;
 }
@@ -295,16 +340,27 @@ function updatePhysicalAppearance() {
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body]):'Terrain relief disabled.');
-  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?'Reference atmosphere: molecular + aerosol scattering; physical km, adaptive display exposure. Not current weather.':'Reference optical transfer appears in close views; distant limb is illustrative.');
+  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?'Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, adaptive display exposure. Not current weather.':state.opticsStatus[body]==='loading'?'Reference scattering active; incident refraction field loading.':state.opticsStatus[body]==='unavailable'?'Reference scattering active; incident refraction unavailable. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
   if(body==='Sun')notes.push(state.solarMode==='reconstructed-euv'?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
   if(node){const text=notes.join(' ');if(node.textContent!==text)node.textContent=text;node.hidden=!text||state.galaxy||!state.active;}
-  const controls=document.getElementById('orrerySolarControls');if(controls)controls.hidden=body!=='Sun'||state.galaxy||!state.active;
-  const play=/** @type {HTMLButtonElement|null} */(document.getElementById('orrerySolarPlay'));if(play){play.textContent=state.solarPlayback.playing?'Pause source':'Play source';play.setAttribute('aria-pressed',String(state.solarPlayback.playing));play.disabled=state.solarMode!=='reconstructed-euv'||!state.useTextures||state.solarStatus!=='ready';}
+  syncSolarPlaybackControls();
+}
+
+function syncSolarPlaybackControls() {
+  const body=state.selected||state.anchor,playbackAvailable=solarPlaybackAvailable();
+  if(!playbackAvailable)state.solarPlayback.playing=false;
+  const controls=document.getElementById('orrerySolarControls');if(controls)controls.hidden=body!=='Sun'||!!state.selectedStar||state.galaxy||!state.active;
+  const play=/** @type {HTMLButtonElement|null} */(document.getElementById('orrerySolarPlay'));if(play){play.textContent=state.solarPlayback.playing?'Pause source':'Play source';play.setAttribute('aria-pressed',String(state.solarPlayback.playing));play.disabled=!playbackAvailable;}
   const range=/** @type {HTMLInputElement|null} */(document.getElementById('orrerySolarTime'));if(range)range.value=String(state.solarPlayback.seconds);
   const epoch=document.getElementById('orrerySolarEpoch');if(epoch)epoch.textContent=solarPlayback(state.solarPlayback.seconds).sourceTime.replace('T',' ').replace('Z',' UTC');
+}
+
+function solarPlaybackAvailable() {
+  return state.active&&!state.galaxy&&!state.selectedStar&&state.useTextures&&state.solarMode==='reconstructed-euv'
+    &&state.solarStatus==='ready'&&(state.selected||state.anchor)==='Sun';
 }
 
 function sourceSolarRotation() {
@@ -323,7 +379,7 @@ function initSolarResources() {
   solarDetail=createDetailCache({capacity:1,load:async(_key,signal)=>{
     const bitmap=await loadSolarAtlas({signal});
     try{
-      if(signal.aborted||gl!==context||context.isContextLost())throw new Error('Solar graphics generation changed');
+      if(signal.aborted||!state.active||gl!==context||context.isContextLost())throw new Error('Solar graphics generation changed');
       if(context.getParameter(context.MAX_TEXTURE_SIZE)<bitmap.width)throw new Error('Solar reference exceeds device texture limit');
       const tex=makeTexture(bitmap,false);
       // Atlas frames have no mip chain blending and no implicit color conversion.
@@ -664,7 +720,7 @@ function initGL(canvas) {
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
-  Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,'u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
+  Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
   P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS]);
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
 
@@ -673,6 +729,7 @@ function initGL(canvas) {
   gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos); gl.bufferData(gl.ARRAY_BUFFER, s.pos, gl.STATIC_DRAW);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphere.idx); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, s.idx, gl.STATIC_DRAW);
   initTerrainResources();
+  initIncidentResources();
   initSolarResources();
 
   quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
@@ -1220,6 +1277,7 @@ function queueTransparent(pos,eye,draw) {
 
 // ---------------------------------------------------------------- draw
 function paint() {
+  syncIncidentDemand();
   if (!state.active || !gl || gl.isContextLost()) return;
   const canvas = document.getElementById("orreryCanvas");
   if (!canvas || canvas.clientWidth === 0) return;
@@ -1590,7 +1648,8 @@ function drawBody(b, vp, eye) {
   const light = b.name === "Sun" ? [0, 0, 1] : norm([-b.x_au, -b.y_au, -b.z_au]);
   const lightObj=[dot(rot.slice(0,3),light),dot(rot.slice(4,7),light),dot(rot.slice(8,11),light)];
   const profile=state.opticsEnabled&&pixelDiameter>=64?getAtmosphereProfile(b.name):null;
-  state.opticsStatus[b.name]=profile?'ready':'deferred';
+  if(profile&&b.name===incidentDemand)incidentFields?.request(b.name);
+  state.opticsStatus[b.name]=profile?(incidentFields?.status(b.name)||'unavailable'):'deferred';
   const distanceAu=b.name==='Sun'?1:Math.hypot(b.x_au,b.y_au,b.z_au);
   const opticalOptions={cameraBodyKm:physicalCameraPosition(eye,pos,rot,rEq,phys.radiusKm),sunDirectionBody:lightObj,
     polarRatio:phys.polarKm/phys.radiusKm,solarDistanceAu:distanceAu,exposure:distanceAu*distanceAu};
@@ -1602,6 +1661,7 @@ function drawBody(b, vp, eye) {
 
   gl.useProgram(P.sphere);
   setAtmosphereUniforms(gl,P.sphereU,profile,opticalOptions);
+  bindIncidentField(b.name,profile);
   bindTerrainShadow(mesh,phys.radiusKm);
   gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mvp));
   gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
@@ -2138,6 +2198,10 @@ function updateLabels(canvas, vp, skyVp) {
 // (The facts card itself is built by orreryDetail.js; this wrapper just supplies the
 // body's live snapshot row.)
 function showDetail(name) {
+  syncIncidentDemand();
+  syncSolarPlaybackControls();
+  const focus=document.getElementById('orreryFocusSelected');
+  if(focus)focus.toggleAttribute('disabled',!!state.selectedStar);
   const status=document.getElementById("orrerySelectionStatus");
   const selectedLabel=state.selectedStar?.name||name||"No object";
   if(status&&status.textContent!==`${selectedLabel} selected`)status.textContent=`${selectedLabel} selected`;
@@ -2219,14 +2283,14 @@ function tick(now) {
     }
   }
   if (state.freeFly) flyStep(dt);
-  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:!state.galaxy&&state.solarMode==='reconstructed-euv',reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false});
+  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false});
   const moonNoteBefore = state.moonsHiddenReason;
   paint();
   if (state.moonsHiddenReason !== moonNoteBefore || state.spinLimitedCount !== spinBefore) updateOrreryAccuracy();
   // Idle when nothing advances frame-to-frame: with Animate off (and no free-fly) the loop
   // used to keep re-tessellating and repainting the full scene at 60 fps forever. All the
   // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
-  if (state.animate || state.freeFly || (state.solarPlayback.playing&&!state.galaxy&&state.solarMode==='reconstructed-euv')) {
+  if (state.animate || state.freeFly || (state.solarPlayback.playing&&solarPlaybackAvailable())) {
     rafId = requestAnimationFrame(tick);
   } else {
     rafId = 0;
@@ -2479,6 +2543,7 @@ async function enterOrreryInner() {
       if (node) node.textContent = "Rendering on " + res.label;
       initParticles();
     }
+    if(!incidentFields)initIncidentResources();
     loadTextures();
     setSpeedSliderMode(state.galaxy);
     rebuildPositions();
@@ -2511,7 +2576,9 @@ async function enterOrreryInner() {
 }
 export function leaveOrrery() {
   state.active = false;
+  incidentFields?.dispose();incidentFields=null;incidentDemand='';
   state.solarPlayback.playing=false;
+  terrainDetails?.abortPending();solarDetail?.abortPending();
   disposePhenomena();disposePhenomena=()=>{};phenomenonBody='';
   updatePhysicalAppearance();
   cancelSystemWork();
@@ -2552,6 +2619,7 @@ async function showFallback(msg) {
     updateOrreryAccuracy();
   });
   document.addEventListener("visibilitychange",()=>{
+    syncIncidentDemand();
     state.keys.clear(); state.lastTick=0;
     if (document.hidden) { if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelSystemWork(); }
     else if (state.active) {if(!state.bodies.length)void enterOrrery();else startLoop();}
@@ -2757,17 +2825,25 @@ async function showFallback(msg) {
     const wasEnabled = state.useTextures;
     state.useTextures = inputTarget(e).checked;
     if (state.useTextures && !wasEnabled) loadTextures();
-    updateEarthLayerStatus(); paint(); updateOrreryAccuracy();
+    updatePhysicalAppearance();updateEarthLayerStatus(); paint(); updateOrreryAccuracy();
   });
-  bind('orreryTerrain','change',e=>{state.terrainEnabled=inputTarget(e).checked;updatePhysicalAppearance();paint();});
-  bind('orreryOptics','change',e=>{state.opticsEnabled=inputTarget(e).checked;paint();});
-  bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;paint();window.dispatchEvent(new Event('sol:presentation'));});
+  bind('orreryTerrain','change',e=>{
+    retryTerrainFailures=!state.terrainEnabled&&inputTarget(e).checked;
+    state.terrainEnabled=inputTarget(e).checked;
+    try{updatePhysicalAppearance();paint();}finally{retryTerrainFailures=false;}
+  });
+  bind('orreryOptics','change',e=>{
+    state.opticsEnabled=inputTarget(e).checked;incidentFields?.dispose();incidentFields=null;incidentDemand='';
+    if(state.opticsEnabled&&gl)initIncidentResources();updatePhysicalAppearance();paint();
+  });
+  bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;syncSolarPlaybackControls();paint();window.dispatchEvent(new Event('sol:presentation'));});
   bind('orrerySolarPlay','click',()=>{
+    if(!solarPlaybackAvailable())return;
     if(state.solarPlayback.seconds>=state.solarPlayback.duration)state.solarPlayback.seconds=0;
     state.solarPlayback.playing=!state.solarPlayback.playing;updatePhysicalAppearance();startLoop();
   });
-  bind('orrerySolarTime','input',e=>{state.solarPlayback.seconds=Math.max(0,Math.min(20,Number(inputTarget(e).value)));state.solarPlayback.playing=false;paint();});
-  bind('orrerySolarRestart','click',()=>{state.solarPlayback.seconds=0;state.solarPlayback.playing=false;solarDetail?.retry('reference');paint();});
+  bind('orrerySolarTime','input',e=>{state.solarPlayback.seconds=Math.max(0,Math.min(20,Number(inputTarget(e).value)));state.solarPlayback.playing=false;syncSolarPlaybackControls();paint();});
+  bind('orrerySolarRestart','click',()=>{state.solarPlayback.seconds=0;state.solarPlayback.playing=false;solarDetail?.retry('reference');syncSolarPlaybackControls();paint();});
   for (const [id, key] of [['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
     bind(id, 'change', e => { state[key] = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
   }
@@ -2783,12 +2859,14 @@ async function showFallback(msg) {
     else if (state.preTopRadius) { state.radius = state.preTopRadius; }
     paint();
   });
-  bind("orreryAnchor", "change", (e) => { if (!state.freeFly) setAnchor(inputTarget(e).value); else state.anchor = inputTarget(e).value; });
+  bind("orreryAnchor", "change", (e) => { if (!state.freeFly) setAnchor(inputTarget(e).value); else {state.anchor = inputTarget(e).value;syncSolarPlaybackControls();} });
   populateAnchorSelect(); // replace the static planet list with the full data-driven one
   bind("orreryFreeFly", "change", (e) => setFreeFly(e.target.checked));
   bind("orreryGalaxy", "click", () => {
     state.galaxy = !state.galaxy;
     state.selectedStar = null;
+    if(state.selected?.startsWith('star:'))state.selected=null;
+    showDetail(state.selected);updateOrreryPositions();
     if (state.localView) { state.localView = false; const lb = document.getElementById("orreryLocal"); if (lb) lb.textContent = "Solar neighbourhood (ly scale)"; }
     if (state.freeFly) { state.freeFly = false; const ff = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryFreeFly")); if (ff) ff.checked = false; }
     const btn = document.getElementById("orreryGalaxy");
@@ -2805,11 +2883,13 @@ async function showFallback(msg) {
       if (insight) insight.textContent = SYSTEM_VIEW_HINT;
       rebuildPositions();
     }
-    paint();
+    updatePhysicalAppearance();paint();
   });
   bind("orreryLocal", "click", () => {
     state.localView = !state.localView;
     state.selectedStar = null;
+    if(state.selected?.startsWith('star:'))state.selected=null;
+    showDetail(state.selected);updateOrreryPositions();
     if (state.freeFly) { state.freeFly = false; const ff = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryFreeFly")); if (ff) ff.checked = false; }
     const lb = document.getElementById("orreryLocal");
     const gb = document.getElementById("orreryGalaxy");
@@ -2825,7 +2905,7 @@ async function showFallback(msg) {
       updateGalaxySun();
       if (insight) insight.textContent = "The Milky Way, face-on — the Sun's real catalogued neighbours cluster in the bright halo around its marker (nearly everything you can see by eye is within ~2,000 ly). Zoom back into the Solar neighbourhood to resolve them, or press Animate to run galactic time.";
     }
-    paint();
+    updatePhysicalAppearance();paint();
   });
 
   canvas.addEventListener("webglcontextlost", (e) => {
@@ -2837,6 +2917,7 @@ async function showFallback(msg) {
     // drawBody bound dead textures (planets rendered flat, rings vanished) and
     // texturesStarted=true meant loadTextures() never re-fetched for the life of the tab.
     terrainDetails?.dispose();terrainDetails=null;state.terrainStatus={};
+    incidentFields?.dispose();incidentFields=null;incidentDemand='';state.opticsStatus={};
     solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
@@ -2849,6 +2930,7 @@ async function showFallback(msg) {
     whiteTex = null; ringBufs = {}; ringShadowTex = {}; texturesStarted = false; particles = null;
     genTex = {}; genStarted = false; // generated surface maps died with the context too
     moonPathBuf = null;
+    syncSolarPlaybackControls();
   });
   canvas.addEventListener("webglcontextrestored", () => {
     if (!state.active) return;

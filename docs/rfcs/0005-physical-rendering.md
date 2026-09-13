@@ -73,6 +73,10 @@ Preserve the immersive canvas and compact inspector. Add supported appearance an
 detail choices with concise source/mode/epoch text; keep numerical controls in Research.
 Use native keyboard controls, pause and reduced-motion defaults. Loading, held, failed
 and ready states must be distinguishable. Existing selection and camera controls remain.
+Source playback pauses when its view or texture layer becomes unavailable and requires
+an explicit restart. Leaving the workspace cancels pending physical-detail requests;
+ready bounded cache entries may remain warm. Re-enabling terrain explicitly retries
+the currently demanded failed detail without turning ordinary paints into retry loops.
 
 ## Security and privacy
 
@@ -110,6 +114,11 @@ reconstruction is not empirical validation of 3-D plasma or atmospheric conditio
 5. Missing sources/context loss retain explicit states, bounded resources and usable UI.
 6. Each admitted body/product has source and staged-browser evidence. Coverage gaps
    and unimplemented optical/meteorological effects remain explicit in the ledger.
+7. Incident-ray integration work must not multiply by terrain vertex count or run on
+   every animation frame. Any precomputed approximation must retain profile identity,
+   explicit resource bounds and the existing independent direction/transmission gates.
+   The complete application must pass the unchanged browser deadlines at its declared
+   deployment base path, including hidden-view cancellation and context restoration.
 
 ## Validation
 

@@ -4,12 +4,13 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import fs from 'node:fs';
-import http from 'node:http';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import puppeteer from 'puppeteer-core';
 import {PNG} from 'pngjs';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
+import {createStagedPreviewServer} from './staged_preview_server.mjs';
+import {requestContextRestoration} from './context_restore.mjs';
 
 const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const option=(name,fallback)=>process.argv.find(x=>x.startsWith(`--${name}=`))?.slice(name.length+3)||fallback;
@@ -50,9 +51,9 @@ async function state(){
     const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
     const {store}=await import('./js/store.js'+q),s=store.orrery;
     const gl=document.getElementById('orreryCanvas').getContext('webgl2');
-    return {anchor:s.anchor,selected:s.selected,radius:s.radius,az:s.az,el:s.el,engineError:s.engineError,animate:s.animate,solarInspection:s.solarInspection,
+    return {contextRestoration:window.__physicalRestoreEvidence,anchor:s.anchor,selected:s.selected,radius:s.radius,az:s.az,el:s.el,engineError:s.engineError,animate:s.animate,solarInspection:s.solarInspection,
       epoch:s.renderUnix,invariant:JSON.stringify([s.renderUnix,s.bodies]),terrainStatus:{...s.terrainStatus},
-      terrainRendered:s.terrainRendered?{...s.terrainRendered}:null,opticsStatus:{...s.opticsStatus},
+      terrainRendered:s.terrainRendered?{...s.terrainRendered}:null,opticsEnabled:s.opticsEnabled,opticsStatus:{...s.opticsStatus},
       solarStatus:s.solarStatus,solarMode:s.solarMode,solarPlayback:{...s.solarPlayback},appearanceStatus:{...s.appearanceStatus},
       physicalStatus:document.getElementById('orreryPhysicalStatus')?.textContent,
       appearance:document.getElementById('destinationAppearanceText')?.textContent,
@@ -70,7 +71,7 @@ async function paintAction(action,value){
     document.getElementById('orrerySize').dispatchEvent(new Event('input'));
   },action,value);
 }
-async function waitReady(body,{terrain=false,solar=false}={}){
+async function waitReady(body,{terrain=false,solar=false,timeoutMs=40000}={}){
   await page.waitForFunction(async(body,terrain,solar)=>{
     if(window.__physicalShaderErrors?.length)return true;
     const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
@@ -79,18 +80,25 @@ async function waitReady(body,{terrain=false,solar=false}={}){
     if(body==='Earth'){if(s.earthNight!==false)roles.push('night-lights');if(s.earthWeather!==false)roles.push(earthCloudRole(s));}
     const statuses=roles.map(role=>appearanceReference(body,role)).filter(Boolean).map(a=>s.appearanceStatus[a.id]);
     if(terrain){statuses.push(s.terrainStatus[body]);if(s.terrainRendered)statuses.push(s.terrainRendered[body]?'ready':'pending');}if(solar)statuses.push(s.solarStatus);
+    // Earth/Mars admissions in this harness are close views. The enabled optical
+    // path must include the actual uploaded incident field, not its loading fallback.
+    if(s.opticsEnabled&&['Earth','Mars'].includes(body))statuses.push(s.opticsStatus[body]);
     return statuses.includes('unavailable')||statuses.every(x=>x==='ready');
-  },{timeout:40000,polling:100},body,terrain,solar);
+  },{timeout:timeoutMs,polling:100},body,terrain,solar);
   const s=await state();
   assert.deepEqual(s.shaderErrors,[],'Application shader compile/link failure');
   if(terrain)assert.equal(s.terrainStatus[body],'ready',`${body} actual terrain unavailable`);
   if(terrain&&s.terrainRendered)assert.equal(s.terrainRendered[body],true,`${body} height mesh is loaded but not rendered`);
   if(solar)assert.equal(s.solarStatus,'ready','Solar source atlas unavailable');
+  if(s.opticsEnabled&&['Earth','Mars'].includes(body))assert.equal(s.opticsStatus[body],'ready',`${body} incident refraction field unavailable or not admitted`);
   assert.ok(!Object.values(s.appearanceStatus).includes('unavailable'),`Source unavailable: ${JSON.stringify(s.appearanceStatus)}`);
   return s;
 }
 async function capture(name){
-  const s=await state();
+  let s=await state();
+  // Re-admit after toggles, viewport changes, and context recovery as well as
+  // initial selection; an A/B capture must never silently use the straight fallback.
+  if(s.opticsEnabled&&['Earth','Mars'].includes(s.anchor))s=await waitReady(s.anchor);
   assert.equal(s.invariant,invariant,`${name} changed engine time or positions`);delete s.invariant;
   assert.equal(s.engineError,'',`${name} engine error`);assert.equal(s.overflow,false,`${name} horizontal overflow`);
   assert.equal(s.glError,0,`${name} WebGL error`);assert.equal(s.glLost,false,`${name} context lost`);
@@ -109,15 +117,7 @@ function different(a,b){
   check(`${a} versus ${b} changes rendered pixels`,{changed_pixels:changed,mean_channel_delta:sum/(x.width*x.height*3)});
 }
 async function run(){
-  server=http.createServer((req,res)=>{
-    try{
-      const u=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
-      const f=path.resolve(webRoot,'.'+(u.endsWith('/')?u+'index.html':u));
-      if(!f.startsWith(webRoot+path.sep)||!fs.existsSync(f)||!fs.statSync(f).isFile()){res.writeHead(404).end();return;}
-      res.setHeader('Content-Type',({'.js':'text/javascript','.html':'text/html','.css':'text/css','.json':'application/json','.wasm':'application/wasm','.png':'image/png','.jpg':'image/jpeg'})[path.extname(f)]||'application/octet-stream');
-      fs.createReadStream(f).pipe(res);
-    }catch{res.writeHead(400).end();}
-  });
+  server=createStagedPreviewServer(webRoot,manifest.base_path);
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   browser=await puppeteer.launch({executablePath:chrome,headless:true,timeout:20000,protocolTimeout:45000,signal:controller.signal,
     args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1']});
@@ -127,7 +127,7 @@ async function run(){
   page.on('console',m=>{if(m.type()==='error')evidence.console_errors.push({text:m.text(),location:m.location()});});
   page.on('requestfailed',r=>evidence.request_failures.push({url:r.url(),resource_type:r.resourceType(),error:r.failure()?.errorText}));
   page.on('workercreated',w=>evidence.worker_urls.push(w.url()));
-  page.on('response',r=>{if(/terrain|solar|radial-height/.test(r.url()))evidence.responses.push({url:r.url(),status:r.status()});});
+  page.on('response',r=>{if(/terrain|solar|radial-height|\/optics\//.test(r.url()))evidence.responses.push({url:r.url(),status:r.status()});});
   await page.setViewport({width:1440,height:1000});
   await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
   await page.evaluateOnNewDocument(()=>{
@@ -139,7 +139,7 @@ async function run(){
     p.getProgramParameter=function(program,param){const result=link.call(this,program,param);if(param===this.LINK_STATUS&&!result)window.__physicalShaderErrors.push(this.getProgramInfoLog(program));return result;};
     p.getError=function(){const result=error.call(this);if(result!==this.NO_ERROR){if(result===this.CONTEXT_LOST_WEBGL&&window.__physicalExpectedContextLoss)window.__physicalExpectedLossErrors.push(result);else window.__physicalGlErrors.push(result);}return result;};
   });
-  await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'networkidle0',timeout:45000});
+  await page.goto(`http://127.0.0.1:${server.address().port}${manifest.base_path}`,{waitUntil:'networkidle0',timeout:45000});
   await page.click('[data-mode="orrery"]');
   await page.waitForFunction(async()=>{
     const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
@@ -189,17 +189,26 @@ async function run(){
   assert.ok(evidence.worker_urls.some(x=>x.includes('terrain.worker.js')),'Real terrain Worker never created');
   for(const body of ['moon','mars'])assert.ok(evidence.responses.some(x=>x.url.includes(`${body}-radial-height`)&&x.status===200),`${body} height asset was not loaded`);
   check('Real terrain Worker and both pinned height assets loaded');
+  for(const body of ['earth','mars'])assert.ok(evidence.responses.some(x=>x.url.includes(`/optics/${body}-incident-`)&&x.status===200),`${body} incident field asset was not loaded`);
+  check('Both incident refraction fields loaded and were admitted for close captures');
   if(process.argv.includes('--context-loss')){
     const workersBefore=evidence.worker_urls.filter(x=>x.includes('terrain.worker.js')).length;
-    await page.evaluate(()=>{const c=document.getElementById('orreryCanvas'),gl=c.getContext('webgl2'),ext=gl.getExtension('WEBGL_lose_context');if(!ext)throw new Error('WEBGL_lose_context unavailable');window.__physicalExpectedContextLoss=true;window.__physicalLossExtension=ext;window.__physicalLost=false;c.addEventListener('webglcontextlost',()=>{window.__physicalLost=true;},{once:true});ext.loseContext();});
-    await page.waitForFunction(()=>window.__physicalLost,{timeout:5000,polling:100});
-    await page.evaluate(()=>window.__physicalLossExtension.restoreContext());
-    // Context state is independent of frame presentation. Timer polling avoids
-    // relying on requestAnimationFrame while the drawing context is recovering;
-    // the original 10-second deadline and subsequent rendered-mesh check remain.
-    await page.waitForFunction(()=>!document.getElementById('orreryCanvas').getContext('webgl2').isContextLost(),{timeout:10000,polling:100});
-    await page.evaluate(()=>{window.__physicalExpectedContextLoss=false;});
-    await waitReady('Mars',{terrain:true});await capture('mars-context-restored');
+    await page.evaluate(()=>{const c=document.getElementById('orreryCanvas'),gl=c.getContext('webgl2'),ext=gl.getExtension('WEBGL_lose_context');if(!ext)throw new Error('WEBGL_lose_context unavailable');window.__physicalExpectedContextLoss=true;window.__physicalLoss={canvas:c,context:gl,extension:ext,observed:false,lossMs:null};c.addEventListener('webglcontextlost',()=>{window.__physicalLoss.observed=true;window.__physicalLoss.lossMs=performance.now();},{once:true});ext.loseContext();});
+    await page.waitForFunction(()=>window.__physicalLoss.observed,{timeout:5000,polling:100});
+    // Observe the native event before the app callback rebuilds resources. CDP
+    // polling can miss its deadline while the already-restored context is busy.
+    // Both the native 10s limit and total 40s ready limit use request time.
+    const restoreStarted=performance.now();
+    evidence.context_restore=await page.evaluate(requestContextRestoration,{timeoutMs:10000});save();
+    const remaining=40000-(performance.now()-restoreStarted);
+    assert.ok(remaining>0,'Restored resources exceeded 40000ms from request');
+    await waitReady('Mars',{terrain:true,timeoutMs:Math.max(1,Math.floor(remaining))});
+    evidence.context_restore=await page.evaluate(()=>{const e=window.__physicalRestoreEvidence;e.ready_ms=performance.now();e.context_lost=document.getElementById('orreryCanvas').getContext('webgl2').isContextLost();window.__physicalExpectedContextLoss=false;return e;});
+    assert.equal(evidence.context_restore.context_lost,false,'Ready context remained lost');
+    assert.ok(Number.isFinite(evidence.context_restore.callback_completed_ms),'Application restoration callback did not return');
+    assert.ok(evidence.context_restore.event_ms-evidence.context_restore.request_ms<=10000,'Native restoration exceeded 10000ms');
+    assert.ok(evidence.context_restore.ready_ms-evidence.context_restore.request_ms<=40000,'Actual terrain/optics readiness exceeded 40000ms from request');
+    await capture('mars-context-restored');
     assert.ok(evidence.worker_urls.filter(x=>x.includes('terrain.worker.js')).length>workersBefore,'Terrain Worker was not recreated after context restoration');
     check('Context restoration recreates actual terrain resources and preserves engine state');
   }

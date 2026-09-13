@@ -207,10 +207,17 @@ records RFC 0005 products. In Solar System, **The Sun** enters a source-facing i
 AIA 171 EUV colors from a visible-light approximation. Play/scrub controls traverse two
 historical frames over a finite 20-second display interval, independently of System time.
 Restart/retry resets that interval and retries a failed atlas. Reduced motion pauses it.
+Leaving the workspace, entering a galactic view, selecting another body or disabling
+source textures pauses playback. Returning preserves source time and requires pressing
+Play source. The source controls reflect availability even while the canvas is resizing.
 
 Measured terrain is currently admitted for Moon/LOLA and Mars/MOLA only. Source pixels
 span 0.25 degrees; this is global relief, not local geological surveying. Mesh generation
 is cancellable, bounded to two resident detail entries and run in dedicated workers.
+If the demanded terrain fails, switch terrain off and back on to retry that body/detail.
+Ordinary paints do not retry failed detail. Leaving cancels pending terrain and solar
+loads before GPU upload; ready cache entries remain available for a later visit. Late
+responses from cancelled work cannot replace newer requests.
 Reference scattering and incident solar refraction are enabled for Earth/Mars in close
 views. They use fixed reference profiles; no current atmosphere retrieval, cloud transfer,
 observer-ray refraction or qualified ocean glint is claimed. The giant-planet observation

@@ -50,7 +50,7 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     "orreryMath.js", "orreryTime.js", "orbitCamera.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
     "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js",
     "terrainAssets.js", "terrainGeometry.js", "terrainShadowShaders.js", "terrain.worker.js", "terrainWorkerClient.js",
-    "solarAppearance.js", "solarAppearanceManifest.js", "solarVolumeShaders.js", "atmosphereOptics.js", "atmosphereShaders.js",
+    "solarAppearance.js", "solarAppearanceManifest.js", "solarVolumeShaders.js", "atmosphereOptics.js", "atmosphereShaders.js", "atmosphereIncident.js", "atmosphereIncidentManifest.js",
     "planetPhenomena.js", "planetPhenomenaManifest.js", "solarAssetLoader.js", "physicalRendering.js"})
 
 
