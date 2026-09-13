@@ -57,11 +57,20 @@ its layer is withheld with an unavailable status; another source date is not sub
 
 If a mapped planet image is unavailable after a temporary connection or GPU upload
 failure, leave Solar System and return, or turn **Source-qualified textures** off
-and on in its inspector. Each deliberate action retries only failed references;
-pending requests and loaded textures remain intact. There is no automatic retry
-loop. A retry requests the same pinned local imagery and never changes its source
+and on in its inspector. Each deliberate action makes failed references eligible
+to retry when they are useful in the current view. Loaded maps remain cached
+within the bounded eight-texture budget. Turning imagery off cancels pending
+requests; ordinary repaint and view re-entry preserve current pending requests.
+There is no automatic retry loop. A retry requests the same pinned local imagery and never changes its source
 date or refreshes weather. Device limits or persistent missing files remain
 explicitly unavailable and use the disclosed simplified surface.
+
+Only useful visible bodies and enabled Earth layers request images, with at most
+two concurrent requests. Deferred imagery is distinct from a failed image;
+focus or zoom in to load it. The other cloud source and disabled sea ice are not
+prefetched. GPU cache eviction may reload the same pinned map on a later visit.
+See the [reference demand contract](plans/2026-09-13-system-polish/REFERENCE_DEMAND.md)
+for lifetime, resource accounting and context-recovery details.
 
 `tools/fetch_earth_reference.py` is an explicit operator-run NASA acquisition tool.
 It requires Python 3.11 or later, uses only the standard library, and needs ordinary

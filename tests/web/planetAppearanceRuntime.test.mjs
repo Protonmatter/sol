@@ -11,6 +11,18 @@ const layers = [
   { role: "sea-ice", control: "orreryEarthIce", flag: "u_earthIce", sampler: "u_iceTex", unit: 4 },
 ];
 
+test('wide overview defers reference downloads until a mapped body has useful visible detail', async t => {
+  const h = await orreryHarness(t, { controls:true, reducedMotion:true });
+  await h.enterOrrery(); t.after(()=>h.leaveOrrery());
+  assert.deepEqual(h.images.map(image=>image.src).sort(), ['Jupiter','Saturn'].map(body=>appearanceReference(body).path).sort(),
+    'only the two visibly resolved giant planets need overview maps');
+  h.input('orreryAnchor','Earth','change');
+  assert.equal(h.images.filter(image=>image.src).length,2,'only two active image requests may start at once');
+  assert.ok(h.images.filter(image=>image.src).every(image=>['surface','night-lights'].some(role=>appearanceReference('Earth',role).path===image.src)));
+  assert.equal(h.state.appearanceStatus[appearanceReference('Earth','sea-ice').id],'deferred');
+  assert.equal(h.state.appearanceStatus[appearanceReference('Earth','weather').id],'deferred');
+});
+
 async function start(t, options = {}) {
   const h = await orreryHarness(t, { controls: true, reducedMotion: true, ...options });
   await h.enterOrrery();
@@ -18,6 +30,7 @@ async function start(t, options = {}) {
   assert.equal(h.state.engineError, "");
   // Existing swath/mask regressions explicitly select the observational source.
   if (options.source !== "default") h.input("orreryEarthCloudSource", "daily", "change");
+  h.input('orreryAnchor','Earth','change');
   return h;
 }
 
@@ -68,6 +81,10 @@ test("qualified catalogue moon maps share readiness, registration, albedo and ec
     const matches = paint(h).filter(draw => draw.uniforms.u_useTex === 1 && draw.textures.get(0) === loaded.texture);
     assert.equal(matches.length, 1, `${asset.body}: exactly its own moon uses the source`);
     const draw = matches[0], u = draw.uniforms;
+    assert.ok(Object.values(h.state.appearanceStatus).filter(status=>status==='ready').length<=8,
+      'touring mapped moons cannot accumulate an unbounded GPU cache');
+    const liveMaps = h.textureRecords.filter(record=>h.images.includes(record.pixels)&&!h.deletedTextures.includes(record.texture));
+    assert.ok(liveMaps.length<=8,'eviction deletes real GPU texture handles before the ninth admission');
     assert.equal(u.u_texMode, 4);
     assert.equal(u.u_style, -1);
     assert.equal(u.u_mapNoData, {none:0,black:1,alpha:2}[asset.nodata]);
@@ -84,6 +101,13 @@ test("qualified catalogue moon maps share readiness, registration, albedo and ec
   assert.equal(h.state.renderUnix, epoch);
   assert.equal(JSON.stringify(h.state.bodies), positions);
   assert.equal(h.errors.length, 0);
+  assert.ok(h.deletedTextures.length>=assets.length-8);
+  const evicted = assets.find(asset=>h.state.appearanceStatus[asset.id]==='deferred');
+  assert.ok(evicted,'a previously visited map outside current demand is evicted');
+  h.input('orreryAnchor',evicted.body,'change');
+  const reloaded = complete(h,evicted.body);
+  assert.equal(h.state.appearanceStatus[evicted.id],'ready');
+  assert.ok(paint(h).some(draw=>draw.textures.get(0)===reloaded.texture && draw.uniforms.u_texMode===4));
 });
 
 test("failed catalogue moon imagery retries explicitly and cannot be replaced by an unqualified legacy image", async t => {
@@ -107,12 +131,14 @@ test("Earth defaults to the complete historical composite; swaths require an exp
   const h = await start(t, { source: "default" });
   assert.equal(h.state.earthCloudSource, "composite");
   complete(h, "Earth");
-  const reference = complete(h, "Earth", "cloud-composite"), daily = complete(h, "Earth", "weather");
+  const reference = complete(h, "Earth", "cloud-composite");
+  assert.ok(!h.images.some(image=>image.src===appearanceReference('Earth','weather').path));
   const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
   assert.equal(bodyDraw(h, paint(h)).textures.get(3), reference.texture);
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /2002/);
   assert.doesNotMatch(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026/);
   h.input("orreryEarthCloudSource", "daily", "change");
+  const daily = complete(h, "Earth", "weather");
   assert.equal(bodyDraw(h, paint(h)).textures.get(3), daily.texture);
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026/);
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /swath.*gaps|gaps.*swath/i);
@@ -127,13 +153,14 @@ test("Earth defaults to the complete historical composite; swaths require an exp
 
 test("missing selected composite never silently substitutes dated swaths", async t => {
   const h = await start(t, { source: "default" });
-  complete(h, "Earth"); complete(h, "Earth", "weather");
+  complete(h, "Earth");
   const reference = sourceImage(h, "Earth", "cloud-composite");
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0, "pending composite does not use available daily swaths");
   reference.image.onerror();
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /2002.*unavailable/);
   h.input("orreryEarthCloudSource", "daily", "change");
+  complete(h, 'Earth', 'weather');
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 1);
   h.input("orreryEarthCloudSource", "composite", "change");
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
@@ -143,19 +170,26 @@ test("missing selected composite never silently substitutes dated swaths", async
   assert.equal(h.state.engineError, "");
 });
 
-test("explicit daily imagery never silently substitutes a ready or late historical composite", async t => {
-  const h = await start(t);
+test("explicit daily imagery rejects a late cancelled composite without substituting another source", async t => {
+  const h = await start(t, {source:'default'});
   complete(h, "Earth");
   const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
+  const composite = sourceImage(h,'Earth','cloud-composite');
+  const lateLoad = composite.image.onload;
+  [composite.image.width,composite.image.height] = composite.asset.dimensions;
+  h.input('orreryEarthCloudSource','daily','change');
   const daily = sourceImage(h, "Earth", "weather");
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
-  complete(h, "Earth", "cloud-composite");
+  const uploads = h.textureRecords.length;
+  lateLoad();
+  assert.equal(h.textureRecords.length,uploads,'cancelled decode never uploads');
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0, "late completion of an unselected source cannot replace the selection");
   daily.image.onerror();
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026.*unavailable/);
   assert.doesNotMatch(h.nodes.orreryEarthLayerStatus.textContent, /2002/);
   h.input("orreryEarthCloudSource", "composite", "change");
+  complete(h,'Earth','cloud-composite');
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 1);
   h.input("orreryEarthCloudSource", "daily", "change");
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
@@ -165,8 +199,10 @@ test("explicit daily imagery never silently substitutes a ready or late historic
 
 test("registered references load from reviewed local paths; pending imagery is disclosed without changing the engine", async t => {
   const h = await start(t);
-  assert.deepEqual(h.images.map(image => image.src).sort(), appearanceReferences().map(asset => asset.path).sort());
-  for (const asset of appearanceReferences()) assert.equal(h.state.appearanceStatus[asset.id], "loading");
+  assert.ok(h.images.filter(image=>image.src).every(image=>appearanceReferences().some(asset=>asset.path===image.src)));
+  assert.equal(Object.values(h.state.appearanceStatus).filter(status=>status==='loading').length,2);
+  assert.equal(h.state.appearanceStatus[appearanceReference('Earth','weather').id],'queued');
+  assert.equal(h.state.appearanceStatus[appearanceReference('Earth','sea-ice').id],'deferred');
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /loading/i);
   assert.equal(h.nodes.orreryIceLegend.hidden, true);
   assert.equal(h.state.sunImageUnix, null, "reference loading cannot invent a solar observation epoch");
@@ -180,9 +216,12 @@ test("Earth dispatches registered land, night lights, weather and ice only to it
   const h = await start(t, { catalogues: "ready" });
   await h.settleCatalogues();
   const epoch = h.state.renderUnix, positions = JSON.stringify(h.state.bodies);
+  h.check("orreryEarthIce", true);
   const day = complete(h, "Earth"), loaded = new Map();
   for (const layer of layers) loaded.set(layer.role, complete(h, "Earth", layer.role));
+  h.input('orreryAnchor','Mars','change');
   const mars = complete(h, "Mars");
+  h.input('orreryAnchor','Earth','change');
   h.check("orreryEarthIce", true);
   assert.equal(h.nodes.orreryIceLegend.hidden, false);
   assert.ok(h.nodes.orreryIceLegendCaption.textContent.includes(appearanceReference("Earth", "sea-ice").observation_label));
@@ -222,6 +261,7 @@ test("Earth dispatches registered land, night lights, weather and ice only to it
 
 test("layer toggles update dispatch and dates immediately; the global reference toggle clears every Earth sampler", async t => {
   const h = await start(t);
+  h.check("orreryEarthIce", true);
   complete(h, "Earth");
   for (const layer of layers) complete(h, "Earth", layer.role);
   h.check("orreryEarthIce", true);
@@ -251,11 +291,11 @@ test("layer toggles update dispatch and dates immediately; the global reference 
 
 test("missing Earth base imagery withholds auxiliary maps; one failed layer does not disable another", async t => {
   const h = await start(t);
-  complete(h, "Earth", "night-lights");
-  complete(h, "Earth", "sea-ice");
   h.check("orreryEarthIce", true);
+  complete(h, "Earth", "night-lights");
   const weather = sourceImage(h, "Earth", "weather");
   weather.image.onerror();
+  complete(h, "Earth", "sea-ice");
   assert.equal(h.state.appearanceStatus[weather.asset.id], "unavailable");
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /unavailable/);
   assertFlags(bodyDraw(h, paint(h)), [], "a missing registered base cannot supply implicit Earth coordinates");
@@ -276,7 +316,7 @@ test("missing Earth base imagery withholds auxiliary maps; one failed layer does
 test("reference toggle retries only failed uploads and rejects callbacks from replaced attempts", async t => {
   const h = await start(t);
   const day = complete(h, "Earth"), weather = sourceImage(h, "Earth", "weather");
-  const pendingMars = sourceImage(h, "Mars");
+  const pendingNight = sourceImage(h, "Earth", "night-lights");
   const oldLoad = weather.image.onload, oldError = weather.image.onerror;
   [weather.image.width, weather.image.height] = weather.asset.dimensions;
   oldError();
@@ -284,10 +324,10 @@ test("reference toggle retries only failed uploads and rejects callbacks from re
   paint(h); paint(h);
   assert.equal(h.images.length, count, "ordinary scene frames do not retry failed files");
   h.check("orreryTextures", false); h.check("orreryTextures", true);
-  assert.equal(h.images.length, count + 1, "one explicit toggle retries only the failed asset");
+  assert.equal(h.images.filter(image=>image.src===weather.asset.path).length,1, "one explicit toggle retries the failed asset after releasing its failed Image");
   assert.notEqual(sourceImage(h, "Earth", "weather").image, weather.image);
   assert.equal(sourceImage(h, "Earth").image, day.image, "ready maps remain cached");
-  assert.equal(sourceImage(h, "Mars").image, pendingMars.image, "in-flight loads remain valid");
+  assert.notEqual(sourceImage(h, "Earth", "night-lights").image, pendingNight.image, "disabled pending layers restart only when re-enabled");
   assert.equal(h.state.appearanceStatus[weather.asset.id], "loading");
   const uploads = h.textureRecords.length;
   oldLoad(); oldError();
@@ -298,25 +338,25 @@ test("reference toggle retries only failed uploads and rejects callbacks from re
   recovered.image.onload(); recovered.image.onerror(); oldError();
   assert.equal(h.textureRecords.length, readyUploads, "completed requests settle once");
   assert.equal(h.state.appearanceStatus[weather.asset.id], "ready");
-  complete(h, "Mars");
-  assert.equal(h.state.appearanceStatus[pendingMars.asset.id], "ready");
-  assertFlags(bodyDraw(h, paint(h)), ["weather"]);
+  complete(h, "Earth", "night-lights");
+  assert.equal(h.state.appearanceStatus[pendingNight.asset.id], "ready");
+  assertFlags(bodyDraw(h, paint(h)), ["night-lights", "weather"]);
   assert.equal(h.state.renderUnix, epoch);
   assert.equal(JSON.stringify(h.state.bodies), bodies);
 });
 
 test("returning to the view retries a failed image without restarting pending or ready references", async t => {
   const h = await start(t);
-  const pendingDay = sourceImage(h, "Earth"), mars = complete(h, "Mars");
-  const failed = sourceImage(h, "Mercury");
+  const pendingDay = sourceImage(h, "Earth"), night = complete(h, "Earth", 'night-lights');
+  const failed = sourceImage(h, "Earth", 'weather');
   failed.image.onerror();
   const count = h.images.length;
   h.leaveOrrery(); await h.enterOrrery();
   assert.equal(h.images.length, count + 1);
   assert.equal(sourceImage(h, "Earth").image, pendingDay.image);
-  assert.equal(sourceImage(h, "Mars").image, mars.image);
+  assert.equal(sourceImage(h, "Earth", 'night-lights').image, night.image);
   assert.equal(h.state.appearanceStatus[failed.asset.id], "loading");
-  complete(h, "Mercury"); complete(h, "Earth");
+  complete(h, "Earth", 'weather'); complete(h, "Earth");
   assert.equal(h.state.appearanceStatus[failed.asset.id], "ready");
   assert.equal(h.state.appearanceStatus[pendingDay.asset.id], "ready");
 });
@@ -325,28 +365,29 @@ test("mapped failure notices follow recovery without deleting independent naviga
   const h = await start(t);
   const base = "Navigation hint. (A separate legacy image is unavailable.)";
   h.nodes.orreryInsight.textContent = base;
-  const weather = sourceImage(h, "Earth", "weather"), mercury = sourceImage(h, "Mercury");
-  weather.image.onerror(); mercury.image.onerror();
-  for (const asset of appearanceReferences()) {
-    if (asset.id !== weather.asset.id && asset.id !== mercury.asset.id) complete(h, asset.body, asset.role);
-  }
+  complete(h,'Earth');
+  const weather = sourceImage(h, "Earth", "weather"), night = sourceImage(h, "Earth", 'night-lights');
+  weather.image.onerror(); night.image.onerror();
   assert.match(h.nodes.orreryInsight.textContent, /reference images are unavailable/);
   h.check("orreryTextures", false); h.check("orreryTextures", true);
-  complete(h, "Earth", "weather"); sourceImage(h, "Mercury").image.onerror();
+  complete(h, "Earth", "weather"); sourceImage(h, "Earth", 'night-lights').image.onerror();
   assert.match(h.nodes.orreryInsight.textContent, /reference images are unavailable/, "one remaining failed map must stay disclosed");
   h.check("orreryTextures", false); h.check("orreryTextures", true);
-  complete(h, "Mercury");
-  assert.ok(Object.values(h.state.appearanceStatus).every(status => status === "ready"));
+  complete(h, "Earth", 'night-lights');
+  assert.ok(!Object.values(h.state.appearanceStatus).includes('unavailable'));
   assert.equal(h.nodes.orreryInsight.textContent, base, "only the recovered mapped-failure notice is removed");
 });
 
 test("context loss invalidates late source callbacks and restores only the new generation", async t => {
   const h = await start(t);
-  const staleDay = sourceImage(h, "Earth"), staleWeather = sourceImage(h, "Earth", "weather");
+  const staleDay = sourceImage(h, "Earth"), staleNight = sourceImage(h, "Earth", "night-lights");
   [staleDay.image.width, staleDay.image.height] = staleDay.asset.dimensions;
-  const staleLoad = staleDay.image.onload, staleFailure = staleWeather.image.onerror;
+  const staleLoad = staleDay.image.onload, staleFailure = staleNight.image.onerror;
   const before = h.textureRecords.length;
   h.event("orreryCanvas", "webglcontextlost");
+  for (const stale of [staleDay,staleNight]) {
+    assert.equal(stale.image.onload,null); assert.equal(stale.image.onerror,null); assert.equal(stale.image.src,'');
+  }
   assert.ok(Object.values(h.state.appearanceStatus).every(status => status === "unavailable"));
   const lostStatus = JSON.stringify(h.state.appearanceStatus);
   staleLoad(); staleFailure();
@@ -357,11 +398,13 @@ test("context loss invalidates late source callbacks and restores only the new g
   staleLoad(); staleFailure();
   assert.equal(h.textureRecords.length, rebuilt, "old bitmaps cannot upload into a replacement context");
   assert.equal(h.state.appearanceStatus[staleDay.asset.id], "loading");
-  assert.equal(h.state.appearanceStatus[staleWeather.asset.id], "loading");
-  complete(h, "Earth"); complete(h, "Earth", "weather");
+  assert.equal(h.state.appearanceStatus[staleNight.asset.id], "loading");
+  assert.equal(h.state.appearanceStatus[appearanceReference('Earth','sea-ice').id],'deferred');
+  assert.equal(h.state.appearanceStatus[appearanceReference('Earth','cloud-composite').id],'deferred');
+  complete(h, "Earth"); complete(h, "Earth", "night-lights"); complete(h, "Earth", "weather");
   staleFailure();
-  assert.equal(h.state.appearanceStatus[staleWeather.asset.id], "ready");
-  assertFlags(bodyDraw(h, paint(h)), ["weather"]);
+  assert.equal(h.state.appearanceStatus[staleNight.asset.id], "ready");
+  assertFlags(bodyDraw(h, paint(h)), ["night-lights", "weather"]);
   assert.equal(h.warnings.length, 0, "obsolete failures must not publish a false unavailable notice");
 });
 
@@ -384,16 +427,22 @@ test("4096 texture limit resamples the complete 5400-pixel Earth extent and pres
 
 test("GPU upload errors delete the rejected image and keep its reference unavailable", async t => {
   const h = await start(t);
+  const pending = sourceImage(h,'Earth'), staleLoad = pending.image.onload, staleError = pending.image.onerror;
   h.setTextureUploadError(h.gl.OUT_OF_MEMORY);
   const { asset, texture } = complete(h, "Earth");
   assert.ok(texture, "the WebGL boundary received an upload before reporting its error");
   assert.ok(h.deletedTextures.includes(texture));
   assert.equal(h.state.appearanceStatus[asset.id], "unavailable");
+  assert.equal(pending.image.onload,null); assert.equal(pending.image.onerror,null); assert.equal(pending.image.src,'');
+  const uploads = h.textureRecords.length, warnings = h.warnings.length;
+  staleLoad(); staleError();
+  assert.equal(h.textureRecords.length,uploads); assert.equal(h.warnings.length,warnings);
   const rejected = bodyDraw(h, paint(h));
   assert.equal(rejected.uniforms.u_useTex, 0);
   assert.notEqual(rejected.textures.get(0), texture);
   assertFlags(rejected, []);
   h.setTextureUploadError(0);
+  h.input('orreryAnchor','Mars','change');
   const mars = complete(h, "Mars");
   assert.equal(h.state.appearanceStatus[mars.asset.id], "ready", "a failed Earth upload does not prevent other sources rendering");
   assert.equal(bodyDraw(h, paint(h), "Mars").textures.get(0), mars.texture);
@@ -402,6 +451,7 @@ test("GPU upload errors delete the rejected image and keep its reference unavail
 
 test("sea ice retains nearest sampling and no mipmaps, while display imagery retains linear filtering", async t => {
   const h = await start(t);
+  h.check('orreryEarthNight',false); h.check('orreryEarthWeather',false); h.check('orreryEarthIce',true);
   const day = complete(h, "Earth"), ice = complete(h, "Earth", "sea-ice");
   const filters = texture => new Map(h.textureParameters.filter(record => record.texture === texture).map(record => [record.name, record.value]));
   const scientific = filters(ice.texture), photographic = filters(day.texture);
@@ -417,14 +467,15 @@ test("sea ice retains nearest sampling and no mipmaps, while display imagery ret
 
 test("masked reference uploads premultiply coverage and reset that state for each subsequent image", async t => {
   const h = await start(t);
-  const order = [["Earth", "weather", true], ["Earth", "surface", false],
-    ["Mars", "surface", true], ["Earth", "sea-ice", false], ["Earth", "night-lights", false]];
+  h.check('orreryEarthNight',false); h.check('orreryEarthWeather',true); h.check('orreryEarthIce',false);
+  const order = [["Earth", "weather", true], ["Earth", "surface", false], ["Mars", "surface", true]];
   for (const sequence of [order, [...order].reverse()]) {
     if (sequence !== order) {
       h.event("orreryCanvas", "webglcontextlost");
       h.event("orreryCanvas", "webglcontextrestored"); await h.settle();
     }
     for (const [body, role, expected] of sequence) {
+      h.input('orreryAnchor',body,'change');
       const { image, asset } = complete(h, body, role);
       const upload = h.textureRecords.findLast(record => record.pixels === image);
       assert.ok(upload);
@@ -434,12 +485,13 @@ test("masked reference uploads premultiply coverage and reset that state for eac
       assert.equal(h.state.appearanceStatus[asset.id], "ready");
     }
   }
-  assertFlags(bodyDraw(h, paint(h)), ["night-lights", "weather"]);
+  assertFlags(bodyDraw(h, paint(h)), ["weather"]);
   assert.equal(h.errors.length, 0);
 });
 
 test("an oversized scientific palette fails closed instead of creating interpolated ice classes", async t => {
   const h = await start(t, { maxTextureSize: 1024 });
+  h.check('orreryEarthNight',false); h.check('orreryEarthWeather',false); h.check('orreryEarthIce',true);
   complete(h, "Earth");
   const before = h.textureRecords.length;
   const ice = complete(h, "Earth", "sea-ice");
@@ -459,4 +511,54 @@ test("unavailable downsampling canvas leaves a smaller GPU usable with an explic
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_useTex, 0);
   assert.equal(h.state.engineError, "");
   assert.equal(h.errors.length, 0);
+});
+
+test('decoded source dimensions must match the pinned grid before allocating GPU memory', async t => {
+  const h = await start(t);
+  const {asset,image} = sourceImage(h,'Earth');
+  [image.width,image.height] = [asset.dimensions[0]*2,asset.dimensions[1]*2];
+  const before = h.textureRecords.length;
+  image.onload();
+  assert.equal(h.textureRecords.length,before);
+  assert.equal(h.state.appearanceStatus[asset.id],'unavailable');
+  assert.equal(image.onload,null); assert.equal(image.onerror,null); assert.equal(image.src,'');
+});
+
+test('disabled optional layers never fetch; a queued ice choice can be withdrawn before a slot opens', async t => {
+  const h = await start(t,{source:'default'});
+  h.check('orreryEarthIce',true);
+  assert.equal(h.state.appearanceStatus[appearanceReference('Earth','sea-ice').id],'queued');
+  h.check('orreryEarthIce',false);
+  h.check('orreryEarthWeather',false);
+  h.input('orreryEarthCloudSource','daily','change');
+  complete(h,'Earth'); complete(h,'Earth','night-lights');
+  for (const role of ['weather','cloud-composite','sea-ice']) {
+    assert.ok(!h.images.some(image=>image.src===appearanceReference('Earth',role).path),`${role} stays unfetched`);
+    assert.equal(h.state.appearanceStatus[appearanceReference('Earth',role).id],'deferred');
+  }
+  h.check('orreryEarthWeather',true);
+  const daily = complete(h,'Earth','weather');
+  assert.equal(bodyDraw(h,paint(h)).textures.get(3),daily.texture);
+  h.check('orreryEarthIce',true);
+  complete(h,'Earth','sea-ice');
+  assertFlags(bodyDraw(h,paint(h)),['night-lights','weather','sea-ice']);
+});
+
+test('inactive or disabled views cannot upload a late image; galaxy views request no surface maps', async t => {
+  const h = await start(t);
+  const day = sourceImage(h,'Earth'), late = day.image.onload;
+  [day.image.width,day.image.height] = day.asset.dimensions;
+  const uploads = h.textureRecords.length;
+  h.leaveOrrery(); late();
+  assert.equal(h.textureRecords.length,uploads);
+  await h.enterOrrery();
+  const active = sourceImage(h,'Earth'), cancelled = active.image.onload;
+  [active.image.width,active.image.height] = active.asset.dimensions;
+  h.check('orreryTextures',false); cancelled();
+  assert.equal(h.textureRecords.length,uploads);
+  assert.ok(!Object.values(h.state.appearanceStatus).includes('loading'));
+  h.state.galaxy = true; h.check('orreryTextures',true);
+  assert.ok(!Object.values(h.state.appearanceStatus).includes('loading'));
+  h.state.galaxy = false; paint(h);
+  assert.equal(Object.values(h.state.appearanceStatus).filter(status=>status==='loading').length,2);
 });

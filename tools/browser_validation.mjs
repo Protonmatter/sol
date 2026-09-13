@@ -10,6 +10,8 @@ import v8ToIstanbul from "v8-to-istanbul";
 import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
 import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import { assertCaptionLayouts } from "./caption_layout.mjs";
+import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
+import { waitForReferenceReadiness } from "./reference_readiness.mjs";
 import {
   ROOT,
   WEB,
@@ -409,6 +411,7 @@ async function zoomIn(page, presses) {
 }
 
 async function canvasScreenshot(page, output) {
+  await waitForReferenceReadiness(page);
   const canvas = await page.$("#orreryCanvas");
   if (!canvas) throw new Error("3-D canvas is missing");
   // ElementHandle.screenshot scrolls, then reads the bounding box and page offset
@@ -846,6 +849,7 @@ async function visualAssertions(page, visualDirectory) {
 
   await focusBody(page, "Earth");
   await zoomIn(page, 8);
+  await waitForReferenceReadiness(page, "Earth");
   await new Promise((resolve) => setTimeout(resolve, 300));
   const earthBefore = await canvasScreenshot(page, path.join(visualDirectory, "earth-before-orbit.png"));
   const earthStats = assertBlueEarth(earthBefore);
@@ -1046,29 +1050,8 @@ async function exerciseOrrery(page, visualDirectory) {
     throw new Error(`3-D readiness timed out: ${JSON.stringify(state)}`, { cause: error });
   }
   await setChecked(page, "#orreryAnimate", false);
-  // WebGL/context readiness precedes asynchronous image uploads. A before/after
-  // camera comparison must not compare different material-loading states.
-  await page.waitForFunction(async () => {
-    const entry = document.querySelector('script[type="module"][src^="app.js"]');
-    const token = entry ? new URL(entry.src).search : "";
-    const [{ store }, { appearanceReferences }] = await Promise.all([
-      import(`./js/store.js${token}`), import(`./js/planetAppearance.js${token}`),
-    ]);
-    const assets = appearanceReferences(), status = store.orrery?.appearanceStatus || {};
-    return assets.length > 0 && (assets.every(asset => status[asset.id] === 'ready')
-      || assets.some(asset => status[asset.id] === 'unavailable'));
-  }, { timeout: 75_000 });
-  const appearance = await page.evaluate(async () => {
-    const entry = document.querySelector('script[type="module"][src^="app.js"]');
-    const token = entry ? new URL(entry.src).search : "";
-    const [{ store }, { appearanceReferences }] = await Promise.all([
-      import(`./js/store.js${token}`), import(`./js/planetAppearance.js${token}`),
-    ]);
-    return Object.fromEntries(appearanceReferences().map(asset => [asset.id, store.orrery.appearanceStatus[asset.id]]));
-  });
-  if (Object.values(appearance).some(status => status !== 'ready')) {
-    throw new Error(`reference imagery unavailable before visual assertions: ${JSON.stringify(appearance)}`);
-  }
+  // Settle the current visible demand; distant and disabled maps remain deferred.
+  const appearance = await waitForReferenceReadiness(page);
   fs.mkdirSync(visualDirectory, { recursive: true });
   fs.writeFileSync(path.join(visualDirectory, 'appearance-readiness.json'), `${JSON.stringify(appearance)}\n`);
   // Network idleness is not scene readiness: cancelled workers and offline-cache
@@ -1350,7 +1333,8 @@ async function main() {
       } catch {}
     }, { fixedNow: FIXED_UNIX_MS, serverBase: server.base });
 
-    const failures = [];
+    const failures = [], moduleRequests = [];
+    page.on("request", request => moduleRequests.push(request.url()));
     page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
       // The optional DE441 exercise deliberately receives a 404 from the static server
@@ -1375,6 +1359,8 @@ async function main() {
     });
     phase="disclosure";console.log(`Browser validation: ${phase}`);
     await assertDisclosureContract(page);
+    const mobileUpdate = await assertMobileOfflineUpdate(page);
+    fs.writeFileSync(path.join(outputDirectory, "mobile-update.json"), JSON.stringify(mobileUpdate, null, 2) + "\n");
     const solarSchema = mapping ? mapping.manifest.schemas.find((schema) => schema.startsWith("solar-state-snapshot."))
       : JSON.parse(fs.readFileSync(path.join(pageRoot, "data/latest-state.json"), "utf8")).schema_version;
     if (!solarSchema) throw new Error("staged release does not declare its solar schema");
@@ -1395,6 +1381,8 @@ async function main() {
           || !geography.EARTH || !geography.FEATURES) throw new Error('archived geography module contract failed');
     });
     await workerCoverage.collect();
+    const manifestRequests = assertManifestRequestIdentity(moduleRequests);
+    fs.writeFileSync(path.join(outputDirectory, "manifest-requests.json"), JSON.stringify(manifestRequests) + "\n");
     const entries = [...await page.coverage.stopJSCoverage(),...workerCoverage.entries];
     failures.push(...workerCoverage.errors.map(error=>"worker coverage: "+error));
     if (failures.length) {

@@ -1854,7 +1854,10 @@ body.focus-mode .observation-image-wrap { right: 0; }
   .sources-limits { margin: 0 .75rem 1rem; }
   .header-actions { display: flex; grid-column: 1/-1; margin: 0; padding: 0; justify-content: flex-end; font-size: .62rem; }
   .header-actions > a, .header-actions > button { padding: .1rem .4rem; min-height: 32px; }
-  .offline-menu { display: none; }
+  .offline-menu { display: block; flex: 0 1 13rem; max-width: 55%; }
+  .offline-menu summary { padding: .5rem .4rem; }
+  .offline-menu[open] { padding: 0 .5rem .5rem; }
+  .offline-menu #releaseUpdate { min-height: 44px; white-space: normal; }
   body.focus-mode .observation-image-wrap { inset: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .solar-observation * { scroll-behavior: auto; transition: none; } }

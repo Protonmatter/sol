@@ -64,8 +64,10 @@ test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse att
   }
   assert.ok(uploads.get("Europa") > uploads.get("Ganymede"), "the larger Ganymede must retain its lower reflectance");
   assert.ok(Math.abs(uploads.get("Callisto") / uploads.get("Europa") - MOON_ALBEDO.Callisto / MOON_ALBEDO.Europa) < 1e-6);
-  assert.deepEqual(h.images.map(image => image.src).sort(), appearanceReferences().map(a => a.path).sort(),
+  assert.ok(h.images.filter(image=>image.src).every(image=>appearanceReferences().some(a=>a.path===image.src)),
     'only dated registered references load; held moon images remain blocked');
+  assert.ok(Object.values(h.state.appearanceStatus).filter(status=>status==='loading').length<=2,
+    'only the bounded set of useful visible maps can be pending');
   h.leaveOrrery();
 });
 

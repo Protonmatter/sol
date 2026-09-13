@@ -5,8 +5,10 @@ import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
 import { BODY } from '../../apps/web/js/bodyData.js';
 
 function assertOnlyRegisteredImages(h) {
-  assert.deepEqual(h.images.map(image => image.src).sort(), appearanceReferences().map(a => a.path).sort(),
+  assert.ok(h.images.filter(image=>image.src).every(image=>appearanceReferences().some(a=>a.path===image.src)),
     'Only separately registered dated references load; legacy held globe/ring/disk imagery stays blocked');
+  assert.ok(Object.values(h.state.appearanceStatus).filter(status=>status==='loading').length <= 2,
+    'reference image transfer/decode concurrency remains bounded');
 }
 
 function assertFocusedDisc(h, expected = .76, extentRatio = 1) {
@@ -57,6 +59,105 @@ test('focused planets and moons fit desktop and portrait views without changing 
   assert.equal(JSON.stringify(h.state.bodies), bodies, 'camera gestures do not change engine positions or epoch');
   h.input('orreryAnchor', 'Sun', 'change');
   assert.equal(h.state.radius, 26, 'explicit Sun overview remains available');
+  assert.equal(h.errors.length, 0);
+});
+
+test('focused camera follows growing and shrinking display extents without resetting manual zoom', async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  const bodies = JSON.stringify(h.state.bodies), epoch = h.state.renderUnix;
+  h.check('orreryTrueScale', true);
+  h.input('orreryAnchor', 'Earth', 'change');
+  const physicalDistance = h.state.radius;
+  assertFocusedDisc(h);
+  h.check('orreryTrueScale', false);
+  assertFocusedDisc(h);
+  assert.ok(h.state.radius > physicalDistance * 100, 'enlargement must move the eye outside the enlarged globe');
+  h.check('orreryTrueScale', true);
+  assert.ok(Math.abs(h.state.radius / physicalDistance - 1) < 1e-12, 'shrinking restores the same framing');
+  h.check('orreryTrueScale', false);
+  const normalExtent = assertFocusedDisc(h), normalFit = h.state.radius;
+  h.input('orrerySize', '2');
+  assertFocusedDisc(h);
+  const fittedDistance = h.state.radius;
+  h.event('orreryCanvas', 'keydown', { key: '+' });
+  const zoom = h.state.radius / fittedDistance;
+  h.check('orreryShowLabels', false);
+  assert.equal(h.state.radius / fittedDistance, zoom, 'an ordinary repaint retains manual zoom');
+  h.input('orrerySize', '1');
+  assert.ok(Math.abs(h.state.radius / normalFit - zoom) < 1e-12, 'size changes preserve zoom relative to the fit');
+  for (let i = 0; i < 30; i++) h.event('orreryCanvas', 'keydown', { key: '+' });
+  h.check('orreryTrueScale', true);
+  assert.ok(h.state.radius > BODY.Earth.radiusKm / 149597870.7, 'geometry shrink respects the physical near-surface zoom bound');
+  h.check('orreryTrueScale', false);
+  assert.ok(h.state.radius > normalExtent, 'geometry growth respects the enlarged near-surface zoom bound');
+  assert.equal(JSON.stringify(h.state.bodies), bodies);
+  assert.equal(h.state.renderUnix, epoch);
+  assert.equal(h.errors.length, 0);
+});
+
+test('existing focus refits portrait resizing and retains zoom while overview and free flight stay independent', async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  h.resize(320, 720);
+  assert.equal(h.state.radius, 26, 'initial overview does not become a Sun close-up');
+  h.resize(800, 600);
+  h.input('orreryAnchor', 'Saturn', 'change');
+  const ratio = BODY.Saturn.rings.outerKm / BODY.Saturn.radiusKm;
+  assertFocusedDisc(h, .76, ratio);
+  h.resize(320, 720);
+  assertFocusedDisc(h, .76, ratio);
+  const portraitFit = h.state.radius;
+  h.event('orreryCanvas', 'keydown', { key: '-' });
+  const zoom = h.state.radius / portraitFit;
+  h.resize(800, 600);
+  const landscapeZoomed = h.state.radius;
+  h.input('orreryAnchor', 'Saturn', 'change');
+  assert.ok(Math.abs(landscapeZoomed / h.state.radius - zoom) < 1e-12, 'resize preserves the deliberate zoom ratio');
+  const fitted = h.state.radius;
+  h.resize(1600, 1200, 2);
+  assert.equal(h.state.radius, fitted, 'same-aspect resize and DPR changes do not alter zoom');
+  h.check('orreryTopDown', true); h.resize(320, 720);
+  assert.equal(h.state.radius, 78, 'top-down keeps the system overview');
+  h.check('orreryTopDown', false);
+  assertFocusedDisc(h, .76, ratio);
+  h.check('orreryFreeFly', true);
+  const freePosition = JSON.stringify(h.state.freePos), freeRadius = h.state.radius;
+  h.resize(800, 600); h.check('orreryTrueScale', true);
+  assert.equal(JSON.stringify(h.state.freePos), freePosition, 'resize and scale do not move the free-fly camera');
+  assert.equal(h.state.radius, freeRadius, 'free flight does not mutate the stored orbit zoom');
+  h.check('orreryFreeFly', false);
+  assertFocusedDisc(h, .76, ratio);
+  h.event('orreryGalaxy', 'click'); h.resize(320, 720);
+  assert.equal(h.state.radius, 118, 'galaxy keeps its separate overview distance');
+  h.event('orreryGalaxy', 'click');
+  assertFocusedDisc(h, .76, ratio);
+  h.input('orreryAnchor', 'Pluto', 'change'); h.resize(800, 600);
+  assert.equal(h.state.radius, 4, 'small-body marker focus keeps its contextual distance');
+  h.input('orreryAnchor', 'Sun', 'change'); h.resize(320, 720);
+  assert.equal(h.state.radius, 26, 'explicit Sun overview remains independent of aspect');
+  assert.equal(h.errors.length, 0);
+});
+
+test('a focused moon crossing its validated epoch frames its parent immediately and recovers on return', async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  h.input('orreryAnchor', 'Io', 'change');
+  const moonDistance = h.state.radius;
+  assertFocusedDisc(h);
+  h.input('orreryTime', '100'); await h.settle();
+  assert.equal(h.state.anchor, 'Io', 'unavailable target remains selected with its limit disclosed');
+  assert.match(h.nodes.orrerySelectedEpoch.textContent, /position unavailable outside the moon table interval/);
+  assertFocusedDisc(h);
+  assert.ok(h.state.radius > moonDistance * 2, 'fallback is reframed before drawing the larger parent');
+  const parentDistance = h.state.radius;
+  h.input('orreryAnchor', 'Jupiter', 'change');
+  assert.ok(Math.abs(h.state.radius / parentDistance - 1) < 1e-12, 'implicit fallback and explicit parent focus agree');
+  h.input('orreryAnchor', 'Io', 'change');
+  h.now(); await h.settle();
+  assert.equal(h.state.moonsHiddenReason, '');
+  assertFocusedDisc(h);
+  assert.ok(Math.abs(h.state.radius / moonDistance - 1) < 1e-12, 'valid moon return restores its close-up without another Focus action');
   assert.equal(h.errors.length, 0);
 });
 

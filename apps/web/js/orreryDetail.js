@@ -6,6 +6,11 @@ import { BODY, poleVector } from "./bodyData.js?v=dcca6290db";
 import { isRetrograde } from "./moonorbits.js?v=dcca6290db";
 import { MOON_ALBEDO } from "./moonAppearance.js?v=dcca6290db";
 import { visualProvenanceText, visualBrowsePreview } from "./visualAssets.js";
+import { appearanceReference, appearanceReferences, appearanceDescription, earthCloudRole } from "./planetAppearance.js";
+
+// Keep mutable appearance text separate from the native disclosure and source links.
+// Presentation updates must not replace a focused link, glossary button or open card.
+const sourceDisclosures = new WeakMap();
 
 function fmt(n, d = 0) { return n == null || !isFinite(n) ? "—" : n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }); }
 
@@ -23,7 +28,7 @@ function sci(n) {
  * moon's card leads with what it orbits, and its position carries an accuracy caveat the
  * planets' VSOP2013/TOP2013 positions do not need.
  */
-export function renderMoonDetail(m, unixSeconds) {
+export function renderMoonDetail(m, unixSeconds, appearanceState = {}) {
   const host = document.getElementById("orreryDetail"); if (!host) return;
   host.textContent = "";
   const card = document.createElement("div"); card.className = "sky-row system-detail";
@@ -76,7 +81,7 @@ export function renderMoonDetail(m, unixSeconds) {
     + "size, so the spacing between moons stays true. "
     + "Displayed surface detail follows the qualification stated below.";
   card.appendChild(note);
-  appendVisualSources(card, m.n);
+  appendVisualSources(card, m.n, appearanceState);
   host.appendChild(card);
 }
 
@@ -126,10 +131,10 @@ export function renderSmallDetail(s) {
 
 // Render the facts card for `name` into #orreryDetail. `live` is the body's row from the
 // current system snapshot (distances/speed/phase/magnitude/equilibrium temp), or undefined.
-export function renderDetail(name, live) {
+export function renderDetail(name, live, appearanceState = {}) {
   const host = document.getElementById("orreryDetail"); if (!host) return;
   const phys = BODY[name];
-  if(phys && host.querySelector(".system-detail > strong")?.textContent === name){updateLiveDetailFacts(live);return;}
+  if(phys && host.querySelector(".system-detail > strong")?.textContent === name){updateLiveDetailFacts(live);updateDetailAppearance(appearanceState);return;}
   host.textContent = "";
   if (!phys) {
     const row = document.createElement("div");
@@ -195,7 +200,7 @@ export function renderDetail(name, live) {
     add("Composition", "73% H, 25% He (by mass)");
     add("Surface imagery", "3D imagery mapping held; retained solar disk has no verified observation time. Fetch time is not capture time.");
   }
-  card.appendChild(dl); appendVisualSources(card, name); host.appendChild(card);
+  card.appendChild(dl); appendVisualSources(card, name, appearanceState); host.appendChild(card);
 }
 
 // Keep glossary buttons and the selected card stable while mutable display facts
@@ -221,14 +226,25 @@ export function updateLiveDetailFacts(live) {
 
 // Original browse previews retain their rectangular coverage. A verified file is
 // not automatically a global map, calibrated color image, or current observation.
-function appendVisualSources(card, name) {
+function appendVisualSources(card, name, appearanceState = {}) {
   const disclosure = document.createElement("details");
   disclosure.className = "visual-sources";
   const summary = document.createElement("summary");
   summary.textContent = "Image and rendering sources";
   const provenance = document.createElement("p");
-  provenance.textContent = visualProvenanceText(name);
   disclosure.append(summary, provenance);
+  const layers = appearanceReferences().filter(asset => asset.body === name).map(asset => {
+    const row = document.createElement("div"); row.dataset.appearanceRole = asset.role;
+    const description = document.createElement("p");
+    const link = document.createElement("a");
+    link.href = asset.source_url; link.target = "_blank"; link.rel = "noopener noreferrer";
+    link.textContent = `${asset.label} · ${asset.credits}`;
+    row.append(description, link); disclosure.appendChild(row);
+    return { asset, row, description };
+  });
+  const sources = { name, provenance, layers };
+  sourceDisclosures.set(document.getElementById("orreryDetail"), sources);
+  updateVisualSources(sources, appearanceState);
   if (BODY[name]?.rings) {
     const rings = document.createElement("p");
     rings.textContent = "Ring radius geometry follows the catalogued dimensions shown above. Neutral ring color is a display convention; the opacity and shadow profile is illustrative and photometrically uncalibrated.";
@@ -236,6 +252,9 @@ function appendVisualSources(card, name) {
   }
   const preview = visualBrowsePreview(name);
   if (preview) {
+    const legacy = document.createElement("p");
+    legacy.textContent = `Separate legacy browse preview (not used for the globe): ${visualProvenanceText(name)}`;
+    disclosure.appendChild(legacy);
     const figure = document.createElement("figure");
     figure.style.margin = "0";
     const img = document.createElement("img");
@@ -258,4 +277,45 @@ function appendVisualSources(card, name) {
     disclosure.appendChild(figure);
   }
   card.appendChild(disclosure);
+}
+
+function updateVisualSources(sources, state) {
+  const { name, provenance, layers } = sources;
+  const surface = appearanceReference(name), enabled = state.useTextures !== false;
+  const ready = surface && state.appearanceStatus?.[surface.id] === "ready";
+  const text = appearanceDescription(name, state, true);
+  const description = `${enabled && ready ? "Surface reference ready. " : ""}${text}`;
+  if (provenance.textContent !== description) provenance.textContent = description;
+  for (const { asset, row, description: layerText } of layers) {
+    if (asset.role === "surface") {
+      // The main paragraph already carries this map's full date and limits.
+      row.hidden = !enabled;
+      continue;
+    }
+    const active = enabled && name === "Earth" && (
+      asset.role === "night-lights" && state.earthNight !== false
+      || asset.role === earthCloudRole(state) && state.earthWeather !== false
+      || asset.role === "sea-ice" && state.earthIce === true);
+    row.hidden = !active;
+    if (!active) continue;
+    const status = state.appearanceStatus?.[asset.id];
+    const readiness = status === "unavailable" ? "Image unavailable; layer is not rendered."
+      : status === "deferred" || !status ? "Reference detail loads when Earth is visible at a useful scale; layer is not rendered."
+      : status === "queued" ? "Reference imagery queued; layer is not rendered."
+      : status !== "ready" ? "Loading reference imagery; layer is not rendered."
+      : !ready ? "Reference ready; waiting for the surface reference before rendering."
+      : "Reference layer ready.";
+    const layerDescription = `${asset.label} · ${asset.observation_label}. ${readiness} ${asset.color_interpretation} ${asset.limitations}`;
+    if (layerText.textContent !== layerDescription) layerText.textContent = layerDescription;
+  }
+}
+
+// Called by the existing presentation flow after upload completion/failure, context
+// loss and user layer changes. It only updates the currently displayed body card.
+export function updateDetailAppearance(state = {}) {
+  const host = document.getElementById("orreryDetail"), sources = host && sourceDisclosures.get(host);
+  if (!sources || state.galaxy || state.selectedStar
+      || state.selected && state.selected !== sources.name
+      || host.querySelector(".system-detail > strong")?.textContent !== sources.name) return;
+  updateVisualSources(sources, state);
 }

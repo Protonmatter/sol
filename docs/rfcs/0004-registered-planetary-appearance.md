@@ -28,6 +28,8 @@ The all-body refinement is specified in the
 It extends the same qualification boundaries to catalogue moons, ring structure,
 source-preserving solar imagery and readable camera focus without changing
 physical positions or the state-estimation engine.
+The [reference demand contract](../plans/2026-09-13-system-polish/REFERENCE_DEMAND.md)
+defines bounded requests, GPU cache lifetime and explicit deferred/queued status.
 
 - `SOL-VIS-004`: Reference maps MUST bind source and rendered byte hashes, original
   dimensions, coordinate axes, latitude convention, covered latitude, no-data behavior,

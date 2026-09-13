@@ -5,6 +5,8 @@ import { loadSourceModules } from "./helpers/sourceModuleHarness.mjs";
 import { MOONS } from "../../apps/web/js/moons.js";
 import { MOON_ELEMENTS } from "../../apps/web/js/moonelements.js";
 import { NAMED_STARS } from "../../apps/web/js/starcatalog.js";
+import { appearanceReference, appearanceReferences } from "../../apps/web/js/planetAppearance.js";
+import { orreryHarness } from "./helpers/orreryHarness.mjs";
 
 // Browser DOM only: the complete production presenters and their physics imports
 // execute unchanged. textContent replacement really removes children, so stale
@@ -321,4 +323,112 @@ test("ringed planets disclose illustrative opacity separately from sourced radiu
   assert.match(h.host.textContent, /Ring radius geometry/);
   assert.match(h.host.textContent, /opacity and shadow profile.*illustrative.*uncalibrated/i);
   assert.equal(rows(h.host).has("Rings"), true);
+});
+
+const readyAppearance = selected => ({ selected, useTextures: true,
+  appearanceStatus: Object.fromEntries(appearanceReferences().map(asset => [asset.id, "ready"])) });
+
+test("mapped planet and lunar inspectors disclose the rendered reference, epoch and source", async () => {
+  const h = await harness();
+  for (const name of ["Mars", "Moon"]) {
+    const asset = appearanceReference(name);
+    h.renderDetail(name, undefined, readyAppearance(name));
+    assert.match(h.host.textContent, /Surface reference ready/);
+    assert.ok(h.host.textContent.includes(asset.label));
+    assert.ok(h.host.textContent.includes(asset.observation_label));
+    assert.ok(h.host.textContent.includes(asset.limitations));
+    assert.ok(descendants(h.host).some(node => node.tagName === "a" && node.href === asset.source_url));
+    assert.doesNotMatch(h.host.textContent, /Source identity unverified|detailed rendering is disabled/);
+  }
+  const callisto = MOONS.find(moon => moon.n === "Callisto"), asset = appearanceReference("Callisto");
+  h.renderMoonDetail(callisto, 1767225600, readyAppearance("Callisto"));
+  assert.ok(h.host.textContent.includes(asset.observation_label));
+  assert.match(h.host.textContent, /Separate legacy browse preview.*not used for the globe/);
+  assert.ok(descendants(h.host).some(node => node.tagName === "img" && node.src === "textures/callisto.jpg"));
+});
+
+test("appearance transitions update the existing disclosure without losing focus or open state", async () => {
+  const h = await harness(), state = readyAppearance("Mars"), asset = appearanceReference("Mars");
+  state.appearanceStatus[asset.id] = "loading";
+  h.renderDetail("Mars", live({name: "Mars"}), state);
+  const disclosure = descendants(h.host).find(node => node.tagName === "details");
+  const button = glossary(h.host, "orbital-speed", "Orbital speed");
+  disclosure.open = true;
+  assert.match(h.host.textContent, /Loading reference imagery/);
+  state.appearanceStatus[asset.id] = "unavailable"; h.updateDetailAppearance(state);
+  assert.match(h.host.textContent, /Image unavailable; showing a simplified surface/);
+  state.appearanceStatus[asset.id] = "ready"; h.updateDetailAppearance(state);
+  assert.match(h.host.textContent, /Surface reference ready/);
+  assert.doesNotMatch(h.host.textContent, /Loading reference imagery|Image unavailable/);
+  state.useTextures = false; h.updateDetailAppearance(state);
+  assert.match(h.host.textContent, /Reference imagery is switched off/);
+  assert.doesNotMatch(h.host.textContent, /Surface reference ready/);
+  state.useTextures = true; h.renderDetail("Mars", live({name: "Mars"}), state);
+  assert.match(h.host.textContent, /Surface reference ready/);
+  assert.equal(descendants(h.host).find(node => node.tagName === "details"), disclosure);
+  assert.equal(disclosure.open, true);
+  assert.equal(glossary(h.host, "orbital-speed", "Orbital speed"), button);
+  const writes = descendants(h.host).map(node => node.textWrites);
+  h.updateDetailAppearance(state); h.updateDetailAppearance({...state, selected: "Earth"});
+  h.updateDetailAppearance({...state, galaxy: true});
+  assert.deepEqual(descendants(h.host).map(node => node.textWrites), writes);
+  h.renderDetail("unknown"); h.updateDetailAppearance(state);
+  assert.match(h.host.textContent, /^Click the Sun/);
+  h.hosts.delete("orreryDetail"); h.updateDetailAppearance(state);
+});
+
+test("Earth details track selected layer dates and actual base-dependent readiness", async () => {
+  const h = await harness(), state = {...readyAppearance("Earth"), earthNight: true,
+    earthWeather: true, earthIce: false, earthCloudSource: "composite"};
+  h.renderDetail("Earth", undefined, state);
+  const layer = role => descendants(h.host).find(node => node.dataset.appearanceRole === role);
+  const composite = appearanceReference("Earth", "cloud-composite"), daily = appearanceReference("Earth", "weather");
+  assert.equal(layer("cloud-composite").hidden, false);
+  assert.ok(layer("cloud-composite").textContent.includes(composite.observation_label));
+  assert.equal(layer("weather").hidden, true);
+  assert.equal(layer("sea-ice").hidden, true);
+  state.earthCloudSource = "daily"; state.earthIce = true; h.updateDetailAppearance(state);
+  assert.equal(layer("cloud-composite").hidden, true);
+  assert.equal(layer("weather").hidden, false);
+  assert.ok(layer("weather").textContent.includes(daily.observation_label));
+  assert.equal(layer("sea-ice").hidden, false);
+  state.appearanceStatus[daily.id] = "unavailable"; h.updateDetailAppearance(state);
+  assert.match(layer("weather").textContent, /Image unavailable; layer is not rendered/);
+  state.appearanceStatus[daily.id] = "loading"; h.updateDetailAppearance(state);
+  assert.match(layer("weather").textContent, /Loading reference imagery; layer is not rendered/);
+  state.appearanceStatus[daily.id] = "deferred"; h.updateDetailAppearance(state);
+  assert.match(layer("weather").textContent, /loads when Earth is visible at a useful scale; layer is not rendered/);
+  state.appearanceStatus[daily.id] = "queued"; h.updateDetailAppearance(state);
+  assert.match(layer("weather").textContent, /Reference imagery queued; layer is not rendered/);
+  state.appearanceStatus[daily.id] = "ready";
+  state.appearanceStatus[appearanceReference("Earth").id] = "unavailable"; h.updateDetailAppearance(state);
+  assert.match(layer("night-lights").textContent, /Reference ready; waiting for the surface reference before rendering/);
+  state.earthWeather = false; state.earthNight = false; h.updateDetailAppearance(state);
+  assert.equal(layer("weather").hidden, true); assert.equal(layer("night-lights").hidden, true);
+  state.useTextures = false; h.updateDetailAppearance(state);
+  assert.equal(layer("sea-ice").hidden, true);
+});
+
+test("the renderer refreshes an open inspector after actual image failure, retry and upload", async t => {
+  const h = await orreryHarness(t, {controls: true, reducedMotion: true});
+  await h.enterOrrery(); t.after(() => h.leaveOrrery());
+  h.input("orreryAnchor", "Mars", "change");
+  const host = h.nodes.orreryDetail, asset = appearanceReference("Mars");
+  const disclosure = host.querySelector("details"); disclosure.open = true;
+  const requested = () => h.images.findLast(image => image.src === asset.path);
+  assert.ok(requested(), "a focused map has an actual image request");
+  requested().onerror();
+  assert.match(host.textContent, /Image unavailable; showing a simplified surface/);
+  h.check("orreryTextures", false);
+  assert.match(host.textContent, /Reference imagery is switched off/);
+  h.check("orreryTextures", true);
+  assert.match(host.textContent, /Loading reference imagery/);
+  const image = requested(); [image.width, image.height] = asset.dimensions; image.onload();
+  assert.match(host.textContent, /Surface reference ready/);
+  assert.ok(host.textContent.includes(asset.observation_label));
+  assert.equal(host.querySelector("details"), disclosure);
+  assert.equal(disclosure.open, true);
+  h.event("orreryCanvas", "webglcontextlost");
+  assert.match(host.textContent, /Image unavailable; showing a simplified surface/);
+  assert.equal(h.errors.length, 0);
 });

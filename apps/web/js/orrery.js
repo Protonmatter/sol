@@ -15,6 +15,7 @@
 
 import { store } from "./store.js?v=dcca6290db";
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole } from "./planetAppearance.js";
+import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
 import { layoutLabels } from "./labelLayout.js?v=dcca6290db";
 import { projectOpaqueDisc, isLabelOccluded } from "./labelOcclusion.js";
@@ -39,7 +40,7 @@ import {
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
 } from "./orreryGalaxy.js?v=dcca6290db";
-import { renderDetail, renderMoonDetail, renderSmallDetail, updateLiveDetailFacts } from "./orreryDetail.js?v=dcca6290db";
+import { renderDetail, renderMoonDetail, renderSmallDetail, updateLiveDetailFacts, updateDetailAppearance } from "./orreryDetail.js?v=dcca6290db";
 import { renderStarDetail } from "./starDetail.js?v=dcca6290db";
 import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dcca6290db";
 import { resolveDisplayRadii, moonGuideVisible } from "./displayGeometry.js?v=dcca6290db";
@@ -56,6 +57,7 @@ import { elpMoonAliased,
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
   updateLiveDetailFacts(state.bodies.find(body=>body.name===state.selected));
+  updateDetailAppearance(state);
   state.presentation = resolveSystemPresentation({ renderUnix: state.renderUnix, scene: state.galaxy ? "galaxy" : "system", selected: state.selected, hasSnapshot: state.bodies.length===9, error: state.engineError });
   window.dispatchEvent(new Event("sol:presentation"));
   const node = document.getElementById("orreryAccuracy"); if (!node) return;
@@ -162,6 +164,8 @@ let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
 let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, texturesStarted = false;
 let referenceTextures = {}, textureGeneration = 0;
+let referenceDemand = [], referenceVisible = new Map(), referenceUseSerial = 0;
+let referenceViewport = {width:0,height:0};
 let ringShadowTex = {}; // per-planet 1-D radial ring-opacity profiles for the ring-shadow lookup
 let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3-D Sun's surface
 let galaxy = null;
@@ -247,40 +251,92 @@ function texMissing(file, mapped = false) {
   }
 }
 
-function loadTextures() {
-  if (!gl) return;
-  if (!texturesStarted) textureGeneration++;
+function requestReferenceTextures() {
+  if (!gl || !state.active || !state.useTextures || state.galaxy) return;
   const repaint = () => { if (state.active && !state.animate) paint(); };
   const generation = textureGeneration;
-  for (const asset of appearanceReferences()) {
-    // View re-entry or an explicit off/on toggle can recover failed optional
-    // imagery. Preserve ready textures and pending requests in this GL context.
-    if (['loading', 'ready'].includes(state.appearanceStatus[asset.id])) continue;
-    const attempt = { tex: null, ready: false };
+  for (const asset of referenceDemand) {
+    if (Object.values(referenceTextures).filter(entry=>entry.loading).length >= MAX_REFERENCE_REQUESTS) break;
+    if (['loading', 'ready', 'unavailable'].includes(state.appearanceStatus[asset.id])) continue;
+    const img = new Image();
+    const attempt = { tex: null, ready: false, loading: true, used: ++referenceUseSerial, image:img };
     referenceTextures[asset.id] = attempt;
     state.appearanceStatus[asset.id] = 'loading';
-    const img = new Image();
     const current = () => generation === textureGeneration
       && referenceTextures[asset.id] === attempt && state.appearanceStatus[asset.id] === 'loading';
     const fail = () => {
       if (!current()) return;
+      // Failure status must survive, but its decoded Image must not remain
+      // owned by the cache while waiting indefinitely for explicit retry.
+      delete referenceTextures[asset.id];
+      img.onload = null; img.onerror = null; img.src = '';
       state.appearanceStatus[asset.id] = 'unavailable';
       texMissing(asset.path, true); updateEarthLayerStatus(); updateOrreryAccuracy();
+      requestReferenceTextures();
     };
     img.onload = () => {
       if (!current() || !gl) return;
+      // A source switch, camera move or departure may finish an old decode. It
+      // must not spend GPU memory on a layer that is no longer requested.
+      if (!state.active || !state.useTextures || !referenceDemand.some(a=>a.id===asset.id)) {
+        delete referenceTextures[asset.id]; state.appearanceStatus[asset.id] = 'deferred';
+        requestReferenceTextures(); return;
+      }
       try {
-        referenceTextures[asset.id] = {tex: makeTexture(img, true, asset.role === 'sea-ice', asset.nodata === 'alpha' && asset.role !== 'sea-ice'), ready: true};
+        if (img.width !== asset.dimensions[0] || img.height !== asset.dimensions[1]) {
+          throw new Error('Decoded reference dimensions do not match the pinned grid.');
+        }
+        // Keep a small warm cache, evicting only maps outside the current demand.
+        while (Object.values(referenceTextures).filter(entry=>entry.ready).length >= MAX_REFERENCE_TEXTURES) {
+          const victim = Object.entries(referenceTextures).filter(([id,entry])=>entry.ready && !referenceDemand.some(a=>a.id===id))
+            .sort(([,a],[,b])=>a.used-b.used)[0];
+          if (!victim) throw new Error('Reference texture budget exhausted.');
+          gl.deleteTexture(victim[1].tex); delete referenceTextures[victim[0]];
+          state.appearanceStatus[victim[0]] = 'deferred';
+        }
+        referenceTextures[asset.id] = {tex: makeTexture(img, true, asset.role === 'sea-ice', asset.nodata === 'alpha' && asset.role !== 'sea-ice'), ready: true, loading:false, used:++referenceUseSerial};
         state.appearanceStatus[asset.id] = 'ready';
         updateReferenceNotice();
         updateEarthLayerStatus(); updateOrreryAccuracy(); repaint();
+        requestReferenceTextures();
       } catch { fail(); }
     };
     img.onerror = fail;
     img.src = asset.path;
   }
+}
+
+function syncReferenceDemand() {
+  referenceDemand = planReferenceDemand(referenceVisible, state);
+  const nextRequests = referenceDemand.filter(asset=>!['ready','unavailable'].includes(state.appearanceStatus[asset.id]))
+    .slice(0,MAX_REFERENCE_REQUESTS);
+  for (const [id,entry] of Object.entries(referenceTextures)) {
+    if (!entry.loading || nextRequests.some(a=>a.id===id)) continue;
+    // Clear ownership before cancelling so even already queued callbacks cannot
+    // upload an obsolete selection. The newly focused view gets the freed slot.
+    delete referenceTextures[id]; state.appearanceStatus[id] = 'deferred';
+    entry.image.onload = null; entry.image.onerror = null; entry.image.src = '';
+  }
+  for (const asset of appearanceReferences()) {
+    const wanted = referenceDemand.some(a=>a.id===asset.id);
+    const status = state.appearanceStatus[asset.id];
+    if (!status || status === 'queued' || status === 'deferred') state.appearanceStatus[asset.id] = wanted ? 'queued' : 'deferred';
+    if (wanted && referenceTextures[asset.id]?.ready) referenceTextures[asset.id].used = ++referenceUseSerial;
+  }
+  requestReferenceTextures();
   updateEarthLayerStatus(); updateReferenceNotice();
+}
+
+function loadTextures() {
+  if (!gl) return;
+  // This entry point is only used for explicit re-entry, re-enable or restore.
+  // Ordinary paints request new demand but never retry failed pinned imagery.
+  for (const asset of appearanceReferences()) {
+    if (state.appearanceStatus[asset.id] === 'unavailable') state.appearanceStatus[asset.id] = 'deferred';
+  }
   if (texturesStarted) return;
+  textureGeneration++;
+  const repaint = () => { if (state.active && !state.animate) paint(); };
   texturesStarted = true;
   for (const [name, file] of Object.entries(TEXTURE_FILES)) {
     if (!textureEligible(name)) continue;
@@ -948,7 +1004,27 @@ function orbitEye() {
     t[2] + state.radius * Math.sin(state.el)];
 }
 
+// Only an explicit body/moon focus opts into adaptive framing. Keep the nominal
+// fit separate from state.radius so ordinary paints never undo deliberate zoom.
+/** @type {{anchor: string, distance: number} | null} */
+let orbitFocusFit = null;
+function reconcileOrbitFocus(aspect) {
+  if (state.freeFly || state.galaxy || state.topDown || !orbitFocusFit) return;
+  if (orbitFocusFit.anchor !== state.anchor) { orbitFocusFit = null; return; }
+  const extent = anchorDisplayExtent();
+  if (!extent) { orbitFocusFit = null; return; }
+  const worldDistance = Math.hypot(...anchorPos());
+  const fit = fitOrbitDistance(extent, aspect, FOVY, worldDistance);
+  // Display-scale changes, a moon falling back to its parent, and portrait
+  // resizing all change the fit. Preserve zoom relative to it, then enforce the
+  // current enclosing-surface/numerical floor before constructing the eye.
+  if (fit !== orbitFocusFit.distance) state.radius *= fit / orbitFocusFit.distance;
+  state.radius = Math.max(state.radius, minimumOrbitDistance(extent, worldDistance));
+  orbitFocusFit.distance = fit;
+}
+
 function cameraMatrices(w, h) {
+  reconcileOrbitFocus(w / h);
   let eye, view;
   if (state.freeFly) {
     eye = state.freePos;
@@ -991,8 +1067,9 @@ function paint() {
   const [w, h] = ensureSized(canvas);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const { eye, vp, skyVp } = cameraMatrices(w, h);
-
-  if (state.galaxy) { paintGalaxy(w, h, dpr, vp, eye); return; }
+  referenceVisible = new Map();
+  referenceViewport = {width:canvas.clientWidth,height:canvas.clientHeight};
+  if (state.galaxy) { syncReferenceDemand(); paintGalaxy(w, h, dpr, vp, eye); return; }
 
   gl.viewport(0, 0, w, h);
   gl.clearColor(0.004, 0.006, 0.016, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1057,6 +1134,7 @@ function paint() {
 
   updateLabels(canvas, vp, skyVp);
   gl.disable(gl.BLEND);
+  syncReferenceDemand();
 }
 
 function bindLine(buf) {
@@ -1324,6 +1402,7 @@ function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
   const rEq = displayRadiusAU(b.name), rPol = rEq * (phys.polarKm / phys.radiusKm);
+  referenceVisible.set(b.name, referencePixelDiameter(pos, rEq, vp, referenceViewport));
   // The display clock advances continuously when true spin would alias. It is updated once
   // per animation tick, outside drawBody, so input-triggered repaints cannot advance it twice.
   const rotUnix = rotationDisplayUnix[b.name] ?? state.renderUnix;
@@ -1522,6 +1601,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
   for (const { m, off, sunlit } of drawn.moons) {
     const pos = [parentPos[0] + off[0] * scale, parentPos[1] + off[1] * scale, parentPos[2] + off[2] * scale];
     const r = moonDisplayRadius(m, phys.radiusKm, parentDisplayAU);
+    referenceVisible.set(m.n, referencePixelDiameter(pos, r, vp, referenceViewport));
     const model = mul(translate(pos), scaleM([r, r, r]));
     // Draw with the inflated offset, but light from the physical position. Using `pos` here
     // moved an outer moon several rendered AU from its parent and rotated its terminator by
@@ -1861,10 +1941,10 @@ function showDetail(name) {
   // the body card (which also renders the "click something" placeholder).
   if (state.selectedStar) { renderStarDetail(state.selectedStar); return; }
   const moon = name ? moonSet.MOONS.find((m) => m.n === name) : null;
-  if (moon) { renderMoonDetail(moon, state.renderUnix); return; }
+  if (moon) { renderMoonDetail(moon, state.renderUnix, state); return; }
   const small = name ? smallBodies.find((s) => s.name === name) : null;
   if (small) { renderSmallDetail(small); return; }
-  renderDetail(name, state.bodies.find((b) => b.name === name));
+  renderDetail(name, state.bodies.find((b) => b.name === name), state);
 }
 
 // Screen-space nearest named star to (px, py). `m` is the matrix the stars were drawn
@@ -1984,6 +2064,7 @@ function anchorDisplayExtent() {
 
 function setAnchor(name) {
   state.anchor = name;
+  orbitFocusFit = null;
   state.selectedStar = null; // an explicit body choice unpins any star card
   if (name === "Sun") {
     // Keep selection and the facts card in sync with every other Focus option. The early
@@ -2000,9 +2081,12 @@ function setAnchor(name) {
   } else {
     const extent = anchorDisplayExtent();
     const canvas = document.getElementById("orreryCanvas");
-    if (extent) state.radius = fitOrbitDistance(extent,
-      Math.max(1, canvas?.clientWidth || 1) / Math.max(1, canvas?.clientHeight || 1),
-      FOVY, Math.hypot(...anchorPos()));
+    if (extent) {
+      state.radius = fitOrbitDistance(extent,
+        Math.max(1, canvas?.clientWidth || 1) / Math.max(1, canvas?.clientHeight || 1),
+        FOVY, Math.hypot(...anchorPos()));
+      orbitFocusFit = { anchor: name, distance: state.radius };
+    }
   }
   state.selected = name;
   showDetail(name);
@@ -2513,7 +2597,10 @@ async function showFallback(msg) {
     // texturesStarted=true meant loadTextures() never re-fetched for the life of the tab.
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
-    referenceTextures = {}; textureGeneration++;
+    for (const entry of Object.values(referenceTextures)) {
+      if (entry.loading) { entry.image.onload = null; entry.image.onerror = null; entry.image.src = ''; }
+    }
+    referenceTextures = {}; referenceDemand = []; textureGeneration++;
     state.appearanceStatus = Object.fromEntries(appearanceReferences().map(a => [a.id, 'unavailable']));
     updateEarthLayerStatus(); updateOrreryAccuracy();
     whiteTex = null; ringBufs = {}; ringShadowTex = {}; texturesStarted = false; particles = null;

@@ -44,7 +44,8 @@ export function appearanceDescription(body, state = {}, details = false) {
   if (state.useTextures === false) return 'Reference imagery is switched off.';
   const status = state.appearanceStatus?.[asset.id];
   const readiness = status === 'ready' ? '' : status === 'unavailable' ? 'Image unavailable; showing a simplified surface. Reopen this view to retry. '
-    : 'Loading reference imagery. ';
+    : status === 'deferred' || !status ? 'Reference detail loads when this body is visible at a useful scale. '
+    : status === 'queued' ? 'Reference imagery queued. ' : 'Loading reference imagery. ';
   const coverage = asset.nodata !== 'none' || asset.validLatitudeBounds[0] > -90 || asset.validLatitudeBounds[1] < 90
     ? ` Unmapped areas are simplified${appearanceFallbackColor(body) ? ' with a flat color derived from the reference image' : ''}.` : '';
   return `${readiness}${asset.label} · ${asset.observation_label}. ${details ? asset.color_interpretation + ' ' + asset.limitations : 'Reference imagery; its date is separate from model time.' + coverage}`;
@@ -56,7 +57,9 @@ export function appearanceSummary(body, state = {}) {
   const asset = appearanceReference(body);
   if (!asset || state.useTextures === false) return appearanceDescription(body, state);
   const status = state.appearanceStatus?.[asset.id];
-  const readiness = status === 'ready' ? '' : status === 'unavailable' ? 'Image unavailable; showing a simplified surface. ' : 'Loading reference imagery. ';
+  const readiness = status === 'ready' ? '' : status === 'unavailable' ? 'Image unavailable; showing a simplified surface. '
+    : status === 'deferred' || !status ? 'Focus or zoom in to load reference detail. '
+    : status === 'queued' ? 'Reference imagery queued. ' : 'Loading reference imagery. ';
   return `${readiness}${asset.label}. Archive imagery; open sources for dates and coverage.`;
 }
 
@@ -68,6 +71,7 @@ export function earthLayerDescription(state = {}, compact = false) {
     const status = state.appearanceStatus?.[asset.id];
     const label = compact ? {'night-lights':'Night lights',weather:'Dated satellite swaths','cloud-composite':'Clouds and surface','sea-ice':'Sea ice'}[role] : asset.label;
     const limits = role === 'weather' ? ' · swath seams and gaps retained' : role === 'cloud-composite' ? ' · historical composite' : '';
-    return `${label} · ${asset.observation_label}${status === 'ready' ? '' : status === 'unavailable' ? ' · unavailable' : ' · loading'}${limits}`;
+    return `${label} · ${asset.observation_label}${status === 'ready' ? '' : status === 'unavailable' ? ' · unavailable'
+      : status === 'deferred' || !status ? ' · loads when Earth is in view at a useful scale' : status === 'queued' ? ' · queued' : ' · loading'}${limits}`;
   }).join(' · ');
 }

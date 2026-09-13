@@ -64,7 +64,9 @@ test('map uniforms preserve source longitude, latitude conventions, affine grids
 test('appearance copy distinguishes loading, failure, disabled and source date from model time', () => {
   const a = appearanceReference('Earth');
   assert.match(appearanceDescription('Sun'), /unavailable/i);
-  assert.match(appearanceDescription('Earth'), /Loading/);
+  assert.match(appearanceDescription('Earth'), /useful scale/);
+  assert.match(appearanceDescription('Earth',{appearanceStatus:{[a.id]:'loading'}}),/Loading/);
+  assert.match(appearanceDescription('Earth',{appearanceStatus:{[a.id]:'queued'}}),/queued/);
   assert.match(appearanceDescription('Earth',{useTextures:false}), /switched off/);
   assert.match(appearanceDescription('Earth',{appearanceStatus:{[a.id]:'unavailable'}}), /Image unavailable/);
   const state = {appearanceStatus:{[a.id]:'ready'},renderUnix:0};
@@ -83,7 +85,7 @@ test('Earth layer summaries include only enabled dated layers and report readine
   assert.match(earthLayerDescription(state, true), /Dated satellite swaths/);
   assert.doesNotMatch(earthLayerDescription(state, true), /NASA/);
   assert.equal(earthLayerDescription({earthNight:false,earthWeather:false,earthIce:false}), '');
-  assert.match(earthLayerDescription(), /loading/);
+  assert.match(earthLayerDescription(), /useful scale/);
   state.appearanceStatus[appearanceReference('Earth','weather').id] = 'unavailable';
   assert.match(earthLayerDescription(state),/unavailable/);
 });
