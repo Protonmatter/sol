@@ -1648,9 +1648,9 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, moonTex ? moonTex.tex : whiteTex);
     gl.uniform1i(P.sphereU.u_tex, 0);
     gl.uniform1i(P.sphereU.u_useTex, moonTex ? 1 : 0);
-    // Both mosaic modes preserve the existing albedo and eclipse display gains.
-    // Mode 4 additionally honors source axes, latitude limits and missing coverage.
-    gl.uniform1i(P.sphereU.u_texMode, registered ? 4 : legacy ? 2 : 0);
+    // Registered modes retain source axes and gaps; mode 5 also retains the
+    // admitted mission RGB ratios. Both keep the neutral albedo/eclipse gain.
+    gl.uniform1i(P.sphereU.u_texMode, registered ? (reference.moon_color_mode === 'source-rgb' ? 5 : 4) : legacy ? 2 : 0);
     if (registered) {
       const uniforms = appearanceUniforms(reference);
       gl.uniform4fv(P.sphereU.u_map, new Float32Array(uniforms.map));

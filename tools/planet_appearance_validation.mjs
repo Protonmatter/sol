@@ -54,6 +54,9 @@ const fixtures = new Map([
   // Matching dark edges and a bright interior: a false coarse mip at the
   // longitude wrap becomes a bright strip in the actual moon contrast mode.
   ["/spatial-seam.png", fixture(64, 32, x => x < 4 || x >= 60 ? [32,32,32,255] : [224,224,224,255])],
+  // A geographically bounded dark-red deposit against brighter terrain tests
+  // valid dark RGB and the uncompressed part of the relative-contrast display.
+  ["/color-deposits.png", fixture(64, 32, x => x < 8 ? [48,12,6,255] : [192,192,192,255])],
   ["/black.png", fixture(4, 2, () => [0, 0, 0, 255])],
   ["/white.png", fixture(4, 2, () => [255, 255, 255, 255])],
   ["/transparent.png", fixture(4, 2, () => [255, 255, 255, 0])],
@@ -128,7 +131,7 @@ async function run() {
       // Coordinate-gradient probes use nearest to make source texel identity explicit.
       // Quadrants and seam exercise the renderer's actual linear/mipmap upload path.
       const maskedPhoto = ["/transparent.png", "/half-white.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name);
-      textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/spatial-seam.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
+      textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/spatial-seam.png", "/color-deposits.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
       uploadPremultiplyStates.push({name, expected:maskedPhoto, actual:gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)});
       if (name === "/quadrants.png") textures.flipped = flippedFactory(image, true, false);
     }
@@ -237,10 +240,11 @@ async function run() {
   const spatialCases = [
     ['registered colour',3,'/seam.png',[40,120,220,255]],
     ['registered moon',4,'/spatial-seam.png',rgba([.2,.3,.4].map(c=>255*c*(32/200)**.6))],
+    ['registered color moon',5,'/seam.png',rgba([40/220,120/220,1].map(c=>255*.6*c)),[.6,.6,.6]],
   ];
-  for (const [name,texMode,texture,expected] of spatialCases) {
+  for (const [name,texMode,texture,expected,base] of spatialCases) {
     for (const crossing of [false,true]) {
-      const spatial = await page.evaluate(options=>window.spatialSeamProbe(options),{texMode,texture,crossing});
+      const spatial = await page.evaluate(options=>window.spatialSeamProbe(options),{texMode,texture,crossing,base});
       check(`${name} spatial ${crossing ? 'longitude-wrap' : 'non-wrapping'} patch retains edge texels`,
         spatial.pixels, Array.from({length:spatial.width*spatial.height},()=>expected).flat(), 2);
     }
@@ -264,6 +268,40 @@ async function run() {
   check("registered moon missing latitude stays simplified", await probe({texMode:4,position:[0,0,1],latitudes:[-90,90,-60,60]}), fallback);
   check("registered moon coverage is excluded from mean brightness", await probe({texMode:4,texture:"/alpha-edge.png",nodata:2,position:[0,-1,0]}), fallback);
   check("registered moon umbra gain survives surface detail", await probe({texMode:4,texture:"/alpha-edge.png",nodata:2,position:[0,-1,0],base:[.04,.06,.08]}), [10,15,20,255]);
+  // These saturated fiducials reach the color mode's common RGB gamut scale.
+  // Their independently expected output is source RGB / peak channel, times
+  // the neutral moon gain. They must not collapse into grayscale or a fixed hue.
+  const colorMoon = {texMode:5,base:[.6,.6,.6]};
+  for (const [name, position, index] of [
+    ["north-west",[0,-1,1],0],["north-east",[0,1,1],1],
+    ["south-west",[0,-1,-1],2],["south-east",[0,1,-1],3],
+  ]) {
+    const rgb = colors[index].slice(0,3), peak = Math.max(...rgb);
+    check(`registered color moon ${name} retains geographic RGB ratios`,
+      await probe({...colorMoon,position}),rgba(rgb.map(c=>255*.6*c/peak)),2);
+  }
+  const redDeposit = { ...colorMoon, texture:"/color-deposits.png", position:[-Math.cos(Math.PI/8),-Math.sin(Math.PI/8),0] };
+  // 1/8 of the fixture is [48,12,6], the rest [192,192,192]. Its dark region
+  // remains below the unit-RGB gamut ceiling: source-luma 22.08, mean 170.76,
+  // scalar contrast (22.08 / 170.76)^0.6. Expected display bytes retain 8:2:1.
+  const depositIntensity = 255*.6*(22.08/170.76)**.6/22.08;
+  check("registered color moon preserves a valid dark red deposit",await probe(redDeposit),
+    rgba([48,12,6].map(c=>c*depositIntensity)),2);
+  check("registered color moon preserves valid black terrain",await probe({...colorMoon,texture:"/black.png"}),[0,0,0,255]);
+  const colorFallback = [153,153,153,255];
+  check("registered color moon alpha gap stays simplified",await probe({...colorMoon,texture:"/transparent.png",nodata:2}),colorFallback);
+  check("registered color moon missing latitude stays simplified",await probe({...colorMoon,position:[0,0,1],latitudes:[-90,90,-60,60]}),colorFallback);
+  const coveredColor = [64/224,128/224,1], colorEdgeOptions = {...colorMoon,texture:"/color-alpha-edge.png",nodata:2};
+  check("registered color moon covered source excludes transparent pixels from mean",
+    await probe({...colorEdgeOptions,position:[0,-1,1]}),rgba(coveredColor.map(c=>255*.6*c)),2);
+  check("registered color moon missing side retains fallback",
+    await probe({...colorEdgeOptions,position:[0,1,1]}),colorFallback);
+  check("registered color moon filtered coverage edge has no black fringe",
+    await probe({...colorEdgeOptions,position:[1,0,1]}),rgba(coveredColor.map(c=>255*.6*(.5+.5*c))),2);
+  for (const gain of [.95,.3]) check(`registered color moon neutral albedo eclipse gain ${gain} preserves RGB ratios`,
+    await probe({...colorMoon,base:[gain,gain,gain]}),rgba([24/208,1,72/208].map(c=>255*gain*c)),2);
+  check("registered color moon source registration ignores camera and model time",
+    await probe({...colorMoon,camera:[3,-4,2],time:50000}),rgba([24/208,1,72/208].map(c=>255*.6*c)),2);
   check("reference night-side ambient floor stays dim without emission", await probe({light:[0,0,-1]}),
     rgba(colors[1].slice(0,3).map(value => 255*linearToSrgb(srgbToLinear(value/255)*.001))));
   check("cloud mask gap leaves surface unchanged", await probe({weather:true}), colors[1]);

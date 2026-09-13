@@ -11,7 +11,7 @@ Eleven new mapped references are admitted alongside the existing Earth Moon refe
 | Earth | Moon | Existing NASA LRO [2025 CGI kit](https://svs.gsfc.nasa.gov/4720/) | Existing 2K color reference; LROC filters and producer processing disclosed in its registry entry. No new admission here. |
 | Mars | Phobos | New USGS Viking/DLR-controlled structural mosaic | Full simple-cylindrical source grid; producer illumination blending; mapped onto an explicitly simplified sphere, not an irregular shape model. |
 | Mars | Deimos | Simplified material; [MRO HiRISE mission image](https://science.nasa.gov/resource/martian-moon-deimos-in-high-resolution/) | 2009-02-21 enhanced-color perspective views are inspector references, not a global texture. Registered map and irregular-shape qualification remain open. |
-| Jupiter | Io | New original USGS Voyager/Galileo TIFF | Monochrome, multi-epoch; original NoData mask retained. Actual TIFF/browse use center longitude 0. |
+| Jupiter | Io | USGS Galileo SSI color-merge TIFF | Mission-derived false color, multi-epoch; per-band NoData and interpolated polar caps withheld. Actual TIFF uses center longitude 0. See [Io color qualification](IO_COLOR_SOURCES.md). |
 | Jupiter | Europa | New original USGS Voyager/Galileo TIFF | No source coverage south of 83 degrees S; additional NoData gaps retained; northern detail can be only about 20 km/pixel in source inputs. |
 | Jupiter | Ganymede | New original USGS Voyager/Galileo TIFF | Monochrome; original NoData retained; source resolution and illumination vary. |
 | Jupiter | Callisto | New original USGS Voyager/Galileo TIFF | Full registered raster with original NoData; replaces reliance on an unqualified cropped legacy browse. |
@@ -64,12 +64,12 @@ The authoritative machine-readable values, retrieval/review times, source URLs, 
 | Dione | 23040 x 11520; `(0, 0, 23040, 11520)` | 2048 x 1024 | 21,677,835 | 1,537,869 |
 | Rhea | 11520 x 5760; `(0, 0, 11520, 5760)` | 2048 x 1024 | 5,583,646 | 1,322,217 |
 | Phobos | 1024 x 512; `(0, 0, 1024, 512)` | 1024 x 512 | 161,960 | 332,013 |
-| Io | 11445 x 5723; `(0, 0, 11445, 5723)` | 2048 x 1024 | 65,546,342 | 1,232,026 |
+| Io | 11445 x 5723; `(0, 0, 11445, 5723)` | 2048 x 1024 | 196,637,696 | 2,843,310 |
 | Europa | 19631 x 9816; `(0, 0, 19631, 9816)` | 2048 x 1024 | 192,777,263 | 2,079,254 |
 | Ganymede | 16539 x 8270; `(0, 0, 16539, 8270)` | 2048 x 1024 | 136,844,537 | 1,805,208 |
 | Callisto | 15138 x 7569; `(0, 0, 15138, 7569)` | 2048 x 1024 | 114,640,717 | 1,790,932 |
 
-Combined new tracked display payload: **16,349,640 bytes**. Original archives are independently hash-verified before decoding.
+Combined new tracked display payload: **17,960,924 bytes**. Original archives are independently hash-verified before decoding.
 
 ### Mimas
 
@@ -135,13 +135,13 @@ Combined new tracked display payload: **16,349,640 bytes**. Original archives ar
 
 ### Io
 
-- Original file: `io-original.tif`. [Original download](https://planetarymaps.usgs.gov/mosaic/Io_GalileoSSI-Voyager_Global_Mosaic_1km.tif); [product metadata](https://astrogeology.usgs.gov/search/map/io_voyager_galileo_ssi_global_mosaic_1km).
-- Original SHA-256: `cf65a0323aac9c4c9eb582aa7b7ce0d36be8e445316fa6dba49ab5647b63584c`.
-- Display asset: `textures/reference/io-voyager-galileo-reference-2k.png`.
-- Display SHA-256: `eabc16b3b001ecf53802688d6a6481029b71cc567190cb91b971ab439aa63449`.
-- Epoch: Historical multi-epoch mosaic: Voyager Jupiter encounters (1979) and Galileo Jupiter mission (1995-2003); these are mission periods, not a single image date.
-- [Axes / projection evidence](https://astrogeology.usgs.gov/ckan/dataset/b9102ce8-3ee4-4848-8558-3dab5f52091a/resource/ca342229-fa0e-446b-8b5b-fb31bd1acdda/download/io_galileossi-voyager_global_mosaic_1km.lbl).
-- Binary display coverage: 2,095,104 valid pixels, 2,048 transparent pixels out of 2,097,152; no fractional-alpha pixels in the prepared asset.
+- Admitted original: `Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif`; full source interpretation, labels and independent feature anchors are in [IO_COLOR_SOURCES.md](IO_COLOR_SOURCES.md).
+- Original SHA-256: `524dcabd247c889a4e7c2a1bfd9e5fcc545c6a039b2c765da9b741befdfd00bd`.
+- Display asset: `textures/reference/io-galileo-color-reference-2k.png`.
+- Display SHA-256: `f83b274d56021fa11eac9c0c3755bd6ffc1397d93cc9fadb6207faca77366ed8`.
+- Mission-derived false color uses Galileo violet, green and near-infrared observations; no natural-color or calibrated-radiance claim. Covered RGB ratios are retained through mode 5's common scalar display adjustment.
+- Coverage: 1,978,368 valid pixels and 118,784 transparent pixels. The approximate +/-85 degree admission policy excludes the producer's interpolated polar caps; binary full-footprint coverage is retained.
+- Superseded monochrome product: `io-original.tif`, SHA-256 `cf65a0323aac9c4c9eb582aa7b7ce0d36be8e445316fa6dba49ab5647b63584c`, 65,546,342 bytes. `IO_MONOCHROME_SOURCE_SPEC` preserves its exact offline recipe; original source/labels are linked in the Git history and [original USGS metadata](https://astrogeology.usgs.gov/search/map/io_voyager_galileo_ssi_global_mosaic_1km). Its derived `eabc16b3b001ecf53802688d6a6481029b71cc567190cb91b971ab439aa63449` is no longer bundled or selected in the app.
 
 ### Europa
 
@@ -181,7 +181,8 @@ Run from the repository root using the existing Python/Pillow **12.2.0** environ
 
 ```powershell
 python tools/prepare_moon_reference.py --source-root build/moon-source-review-20260913 --out build/moon-cassini-replay --body Mimas --body Iapetus --body Enceladus --body Tethys --body Dione --body Rhea --body Phobos
-python tools/prepare_moon_reference.py --source-root build/galilean-source-review --out build/moon-galilean-replay --body Io --body Europa --body Ganymede --body Callisto
+python tools/prepare_moon_reference.py --source-root build/galilean-source-review --out build/moon-galilean-replay --body Europa --body Ganymede --body Callisto
+python tools/prepare_moon_reference.py --source-root build/io-color-source --out build/io-color-replay --body Io
 ```
 
 `--source-root` selects originals; `--out` must be a new directory below `build/`; repeated `--body` selects distinct supported recipes. Omitting `--body` selects all eleven and requires all originals in that source folder. Existing outputs are never overwritten. Each selected original must match its exact byte size, SHA-256, dimensions and channel interpretation. Selected inputs are verified before decoding; original files are unchanged. The pixel ceiling is raised only after source authentication and restored afterward. Source limits are 200,000,000 bytes and 300,000,000 pixels per file; the largest originals can require substantial working memory while decoded.

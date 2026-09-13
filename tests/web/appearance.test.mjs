@@ -113,7 +113,7 @@ test("the renderer loads moon maps through the same path and toggle as the plane
   const orrery = repoFile("apps/web/js/orrery.js");
   assert.match(orrery, /\.\.\.MOON_TEXTURE_FILES/);          // one TEXTURE_FILES table
   assert.match(orrery, /state\.useTextures && textures\[m\.n\]/); // same Photo-textures toggle
-  assert.match(orrery, /u_texMode, registered \? 4 : legacy \? 2 : 0/); // explicit source registration before legacy eligibility
+  assert.match(orrery, /u_texMode, registered \? \(reference\.moon_color_mode === 'source-rgb' \? 5 : 4\) : legacy \? 2 : 0/); // explicit source registration before legacy eligibility
   assert.match(orrery, /u_useTex, moonTex \? 1 : 0/);        // graceful fallback when absent
 });
 

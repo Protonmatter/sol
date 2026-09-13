@@ -322,13 +322,18 @@ def validate_mapped_references(data: dict, web_root: Path | None = None) -> tupl
         raise ValueError("invalid mapped reference collection")
     ids, paths, roles = set(), set(), set()
     for reference in references:
-        if not isinstance(reference, dict) or not MAPPED_REFERENCE_FIELDS.issubset(reference) or set(reference) - MAPPED_REFERENCE_FIELDS - {"derivation_inputs", "legend"}:
+        if not isinstance(reference, dict) or not MAPPED_REFERENCE_FIELDS.issubset(reference) or set(reference) - MAPPED_REFERENCE_FIELDS - {"derivation_inputs", "legend", "moon_color_mode"}:
             raise ValueError("invalid mapped reference fields")
         for field in ("id", "body", "label", "credits", "observation_label", "color_interpretation", "limitations", "derivation"):
             if not isinstance(reference[field], str) or not reference[field].strip():
                 raise ValueError(f"missing mapped reference {field}")
         if reference["role"] not in ("surface", "night-lights", "cloud-composite", "weather", "sea-ice"):
             raise ValueError("invalid mapped reference role")
+        # Only Io's reviewed RGB product is admitted to the new moon material.
+        # A label, filename or generic image mode cannot silently enable color.
+        if "moon_color_mode" in reference and (reference["moon_color_mode"] != "source-rgb"
+                or reference["body"] != "Io" or reference["role"] != "surface"):
+            raise ValueError("invalid or unsupported mapped reference moon color mode")
         if "legend" in reference:
             if reference["role"] != "sea-ice":
                 raise ValueError("mapped reference legend requires the sea-ice role")

@@ -100,3 +100,19 @@ test('the default cloud source and its caption identify a historical complete re
   assert.doesNotMatch(earthLayerDescription(state), /loading|2026-09-12|swath/);
   assert.equal(earthLayerDescription(state),earthLayerDescription({...state,renderUnix:123}));
 });
+
+test('Io names mission-derived false color, historical epochs and withheld polar interpolation', () => {
+  const asset = appearanceReference('Io');
+  assert.equal(asset.moon_color_mode, 'source-rgb');
+  assert.deepEqual(asset.validLatitudeBounds, [-85,85]);
+  for (const status of ['deferred','queued','loading','unavailable','ready']) {
+    const state = {appearanceStatus:{[asset.id]:status},renderUnix:0};
+    assert.match(appearanceSummary('Io',state), /false.color/i);
+    const text = appearanceDescription('Io',state,true);
+    assert.match(text, /near.infrared/i);
+    assert.match(text, /polar.*interpolat|interpolat.*polar/i);
+    assert.doesNotMatch(text, /monochrome reference/);
+    assert.equal(text, appearanceDescription('Io',{...state,renderUnix:999999},true));
+  }
+  assert.match(appearanceDescription('Io',{useTextures:false}), /switched off/);
+});

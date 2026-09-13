@@ -174,8 +174,8 @@ void main(){
       col=mix(col,decodeSRGB(coveredRGB(weather)),weather.a);
     }
   }
-  else if(u_useTex==1&&u_texMode==4){
-    // Registered monochrome moon mosaic: the provider's contrast stretch is
+  else if(u_useTex==1&&(u_texMode==4||u_texMode==5)){
+    // Registered moon mosaic: the provider's contrast stretch is
     // structure, not absolute reflectance. Normalize by the covered mip mean;
     // u_base retains the published albedo display gain and physical eclipse.
     // Premultiplied alpha excludes missing pixels from both samples and mean.
@@ -186,7 +186,16 @@ void main(){
     float mean=max(dot(meanRGB,vec3(0.299,0.587,0.114)),0.02);
     float here=dot(sampleRGB,vec3(0.299,0.587,0.114));
     float contrast=min(pow(clamp(here/mean,0.0,6.0),0.6),1.8);
-    col=u_base*mix(1.0,contrast,referenceCoverage(p,mapped));
+    vec3 material=vec3(contrast);
+    if(u_texMode==5){
+      // Mission-derived display RGB, not calibrated natural color or radiance.
+      // Only shared scalars change the covered source channels. Compress their
+      // common peak BEFORE the neutral albedo/eclipse gain to preserve hue and
+      // proportional eclipse dimming without clipping channels independently.
+      material=sampleRGB*(contrast/max(here,0.02));
+      material/=max(1.0,max(material.r,max(material.g,material.b)));
+    }
+    col=u_base*mix(vec3(1.0),material,referenceCoverage(p,mapped));
   }
   else if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
   else if(u_useTex==1&&u_texMode==2){ // real USGS moon mosaic

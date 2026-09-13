@@ -76,3 +76,12 @@ Bundled observation for the immersive Sun explorer:
   image is for education/exploration, not raw quantitative analysis or a global map.
   Original pixels, aspect and caption retained. No modeled regions are registered to it.
   Byte identity and source-use evidence: observed_images in visual-assets.v1.json.
+
+Qualified Io color display reference (supersedes the grayscale registered surface):
+  textures/reference/io-galileo-color-reference-2k.png - NASA/JPL Galileo SSI / USGS Astrogeology.
+  https://astrogeology.usgs.gov/search/map/io_galileo_ssi_global_color_merge_mosaic_1km
+  Original: Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif, 196,637,696 bytes.
+  Mission-derived false color uses violet, green and 756 nm near-infrared observations.
+  Historical multi-epoch imagery; human-eye colors are more muted. No natural-color claim.
+  Original RGB channels retained through BOX reduction; NoData and interpolated polar caps withheld.
+  Registry and IO_COLOR_SOURCES.md bind original/derived hashes, registration and display limits.

@@ -47,6 +47,18 @@ not calibrated local reflectance, measured color, current terrain illumination,
 photometric inversion or a claim about the current facing hemisphere. No
 procedural craters or guessed missing surface detail are enabled.
 
+Io's separately qualified Galileo SSI false-color map uses mode 5. Its explicit
+`moon_color_mode: source-rgb` admission is restricted to Io's surface, with absent
+fields retaining mode 4. Source RGB is divided by its covered luminance and multiplied
+by the same relative contrast, then divided by `max(1, max(R,G,B))` before the neutral
+albedo/eclipse gain. Every covered channel receives the same scalar: there is no
+invented yellow tint, independent channel clipping, or inferred natural color. The
+source RGB encoding is retained as a display convention; neither linear radiometry
+nor exact disc-average albedo is established. Original per-band NoData and provider-
+interpolated polar regions beyond approximately +/-85 degrees remain withheld. See
+[Io source qualification](IO_COLOR_SOURCES.md). No in-app source selector is added;
+the prior monochrome recipe remains reproducible offline.
+
 Earth’s night, cloud and ice flags are cleared for each moon and each other body.
 Ring and transit-shadow state are also reset for moon draws. The existing
 catalogue does not qualify mutual events on satellite surfaces.

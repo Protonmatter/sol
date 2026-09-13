@@ -82,6 +82,44 @@ class MoonReferenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             moon.derive(source, replace(spec, crop=(2, 2, 10, 6)))
 
+    def test_io_default_recipe_preserves_mission_rgb_and_excludes_interpolated_poles(self):
+        spec = next(spec for spec in moon.SOURCE_SPECS if spec.body == "Io")
+        self.assertEqual(spec.filename, "Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif")
+        self.assertEqual(spec.mode, "RGB")
+        self.assertEqual(spec.source_bytes, 196637696)
+        self.assertEqual(spec.sha256, "524dcabd247c889a4e7c2a1bfd9e5fcc545c6a039b2c765da9b741befdfd00bd")
+        self.assertEqual(spec.dimensions, (11445, 5723))
+        self.assertEqual(spec.crop, (0, 0, 11445, 5723))
+        self.assertEqual(spec.valid_latitude_bounds, (-85, 85))
+        self.assertTrue(spec.nodata_zero_channel)
+        historical = moon.IO_MONOCHROME_SOURCE_SPEC
+        self.assertEqual(historical.mode, "L")
+        self.assertEqual(historical.latitude_bounds, spec.latitude_bounds)
+        self.assertNotIn(historical, moon.SOURCE_SPECS)
+
+    def test_rgb_polar_mask_does_not_crop_rotate_recolor_or_fill_source_channels(self):
+        source = self.Image.new("RGB", (360, 180), (207, 179, 93))
+        source.paste((168, 83, 52), (180, 0, 360, 90))
+        source.paste((82, 104, 63), (0, 90, 180, 180))
+        source.paste((242, 229, 182), (180, 90, 360, 180))
+        source.paste((0, 0, 0), (98, 78, 103, 83))
+        spec = fixture_spec(dimensions=(360, 180), crop=(0, 0, 360, 180),
+                            output_dimensions=(180, 90), nodata_zero_channel=True,
+                            valid_latitude_bounds=(-85, 85))
+        result = moon.derive(source, spec)
+        expected_rgb = source.resize((180, 90), self.Image.Resampling.BOX)
+        self.assertEqual(result.mode, "RGBA")
+        self.assertEqual(result.convert("RGB").tobytes(), expected_rgb.tobytes())
+        self.assertEqual(result.getpixel((30, 30)), (207, 179, 93, 255))
+        self.assertEqual(result.getpixel((150, 30)), (168, 83, 52, 255))
+        self.assertEqual(result.getpixel((30, 60)), (82, 104, 63, 255))
+        self.assertEqual(result.getpixel((150, 60)), (242, 229, 182, 255))
+        self.assertEqual(result.getpixel((50, 40))[3], 0)
+        self.assertEqual(result.getpixel((179, 0))[3], 0)
+        self.assertEqual(result.getpixel((179, 89))[3], 0)
+        self.assertEqual(result.getpixel((179, 5))[3], 255)
+        self.assertEqual(result.getpixel((179, 84))[3], 255)
+
     def test_preparation_atomic_replay_and_failure_never_overwrite_sources(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); build = root / "build"; sources = root / "sources"
@@ -159,6 +197,7 @@ class MoonReferenceTests(unittest.TestCase):
             self.assertAlmostEqual(recipe.latitude_bounds[0], math.degrees((top-height*spacing)/radius), places=10)
             self.assertTrue(recipe.nodata_zero_channel)
         self.assertEqual(mapped["Europa"]["validLatitudeBounds"], [-83, 90])
+        self.assertEqual(mapped["Io"]["validLatitudeBounds"], [-85, 85])
 
     def test_original_decoder_failure_is_atomic_and_restores_pixel_limit(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -85,7 +85,12 @@ test("qualified catalogue moon maps share readiness, registration, albedo and ec
       'touring mapped moons cannot accumulate an unbounded GPU cache');
     const liveMaps = h.textureRecords.filter(record=>h.images.includes(record.pixels)&&!h.deletedTextures.includes(record.texture));
     assert.ok(liveMaps.length<=8,'eviction deletes real GPU texture handles before the ninth admission');
-    assert.equal(u.u_texMode, 4);
+    assert.equal(u.u_texMode, asset.body === 'Io' ? 5 : 4);
+    if (asset.body === 'Io') {
+      assert.equal(asset.moon_color_mode, 'source-rgb');
+      assert.equal(u.u_base[0], u.u_base[1], 'mission color receives a neutral albedo/eclipse gain');
+      assert.equal(u.u_base[1], u.u_base[2]);
+    }
     assert.equal(u.u_style, -1);
     assert.equal(u.u_mapNoData, {none:0,black:1,alpha:2}[asset.nodata]);
     assert.equal(u.u_map[0], asset.mapping.primeMeridianU);
@@ -107,7 +112,7 @@ test("qualified catalogue moon maps share readiness, registration, albedo and ec
   h.input('orreryAnchor',evicted.body,'change');
   const reloaded = complete(h,evicted.body);
   assert.equal(h.state.appearanceStatus[evicted.id],'ready');
-  assert.ok(paint(h).some(draw=>draw.textures.get(0)===reloaded.texture && draw.uniforms.u_texMode===4));
+  assert.ok(paint(h).some(draw=>draw.textures.get(0)===reloaded.texture && draw.uniforms.u_texMode===(evicted.body==='Io'?5:4)));
 });
 
 test("failed catalogue moon imagery retries explicitly and cannot be replaced by an unqualified legacy image", async t => {

@@ -63,7 +63,7 @@ is `atan2(z/q, hypot(x,y))`; planetocentric latitude is
 Source pixel-center grids retain their explicit scale and offset. Missing caps remain
 simplified. No weather/atmospheric pattern is generated procedurally.
 
-Reference display RGB uses the standard sRGB transfer as a stated display convention,
+Planetary reference display RGB uses the standard sRGB transfer as a stated display convention,
 linear illumination and encoded output; this does not calibrate source reflectance.
 Masked photographic uploads use premultiplied alpha for filtering; the shader recovers
 the covered source color before linear-light composition. No-data RGB cannot darken
@@ -78,6 +78,15 @@ temperature or pressure data. Existing moon albedo/eclipse behavior retains its 
 Texture loads publish loading, ready or unavailable state; late callbacks from a lost
 WebGL context cannot populate its replacement. Earth auxiliaries are reset for every
 other body and moon. Switching textures off disables all reference layers.
+
+Registered satellite display follows the [moon material contract](../plans/2026-09-13-system-polish/RENDERING_CONTRACT.md).
+Io's reviewed Galileo SSI false-color source explicitly selects `moon_color_mode: source-rgb`;
+this optional field is admitted only for Io's surface. Mode 5 preserves covered source
+RGB ratios with common brightness scalars, retaining the existing neutral albedo/eclipse
+gain. Other satellite maps keep monochrome mode 4. Original projection, fixed reference
+orientation, source epochs and source masks remain authoritative. Provider-interpolated
+polar color beyond approximately +/-85 degrees is withheld; no natural-color or calibrated
+radiance claim is introduced. The prior monochrome recipe stays available offline.
 
 ## UX and accessibility
 

@@ -52,6 +52,17 @@ class SourceSpec:
     nodata_zero_channel: bool = False
 
 
+# Retained for offline reproduction of the previously admitted grayscale map.
+# The active Io recipe below uses the producer's registered color-merged map;
+# both products retain the same complete affine image grid and source channels.
+IO_MONOCHROME_SOURCE_SPEC = SourceSpec("Io", "io-original.tif",
+    "cf65a0323aac9c4c9eb582aa7b7ce0d36be8e445316fa6dba49ab5647b63584c", 65546342,
+    (11445, 5723), "L", (0, 0, 11445, 5723), (2048, 1024), "io-voyager-galileo-reference-2k.png",
+    "eabc16b3b001ecf53802688d6a6481029b71cc567190cb91b971ab439aa63449",
+    latitude_bounds=(math.degrees((2862000-5723*1000)/1821460), math.degrees(2862000/1821460)),
+    nodata_zero_channel=True)
+
+
 SOURCE_SPECS = (
     SourceSpec("Mimas", "mimas-PIA17214-unlabeled-original.png",
         "f8ffa667b2c35ec890973ea3300a33d3ee506f596b53d3818cdfee56943e038b", 6959979,
@@ -83,12 +94,14 @@ SOURCE_SPECS = (
         "57b0b9bb3d69e2735cfe19b68d6d64d05a6cd7cf33ae0a3bd87501f70e90b5fe"),
     # GeoTIFF image extents differ slightly from the nominal +/-90-degree grid.
     # Use the source tie point, pixel scale and ISIS sphere when masking rows.
-    SourceSpec("Io", "io-original.tif",
-        "cf65a0323aac9c4c9eb582aa7b7ce0d36be8e445316fa6dba49ab5647b63584c", 65546342,
-        (11445, 5723), "L", (0, 0, 11445, 5723), (2048, 1024), "io-voyager-galileo-reference-2k.png",
-        "eabc16b3b001ecf53802688d6a6481029b71cc567190cb91b971ab439aa63449",
+    # The producer identifies the polar five degrees as interpolated. Retain
+    # their RGB in the archive-derived raster, but withhold display coverage.
+    SourceSpec("Io", "Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif",
+        "524dcabd247c889a4e7c2a1bfd9e5fcc545c6a039b2c765da9b741befdfd00bd", 196637696,
+        (11445, 5723), "RGB", (0, 0, 11445, 5723), (2048, 1024), "io-galileo-color-reference-2k.png",
+        "f83b274d56021fa11eac9c0c3755bd6ffc1397d93cc9fadb6207faca77366ed8",
         latitude_bounds=(math.degrees((2862000-5723*1000)/1821460), math.degrees(2862000/1821460)),
-        nodata_zero_channel=True),
+        valid_latitude_bounds=(-85, 85), nodata_zero_channel=True),
     SourceSpec("Europa", "europa-original.tif",
         "a323f0c9ccb47d5af9902ea8297fe81f9a9708795645b80801f103c3f7c9a624", 192777263,
         (19631, 9816), "L", (0, 0, 19631, 9816), (2048, 1024), "europa-voyager-galileo-reference-2k.png",

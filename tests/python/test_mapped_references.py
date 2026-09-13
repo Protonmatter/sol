@@ -83,6 +83,16 @@ class MappedReferenceTests(unittest.TestCase):
             item = reference(); item[field] = True
             with self.subTest(field=field), self.assertRaises(ValueError): self.validate(item)
 
+    def test_explicit_moon_color_mode_is_bounded_to_the_qualified_io_surface(self):
+        item = reference(); item.update(body="Io", moon_color_mode="source-rgb")
+        self.validate(item)
+        for changes in ({"moon_color_mode": None}, {"moon_color_mode": []},
+                        {"moon_color_mode": "natural"}, {"moon_color_mode": True},
+                        {"body": "Europa"}, {"body": "Earth"}, {"role": "weather"}):
+            bad = deepcopy(item); bad.update(changes)
+            with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, "moon color mode"):
+                self.validate(bad)
+
     def test_invalid_and_unhashable_values_fail_with_actionable_value_errors(self):
         cases = [(field, value) for field in ("id", "body", "role", "path", "nodata", "projection", "sha256", "source_sha256", "label", "credits")
                  for value in (None, [], {}, True)]

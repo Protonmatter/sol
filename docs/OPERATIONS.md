@@ -209,6 +209,15 @@ remains simplified. Reference-image failure never changes the model clock or
 physical body positions, and ordinary frames do not retry failed images. Toggle
 reference imagery off/on or leave and return to the view to retry explicitly.
 
+Io now uses the [qualified Galileo SSI color reference](plans/2026-09-13-system-polish/IO_COLOR_SOURCES.md).
+The source disclosure names its false-color/near-infrared meaning, historical epochs,
+fixed orientation and approximate +/-85 degree coverage boundary. Reproduce its pinned
+asset with `python tools/prepare_moon_reference.py --source-root build/io-color-source --out build/io-color-replay --body Io`
+using a new output directory. Original TIFF acquisition is an operator step; app/build
+add no external calls. The former monochrome recipe remains offline, not a UI selector.
+Rollback reverts the Io registry, matching asset, generated module and color-path commit
+together; it does not change the scientific engine or saved physical state.
+
 Real imagery is not automatically registered. Globe mapping requires reviewed byte
 identity, coordinate registration, coverage, source epoch, and display interpretation;
 photographic texture does not become state-estimation evidence. Coefficient
