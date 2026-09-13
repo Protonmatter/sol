@@ -9,6 +9,42 @@ weather independently. The release inventory remains
 
 ## Source and acquisition records
 
+### Default-view correction: complete historical cloud/surface reference
+
+The earlier default used the 2026-09-12 Terra/Aqua swath composite below. User review
+identified conspicuous slices over Africa. Independent comparison of all 2,097,152
+output pixels found zero differences from the retained source RGB and validity masks:
+187,898 cells lack both satellites' data. At approximately 10 degrees north, gaps at
+15.645–18.281 and 40.254–42.891 degrees east expose the different historical land map.
+These are source swath gaps, well away from the antimeridian. Opaque source pixels also
+retain acquisition boundaries; alpha feathering would not resolve those boundaries.
+
+The default is now NASA's published complete Blue Marble 2002 land/ocean/sea-ice/cloud
+composite. The dated swath source remains separately selectable and unchanged. SOL
+does not blend, blur, stretch, clone or otherwise fill missing daily observations.
+
+- Original raster: [NASA Blue Marble land, ocean, ice and clouds](https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg).
+- Product description: [NASA Blue Marble 2002 global imagery](https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/), which links Visible Earth record 57735 for this product.
+- Original and committed identity: 593,729 bytes, RGB JPEG, 2048 by 1024;
+  SHA-256 `fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e`.
+- Source interpretation: published in 2002, land observations June–September 2001;
+  clouds combine two visible-imagery days and a third polar thermal-infrared day.
+  The page does not identify the exact cloud observation dates. Ocean color, relief,
+  polar content and compositing include NASA visualization processing. This is a
+  historical display composite, not a simultaneous observation or calibrated albedo.
+- Registration: complete north-up geographic map, Greenwich at the center, eastward
+  columns and latitude extent -90 to +90 degrees. The JPEG itself has no geotags;
+  source-grid and landmark review establish display registration. The manifest binds
+  the supporting official mapping metadata.
+- Runtime: role `cloud-composite`, opaque source, original bytes. It occupies the
+  existing solar-lit cloud/surface sampler; the explicit `weather` selection uses the
+  original daily RGBA source instead. Pending or failed selections are withheld and
+  disclosed; they never trigger an automatic source/date substitution.
+
+The original acquisition and daily-mask evidence below remains applicable to the
+optional swath layer. A complete visualization composite does not qualify later
+weather, seasonal ice conditions, or source-epoch surface radiance.
+
 Original downloads and qualification evidence are retained in the ignored
 `build/earth-sources-20260913/` directory. Its `earth-assets.json` records source
 URLs, response hashes, dimensions, projection evidence, color interpretation,

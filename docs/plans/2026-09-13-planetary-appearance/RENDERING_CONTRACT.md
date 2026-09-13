@@ -164,7 +164,8 @@ supported only for Earth and require its surface reference. Base and auxiliaries
 must agree on normalized prime meridian, longitude direction, latitude type and
 projection, use full `[-90,90]` grid/valid-latitude bounds, and retain an identity
 image window. Omitted window defaults equal explicit `[1,1]` scale and `[0,0]`
-offset; prime-meridian `1` equals `0` after wrapping. Night lights require `none`
+offset; prime-meridian `1` equals `0` after wrapping. Night lights and the complete
+historical cloud/surface composite require `none`
 no-data semantics; weather and sea ice require `alpha`. This does not assert that
 all cells were observed: the admitted masks still retain missing coverage. A new
 auxiliary source on another grid requires reviewed normalization or a renderer
@@ -176,6 +177,10 @@ and affine windows.
 2. Dated satellite weather is clouds **and surface** where that is the product's
    content. Its documented validity mask controls alpha; missing data reveals the
    base. No arbitrary cloud drift, invented swaths or hemispheric mirroring is added.
+   This daily swath view requires explicit selection. The default uses the qualified
+   NASA Blue Marble 2002 cloud/surface composite, with historical processing and date
+   disclosed. The same solar-lit sampler selects exactly one source; a pending or
+   unavailable source never implicitly falls back to the other epoch.
 3. Night lights use a published source composite as relative display emission.
    Weight is zero at solar cosine `>=0`, full at `<=-sin(6 degrees)`, with a smooth
    cubic transition. The transition is a display convention, not a street-light

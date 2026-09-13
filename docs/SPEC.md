@@ -35,7 +35,9 @@ Scientific and source claims remain anchored to public methods and data: NOAA/SW
 Planetary appearance follows [RFC 0004](rfcs/0004-registered-planetary-appearance.md).
 Registered, dated mission display maps are separate from calibrated or complete
 observations. Earth layers distinguish land/ice, annual night lights, dated satellite
-clouds/surface and sea-ice analysis. Their epochs do not follow model time. Source
+clouds/surface and sea-ice analysis. The default cloud/surface view uses NASA's
+complete historical Blue Marble 2002 composite. Dated MODIS swaths are an explicit
+source choice with visible seams/gaps disclosed. Their epochs do not follow model time. Source
 coverage masks preserve missing observations; no procedural geography or polar caps
 fill gaps. Atmospheric scattering remains an explicitly illustrative visual effect.
 

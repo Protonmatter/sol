@@ -80,7 +80,8 @@ test('Earth source disclosure retains dates and links while repeated frames pres
   assert.equal(nodes.destinationAppearance.hidden, false);
   assert.equal(nodes.destinationEarthLayers.hidden, false);
   const links = nodes.destinationAppearanceSources.children;
-  assert.equal(links.length, 4);
+  assert.equal(links.length, 5);
+  assert.ok(links.some(link => link.textContent.includes('2002')), 'historical composite source remains attributable');
   assert.ok(links.every(link => link.href.startsWith('https://') && link.rel.includes('noopener')));
   links[0].focus(); renderDestinationOverview('orrery', null, state);
   assert.equal(doc.activeElement, links[0]); assert.equal(nodes.destinationAppearanceSources.replacements, 1);

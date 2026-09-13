@@ -59,7 +59,7 @@ class MappedReferenceTests(unittest.TestCase):
                 self.validate(invalid if invalid is not None else {})
 
     def test_original_and_all_dated_roles_are_admitted_without_changing_legacy_holds(self):
-        for role in ("surface", "night-lights", "weather", "sea-ice"):
+        for role in ("surface", "night-lights", "cloud-composite", "weather", "sea-ice"):
             item = reference(); item["role"] = role
             if role in ("weather", "sea-ice"): item["nodata"] = "alpha"
             ids, paths = self.validate(item, earth_base=role != "surface")
@@ -230,7 +230,7 @@ class MappedReferenceTests(unittest.TestCase):
     def test_earth_auxiliaries_require_base_and_identical_full_grid_and_mask_policy(self):
         def collection():
             base = reference(); entries = [base]
-            for role, nodata in (("night-lights", "none"), ("weather", "alpha"), ("sea-ice", "alpha")):
+            for role, nodata in (("night-lights", "none"), ("weather", "alpha"), ("sea-ice", "alpha"), ("cloud-composite", "none")):
                 layer = reference(); layer.update(id="synthetic-" + role, role=role, nodata=nodata,
                     path="textures/reference/" + role + ".png")
                 entries.append(layer)
@@ -243,7 +243,7 @@ class MappedReferenceTests(unittest.TestCase):
         data["mapped_references"][0]["mapping"]["primeMeridianU"] = 0
         for layer in data["mapped_references"][1:]: layer["mapping"]["primeMeridianU"] = 1
         mod.validate_mapped_references(data)
-        for role_index in (1, 2, 3):
+        for role_index in range(1, 5):
             data = collection(); layer = data["mapped_references"][role_index]
             with self.subTest(role=layer["role"], missing="surface"), self.assertRaisesRegex(ValueError, "Earth surface"):
                 mod.validate_mapped_references({"mapped_references": [layer]})

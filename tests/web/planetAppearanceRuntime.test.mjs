@@ -15,6 +15,8 @@ async function start(t, options = {}) {
   await h.enterOrrery();
   t.after(() => h.leaveOrrery());
   assert.equal(h.state.engineError, "");
+  // Existing swath/mask regressions explicitly select the observational source.
+  if (options.source !== "default") h.input("orreryEarthCloudSource", "daily", "change");
   return h;
 }
 
@@ -51,6 +53,66 @@ function bodyDraw(h, draws, name = "Earth") {
 function assertFlags(draw, enabled) {
   for (const layer of layers) assert.equal(draw.uniforms[layer.flag], Number(enabled.includes(layer.role)), layer.role);
 }
+
+test("Earth defaults to the complete historical composite; swaths require an explicit source choice", async t => {
+  const h = await start(t, { source: "default" });
+  assert.equal(h.state.earthCloudSource, "composite");
+  complete(h, "Earth");
+  const reference = complete(h, "Earth", "cloud-composite"), daily = complete(h, "Earth", "weather");
+  const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
+  assert.equal(bodyDraw(h, paint(h)).textures.get(3), reference.texture);
+  assert.match(h.nodes.orreryEarthLayerStatus.textContent, /2002/);
+  assert.doesNotMatch(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026/);
+  h.input("orreryEarthCloudSource", "daily", "change");
+  assert.equal(bodyDraw(h, paint(h)).textures.get(3), daily.texture);
+  assert.match(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026/);
+  assert.match(h.nodes.orreryEarthLayerStatus.textContent, /swath.*gaps|gaps.*swath/i);
+  h.input("orreryEarthCloudSource", "composite", "change");
+  assert.equal(bodyDraw(h, paint(h)).textures.get(3), reference.texture);
+  h.input("orreryEarthCloudSource", "invalid", "change");
+  assert.equal(h.state.earthCloudSource, "composite");
+  assert.equal(h.nodes.orreryEarthCloudSource.value, "composite");
+  assert.equal(h.state.renderUnix, epoch);
+  assert.equal(JSON.stringify(h.state.bodies), bodies);
+});
+
+test("missing selected composite never silently substitutes dated swaths", async t => {
+  const h = await start(t, { source: "default" });
+  complete(h, "Earth"); complete(h, "Earth", "weather");
+  const reference = sourceImage(h, "Earth", "cloud-composite");
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0, "pending composite does not use available daily swaths");
+  reference.image.onerror();
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
+  assert.match(h.nodes.orreryEarthLayerStatus.textContent, /2002.*unavailable/);
+  h.input("orreryEarthCloudSource", "daily", "change");
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 1);
+  h.input("orreryEarthCloudSource", "composite", "change");
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
+  h.check("orreryTextures", false); h.check("orreryTextures", true);
+  const recovered = complete(h, "Earth", "cloud-composite");
+  assert.equal(bodyDraw(h, paint(h)).textures.get(3), recovered.texture);
+  assert.equal(h.state.engineError, "");
+});
+
+test("explicit daily imagery never silently substitutes a ready or late historical composite", async t => {
+  const h = await start(t);
+  complete(h, "Earth");
+  const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
+  const daily = sourceImage(h, "Earth", "weather");
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
+  complete(h, "Earth", "cloud-composite");
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0, "late completion of an unselected source cannot replace the selection");
+  daily.image.onerror();
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
+  assert.match(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026.*unavailable/);
+  assert.doesNotMatch(h.nodes.orreryEarthLayerStatus.textContent, /2002/);
+  h.input("orreryEarthCloudSource", "composite", "change");
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 1);
+  h.input("orreryEarthCloudSource", "daily", "change");
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
+  assert.equal(h.state.renderUnix, epoch);
+  assert.equal(JSON.stringify(h.state.bodies), bodies);
+});
 
 test("registered references load from reviewed local paths; pending imagery is disclosed without changing the engine", async t => {
   const h = await start(t);

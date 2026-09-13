@@ -9,6 +9,10 @@ export function appearanceReferences() {
   return visualAssetManifest.mapped_references || [];
 }
 
+export function earthCloudRole(state = {}) {
+  return state.earthCloudSource === 'daily' ? 'weather' : 'cloud-composite';
+}
+
 export function appearanceUniforms(asset) {
   const m = asset.mapping;
   return {
@@ -33,12 +37,13 @@ export function appearanceDescription(body, state = {}, details = false) {
 }
 
 export function earthLayerDescription(state = {}, compact = false) {
-  const roles = /** @type {[string, boolean][]} */ ([['night-lights', state.earthNight !== false], ['weather', state.earthWeather !== false], ['sea-ice', state.earthIce === true]]);
+  const roles = /** @type {[string, boolean][]} */ ([['night-lights', state.earthNight !== false], [earthCloudRole(state), state.earthWeather !== false], ['sea-ice', state.earthIce === true]]);
   return roles.filter(([, enabled]) => enabled).map(([role]) => {
     const asset = appearanceReference('Earth', role);
     if (!asset) return `${role}: unavailable`;
     const status = state.appearanceStatus?.[asset.id];
-    const label = compact ? {'night-lights':'Night lights',weather:'Clouds and surface','sea-ice':'Sea ice'}[role] : asset.label;
-    return `${label} · ${asset.observation_label}${status === 'ready' ? '' : status === 'unavailable' ? ' · unavailable' : ' · loading'}`;
+    const label = compact ? {'night-lights':'Night lights',weather:'Dated satellite swaths','cloud-composite':'Clouds and surface','sea-ice':'Sea ice'}[role] : asset.label;
+    const limits = role === 'weather' ? ' · swath seams and gaps retained' : role === 'cloud-composite' ? ' · historical composite' : '';
+    return `${label} · ${asset.observation_label}${status === 'ready' ? '' : status === 'unavailable' ? ' · unavailable' : ' · loading'}${limits}`;
   }).join(' · ');
 }

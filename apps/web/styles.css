@@ -800,6 +800,8 @@ h2 {
 
 .orrery-focus-label { gap: 0.4rem; }
 .orrery-focus-select { width: auto; }
+.orrery-field { display: grid; gap: 0.4rem; min-width: 0; }
+.orrery-field select { width: 100%; min-width: 0; }
 
 /* ---- My Sky surface ---- */
 #skyCanvas {

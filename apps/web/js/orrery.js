@@ -14,7 +14,7 @@
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
 import { store } from "./store.js?v=dcca6290db";
-import { appearanceReference, appearanceReferences, appearanceUniforms, earthLayerDescription } from "./planetAppearance.js";
+import { appearanceReference, appearanceReferences, appearanceUniforms, earthLayerDescription, earthCloudRole } from "./planetAppearance.js";
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
 import { layoutLabels } from "./labelLayout.js?v=dcca6290db";
 import { projectOpaqueDisc, isLabelOccluded } from "./labelOcclusion.js";
@@ -127,7 +127,7 @@ const state = (store.orrery = {
   yearsPerSec: SOLAR_SPEED_DEFAULT_YPS,
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
-  earthNight: true, earthWeather: true, earthIce: false,
+  earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite',
   appearanceStatus: {},
   showSmall: false, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   moonGuideMode: "context", // advanced callers may explicitly choose all or off
@@ -1305,7 +1305,7 @@ function updateEarthLayerStatus() {
 function bindEarthTextures(enabled) {
   for (const [role, active, flag, sampler, unit] of /** @type {[string,boolean,string,string,number][]} */ ([
     ['night-lights', state.earthNight, 'u_earthNight', 'u_nightTex', 2],
-    ['weather', state.earthWeather, 'u_earthWeather', 'u_weatherTex', 3],
+    [earthCloudRole(state), state.earthWeather, 'u_earthWeather', 'u_weatherTex', 3],
     ['sea-ice', state.earthIce, 'u_earthIce', 'u_iceTex', 4],
   ])) {
     const asset = appearanceReference('Earth', role);
@@ -2427,6 +2427,12 @@ async function showFallback(msg) {
   for (const [id, key] of [['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
     bind(id, 'change', e => { state[key] = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
   }
+  bind('orreryEarthCloudSource', 'change', e => {
+    const input = inputTarget(e);
+    state.earthCloudSource = input.value === 'daily' ? 'daily' : 'composite';
+    input.value = state.earthCloudSource;
+    updateEarthLayerStatus(); paint(); updateOrreryAccuracy();
+  });
   bind("orreryTopDown", "change", (e) => {
     state.topDown = inputTarget(e).checked;
     if (state.topDown) { state.preTopRadius = state.radius; state.radius = 78; } // frame the whole system from above

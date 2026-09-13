@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceDescription, earthLayerDescription } from '../../apps/web/js/planetAppearance.js';
+import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceDescription, earthLayerDescription, earthCloudRole } from '../../apps/web/js/planetAppearance.js';
 
 test('every major planet and the Moon has a dated source reference without upgrading held legacy maps', () => {
   for (const body of ['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune','Moon']) {
@@ -10,7 +10,7 @@ test('every major planet and the Moon has a dated source reference without upgra
   }
   assert.equal(appearanceReference('Sun'), null);
   assert.equal(appearanceReference('Earth','invented-clouds'), null);
-  assert.equal(appearanceReferences().length, 12);
+  assert.equal(appearanceReferences().length, 13);
 });
 
 test('map uniforms preserve source longitude, latitude conventions, affine grids and alpha coverage', () => {
@@ -44,14 +44,25 @@ test('appearance copy distinguishes loading, failure, disabled and source date f
 });
 
 test('Earth layer summaries include only enabled dated layers and report readiness independently', () => {
-  const state = {earthNight:true,earthWeather:true,earthIce:true,appearanceStatus:{}};
+  const state = {earthNight:true,earthWeather:true,earthIce:true,earthCloudSource:'daily',appearanceStatus:{}};
   for (const role of ['night-lights','weather','sea-ice']) state.appearanceStatus[appearanceReference('Earth',role).id] = 'ready';
   const text = earthLayerDescription(state);
   assert.match(text,/2016/); assert.match(text,/2026/); assert.doesNotMatch(text,/loading|unavailable/);
-  assert.match(earthLayerDescription(state, true), /Clouds and surface/);
+  assert.match(earthLayerDescription(state, true), /Dated satellite swaths/);
   assert.doesNotMatch(earthLayerDescription(state, true), /NASA/);
   assert.equal(earthLayerDescription({earthNight:false,earthWeather:false,earthIce:false}), '');
   assert.match(earthLayerDescription(), /loading/);
   state.appearanceStatus[appearanceReference('Earth','weather').id] = 'unavailable';
   assert.match(earthLayerDescription(state),/unavailable/);
+});
+
+test('the default cloud source and its caption identify a historical complete reference', () => {
+  assert.equal(earthCloudRole(), 'cloud-composite');
+  assert.equal(earthCloudRole({earthCloudSource:'invalid'}), 'cloud-composite');
+  assert.equal(earthCloudRole({earthCloudSource:'daily'}), 'weather');
+  const asset = appearanceReference('Earth','cloud-composite');
+  const state = {earthNight:false,appearanceStatus:{[asset.id]:'ready'}};
+  assert.match(earthLayerDescription(state,true), /Clouds and surface.*2002.*historical composite/);
+  assert.doesNotMatch(earthLayerDescription(state), /loading|2026-09-12|swath/);
+  assert.equal(earthLayerDescription(state),earthLayerDescription({...state,renderUnix:123}));
 });

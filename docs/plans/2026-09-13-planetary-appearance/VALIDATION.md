@@ -5,6 +5,46 @@ Date: 2026-09-13. This implements the accepted user direction in
 It extends the observation workspace in RFC 0003. Local acceptance, hosted CI,
 manual scientific qualification and production activation remain separate evidence.
 
+## Earth swath-seam correction
+
+The default Earth view now uses the original NASA Blue Marble 2002 complete
+cloud/surface composite. The 2026-09-12 Terra/Aqua swaths remain an explicit source
+choice with their seams and missing coverage preserved. Source selection is separate
+from model time, and pending/failed selections cannot substitute another epoch.
+See [the source diagnosis and original-byte evidence](EARTH_SOURCES.md#default-view-correction-complete-historical-cloudsurface-reference).
+
+The corrected default and original swaths were rendered from the same camera at
+2026-09-12 15:00 UTC, retaining identical body positions. The Africa view reproduces
+the reported wedges with swaths selected; the default composite has continuous
+surface/cloud features there. Native Home/End selection, source captions, mobile
+reflow, both poles, night lights and the sea-ice legend were checked in Chromium.
+
+| Correction validation | Result |
+| --- | --- |
+| New default-source and missing-source regressions | Failed before implementation; passed afterward. Both substitution directions, late callbacks, invalid selector input, and fixed model/imagery dates covered |
+| `node tools/check_node_coverage.mjs --output-dir=coverage/earth-seams-node-final` | 753/753 tests; lines 97.84%, branches 91.54%, functions 95.14% |
+| `PYTHONPATH=tools python -m unittest discover -s tests/python -p 'test_*.py'` | 290/290 tests |
+| Visual inventory, web types/static/UX, SDLC and Markdown validators | Passed; 13 mapped references, original 593,729-byte NASA JPEG, existing qualification holds retained |
+| `node tools/planet_appearance_validation.mjs --web-root=build/earth-seams-final --out=coverage/earth-seams-gpu` | 67/67 actual GPU checks; shader source unchanged |
+| `node tools/browser_validation.mjs --web-root=build/earth-seams-verified --output-dir=coverage/earth-seams-browser-stable` | Passed actual WebGL, orbit/rotation, Io transit and eclipse assertions |
+| Node plus browser coverage with every handwritten runtime module retained | 96.45% line coverage; 90% floor passed |
+| `python tools/browser_smoke.py --web-root build/earth-seams-final` | Sun, My Sky and interactive Solar System passed |
+
+Final local candidate `earth-seams-verified` has manifest SHA-256
+`a7b15972be617cf4119919a4364dece622f96e04e7b936fae5a3d5906477f70a`.
+The earlier `earth-seams-final` candidate differs only in the two selector option
+labels, shortened after visual inspection to keep dates visible on small screens.
+Node all-module coverage is in `coverage/earth-seams-node-all`, merged coverage in
+`coverage/earth-seams-combined-final`, and original comparison screenshots in
+`coverage/earth-seams-capture`. These are retained local evidence, not tracked assets.
+
+Rejected attempts remain recorded: source-hash checks rejected a build before its
+final attribution update and one before its shortened labels. One animated browser
+capture rejected a 16-pixel canvas-height change; the unchanged candidate passed the
+complete rerun. No geometry or pixel assertion was weakened to obtain that result.
+This does not qualify every hardware GPU or browser, current weather, or production
+deployment. The rest of this document preserves the earlier implementation evidence.
+
 ## Result and source scope
 
 Earth now has registered continents and land ice, geometrically night-side city

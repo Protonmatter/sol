@@ -1451,6 +1451,50 @@
       "reviewed_at": "2026-09-13T07:21:44.733043+00:00"
     },
     {
+      "id": "earth-blue-marble-2002-cloud-composite",
+      "body": "Earth",
+      "role": "cloud-composite",
+      "path": "textures/reference/earth-blue-marble-2002-clouds.jpg",
+      "sha256": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
+      "bytes": 593729,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "NASA Blue Marble cloud composite",
+      "credits": "NASA Goddard / Reto Stockli and Robert Simmon; MODIS, NOAA AVHRR and USGS GTOPO30",
+      "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg",
+      "source_sha256": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
+      "source_bytes": 593729,
+      "source_retrieved_at": "2026-09-13T09:21:51.974741+00:00",
+      "observation_label": "Blue Marble 2002 composite (2001 land observations)",
+      "color_interpretation": "NASA display-color land, ocean, sea-ice and cloud composite with provider ocean-color processing and baked topographic shading; not calibrated albedo or a cloud-only mask.",
+      "limitations": "Historical visual reference published in 2002. Land and coastal observations span June-September 2001. Clouds combine two visible-imagery days and a third thermal-infrared polar day; exact cloud dates are unstated. Provider compositing and visual enhancements are retained. Complete image coverage does not imply simultaneous global observations. No current weather, cloud height, optical depth, sea-ice concentration or feature-position measurement may be inferred. JPEG has no geotags or ICC profile; registration is reviewed for display, not measurement. Night lights remain a separately dated annual reference.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "Original NASA JPEG bytes preserved without color alteration, filling, resampling or recompression. Display registration reviewed as north-at-top, west-to-east, Greenwich u=0.5, full -180..180 longitude/-90..90 latitude: NASA identifies the source as a complete flat global composite; coastline windows were independently compared with its CRS:84 companion Blue Marble WMS map. California/Baja, Iberia and Red Sea/Arabia match at zero pixel offset; cloud-affected Western Australia differs by at most one pixel in the registration check. This is display-registration evidence, not a geotag or a scientific geolocation precision claim. RGB is treated as sRGB display imagery; lighting is a visualization convention.",
+      "metadata_urls": [
+        "https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/",
+        "https://www.nasa.gov/people-of-nasa/goddard-people/robert-simmon-aka-mr-blue-marble/",
+        "https://svs.gsfc.nasa.gov/2915/",
+        "https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/wms_product_description_2915_21223.html"
+      ],
+      "reviewed_at": "2026-09-13T09:24:35.765330+00:00"
+    },
+    {
       "id": "earth-jpl-mur-sea-ice-20260907",
       "body": "Earth",
       "role": "sea-ice",

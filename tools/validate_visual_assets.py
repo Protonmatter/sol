@@ -311,7 +311,7 @@ def validate_earth_layer_grids(references: list[dict]) -> None:
         grid = (item["projection"], mapping["primeMeridianU"] % 1, mapping["longitudeDirection"], mapping["latitudeType"])
         if grid != base_grid:
             raise ValueError("Earth auxiliary mapping grid differs from the surface reference")
-        if item["role"] != "surface" and item["nodata"] != {"night-lights": "none", "weather": "alpha", "sea-ice": "alpha"}[item["role"]]:
+        if item["role"] != "surface" and item["nodata"] != {"night-lights": "none", "cloud-composite": "none", "weather": "alpha", "sea-ice": "alpha"}[item["role"]]:
             raise ValueError("Earth auxiliary nodata policy is incompatible with its shader role")
 
 
@@ -327,7 +327,7 @@ def validate_mapped_references(data: dict, web_root: Path | None = None) -> tupl
         for field in ("id", "body", "label", "credits", "observation_label", "color_interpretation", "limitations", "derivation"):
             if not isinstance(reference[field], str) or not reference[field].strip():
                 raise ValueError(f"missing mapped reference {field}")
-        if reference["role"] not in ("surface", "night-lights", "weather", "sea-ice"):
+        if reference["role"] not in ("surface", "night-lights", "cloud-composite", "weather", "sea-ice"):
             raise ValueError("invalid mapped reference role")
         if "legend" in reference:
             if reference["role"] != "sea-ice":
