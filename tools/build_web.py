@@ -45,7 +45,7 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     "solarProjection.js", "solarRegionFacts.js", "celestial.js", "engineLimits.js",
     "displayGeometry.js", "labelOcclusion.js", "visualAssets.js", "visualAssetManifest.js", "solarObservation.js", "orreryShaders.js", "planetAppearance.js", "surfaceMapping.js",
     "bodyData.js", "moonelements.js", "moonorbits.js", "moonshadows.js", "starphysics.js", "starcatalog.js",
-    "orreryMath.js", "orreryTime.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
+    "orreryMath.js", "orreryTime.js", "orbitCamera.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
     "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js"})
 
 

@@ -389,7 +389,7 @@
     {
       "id": "SOL-VIS-004",
       "status": "implemented",
-      "statement": "Registered planetary display references MUST preserve source identity, map axes, source epoch, coverage and color limits; Earth auxiliary layers MUST remain source-based and separate from model time.",
+      "statement": "Registered planetary and moon display references MUST preserve source identity, map axes, source epoch, coverage and color limits; Earth auxiliary layers MUST remain source-based and separate from model time. All-body appearance refinement MUST preserve physical positions and disclose reference-orientation and shape approximations.",
       "source": "docs/rfcs/0004-registered-planetary-appearance.md#requirements",
       "implementation": [
         "apps/web/js/planetAppearance.js",
@@ -404,9 +404,13 @@
         "tests/python/test_mapped_references.py",
         "tests/python/test_fetch_earth_reference.py",
         "tests/python/test_planet_reference.py",
+        "tests/python/test_moon_reference.py",
+        "tests/web/destinationCards.test.mjs",
+        "tests/web/rings.test.mjs",
         "tests/python/test_visual_assets.py",
         "tools/validate_visual_assets.py",
         "tools/planet_appearance_validation.mjs",
+        "tools/ring_appearance_validation.mjs",
         "tools/browser_validation.mjs"
       ],
       "ci_gates": [

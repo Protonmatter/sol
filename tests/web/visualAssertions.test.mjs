@@ -39,6 +39,11 @@ test("visual Sun assertion accepts warm white and rejects the former orange pale
   );
 });
 
+test("visual Sun assertion rejects neutral gray even when its channel ratios are white", () => {
+  assert.throws(() => assertWarmWhiteSun(disc({ color: [140, 140, 140] })), /emissive|too dark/);
+  assert.ok(assertWarmWhiteSun(disc({ color: [238, 233, 224] })).medianLuminance > 190);
+});
+
 test("visual Earth assertion requires a material blue component", () => {
   assert.ok(assertBlueEarth(disc({ color: [35, 92, 168] })).bluePixels > 100);
   assert.throws(

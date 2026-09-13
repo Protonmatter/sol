@@ -23,6 +23,12 @@ are independent properties. A global raster does not imply every pixel was obser
 
 ## Requirements
 
+The all-body refinement is specified in the
+[system appearance contract](../plans/2026-09-13-system-polish/RENDERING_CONTRACT.md).
+It extends the same qualification boundaries to catalogue moons, ring structure,
+source-preserving solar imagery and readable camera focus without changing
+physical positions or the state-estimation engine.
+
 - `SOL-VIS-004`: Reference maps MUST bind source and rendered byte hashes, original
   dimensions, coordinate axes, latitude convention, covered latitude, no-data behavior,
   source date, color interpretation, derivation, limitations and source credits.

@@ -14,10 +14,11 @@
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
 import { store } from "./store.js?v=dcca6290db";
-import { appearanceReference, appearanceReferences, appearanceUniforms, earthLayerDescription, earthCloudRole } from "./planetAppearance.js";
+import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole } from "./planetAppearance.js";
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
 import { layoutLabels } from "./labelLayout.js?v=dcca6290db";
 import { projectOpaqueDisc, isLabelOccluded } from "./labelOcclusion.js";
+import { fitOrbitDistance, minimumOrbitDistance, orbitNearPlane } from "./orbitCamera.js";
 import { resolveSystemPresentation } from "./presentationState.js?v=dcca6290db";
 import { loadSkyEngine, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=dcca6290db";
 import { projectSystemPositions, validateSystemRequest } from "./systemContract.js?v=dcca6290db";
@@ -46,7 +47,7 @@ import { textureEligible, missingDetailColor } from "./visualAssets.js?v=dcca629
 import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=dcca6290db";
 import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=dcca6290db";
 import * as moonCatalogue from "./moons.js?v=dcca6290db";
-import { MOON_TEXTURE_FILES, moonBaseColor } from "./moonAppearance.js?v=dcca6290db";
+import { MOON_TEXTURE_FILES, moonBaseColor, moonAtmosphereColor } from "./moonAppearance.js?v=dcca6290db";
 import { elpMoonAliased,
   DAYS_PER_YEAR, SOLAR_SPEED_DEFAULT_YPS, solarSpeedFromSlider, solarSliderFromSpeed,
   rotationDisplayIsLimited, rotationDisplayStepSeconds, solarStepSeconds,
@@ -963,7 +964,7 @@ function cameraMatrices(w, h) {
     eye = orbitEye();
     view = lookAt(eye, t, [0, 0, 1]);
   }
-  const proj = perspective(FOVY, w / h, 0.008, 800);
+  const proj = perspective(FOVY, w / h, state.freeFly || state.galaxy ? .008 : orbitNearPlane(state.radius, anchorDisplayExtent() || 0), 800);
   const vp = mul(proj, view);
   const skyView = view.slice(); skyView[12] = 0; skyView[13] = 0; skyView[14] = 0;
   const skyVp = mul(proj, skyView);
@@ -1347,7 +1348,10 @@ function drawBody(b, vp, eye) {
   gl.uniform1i(P.sphereU.u_style, -1); // unregistered surface detail stays neutral
   gl.uniform1i(P.sphereU.u_mode, b.name === "Sun" ? 1 : 0);
   gl.uniform1f(P.sphereU.u_time, state.renderUnix * 0.0002);
-  gl.uniform3fv(P.sphereU.u_base, missingDetailColor(b.name));
+  // The Sun emits white visible light (NASA SVS 13859). This slightly warm
+  // display RGB is illustrative, not calibrated radiance or observed detail.
+  // Keep u_style=-1: no unregistered disk, invented spots or granulation.
+  gl.uniform3fv(P.sphereU.u_base, b.name === "Sun" ? [1, 0.98, 0.94] : appearanceFallbackColor(b.name) || missingDetailColor(b.name));
   gl.uniform3fv(P.sphereU.u_light, new Float32Array(light));
   gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
   gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(atmo));
@@ -1553,19 +1557,27 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     ));
     gl.uniform3fv(P.sphereU.u_light, new Float32Array(light));
     gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
-    gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(m.n === "Titan" ? [0.85, 0.6, 0.3] : [0, 0, 0]));
+    gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(moonAtmosphereColor(m.n)));
     gl.uniform1f(P.sphereU.u_atmoStr, m.n === "Titan" ? 0.5 : 0);
-    // Real USGS global mosaic when one exists, has decoded, and Photo textures are on — the
-    // same three conditions drawBody applies to the planets, so the toggle means one thing
-    // everywhere. Absent file (a checkout that has not run tools/fetch_textures.py) or toggle
-    // off ⇒ u_useTex 0 and the procedural style above draws the moon, unchanged.
-    const moonTex = textureEligible(m.n) && state.useTextures && textures[m.n] && textures[m.n].ready ? textures[m.n] : null;
+    // Only reviewed grids may wrap onto a moon. Its reference orientation is fixed;
+    // this catalogue supplies orbits, not a scientifically qualified spin model.
+    const reference = appearanceReference(m.n);
+    const registered = state.useTextures && reference && referenceTextures[reference.id]?.ready ? referenceTextures[reference.id] : null;
+    const legacy = textureEligible(m.n) && state.useTextures && textures[m.n]?.ready ? textures[m.n] : null;
+    const moonTex = registered || legacy;
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, moonTex ? moonTex.tex : whiteTex);
     gl.uniform1i(P.sphereU.u_tex, 0);
     gl.uniform1i(P.sphereU.u_useTex, moonTex ? 1 : 0);
-    // texMode 2: the mosaic is divided by its own mean and multiplied into u_base, so the map
-    // supplies structure while the published albedo keeps sole charge of brightness.
-    gl.uniform1i(P.sphereU.u_texMode, moonTex ? 2 : 0);
+    // Both mosaic modes preserve the existing albedo and eclipse display gains.
+    // Mode 4 additionally honors source axes, latitude limits and missing coverage.
+    gl.uniform1i(P.sphereU.u_texMode, registered ? 4 : legacy ? 2 : 0);
+    if (registered) {
+      const uniforms = appearanceUniforms(reference);
+      gl.uniform4fv(P.sphereU.u_map, new Float32Array(uniforms.map));
+      gl.uniform4fv(P.sphereU.u_mapLat, new Float32Array(uniforms.lat));
+      gl.uniform4fv(P.sphereU.u_mapWindow, new Float32Array(uniforms.window));
+      gl.uniform1i(P.sphereU.u_mapNoData, uniforms.nodata);
+    }
     bindEarthTextures(false); // auxiliary layers must never leak from Earth onto moons
     gl.uniform1f(P.sphereU.u_oblate, 1);
     gl.uniform2fv(P.sphereU.u_ringRad, new Float32Array([0, 0])); // no ring shadow on moons — clear the parent's state
@@ -1960,6 +1972,16 @@ function flyStep(dt) {
 // Switch the orbit anchor (focus). Re-frames the camera at a distance suited to that body's
 // size, and approaches from the SUNLIT side: the old camera kept its previous azimuth, which as
 // often as not framed the night hemisphere — a black disc is a broken-looking first impression.
+function anchorDisplayExtent() {
+  const moon = moonSet.MOONS.find(m => m.n === state.anchor);
+  if (moon && moonWorldPos(moon.n)) {
+    return moonDisplayRadius(moon, BODY[moon.p].radiusKm, displayRadiusAU(moon.p));
+  }
+  // The existing anchor follows the parent when a moon position is unavailable.
+  const name = moon ? moon.p : state.anchor, body = BODY[name];
+  return body ? displayRadiusAU(name) * Math.max(1, (body.rings?.outerKm || body.radiusKm) / body.radiusKm) : null;
+}
+
 function setAnchor(name) {
   state.anchor = name;
   state.selectedStar = null; // an explicit body choice unpins any star card
@@ -1972,22 +1994,15 @@ function setAnchor(name) {
     paint();
     return;
   }
-  const moon = moonSet.MOONS.find((m) => m.n === name);
   const small = smallBodies.find((s) => s.name === name);
-  if (moon) {
-    if (moonWorldPos(name)) {
-      const r = moonDisplayRadius(moon, BODY[moon.p].radiusKm, displayRadiusAU(moon.p));
-      state.radius = Math.max(0.28, r * 16); // close enough that the moon reads, parent in frame
-    } else {
-      // Outside the moons' validated epoch window their positions are unknown and the layer
-      // is hidden — frame the parent planet instead of zooming to nothing (anchorPos follows
-      // the parent for the same reason). The moon's facts card still shows.
-      state.radius = Math.max(1.2, displayRadiusAU(moon.p) * 14);
-    }
-  } else if (small) {
+  if (small) {
     state.radius = 4; // point markers have no display radius; 4 AU keeps the orbit in context
-  } else if (BODY[name]) {
-    state.radius = Math.max(1.2, displayRadiusAU(name) * 14);
+  } else {
+    const extent = anchorDisplayExtent();
+    const canvas = document.getElementById("orreryCanvas");
+    if (extent) state.radius = fitOrbitDistance(extent,
+      Math.max(1, canvas?.clientWidth || 1) / Math.max(1, canvas?.clientHeight || 1),
+      FOVY, Math.hypot(...anchorPos()));
   }
   state.selected = name;
   showDetail(name);
@@ -2243,7 +2258,11 @@ async function showFallback(msg) {
     const cb = /** @type {HTMLInputElement|null} */ (document.getElementById("orreryAnimate"));
     if (cb) cb.checked = false;
   }
-  const clampR = (r) => Math.max(0.6, Math.min(160, r));
+  const clampR = (r) => {
+    const extent = !state.galaxy && state.anchor !== "Sun" ? anchorDisplayExtent() : null;
+    const minimum = extent ? minimumOrbitDistance(extent, Math.hypot(...anchorPos())) : .6;
+    return Math.max(minimum, Math.min(160, r));
+  };
   const pointers = new Map(); let lx = 0, ly = 0, pinch = 0, downX = 0, downY = 0, moved = false;
   const spread = () => { const p = [...pointers.values()]; return p.length >= 2 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0; };
 

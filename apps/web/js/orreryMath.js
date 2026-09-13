@@ -84,6 +84,10 @@ export function buildSphere(stacks, slices) {
 // band casts always matches the band that is drawn.
 function ringColorAt(rings, km) {
   if (rings.gaps) for (const [g0, g1] of rings.gaps) if (km > g0 && km < g1) return [0, 0, 0, 0];
+  if (rings.bands) {
+    const band = rings.bands.find(b => km >= b.innerKm && km <= b.outerKm);
+    return [0.55, 0.55, 0.55, band ? band.opacity : 0];
+  }
   if (!rings.gaps) return [0.62, 0.64, 0.66, 0.16]; // faint Uranus/Neptune rings
   let a, tint;
   if (km < 92000) { a = 0.18; tint = [0.55, 0.50, 0.42]; }        // C ring (dim)
@@ -92,20 +96,61 @@ function ringColorAt(rings, km) {
   return [tint[0], tint[1], tint[2], a];
 }
 
+// Prepare exact radial boundaries once per mesh/profile, retaining the legacy broad-band
+// model for callers without an explicit band catalogue. All colour/opacity consumers use
+// these same piecewise-constant intervals; no unresolved ring is promoted to a filled disc.
+function ringIntervals(rings) {
+  const { innerKm, outerKm } = rings;
+  if (!Number.isFinite(innerKm) || !Number.isFinite(outerKm) || innerKm < 0 || outerKm <= innerKm) {
+    throw new Error('Invalid ring envelope');
+  }
+  const edges = new Set([innerKm, outerKm]);
+  if (rings.bands !== undefined) {
+    if (!Array.isArray(rings.bands)) throw new Error('Invalid ring bands');
+    let previous = innerKm;
+    for (const band of [...rings.bands].sort((a, b) => a.innerKm - b.innerKm)) {
+      if (!Number.isFinite(band.innerKm) || !Number.isFinite(band.outerKm)
+        || band.innerKm < previous || band.outerKm <= band.innerKm || band.outerKm > outerKm
+        || !Number.isFinite(band.opacity) || band.opacity < 0 || band.opacity > 1) {
+        throw new Error('Invalid or overlapping ring band');
+      }
+      previous = band.outerKm; edges.add(band.innerKm); edges.add(band.outerKm);
+    }
+  } else if (rings.gaps) {
+    for (const km of [92000, 117580]) if (km > innerKm && km < outerKm) edges.add(km);
+  }
+  for (const gap of rings.gaps || []) {
+    if (!Array.isArray(gap) || gap.length !== 2 || !gap.every(Number.isFinite)
+      || gap[0] < innerKm || gap[1] > outerKm || gap[0] >= gap[1]) throw new Error('Invalid ring gap');
+    edges.add(gap[0]); edges.add(gap[1]);
+  }
+  const points = [...edges].sort((a, b) => a - b);
+  return points.slice(1).map((end, i) => ({ start: points[i], end, color: ringColorAt(rings, (points[i] + end) / 2) }));
+}
+
 // 1-D radial opacity profile (inner→outer, 0..255) for the ring-shadow lookup texture: the
 // shadow a ring casts on its planet is only as dark as the ring is optically thick, so the C
 // ring throws a faint shadow, the B ring a deep one, the Cassini Division none, and the faint
 // Uranus/Neptune rings barely any.
-export function ringOpacityProfile(rings, n = 160) {
+export function ringOpacityProfile(rings, n = 2048) {
+  if (!Number.isSafeInteger(n) || n < 1 || n > 1048576) throw new Error('Invalid ring profile size');
+  const intervals = ringIntervals(rings), width = (rings.outerKm - rings.innerKm) / n;
   const out = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
-    const km = rings.innerKm + ((i + 0.5) / n) * (rings.outerKm - rings.innerKm);
-    out[i] = Math.round(ringColorAt(rings, km)[3] * 255);
+    const left = rings.innerKm + i * width, right = left + width;
+    let opacityArea = 0;
+    for (const band of intervals) {
+      opacityArea += Math.max(0, Math.min(right, band.end) - Math.max(left, band.start)) * band.color[3];
+    }
+    // Average over each texel's full footprint: point sampling can entirely miss narrow rings.
+    out[i] = Math.round(Math.min(1, opacityArea / width) * 255);
   }
   return out;
 }
 
 export function buildRing(rings, rEqAU, radiusKm, neutralColor = false) {
+  const intervals = ringIntervals(rings);
+  if (!Number.isFinite(rEqAU) || rEqAU <= 0 || !Number.isFinite(radiusKm) || radiusKm <= 0) throw new Error('Invalid ring scale');
   const inner = (rings.innerKm / radiusKm) * rEqAU;
   const outer = (rings.outerKm / radiusKm) * rEqAU;
   const RAD = 56, ANG = 120, v = [];
@@ -116,13 +161,7 @@ export function buildRing(rings, rEqAU, radiusKm, neutralColor = false) {
   // boundary to 1/56 of the span — the Cassini Division's edges could land ~±1,100 km off.
   const anchors = new Set([inner, outer]);
   for (let i = 1; i < RAD; i++) anchors.add(inner + (outer - inner) * (i / RAD));
-  if (rings.gaps) {
-    for (const [g0, g1] of rings.gaps) { anchors.add(kmToAU(g0)); anchors.add(kmToAU(g1)); }
-    for (const km of [92000, 117580]) { // the C/B and B/A section boundaries in colorAt
-      const r = kmToAU(km);
-      if (r > inner && r < outer) anchors.add(r);
-    }
-  }
+  for (const band of intervals) { anchors.add(kmToAU(band.start)); anchors.add(kmToAU(band.end)); }
   const radii = [...anchors].sort((a, b) => a - b);
   for (let i = 0; i + 1 < radii.length; i++) {
     const r0 = radii[i], r1 = radii[i + 1];

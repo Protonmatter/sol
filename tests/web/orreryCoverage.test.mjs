@@ -2,11 +2,63 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { orreryHarness } from "./helpers/orreryHarness.mjs";
 import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
+import { BODY } from '../../apps/web/js/bodyData.js';
 
 function assertOnlyRegisteredImages(h) {
   assert.deepEqual(h.images.map(image => image.src).sort(), appearanceReferences().map(a => a.path).sort(),
     'Only separately registered dated references load; legacy held globe/ring/disk imagery stays blocked');
 }
+
+function assertFocusedDisc(h, expected = .76, extentRatio = 1) {
+  const u = h.gpuDraws.findLast(({ uniforms: u }) => u.u_mode === 0 && u.u_model
+    && Math.abs(u.u_mvp[12] / u.u_mvp[15]) < 1e-3 && Math.abs(u.u_mvp[13] / u.u_mvp[15]) < 1e-3)?.uniforms;
+  assert.ok(u, 'an actual submitted sphere is at the focus centre');
+  const extent = Math.hypot(...u.u_model.slice(0, 3)) * extentRatio;
+  const aspect = h.nodes.orreryCanvas.clientWidth / h.nodes.orreryCanvas.clientHeight;
+  const occupied = extent / Math.sqrt(h.state.radius ** 2 - extent ** 2)
+    / (Math.tan(21 * Math.PI / 180) * Math.min(1, aspect));
+  assert.ok(Math.abs(occupied - expected) < 2e-6, `focus occupies ${occupied} of the limiting viewport`);
+  return extent;
+}
+
+test('focused planets and moons fit desktop and portrait views without changing submitted body geometry', async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  assert.equal(h.state.radius, 26, 'initial Solar System overview is unchanged');
+  const bodies = JSON.stringify(h.state.bodies);
+  const capture = action => {
+    const first = h.gpuDraws.length; action();
+    return h.gpuDraws.slice(first).filter(({ uniforms: u }) => u.u_model && (u.u_mode === 0 || u.u_mode === 1))
+      .map(({ uniforms: u }) => JSON.stringify(u.u_model)).sort();
+  };
+  const before = capture(() => h.check('orreryTextures', h.state.useTextures));
+  const models = new Map(before.map(value => [JSON.stringify(JSON.parse(value).slice(12, 15)), value]));
+  // Camera distance intentionally admits previously sub-pixel moon systems.
+  // Compare every reappearing model and require every core rotating body to remain.
+  const core = before.filter(value => JSON.parse(value)[1] !== 0);
+  assert.equal(core.length, 10);
+  for (const [width, height] of [[800, 600], [320, 540]]) {
+    h.resize(width, height);
+    for (const name of ['Earth', 'Moon', 'Saturn', 'Io']) {
+      const after = capture(() => h.input('orreryAnchor', name, 'change'));
+      for (const value of core) assert.ok(after.includes(value), `${name}: every core model remains unchanged`);
+      for (const value of after) {
+        const key = JSON.stringify(JSON.parse(value).slice(12, 15));
+        if (models.has(key)) assert.equal(value, models.get(key), `${name}: a reappearing body retains its radius and transform`);
+        else models.set(key, value);
+      }
+      const ratio = name === 'Saturn' ? BODY.Saturn.rings.outerKm / BODY.Saturn.radiusKm : 1;
+      assertFocusedDisc(h, .76, ratio);
+    }
+  }
+  const extent = assertFocusedDisc(h);
+  for (let i = 0; i < 20; i++) h.event('orreryCanvas', 'keydown', { key: '+' });
+  assert.ok(h.state.radius > extent && h.state.radius < extent * 1.09, 'moon zoom is bounded outside its actual sphere');
+  assert.equal(JSON.stringify(h.state.bodies), bodies, 'camera gestures do not change engine positions or epoch');
+  h.input('orreryAnchor', 'Sun', 'change');
+  assert.equal(h.state.radius, 26, 'explicit Sun overview remains available');
+  assert.equal(h.errors.length, 0);
+});
 
 test("Orrery speed controls preserve the rate across units and bound manual entry", async t => {
   const h = await orreryHarness(t, { controls: true });
@@ -143,7 +195,7 @@ test("Orrery rendering controls preserve accessible selection and expose the rea
   assert.equal(globalThis.document.activeElement, earth);
   h.event("orreryFocusSelected", "click");
   assert.equal(h.state.anchor, "Earth");
-  assert.equal(h.state.radius, 1.2);
+  assertFocusedDisc(h);
   const detail = h.nodes.orreryDetail.firstElementChild;
   h.input("orreryTime", "1"); await h.settle();
   assert.equal(h.state.offsetYears, 1);
@@ -248,7 +300,7 @@ test("Orrery loaded moons use real elements and disclose clock aliasing and unav
   const labels = h.nodes.orreryLabels.children.map(node => node.textContent);
   assert.ok(labels.includes("Io"), "the real loaded Jupiter system contributes moon markers");
   h.input("orreryAnchor", "Io", "change");
-  assert.equal(h.state.anchor, "Io"); assert.equal(h.state.radius, 0.28);
+  assert.equal(h.state.anchor, "Io"); assertFocusedDisc(h);
   assert.match(h.nodes.orreryDetail.textContent, /JPL Horizons/);
   h.input("orrerySpeed", "1"); h.setAnimate(true); h.frame(100);
   assert.ok(h.state.moonsAliasedCount > 0);
@@ -258,7 +310,11 @@ test("Orrery loaded moons use real elements and disclose clock aliasing and unav
   assert.match(h.nodes.orreryAccuracy.textContent, /Moons hidden/);
   assert.match(h.nodes.orrerySelectedEpoch.textContent, /position unavailable outside the moon table interval/);
   h.input("orreryAnchor", "Io", "change");
-  assert.ok(h.state.radius >= 1.2, "outside the moon table, focus frames the parent rather than nonexistent coordinates");
+  assertFocusedDisc(h);
+  const parentDistance = h.state.radius;
+  h.input("orreryAnchor", "Jupiter", "change");
+  assert.equal(h.state.radius, parentDistance, "unavailable moon focus fits the same parent geometry");
+  h.input("orreryAnchor", "Io", "change");
   h.input("orrerySearch", "Io");
   assert.match(h.nodes.orreryPositions.children.find(node => node.dataset.objectId === "Io").textContent, /position unavailable at this epoch/);
   h.now(); await h.settle();

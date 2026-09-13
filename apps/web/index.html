@@ -49,6 +49,7 @@
     <link rel="modulepreload" href="js/moons.js?v=dcca6290db">
     <link rel="modulepreload" href="js/moonshadows.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orreryMath.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/orbitCamera.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orreryShaders.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orreryTime.js?v=dcca6290db">
     <link rel="modulepreload" href="js/panels.js?v=dcca6290db">
@@ -136,8 +137,9 @@
       <section class="stage-band" aria-label="Solar maximum engine">
         <div class="viewport">
           <section id="solarObservation" class="solar-observation" aria-label="NASA solar observation">
-            <div class="observation-image-wrap">
-              <img id="observationImage" width="1024" height="1024" alt="Saved NASA SDO solar observation" fetchpriority="high">
+            <div id="observationMedia" class="observation-image-wrap" aria-busy="true">
+              <img id="observationImage" width="1024" height="1024" alt="Saved NASA SDO solar observation" fetchpriority="high" hidden>
+              <p id="observationLoading" class="observation-loading" role="status">Loading the saved NASA observation…</p>
               <div id="observationUnavailable" class="observation-unavailable" role="status" hidden>
                 <h2>Observation unavailable</h2><p>The saved NASA image could not be loaded.</p>
                 <button id="observationRetry" class="time-btn" type="button">Retry image</button>

@@ -3,6 +3,7 @@ import test from "node:test";
 import { orreryHarness } from "./helpers/orreryHarness.mjs";
 import { appearanceReference, appearanceReferences } from "../../apps/web/js/planetAppearance.js";
 import { BODY } from "../../apps/web/js/bodyData.js";
+import { MOONS } from "../../apps/web/js/moons.js";
 
 const layers = [
   { role: "night-lights", control: "orreryEarthNight", flag: "u_earthNight", sampler: "u_nightTex", unit: 2 },
@@ -53,6 +54,54 @@ function bodyDraw(h, draws, name = "Earth") {
 function assertFlags(draw, enabled) {
   for (const layer of layers) assert.equal(draw.uniforms[layer.flag], Number(enabled.includes(layer.role)), layer.role);
 }
+
+test("qualified catalogue moon maps share readiness, registration, albedo and eclipse boundaries", async t => {
+  const h = await start(t, { catalogues: "ready" });
+  await h.settleCatalogues();
+  const assets = appearanceReferences().filter(a => MOONS.some(m => m.n === a.body));
+  assert.ok(assets.length >= 6, "qualified Saturnian mosaics must reach the real renderer");
+  const epoch = h.state.renderUnix, positions = JSON.stringify(h.state.bodies);
+  for (const asset of assets) {
+    h.input("orreryAnchor", asset.body, "change");
+    const before = paint(h);
+    const loaded = complete(h, asset.body);
+    const matches = paint(h).filter(draw => draw.uniforms.u_useTex === 1 && draw.textures.get(0) === loaded.texture);
+    assert.equal(matches.length, 1, `${asset.body}: exactly its own moon uses the source`);
+    const draw = matches[0], u = draw.uniforms;
+    assert.equal(u.u_texMode, 4);
+    assert.equal(u.u_style, -1);
+    assert.equal(u.u_mapNoData, {none:0,black:1,alpha:2}[asset.nodata]);
+    assert.equal(u.u_map[0], asset.mapping.primeMeridianU);
+    assert.equal(u.u_map[1], asset.mapping.longitudeDirection === 'east' ? 1 : -1);
+    assertFlags(draw, []);
+    assert.equal(u.u_moonShadowCount, 0);
+    const prior = before.find(draw => JSON.stringify(draw.uniforms.u_model) === JSON.stringify(u.u_model));
+    assert.ok(prior, "source load cannot change position, radius or fixed reference frame");
+    assert.deepEqual(u.u_base, prior.uniforms.u_base, "source contrast keeps albedo and eclipse gain");
+    assert.ok(paint(h, () => h.check("orreryTextures", false)).every(draw => draw.uniforms.u_useTex !== 1));
+    h.check("orreryTextures", true);
+  }
+  assert.equal(h.state.renderUnix, epoch);
+  assert.equal(JSON.stringify(h.state.bodies), positions);
+  assert.equal(h.errors.length, 0);
+});
+
+test("failed catalogue moon imagery retries explicitly and cannot be replaced by an unqualified legacy image", async t => {
+  const h = await start(t, { catalogues: "ready" });
+  await h.settleCatalogues();
+  h.input("orreryAnchor", "Mimas", "change");
+  const {asset, image} = sourceImage(h, "Mimas");
+  image.onerror();
+  assert.equal(h.state.appearanceStatus[asset.id], 'unavailable');
+  assert.ok(paint(h).every(draw => draw.uniforms.u_useTex !== 1));
+  const count = h.images.length;
+  paint(h); assert.equal(h.images.length, count, 'ordinary frames never retry a failed source');
+  h.check("orreryTextures", false); h.check("orreryTextures", true);
+  const recovered = complete(h, "Mimas");
+  assert.notEqual(recovered.image, image);
+  assert.ok(paint(h).some(draw => draw.uniforms.u_texMode === 4 && draw.textures.get(0) === recovered.texture));
+  assert.equal(h.state.engineError, '');
+});
 
 test("Earth defaults to the complete historical composite; swaths require an explicit source choice", async t => {
   const h = await start(t, { source: "default" });

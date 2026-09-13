@@ -81,6 +81,18 @@ vec2 referenceUV(vec3 p){
   return vec2(fract(u_map.x+u_map.y*longitude*0.1591549431),
     (u_mapLat.y-latitude)/(u_mapLat.y-u_mapLat.x));
 }
+vec4 referenceSample(sampler2D source,vec3 p){
+  vec2 uv=referenceUV(p);
+  // atan/fract wrap inside a fragment quad must not look like a full-map
+  // footprint. Differentiate longitude on its local tangent instead, then
+  // apply the admitted affine window to both UV and gradients. This retains
+  // source edge pixels; it fixes mip selection, not source mosaic seams.
+  vec2 tangent=vec2(-p.y,p.x);
+  float gain=u_map.y*0.1591549431/max(dot(p.xy,p.xy),1e-8);
+  vec2 dx=vec2(dot(tangent,dFdx(p.xy))*gain,dFdx(uv.y))*u_mapWindow.xy;
+  vec2 dy=vec2(dot(tangent,dFdy(p.xy))*gain,dFdy(uv.y))*u_mapWindow.xy;
+  return textureGrad(source,uv*u_mapWindow.xy+u_mapWindow.zw,dx,dy);
+}
 float referenceCoverage(vec3 p,vec4 sampleColor){
   vec2 uv=referenceUV(p)*u_mapWindow.xy+u_mapWindow.zw;
   if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1)))) return 0.0;
@@ -152,16 +164,29 @@ void main(){
   // identical absolute crater contrast regardless of how much light it reflects.
   float relief=dot(u_base,vec3(0.299,0.587,0.114));
   if(reference){
-    vec2 uv=referenceUV(p)*u_mapWindow.xy+u_mapWindow.zw;
-    vec4 mapped=texture(u_tex,uv);
+    vec4 mapped=referenceSample(u_tex,p);
     vec3 sourceRGB=u_mapNoData==2 ? coveredRGB(mapped) : mapped.rgb;
     col=mix(decodeSRGB(u_base),decodeSRGB(sourceRGB),referenceCoverage(p,mapped));
     // Earth auxiliaries share the documented WGS84 pixel-area grid, 180W..180E.
     // Weather is the provider's dated clouds-and-surface image, never inferred clouds.
     if(u_earthWeather==1){
-      vec4 weather=texture(u_weatherTex,uv);
+      vec4 weather=referenceSample(u_weatherTex,p);
       col=mix(col,decodeSRGB(coveredRGB(weather)),weather.a);
     }
+  }
+  else if(u_useTex==1&&u_texMode==4){
+    // Registered monochrome moon mosaic: the provider's contrast stretch is
+    // structure, not absolute reflectance. Normalize by the covered mip mean;
+    // u_base retains the published albedo display gain and physical eclipse.
+    // Premultiplied alpha excludes missing pixels from both samples and mean.
+    vec4 mapped=referenceSample(u_tex,p);
+    vec4 average=textureLod(u_tex,vec2(0.5),20.0);
+    vec3 sampleRGB=u_mapNoData==2 ? coveredRGB(mapped) : mapped.rgb;
+    vec3 meanRGB=u_mapNoData==2 ? coveredRGB(average) : average.rgb;
+    float mean=max(dot(meanRGB,vec3(0.299,0.587,0.114)),0.02);
+    float here=dot(sampleRGB,vec3(0.299,0.587,0.114));
+    float contrast=min(pow(clamp(here/mean,0.0,6.0),0.6),1.8);
+    col=u_base*mix(1.0,contrast,referenceCoverage(p,mapped));
   }
   else if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
   else if(u_useTex==1&&u_texMode==2){ // real USGS moon mosaic
@@ -317,9 +342,10 @@ void main(){
         float rr=length(q.xy+lo.xy*s);
         float f=(rr-u_ringRad.x)/(u_ringRad.y-u_ringRad.x);
         if(f>0.0&&f<1.0){
-          // Soft annulus mask: CLAMP_TO_EDGE LINEAR cannot interpolate toward transparency
-          // past the first/last texel, so without this the shadow cut on at the boundary.
-          float m=smoothstep(0.0,0.015,f)*(1.0-smoothstep(0.985,1.0,f));
+          // Bound edge filtering to half one opacity-profile texel. A percentage of the
+          // whole envelope erased narrow outer rings (Epsilon/Adams) from their shadows.
+          float edge=0.5/float(textureSize(u_ringTex,0).x);
+          float m=smoothstep(0.0,edge,f)*(1.0-smoothstep(1.0-edge,1.0,f));
           col*=1.0-0.72*m*texture(u_ringTex,vec2(f,0.5)).r;
         }
       }
@@ -329,13 +355,13 @@ void main(){
     // Published night-light composite: display emission only, no inferred lamp locations.
     // The smooth 0 to -6 degree twilight fade is a visual convention, not a switch-on model.
     float night=1.0-smoothstep(-0.1045284633,0.0,dot(N,normalize(u_light)));
-    if(u_earthNight==1) col+=decodeSRGB(texture(u_nightTex,referenceUV(p)).rgb)*night;
+    if(u_earthNight==1) col+=decodeSRGB(referenceSample(u_nightTex,p).rgb)*night;
     col=encodeSRGB(col);
   }
   col+=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert); // illustrative atmospheric scattering on the disc rim
   // The scientific palette is not a material: solar lighting must not change its
   // concentration colours. Composite it after lighting, paired with the source legend.
-  if(reference&&u_earthIce==1){ vec4 ice=texture(u_iceTex,referenceUV(p)); col=mix(col,ice.rgb,ice.a); }
+  if(reference&&u_earthIce==1){ vec4 ice=referenceSample(u_iceTex,p); col=mix(col,ice.rgb,ice.a); }
   o=vec4(col,1.0);
 }`;
 
@@ -348,24 +374,30 @@ void main(){ o=vec4(v_col,u_alpha); }`;
 
 export const RING_VS = `#version 300 es
 layout(location=0) in vec3 a_pos; layout(location=1) in vec4 a_col; layout(location=2) in float a_frac;
-uniform mat4 u_mvp; uniform mat4 u_model; out vec4 v_col; out float v_frac; out vec3 v_world;
-void main(){ v_col=a_col; v_frac=a_frac; v_world=(u_model*vec4(a_pos,1.0)).xyz; gl_Position=u_mvp*vec4(a_pos,1.0); }`;
+uniform mat4 u_mvp; uniform mat4 u_model; out vec4 v_col; out float v_frac; out vec3 v_world; out vec3 v_normal;
+void main(){ v_col=a_col; v_frac=a_frac; v_world=(u_model*vec4(a_pos,1.0)).xyz; v_normal=mat3(u_model)*vec3(0,0,1); gl_Position=u_mvp*vec4(a_pos,1.0); }`;
 export const RING_FS = `#version 300 es
-precision highp float; in vec4 v_col; in float v_frac; in vec3 v_world; out vec4 o;
+precision highp float; in vec4 v_col; in float v_frac; in vec3 v_world; in vec3 v_normal; out vec4 o;
 uniform int u_useTex; uniform sampler2D u_tex;
 // u_center/u_light/u_prad: the planet's world position, the unit direction from it toward the
 // Sun, and its display radius — for the planet's shadow across the rings.
 uniform vec3 u_center; uniform vec3 u_light; uniform float u_prad;
+vec3 ringDecode(vec3 c){ return mix(c/12.92,pow((c+0.055)/1.055,vec3(2.4)),step(vec3(0.04045),c)); }
+vec3 ringEncode(vec3 c){ return mix(c*12.92,1.055*pow(max(c,vec3(0)),vec3(1.0/2.4))-0.055,step(vec3(0.0031308),c)); }
 void main(){ vec4 c=v_col; if(u_useTex==1){ vec4 t=texture(u_tex, vec2(v_frac,0.5)); c=vec4(t.rgb*1.05, t.a); } if(c.a<0.02) discard;
   // The planet blocks sunlight over the part of the ring behind it (sun at infinity → a
   // shadow cylinder along -u_light). Soft-edged, strongly darkened but not black — the rings
   // scatter light into the shadow in reality, and a hint of structure should survive.
-  vec3 d=v_world-u_center;
-  float t=dot(d,-u_light);
+  vec3 light=normalize(u_light), d=v_world-u_center;
+  float t=dot(d,-light), sunVisibility=1.0;
   if(t>0.0){
-    float axis=length(d+u_light*t);
-    c.rgb*=1.0-0.82*(1.0-smoothstep(u_prad*0.97,u_prad*1.06,axis));
+    float axis=length(d+light*t);
+    sunVisibility=1.0-0.82*(1.0-smoothstep(u_prad*0.97,u_prad*1.06,axis));
   }
+  // Bounded two-sided diffuse display model, not calibrated ring scattering. Opacity
+  // remains the shared profile; illumination only changes RGB in linear light.
+  float incidence=abs(dot(normalize(v_normal),light));
+  c.rgb=ringEncode(ringDecode(c.rgb)*(0.08+0.92*incidence*sunVisibility));
   o=c; }`;
 
 export const PT_VS = `#version 300 es

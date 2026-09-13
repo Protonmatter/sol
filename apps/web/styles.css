@@ -1797,6 +1797,7 @@ body:not([data-surface="today"]) .experience-switch { display: none; }
 .observation-caption { position: absolute; bottom: 0; left: 0; right: 0; min-height: 3.7rem; display: flex; flex-wrap: wrap; align-items: center; gap: .65rem 1.25rem; padding: .9rem 1.5rem; border-top: 1px solid #23324480; background: #080f18; font-size: .65rem; color: #8fa4c0; }
 .archive-label { font-size: .54rem; letter-spacing: .13em; color: #ead1a6; }
 #observationCredit { margin-left: auto; }
+.observation-loading { position: absolute; left: 1.5rem; right: 1.5rem; top: 45%; margin: 0; text-align: center; color: #c5d3e6; font-size: .85rem; line-height: 1.6; }
 .observation-unavailable { position: absolute; inset: 30% 10%; text-align: center; background: #0a111bef; padding: 1.5rem; border: 1px solid #495a73; border-radius: .7rem; }
 .observation-unavailable h2 { font-size: 1.1rem; font-weight: 400; }
 .sources-limits { border: 0; border-top: 1px solid #273445; border-radius: 0; background: transparent; color: #98aac3; margin: 0 1.5rem 1rem; padding: .75rem .5rem; font-size: .75rem; }

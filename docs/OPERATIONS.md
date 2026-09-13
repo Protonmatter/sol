@@ -192,6 +192,14 @@ change schema versions to bypass validation.
 
 ## Scientific and operational limits
 
+The [all-body appearance contract](plans/2026-09-13-system-polish/RENDERING_CONTRACT.md)
+extends the registered planetary renderer to qualified satellite references and
+documented ring intervals. Moon maps use a disclosed fixed reference orientation;
+their terrain does not identify the current facing hemisphere. Missing coverage
+remains simplified. Reference-image failure never changes the model clock or
+physical body positions, and ordinary frames do not retry failed images. Toggle
+reference imagery off/on or leave and return to the view to retry explicitly.
+
 Real imagery is not automatically registered. Globe mapping requires reviewed byte
 identity, coordinate registration, coverage, source epoch, and display interpretation;
 photographic texture does not become state-estimation evidence. Coefficient

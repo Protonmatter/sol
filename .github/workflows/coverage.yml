@@ -97,6 +97,8 @@ jobs:
         run: node tools/browser_validation.mjs --web-root=build/site
       - name: Registered planetary imagery and Earth layer GPU contract
         run: node tools/planet_appearance_validation.mjs --web-root=build/site --out=coverage/planet-appearance
+      - name: Catalogue ring geometry and illumination GPU contract
+        run: node tools/ring_appearance_validation.mjs --web-root=build/site --out=coverage/ring-appearance
       - name: Whole-web Node + Chromium line gate
         # Generated catalogues must load in the browser but are deliberately omitted
         # from the percentage so declarative data rows cannot inflate application coverage.
@@ -111,6 +113,7 @@ jobs:
             coverage/node/coverage-final.json
             coverage/node-executed
             coverage/planet-appearance
+            coverage/ring-appearance
           if-no-files-found: ignore
           retention-days: 90
 

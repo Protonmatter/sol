@@ -648,7 +648,7 @@
       "allowed_usages": [
         "browse-preview"
       ],
-      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification. Legacy attribution reports latitude +/-87.6 degrees; never stretch this to the poles.",
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification. The legacy 1024x498 browse is cropped; its exact latitude bounds remain unverified. Never infer bounds from image aspect ratio or stretch it to the poles.",
       "fallback": {
         "rgb": [
           0.55,
@@ -657,7 +657,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, browse rendering; mosaic spans \u00b187.6\u00b0 latitude (public domain, NASA/JPL/USGS)",
+      "legacy_source_label": "USGS Astrogeology \u2014 Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, cropped browse rendering; exact latitude bounds unverified (public domain, NASA/JPL/USGS)",
       "metadata_evidence": []
     },
     {
@@ -1102,8 +1102,8 @@
         0.48,
         0.24
       ],
-      "label": "Approximate orange haze; hue supported, RGB illustrative; surface detail unavailable.",
-      "source_url": "https://science.nasa.gov/resource/highlighting-titans-hazes/",
+      "label": "Illustrative visible-light orange haze; RGB illustrative, not calibrated. The opaque atmosphere hides the surface.",
+      "source_url": "https://www.jpl.nasa.gov/images/pia06230-cassinis-view-of-titan-natural-color-composite/",
       "credits": "NASA/JPL-Caltech/Space Science Institute"
     }
   },
@@ -2023,6 +2023,560 @@
         "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
       ],
       "reviewed_at": "2026-09-13T07:30:19.847319+00:00"
+    },
+    {
+      "id": "mimas-cassini-reference",
+      "body": "Mimas",
+      "role": "surface",
+      "path": "textures/reference/mimas-cassini-reference-2k.png",
+      "sha256": "fbb571b298642fe64899c548ff6948daf0634e15b8ce6ba3abe963abd7d40196",
+      "bytes": 1189557,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2017 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/p/i/a/1/PIA17214_unlabeled.png",
+      "source_sha256": "f8ffa667b2c35ec890973ea3300a33d3ee506f596b53d3818cdfee56943e038b",
+      "source_bytes": 6959979,
+      "source_retrieved_at": "2026-09-13T09:51:06.419906+00:00",
+      "observation_label": "Cassini flyby composite, June 2017 release, including November 2016 and February 2017 images; not one observation",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "Full map from Cassini flybys. The labeled companion carries a January 2017 title while NASA dates the released update June 2017 and describes February 2017 inputs; the release date is used here. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Mimas\",\"filename\":\"mimas-PIA17214-unlabeled-original.png\",\"sha256\":\"f8ffa667b2c35ec890973ea3300a33d3ee506f596b53d3818cdfee56943e038b\",\"source_bytes\":6959979,\"dimensions\":[5760,2880],\"mode\":\"L\",\"crop\":[0,0,5760,2880],\"output_dimensions\":[2048,1024],\"output\":\"mimas-cassini-reference-2k.png\",\"output_sha256\":\"fbb571b298642fe64899c548ff6948daf0634e15b8ce6ba3abe963abd7d40196\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA17214 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/resource/mimas-global-map-june-2017/",
+        "https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/p/i/a/1/PIA17214_labeled.png"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "iapetus-cassini-reference",
+      "body": "Iapetus",
+      "role": "surface",
+      "path": "textures/reference/iapetus-cassini-reference-2k.png",
+      "sha256": "519dd1c1781d2a183666ed4b3fc5541cbaa351e604214a0a774e298db49bd6a0",
+      "bytes": 2023258,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2008 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia11/pia11116/PIA11116.jpg",
+      "source_sha256": "c054d5927ca1f3b42914fef82cd700c8bbfd28c6890b5410faaf79e3368d0887",
+      "source_bytes": 2057630,
+      "source_retrieved_at": "2026-09-13T09:56:02.959595+00:00",
+      "observation_label": "Cassini and Voyager flyby composite, May 2008 map edition, released October 2008; individual source dates differ",
+      "color_interpretation": "Monochrome mission-image mosaic. The published JPEG stores the grayscale map in RGB channels; those channels are retained. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "Voyager images fill Cassini coverage gaps, and some terrain was imaged in Saturn-reflected light. Source contrast and varying native resolution remain visible. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Iapetus\",\"filename\":\"iapetus-nasa-map.jpg\",\"sha256\":\"c054d5927ca1f3b42914fef82cd700c8bbfd28c6890b5410faaf79e3368d0887\",\"source_bytes\":2057630,\"dimensions\":[6199,3407],\"mode\":\"RGB\",\"crop\":[240,203,6000,3083],\"output_dimensions\":[2048,1024],\"output\":\"iapetus-cassini-reference-2k.png\",\"output_sha256\":\"519dd1c1781d2a183666ed4b3fc5541cbaa351e604214a0a774e298db49bd6a0\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA11116 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The original contains labels only outside the measured data rectangle x=[240,6000), y=[203,3083); that exact 5760x2880 map rectangle is extracted before resampling. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-iapetus-may-2008/"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "enceladus-cassini-reference",
+      "body": "Enceladus",
+      "role": "surface",
+      "path": "textures/reference/enceladus-cassini-reference-2k.png",
+      "sha256": "ec869b20d7aa570b55ecd0bbda42ba42797d84e1eeaf4bfc5a5f52ca312e1c9c",
+      "bytes": 1537963,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2010 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia12/pia12564/PIA12564.jpg",
+      "source_sha256": "52bf59db9a98cce6073139fb649282113e0dde92d39b84bb029636ca9671537b",
+      "source_bytes": 4136213,
+      "source_retrieved_at": "2026-09-13T09:56:02.898644+00:00",
+      "observation_label": "Cassini and Voyager composite, February 2010 map edition, including October and November 2009 flybys",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "One Voyager 2 image fills part of the north, reaching southward to about 50N in places; other regions include lower-resolution Cassini images. The provider already applied the 3.5-degree westward longitude update. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Enceladus\",\"filename\":\"enceladus-nasa-map.jpg\",\"sha256\":\"52bf59db9a98cce6073139fb649282113e0dde92d39b84bb029636ca9671537b\",\"source_bytes\":4136213,\"dimensions\":[7200,3600],\"mode\":\"L\",\"crop\":[0,0,7200,3600],\"output_dimensions\":[2048,1024],\"output\":\"enceladus-cassini-reference-2k.png\",\"output_sha256\":\"ec869b20d7aa570b55ecd0bbda42ba42797d84e1eeaf4bfc5a5f52ca312e1c9c\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA12564 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-enceladus-february-2010/",
+        "https://assets.science.nasa.gov/dynamicimage/assets/science/psd/photojournal/pia/pia12/pia12564/figures/PIA12564_fig1.jpg?w=1600&fit=clip",
+        "https://science.nasa.gov/resource/enceladus-polar-maps-february-2010-2/"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "tethys-cassini-reference",
+      "body": "Tethys",
+      "role": "surface",
+      "path": "textures/reference/tethys-cassini-reference-2k.png",
+      "sha256": "ecc49fcac05091c42d456d23266fd378d6e7728c90024bf65728637767fe77af",
+      "bytes": 1499343,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2012 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia14/pia14931/PIA14931.jpg",
+      "source_sha256": "08f6fed39325fa7532be01eebc85c0b2a55bf0b9fdcfbf85c878db5bbac45ae5",
+      "source_bytes": 7104011,
+      "source_retrieved_at": "2026-09-13T09:56:03.426791+00:00",
+      "observation_label": "Multiple Cassini flybys, June 2012 map edition, released November 2012; individual source dates not listed",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "The provider describes a complete cylindrical mosaic on a 536.3 km reference sphere. Native sharpness varies among flyby images; map radius is not substituted for the orbital catalogue radius. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Tethys\",\"filename\":\"tethys-nasa-map.jpg\",\"sha256\":\"08f6fed39325fa7532be01eebc85c0b2a55bf0b9fdcfbf85c878db5bbac45ae5\",\"source_bytes\":7104011,\"dimensions\":[11520,5760],\"mode\":\"L\",\"crop\":[0,0,11520,5760],\"output_dimensions\":[2048,1024],\"output\":\"tethys-cassini-reference-2k.png\",\"output_sha256\":\"ecc49fcac05091c42d456d23266fd378d6e7728c90024bf65728637767fe77af\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA14931 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-tethys-june-2012/",
+        "https://assets.science.nasa.gov/dynamicimage/assets/science/psd/photojournal/pia/pia14/pia14931/figures/PIA14931_fig1.jpg?w=1600&fit=clip"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "dione-cassini-reference",
+      "body": "Dione",
+      "role": "surface",
+      "path": "textures/reference/dione-cassini-reference-2k.png",
+      "sha256": "e95437fecb7d447179b65427afcb80c1eaa948f1073470995d1c21a25ba8467d",
+      "bytes": 1537869,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2010 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia12/pia12577/PIA12577.jpg",
+      "source_sha256": "de59158e9d9b5b00d717bb0d2750e960dc3eb68f5aed36a3b214ce6db46660ec",
+      "source_bytes": 21677835,
+      "source_retrieved_at": "2026-09-13T09:56:04.041465+00:00",
+      "observation_label": "Cassini and Voyager flyby composite, February 2010 map edition; individual source dates differ",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "Voyager imagery fills gaps in Cassini coverage. The provider already applied the 0.6-degree westward longitude update; no additional shift is applied. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Dione\",\"filename\":\"dione-nasa-map.jpg\",\"sha256\":\"de59158e9d9b5b00d717bb0d2750e960dc3eb68f5aed36a3b214ce6db46660ec\",\"source_bytes\":21677835,\"dimensions\":[23040,11520],\"mode\":\"L\",\"crop\":[0,0,23040,11520],\"output_dimensions\":[2048,1024],\"output\":\"dione-cassini-reference-2k.png\",\"output_sha256\":\"e95437fecb7d447179b65427afcb80c1eaa948f1073470995d1c21a25ba8467d\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA12577 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-dione-february-2010/",
+        "https://assets.science.nasa.gov/dynamicimage/assets/science/psd/photojournal/pia/pia12/pia12577/figures/PIA12577_fig1.jpg?w=1600&fit=clip"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "rhea-cassini-reference",
+      "body": "Rhea",
+      "role": "surface",
+      "path": "textures/reference/rhea-cassini-reference-2k.png",
+      "sha256": "759e9732ad7804221bc85da61c459d6846342d4aa1fe06d67b566d4b9b889779",
+      "bytes": 1322217,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2012 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia14/pia14928/PIA14928.jpg",
+      "source_sha256": "dd17563a8cd20fb057af7f4f0df465855f895e61cf29ec0a27e3e8862d14bd5e",
+      "source_bytes": 5583646,
+      "source_retrieved_at": "2026-09-13T09:56:04.341705+00:00",
+      "observation_label": "Cassini and Voyager composite, March 2012 edition, including Cassini observations from March 10, 2012",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "Six Voyager images fill Cassini north-polar coverage gaps. Source processing and varying native resolution remain visible. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Rhea\",\"filename\":\"rhea-nasa-map.jpg\",\"sha256\":\"dd17563a8cd20fb057af7f4f0df465855f895e61cf29ec0a27e3e8862d14bd5e\",\"source_bytes\":5583646,\"dimensions\":[11520,5760],\"mode\":\"L\",\"crop\":[0,0,11520,5760],\"output_dimensions\":[2048,1024],\"output\":\"rhea-cassini-reference-2k.png\",\"output_sha256\":\"759e9732ad7804221bc85da61c459d6846342d4aa1fe06d67b566d4b9b889779\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA14928 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-rhea-march-2012/",
+        "https://assets.science.nasa.gov/dynamicimage/assets/science/psd/photojournal/pia/pia14/pia14928/figures/PIA14928_fig1.jpg?w=1600&fit=clip"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "phobos-viking-reference",
+      "body": "Phobos",
+      "role": "surface",
+      "path": "textures/reference/phobos-viking-reference-1k.png",
+      "sha256": "57b0b9bb3d69e2735cfe19b68d6d64d05a6cd7cf33ae0a3bd87501f70e90b5fe",
+      "bytes": 332013,
+      "dimensions": [
+        1024,
+        512
+      ],
+      "label": "Viking structural reference \u00b7 2012 mosaic",
+      "credits": "NASA/Viking imagery / Phil Stooke / USGS Astrogeology / DLR control",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg",
+      "source_sha256": "d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4",
+      "source_bytes": 161960,
+      "source_retrieved_at": "2026-09-13T10:09:48.491605+00:00",
+      "observation_label": "Viking-era and supplementary spacecraft images; USGS mosaic published June 2012; individual source dates differ",
+      "color_interpretation": "Single-band grayscale browse of a controlled image mosaic. The producer applies artistic blending where opposite lighting meets, affecting appearance but not map geometry. No visible-color or calibrated reflectance claim.",
+      "limitations": "Preliminary structural mosaic; provider artistic illumination blending and varying resolution remain visible. SOL renders a simplified sphere, not the measured irregular shape. SOL uses a fixed reference orientation; features do not track physical body attitude at simulation time. Display contrast is normalized by coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain; this is not calibrated local reflectance.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Phobos\",\"filename\":\"phobos-usgs-source.jpg\",\"sha256\":\"d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4\",\"source_bytes\":161960,\"dimensions\":[1024,512],\"mode\":\"L\",\"crop\":[0,0,1024,512],\"output_dimensions\":[1024,512],\"output\":\"phobos-viking-reference-1k.png\",\"output_sha256\":\"57b0b9bb3d69e2735cfe19b68d6d64d05a6cd7cf33ae0a3bd87501f70e90b5fe\",\"latitude_bounds\":[-90,90],\"valid_latitude_bounds\":[-90,90],\"nodata_zero_channel\":false},\"pillow_version\":\"12.2.0\",\"resampling\":\"none\",\"colorAdjustment\":\"none\"} The metadata page explicitly links this exact 1024-pixel sample. Its ISIS label defines a 14400x7200 simple cylindrical grid, 40 pixels/degree, planetocentric 11100m sphere, center0, PositiveEast, latitude +/-90 and longitude +/-180. The linked unannotated sample retains the full 2:1 grid. All decoded grayscale pixels are copied without resizing into lossless PNG; no brightness-based mask or invented irregular shape.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/phobos_viking_global_mosaic_5m",
+        "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/3d2f2c56-c13d-4f3b-9a4e-5ff538e02c89/download/phobos_viking_mosaic_40ppd_dlrcontrol.lbl"
+      ],
+      "reviewed_at": "2026-09-13T10:14:03.885777+00:00"
+    },
+    {
+      "id": "io-voyager-galileo-reference",
+      "body": "Io",
+      "role": "surface",
+      "path": "textures/reference/io-voyager-galileo-reference-2k.png",
+      "sha256": "eabc16b3b001ecf53802688d6a6481029b71cc567190cb91b971ab439aa63449",
+      "bytes": 1232026,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Voyager / Galileo monochrome reference",
+      "credits": "NASA/JPL Voyager and Galileo SSI imagery / USGS Astrogeology",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Io_GalileoSSI-Voyager_Global_Mosaic_1km.tif",
+      "source_sha256": "cf65a0323aac9c4c9eb582aa7b7ce0d36be8e445316fa6dba49ab5647b63584c",
+      "source_bytes": 65546342,
+      "source_retrieved_at": "2026-09-13T10:16:14.655164Z",
+      "observation_label": "Historical multi-epoch mosaic: Voyager Jupiter encounters (1979) and Galileo Jupiter mission (1995-2003); these are mission periods, not a single image date",
+      "color_interpretation": "Original single-band grayscale mosaic. Pixel brightness is retained through BOX display reduction and replicated into RGB with a separate coverage mask. No visible-color or calibrated local albedo claim.",
+      "limitations": "Heterogeneous resolution/illumination and original no-data gaps; grayscale photographic display reference, not calibrated surface albedo. The December 2005 footprint companion is center180; the current TIFF and browse are center0 and must use their current ISIS/GeoTIFF coordinates. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by existing albedo and eclipse display gain; this is not calibrated local reflectance. Missing source pixels remain transparent; no terrain, visual color or polar detail is synthesized.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9999624910105137,
+          0.9998751275218705
+        ],
+        "uvOffset": [
+          6.24416943936531e-05,
+          0.00014980300474710465
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Io\",\"filename\":\"io-original.tif\",\"sha256\":\"cf65a0323aac9c4c9eb582aa7b7ce0d36be8e445316fa6dba49ab5647b63584c\",\"source_bytes\":65546342,\"dimensions\":[11445,5723],\"mode\":\"L\",\"crop\":[0,0,11445,5723],\"output_dimensions\":[2048,1024],\"output\":\"io-voyager-galileo-reference-2k.png\",\"output_sha256\":\"eabc16b3b001ecf53802688d6a6481029b71cc567190cb91b971ab439aa63449\",\"latitude_bounds\":[-89.99551194477426,90.02696790840403],\"valid_latitude_bounds\":[-90,90],\"nodata_zero_channel\":true},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\",\"validPixels\":2095104,\"missingPixels\":2048} Registration: original GeoTIFF pixel scale/tie point and linked ISIS SimpleCylindrical label define the full affine grid. ISIS converts PositiveWest labels to east-positive projected X; raster columns increase east. Six projected-coordinate anchors and comparison with the linked browse independently reject horizontal/vertical flips and half-map shifts. Archive GDAL_NODATA=0 establishes missing source pixels. A 5x5 conservative source mask and valid latitude bounds are applied before BOX reduction; any mixed coverage output is transparent. Source RGB is never filled. Callisto affine roundoff below 1e-13 is normalized to identity.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/io_voyager_galileo_ssi_global_mosaic_1km",
+        "https://astrogeology.usgs.gov/ckan/dataset/b9102ce8-3ee4-4848-8558-3dab5f52091a/resource/ca342229-fa0e-446b-8b5b-fb31bd1acdda/download/io_galileossi-voyager_global_mosaic_1km.lbl",
+        "https://isis.astrogeology.usgs.gov/10.0.0/Object/Programmer/_simple_cylindrical_8cpp_source.html"
+      ],
+      "reviewed_at": "2026-09-13T10:25:13.463349+00:00"
+    },
+    {
+      "id": "europa-voyager-galileo-reference",
+      "body": "Europa",
+      "role": "surface",
+      "path": "textures/reference/europa-voyager-galileo-reference-2k.png",
+      "sha256": "87ad2488589f01e72a4bbc3656c22555728b21e38b4d0df2a6c2aeb9fc894a07",
+      "bytes": 2079254,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Voyager / Galileo monochrome reference",
+      "credits": "NASA/JPL Voyager and Galileo SSI imagery / USGS Astrogeology",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif",
+      "source_sha256": "a323f0c9ccb47d5af9902ea8297fe81f9a9708795645b80801f103c3f7c9a624",
+      "source_bytes": 192777263,
+      "source_retrieved_at": "2026-09-13T10:16:15.493662Z",
+      "observation_label": "Historical multi-epoch mosaic: Voyager Jupiter encounters (1979) and Galileo Jupiter mission (1995-2003); these are mission periods, not a single image date",
+      "color_interpretation": "Original single-band grayscale mosaic. Pixel brightness is retained through BOX display reduction and replicated into RGB with a separate coverage mask. No visible-color or calibrated local albedo claim.",
+      "limitations": "No source coverage south of 83 degrees S; variable resolution and additional original no-data mask retained. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by existing albedo and eclipse display gain; this is not calibrated local reflectance. Missing source pixels remain transparent; no terrain, visual color or polar detail is synthesized.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9999898120319843,
+          0.9999388753056176
+        ],
+        "uvOffset": [
+          3.0563904033558386e-05,
+          3.056234719248089e-05
+        ]
+      },
+      "validLatitudeBounds": [
+        -83,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Europa\",\"filename\":\"europa-original.tif\",\"sha256\":\"a323f0c9ccb47d5af9902ea8297fe81f9a9708795645b80801f103c3f7c9a624\",\"source_bytes\":192777263,\"dimensions\":[19631,9816],\"mode\":\"L\",\"crop\":[0,0,19631,9816],\"output_dimensions\":[2048,1024],\"output\":\"europa-voyager-galileo-reference-2k.png\",\"output_sha256\":\"87ad2488589f01e72a4bbc3656c22555728b21e38b4d0df2a6c2aeb9fc894a07\",\"latitude_bounds\":[-90.00550155877526,90.00550155877575],\"valid_latitude_bounds\":[-83,90],\"nodata_zero_channel\":true},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\",\"validPixels\":2000438,\"missingPixels\":96714} Registration: original GeoTIFF pixel scale/tie point and linked ISIS SimpleCylindrical label define the full affine grid. ISIS converts PositiveWest labels to east-positive projected X; raster columns increase east. Six projected-coordinate anchors and comparison with the linked browse independently reject horizontal/vertical flips and half-map shifts. Archive GDAL_NODATA=0 establishes missing source pixels. A 5x5 conservative source mask and valid latitude bounds are applied before BOX reduction; any mixed coverage output is transparent. Source RGB is never filled. Callisto affine roundoff below 1e-13 is normalized to identity.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/europa_voyager_galileo_ssi_global_mosaic_500m",
+        "https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/db62f55a-9d03-474e-a349-1fd7d8f0d5fc/download/europa_voyager_galileossi_global_mosaic_500m.lbl",
+        "https://isis.astrogeology.usgs.gov/10.0.0/Object/Programmer/_simple_cylindrical_8cpp_source.html"
+      ],
+      "reviewed_at": "2026-09-13T10:25:13.470859+00:00"
+    },
+    {
+      "id": "ganymede-voyager-galileo-reference",
+      "body": "Ganymede",
+      "role": "surface",
+      "path": "textures/reference/ganymede-voyager-galileo-reference-2k.png",
+      "sha256": "900af8e39acb7137e2c6d1745279ebdac1152702818711336f149972a055b050",
+      "bytes": 1805208,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Voyager / Galileo monochrome reference",
+      "credits": "NASA/JPL Voyager and Galileo SSI imagery / USGS Astrogeology",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Ganymede_Voyager_GalileoSSI_global_mosaic_1km.tif",
+      "source_sha256": "c2c8d9506b8cf8f7a0a90d823d9052e91c8d9885cf7267fdce8de8216f4df888",
+      "source_bytes": 136844537,
+      "source_retrieved_at": "2026-09-13T10:16:16.152213Z",
+      "observation_label": "Historical multi-epoch mosaic: Voyager Jupiter encounters (1979) and Galileo Jupiter mission (1995-2003); these are mission periods, not a single image date",
+      "color_interpretation": "Original single-band grayscale mosaic. Pixel brightness is retained through BOX display reduction and replicated into RGB with a separate coverage mask. No visible-color or calibrated local albedo claim.",
+      "limitations": "Heterogeneous resolution/illumination and original no-data gaps; grayscale photographic display reference, not calibrated surface albedo. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by existing albedo and eclipse display gain; this is not calibrated local reflectance. Missing source pixels remain transparent; no terrain, visual color or polar detail is synthesized.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9999637218186012,
+          0.9999032645198213
+        ],
+        "uvOffset": [
+          4.837051812325701e-05,
+          4.836759366629671e-05
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Ganymede\",\"filename\":\"ganymede-original.tif\",\"sha256\":\"c2c8d9506b8cf8f7a0a90d823d9052e91c8d9885cf7267fdce8de8216f4df888\",\"source_bytes\":136844537,\"dimensions\":[16539,8270],\"mode\":\"L\",\"crop\":[0,0,16539,8270],\"output_dimensions\":[2048,1024],\"output\":\"ganymede-voyager-galileo-reference-2k.png\",\"output_sha256\":\"900af8e39acb7137e2c6d1745279ebdac1152702818711336f149972a055b050\",\"latitude_bounds\":[-90.00870700914194,90.00870700914318],\"valid_latitude_bounds\":[-90,90],\"nodata_zero_channel\":true},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\",\"validPixels\":2016836,\"missingPixels\":80316} Registration: original GeoTIFF pixel scale/tie point and linked ISIS SimpleCylindrical label define the full affine grid. ISIS converts PositiveWest labels to east-positive projected X; raster columns increase east. Six projected-coordinate anchors and comparison with the linked browse independently reject horizontal/vertical flips and half-map shifts. Archive GDAL_NODATA=0 establishes missing source pixels. A 5x5 conservative source mask and valid latitude bounds are applied before BOX reduction; any mixed coverage output is transparent. Source RGB is never filled. Callisto affine roundoff below 1e-13 is normalized to identity.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_global_mosaic_1km",
+        "https://astrogeology.usgs.gov/ckan/dataset/57cad6e2-ed52-4b99-9d44-afbb9def6450/resource/32769bd3-7a00-4aa6-9ce8-52126cbd4384/download/ganymede_voyager_galileossi_global_mosaic_1km.lbl",
+        "https://isis.astrogeology.usgs.gov/10.0.0/Object/Programmer/_simple_cylindrical_8cpp_source.html"
+      ],
+      "reviewed_at": "2026-09-13T10:25:13.477096+00:00"
+    },
+    {
+      "id": "callisto-voyager-galileo-reference",
+      "body": "Callisto",
+      "role": "surface",
+      "path": "textures/reference/callisto-voyager-galileo-reference-2k.png",
+      "sha256": "fb8cd280cd2fbd82f55b33f8a7710087cc590f128e72adac95fc1e21dc88a909",
+      "bytes": 1790932,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Voyager / Galileo monochrome reference",
+      "credits": "NASA/JPL Voyager and Galileo SSI imagery / USGS Astrogeology",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif",
+      "source_sha256": "e1f0bd2e0e05de605d067d6b5f5ededddaf31ca6c064562a1ca770f15a7dbaa3",
+      "source_bytes": 114640717,
+      "source_retrieved_at": "2026-09-13T10:16:16.677522Z",
+      "observation_label": "Historical multi-epoch mosaic: Voyager Jupiter encounters (1979) and Galileo Jupiter mission (1995-2003); these are mission periods, not a single image date",
+      "color_interpretation": "Original single-band grayscale mosaic. Pixel brightness is retained through BOX display reduction and replicated into RGB with a separate coverage mask. No visible-color or calibrated local albedo claim.",
+      "limitations": "Heterogeneous resolution/illumination and original no-data gaps; grayscale photographic display reference, not calibrated surface albedo. SOL uses a fixed reference orientation; feature longitudes do not describe the selected simulation time. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by existing albedo and eclipse display gain; this is not calibrated local reflectance. Missing source pixels remain transparent; no terrain, visual color or polar detail is synthesized.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Callisto\",\"filename\":\"callisto-original.tif\",\"sha256\":\"e1f0bd2e0e05de605d067d6b5f5ededddaf31ca6c064562a1ca770f15a7dbaa3\",\"source_bytes\":114640717,\"dimensions\":[15138,7569],\"mode\":\"L\",\"crop\":[0,0,15138,7569],\"output_dimensions\":[2048,1024],\"output\":\"callisto-voyager-galileo-reference-2k.png\",\"output_sha256\":\"fb8cd280cd2fbd82f55b33f8a7710087cc590f128e72adac95fc1e21dc88a909\",\"latitude_bounds\":[-90,90],\"valid_latitude_bounds\":[-90,90],\"nodata_zero_channel\":true},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\",\"validPixels\":2008724,\"missingPixels\":88428} Registration: original GeoTIFF pixel scale/tie point and linked ISIS SimpleCylindrical label define the full affine grid. ISIS converts PositiveWest labels to east-positive projected X; raster columns increase east. Six projected-coordinate anchors and comparison with the linked browse independently reject horizontal/vertical flips and half-map shifts. Archive GDAL_NODATA=0 establishes missing source pixels. A 5x5 conservative source mask and valid latitude bounds are applied before BOX reduction; any mixed coverage output is transparent. Source RGB is never filled. Callisto affine roundoff below 1e-13 is normalized to identity.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km",
+        "https://astrogeology.usgs.gov/ckan/dataset/a80abd68-7ed9-440e-829a-76376779164f/resource/66433621-ca46-4563-994f-c615931adb42/download/callisto_voyager_galileossi_global_mosaic_1km.lbl",
+        "https://isis.astrogeology.usgs.gov/10.0.0/Object/Programmer/_simple_cylindrical_8cpp_source.html"
+      ],
+      "reviewed_at": "2026-09-13T10:25:13.483805+00:00"
     }
   ]
 }

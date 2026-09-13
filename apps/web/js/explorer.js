@@ -39,8 +39,11 @@ export function renderExplorer(surface) {
   if (status) status.textContent = p.timeLabel;
   const unavailable = document.getElementById('observationUnavailable');
   if (unavailable) unavailable.hidden = explorer.media !== 'failed';
+  const loading = document.getElementById('observationLoading');
+  if (loading) loading.hidden = explorer.media !== 'loading';
+  document.getElementById('observationMedia')?.setAttribute('aria-busy', String(explorer.media === 'loading'));
   const image = document.getElementById('observationImage');
-  if (image) image.hidden = explorer.media === 'failed';
+  if (image) image.hidden = explorer.media !== 'ready';
 }
 
 export function initExplorer(onMode, onImage) {

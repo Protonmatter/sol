@@ -60,7 +60,14 @@ export function assertWarmWhiteSun(input) {
       `Sun has an unexpected cool tint: median G/R=${greenRed.toFixed(3)}, B/R=${blueRed.toFixed(3)}`
     );
   }
-  return { brightPixels: bright.length, greenRed, blueRed };
+  const medianLuminance = median(bright.map(([r, g, b]) => 0.299 * r + 0.587 * g + 0.114 * b));
+  // A neutral-gray missing-detail sphere has white channel ratios too. This
+  // display-regression bound distinguishes the intended emissive material;
+  // it is not a measurement of solar radiance or monitor calibration.
+  if (medianLuminance < 190) {
+    throw new Error(`Sun lacks the emissive white display: median luminance=${medianLuminance.toFixed(1)}`);
+  }
+  return { brightPixels: bright.length, greenRed, blueRed, medianLuminance };
 }
 
 export function assertBlueEarth(input) {

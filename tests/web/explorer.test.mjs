@@ -31,7 +31,8 @@ test('observation DOM preserves failure, retry, original image and deliberate Re
   const oldDocument=globalThis.document;
   const ids=['observationImage','observationSource','observationCredit','sunDiameter','sunTemperature',
     'exploreObservation','exploreResearch','openResearchTools','openEarthContext','sunWeather',
-    'observationDetails','observationRetry','solarObservation','observationStatus','observationUnavailable'];
+    'observationDetails','observationRetry','solarObservation','observationStatus','observationUnavailable',
+    'observationMedia','observationLoading'];
   const nodes=Object.fromEntries(ids.map(id=>[id,{id,events:{},attributes:{},hidden:false,
     addEventListener(type,handler){this.events[type]=handler;},setAttribute(k,v){this.attributes[k]=v;},
     querySelector(){return this;},focus(){this.focused=true;},scrollIntoView(){this.scrolled=true;}}]));
@@ -43,14 +44,31 @@ test('observation DOM preserves failure, retry, original image and deliberate Re
     assert.match(nodes.observationImage.src,/solar-observation-171\.jpg$/);
     assert.match(nodes.observationImage.alt,/Saved observation, not a live image/);
     assert.match(nodes.observationSource.href,/sdo\.gsfc\.nasa\.gov/);
+    renderExplorer('today');
+    assert.equal(nodes.observationLoading.hidden,false,'initial pending state has visible feedback');
+    assert.equal(nodes.observationMedia.attributes['aria-busy'],'true');
+    assert.equal(nodes.observationImage.hidden,true,'pending image cannot show a broken bitmap');
+    const capture=nodes.observationStatus.textContent;
     nodes.observationImage.onerror();
     assert.equal(nodes.observationUnavailable.hidden,false);
+    assert.equal(nodes.observationLoading.hidden,true);
+    assert.equal(nodes.observationMedia.attributes['aria-busy'],'false');
     assert.equal(nodes.observationImage.hidden,true);
     nodes.observationRetry.events.click();
     assert.equal(explorer.media,'loading');
-    assert.equal(nodes.observationImage.hidden,false);
+    assert.equal(nodes.observationImage.hidden,true);
+    assert.equal(nodes.observationLoading.hidden,false,'retry cannot leave an unexplained blank frame');
+    assert.equal(nodes.observationMedia.attributes['aria-busy'],'true');
+    assert.equal(nodes.observationUnavailable.hidden,true);
+    assert.equal(nodes.observationStatus.textContent,capture,'pending feedback preserves the source date');
+    renderExplorer('today'); renderExplorer('today');
+    assert.equal(explorer.media,'loading','repeated rendering does not manufacture readiness');
+    assert.equal(imageChanges,2,'pending render cannot automatically retry');
     nodes.observationImage.onload();
     assert.equal(nodes.observationUnavailable.hidden,true);
+    assert.equal(nodes.observationLoading.hidden,true);
+    assert.equal(nodes.observationMedia.attributes['aria-busy'],'false');
+    assert.equal(nodes.observationImage.hidden,false);
     assert.equal(imageChanges,3);
     nodes.exploreObservation.events.click(); nodes.exploreResearch.events.click();
     nodes.openResearchTools.events.click(); nodes.openEarthContext.events.click();

@@ -8,6 +8,28 @@ import { iauRotation } from "../../apps/web/js/orreryMath.js";
 import { BODY, AU_KM } from "../../apps/web/js/bodyData.js";
 import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
 
+test("Sun submits an emissive white display while held solar texture detail stays disabled", async t => {
+  const h = await harness(t, { controls: true, reducedMotion: true });
+  await h.enterOrrery();
+  const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
+  for (const enabled of [false, true]) {
+    const first = h.uniformDraws.length;
+    h.check("orreryTextures", enabled);
+    const sun = h.uniformDraws.slice(first).find(draw => draw.u_mode === 1);
+    assert.ok(sun, "the actual renderer submits the Sun");
+    const [r, g, b] = sun.u_base;
+    assert.ok(r >= 0.95 && g >= 0.95 && b >= 0.9, "emissive display must not reuse the gray missing-detail material");
+    assert.ok(r >= g && g >= b && r - b < 0.1, "subtle display warmth, not the EUV false-color palette");
+    assert.equal(sun.u_style, -1, "unqualified procedural spots and granulation stay disabled");
+    assert.equal(sun.u_useTex, 0, "unregistered camera disk cannot wrap onto the sphere");
+    assert.deepEqual(sun.u_model.slice(12, 15), [0, 0, 0], "Sun remains at the engine origin");
+  }
+  assert.ok(!h.images.some(image => /\/sun\.jpg(?:$|\?)/.test(image.src)));
+  assert.equal(h.state.renderUnix, epoch);
+  assert.equal(JSON.stringify(h.state.bodies), bodies);
+  h.leaveOrrery();
+});
+
 test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse attenuation", async t => {
   const h = await harness(t, { controls: true, catalogues: "ready", reducedMotion: true });
   await h.enterOrrery(); await h.settleCatalogues();

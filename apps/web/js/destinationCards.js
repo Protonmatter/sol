@@ -1,7 +1,8 @@
 // Concise orientation from admitted scene state and reference facts. No calculation or I/O.
 import { BODY } from './bodyData.js?v=dcca6290db';
+import { MOONS } from './moons.js?v=dcca6290db';
 import { visualBrowsePreview, textureEligible } from './visualAssets.js';
-import { appearanceReference, appearanceDescription } from './planetAppearance.js';
+import { appearanceReference, appearanceDescription, appearanceSummary } from './planetAppearance.js';
 
 /** @typedef {{eyebrow:string,title:string,description:string,facts:{label:string,value:string}[],note:string,preview:ReturnType<typeof visualBrowsePreview>,focusBody:string|null}} DestinationCard */
 const unavailable = 'Unavailable';
@@ -54,6 +55,13 @@ export function systemCard(state = {}) {
     note: 'Positions use a static catalogue epoch; this is separate from planetary time.'};
   if (!state.selected) return card;
   const name = state.selected;
+  const moon = MOONS.find(item => item.n === name);
+  if (moon) return {...card, eyebrow: 'LOOK CLOSER', title: name,
+    description: `A moon of ${moon.p}. Explore its reference imagery and modelled orbit.`,
+    facts: [fact('Orbits', moon.p), fact('Reference mean radius', number(moon.r, ' km')),
+      fact('Reference orbital period', number(moon.P, ' days'))],
+    note: `Spherical approximation. Maps use a fixed reference orientation; they do not show the current facing hemisphere.${retained} ${appearanceSummary(name, state)}`,
+    preview: appearanceReference(name) ? null : visualBrowsePreview(name), focusBody: name};
   if (!Object.hasOwn(BODY, name)) return {...card, eyebrow: 'SELECTED OBJECT', title: name,
     description: 'Open object details for its catalogue facts, source and position limits.'};
   const body = BODY[name];

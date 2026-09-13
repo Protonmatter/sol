@@ -51,6 +51,9 @@ const fixtures = new Map([
   ["/quadrants.png", fixture(64, 32, (x, y) => colors[(y >= 16 ? 2 : 0) + (x >= 32 ? 1 : 0)])],
   ["/grid.png", fixture(256, 128, (x, y) => [x, 2 * y, 80, 255])],
   ["/seam.png", fixture(64, 32, x => x < 4 || x >= 60 ? [40, 120, 220, 255] : [220, 40, 30, 255])],
+  // Matching dark edges and a bright interior: a false coarse mip at the
+  // longitude wrap becomes a bright strip in the actual moon contrast mode.
+  ["/spatial-seam.png", fixture(64, 32, x => x < 4 || x >= 60 ? [32,32,32,255] : [224,224,224,255])],
   ["/black.png", fixture(4, 2, () => [0, 0, 0, 255])],
   ["/white.png", fixture(4, 2, () => [255, 255, 255, 255])],
   ["/transparent.png", fixture(4, 2, () => [255, 255, 255, 0])],
@@ -125,7 +128,7 @@ async function run() {
       // Coordinate-gradient probes use nearest to make source texel identity explicit.
       // Quadrants and seam exercise the renderer's actual linear/mipmap upload path.
       const maskedPhoto = ["/transparent.png", "/half-white.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name);
-      textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
+      textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/spatial-seam.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
       uploadPremultiplyStates.push({name, expected:maskedPhoto, actual:gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)});
       if (name === "/quadrants.png") textures.flipped = flippedFactory(image, true, false);
     }
@@ -150,7 +153,7 @@ async function run() {
       gl.uniformMatrix4fv(location("u_mvp"), false, mvp); gl.uniformMatrix4fv(location("u_model"), false, identity);
       gl.uniformMatrix3fv(location("u_nmat"), false, options.normalMatrix || [1,0,0,0,1,0,0,0,1]);
       gl.vertexAttrib3fv(1, options.normal || [0,0,1]);
-      i("u_style", -1); i("u_mode", 0); i("u_useTex", 1); i("u_texMode", 3);
+      i("u_style", -1); i("u_mode", 0); i("u_useTex", 1); i("u_texMode", options.texMode ?? 3);
       const shadows = options.shadows || [];
       if (shadows.length > 4) throw new Error("GPU fixture exceeds the shader's four shadow slots");
       const shadowPositions = new Float32Array(16), shadowAxes = new Float32Array(16);
@@ -172,6 +175,27 @@ async function run() {
       const pixel = new Uint8Array(4); gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
       const error = gl.getError(); if (error !== gl.NO_ERROR) throw new Error(`GPU fixture GL error ${error}`);
       return Array.from(pixel);
+    };
+    window.spatialSeamProbe = options => {
+      const canvas = document.querySelector('canvas'), width = 8, height = 4, span = .05;
+      canvas.width = width; canvas.height = height; gl.viewport(0,0,width,height);
+      // Reuse the existing point probe only to bind the real shader's complete
+      // uniform/texture state. Replace its geometry with a spatially varying
+      // yz-plane patch. The seam crosses pixels 2/3 within one derivative quad.
+      window.probe({...options,position:[-1,0,0]});
+      const offset = options.crossing === false ? .12 : span*.25;
+      const vertices = [[-1,-1],[1,-1],[-1,1],[-1,1],[1,-1],[1,1]];
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices.flatMap(([x,y]) => [-1,offset+span*x,span*y])),gl.STATIC_DRAW);
+      const mvp = [0,0,0,0, 1/span,0,0,0, 0,1/span,0,0, -offset/span,0,0,1];
+      gl.uniformMatrix4fv(location('u_mvp'),false,mvp);
+      gl.clearColor(1,0,1,1); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,6);
+      const pixels = new Uint8Array(width*height*4);
+      gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+      const error = gl.getError(); if (error !== gl.NO_ERROR) throw new Error(`Spatial seam GL error ${error}`);
+      // Restore the existing point fixture exactly; subsequent checks retain
+      // their original one-pixel geometry and assertion tolerances.
+      canvas.width = 1; canvas.height = 1; gl.viewport(0,0,1,1);
+      return {width,height,pixels:Array.from(pixels)};
     };
     const debug = gl.getExtension("WEBGL_debug_renderer_info");
     return {renderer: debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), version: gl.getParameter(gl.VERSION), uploadPremultiplyStates};
@@ -210,6 +234,17 @@ async function run() {
   }
   for (const side of [-1,1]) check(`continuous source seam side ${side}`,
     await probe({position:[-1,side*.001,0],texture:"/seam.png"}), [40,120,220,255]);
+  const spatialCases = [
+    ['registered colour',3,'/seam.png',[40,120,220,255]],
+    ['registered moon',4,'/spatial-seam.png',rgba([.2,.3,.4].map(c=>255*c*(32/200)**.6))],
+  ];
+  for (const [name,texMode,texture,expected] of spatialCases) {
+    for (const crossing of [false,true]) {
+      const spatial = await page.evaluate(options=>window.spatialSeamProbe(options),{texMode,texture,crossing});
+      check(`${name} spatial ${crossing ? 'longitude-wrap' : 'non-wrapping'} patch retains edge texels`,
+        spatial.pixels, Array.from({length:spatial.width*spatial.height},()=>expected).flat(), 2);
+    }
+  }
   check("uncovered affine source seam uses fallback", await probe({position:[-1,1e-6,0],window:[1.0000047158519485,1,0,0]}), fallback);
   check("negative affine source edge uses fallback", await probe({position:[-1,-1e-6,0],window:[1,1,-.01,0]}), fallback);
   for (const sign of [-1,1]) check(`missing cap ${sign} uses fallback`, await probe({position:[0,0,sign],latitudes:[-90,90,-60,60]}), fallback);
@@ -217,6 +252,18 @@ async function run() {
   check("alpha no-data uses fallback", await probe({texture:"/transparent.png",nodata:2}), fallback);
   check("black no-data uses fallback", await probe({texture:"/black.png",nodata:1}), fallback);
   check("valid dark terrain is retained", await probe({texture:"/black.png",nodata:0}), [0,0,0,255]);
+  // Registered moon mosaics retain their documented axes and coverage while their
+  // relative display contrast is normalized independently of published albedo.
+  const luma = c => .299*c[0]+.587*c[1]+.114*c[2];
+  const meanLuma = colors.reduce((sum,c)=>sum+luma(c),0)/colors.length;
+  for (const [name, position, index] of [["north-east",[0,1,1],1],["south-west",[0,-1,-1],2]]) {
+    const contrast = Math.min((luma(colors[index])/meanLuma)**.6,1.8);
+    check(`registered moon ${name} structure`, await probe({texMode:4,position}), rgba([.2,.3,.4].map(c=>255*c*contrast)), 3);
+  }
+  check("registered moon no-data stays simplified", await probe({texMode:4,texture:"/transparent.png",nodata:2}), fallback);
+  check("registered moon missing latitude stays simplified", await probe({texMode:4,position:[0,0,1],latitudes:[-90,90,-60,60]}), fallback);
+  check("registered moon coverage is excluded from mean brightness", await probe({texMode:4,texture:"/alpha-edge.png",nodata:2,position:[0,-1,0]}), fallback);
+  check("registered moon umbra gain survives surface detail", await probe({texMode:4,texture:"/alpha-edge.png",nodata:2,position:[0,-1,0],base:[.04,.06,.08]}), [10,15,20,255]);
   check("reference night-side ambient floor stays dim without emission", await probe({light:[0,0,-1]}),
     rgba(colors[1].slice(0,3).map(value => 255*linearToSrgb(srgbToLinear(value/255)*.001))));
   check("cloud mask gap leaves surface unchanged", await probe({weather:true}), colors[1]);

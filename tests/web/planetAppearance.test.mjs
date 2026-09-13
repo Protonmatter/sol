@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceDescription, earthLayerDescription, earthCloudRole } from '../../apps/web/js/planetAppearance.js';
+import { MOONS } from '../../apps/web/js/moons.js';
+import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, appearanceDescription, appearanceSummary, earthLayerDescription, earthCloudRole } from '../../apps/web/js/planetAppearance.js';
 
 test('every major planet and the Moon has a dated source reference without upgrading held legacy maps', () => {
   for (const body of ['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune','Moon']) {
@@ -10,7 +11,38 @@ test('every major planet and the Moon has a dated source reference without upgra
   }
   assert.equal(appearanceReference('Sun'), null);
   assert.equal(appearanceReference('Earth','invented-clouds'), null);
-  assert.equal(appearanceReferences().length, 13);
+  assert.equal(appearanceReferences().filter(a=>!MOONS.some(m=>m.n===a.body)).length, 13);
+});
+
+test('compact source cards keep readiness and archive status while complete epochs remain in the disclosure', () => {
+  const asset = appearanceReference('Mimas');
+  for (const status of ['loading','unavailable','ready']) {
+    const state = {appearanceStatus:{[asset.id]:status}};
+    const summary = appearanceSummary('Mimas', state);
+    assert.ok(summary.includes(asset.label));
+    assert.match(summary,/Archive imagery/);
+    assert.ok(appearanceDescription('Mimas',state,true).includes(asset.observation_label));
+    if(status==='loading') assert.match(summary,/Loading/);
+    if(status==='unavailable') assert.match(summary,/unavailable/);
+    if(status==='ready') assert.doesNotMatch(summary,/Loading|unavailable/);
+  }
+  assert.match(appearanceSummary('Mimas',{useTextures:false}),/switched off/);
+  assert.match(appearanceSummary('Nereid'),/simplified/);
+});
+
+test('partial-map display colors are bound to the reviewed source identity and never manufacture detail', () => {
+  for (const body of ['Saturn','Uranus','Neptune']) {
+    const color = appearanceFallbackColor(body), asset = appearanceReference(body);
+    assert.equal(color.length, 3);
+    assert.ok(color.every(c => c > 0 && c <= 1));
+    assert.match(appearanceDescription(body), /flat color derived from the reference image/);
+    const original = asset.sha256;
+    try { asset.sha256 = 'a'.repeat(64); assert.equal(appearanceFallbackColor(body), null); }
+    finally { asset.sha256 = original; }
+    color[0] = 0;
+    assert.ok(appearanceFallbackColor(body)[0] > 0, 'callers cannot mutate the bound material');
+  }
+  for (const body of ['Earth','Unknown','constructor','__proto__']) assert.equal(appearanceFallbackColor(body), null);
 });
 
 test('map uniforms preserve source longitude, latitude conventions, affine grids and alpha coverage', () => {

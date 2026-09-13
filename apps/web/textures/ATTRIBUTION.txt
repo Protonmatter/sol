@@ -38,7 +38,7 @@ europa: USGS Astrogeology — Europa Voyager/Galileo SSI Global Mosaic 500 m, br
     https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/3647e7b3-425e-4dcf-951b-cc4a22fb0129/download/europa_voyager_galileossi_global_mosaic_500m_1024.jpg
 ganymede: USGS Astrogeology — Ganymede Voyager/Galileo Simple Cylindrical global mosaic, browse rendering (public domain, NASA/JPL/USGS)
     https://astrogeology.usgs.gov/ckan/dataset/b2d0bf2c-1335-424b-a952-da3d8374723b/resource/19e807a2-9eee-4f24-9965-5e25f0bcb9fc/download/full.jpg
-callisto: USGS Astrogeology — Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, browse rendering; mosaic spans ±87.6° latitude (public domain, NASA/JPL/USGS)
+callisto: USGS Astrogeology — Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, cropped browse rendering; exact latitude bounds unverified (public domain, NASA/JPL/USGS)
     https://astrogeology.usgs.gov/ckan/dataset/842a3a75-af37-40ff-bf83-78ee5c76afb2/resource/b16c6dfd-199e-449e-9875-1361c1858af3/download/full.jpg
 enceladus: USGS Astrogeology — Enceladus Cassini Global Mosaic 110 m, browse rendering (public domain, NASA/JPL/SSI/USGS)
     https://astrogeology.usgs.gov/ckan/dataset/30bff65e-56bb-4fd1-bd04-edd9bc2e77d0/resource/19ba2e14-9ceb-45e6-8cc8-e784e36ed4f0/download/full.jpg

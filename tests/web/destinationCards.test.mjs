@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {skyCard, systemCard} from '../../apps/web/js/destinationCards.js';
 import {BODY} from '../../apps/web/js/bodyData.js?v=dcca6290db';
 import {visualBrowsePreview} from '../../apps/web/js/visualAssets.js';
+import {MOONS} from '../../apps/web/js/moons.js';
 
 const snapshot={bodies:[{name:'Moon',alt_deg:12.3456,alt_refracted_deg:88,az_deg:123.4567}]};
 const presentation={observerLabel:'New York example location',aboveCount:64,actualProvider:'local',requestedProvider:'server',availability:'ready'};
@@ -73,7 +74,7 @@ test('System missing, unknown and nonfinite facts remain unavailable without uns
   assert.equal(overview.title,'The Solar System'); assert.match(overview.note,/Physical scale/);
   const unavailable=systemCard({presentation:{availability:'unavailable'}});
   assert.match(unavailable.description,/unavailable/);
-  for(const name of ['Io','Unknown','constructor','__proto__']) {
+  for(const name of ['Unknown','constructor','__proto__']) {
     const card=systemCard({selected:name}); assert.equal(card.focusBody,null); assert.equal(card.facts.length,0);
   }
   const original={radiusKm:BODY.Mars.radiusKm,gravity:BODY.Mars.gravity,rotationHours:BODY.Mars.rotationHours};
@@ -82,6 +83,19 @@ test('System missing, unknown and nonfinite facts remain unavailable without uns
     const card=systemCard({selected:'Mars'});
     assert.ok(card.facts.every(f=>f.value==='Unavailable'));
   } finally {Object.assign(BODY.Mars,original);}
+});
+
+test('Every catalogued moon has a useful inspector with reference facts and an honest shape/orientation limit',()=>{
+  for (const moon of MOONS) {
+    const input={selected:moon.n,trueScale:false};
+    const card=systemCard(input);
+    assert.equal(card.focusBody,moon.n);
+    assert.equal(fact(card,'Orbits'),moon.p);
+    assert.match(fact(card,'Reference mean radius'),/km$/);
+    assert.match(card.note,/reference orientation/i);
+    assert.match(card.note,/spherical approximation/i);
+    assert.doesNotMatch(card.note,/true feature longitude|live imagery/);
+  }
 });
 
 test('Cards tolerate not-yet-created scene state and leave admitted input records unchanged',()=>{
