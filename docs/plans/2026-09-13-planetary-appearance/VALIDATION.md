@@ -80,6 +80,7 @@ and original acquisition evidence under `build/`.
 | Whole hand-written runtime Node + Chromium | 96.49% line coverage; 10,449/10,828 lines |
 | Visual inventory | 12 mapped layers and original legend admitted; legacy holds preserved |
 | SDLC, docs and UX structure | Passed |
+| Static web module/preload contract | Passed after the hosted follow-up correction described below |
 | Full scientific browser assertions | Passed on D |
 | Experience and Sky interaction suites | Passed on C |
 | Three-view isolated browser smoke | Passed on D |
@@ -97,6 +98,7 @@ Commands used from repository root include:
 ```powershell
 python tools/typecheck_web.py
 python tools/validate_visual_assets.py
+python tools/validate_web_static.py
 python tools/validate_sdlc.py
 python tools/validate_docs.py
 python tools/validate_ux_contract.py
@@ -118,6 +120,16 @@ database, command logs and XML are in `coverage/appearance-python-complete/`.
 Source preparation commands are recorded in the linked source documents.
 
 ## Regression evidence and corrections
+
+- The first pushed appearance head `cb2c28e` failed the hosted static web gate:
+  three newly added modules were missing from the HTML preload inventory. The
+  standalone static command had been omitted from the initial local gate list.
+  The follow-up adds exactly those three preload links and runs
+  `python tools/validate_web_static.py`; the validator itself is unchanged.
+  This changes request scheduling only, with no rendering, source, geometry or
+  state calculation change. The failed job log is retained locally as
+  `build/appearance-ci-web.log`. Prior screenshot and rendering evidence retains
+  its stated artifact identity; hosted checks must be refreshed on the follow-up.
 
 - The new filtered-alpha probes initially failed: a half-covered white source
   produced RGB 92 for weather and 64 for a general map, instead of about 188.
