@@ -640,3 +640,118 @@ variants and logs are evidence only and are excluded from the commit.
 | `tools/js_coverage_scope.mjs` | Classify only generated field metadata outside executable coverage |
 | `tools/validate_physical_assets.py` | Validate exact field schemas, source identities and finite contents |
 | `tools/prepare_atmosphere_columns.mjs` | Explicit offline deterministic field generation |
+
+### Hosted f50a575 result and constrained follow-up
+
+The published head `f50a57503a07df5c80e7c335bb26987422cd4311` did not pass
+hosted qualification. [CI run 34783113286](https://github.com/Protonmatter/sol/actions/runs/34783113286)
+and [Coverage run 34783113049](https://github.com/Protonmatter/sol/actions/runs/34783113049)
+both failed the original browser journey at the five-second submitted Earth-spin
+gate. Both source Node suites passed 976 tests first. Rust and Python hosted jobs
+passed; the dependent release gate correctly failed without combined browser coverage.
+The tested synthetic merge was `b93a1396e9f05ed8bf515c9b7626ffb1a21253c4` over
+master `841ba94eabe588f745625a995d20bf6c79ac97f3`.
+
+The instrumentation records actual submitted native draws, a valid visible animated
+Earth and an advanced engine epoch, but no accepted within-deadline sample. The first
+Earth candidate's actual GPU readback completed late. The two browser windows lasted
+8,070/8,188 ms because synchronous GPU work delayed JavaScript timer delivery; the
+monotonic guard correctly rejected that late evidence. This is a rendering/readback
+budget failure, not proof that no frames were submitted. All failed logs and artifacts
+are retained at `build/pr107-review-f50a575/`, including `failure-classification.json`.
+
+The optical P1 review thread was reopened. The other 20 review threads remain resolved.
+No deadline, numerical tolerance, geometry detail, texture size, or coverage threshold
+was reduced; the failed workflows were not rerun to seek a different result.
+
+A disposable local Chrome tree restricted to two verified owned CPUs reproduced the
+slow path using immutable candidate06. Actual GPU admission confirmed the ready physical
+atmosphere and 27,648-index Earth. Only two samples qualified within five seconds;
+the third readback completed late and timer delivery ended at 6,336 ms. Most measured
+wait occurred at `getUniform(u_mode)`. This is a synchronization point for queued GPU
+work, not evidence that computing the integer uniform is intrinsically expensive.
+The attempted disabled comparison stopped before applying affinity when process identity
+validation failed; that failed diagnostic and its original helper remain preserved.
+
+Candidate07 (`603f60d167532377189fba1afebd007224494555f75d55ae3ee1e7f6c3ad3895`)
+added only a per-view column cache to the runtime optical path. All 187 original GPU
+accuracy checks and 408 direct generic/cache optical-depth and transmission comparisons
+passed, with zero component difference in those comparisons. Static independent review
+found no actionable cache defect. Both density-field binaries remained identical.
+
+The matching two-CPU candidate07 pair still failed with optics enabled: two samples,
+5,394.7 ms total delivery; optics disabled passed four samples in 2,836.4 ms and rejected
+the frozen-transform negative control. Paused Earth geometry, camera, epoch and 796-by-612
+drawing buffer matched across candidates. Query waits could move between mode and model
+readback sites. A retained orbital-metadata deadline error preceded the enabled window,
+and the local canvas differs from the hosted full-journey canvas. These single-pair
+timings do not establish a robust performance improvement or a hosted fix. Evidence is
+retained in `build/pr107-review-f50a575/perf/affinity-comparison-06-07.json` and its two
+immutable candidate receipts. The original five-second gate remains in force.
+
+### Candidate08 invariant reuse and Sun exit specialization
+
+The correction reuses per-view transformed geometry and initial/closest tails across
+the existing scattering prefixes. It also specializes Sun rays only after the original
+ground-occlusion and positive outer-exit checks: the terminal outward column is zero
+at the known atmospheric top. The generic lookup remains available to the numerical
+comparison harness. Original phase functions, scattering nodes, shadow splits, density
+support, below-datum extension, path Jacobian and separate exponential factors remain
+unchanged. No engine, observer, texture-resolution or mesh-detail change is included.
+
+The conservative lookup bound decreases from 876 to 444 texel fetches per view transfer,
+or from 888 to 452 including direct surface Sun attenuation. Those are operation
+bounds, not frame-time claims. Independent static reviews of both steps found no
+actionable defect. Both numerical column binaries, incident fields, optical profiles
+and original quadrature solver remain identical. The generated manifest binds the new
+normalized column implementation hash
+`dba3c80adf95a7d8e0ea49afd537c6a324bd9f601bd503d4bfbbb2d1ce5b963d`.
+
+The optical GPU comparison passed 1,171 assertions, retaining all original 187 scientific
+checks and tolerances. The 204 cached view-depth and 204 corresponding transmittance
+comparisons matched exactly. Of 288 additional Sun-ray raw-depth comparisons, one Mars
+near-top sample differed by 5.299642946710037e-10 in optical depth; all 288 checked
+Sun transmissions were identical. This is sampled equivalence within the existing
+qualification envelope, not universal bitwise equality. The independent Python transport
+reference remains part of the unchanged scientific comparisons.
+
+Immutable candidate08 manifest
+`e6012d2445f6c37f898e8705c6a9e4bf3e663db4cf15c4cd324250409f7ad371`
+contains 192 assets, with all 172 source-associated files matching the frozen runtime.
+Full Node 22.23.2 and 24.18.0 suites and both coverage executions pass 978/978.
+Source Node-only coverage passes 22,755/23,210 lines (98.03%), 5,535/6,053 branches
+(91.44%) and 713/749 functions (95.19%). Denominator-complete staged Node coverage
+retains all 91 runtime modules. Typecheck passes 99 files; physical asset admission,
+static, SDLC and UX contract checks pass. Exact CPU commands and receipts are under
+`build/pr107-review-f50a575/candidate08/`.
+
+The same two-CPU diagnostic accepts three optics-enabled samples at 1,519.7, 4,038.5
+and 4,549.1 ms, passing the original five-second spin assertion and frozen negative
+control. A fourth candidate completed late and was correctly rejected. The disabled
+case accepts five samples and passes. The enabled case's first paused GPU admission
+readback took 12.356 seconds and an orbital-metadata timeout appeared before its
+measured window; prior metadata was retained. This stress symptom is preserved at
+`build/pr107-review-f50a575/perf/affinity-candidate08/` and prevents describing that
+diagnostic as a clean full-application run. It is separate from the ordinary staged
+browser/component gates and from fresh hosted qualification.
+
+All nine ordinary staged GPU/browser gates subsequently passed against candidate08.
+The full browser journey accepts four actual Earth GPU draws over 0.1885 radians,
+rejects the frozen control, and passes Io transit/eclipse assertions. The integrated
+physical sequence passes 19 checks with 20 full-page/canvas pairs in 59.363 seconds;
+source differences, request failures, page errors and console errors are empty.
+Native restoration arrives in 3.2 ms, its callback completes in 68.7 ms, and actual
+rendering readiness arrives in 14,589.0 ms, within the unchanged 10/40-second limits.
+Root inspected the resulting Earth and Sun captures; this is rendering evidence,
+not qualification of calibrated brightness or modeled solar-loop morphology.
+
+Staged atmosphere validation passes all 1,171 assertions; planet appearance passes
+95/95 including exact base/physical disabled-material parity. Maximum-detail incident
+validation, ring 11/11, terrain-shadow 32/32, solar 17/17 and phenomena 8/8 gates pass.
+Combined staged Node/Chromium line coverage is 13,164/13,578 (96.95%), retaining all
+91 handwritten modules and the 90% minimum. Exact commands, source/manifest receipts
+and outputs are retained in `build/pr107-review-f50a575/candidate08/`, with rings under
+`coverage/pr107-review-f50a575-candidate08-ring/`. Documentation checks pass 324 files.
+Full Python/Rust suites were not repeated for this JavaScript-only optimization;
+physical source/binary admission was rerun, and their prior hosted results remain
+separate evidence. Fresh hosted checks are required after publication.

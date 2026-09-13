@@ -74,6 +74,12 @@ admitted body, with quadratic physical-height and outward-cosine axes. Exact
 ellipsoid-to-sphere coordinates and the physical path-length Jacobian preserve
 oblateness; endpoint differences and a closest-point split recover finite paths.
 Below-reference-radius density retains the reference model's constant extension.
+View prefixes reuse invariant ray geometry and endpoint columns, preserving the
+existing subtraction order, sample locations and shadow splits. After the original
+Sun blocking and outer-interval checks, Sun rays omit the mathematically zero
+outer-endpoint tail. The generic depth evaluator remains for direct GPU parity;
+caching and top-boundary specialization must pass the
+unchanged independent optical tolerances without changing the numerical field bytes.
 Generation is an explicit offline action, never a build or frame-time side effect.
 Both numerical fields must pass profile, hash, size and value admission before
 reference optics become active. A failed companion load cancels the other load;

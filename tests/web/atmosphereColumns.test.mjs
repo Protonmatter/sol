@@ -8,7 +8,7 @@ import {SPHERE_FS,SPHERE_VS,BASE_SPHERE_FS,BASE_SPHERE_VS} from '../../apps/web/
 import {ATMOSPHERE_COLUMN_FIELDS} from '../../apps/web/js/atmosphereColumnManifest.js';
 import {ATMOSPHERE_COLUMN_SIZE,ATMOSPHERE_COLUMN_BYTES,outwardDensityColumn,generateAtmosphereColumns,
   sampleOutwardColumns,sampleDensityColumns,ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_RENDER_FS,
-  loadAtmosphereColumns,loadAtmosphereFields} from '../../apps/web/js/atmosphereColumnField.js';
+  loadAtmosphereColumns,loadAtmosphereFields,cacheAtmosphereViewRay,specializeAtmosphereSunDepth} from '../../apps/web/js/atmosphereColumnField.js';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const bytesFor=body=>fs.readFileSync(new URL(`../../apps/web/data/optics/${body.toLowerCase()}-columns-v1.f32`,import.meta.url));
 const valuesFor=body=>{const bytes=bytesFor(body);return Float32Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4));};
@@ -38,10 +38,28 @@ test('production transfer preserves scattering expressions but contains no neste
     assert.match(shader,/texelFetch\(u_atmosphereColumnField/);
   }
   const from='vec3 atmosphereSunTransmission(';
-  assert.equal(ATMOSPHERE_RENDER_GLSL.slice(ATMOSPHERE_RENDER_GLSL.indexOf(from)),ATMOSPHERE_GLSL.slice(ATMOSPHERE_GLSL.indexOf(from)));
+  const routed=specializeAtmosphereSunDepth(cacheAtmosphereViewRay(ATMOSPHERE_GLSL));
+  assert.equal(ATMOSPHERE_RENDER_GLSL.slice(ATMOSPHERE_RENDER_GLSL.indexOf(from)),routed.slice(routed.indexOf(from)));
   assert.match(ATMOSPHERE_GLSL,/float atmosphereColumnSegment\(/,'offline oracle stays available');
   const renderer=fs.readFileSync(new URL('../../apps/web/js/orrery.js',import.meta.url),'utf8');
   assert.doesNotMatch(renderer,/generateAtmosphereColumns/,'precomputation is not runtime work');
+});
+
+test('view cache routing binds each original call once and preserves the generic depth evaluator',()=>{
+  assert.match(ATMOSPHERE_RENDER_GLSL,/AtmosphereColumnRay columnRay=atmosphereColumnRay\(entry,ray,distance\);/);
+  assert.match(ATMOSPHERE_RENDER_GLSL,/exp\(-atmosphereCachedOpticalDepth\(columnRay,distance\)\)\*atmosphereSunTransmission\(p\)/);
+  assert.match(ATMOSPHERE_RENDER_GLSL,/vec3 atmosphereOpticalDepth\(vec3 origin,vec3 direction,float distance\)/);
+  assert.throws(()=>cacheAtmosphereViewRay(ATMOSPHERE_RENDER_GLSL),/view-ray cache binding/,'already rewritten or changed references fail closed');
+  assert.throws(()=>cacheAtmosphereViewRay(ATMOSPHERE_GLSL.replace('vec3 atmosphereScatteredMonotonic(','vec3 renamedMonotonic(')),/view-ray cache binding/);
+  assert.throws(()=>cacheAtmosphereViewRay(ATMOSPHERE_GLSL+'\nvec3 atmosphereScatteredMonotonic(vec3 origin,vec3 direction,vec2 interval){'),/view-ray cache binding/,'ambiguous duplicated binding fails closed');
+});
+
+test('Sun-to-top specialization changes only the depth call after the original blocking and interval checks',()=>{
+  const body=source=>source.slice(source.indexOf('vec3 atmosphereSunTransmission('),source.indexOf('// Intersection with the planet'));
+  assert.equal(body(ATMOSPHERE_RENDER_GLSL).replace('atmosphereSunOpticalDepthToTop(point,light)','atmosphereOpticalDepth(point,light,sky.y)'),body(ATMOSPHERE_GLSL));
+  assert.throws(()=>specializeAtmosphereSunDepth(ATMOSPHERE_RENDER_GLSL),/Sun-to-top binding/);
+  assert.throws(()=>specializeAtmosphereSunDepth(ATMOSPHERE_GLSL.replace('point,light,sky.y','point,light,sky.x')),/Sun-to-top binding/);
+  assert.throws(()=>specializeAtmosphereSunDepth(ATMOSPHERE_GLSL+'\nexp(-atmosphereOpticalDepth(point,light,sky.y))'),/Sun-to-top binding/);
 });
 
 test('off-grid columns retain the near-ground aerosol layer and grazing molecular density',()=>{

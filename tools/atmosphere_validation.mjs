@@ -30,11 +30,14 @@ async function moduleFile(relative){
   assert.ok(asset,`${relative} absent from release`);assert.equal(hashes[relative],asset.sha256,`${relative} hash mismatch`);}
  return import(pathToFileURL(file).href);
 }
-const {ATMOSPHERE_VS}=await moduleFile('js/atmosphereShaders.js');
+const {ATMOSPHERE_VS,ATMOSPHERE_GLSL:REFERENCE_ATMOSPHERE_GLSL}=await moduleFile('js/atmosphereShaders.js');
 const {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS}=await moduleFile('js/atmosphereColumnField.js');
 const {ATMOSPHERE_COLUMN_FIELDS}=await moduleFile('js/atmosphereColumnManifest.js');
 const {getAtmosphereProfile,atmosphereUniformValues}=await moduleFile('js/atmosphereOptics.js');
 const {SPHERE_VS,SPHERE_FS}=await moduleFile('js/orreryShaders.js');
+const sunStart=REFERENCE_ATMOSPHERE_GLSL.indexOf('vec3 atmosphereSunTransmission('),sunEnd=REFERENCE_ATMOSPHERE_GLSL.indexOf('// Intersection with the planet');
+assert.ok(sunStart>=0&&sunEnd>sunStart,'Original Sun reference boundary changed');
+const genericSunSource=REFERENCE_ATMOSPHERE_GLSL.slice(sunStart,sunEnd).replace('vec3 atmosphereSunTransmission(','vec3 atmosphereGenericSunTransmission(');
 const {INCIDENT_FIELDS}=await moduleFile('js/atmosphereIncidentManifest.js');
 const {sampleIncidentField}=await moduleFile('js/atmosphereIncident.js');
 const fields={};
@@ -137,6 +140,60 @@ const day=ref('Earth day'), night=ref('Earth night self-shadow'), distant=ref('E
 const elevated=ref('Earth elevated surface');
 const oblique=ref('Earth oblique surface');
 const dayColor=base=>base.map((value,j)=>encode(decode(value)*day.transmittance[j]**2+day.scattering[j]));
+// Direct production generic-vs-cached depth comparisons. Each prefix uses a
+// cache for the whole ray, exercising both sides of its closest point and the
+// zero/short-distance branch without replacing the numerical Python gate.
+const cacheCases=[];
+for(const body of ['Earth','Mars']){
+ const profile=getAtmosphereProfile(body),R=profile.radiusKm,T=profile.topKm;
+ const tangent=Math.sqrt((R+T)**2-(R+.0001)**2);
+ const add=(name,origin,direction,maximum,distances,q=1)=>{
+  const uniforms=atmosphereUniformValues(profile,{cameraBodyKm:origin,sunDirectionBody:[1,0,0],polarRatio:q,solarDistanceAu:1,exposure:1});
+  for(const distance of distances)cacheCases.push({name:`${body} cache ${name} prefix ${distance}`,body,origin,direction,maximum,distance,uniforms});
+ };
+ add('outward',[R+.713,0,0],[1,0,0],T+2,[0,.001,.01,T*.5,T+2]);
+ add('inward subdatum',[R+T,0,0],[-1,0,0],T+12.37,[0,.001,T-.001,T,T+.001,T+12.37]);
+ add('short',[R+.713,0,0],[1,0,0],.01,[0,.0001,.0099,.01]);
+ add('grazing closest',[R+.0001,0,-tangent],[0,0,1],2*tangent,[0,.001,tangent-.001,tangent,tangent+.001,2*tangent]);
+ add('closest excluded',[R+.37,0,-tangent],[0,0,1],tangent*.9,[0,tangent*.2,tangent*.9]);
+ add('below datum crossing',[R-12.37,0,-25],[0,0,1],50,[0,.01,24.99,25,25.01,50]);
+ add('interior crossing',[0,0,-12.13],[0,0,1],24.26,[0,.01,12.13,12.14,24.26]);
+ add('oblate polar',[0,0,(R+T)*.9],[0,0,-1],(T+12.37)*.9,[0,.001,T*.9,(T+12.37)*.9],.9);
+ add('oblate grazing',[R+.0001,0,-tangent*.9],[0,0,1],2*tangent*.9,[0,.001,tangent*.9-.001,tangent*.9,tangent*.9+.001,2*tangent*.9],.9);
+ add('top boundary',[R+T-.001,0,0],[1,0,0],.01,[0,.0005,.001,.002,.01]);
+ add('outside away',[R+T+10,0,0],[1,0,0],10,[0,.001,5,10]);
+ let seed=31;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+ for(let i=0;i<16;i++){
+  const q=.9+.1*random(),h=T*random()**2,az=random()*Math.PI*2,z=random()*2-1,xy=Math.sqrt(1-z*z);
+  const origin=[(R+h)*xy*Math.cos(az),(R+h)*xy*Math.sin(az),(R+h)*z*q];
+  const d=[random()*2-1,random()*2-1,random()*2-1],length=Math.hypot(...d),maximum=T+200;
+  add(`off-grid ${i}`,origin,d.map(v=>v/length),maximum,[maximum*.173,maximum*.823,maximum],q);
+ }
+}
+// Sun rays exercise the original checks as well as the depth helper. Near-top
+// finite-precision exits may leave a tiny generic terminal tail; measure that
+// difference directly instead of declaring mathematical zero a bitwise result.
+const sunCases=[];
+for(const body of ['Earth','Mars']){
+ const profile=getAtmosphereProfile(body),R=profile.radiusKm,T=profile.topKm;
+ const add=(name,origin,rawDirection,q=1)=>{
+  const length=Math.hypot(...rawDirection),direction=rawDirection.map(v=>v/length);
+  sunCases.push({name:`${body} Sun-to-top ${name}`,body,origin,direction,
+   uniforms:atmosphereUniformValues(profile,{cameraBodyKm:origin,sunDirectionBody:direction,polarRatio:q,solarDistanceAu:1,exposure:1})});
+ };
+ for(const h of [-12.37,-.001,0,.0001,.001,.002,.713,2,T-.01,T-.001,T,T+.001,T+10]){
+  const grazing=h>=0?-Math.sqrt(Math.max(0,1-(R/(R+h))**2)):0;
+  const cosines=[-1,-.3,0,.3,1,...(h>=0?[grazing-.000001,grazing,grazing+.000001]:[])];
+  for(const value of cosines){const mu=Math.max(-1,Math.min(1,value));add(`height ${h} cosine ${mu}`,[R+h,0,0],[mu,Math.sqrt(1-mu*mu),0]);}
+ }
+ for(const q of [.9,.9966])for(const h of [.001,T-.001,T+.001])for(const mu of [-1,-.03,0,.03,1])
+  add(`oblate ${q} height ${h} cosine ${mu}`,[0,0,(R+h)*q],[Math.sqrt(1-mu*mu),0,mu*q],q);
+ let seed=43;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+ for(let i=0;i<16;i++){
+  const q=.9+.1*random(),h=-.01+(T+1)*random(),az=random()*Math.PI*2,z=random()*2-1,xy=Math.sqrt(1-z*z);
+  add(`off-grid ${i}`,[(R+h)*xy*Math.cos(az),(R+h)*xy*Math.sin(az),(R+h)*z*q],[random()*2-1,random()*2-1,random()*2-1],q);
+ }
+}
 const materialCases=[
  {name:'combined registered incident and view transport',uniforms:params('Earth day'),expected:dayColor(color)},
  {name:'combined fallback display RGB is decoded',uniforms:params('Earth day'),reference:false,expected:dayColor(color)},
@@ -180,7 +237,7 @@ try {
  evidence.browser_version=await browser.version();
  const page=await browser.newPage(); await page.setRequestInterception(true);page.on('request',request=>request.abort());
  await page.setContent('<canvas width=1 height=1></canvas>');
- const actual=await page.evaluate(({cases,materials,refractionCases,fields,columns,shared,shellVs,shellFs,sphereVs,sphereFs})=>{
+ const actual=await page.evaluate(({cases,cacheCases,sunCases,genericSunSource,materials,refractionCases,fields,columns,shared,shellVs,shellFs,sphereVs,sphereFs})=>{
   const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false});
   if(!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('float WebGL2 unavailable');
   const shader=(kind,source)=>{const s=gl.createShader(kind);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
@@ -203,6 +260,28 @@ try {
   const upload=(name,value)=>{const u=gl.getUniformLocation(p,name);if(Array.isArray(value)) {if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);} else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
   const transfer=cases.map(c=>{bindColumns(p,c.profile.body);for(const [key,value]of Object.entries(c.uniforms))upload(key,value);upload('u_probeOrigin',c.origin);upload('u_probeDir',c.direction);upload('u_probeMax',c.maximum);
    const result={};for(const [kind,key]of [[0,'transmittance'],[1,'scattering']]){upload('u_probeKind',kind);gl.drawArrays(gl.TRIANGLES,0,3);const raw=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,raw);result[key]=Array.from(raw).slice(0,3);}if(gl.getError()!==gl.NO_ERROR)throw Error('GL readback error');return result;});
+  const cacheProgram=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}',
+    '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform float u_probeMax,u_probeDistance;uniform int u_probeKind;'+shared+
+    '\nvoid main(){AtmosphereColumnRay ray=atmosphereColumnRay(u_probeOrigin,u_probeDir,u_probeMax);vec3 tau=(u_probeKind==0||u_probeKind==2)?atmosphereOpticalDepth(u_probeOrigin,u_probeDir,u_probeDistance):atmosphereCachedOpticalDepth(ray,u_probeDistance);o=vec4(u_probeKind<2?tau:exp(-tau),1.0);}');
+  gl.useProgram(cacheProgram);
+  const cacheUpload=(name,value)=>{const u=gl.getUniformLocation(cacheProgram,name);if(Array.isArray(value)){if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);}else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
+  const cacheDepth=cacheCases.map(c=>{
+    bindColumns(cacheProgram,c.body);for(const [name,value]of Object.entries(c.uniforms))cacheUpload(name,value);
+    cacheUpload('u_probeOrigin',c.origin);cacheUpload('u_probeDir',c.direction);cacheUpload('u_probeMax',c.maximum);cacheUpload('u_probeDistance',c.distance);
+    const result={};for(const [kind,key]of [[0,'generic'],[1,'cached'],[2,'genericTransmittance'],[3,'cachedTransmittance']]){cacheUpload('u_probeKind',kind);gl.drawArrays(gl.TRIANGLES,0,3);const raw=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,raw);result[key]=Array.from(raw).slice(0,3);}
+    if(gl.getError()!==gl.NO_ERROR)throw Error('cached optical-depth GL readback error');return result;
+  });
+  const sunProgram=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}',
+    '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform int u_probeKind;'+shared+genericSunSource+
+    '\nvoid main(){vec3 ray=normalize(u_probeDir);vec2 sky=atmosphereRayInterval(u_probeOrigin,ray,u_atmosphereRadiusKm+u_atmosphereTopKm);vec3 value;if(u_probeKind<2)value=sky.y>0.0?(u_probeKind==0?atmosphereOpticalDepth(u_probeOrigin,ray,sky.y):atmosphereSunOpticalDepthToTop(u_probeOrigin,ray)):vec3(0);else value=u_probeKind==2?atmosphereGenericSunTransmission(u_probeOrigin):atmosphereSunTransmission(u_probeOrigin);o=vec4(value,1.0);}');
+  gl.useProgram(sunProgram);
+  const sunUpload=(name,value)=>{const u=gl.getUniformLocation(sunProgram,name);if(Array.isArray(value)){if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);}else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
+  const sunDepth=sunCases.map(c=>{
+    bindColumns(sunProgram,c.body);for(const [name,value]of Object.entries(c.uniforms))sunUpload(name,value);
+    sunUpload('u_probeOrigin',c.origin);sunUpload('u_probeDir',c.direction);
+    const result={};for(const [kind,key]of [[0,'generic'],[1,'specialized'],[2,'genericTransmittance'],[3,'specializedTransmittance']]){sunUpload('u_probeKind',kind);gl.drawArrays(gl.TRIANGLES,0,3);const raw=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,raw);result[key]=Array.from(raw).slice(0,3);}
+    if(gl.getError()!==gl.NO_ERROR)throw Error('Sun-to-top GL readback error');return result;
+  });
   const refractiveProgram=program(sphereVs,'#version 300 es\nprecision highp float;out vec4 o;void main(){o=vec4(0);}', ['v_incidentSunBody','v_incidentSunWorld','v_incidentTransmission']);
   gl.useProgram(refractiveProgram);
   const fieldTextures={};
@@ -262,8 +341,8 @@ try {
     gl.drawArrays(gl.TRIANGLES,0,3);const raw=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,raw);
     if(gl.getError()!==gl.NO_ERROR)throw Error('combined material GL readback error');return Array.from(raw).slice(0,3);
   });
-  return {transfer,materials:materialResults,refraction:refractiveResults};
- },{cases,materials:materialCases,refractionCases,fields,columns,shared:ATMOSPHERE_GLSL,shellVs:ATMOSPHERE_VS,shellFs:ATMOSPHERE_FS,sphereVs:SPHERE_VS,sphereFs:SPHERE_FS});
+  return {transfer,cacheDepth,sunDepth,materials:materialResults,refraction:refractiveResults};
+ },{cases,cacheCases,sunCases,genericSunSource,materials:materialCases,refractionCases,fields,columns,shared:ATMOSPHERE_GLSL,shellVs:ATMOSPHERE_VS,shellFs:ATMOSPHERE_FS,sphereVs:SPHERE_VS,sphereFs:SPHERE_FS});
  evidence.checks=cases.flatMap((c,i)=>['transmittance','scattering'].map(key=>{
   const reference=expected[i][key], measured=actual.transfer[i][key];
   const tolerances=reference.map(value=>value===0?ZERO_TOLERANCE:ABSOLUTE_TOLERANCE+RELATIVE_TOLERANCE*Math.abs(value));
@@ -273,6 +352,18 @@ try {
  }));
  evidence.checks.push(...materialCases.map((c,i)=>({name:c.name,expected:c.expected,actual:actual.materials[i],tolerances:[.0003,.0003,.0003],
   passed:actual.materials[i].every((value,j)=>Number.isFinite(value)&&Math.abs(value-c.expected[j])<=.0003)})));
+ evidence.checks.push(...cacheCases.flatMap((c,i)=>['depth','transmittance'].map(kind=>{
+  const measuredCase=actual.cacheDepth[i],expected=kind==='depth'?measuredCase.generic:measuredCase.genericTransmittance,measured=kind==='depth'?measuredCase.cached:measuredCase.cachedTransmittance;
+  const tolerances=expected.map(value=>value===0?ZERO_TOLERANCE:ABSOLUTE_TOLERANCE+RELATIVE_TOLERANCE*Math.abs(value));
+  return {name:`${c.name} ${kind}`,expected,actual:measured,tolerances,absolute_errors:measured.map((v,j)=>Math.abs(v-expected[j])),
+    passed:measured.every((v,j)=>Number.isFinite(v)&&Math.abs(v-expected[j])<=tolerances[j])};
+ })));
+ evidence.checks.push(...sunCases.flatMap((c,i)=>['depth','transmittance'].map(kind=>{
+  const measuredCase=actual.sunDepth[i],expected=kind==='depth'?measuredCase.generic:measuredCase.genericTransmittance,measured=kind==='depth'?measuredCase.specialized:measuredCase.specializedTransmittance;
+  const tolerances=expected.map(value=>value===0?ZERO_TOLERANCE:ABSOLUTE_TOLERANCE+RELATIVE_TOLERANCE*Math.abs(value));
+  return {name:`${c.name} ${kind}`,expected,actual:measured,tolerances,absolute_errors:measured.map((v,j)=>Math.abs(v-expected[j])),
+    passed:measured.every((v,j)=>Number.isFinite(v)&&Math.abs(v-expected[j])<=tolerances[j])};
+ })));
  // 0.003 degrees for vertex direction; 0.2% + 0.0002 for curved-path
  // transmission. Lookup interpolation is compared below; triangle interpolation
  // and observer-ray refraction remain outside this point-sample qualification.

@@ -142,9 +142,14 @@ its GPU resources. A late result cannot upload after its demand/context changes.
 
 ## Immutable density-column lookup and fragment work
 
-`atmosphereColumnField.js` replaces only the reference density-column evaluator in
-the production shared shader. The scattering, phase, source-density, shadow-split,
-view attenuation and linear composition expressions remain the original text.
+`atmosphereColumnField.js` replaces the reference density-column evaluator in
+the production shared shader and routes view-depth calls through one per-ray cache.
+The scattering nodes, phase, source-density, shadow-split, attenuation multiplication
+and linear composition expressions remain the original text. Guarded substitutions
+reject changed or ambiguous reference signatures and calls. Sun attenuation retains
+the original blocking and outer-interval checks, then omits its mathematically zero
+terminal outward column. The generic evaluator remains for direct comparison;
+transmission exponentials are not combined.
 The original `atmosphereShaders.js` quadrature and incident-field generator remain
 byte-for-byte unchanged; the incident assets retain their original solver identity.
 The actual GPU gate imports the production lookup version for both the sphere and
@@ -176,8 +181,23 @@ components, requiring no floating-point filtering extension. An optical-depth ca
 uses at most three outward lookups (12 texel fetches). The analytical planet shadow
 can leave two illuminated intervals; their single closest point can split at most
 one, producing at most three monotonic pieces and 36 scattering samples per view
-ray. Consequently the conservative view-transfer bound is 73 optical-depth calls and
-876 texel fetches. The original nested evaluator could use up to
+ray. View samples share the exact transformed axis, path-length Jacobian, impact,
+initial tail and (only when the full interval crosses closest approach) twice the
+closest tail. Each prefix retains the existing `a-b`, `b-a` or `2c-a-b` operation
+order and nonnegative clamp. One endpoint tail per sample/full-path query plus at
+most two initial cached tails requires at most 39 view-tail lookups (156 fetches),
+instead of the generic evaluator's conservative 111 lookups (444 fetches).
+After the original Sun blocking and positive outer-exit checks, an outward Sun
+ray needs its initial tail alone; an inward unblocked ray needs twice the closest
+tail minus the initial tail. Their outer endpoint contributes zero in exact
+arithmetic. This retains the same ellipsoid reduction, path-length Jacobian,
+below-datum extension and nonnegative clamp. Floating-point reconstruction of
+the generic outer endpoint can leave a tiny terminal column, so equivalence must
+be measured under the existing tolerances rather than presumed bitwise.
+The 36 specialized Sun-depth calls require at most 288 fetches, so the complete
+view-transfer bound is 73 depth queries and 444 texel fetches, down from 876
+(and from 588 with only view-ray caching).
+The original nested evaluator could use up to
 2,336 scalar density exponentials in those same calls. The 72 source-density and
 219 transmission exponentials remain bounded and unchanged. These are conservative
 operation bounds, not measured frame rates; scattering still scales with rendered
@@ -185,11 +205,29 @@ pixels, and whole-scene performance must be measured separately. Direct incident
 refraction retains its existing eight-fetch vertex lookup; its out-of-domain
 straight-ray fallback uses the new bounded column evaluator.
 If a surface fragment uses straight incident attenuation instead of interpolated
-incident transmission, it adds at most one optical-depth call, twelve texel fetches
+incident transmission, it adds at most one optical-depth call, eight texel fetches
 and three transmission exponentials. The complete conservative surface-fragment
-ceiling is therefore 74 depth calls, 888 texel fetches and 294 retained exponentials;
+ceiling is therefore 74 depth queries, 452 texel fetches and 294 retained exponentials;
 the corresponding removed density work is at most 2,368 exponentials. The separate
 vertex fallback has its own bounded column call and is not counted as fragment work.
+These cache bounds do not claim native compiler hoisting behavior or a measured
+frame-time improvement. Direct GPU generic-versus-cache comparisons cover short
+prefixes, closest crossings, below-datum endpoints, oblate and off-grid rays using
+the existing fixed optical tolerances; the independent Python transfer gate remains.
+The source-tree cache gate on Chrome 151.0.7922.174 passed 595/595 assertions:
+the original 187 and 408 direct depth/transmittance comparisons across 204 ray
+prefixes. Every compared cached/generic GPU component was identical in that run.
+This is a bounded numerical observation, not an all-rays equivalence proof or a
+frame-time result; fresh staged and whole-scene performance gates remain separate.
+The subsequent Sun-to-top source gate on the same Chrome version passed
+1,171/1,171 assertions, retaining all 595 checks and adding 576 direct depth and
+transmission comparisons across 288 Sun rays. These include inward, grazing,
+oblate, below-datum, top-near and outside-shell inputs. One raw-depth comparison
+differed: Mars at 99.999 km with zenith cosine 0.3 had a maximum absolute difference
+of `5.299643e-10`; all 288 checked Sun transmissions were identical. The 204 cached
+view-depth and transmission comparisons remained identical. This qualifies those
+sampled floating-point differences under the unchanged tolerances; it does not
+establish bitwise equivalence for every ray or resolve the separate frame-time gate.
 
 The two-entry context cache owns at most 6,596,704 bytes of incident plus column
 texture data, without mip chains. Each grouped load shares caller cancellation and
