@@ -8,6 +8,7 @@ import coverageModule from "istanbul-lib-coverage";
 import puppeteer from "puppeteer-core";
 import v8ToIstanbul from "v8-to-istanbul";
 import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
+import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import {
   ROOT,
   WEB,
@@ -414,28 +415,7 @@ async function canvasScreenshot(page, output) {
   // The hosted failure included toolbar/caption pixels outside the canvas. Keep
   // the real page overlays, but capture one settled, entirely visible rectangle.
   await canvas.evaluate(node => node.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }));
-  const geometry = await canvas.evaluate(async node => {
-    await document.fonts.ready;
-    const started = performance.now();
-    let previous = '', stableSince = started;
-    while (performance.now() - started < 10_000) {
-      await new Promise(resolve => requestAnimationFrame(resolve));
-      const rect = node.getBoundingClientRect();
-      const value = [rect.x, rect.y, rect.width, rect.height,
-        visualViewport.pageLeft, visualViewport.pageTop, node.width, node.height];
-      const key = JSON.stringify(value), now = performance.now();
-      if (key !== previous) { previous = key; stableSince = now; }
-      if (now - stableSince >= 200) {
-        if (rect.left < 0 || rect.top < 0 || rect.right > innerWidth || rect.bottom > innerHeight
-            || node.width !== Math.round(node.clientWidth * devicePixelRatio)
-            || node.height !== Math.round(node.clientHeight * devicePixelRatio)) {
-          throw new Error(`canvas capture geometry is not visible/aligned: ${key}`);
-        }
-        return value;
-      }
-    }
-    throw new Error(`canvas capture did not settle: ${previous}`);
-  });
+  const geometry = await canvas.evaluate(waitForCanvasGeometry);
   const [x, y, width, height, pageLeft, pageTop] = geometry;
   const clipX = Math.round(x + pageLeft), clipY = Math.round(y + pageTop);
   const clip = { x: clipX, y: clipY,
