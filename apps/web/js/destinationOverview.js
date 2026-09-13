@@ -68,6 +68,8 @@ export function renderDestinationOverview(surface, sky, system) {
   if (focus) { focus.hidden = !card.focusBody; focus.dataset.body = card.focusBody || ''; focus.textContent = `Focus on ${card.focusBody || 'object'}`; }
   const location = document.getElementById('destinationLocation');
   if (location) location.hidden = surface !== 'sky';
+  const details = document.getElementById('destinationDetails');
+  if (details) details.hidden = surface === 'orrery' && Boolean(system?.galaxy) && !system?.selectedStar;
   const systemJumps = document.getElementById('systemJumps');
   if (systemJumps) systemJumps.hidden = surface !== 'orrery' || Boolean(system?.galaxy);
   text('destinationCaption', surface === 'sky'

@@ -57,6 +57,7 @@ must be read on that pushed head rather than inferred from the previous green he
 | `appearance-final-c` | `9f0dbab30b8870b3a566788af9bc6475a2e49b72528d25ea7d80bf03184fe4ff` |
 | Final `appearance-final-d` | `464209f61a7372b0d7dd4f19fd29f589fa73508ca464ef6e0f37e9090f270b9e` |
 | Preview/capture follow-up `appearance-capture-fix` | `febbe52e96904bf10d01e889d367ddd751fd49f323e9cfa29ceb579afffe1893` |
+| Recovery follow-up `appearance-recovery-final` | `b4de55f186e73e33243c6d5af17e33031896e8d0773701bfa970205a64af6517` |
 
 The final D artifact adds only a white CSS backing for the original transparent
 legend to C. Actual browser, GPU, source-bound coverage, screenshots, smoke and
@@ -72,8 +73,8 @@ and original acquisition evidence under `build/`.
 
 | Check | Result |
 | --- | --- |
-| Full Node tests | 745/745 passed after preview retry regressions |
-| Imported production-module Node coverage | 98.70% lines, 92.25% branches, 95.62% functions; all three floors 90% |
+| Full Node tests | 749/749 passed after all recovery regressions |
+| Imported production-module Node coverage | 97.84% lines, 91.52% branches, 95.13% functions; all three floors 90% |
 | Provider and repository Python tests | 28 + 290 passed |
 | Exact CI 20-file Python aggregate | 91.5483%, passing 90%; lines 93.3036%, branches 87.8838% |
 | TypeScript check | 79 files passed |
@@ -122,6 +123,25 @@ Source preparation commands are recorded in the linked source documents.
 
 ## Regression evidence and corrections
 
+- Later review of `7c2e621` identified two additional recovery issues. Failed
+  mapped references now retry on deliberate view re-entry or an off/on texture
+  toggle, with per-attempt and context-generation guards. Ready/pending resources
+  are retained; repeated frames and obsolete callbacks cannot create requests or
+  uploads. The two new tests failed at 12 versus 13 requests before the fix and
+  pass afterward; the complete runtime appearance suite passes 14/14. Evidence:
+  `coverage/appearance-retry-{red,green}.log`. The overview also hides and guards
+  stale planetary details in the Milky Way while preserving selected-star details.
+  Both UI regressions failed before the change; the destination/workspace suite
+  passes 19/19 afterward (`coverage/pr107-galaxy-details-{red,green}.log`).
+  Pushed `9204177` passed all 20 hosted checks before these follow-ups; that result
+  is not used as hosted evidence for the subsequent commit.
+  Independent lifecycle review also reproduced a stale mapped-image failure
+  notice after successful recovery. That notice now follows current availability
+  and preserves separate navigation/legacy hints; its red/green regression is in
+  `coverage/appearance-retry-notice-{red,green}.log`. Final integration evidence is
+  in `coverage/appearance-node-recovery-final/` and
+  `coverage/appearance-browser-recovery-final/`: 749 Node tests, all coverage
+  floors, and the original camera/spin/transit/eclipse browser gates pass.
 - The `7c2e621` standalone hosted browser job retained an invalid camera-comparison
   crop: the after image included toolbar and caption pixels outside the canvas.
   Both images were 731 x 591, but they did not capture the same rendered rectangle.
@@ -267,6 +287,7 @@ tests/web/orrery_review_regressions.test.mjs
 tests/web/planetAppearance.test.mjs
 tests/web/planetAppearanceRuntime.test.mjs
 tests/web/surfaceMapping.test.mjs
+tests/web/workspace.test.mjs
 tools/browser_validation.mjs
 tools/build_web.py
 tools/fetch_earth_reference.py

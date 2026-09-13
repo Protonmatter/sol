@@ -25,7 +25,7 @@ export function appearanceDescription(body, state = {}, details = false) {
   if (!asset) return 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   if (state.useTextures === false) return 'Reference imagery is switched off.';
   const status = state.appearanceStatus?.[asset.id];
-  const readiness = status === 'ready' ? '' : status === 'unavailable' ? 'Image unavailable; showing a simplified surface. '
+  const readiness = status === 'ready' ? '' : status === 'unavailable' ? 'Image unavailable; showing a simplified surface. Reopen this view to retry. '
     : 'Loading reference imagery. ';
   const coverage = asset.nodata !== 'none' || asset.validLatitudeBounds[0] > -90 || asset.validLatitudeBounds[1] < 90
     ? ' Unmapped areas are simplified.' : '';

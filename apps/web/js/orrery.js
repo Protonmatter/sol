@@ -227,8 +227,17 @@ function makeTexture(img, repeatS, nearest = false, premultiplyAlpha = false) {
 // A missing map used to vanish into an empty onerror while the UI kept promising photographic
 // surfaces. Say so — once in the console per file, and once in the panel for the whole build.
 let texNoteShown = false;
-function texMissing(file) {
+const MAPPED_FAILURE_NOTE = " (Some mapped reference images are unavailable; those surfaces are simplified. Reopen this view to retry.)";
+function updateReferenceNotice() {
+  const insight = document.getElementById("orreryInsight");
+  if (!insight) return;
+  const base = insight.textContent.replace(MAPPED_FAILURE_NOTE, '');
+  const next = base + (Object.values(state.appearanceStatus).includes('unavailable') ? MAPPED_FAILURE_NOTE : '');
+  if (insight.textContent !== next) insight.textContent = next;
+}
+function texMissing(file, mapped = false) {
   console.warn(`Reference image unavailable: ${file}; showing the documented simplified surface.`);
+  if (mapped) { updateReferenceNotice(); return; }
   if (texNoteShown) return;
   texNoteShown = true;
   const insight = document.getElementById("orreryInsight");
@@ -238,30 +247,40 @@ function texMissing(file) {
 }
 
 function loadTextures() {
-  if (texturesStarted || !gl) return;
-  texturesStarted = true;
+  if (!gl) return;
+  if (!texturesStarted) textureGeneration++;
   const repaint = () => { if (state.active && !state.animate) paint(); };
-  const generation = ++textureGeneration;
+  const generation = textureGeneration;
   for (const asset of appearanceReferences()) {
+    // View re-entry or an explicit off/on toggle can recover failed optional
+    // imagery. Preserve ready textures and pending requests in this GL context.
+    if (['loading', 'ready'].includes(state.appearanceStatus[asset.id])) continue;
+    const attempt = { tex: null, ready: false };
+    referenceTextures[asset.id] = attempt;
     state.appearanceStatus[asset.id] = 'loading';
     const img = new Image();
+    const current = () => generation === textureGeneration
+      && referenceTextures[asset.id] === attempt && state.appearanceStatus[asset.id] === 'loading';
     const fail = () => {
-      if (generation !== textureGeneration) return;
+      if (!current()) return;
       state.appearanceStatus[asset.id] = 'unavailable';
-      texMissing(asset.path); updateEarthLayerStatus(); updateOrreryAccuracy();
+      texMissing(asset.path, true); updateEarthLayerStatus(); updateOrreryAccuracy();
     };
     img.onload = () => {
-      if (generation !== textureGeneration || !gl) return;
+      if (!current() || !gl) return;
       try {
         referenceTextures[asset.id] = {tex: makeTexture(img, true, asset.role === 'sea-ice', asset.nodata === 'alpha' && asset.role !== 'sea-ice'), ready: true};
         state.appearanceStatus[asset.id] = 'ready';
+        updateReferenceNotice();
         updateEarthLayerStatus(); updateOrreryAccuracy(); repaint();
       } catch { fail(); }
     };
     img.onerror = fail;
     img.src = asset.path;
   }
-  updateEarthLayerStatus();
+  updateEarthLayerStatus(); updateReferenceNotice();
+  if (texturesStarted) return;
+  texturesStarted = true;
   for (const [name, file] of Object.entries(TEXTURE_FILES)) {
     if (!textureEligible(name)) continue;
     const img = new Image();
@@ -2399,7 +2418,12 @@ async function showFallback(msg) {
   bind("orreryShowSmall", "change", (e) => { state.showSmall = inputTarget(e).checked; buildSceneLines(); rebuildSmallBodies(); paint(); });
   bind("orreryShowMoons", "change", (e) => { state.showMoons = inputTarget(e).checked; paint(); updateOrreryAccuracy(); });
   bind("orreryDeepSky", "change", (e) => { state.galDeepSky = inputTarget(e).checked; paint(); });
-  bind("orreryTextures", "change", (e) => { state.useTextures = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
+  bind("orreryTextures", "change", (e) => {
+    const wasEnabled = state.useTextures;
+    state.useTextures = inputTarget(e).checked;
+    if (state.useTextures && !wasEnabled) loadTextures();
+    updateEarthLayerStatus(); paint(); updateOrreryAccuracy();
+  });
   for (const [id, key] of [['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
     bind(id, 'change', e => { state[key] = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
   }

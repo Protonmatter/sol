@@ -277,7 +277,10 @@ for (const [id, skyTarget, systemTarget] of [
   ['destinationDetails', 'skySelectedFacts', 'orreryDetail'],
   ['destinationLocation', 'skyLat', 'orreryTime'],
   ['destinationEarthLayers', 'skySelectedFacts', 'orreryEarthNight'],
-]) document.getElementById(id)?.addEventListener('click', () => revealWorkspaceControl(store.activeMode, store.activeMode === 'sky' ? skyTarget : systemTarget));
+]) document.getElementById(id)?.addEventListener('click', () => {
+  if (id === 'destinationDetails' && store.activeMode === 'orrery' && store.orrery?.galaxy && !store.orrery?.selectedStar) return;
+  revealWorkspaceControl(store.activeMode, store.activeMode === 'sky' ? skyTarget : systemTarget);
+});
 document.getElementById('destinationTime')?.addEventListener('click', revealTime);
 const focusBody = body => {
   const anchor = /** @type {HTMLSelectElement|null} */ (document.getElementById('orreryAnchor'));

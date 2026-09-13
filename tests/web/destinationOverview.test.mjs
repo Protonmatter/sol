@@ -9,7 +9,7 @@ const ids = ['destinationEyebrow', 'destinationTitle', 'destinationDescription',
   'destinationFacts', 'destinationPreview', 'destinationImage', 'destinationImageStatus',
   'destinationImageSource', 'destinationFocus', 'destinationLocation', 'systemJumps',
   'destinationCaption', 'destinationCaveat', 'destinationAppearance', 'destinationAppearanceText',
-  'destinationAppearanceSources', 'destinationEarthLayers'];
+  'destinationAppearanceSources', 'destinationEarthLayers', 'destinationDetails'];
 
 // Model the DOM operations the card owns, including the observable cost of replacing
 // descendants. Any HTML parsing attempt fails, so external names remain literal text.
@@ -333,21 +333,30 @@ test('Camera selection and dynamic scale, moon and rotation disclosures follow t
 
 test('Galaxy and neighbourhood modes clear body cards and disclose their separate clocks', () => withDocument(({nodes}) => {
   renderDestinationOverview('orrery', undefined, {selected: 'Earth', anchor: 'Earth'});
+  assert.equal(nodes.destinationDetails.hidden, false);
   renderDestinationOverview('orrery', undefined, {selected: 'Earth', galaxy: true, animate: true, spinLimitedCount: 4,
     moonsHiddenReason: 'Moons hidden outside the supported epoch.'});
   assert.equal(nodes.destinationTitle.textContent, 'The Milky Way');
   assert.deepEqual(factsOf(nodes), {});
   assert.equal(nodes.destinationPreview.hidden, true);
   assert.equal(nodes.destinationFocus.hidden, true);
+  assert.equal(nodes.destinationDetails.hidden, true, 'the galactic overview has no current object details');
   assert.equal(nodes.systemJumps.hidden, true);
   assert.match(nodes.destinationCaption.textContent, /Milky Way illustration.*separate model clock/);
   assert.equal(nodes.destinationCaveat.textContent, '', 'planetary moon and spin caveats must not label a galactic scene');
+  renderDestinationOverview('orrery', undefined, {galaxy: true, localView: true, selected: 'Earth'});
+  assert.equal(nodes.destinationDetails.hidden, true, 'the neighbourhood overview must not expose a retained planet');
   renderDestinationOverview('orrery', undefined, {galaxy: true, localView: true, selectedStar: {name: 'Sirius'}});
   assert.equal(nodes.destinationTitle.textContent, 'Sirius');
   assert.equal(nodes.destinationEyebrow.textContent, 'CATALOGUE STAR');
   assert.match(nodes.destinationCaption.textContent, /static catalogue epoch.*light-years/);
   assert.equal(nodes.destinationPreview.hidden, true);
   assert.equal(nodes.destinationFocus.hidden, true);
+  assert.equal(nodes.destinationDetails.hidden, false, 'a selected catalogue star retains its details action');
+  renderDestinationOverview('sky', skyState(), {galaxy: true});
+  assert.equal(nodes.destinationDetails.hidden, false, 'the System galaxy state cannot hide Sky details');
+  renderDestinationOverview('orrery', undefined, {selected: 'Earth', galaxy: false});
+  assert.equal(nodes.destinationDetails.hidden, false, 'returning to the system restores planet details');
 }));
 
 test('Not-yet-created states and absent optional card elements remain safe', () => withDocument(({nodes}) => {

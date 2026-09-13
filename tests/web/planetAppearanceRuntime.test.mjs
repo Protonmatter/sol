@@ -162,6 +162,73 @@ test("missing Earth base imagery withholds auxiliary maps; one failed layer does
   assert.equal(h.errors.length, 0);
 });
 
+test("reference toggle retries only failed uploads and rejects callbacks from replaced attempts", async t => {
+  const h = await start(t);
+  const day = complete(h, "Earth"), weather = sourceImage(h, "Earth", "weather");
+  const pendingMars = sourceImage(h, "Mars");
+  const oldLoad = weather.image.onload, oldError = weather.image.onerror;
+  [weather.image.width, weather.image.height] = weather.asset.dimensions;
+  oldError();
+  const count = h.images.length, epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
+  paint(h); paint(h);
+  assert.equal(h.images.length, count, "ordinary scene frames do not retry failed files");
+  h.check("orreryTextures", false); h.check("orreryTextures", true);
+  assert.equal(h.images.length, count + 1, "one explicit toggle retries only the failed asset");
+  assert.notEqual(sourceImage(h, "Earth", "weather").image, weather.image);
+  assert.equal(sourceImage(h, "Earth").image, day.image, "ready maps remain cached");
+  assert.equal(sourceImage(h, "Mars").image, pendingMars.image, "in-flight loads remain valid");
+  assert.equal(h.state.appearanceStatus[weather.asset.id], "loading");
+  const uploads = h.textureRecords.length;
+  oldLoad(); oldError();
+  assert.equal(h.textureRecords.length, uploads, "obsolete source callbacks cannot upload or leak a texture");
+  assert.equal(h.state.appearanceStatus[weather.asset.id], "loading");
+  const recovered = complete(h, "Earth", "weather");
+  const readyUploads = h.textureRecords.length;
+  recovered.image.onload(); recovered.image.onerror(); oldError();
+  assert.equal(h.textureRecords.length, readyUploads, "completed requests settle once");
+  assert.equal(h.state.appearanceStatus[weather.asset.id], "ready");
+  complete(h, "Mars");
+  assert.equal(h.state.appearanceStatus[pendingMars.asset.id], "ready");
+  assertFlags(bodyDraw(h, paint(h)), ["weather"]);
+  assert.equal(h.state.renderUnix, epoch);
+  assert.equal(JSON.stringify(h.state.bodies), bodies);
+});
+
+test("returning to the view retries a failed image without restarting pending or ready references", async t => {
+  const h = await start(t);
+  const pendingDay = sourceImage(h, "Earth"), mars = complete(h, "Mars");
+  const failed = sourceImage(h, "Mercury");
+  failed.image.onerror();
+  const count = h.images.length;
+  h.leaveOrrery(); await h.enterOrrery();
+  assert.equal(h.images.length, count + 1);
+  assert.equal(sourceImage(h, "Earth").image, pendingDay.image);
+  assert.equal(sourceImage(h, "Mars").image, mars.image);
+  assert.equal(h.state.appearanceStatus[failed.asset.id], "loading");
+  complete(h, "Mercury"); complete(h, "Earth");
+  assert.equal(h.state.appearanceStatus[failed.asset.id], "ready");
+  assert.equal(h.state.appearanceStatus[pendingDay.asset.id], "ready");
+});
+
+test("mapped failure notices follow recovery without deleting independent navigation or legacy hints", async t => {
+  const h = await start(t);
+  const base = "Navigation hint. (A separate legacy image is unavailable.)";
+  h.nodes.orreryInsight.textContent = base;
+  const weather = sourceImage(h, "Earth", "weather"), mercury = sourceImage(h, "Mercury");
+  weather.image.onerror(); mercury.image.onerror();
+  for (const asset of appearanceReferences()) {
+    if (asset.id !== weather.asset.id && asset.id !== mercury.asset.id) complete(h, asset.body, asset.role);
+  }
+  assert.match(h.nodes.orreryInsight.textContent, /reference images are unavailable/);
+  h.check("orreryTextures", false); h.check("orreryTextures", true);
+  complete(h, "Earth", "weather"); sourceImage(h, "Mercury").image.onerror();
+  assert.match(h.nodes.orreryInsight.textContent, /reference images are unavailable/, "one remaining failed map must stay disclosed");
+  h.check("orreryTextures", false); h.check("orreryTextures", true);
+  complete(h, "Mercury");
+  assert.ok(Object.values(h.state.appearanceStatus).every(status => status === "ready"));
+  assert.equal(h.nodes.orreryInsight.textContent, base, "only the recovered mapped-failure notice is removed");
+});
+
 test("context loss invalidates late source callbacks and restores only the new generation", async t => {
   const h = await start(t);
   const staleDay = sourceImage(h, "Earth"), staleWeather = sourceImage(h, "Earth", "weather");

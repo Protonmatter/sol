@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import { createWorkspaceState, workspace, renderWorkspace, openInspector, revealWorkspaceControl } from "../../apps/web/js/workspace.js";
+import { loadSourceModules } from "./helpers/sourceModuleHarness.mjs";
 
 test("each surface starts closed and preserves its own inspector choice", () => {
   const state = createWorkspaceState();
@@ -101,4 +103,48 @@ test('task entry opens nested native disclosures before focusing a hidden contro
     revealWorkspaceControl('sky', 'missing');
     assert.equal(workspace.focus, false, 'an unavailable task target still reveals safe controls');
   } finally { globalThis.document = oldDocument; workspace.focus = false; workspace.setInspector('sky', false); }
+});
+
+test('app details routing rejects stale galactic planet facts while retaining selected stars and Sky', async () => {
+  const appURL = new URL('../../apps/web/app.js', import.meta.url);
+  const appSource = readFileSync(appURL, 'utf8'), calls = [];
+  const state = {activeMode: 'orrery', tourIndex: -1, orrery: {selected: 'Earth', galaxy: false}};
+  const buttons = new Map(['destinationDetails', 'destinationSearch'].map(id => [id, {
+    listeners: new Map(), addEventListener(type, listener) { this.listeners.set(type, listener); },
+    click() { this.listeners.get('click')?.(); },
+  }]));
+  const document = {getElementById: id => buttons.get(id), querySelectorAll: () => [],
+    querySelector: () => null, addEventListener() {}};
+  const bindings = {store: state, controls: {}, TOUR_STEPS: [], workspace: createWorkspaceState(),
+    explorer: {}, revealWorkspaceControl: (surface, target) => calls.push([surface, target])};
+  // Exercise the complete entry module's real event wiring. Feature modules and
+  // browser I/O are boundaries; no production source or handler is rewritten.
+  const boundaries = new Map([...appSource.matchAll(/^import \{([^}]+)\} from "([^"]+)";/gm)].map(([,names,specifier]) =>
+    [specifier, Object.fromEntries(names.split(',').map(name => name.trim()).map(name =>
+      [name, Object.hasOwn(bindings, name) ? bindings[name] : () => {}]))]));
+  await loadSourceModules(vm.createContext({document, window: {addEventListener() {}},
+    location: {hash: ''}, localStorage: {getItem: () => null}, navigator: {}}), [appURL], {
+      resolveImport: specifier => boundaries.get(specifier),
+    });
+  const details = buttons.get('destinationDetails'), search = buttons.get('destinationSearch');
+  details.click();
+  assert.deepEqual(calls.splice(0), [['orrery', 'orreryDetail']]);
+  state.orrery.galaxy = true;
+  details.click();
+  assert.deepEqual(calls, [], 'even a queued/programmatic click must not open stale planetary facts');
+  state.orrery.localView = true;
+  details.click();
+  assert.deepEqual(calls, [], 'the neighbourhood overview also has no selected object');
+  state.orrery.selectedStar = {name: 'Sirius'};
+  details.click();
+  assert.deepEqual(calls.splice(0), [['orrery', 'orreryDetail']]);
+  state.orrery.selectedStar = null;
+  search.click();
+  assert.deepEqual(calls.splice(0), [['orrery', 'orrerySearch']], 'galactic search remains available');
+  state.activeMode = 'sky';
+  details.click();
+  assert.deepEqual(calls.splice(0), [['sky', 'skySelectedFacts']]);
+  state.activeMode = 'orrery'; state.orrery.galaxy = false;
+  details.click();
+  assert.deepEqual(calls, [['orrery', 'orreryDetail']]);
 });
