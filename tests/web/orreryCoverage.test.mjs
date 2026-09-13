@@ -3,6 +3,8 @@ import test from "node:test";
 import { orreryHarness } from "./helpers/orreryHarness.mjs";
 import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
 import { BODY } from '../../apps/web/js/bodyData.js';
+import {terrainExtentKm} from '../../apps/web/js/terrainAssets.js';
+import {getAtmosphereProfile} from '../../apps/web/js/atmosphereOptics.js';
 
 function assertOnlyRegisteredImages(h) {
   assert.ok(h.images.filter(image=>image.src).every(image=>appearanceReferences().some(a=>a.path===image.src)),
@@ -11,7 +13,72 @@ function assertOnlyRegisteredImages(h) {
     'reference image transfer/decode concurrency remains bounded');
 }
 
-function assertFocusedDisc(h, expected = .76, extentRatio = 1) {
+test('ready Sun writes only photosphere depth, then composites emission in front of distant and behind nearer rings',async t=>{
+  const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true,solarAtlas:true});
+  await h.enterOrrery();await h.settleCatalogues();
+  h.event('orreryInspectSun','click');await h.settleCatalogues();
+  assert.equal(h.state.solarStatus,'ready');
+  h.input('orreryAnchor','Sun','change');
+  const saturn=h.state.bodies.find(b=>b.name==='Saturn'),p=[saturn.x_au,saturn.y_au,saturn.z_au];
+  for(const side of [1,-1]){
+    h.state.az=Math.atan2(side*p[1],side*p[0]);h.state.el=Math.asin(side*p[2]/Math.hypot(...p));h.state.radius=40;
+    const first=h.gpuSubmissions.length;h.check('orreryTextures',true);
+    const draws=h.gpuSubmissions.slice(first),solar=draws.filter(draw=>draw.uniforms.u_camObj);
+    assert.deepEqual(solar.map(d=>d.uniforms.u_pass),[1,2],'separate opaque and emissive solar passes');
+    assert.equal(solar[0].depthWrites,true);assert.equal(solar[1].depthWrites,false);
+    assert.deepEqual(solar[1].blend,[h.gl.ONE,h.gl.ONE],'optically thin emission retains background light');
+    const corona=draws.indexOf(solar[1]);
+    const opaque=draws.filter(draw=>draw.uniforms.u_mode===0&&draw.kind==='elements');
+    assert.ok(opaque.length>=9,'opaque planets remain in the full scene');
+    assert.ok(opaque.every(draw=>draw.depthWrites&&draws.indexOf(draw)<corona),'all opaque bodies establish depth first');
+    const ring=draws.find(draw=>draw.uniforms.u_prad&&Math.hypot(...draw.uniforms.u_center.map((v,i)=>v-p[i]))<1e-4);
+    assert.ok(ring,'Saturn ring is submitted');assert.equal(ring.depthWrites,false);
+    assert.equal(draws.indexOf(ring)>corona,side===1,'near ring attenuates emission; far ring remains behind it');
+    assert.ok(!draws.some(draw=>draw.uniforms.u_mode===1),'no fallback sphere may cover the source');
+  }
+  h.check('orreryTopDown',true);h.check('orreryFreeFly',true);h.event('orreryInspectSun','click');
+  assert.equal(h.state.topDown,false,'inspection must use the source-facing orbit camera');
+  assert.equal(h.nodes.orreryTopDown.checked,false,'the top-down control agrees with the camera');
+  assert.equal(h.state.freeFly,false);assert.equal(h.nodes.orreryFreeFly.checked,false);
+  for(const [width,height] of [[800,600],[320,540]]){
+    h.resize(width,height);h.event('orreryInspectSun','click');
+    const solar=h.gpuDraws.findLast(draw=>draw.uniforms.u_pass===1).uniforms;
+    const occupied=solar.u_extent/Math.sqrt(Math.hypot(...solar.u_camObj)**2-solar.u_extent**2)/(Math.tan(21*Math.PI/180)*Math.min(1,width/height));
+    assert.ok(occupied>.9&&occupied<.97,`source inspection fills ${occupied} without clipping the corona envelope`);
+  }
+  assert.equal(h.state.solarInspection,true);assert.deepEqual(h.errors,[]);
+});
+
+test('deferred atmospheric halos rebind their own body lighting and normals after opaque moons',async t=>{
+  const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true});await h.enterOrrery();await h.settleCatalogues();
+  h.state.opticsEnabled=false;const first=h.gpuSubmissions.length;h.check('orreryTextures',false);
+  const draws=h.gpuSubmissions.slice(first),opaque=draws.filter(d=>d.uniforms.u_mode===0&&d.kind==='elements');
+  const halos=draws.filter(d=>d.uniforms.u_mode===2&&d.kind==='elements');assert.equal(halos.length,7);
+  for(const halo of halos){
+    const body=opaque.find(d=>d.uniforms.u_model.slice(12,15).every((v,i)=>v===halo.uniforms.u_model[12+i]));
+    assert.ok(body);assert.equal(halo.depthWrites,false);assert.ok(draws.indexOf(halo)>draws.indexOf(opaque.at(-1)));
+    for(const key of ['u_nmat','u_cam','u_light','u_atmo','u_atmoStr'])assert.deepEqual(halo.uniforms[key],body.uniforms[key],key);
+  }
+  assert.deepEqual(h.errors,[]);
+});
+
+test('Sun inspection omits surrounding bodies and restores the overview without moving physical state',async t=>{
+  const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true});await h.enterOrrery();await h.settleCatalogues();
+  const identity=JSON.stringify([h.state.renderUnix,h.state.bodies]),guides=h.state.showOrbits;
+  let from=h.gpuDraws.length;h.event('orreryInspectSun','click');
+  const draws=h.gpuDraws.slice(from).filter(({uniforms:u})=>u.u_mode===0||u.u_mode===1);
+  assert.equal(h.state.solarInspection,true);assert.ok(h.state.radius<2);assert.equal(draws.length,1);
+  assert.equal(draws[0].uniforms.u_mode,1);assert.equal(h.state.showOrbits,guides);
+  assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),identity);
+  from=h.gpuDraws.length;h.input('orreryAnchor','Sun','change');
+  assert.equal(h.state.solarInspection,false);assert.equal(h.state.radius,26);
+  assert.ok(h.gpuDraws.slice(from).filter(({uniforms:u})=>u.u_mode===0).length>=9);
+  h.event('orreryInspectSun','click');h.input('orreryAnchor','Earth','change');assert.equal(h.state.solarInspection,false);
+  assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),identity);assert.deepEqual(h.errors,[]);
+});
+
+function assertFocusedDisc(h, expected = .76, extentRatio = null) {
+  if(extentRatio===null){const body=BODY[h.state.anchor];extentRatio=body?Math.max(1+(getAtmosphereProfile(h.state.anchor)?.topKm||0)/body.radiusKm,(terrainExtentKm(h.state.anchor)?.maxRadiusKm||body.radiusKm)/body.radiusKm):1;}
   const u = h.gpuDraws.findLast(({ uniforms: u }) => u.u_mode === 0 && u.u_model
     && Math.abs(u.u_mvp[12] / u.u_mvp[15]) < 1e-3 && Math.abs(u.u_mvp[13] / u.u_mvp[15]) < 1e-3)?.uniforms;
   assert.ok(u, 'an actual submitted sphere is at the focus centre');
@@ -49,7 +116,7 @@ test('focused planets and moons fit desktop and portrait views without changing 
         if (models.has(key)) assert.equal(value, models.get(key), `${name}: a reappearing body retains its radius and transform`);
         else models.set(key, value);
       }
-      const ratio = name === 'Saturn' ? BODY.Saturn.rings.outerKm / BODY.Saturn.radiusKm : 1;
+      const ratio = name === 'Saturn' ? BODY.Saturn.rings.outerKm / BODY.Saturn.radiusKm : null;
       assertFocusedDisc(h, .76, ratio);
     }
   }

@@ -99,6 +99,16 @@ jobs:
         run: node tools/planet_appearance_validation.mjs --web-root=build/site --out=coverage/planet-appearance
       - name: Catalogue ring geometry and illumination GPU contract
         run: node tools/ring_appearance_validation.mjs --web-root=build/site --out=coverage/ring-appearance
+      - name: Physical atmosphere transfer CPU and GPU comparison
+        run: node tools/atmosphere_validation.mjs --web-root=build/site --out=coverage/atmosphere
+      - name: Terrain shadow CPU and GPU comparison
+        run: node tools/terrain_shadow_validation.mjs --web-root=build/site --out=coverage/terrain-shadows
+      - name: Registered solar volume GPU contract
+        run: node tools/solar_appearance_validation.mjs --web-root=build/site --out=coverage/solar-appearance
+      - name: Giant-planet historical observation component
+        run: node tools/planet_phenomena_validation.mjs --web-root=build/site --out=coverage/planet-phenomena
+      - name: Integrated physical rendering and source playback
+        run: node tools/physical_rendering_validation.mjs --web-root=build/site --out=coverage/physical-rendering --context-loss
       - name: Whole-web Node + Chromium line gate
         # Generated catalogues must load in the browser but are deliberately omitted
         # from the percentage so declarative data rows cannot inflate application coverage.
@@ -114,6 +124,11 @@ jobs:
             coverage/node-executed
             coverage/planet-appearance
             coverage/ring-appearance
+            coverage/atmosphere
+            coverage/terrain-shadows
+            coverage/solar-appearance
+            coverage/planet-phenomena
+            coverage/physical-rendering
           if-no-files-found: ignore
           retention-days: 90
 

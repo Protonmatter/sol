@@ -1,0 +1,178 @@
+// Pure reference-display geometry. No DOM, GPU, wall clock or engine mutations.
+// Source coordinates and modeled emission are qualified separately in the manifest.
+import { solarAppearanceManifest } from './solarAppearanceManifest.js';
+
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const child of Object.values(value)) deepFreeze(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+export const SOLAR_APPEARANCE = deepFreeze(solarAppearanceManifest);
+export const SOLAR_VOLUME_EXTENT = SOLAR_APPEARANCE.geometry.extent_solar_radii;
+export const SOLAR_SOURCE_UNIX = Date.parse(SOLAR_APPEARANCE.frames[0].observed_at)/1000;
+const DEG = Math.PI/180, RAD_TO_ARCSEC = 180*3600/Math.PI;
+const dot = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross = (a,b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const length = a => Math.hypot(a[0],a[1],a[2]);
+const scale = (a,b) => a.map(v=>v*b);
+const clamp = (x,lo,hi) => Math.max(lo,Math.min(hi,x));
+const smooth = (lo,hi,x) => {const t=clamp((x-lo)/(hi-lo),0,1);return t*t*(3-2*t);};
+
+function finiteVector(value,name) {
+  if (!Array.isArray(value) || value.length!==3 || !value.every(Number.isFinite)) {
+    throw new TypeError(`${name} must be a finite three-vector`);
+  }
+}
+function unit(value,name) {
+  finiteVector(value,name);
+  const n=length(value);
+  if(n<1e-12) throw new RangeError(`${name} cannot be zero`);
+  return scale(value,1/n);
+}
+
+function carringtonBasis(wcs) {
+  const longitude=wcs.longitude_deg*DEG,latitude=wcs.latitude_deg*DEG;
+  const cl=Math.cos(longitude),sl=Math.sin(longitude),cb=Math.cos(latitude),sb=Math.sin(latitude);
+  return {right:[-sl,cl,0],up:[-sb*cl,-sb*sl,cb],axis:[cb*cl,cb*sl,sb]};
+}
+const referenceBasis=carringtonBasis(SOLAR_APPEARANCE.frames[0].wcs);
+function toReference(vector) {
+  return [dot(vector,referenceBasis.right),dot(vector,referenceBasis.up),dot(vector,referenceBasis.axis)];
+}
+
+/** A fixed image-observer frame, not the rotating IAU Sun frame. */
+export function solarFrameUniforms(frame=SOLAR_APPEARANCE.frames[0]) {
+  const wcs=frame.wcs, original=carringtonBasis(wcs);
+  const right=toReference(original.right),up=toReference(original.up),axis=toReference(original.axis);
+  return {right,up,axis,basis:[...right,...up,...axis],
+    projection:[(wcs.crpix[0]-.5)/wcs.dimensions[0],(wcs.crpix[1]-.5)/wcs.dimensions[1],
+      RAD_TO_ARCSEC/wcs.cdelt_arcsec[0]/wcs.dimensions[0],RAD_TO_ARCSEC/wcs.cdelt_arcsec[1]/wcs.dimensions[1]],
+    observerRadius:wcs.observer_distance_m/wcs.solar_reference_radius_m};
+}
+
+/** Reference frame -> world rotation. Caller supplies fixed source-epoch vectors. */
+export function solarReferenceRotation(observerDirection,solarNorthDirection) {
+  const axis=unit(observerDirection,'source observer'),north=unit(solarNorthDirection,'solar north');
+  const right=unit(cross(north,axis),'source horizontal');
+  const up=unit(cross(axis,right),'source vertical');
+  return [right[0],right[1],right[2],0,up[0],up[1],up[2],0,axis[0],axis[1],axis[2],0,0,0,0,1];
+}
+
+/** Finite-distance TAN projection; source north is up in unflipped browser pixels. */
+export function projectSolarSurface(point,frame=SOLAR_APPEARANCE.frames[0]) {
+  finiteVector(point,'surface point');
+  if(Math.abs(length(point)-1)>1e-8) throw new RangeError('surface point must be unit length');
+  const {axis,right,up,projection,observerRadius}=solarFrameUniforms(frame);
+  const z=dot(point,axis),denom=observerRadius-z;
+  const uv=[projection[0]+dot(point,right)/denom*projection[2],
+    1-projection[1]-dot(point,up)/denom*projection[3]];
+  const mu=(observerRadius*z-1)/Math.sqrt(observerRadius*observerRadius+1-2*observerRadius*z);
+  const coverage=uv.some(v=>v<0||v>1)?0:smooth(SOLAR_APPEARANCE.surface_min_mu,SOLAR_APPEARANCE.surface_full_mu,mu);
+  return {uv,coverage,mu};
+}
+
+/** Twenty seconds maps to the fixed source interval; callers pause/reset explicitly. */
+export function solarPlayback(seconds,{reducedMotion=false}={}) {
+  if(!Number.isFinite(seconds)) throw new TypeError('source playback must be finite');
+  const elapsed=clamp(seconds,0,SOLAR_APPEARANCE.playback.duration_seconds);
+  const mix=elapsed/SOLAR_APPEARANCE.playback.duration_seconds;
+  const start=Date.parse(SOLAR_APPEARANCE.frames[0].observed_at),end=Date.parse(SOLAR_APPEARANCE.frames[1].observed_at);
+  return {mix,phase:reducedMotion?0:elapsed*Math.PI/6,elapsed,ended:elapsed===SOLAR_APPEARANCE.playback.duration_seconds,
+    sourceTime:new Date(Math.round(start+mix*(end-start))).toISOString(),
+    sourceStatus:mix===0||mix===1?'source-frame':'interpolated-reference'};
+}
+
+/** Stable analytic ray/sphere roots in solar-radius coordinates. */
+export function raySphereInterval(origin,direction,radius=1) {
+  finiteVector(origin,'ray origin');finiteVector(direction,'ray direction');
+  if(Math.abs(length(direction)-1)>1e-8) throw new RangeError('ray direction must be unit length');
+  if(!Number.isFinite(radius)||radius<=0) throw new RangeError('sphere radius must be finite and positive');
+  const perpendicular=cross(origin,direction),discriminant=radius*radius-dot(perpendicular,perpendicular);
+  if(discriminant<0) return null;
+  const middle=-dot(origin,direction),span=Math.sqrt(discriminant);
+  if(middle+span<0) return null;
+  return [middle-span,middle+span];
+}
+
+/** Visible volume ends at the first opaque photosphere intersection. */
+export function solarVisibleInterval(origin,direction,extent=SOLAR_VOLUME_EXTENT) {
+  if(length(origin)<=1) return null;
+  const outer=raySphereInterval(origin,direction,extent);
+  if(!outer) return null;
+  const inner=raySphereInterval(origin,direction,1);
+  const start=Math.max(0,outer[0]),end=inner&&inner[0]>0?Math.min(outer[1],inner[0]):outer[1];
+  return end>start?[start,end]:null;
+}
+
+/** Local Gaussian arcade emissivity. This is modeled display emission, not plasma density. */
+export function solarLoopDensity(point,loops=SOLAR_APPEARANCE.geometry.loops,phase=0) {
+  finiteVector(point,'volume point');
+  if(!Number.isFinite(phase)) throw new TypeError('model phase must be finite');
+  const r=length(point);
+  if(r<1||r>SOLAR_VOLUME_EXTENT) return 0;
+  let density=0;
+  for(let i=0;i<loops.length;i++) {
+    const loop=loops[i],normal=loop.normal,tangent=loop.tangent,binormal=cross(normal,tangent);
+    const x=dot(point,tangent),y=dot(point,normal)-Math.sqrt(1-loop.radius*loop.radius),z=dot(point,binormal);
+    if(y<0) continue;
+    const radial=Math.hypot(x,y)-loop.radius;
+    const d2=(radial*radial+z*z)/(loop.width*loop.width);
+    if(d2>16) continue;
+    const theta=Math.atan2(y,x);
+    // Traveling brightness is an educational flow cue, independent of source-frame intensity.
+    const flow=.78+.22*Math.cos(4*theta-phase+(loop.phaseOffset??i*.47));
+    density+=Math.exp(-.5*d2)*loop.gain*flow;
+  }
+  return density;
+}
+
+/** Float64 midpoint reference for the fragment shader's optically thin line integral. */
+export function integrateSolarEmission(origin,direction,loops=SOLAR_APPEARANCE.geometry.loops,phase=0,samples=128) {
+  if(!Number.isInteger(samples)||samples<1||samples>4096) throw new RangeError('sample count must be 1..4096');
+  const interval=solarVisibleInterval(origin,direction);
+  if(!interval) return 0;
+  let total=0;
+  // Integrate each finite-support arcade only where the ray can meet it. A
+  // broad whole-Sun step grid undersamples thin arcs at the limb. Per-arc
+  // clipping keeps the same bounded work while resolving the cross-section.
+  for(let j=0;j<loops.length;j++) {
+    const loop=loops[j],center=scale(loop.normal,Math.sqrt(1-loop.radius*loop.radius));
+    const local=raySphereInterval(origin.map((v,i)=>v-center[i]),direction,loop.radius+4*loop.width);
+    if(!local) continue;
+    const start=Math.max(interval[0],local[0]),end=Math.min(interval[1],local[1]);
+    if(end<=start) continue;
+    const dt=(end-start)/samples;
+    const single=[{...loop,phaseOffset:loop.phaseOffset??j*.47}];
+    for(let i=0;i<samples;i++) {
+      const t=start+(i+.5)*dt;
+      total+=solarLoopDensity(origin.map((v,k)=>v+t*direction[k]),single,phase)*dt;
+    }
+  }
+  return total;
+}
+
+/** Monotonic, explicitly false-color display transform; input is a stretched JP2 value. */
+export function solarDisplayColor(intensity) {
+  if(!Number.isFinite(intensity)) throw new TypeError('display intensity must be finite');
+  const v=clamp(intensity,0,1);
+  return [Math.pow(v,.7),.76*Math.pow(v,1.25),.22*Math.pow(v,2.1)];
+}
+
+/** Packed immutable-reference uniforms; viewport/camera matrices are supplied by the caller. */
+export function solarRenderUniforms(seconds=0,options={}) {
+  const frame0=solarFrameUniforms(SOLAR_APPEARANCE.frames[0]),frame1=solarFrameUniforms(SOLAR_APPEARANCE.frames[1]);
+  const playback=solarPlayback(seconds,options);
+  const loopNormal=[],loopTangent=[];
+  for(const loop of SOLAR_APPEARANCE.geometry.loops) {
+    loopNormal.push(...loop.normal,loop.radius);
+    loopTangent.push(...loop.tangent,loop.width);
+  }
+  return {extent:SOLAR_VOLUME_EXTENT,frameMix:playback.mix,phase:playback.phase,
+    sourceBasis0:frame0.basis,sourceBasis1:frame1.basis,
+    projection0:frame0.projection,projection1:frame1.projection,
+    observerRadii:[frame0.observerRadius,frame1.observerRadius],
+    loopNormal,loopTangent,loopGain:SOLAR_APPEARANCE.geometry.loops.map(loop=>loop.gain),playback};
+}

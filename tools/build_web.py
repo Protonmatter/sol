@@ -12,6 +12,8 @@ import tempfile
 from pathlib import Path
 
 from validate_release_manifest import RELEASE_ID, base_path as validate_base_path, digest, validate_manifest
+from validate_physical_assets import validate_physical_source
+from validate_planet_phenomena import validate_phenomena_source
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -46,7 +48,10 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     "displayGeometry.js", "labelOcclusion.js", "visualAssets.js", "visualAssetManifest.js", "solarObservation.js", "orreryShaders.js", "planetAppearance.js", "surfaceMapping.js",
     "bodyData.js", "moonelements.js", "moonorbits.js", "moonshadows.js", "starphysics.js", "starcatalog.js",
     "orreryMath.js", "orreryTime.js", "orbitCamera.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
-    "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js"})
+    "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js",
+    "terrainAssets.js", "terrainGeometry.js", "terrainShadowShaders.js", "terrain.worker.js", "terrainWorkerClient.js",
+    "solarAppearance.js", "solarAppearanceManifest.js", "solarVolumeShaders.js", "atmosphereOptics.js", "atmosphereShaders.js",
+    "planetPhenomena.js", "planetPhenomenaManifest.js", "solarAssetLoader.js", "physicalRendering.js"})
 
 
 def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id: str,
@@ -62,6 +67,8 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
         raise ValueError("invalid release ID")
     validate_base_path(base_path)
     critical_visuals = validate_visual_source(source_root)
+    validate_physical_source(source_root)
+    validate_phenomena_source(source_root)
     if schemas is None:
         solar_text = (source_root / "js/solarSchema.js").read_text(encoding="utf-8")
         declarations = [line.strip() for line in solar_text.splitlines() if line.strip() and not line.lstrip().startswith("//")]
@@ -125,6 +132,10 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
                 target.write_bytes(raw)
             source_map[destination] = {"source_path": "apps/web/" + relative,
                                        "source_sha256": hashlib.sha256(raw).hexdigest()}
+        # Recheck copied bytes and generated-data parity after source reads, before
+        # publishing the staged artifact. Source validation alone is not readback.
+        validate_physical_source(temporary / namespace)
+        validate_phenomena_source(temporary / namespace)
         bundle_descriptor = None
         if selected_bundle:
             bundle_root = namespace + "data/bundles/" + selected_bundle.bundle_id + "/"

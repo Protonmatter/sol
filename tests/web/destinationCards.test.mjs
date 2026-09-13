@@ -9,6 +9,15 @@ const snapshot={bodies:[{name:'Moon',alt_deg:12.3456,alt_refracted_deg:88,az_deg
 const presentation={observerLabel:'New York example location',aboveCount:64,actualProvider:'local',requestedProvider:'server',availability:'ready'};
 const fact=(card,label)=>card.facts.find(f=>f.label===label)?.value;
 
+test('Sun card identifies enabled source, modeled volume and explicit fallback',()=>{
+  const ready={selected:'Sun',solarMode:'reconstructed-euv',solarStatus:'ready',useTextures:true};
+  assert.match(systemCard(ready).note,/AIA 171/);assert.match(systemCard(ready).note,/modeled/);
+  assert.doesNotMatch(systemCard(ready).note,/detail unavailable/);
+  assert.match(systemCard({...ready,solarStatus:'unavailable'}).note,/simplified visible photosphere/);
+  assert.match(systemCard({...ready,solarMode:'visible'}).note,/Visible-light approximation/);
+  assert.match(systemCard({...ready,useTextures:false}).note,/reference disabled/);
+});
+
 test('Sky card uses the displayed snapshot and actual source, never the requested observer or source',()=>{
   const card=skyCard({snapshot,selectedName:'Moon',presentation:{...presentation,providerLabel:'NASA JPL',requestedObserverLabel:'Tokyo'}});
   assert.equal(card.title,'Moon');

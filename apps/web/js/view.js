@@ -12,7 +12,8 @@ import { renderDestinationOverview } from './destinationOverview.js?v=dcca6290db
 export function renderAll() {
   applySurfaceVisibility();
   const observing = store.activeMode === 'today' && explorer.mode === 'observe';
-  if (!observing) currentBaseImage();
+  const researching = store.activeMode === 'today' && !observing;
+  if (researching) currentBaseImage();
   store.presentation = resolvePresentation({ snapshot: store.state, wavelength: store.wavelength,
     imageState: baseImageState(store.wavelength), feedStatus: store.feedStatus,
     timeline: store.timelineIndex >= 0 ? store.seriesRecords[store.timelineIndex] : null,
@@ -20,7 +21,7 @@ export function renderAll() {
   document.getElementById("solarExport")?.toggleAttribute("disabled",store.state.schema_version !== "solar-state-snapshot.v3");
   updateText();
   updateTaskHeader();
-  if (!observing) drawSolarDisk();
+  if (researching) drawSolarDisk();
   drawButterfly();
 }
 

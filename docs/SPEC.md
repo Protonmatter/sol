@@ -39,7 +39,33 @@ clouds/surface and sea-ice analysis. The default cloud/surface view uses NASA's
 complete historical Blue Marble 2002 composite. Dated MODIS swaths are an explicit
 source choice with visible seams/gaps disclosed. Their epochs do not follow model time. Source
 coverage masks preserve missing observations; no procedural geography or polar caps
-fill gaps. Atmospheric scattering remains an explicitly illustrative visual effect.
+fill gaps. [RFC 0005](rfcs/0005-physical-rendering.md) adds qualified physical rendering:
+Moon LOLA and Mars MOLA radial terrain, bounded Earth/Mars reference optical transfer,
+and source-registered AIA 171 imagery with explicitly modeled elevated solar emission.
+These appearance models do not evolve the state estimator or replace physical orbits.
+Other atmospheres retain their disclosed illustrative treatment until qualified.
+
+Terrain is prepared in cancellable workers, uses physical kilometre heights, and changes
+both geometry and normals. Up to two detail entries are resident, with bounded LOD and
+directional terrain shadows. Source-cell resolution limits narrow geological features;
+unsupported bodies retain their source maps and smooth reference geometry. Missing or
+invalid optional products retain a usable, disclosed fallback. Release staging verifies
+the terrain/solar manifests, numeric products, hashes and generated browser metadata.
+
+Atmosphere uses distinct incident attenuation and view-path transmission/scattering in
+linear color. Physical distance determines solar flux; adaptive display exposure is
+separate. Qualified Earth/Mars incident rays use bounded refractive shooting at vertices;
+their apparent solar direction and curved-path attenuation drive direct illumination.
+Observer and scattered-light rays remain straight. Reference profiles are not present
+weather or dense-cloud radiative transfer; there is no qualified ocean glint mask.
+The Sun's EUV source playback is finite, reproducible, and independent of orbital time;
+the source-facing coverage remains fixed to its observation frame. Gold is an assigned
+EUV color. Elevated arcs are an educational model, and the unobserved hemisphere remains
+held. The visible-light approximation and all optical limitations stay identifiable.
+The Sun inspection hides other display bodies and guides without moving any engine
+state; returning to Our system restores the scene. A source/date/band-aware observation
+gallery presents Jupiter storms/aurorae, Saturn's north hexagon and south decagon, and
+Neptune's aurora in their published views. It does not claim globally registered weather.
 
 ## Architecture
 

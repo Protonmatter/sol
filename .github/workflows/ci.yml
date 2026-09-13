@@ -41,6 +41,10 @@ jobs:
         run: python tools/validate_ux_contract.py
       - name: Scientific visual asset identity and allowed-use inventory
         run: python tools/validate_visual_assets.py
+      - name: Numerical terrain and solar appearance product admission
+        run: python tools/validate_physical_assets.py
+      - name: Giant-planet mission observation admission
+        run: python tools/validate_planet_phenomena.py
       - name: Governance and UX validator regression tests
         run: >-
           PYTHONPATH=tools python -m unittest

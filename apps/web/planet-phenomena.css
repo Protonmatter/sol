@@ -1,0 +1,15 @@
+.planet-phenomena{border-top:1px solid #34404e;padding-top:14px;margin-top:16px;color:#e6edf5}
+.planet-phenomena__title{font-size:15px;line-height:1.35;margin:0 0 4px}
+.planet-phenomena__intro,.planet-phenomena__epoch,.planet-phenomena__band,.planet-phenomena__status{font-size:12px;line-height:1.5;color:#b5c4d4;margin:5px 0}
+.planet-phenomena__select{box-sizing:border-box;width:100%;min-height:44px;border:1px solid #536170;border-radius:7px;background:#101a25;color:#f0f4f8;padding:8px;margin:8px 0 12px;font:inherit;font-size:13px}
+.planet-phenomena__select:focus-visible,.planet-phenomena__source:focus-visible,.planet-phenomena__detail>summary:focus-visible{outline:2px solid #ecc077;outline-offset:3px}
+.planet-phenomena__figure{margin:0}
+.planet-phenomena__image{display:block;width:100%;height:auto;max-height:290px;object-fit:contain;background:#000;border:1px solid #34404e;border-radius:8px;box-sizing:border-box}
+.planet-phenomena__image[hidden]{display:none}
+.planet-phenomena__caption{padding:10px 0 0}
+.planet-phenomena__heading{font-size:14px}
+.planet-phenomena__summary,.planet-phenomena__detail{font-size:12px;line-height:1.6;color:#c7d3df}
+.planet-phenomena__detail>summary{cursor:pointer;padding:8px 0;color:#e0bb7c}
+.planet-phenomena__detail p{margin:5px 0 9px}
+.planet-phenomena__credit,.planet-phenomena__limit{color:#b5c4d4}
+.planet-phenomena__source{display:inline-block;color:#a7d4fa;font-size:12px;line-height:1.5;padding:10px 0;text-underline-offset:3px;overflow-wrap:anywhere}

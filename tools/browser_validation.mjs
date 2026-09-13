@@ -842,6 +842,8 @@ async function moonShadowAssertions(page, visualDirectory) {
 async function visualAssertions(page, visualDirectory) {
   fs.mkdirSync(visualDirectory, { recursive: true });
   await focusBody(page, "Sun");
+  // The visible-light contract is separate from the new explicitly assigned EUV colors.
+  await page.select('#orrerySolarMode','visible');
   await zoomIn(page, 34);
   await new Promise((resolve) => setTimeout(resolve, 500));
   const sun = await canvasScreenshot(page, path.join(visualDirectory, "sun-warm-white.png"));
@@ -1399,6 +1401,10 @@ async function main() {
         skyInsight:document.getElementById("skyInsight")?.textContent,
         skyInputError:document.getElementById("skyInputError")?.textContent,
         skyProvider:document.getElementById("skyProviderStatus")?.textContent,
+        liveStatus:document.getElementById("liveStatus")?.textContent,
+        liveRun:{disabled:document.getElementById("liveRun")?.disabled,text:document.getElementById("liveRun")?.textContent},
+        activeSunMode:document.querySelector('[data-sun-mode][aria-pressed="true"]')?.getAttribute('data-sun-mode'),
+        workerResources:performance.getEntriesByType('resource').filter(item=>/Worker|worker|\.wasm/.test(item.name)).map(item=>({url:item.name,duration:item.duration})),
       })),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("diagnostic deadline")),5000);})]);
       fs.writeFileSync(path.join(outputDirectory,"failure.json"),JSON.stringify({phase,error:error.message,diagnostic,workerErrors:workerCoverage?.errors},null,2)+"\n");
     } catch(diagnosticError) {console.error(`Failure diagnostics unavailable: ${diagnosticError.message}`);}

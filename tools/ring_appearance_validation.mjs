@@ -53,6 +53,7 @@ try {
   await page.setContent('<!doctype html><title>Ring GPU regression</title><canvas width="1" height="1"></canvas>');
   const profiles = Object.fromEntries(['Saturn', 'Uranus', 'Neptune'].map(name => [name, {
     radii: [BODY[name].rings.innerKm, BODY[name].rings.outerKm], data: [...ringOpacityProfile(BODY[name].rings)],
+    radiusKm:BODY[name].radiusKm,polarRatio:BODY[name].polarKm/BODY[name].radiusKm,
   }]));
   evidence.samples = await page.evaluate(({ vertex, fragment, block, profiles }) => {
     const gl = document.querySelector('canvas').getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
@@ -71,7 +72,9 @@ try {
     gl.disable(gl.BLEND); gl.disable(gl.DITHER); gl.viewport(0, 0, 1, 1);
     const ring = program(vertex, fragment);
     const shadow = program('#version 300 es\nlayout(location=0) in vec3 a_pos; void main(){gl_Position=vec4(a_pos,1);}',
-      '#version 300 es\nprecision highp float; uniform vec3 p; uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform sampler2D u_ringTex; out vec4 o; void main(){vec3 col=vec3(1);\n' + block + '\no=vec4(col,1); }');
+      // Production uses the displaced mesh point v_obj for this ray origin. Bind that
+      // exact coordinate; retain p as the synthetic input for older source fixtures.
+      '#version 300 es\nprecision highp float; uniform vec3 p; uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform sampler2D u_ringTex; out vec4 o; void main(){vec3 v_obj=p;vec3 col=vec3(1);\n' + block + '\no=vec4(col,1); }');
     const I = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
     const R = [1,0,0,0,0,0,1,0,0,-1,0,0,0,0,0,1];
     const buffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -92,22 +95,30 @@ try {
     const samples = { face: patch(), grazing: patch({light:[1,0,0]}), back: patch({light:[0,0,-1]}),
       rotated: patch({model:R}), transparent: patch({alpha:.01}), shadowed: patch({light:[-.8,0,.6], position:[1,0,0]}),
       litOblique: patch({light:[.8,0,.6], position:[1,0,0]}) };
-    const shadowAt = (name, km) => {
+    const shadowAt = (name, km, radialOffsetKm=0) => {
       gl.useProgram(shadow);
       gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices.flatMap(([x,y])=>[x,y,0])),gl.STATIC_DRAW);
       const profile = profiles[name], texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,texture);
       gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,profile.data.length,1,0,gl.RED,gl.UNSIGNED_BYTE,new Uint8Array(profile.data));
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-      // p starts above the equatorial plane. A downward ray hits exactly the chosen radius.
-      gl.uniform3fv(loc(shadow,'p'),[km,0,1]); gl.uniform3fv(loc(shadow,'u_lightObj'),[0,0,-1]);
-      gl.uniform2fv(loc(shadow,'u_ringRad'),profile.radii); gl.uniform1f(loc(shadow,'u_oblate'),1);
+      // Match production units: a mesh point in equatorial radii, oblate Z scale,
+      // and annulus radii divided by the physical equatorial radius. Choose a ray
+      // from the actual ellipsoid surface that crosses the named ring radius.
+      const point=[.9,0,Math.sqrt(1-.9*.9)],target=km/profile.radiusKm;
+      const light=[target-point[0],0,-point[2]*profile.polarRatio];
+      // This optional synthetic displacement tests that v_obj is not normalized
+      // away. It is a numerical negative control, not observed Saturn terrain.
+      gl.uniform3fv(loc(shadow,'p'),point.map(v=>v*(1+radialOffsetKm/profile.radiusKm)));
+      gl.uniform3fv(loc(shadow,'u_lightObj'),light);
+      gl.uniform2fv(loc(shadow,'u_ringRad'),profile.radii.map(v=>v/profile.radiusKm));gl.uniform1f(loc(shadow,'u_oblate'),profile.polarRatio);
       gl.uniform1i(loc(shadow,'u_ringTex'),0); gl.drawArrays(gl.TRIANGLES,0,6);
       const out=pixels(); gl.deleteTexture(texture); return out;
     };
     samples.epsilon = shadowAt('Uranus',51140); samples.uranusGap = shadowAt('Uranus',50500);
     samples.adams = shadowAt('Neptune',62930); samples.neptuneGap = shadowAt('Neptune',60000);
     samples.keeler = shadowAt('Saturn',136505); samples.aRing = shadowAt('Saturn',136450);
+    samples.displacedKeeler=shadowAt('Saturn',136505,20);
     samples.glError=gl.getError(); return samples;
   }, { vertex:RING_VS, fragment:RING_FS, block:shadowBlock, profiles });
   const s=evidence.samples;
@@ -124,6 +135,7 @@ try {
   check('outer narrow Epsilon and Adams rings cast sampled shadows',s.epsilon[0]<235 && s.adams[0]<235);
   check('unsupported ice-giant gaps cast no shadow',s.uranusGap[0]===255 && s.neptuneGap[0]===255);
   check('Keeler gap remains transparent beside A-ring shadow',s.keeler[0]>s.aRing[0]+35 && s.aRing[0]<200);
+  check('displaced surface ray retains its actual radius instead of a normalized sphere origin',s.keeler[0]>s.displacedKeeler[0]+35);
   check('WebGL reports no errors',s.glError===0);
   assert.ok(evidence.checks.every(c=>c.passed),JSON.stringify(evidence.checks.filter(c=>!c.passed)));
   evidence.result='PASS';

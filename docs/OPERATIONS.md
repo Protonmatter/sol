@@ -201,6 +201,36 @@ change schema versions to bypass validation.
 
 ## Scientific and operational limits
 
+The [physical rendering ledger](plans/2026-09-13-physical-rendering/IMPLEMENTATION.md)
+records RFC 0005 products. In Solar System, **The Sun** enters a source-facing inspection;
+**Our system** restores the complete scene. The source selector distinguishes assigned
+AIA 171 EUV colors from a visible-light approximation. Play/scrub controls traverse two
+historical frames over a finite 20-second display interval, independently of System time.
+Restart/retry resets that interval and retries a failed atlas. Reduced motion pauses it.
+
+Measured terrain is currently admitted for Moon/LOLA and Mars/MOLA only. Source pixels
+span 0.25 degrees; this is global relief, not local geological surveying. Mesh generation
+is cancellable, bounded to two resident detail entries and run in dedicated workers.
+Reference scattering and incident solar refraction are enabled for Earth/Mars in close
+views. They use fixed reference profiles; no current atmosphere retrieval, cloud transfer,
+observer-ray refraction or qualified ocean glint is claimed. The giant-planet observation
+selector displays historical source images with band/date/coverage; it does not texture
+unregistered aurorae or extrapolate storm motion onto the globe.
+
+Validate prepared products offline before staging:
+
+```powershell
+python tools/validate_physical_assets.py
+python tools/validate_planet_phenomena.py
+```
+
+For a staged candidate, run the GPU/physical UI commands in
+[VALIDATION_PLAN](VALIDATION_PLAN.md#physical-rendering-validation). Never relabel a
+working-tree preview as a committed release. Missing/hash-mismatched optional sources
+retain simplified surfaces and explicit availability. Context loss discards GPU handles
+and requires recreated resources. Rollback restores the renderer, matching manifests,
+generated data modules and assets together; engine coordinates/data bundles are unchanged.
+
 The [all-body appearance contract](plans/2026-09-13-system-polish/RENDERING_CONTRACT.md)
 extends the registered planetary renderer to qualified satellite references and
 documented ring intervals. Moon maps use a disclosed fixed reference orientation;

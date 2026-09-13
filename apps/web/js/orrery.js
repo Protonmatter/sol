@@ -6,8 +6,8 @@
 //   • registered mission reference imagery with dated source/coverage disclosures,
 //     Lambert lighting from the Sun so every body shows its geometric phase/terminator,
 //   • Saturn / Uranus / Neptune ring systems with real radii and the Cassini Division,
-//   • an animated Sun (granulation, sunspots, limb darkening) with a corona and solar wind,
-//   • atmospheric limb halos for the worlds that have an atmosphere,
+//   • registered NASA/SDO EUV reference frames with explicitly modeled elevated emission,
+//   • dimensioned reference optical transfer where qualified, disclosed halos otherwise,
 //   • the real sky as a backdrop: ~1700 catalogue-weighted stars, the Milky Way band, headline
 //     constellation figures, and the true positions of seven pulsars + eight galaxies / the
 //     galactic centre — the fixed reference points that orient the whole scene on the sky.
@@ -16,6 +16,15 @@
 import { store } from "./store.js?v=dcca6290db";
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole } from "./planetAppearance.js";
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
+import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.js';
+import {requestTerrainMesh} from './terrainWorkerClient.js';
+import {physicalCameraPosition,terrainDetailLevel,advanceReferencePlayback,createDetailCache} from './physicalRendering.js';
+import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms} from './atmosphereOptics.js';
+import {ATMOSPHERE_VS,ATMOSPHERE_FS} from './atmosphereShaders.js';
+import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,solarReferenceRotation,solarRenderUniforms,solarPlayback} from './solarAppearance.js';
+import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
+import {loadSolarAtlas} from './solarAssetLoader.js';
+import {renderPlanetPhenomena} from './planetPhenomena.js';
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
 import { layoutLabels } from "./labelLayout.js?v=dcca6290db";
 import { projectOpaqueDisc, isLabelOccluded } from "./labelOcclusion.js";
@@ -132,6 +141,8 @@ const state = (store.orrery = {
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite',
   appearanceStatus: {},
+  terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{},
+  solarMode:'reconstructed-euv', solarStatus:'deferred', solarInspection:false, solarPlayback:{seconds:0,duration:20,playing:false},
   showSmall: false, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   moonGuideMode: "context", // advanced callers may explicitly choose all or off
   showMoons: true, // the 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune
@@ -166,6 +177,9 @@ let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, textu
 let referenceTextures = {}, textureGeneration = 0;
 let referenceDemand = [], referenceVisible = new Map(), referenceUseSerial = 0;
 let referenceViewport = {width:0,height:0};
+let terrainDetails=null;
+let solarDetail=null,solarRotation=null;
+let phenomenonBody='',disposePhenomena=()=>{};
 let ringShadowTex = {}; // per-planet 1-D radial ring-opacity profiles for the ring-shadow lookup
 let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3-D Sun's surface
 let galaxy = null;
@@ -225,6 +239,132 @@ function makeTexture(img, repeatS, nearest = false, premultiplyAlpha = false) {
     gl.deleteTexture(t); throw new Error('GPU rejected the reference image upload.');
   }
   return t;
+}
+
+function initTerrainResources() {
+  terrainDetails?.dispose();
+  if(typeof Worker!=='function'){terrainDetails=null;state.terrainStatus={Moon:'unavailable',Mars:'unavailable'};return;}
+  const context=gl;
+  terrainDetails=createDetailCache({capacity:2,load:async(key,signal)=>{
+    const [body,rawLevel]=key.split(':');const phys=BODY[body];
+    const mesh=await requestTerrainMesh(body,Number(rawLevel),{equatorialRadiusKm:phys.radiusKm,polarRadiusKm:phys.polarKm},{signal});
+    if(signal.aborted||gl!==context||context.isContextLost())throw new Error('Terrain graphics generation changed');
+    const pos=context.createBuffer(),idx=context.createBuffer();
+    context.bindBuffer(context.ARRAY_BUFFER,pos);context.bufferData(context.ARRAY_BUFFER,mesh.pos,context.STATIC_DRAW);
+    context.bindBuffer(context.ELEMENT_ARRAY_BUFFER,idx);context.bufferData(context.ELEMENT_ARRAY_BUFFER,mesh.idx,context.STATIC_DRAW);
+    const heightTex=context.createTexture();context.activeTexture(context.TEXTURE0+5);
+    context.bindTexture(context.TEXTURE_2D,heightTex);
+    context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+    context.texImage2D(context.TEXTURE_2D,0,context.R32F,mesh.width,mesh.height,0,context.RED,context.FLOAT,mesh.heightsKm);
+    for(const parameter of [context.TEXTURE_MIN_FILTER,context.TEXTURE_MAG_FILTER])context.texParameteri(context.TEXTURE_2D,parameter,context.NEAREST);
+    context.texParameteri(context.TEXTURE_2D,context.TEXTURE_WRAP_S,context.REPEAT);context.texParameteri(context.TEXTURE_2D,context.TEXTURE_WRAP_T,context.CLAMP_TO_EDGE);
+    context.activeTexture(context.TEXTURE0);
+    const error=context.getError();
+    if(error!==context.NO_ERROR){context.deleteBuffer(pos);context.deleteBuffer(idx);context.deleteTexture(heightTex);throw new Error('GPU rejected terrain geometry');}
+    return {pos,idx,count:mesh.idx.length,indexType:mesh.idx instanceof Uint32Array?context.UNSIGNED_INT:context.UNSIGNED_SHORT,
+      interleaved:true,body,level:Number(rawLevel),minRadiusKm:mesh.minRadiusKm,maxRadiusKm:mesh.maxRadiusKm,heightTex,shadow:mesh.shadow};
+  },release:mesh=>{if(mesh){context.deleteBuffer(mesh.pos);context.deleteBuffer(mesh.idx);context.deleteTexture(mesh.heightTex);}},
+  onChange:(key,status)=>{
+    queueMicrotask(()=>{
+      const body=key.split(':')[0],statuses=[1,2,3].map(n=>terrainDetails?.status(`${body}:${n}`));
+      state.terrainStatus[body]=statuses.includes('ready')?'ready':statuses.includes('loading')?'loading':status;
+      updatePhysicalAppearance();if(state.active&&gl===context&&!state.animate)paint();
+    });
+  }});
+}
+
+function detailMesh(body,pixels) {
+  if(!state.terrainEnabled||!terrainReference(body)||!terrainDetails||state.galaxy)return null;
+  const level=terrainDetailLevel(pixels);
+  if(!level)return null;
+  if(level && (state.selected===body||state.anchor===body))terrainDetails.request(`${body}:${level}`);
+  for(let n=level;n>0;n--){const mesh=terrainDetails.get(`${body}:${n}`);if(mesh)return mesh;}
+  return null;
+}
+
+function bindBodyMesh(mesh=sphere) {
+  gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pos);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,mesh.interleaved?24:0,0);
+  gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,3,gl.FLOAT,false,mesh.interleaved?24:0,mesh.interleaved?12:0);
+  gl.disableVertexAttribArray(2);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.idx);
+}
+
+function updatePhysicalAppearance() {
+  const body=state.selected||state.anchor,notes=[];
+  const galleryBody=state.galaxy||!state.active?'':body;
+  const host=document.getElementById('orreryPlanetPhenomena');
+  if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
+  if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body]):'Terrain relief disabled.');
+  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?'Reference atmosphere: molecular + aerosol scattering; physical km, adaptive display exposure. Not current weather.':'Reference optical transfer appears in close views; distant limb is illustrative.');
+  if(body==='Sun')notes.push(state.solarMode==='reconstructed-euv'?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
+  if(state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
+  const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
+  const node=document.getElementById('orreryPhysicalStatus');
+  if(node){const text=notes.join(' ');if(node.textContent!==text)node.textContent=text;node.hidden=!text||state.galaxy||!state.active;}
+  const controls=document.getElementById('orrerySolarControls');if(controls)controls.hidden=body!=='Sun'||state.galaxy||!state.active;
+  const play=/** @type {HTMLButtonElement|null} */(document.getElementById('orrerySolarPlay'));if(play){play.textContent=state.solarPlayback.playing?'Pause source':'Play source';play.setAttribute('aria-pressed',String(state.solarPlayback.playing));play.disabled=state.solarMode!=='reconstructed-euv'||!state.useTextures||state.solarStatus!=='ready';}
+  const range=/** @type {HTMLInputElement|null} */(document.getElementById('orrerySolarTime'));if(range)range.value=String(state.solarPlayback.seconds);
+  const epoch=document.getElementById('orrerySolarEpoch');if(epoch)epoch.textContent=solarPlayback(state.solarPlayback.seconds).sourceTime.replace('T',' ').replace('Z',' UTC');
+}
+
+function sourceSolarRotation() {
+  if(!solarRotation){
+    const positions=systemPositions(SOLAR_SOURCE_UNIX),i=SYSTEM_POSITIONS_ORDER.indexOf('Earth')*3;
+    const pole=iauRotation(BODY.Sun,SOLAR_SOURCE_UNIX);
+    solarRotation=solarReferenceRotation(Array.from(positions.slice(i,i+3)),[pole[8],pole[9],pole[10]]);
+  }
+  return solarRotation;
+}
+
+function initSolarResources() {
+  solarDetail?.dispose();solarDetail=null;state.solarStatus='deferred';
+  if(typeof createImageBitmap!=='function')return;
+  const context=gl;
+  solarDetail=createDetailCache({capacity:1,load:async(_key,signal)=>{
+    const bitmap=await loadSolarAtlas({signal});
+    try{
+      if(signal.aborted||gl!==context||context.isContextLost())throw new Error('Solar graphics generation changed');
+      if(context.getParameter(context.MAX_TEXTURE_SIZE)<bitmap.width)throw new Error('Solar reference exceeds device texture limit');
+      const tex=makeTexture(bitmap,false);
+      // Atlas frames have no mip chain blending and no implicit color conversion.
+      context.texParameteri(context.TEXTURE_2D,context.TEXTURE_MIN_FILTER,context.LINEAR);
+      return {tex};
+    }finally{bitmap.close();}
+  },release:value=>{if(value)context.deleteTexture(value.tex);},onChange:(_key,status)=>{
+    state.solarStatus=status;
+    queueMicrotask(()=>{updatePhysicalAppearance();if(state.active&&gl===context){window.dispatchEvent(new Event('sol:presentation'));if(!state.animate)paint();}});
+  }});
+}
+
+function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
+  if(state.solarMode!=='reconstructed-euv'||!state.useTextures||!solarDetail)return false;
+  if(pixels>=12)solarDetail.request('reference');
+  const detail=solarDetail.get('reference');if(!detail)return false;
+  const rot=sourceSolarRotation(),model=mul(translate(pos),mul(rot,scaleM([radius,radius,radius])));
+  const values=solarRenderUniforms(state.solarPlayback.seconds,{reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false});
+  const cam=physicalCameraPosition(eye,pos,rot,radius,1);
+  gl.useProgram(P.solar);gl.uniformMatrix4fv(P.solarU.u_mvp,false,new Float32Array(mul(vp,model)));
+  gl.uniform1i(P.solarU.u_pass,pass);
+  gl.uniform3fv(P.solarU.u_camObj,new Float32Array(cam));
+  for(const [uniform,key] of [['u_extent','extent'],['u_frameMix','frameMix'],['u_phase','phase']])gl.uniform1f(P.solarU[uniform],values[key]);
+  for(const key of ['sourceBasis0','sourceBasis1'])gl.uniformMatrix3fv(P.solarU['u_'+key],false,new Float32Array(values[key]));
+  for(const key of ['projection0','projection1'])gl.uniform4fv(P.solarU['u_'+key],new Float32Array(values[key]));
+  gl.uniform2fv(P.solarU.u_observerRadii,new Float32Array(values.observerRadii));
+  gl.uniform4fv(P.solarU['u_loopNormal[0]'],new Float32Array(values.loopNormal));
+  gl.uniform4fv(P.solarU['u_loopTangent[0]'],new Float32Array(values.loopTangent));
+  gl.uniform1fv(P.solarU['u_loopGain[0]'],new Float32Array(values.loopGain));
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,detail.tex);gl.uniform1i(P.solarU.u_atlas,0);
+  bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(Math.hypot(...cam)<values.extent?gl.FRONT:gl.BACK);
+  gl.drawElements(gl.TRIANGLES,sphere.count,gl.UNSIGNED_SHORT,0);gl.disable(gl.CULL_FACE);
+  return true;
+}
+
+function bindTerrainShadow(mesh,physicalRadius) {
+  gl.uniform1f(P.sphereU.u_bodyRadiusKm,physicalRadius);
+  gl.uniform1i(P.sphereU.u_terrainShadowEnabled,mesh.heightTex?1:0);
+  gl.activeTexture(gl.TEXTURE0+5);gl.bindTexture(gl.TEXTURE_2D,mesh.heightTex||whiteTex);gl.uniform1i(P.sphereU.u_terrainHeight,5);
+  if(mesh.heightTex){gl.uniform4fv(P.sphereU.u_terrainShape,new Float32Array(mesh.shadow.shape));gl.uniform2fv(P.sphereU.u_terrainPoles,new Float32Array(mesh.shadow.poles));}
+  gl.activeTexture(gl.TEXTURE0);
 }
 
 // Kick off async loads of the real surface maps; each appears as soon as it decodes. Missing files
@@ -507,6 +647,8 @@ function initGL(canvas) {
     P.ring = program(RING_VS, RING_FS);
     P.pt = program(PT_VS, PT_FS);
     P.glow = program(GLOW_VS, GLOW_FS);
+    P.atmosphere=program(ATMOSPHERE_VS,ATMOSPHERE_FS);
+    P.solar=program(SOLAR_VS,SOLAR_FS);
   } catch (e) {
     console.error("orrery shader error:", e.message);
     // Leave no half-initialised context behind: a truthy `gl` with an empty program set
@@ -522,11 +664,16 @@ function initGL(canvas) {
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
+  Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,'u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
+  P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS]);
+  P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
 
   const s = buildSphere(48, 96);
   sphere = { pos: gl.createBuffer(), idx: gl.createBuffer(), count: s.idx.length };
   gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos); gl.bufferData(gl.ARRAY_BUFFER, s.pos, gl.STATIC_DRAW);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphere.idx); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, s.idx, gl.STATIC_DRAW);
+  initTerrainResources();
+  initSolarResources();
 
   quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
@@ -905,6 +1052,10 @@ function displayRadiusAU(name) {
     const inputs = records.filter(b => BODY[b.name]).map(b => {
       const phys = BODY[b.name], requestedRadius = (VIS_RADIUS_AU[b.name] || .05) * state.exaggeration;
       let extentRatio = phys.rings ? phys.rings.outerKm / phys.radiusKm : 1;
+      const terrain=terrainExtentKm(b.name);
+      if(terrain)extentRatio=Math.max(extentRatio,terrain.maxRadiusKm/phys.radiusKm);
+      const optical=getAtmosphereProfile(b.name);if(optical)extentRatio=Math.max(extentRatio,1+optical.topKm/phys.radiusKm);
+      if(b.name==='Sun')extentRatio=Math.max(extentRatio,1.35);
       // Bound the whole displayed system envelope before computing uniform moon scaling.
       if (b.name === "Earth") extentRatio = Math.max(extentRatio, 3.4);
       if (moonElementsReady) {
@@ -1059,6 +1210,14 @@ function drawSmallBodies(vp, dpr) {
   gl.depthMask(true);
 }
 
+// Transparent objects do not write depth. Opaque bodies/moons are submitted first, then
+// these callbacks from far to near. Display clearance separates the body envelopes
+// (including the 1.35 R_sun reference volume), so another body cannot lie inside the corona.
+let transparentPasses=[];
+function queueTransparent(pos,eye,draw) {
+  transparentPasses.push({distance:Math.hypot(...sub(pos,eye)),draw});
+}
+
 // ---------------------------------------------------------------- draw
 function paint() {
   if (!state.active || !gl || gl.isContextLost()) return;
@@ -1067,7 +1226,9 @@ function paint() {
   const [w, h] = ensureSized(canvas);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const { eye, vp, skyVp } = cameraMatrices(w, h);
+  updatePhysicalAppearance();
   referenceVisible = new Map();
+  state.terrainRendered={};state.opticsStatus={};
   referenceViewport = {width:canvas.clientWidth,height:canvas.clientHeight};
   if (state.galaxy) { syncReferenceDemand(); paintGalaxy(w, h, dpr, vp, eye); return; }
 
@@ -1091,9 +1252,10 @@ function paint() {
   gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.depthMask(true);
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   moonGuideQueue = [];
+  transparentPasses=[];
 
   // ---- small bodies: the asteroid + Kuiper belts and the dwarf/comet/probe markers ----
-  drawSmallBodies(vp, dpr);
+  if(!state.solarInspection)drawSmallBodies(vp, dpr);
 
   // ---- bodies (lit spheres) ----
   moonMarkers = []; // rebuilt by drawMoons as each planet is drawn
@@ -1101,6 +1263,7 @@ function paint() {
   state.moonsAliasedCount = 0;
   for (const name of DRAW_LIST) {
     const b = name === "Sun" ? { name: "Sun" } : state.bodies.find((x) => x.name === name);
+    if(state.solarInspection&&name!=='Sun')continue;
     if (!b) continue;
     drawBody(b, vp, eye);
   }
@@ -1110,15 +1273,21 @@ function paint() {
       + "advancing faster than they orbit. Slow the speed or untick Animate to see them.";
   }
 
+  // The fallback solar halo/wind participates in the same transparency ordering.
+  queueTransparent([0,0,0],eye,()=>drawSun(vp,eye,w,h));
+  transparentPasses.sort((a,b)=>b.distance-a.distance);
+  for(const pass of transparentPasses)pass.draw();
+  transparentPasses=[];
+
   // ---- scene: orbits + grid ----
   gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.depthMask(false);
   gl.useProgram(P.line); gl.uniformMatrix4fv(P.lineU.u_vp, false, new Float32Array(vp)); gl.uniform1f(P.lineU.u_alpha, 0.55);
   bindLine(sceneLineBuf);
-  for (const r of sceneRanges) gl.drawArrays(r.mode === "lines" ? gl.LINES : gl.LINE_STRIP, r.first, r.count);
+  for (const r of state.solarInspection?[]:sceneRanges) gl.drawArrays(r.mode === "lines" ? gl.LINES : gl.LINE_STRIP, r.first, r.count);
   bindLine(dropLineBuf);
-  for (const r of dropRanges) gl.drawArrays(gl.LINES, r.first, r.count);
+  for (const r of state.solarInspection?[]:dropRanges) gl.drawArrays(gl.LINES, r.first, r.count);
   gl.depthMask(true);
 
   for (const pts of moonGuideQueue) {
@@ -1129,12 +1298,10 @@ function paint() {
     gl.depthMask(false); gl.drawArrays(gl.LINES, 0, pts.length / 6); gl.depthMask(true);
   }
 
-  // ---- Sun corona + solar wind ----
-  drawSun(vp, eye, w, h);
-
   updateLabels(canvas, vp, skyVp);
   gl.disable(gl.BLEND);
   syncReferenceDemand();
+  updatePhysicalAppearance();
 }
 
 function bindLine(buf) {
@@ -1402,7 +1569,18 @@ function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
   const rEq = displayRadiusAU(b.name), rPol = rEq * (phys.polarKm / phys.radiusKm);
-  referenceVisible.set(b.name, referencePixelDiameter(pos, rEq, vp, referenceViewport));
+  const pixelDiameter=referencePixelDiameter(pos,rEq,vp,referenceViewport);
+  referenceVisible.set(b.name,pixelDiameter);
+  if(b.name==='Sun'&&drawSolarReference(vp,eye,pos,rEq,pixelDiameter,1)){
+    queueTransparent(pos,eye,()=>{
+      gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask(false);
+      drawSolarReference(vp,eye,pos,rEq,pixelDiameter,2);
+      gl.depthMask(true);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    });
+    return;
+  }
+  const mesh=detailMesh(b.name,pixelDiameter)||sphere;
+  state.terrainRendered[b.name]=!!mesh.heightTex;
   // The display clock advances continuously when true spin would alias. It is updated once
   // per animation tick, outside drawBody, so input-triggered repaints cannot advance it twice.
   const rotUnix = rotationDisplayUnix[b.name] ?? state.renderUnix;
@@ -1410,6 +1588,12 @@ function drawBody(b, vp, eye) {
   const model = mul(translate(pos), mul(rot, scaleM([rEq, rEq, rPol])));
   const mvp = mul(vp, model);
   const light = b.name === "Sun" ? [0, 0, 1] : norm([-b.x_au, -b.y_au, -b.z_au]);
+  const lightObj=[dot(rot.slice(0,3),light),dot(rot.slice(4,7),light),dot(rot.slice(8,11),light)];
+  const profile=state.opticsEnabled&&pixelDiameter>=64?getAtmosphereProfile(b.name):null;
+  state.opticsStatus[b.name]=profile?'ready':'deferred';
+  const distanceAu=b.name==='Sun'?1:Math.hypot(b.x_au,b.y_au,b.z_au);
+  const opticalOptions={cameraBodyKm:physicalCameraPosition(eye,pos,rot,rEq,phys.radiusKm),sunDirectionBody:lightObj,
+    polarRatio:phys.polarKm/phys.radiusKm,solarDistanceAu:distanceAu,exposure:distanceAu*distanceAu};
   const atmo = atmoColor(b.name), atmoStr = atmoStrength(b.name);
   // Solve the moon positions ONCE per planet per frame: the transit shadows need them before
   // this sphere is drawn, drawMoons needs them after.
@@ -1417,6 +1601,8 @@ function drawBody(b, vp, eye) {
   const shadows = moonShadowUniforms(phys, pos, rot, drawn);
 
   gl.useProgram(P.sphere);
+  setAtmosphereUniforms(gl,P.sphereU,profile,opticalOptions);
+  bindTerrainShadow(mesh,phys.radiusKm);
   gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mvp));
   gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
   // Inverse transpose of R * diag(a,a,b), up to an irrelevant common factor.
@@ -1488,33 +1674,47 @@ function drawBody(b, vp, eye) {
   gl.uniform1i(P.sphereU.u_ringTex, 1);
   gl.activeTexture(gl.TEXTURE0);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, sphere.pos);
-  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0); // normal == position
-  gl.disableVertexAttribArray(2);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphere.idx);
+  bindBodyMesh(mesh);
   gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
-  gl.drawElements(gl.TRIANGLES, sphere.count, gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType||gl.UNSIGNED_SHORT,0);
   gl.disable(gl.CULL_FACE);
 
   // atmosphere limb halo (additive shell, slightly larger, no depth write)
-  if (atmoStr > 0 && b.name !== "Sun") {
+  if (atmoStr > 0 && b.name !== "Sun"&&!profile) {
     // A restrained illustrative optical limb, not an atmospheric-height measurement.
     const sModel = mul(translate(pos), mul(rot, scaleM([rEq * 1.015, rEq * 1.015, rPol * 1.015])));
-    gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, sModel)));
-    gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(sModel));
-    gl.uniform1i(P.sphereU.u_mode, 2);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphere.idx);
-    gl.drawElements(gl.TRIANGLES, sphere.count, gl.UNSIGNED_SHORT, 0);
-    gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    queueTransparent(pos,eye,()=>{
+      // This callback runs after other bodies/moons: bind every uniform used by mode 2.
+      gl.useProgram(P.sphere);setAtmosphereUniforms(gl,P.sphereU,null,opticalOptions);
+      gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, sModel)));
+      gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(sModel));
+      gl.uniformMatrix3fv(P.sphereU.u_nmat,false,new Float32Array(normals));
+      gl.uniform3fv(P.sphereU.u_cam,new Float32Array(eye));
+      gl.uniform3fv(P.sphereU.u_light,new Float32Array(light));
+      gl.uniform3fv(P.sphereU.u_atmo,new Float32Array(atmo));gl.uniform1f(P.sphereU.u_atmoStr,atmoStr);
+      gl.uniform1i(P.sphereU.u_mode, 2);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false);
+      bindBodyMesh();
+      gl.drawElements(gl.TRIANGLES, sphere.count, gl.UNSIGNED_SHORT, 0);
+      gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    });
   }
 
-  // Opaque moons first, transparent rings second. drawRing disables depth writes, so drawing it
-  // first left no ring depth for a later moon to test against and made moons behind a foreground
-  // ring appear on top of it.
+  if(profile){
+    const extent=1+profile.topKm/profile.radiusKm;
+    const shell=mul(translate(pos),mul(rot,scaleM([rEq*extent,rEq*extent,rPol*extent])));
+    queueTransparent(pos,eye,()=>{
+      gl.useProgram(P.atmosphere);setAtmosphereUniforms(gl,P.atmosphereU,profile,opticalOptions);
+      gl.uniformMatrix4fv(P.atmosphereU.u_mvp,false,new Float32Array(mul(vp,shell)));
+      bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.depthMask(false);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+      gl.drawElements(gl.TRIANGLES,sphere.count,gl.UNSIGNED_SHORT,0);
+      gl.depthMask(true);gl.disable(gl.CULL_FACE);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    });
+  }
+
+  // All opaque moons join the depth pass; transparent rings are deferred with the atmosphere.
   drawMoons(b.name, pos, rEq, vp, eye, drawn);
-  if (phys.rings) drawRing(b.name, phys, pos, rEq, rot, vp);
+  if (phys.rings) queueTransparent(pos,eye,()=>drawRing(b.name,phys,pos,rEq,rot,vp));
 }
 
 // A moon's drawn radius. Planets in this view are already enlarged so the small ones stay
@@ -1610,6 +1810,8 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     const light = norm([-physicalPos[0], -physicalPos[1], -physicalPos[2]]);
 
     gl.useProgram(P.sphere);
+    setAtmosphereUniforms(gl,P.sphereU,null);
+    bindTerrainShadow(sphere,m.r);
     gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, model)));
     gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
     gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]));
@@ -1707,6 +1909,7 @@ function drawRing(name, phys, pos, rEq, rot, vp) {
 }
 
 function drawSun(vp, eye, w, h) {
+  if(state.solarMode==='reconstructed-euv'&&state.useTextures&&solarDetail?.get('reference'))return;
   const rSun = displayRadiusAU("Sun");
   // corona: a camera-facing additive glow quad
   const fwd = norm(sub([0, 0, 0], eye));
@@ -1863,13 +2066,14 @@ function updateLabels(canvas, vp, skyVp) {
   } else {
     for (const name of DRAW_LIST) {
       const b = name === "Sun" ? { name: "Sun" } : state.bodies.find((x) => x.name === name);
+      if(state.solarInspection&&name!=='Sun')continue;
       if (!b) continue;
       const p = bodyWorldPos(b), phys = BODY[name];
       const disc = projectOpaqueDisc({id:name,position:p,radius:displayRadiusAU(name)*Math.min(1,phys.polarKm/phys.radiusKm)}, vp, {width:cw,height:ch});
       if (disc) discs.push(disc);
       items.push({ name, p, cls: "orrery-label" });
     }
-    if (state.showSmall) {
+    if (state.showSmall&&!state.solarInspection) {
       for (const s of smallBodies) items.push({ name: s.name, p: s.pos, cls: s.kind === "probe" ? "orrery-label sky-pulsar" : "orrery-label sky-galaxy" });
     }
     // Only the moons actually drawn this frame — drawMoons drops whole systems that are too
@@ -1879,11 +2083,11 @@ function updateLabels(canvas, vp, skyVp) {
       if (disc) discs.push(disc);
       items.push({ name: mk.name, p: mk.pos, cls: "orrery-label sky-star" });
     }
-    if (state.showSunEq) {
+    if (state.showSunEq&&!state.solarInspection) {
       const pole = norm(poleVector(BODY.Sun, state.renderUnix));
       items.push({ name: "Sun's axis · 7.25° tilt", p: [pole[0] * 1.7, pole[1] * 1.7, pole[2] * 1.7], cls: "orrery-label sky-galaxy" });
     }
-    if (state.showLabels && state.showSky) {
+    if (state.showLabels && state.showSky&&!state.solarInspection) {
       for (const pl of cel.pulsars) items.push({ name: "⊛ " + pl.name, p: pl.pos, cls: "orrery-label sky-pulsar", sky: true });
       for (const g of cel.deepsky) items.push({ name: g.name, p: g.pos, cls: "orrery-label sky-galaxy", sky: true });
       for (const s of cel.brightStars) if (s.m < 0.6) items.push({ name: s.name, p: s.pos, cls: "orrery-label sky-star", sky: true });
@@ -2015,13 +2219,14 @@ function tick(now) {
     }
   }
   if (state.freeFly) flyStep(dt);
+  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:!state.galaxy&&state.solarMode==='reconstructed-euv',reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false});
   const moonNoteBefore = state.moonsHiddenReason;
   paint();
   if (state.moonsHiddenReason !== moonNoteBefore || state.spinLimitedCount !== spinBefore) updateOrreryAccuracy();
   // Idle when nothing advances frame-to-frame: with Animate off (and no free-fly) the loop
   // used to keep re-tessellating and repainting the full scene at 60 fps forever. All the
   // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
-  if (state.animate || state.freeFly) {
+  if (state.animate || state.freeFly || (state.solarPlayback.playing&&!state.galaxy&&state.solarMode==='reconstructed-euv')) {
     rafId = requestAnimationFrame(tick);
   } else {
     rafId = 0;
@@ -2059,11 +2264,15 @@ function anchorDisplayExtent() {
   }
   // The existing anchor follows the parent when a moon position is unavailable.
   const name = moon ? moon.p : state.anchor, body = BODY[name];
-  return body ? displayRadiusAU(name) * Math.max(1, (body.rings?.outerKm || body.radiusKm) / body.radiusKm) : null;
+  return body ? displayRadiusAU(name) * Math.max(name==='Sun'?1.35:1,
+    1+(getAtmosphereProfile(name)?.topKm||0)/body.radiusKm,
+    (body.rings?.outerKm||body.radiusKm)/body.radiusKm,(terrainExtentKm(name)?.maxRadiusKm||body.radiusKm)/body.radiusKm) : null;
 }
 
 function setAnchor(name) {
   state.anchor = name;
+  state.solarInspection=false;
+  if(name!=='Sun')state.solarPlayback.playing=false;
   orbitFocusFit = null;
   state.selectedStar = null; // an explicit body choice unpins any star card
   if (name === "Sun") {
@@ -2096,6 +2305,24 @@ function setAnchor(name) {
     state.el = 0.3;
   }
   paint();
+}
+
+function inspectSun() {
+  state.anchor='Sun';state.selected='Sun';state.selectedStar=null;state.freeFly=false;state.galaxy=false;
+  state.topDown=false;state.preTopRadius=0;
+  for(const id of ['orreryTopDown','orreryFreeFly']){
+    const input=/** @type {HTMLInputElement|null} */(document.getElementById(id));if(input)input.checked=false;
+  }
+  state.solarInspection=true;
+  const rot=sourceSolarRotation(),canvas=document.getElementById('orreryCanvas');
+  state.az=Math.atan2(rot[9],rot[8]);state.el=Math.asin(rot[10]);
+  state.radius=fitOrbitDistance(anchorDisplayExtent(),Math.max(1,canvas?.clientWidth||1)/Math.max(1,canvas?.clientHeight||1),FOVY,0);
+  orbitFocusFit={anchor:'Sun',distance:state.radius};
+  // A deliberate camera-only zoom keeps the complete 1.35 R_sun envelope in frame.
+  // Retain the standard fit above so resize reconciliation preserves this zoom ratio.
+  state.radius*=.84;
+  const anchor=/** @type {HTMLSelectElement|null} */(document.getElementById('orreryAnchor'));if(anchor)anchor.value='Sun';
+  showDetail('Sun');paint();
 }
 
 // Fill the Focus dropdown from the data rather than hard-coding it: Sun + planets (+ Earth's
@@ -2284,6 +2511,9 @@ async function enterOrreryInner() {
 }
 export function leaveOrrery() {
   state.active = false;
+  state.solarPlayback.playing=false;
+  disposePhenomena();disposePhenomena=()=>{};phenomenonBody='';
+  updatePhysicalAppearance();
   cancelSystemWork();
   if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
 }
@@ -2333,8 +2563,9 @@ async function showFallback(msg) {
     state.objectGroup=/** @type {HTMLSelectElement} */ (event.target).value; updateOrreryPositions();
   });
   document.getElementById("orreryFocusSelected")?.addEventListener("click",()=>{
-    if (state.selected && !state.selectedStar) setAnchor(state.selected);
+    if (state.selected && !state.selectedStar) state.selected==='Sun'?inspectSun():setAnchor(state.selected);
   });
+  document.getElementById('orreryInspectSun')?.addEventListener('click',inspectSun);
   // Respect the OS motion preference: the 3-D surface must not auto-animate full-viewport
   // for users who asked for reduced motion. The Animate checkbox re-enables it explicitly.
   if (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -2435,6 +2666,7 @@ async function showFallback(msg) {
 
     let best = null;
     for (const name of DRAW_LIST) {
+      if(state.solarInspection&&name!=='Sun')continue;
       const b = name === "Sun" ? { name: "Sun" } : state.bodies.find((x) => x.name === name);
       if (!b) continue;
       const p = bodyWorldPos(b);
@@ -2450,7 +2682,7 @@ async function showFallback(msg) {
     // does not steal clicks aimed at the planet itself. Small-body markers (dwarf planets,
     // comets, spacecraft) join at the same tight radius — they used to be drawn and labelled
     // but unclickable, which left their facts unreachable.
-    const extra = state.showSmall ? smallBodies : [];
+    const extra = state.showSmall&&!state.solarInspection ? smallBodies : [];
     for (const mk of [...moonMarkers, ...extra]) {
       const p = mk.pos;
       const wv = vp[3] * p[0] + vp[7] * p[1] + vp[11] * p[2] + vp[15];
@@ -2527,6 +2759,15 @@ async function showFallback(msg) {
     if (state.useTextures && !wasEnabled) loadTextures();
     updateEarthLayerStatus(); paint(); updateOrreryAccuracy();
   });
+  bind('orreryTerrain','change',e=>{state.terrainEnabled=inputTarget(e).checked;updatePhysicalAppearance();paint();});
+  bind('orreryOptics','change',e=>{state.opticsEnabled=inputTarget(e).checked;paint();});
+  bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;paint();window.dispatchEvent(new Event('sol:presentation'));});
+  bind('orrerySolarPlay','click',()=>{
+    if(state.solarPlayback.seconds>=state.solarPlayback.duration)state.solarPlayback.seconds=0;
+    state.solarPlayback.playing=!state.solarPlayback.playing;updatePhysicalAppearance();startLoop();
+  });
+  bind('orrerySolarTime','input',e=>{state.solarPlayback.seconds=Math.max(0,Math.min(20,Number(inputTarget(e).value)));state.solarPlayback.playing=false;paint();});
+  bind('orrerySolarRestart','click',()=>{state.solarPlayback.seconds=0;state.solarPlayback.playing=false;solarDetail?.retry('reference');paint();});
   for (const [id, key] of [['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
     bind(id, 'change', e => { state[key] = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
   }
@@ -2595,6 +2836,8 @@ async function showFallback(msg) {
     // invalidated too: their `ready` flags used to survive the loss, so after a restore
     // drawBody bound dead textures (planets rendered flat, rings vanished) and
     // texturesStarted=true meant loadTextures() never re-fetched for the life of the tab.
+    terrainDetails?.dispose();terrainDetails=null;state.terrainStatus={};
+    solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
     for (const entry of Object.values(referenceTextures)) {
@@ -2615,8 +2858,12 @@ async function showFallback(msg) {
     initParticles();
     loadTextures();
     buildGeneratedMaps();
-    rebuildPositions();
-    buildSceneLines(); // the static geometry died with the old context
+    // A graphics reset does not change the rendered epoch or its valid physical
+    // snapshot. Recomputing positions here also launched a fresh metadata worker
+    // while synchronous shader/first-frame work could block its reply deadline.
+    // Rebuild only the GPU geometry from the retained coordinates and elements.
+    buildSceneLines();
+    buildDropLines();
     paint();
     startLoop(); // the tick loop may have stopped while gl was null; re-arm it
   });

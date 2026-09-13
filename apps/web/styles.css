@@ -1575,6 +1575,14 @@ body[data-surface="orrery"] .timeline-band {
   }
 }
 
+.physical-source-controls { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border, #26313d); }
+.physical-source-controls p { font-size: .75rem; line-height: 1.55; color: #b9c4d1; }
+.physical-source-controls label, .physical-source-controls output { display: block; font-size: .72rem; line-height: 1.5; margin: .65rem 0 .35rem; }
+.physical-source-controls input[type="range"] { width: 100%; min-height: 32px; accent-color: #e8b766; }
+.physical-source-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.physical-source-actions button { min-height: 44px; }
+#orreryPhysicalStatus { color: #c4cbd5; }
+
 /* Respect the OS motion preference: no decorative transitions/animations for users who
    asked for reduced motion. (The 3-D view's auto-animation is gated in JS — orrery.js
    checks the same media query at init.) */

@@ -65,9 +65,14 @@ export function systemCard(state = {}) {
   if (!Object.hasOwn(BODY, name)) return {...card, eyebrow: 'SELECTED OBJECT', title: name,
     description: 'Open object details for its catalogue facts, source and position limits.'};
   const body = BODY[name];
+  const appearance=name==='Sun'&&state.solarMode
+    ? state.solarMode==='visible'?'Visible-light approximation: a white photosphere; detailed visible imagery is unavailable.'
+      :state.solarStatus==='ready'&&state.useTextures!==false?'NASA/SDO AIA 171 Å reference from 10 May 2024. Gold is assigned EUV color. Elevated plasma arcs are modeled; the unobserved hemisphere stays dark.'
+        :'EUV reference '+(state.useTextures===false?'disabled':state.solarStatus||'loading')+'; a simplified visible photosphere is retained.'
+    :appearanceReference(name)?appearanceDescription(name,state):!textureEligible(name)||state.useTextures===false?'Surface detail unavailable in this view; the 3-D appearance is simplified.':'';
   return {...card, eyebrow: 'LOOK CLOSER', title: name, description: body.blurb,
     facts: [fact('Reference radius', number(body.radiusKm, ' km')), fact('Reference gravity', number(body.gravity, ' m/s²')),
       fact('Reference rotation', Number.isFinite(body.rotationHours) ? `${number(Math.abs(body.rotationHours), ' h')}${body.rotationHours < 0 ? ' · retrograde' : ''}` : unavailable)],
-    note: `Reference facts from the body catalogue, separate from the rendered date. ${scale}${retained} ${appearanceReference(name) ? appearanceDescription(name, state) : !textureEligible(name) || state.useTextures === false ? 'Surface detail unavailable in this view; the 3-D appearance is simplified.' : ''}`,
+    note: `Reference facts from the body catalogue, separate from the rendered date. ${scale}${retained} ${appearance}`,
     preview: visualBrowsePreview(name), focusBody: name};
 }

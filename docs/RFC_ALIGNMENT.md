@@ -23,6 +23,14 @@ and the traced requirements are authoritative.
 
 ## Acceptance-status interpretation
 
+RFC 0005 is Accepted for source-backed terrain and hybrid light rendering. Local
+implementation admits two numerical terrain products, reference atmospheric transfer,
+and registered solar reference imagery plus modeled emission. These are per-product
+qualification boundaries, not a claim of measured global weather, complete planetary
+topography, calibrated radiance, or observed three-dimensional magnetic structure.
+See the [execution ledger](plans/2026-09-13-physical-rendering/IMPLEMENTATION.md) and its
+source records for enabled effects, test evidence, and remaining limits.
+
 RFC 0004 is accepted for the requested planetary appearance and Earth layers. Its
 registered display-reference collection admits documented source maps and explicit
 partial coverage without weakening the legacy complete-global-observation gate.

@@ -12,6 +12,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg?v=dcca6290db">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="styles.css?v=dcca6290db">
+    <link rel="stylesheet" href="planet-phenomena.css">
     <!-- Flatten the ES-module waterfall: without these, the ~28-module import graph
          loads serially by depth. Keep in sync with apps/web/js/ (validate_web_static checks). -->
     <link rel="modulepreload" href="engine.js?v=dcca6290db">
@@ -34,6 +35,20 @@
     <link rel="modulepreload" href="js/labelLayout.js?v=dcca6290db">
     <link rel="modulepreload" href="js/labelOcclusion.js">
     <link rel="modulepreload" href="js/planetAppearance.js">
+    <link rel="modulepreload" href="js/atmosphereOptics.js">
+    <link rel="modulepreload" href="js/atmosphereShaders.js">
+    <link rel="modulepreload" href="js/physicalRendering.js">
+    <link rel="modulepreload" href="js/planetPhenomena.js">
+    <link rel="modulepreload" href="js/planetPhenomenaManifest.js">
+    <link rel="modulepreload" href="js/solarAppearance.js">
+    <link rel="modulepreload" href="js/solarAppearanceManifest.js">
+    <link rel="modulepreload" href="js/solarAssetLoader.js">
+    <link rel="modulepreload" href="js/solarVolumeShaders.js">
+    <link rel="modulepreload" href="js/terrain.worker.js">
+    <link rel="modulepreload" href="js/terrainAssets.js">
+    <link rel="modulepreload" href="js/terrainGeometry.js">
+    <link rel="modulepreload" href="js/terrainShadowShaders.js">
+    <link rel="modulepreload" href="js/terrainWorkerClient.js">
     <link rel="modulepreload" href="js/surfaceMapping.js">
     <link rel="modulepreload" href="js/solarRegionFacts.js?v=dcca6290db">
     <link rel="modulepreload" href="js/systemContract.js?v=dcca6290db">
@@ -183,11 +198,12 @@
           <div id="orreryLabels" class="orrery-labels" aria-hidden="true"></div>
           <div id="systemJumps" class="system-jumps" role="group" aria-label="Explore a planetary system" hidden>
             <button type="button" data-camera-body="Sun" aria-pressed="true">Our system</button>
+            <button type="button" id="orreryInspectSun">The Sun</button>
             <button type="button" data-camera-body="Earth" aria-pressed="false">Earth</button>
             <button type="button" data-camera-body="Jupiter" aria-pressed="false">Jupiter</button>
             <button type="button" data-camera-body="Saturn" aria-pressed="false">Saturn</button>
           </div>
-          <div class="destination-caption"><p id="destinationCaption"></p><p id="destinationCaveat"></p></div>
+          <div class="destination-caption"><p id="destinationCaption"></p><p id="destinationCaveat"></p><p id="orreryPhysicalStatus" hidden></p></div>
           <div class="status-strip" aria-live="polite">
             <div>
               <span class="label">Stage</span>
@@ -240,6 +256,16 @@
             <a id="destinationImageSource" target="_blank" rel="noopener noreferrer"></a>
           </details>
           <p id="destinationNote" class="destination-note"></p>
+          <div id="orreryPlanetPhenomena" hidden></div>
+          <div id="orrerySolarControls" class="physical-source-controls" hidden>
+            <label for="orrerySolarMode">See the Sun in</label>
+            <select id="orrerySolarMode" class="sky-input"><option value="reconstructed-euv">AIA 171 Å + modeled corona</option><option value="visible">Visible-light approximation</option></select>
+            <p>Two NASA/SDO source frames, 10 May 2024. Intermediate imagery and elevated arcs are reconstructed. The far side is unobserved.</p>
+            <div class="physical-source-actions"><button id="orrerySolarPlay" type="button" class="time-btn" aria-pressed="false">Play source</button><button id="orrerySolarRestart" type="button" class="time-btn">Restart / retry</button></div>
+            <label for="orrerySolarTime">Source interval · independent of system time</label>
+            <input id="orrerySolarTime" type="range" min="0" max="20" step="0.05" value="0">
+            <output id="orrerySolarEpoch" for="orrerySolarTime"></output>
+          </div>
           <details id="destinationAppearance" class="destination-preview" hidden>
             <summary>Imagery sources &amp; coverage</summary>
             <p id="destinationAppearanceText"></p>
@@ -400,6 +426,8 @@
                     <label class="orrery-check"><input id="orreryTopDown" type="checkbox"> Top-down map</label>
                     <label class="orrery-check"><input id="orreryAnimate" type="checkbox" checked> Play time</label>
                     <label class="orrery-check"><input id="orreryTextures" type="checkbox" checked> Source-qualified textures</label>
+                    <label class="orrery-check"><input id="orreryTerrain" type="checkbox" checked> Measured terrain relief</label>
+                    <label class="orrery-check"><input id="orreryOptics" type="checkbox" checked> Reference atmospheric scattering</label>
                     <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> Physical scale</label>
                   </div>
                   <p id="orreryScaleStatus" class="time-frame-label">Enlarged for visibility — body sizes and moon spacing are exaggerated.</p>
@@ -470,6 +498,7 @@
               <p id="orrerySelectionStatus" class="sr-only" role="status"></p>
               <p id="orrerySelectedEpoch" class="time-frame-label"></p>
               <button id="orreryFocusSelected" type="button" class="time-btn">Focus selected body</button>
+
             </div>
             <div class="sky-whatsup">
               <label class="label" for="orrerySearch">Find an object</label>

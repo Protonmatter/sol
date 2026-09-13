@@ -1,0 +1,233 @@
+#!/usr/bin/env node
+// Full application qualification of a pinned, locally served web release. No
+// fixture replaces the ephemeris, Worker, source assets, or rendering pipeline.
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import puppeteer from 'puppeteer-core';
+import {PNG} from 'pngjs';
+import {closeOwnedBrowser} from './worker_coverage.mjs';
+
+const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const option=(name,fallback)=>process.argv.find(x=>x.startsWith(`--${name}=`))?.slice(name.length+3)||fallback;
+const webRoot=path.resolve(option('web-root',path.join(repo,'build/physical-preview-01')));
+const out=path.resolve(option('out',path.join(repo,'coverage/physical-rendering')));
+const chrome=option('browser',process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':'/usr/bin/google-chrome'));
+const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
+const manifestBytes=fs.readFileSync(path.join(webRoot,'web-release-manifest.json'));
+const manifest=JSON.parse(manifestBytes);
+const evidence={schema_version:'physical-rendering-validation.v1',web_root:webRoot,release_namespace:manifest.namespace,
+  release_manifest_sha256:digest(manifestBytes),started_at:new Date().toISOString(),
+  manifest_base_revision:manifest.source_sha,component_hashes:manifest.components,
+  source_binding:'The manifest and per-file hashes identify the tested snapshot. The base revision alone does not establish that working-tree changes were committed.',
+  scope:'Full staged application, real terrain Worker and source assets, software WebGL2. Reference rendering checks do not establish astronomical calibration or native GPU performance.',
+  source_differences:[],checks:[],captures:[],worker_urls:[],responses:[],request_failures:[],errors:[],console_errors:[]};
+for(const asset of manifest.assets){
+  const file=path.resolve(webRoot,asset.path);
+  assert.ok(file.startsWith(webRoot+path.sep),'Release path escapes staged root');
+  const bytes=fs.readFileSync(file);
+  assert.equal(bytes.length,asset.size,`Staged byte count ${asset.path}`);
+  assert.equal(digest(bytes),asset.sha256,`Staged hash ${asset.path}`);
+  if(asset.source_path&&asset.source_sha256){
+    const current=path.join(repo,asset.source_path);
+    if(fs.existsSync(current)){
+      const actual=digest(fs.readFileSync(current));
+      if(actual!==asset.source_sha256)evidence.source_differences.push({path:asset.source_path,staged_source_sha256:asset.source_sha256,current_sha256:actual});
+    }
+  }
+}
+fs.mkdirSync(out,{recursive:true});
+let browser,server,page,timer,expired=false,invariant;
+const controller=new AbortController();
+const save=()=>fs.writeFileSync(path.join(out,'evidence.json'),JSON.stringify(evidence,null,2)+'\n');
+const check=(name,detail={})=>{evidence.checks.push({name,passed:true,...detail});save();console.log(JSON.stringify({check:name,...detail}));};
+
+async function state(){
+  return page.evaluate(async()=>{
+    const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
+    const {store}=await import('./js/store.js'+q),s=store.orrery;
+    const gl=document.getElementById('orreryCanvas').getContext('webgl2');
+    return {anchor:s.anchor,selected:s.selected,radius:s.radius,az:s.az,el:s.el,engineError:s.engineError,animate:s.animate,solarInspection:s.solarInspection,
+      epoch:s.renderUnix,invariant:JSON.stringify([s.renderUnix,s.bodies]),terrainStatus:{...s.terrainStatus},
+      terrainRendered:s.terrainRendered?{...s.terrainRendered}:null,opticsStatus:{...s.opticsStatus},
+      solarStatus:s.solarStatus,solarMode:s.solarMode,solarPlayback:{...s.solarPlayback},appearanceStatus:{...s.appearanceStatus},
+      physicalStatus:document.getElementById('orreryPhysicalStatus')?.textContent,
+      appearance:document.getElementById('destinationAppearanceText')?.textContent,
+      overflow:document.documentElement.scrollWidth>innerWidth,glError:gl?.getError(),glLost:gl?.isContextLost(),
+      shaderErrors:window.__physicalShaderErrors||[],observedGlErrors:window.__physicalGlErrors||[],expectedContextLossErrors:window.__physicalExpectedLossErrors||[]};
+  });
+}
+async function paintAction(action,value){
+  await page.evaluate(async(action,value)=>{
+    const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
+    const {store}=await import('./js/store.js'+q),s=store.orrery;
+    if(action==='opposite'){s.az+=Math.PI;s.el=-s.el;}
+    if(action==='checkbox'){const e=document.getElementById(value.id);e.checked=value.checked;e.dispatchEvent(new Event('change'));return;}
+    if(action==='scrub'){const e=document.getElementById('orrerySolarTime');e.value=String(value);e.dispatchEvent(new Event('input'));return;}
+    document.getElementById('orrerySize').dispatchEvent(new Event('input'));
+  },action,value);
+}
+async function waitReady(body,{terrain=false,solar=false}={}){
+  await page.waitForFunction(async(body,terrain,solar)=>{
+    if(window.__physicalShaderErrors?.length)return true;
+    const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
+    const [{store},{appearanceReference,earthCloudRole}]=await Promise.all([import('./js/store.js'+q),import('./js/planetAppearance.js'+q)]);
+    const s=store.orrery,roles=['surface'];
+    if(body==='Earth'){if(s.earthNight!==false)roles.push('night-lights');if(s.earthWeather!==false)roles.push(earthCloudRole(s));}
+    const statuses=roles.map(role=>appearanceReference(body,role)).filter(Boolean).map(a=>s.appearanceStatus[a.id]);
+    if(terrain){statuses.push(s.terrainStatus[body]);if(s.terrainRendered)statuses.push(s.terrainRendered[body]?'ready':'pending');}if(solar)statuses.push(s.solarStatus);
+    return statuses.includes('unavailable')||statuses.every(x=>x==='ready');
+  },{timeout:40000,polling:100},body,terrain,solar);
+  const s=await state();
+  assert.deepEqual(s.shaderErrors,[],'Application shader compile/link failure');
+  if(terrain)assert.equal(s.terrainStatus[body],'ready',`${body} actual terrain unavailable`);
+  if(terrain&&s.terrainRendered)assert.equal(s.terrainRendered[body],true,`${body} height mesh is loaded but not rendered`);
+  if(solar)assert.equal(s.solarStatus,'ready','Solar source atlas unavailable');
+  assert.ok(!Object.values(s.appearanceStatus).includes('unavailable'),`Source unavailable: ${JSON.stringify(s.appearanceStatus)}`);
+  return s;
+}
+async function capture(name){
+  const s=await state();
+  assert.equal(s.invariant,invariant,`${name} changed engine time or positions`);delete s.invariant;
+  assert.equal(s.engineError,'',`${name} engine error`);assert.equal(s.overflow,false,`${name} horizontal overflow`);
+  assert.equal(s.glError,0,`${name} WebGL error`);assert.equal(s.glLost,false,`${name} context lost`);
+  assert.deepEqual(s.shaderErrors,[],`${name} shader compilation`);assert.deepEqual(s.observedGlErrors,[],`${name} prior WebGL errors`);
+  const full=path.join(out,`${name}.png`),canvas=path.join(out,`${name}-canvas.png`);
+  await page.screenshot({path:full,fullPage:true});await (await page.$('#orreryCanvas')).screenshot({path:canvas});
+  evidence.captures.push({name,...s,full,canvas,full_sha256:digest(fs.readFileSync(full)),canvas_sha256:digest(fs.readFileSync(canvas))});
+  save();console.log(JSON.stringify({capture:name,anchor:s.anchor,solar:s.solarStatus,terrain:s.terrainStatus,path:full}));
+}
+function different(a,b){
+  const x=PNG.sync.read(fs.readFileSync(path.join(out,`${a}-canvas.png`))),y=PNG.sync.read(fs.readFileSync(path.join(out,`${b}-canvas.png`)));
+  assert.equal(x.width,y.width);assert.equal(x.height,y.height);
+  let changed=0,sum=0;
+  for(let i=0;i<x.data.length;i+=4){let d=0;for(let c=0;c<3;c++)d+=Math.abs(x.data[i+c]-y.data[i+c]);if(d>3)changed++;sum+=d;}
+  assert.ok(changed>10,`${a}/${b} has no visible rendering change`);
+  check(`${a} versus ${b} changes rendered pixels`,{changed_pixels:changed,mean_channel_delta:sum/(x.width*x.height*3)});
+}
+async function run(){
+  server=http.createServer((req,res)=>{
+    try{
+      const u=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
+      const f=path.resolve(webRoot,'.'+(u.endsWith('/')?u+'index.html':u));
+      if(!f.startsWith(webRoot+path.sep)||!fs.existsSync(f)||!fs.statSync(f).isFile()){res.writeHead(404).end();return;}
+      res.setHeader('Content-Type',({'.js':'text/javascript','.html':'text/html','.css':'text/css','.json':'application/json','.wasm':'application/wasm','.png':'image/png','.jpg':'image/jpeg'})[path.extname(f)]||'application/octet-stream');
+      fs.createReadStream(f).pipe(res);
+    }catch{res.writeHead(400).end();}
+  });
+  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+  browser=await puppeteer.launch({executablePath:chrome,headless:true,timeout:20000,protocolTimeout:45000,signal:controller.signal,
+    args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1']});
+  if(expired){await closeOwnedBrowser(browser,{timeoutMs:8000});throw new Error('Browser launch exceeded validation deadline');}
+  page=await browser.newPage();
+  page.on('pageerror',e=>evidence.errors.push(e.message));
+  page.on('console',m=>{if(m.type()==='error')evidence.console_errors.push({text:m.text(),location:m.location()});});
+  page.on('requestfailed',r=>evidence.request_failures.push({url:r.url(),resource_type:r.resourceType(),error:r.failure()?.errorText}));
+  page.on('workercreated',w=>evidence.worker_urls.push(w.url()));
+  page.on('response',r=>{if(/terrain|solar|radial-height/.test(r.url()))evidence.responses.push({url:r.url(),status:r.status()});});
+  await page.setViewport({width:1440,height:1000});
+  await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
+  await page.evaluateOnNewDocument(()=>{
+    const Native=Date,t=Native.parse('2026-09-12T15:00:00Z');
+    globalThis.Date=class extends Native{constructor(...args){super(...(args.length?args:[t]));}static now(){return t;}};
+    window.__physicalShaderErrors=[];window.__physicalGlErrors=[];window.__physicalExpectedLossErrors=[];
+    const p=WebGL2RenderingContext.prototype,read=p.getShaderParameter,link=p.getProgramParameter,error=p.getError;
+    p.getShaderParameter=function(shader,param){const result=read.call(this,shader,param);if(param===this.COMPILE_STATUS&&!result)window.__physicalShaderErrors.push(this.getShaderInfoLog(shader));return result;};
+    p.getProgramParameter=function(program,param){const result=link.call(this,program,param);if(param===this.LINK_STATUS&&!result)window.__physicalShaderErrors.push(this.getProgramInfoLog(program));return result;};
+    p.getError=function(){const result=error.call(this);if(result!==this.NO_ERROR){if(result===this.CONTEXT_LOST_WEBGL&&window.__physicalExpectedContextLoss)window.__physicalExpectedLossErrors.push(result);else window.__physicalGlErrors.push(result);}return result;};
+  });
+  await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'networkidle0',timeout:45000});
+  await page.click('[data-mode="orrery"]');
+  await page.waitForFunction(async()=>{
+    const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
+    const {store}=await import('./js/store.js'+q);return store.orrery?.bodies?.length===9;
+  },{timeout:40000});
+  await paintAction('checkbox',{id:'orreryAnimate',checked:false});
+  invariant=(await state()).invariant;
+  check('Pinned staged bytes match release manifest',{assets:manifest.assets.length});
+  await page.click('#orreryInspectSun');await waitReady('Sun',{solar:true});
+  assert.equal((await state()).anchor,'Sun');await capture('sun-source-front');
+  await paintAction('opposite');await capture('sun-unobserved-back');different('sun-source-front','sun-unobserved-back');
+  await page.click('#orreryInspectSun');await page.select('#orrerySolarMode','visible');await capture('sun-visible-approximation');
+  await page.select('#orrerySolarMode','reconstructed-euv');await waitReady('Sun',{solar:true});
+  await paintAction('scrub',10);await capture('sun-source-midpoint');different('sun-source-front','sun-source-midpoint');
+  await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'no-preference'}]);
+  // Respect the native range step: 19.99 is rounded to 20 by the browser and
+  // would legitimately exercise restart-from-end instead of the ending frame.
+  await paintAction('scrub',19.95);await page.click('#orrerySolarPlay');
+  await page.waitForFunction(async()=>{const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;const {store}=await import('./js/store.js'+q);return store.orrery.solarPlayback.seconds===20&&!store.orrery.solarPlayback.playing;},{timeout:10000,polling:100});
+  const ended=await state();assert.equal(ended.invariant,invariant);assert.equal(ended.animate,false);
+  check('Reference playback reaches 20 seconds, stops without looping, and preserves paused engine time and positions',{playback:ended.solarPlayback});
+  await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
+  if(typeof ended.solarInspection==='boolean'){
+    assert.equal(ended.solarInspection,true,'The Sun button did not enter inspection');
+    await page.click('[data-camera-body="Sun"]');assert.equal((await state()).solarInspection,false,'Our system did not restore other bodies');
+    await capture('solar-system-overview');
+    await page.click('#orreryInspectSun');assert.equal((await state()).solarInspection,true);
+    check('The Sun inspection and Our system restoration preserve the physical model');
+  }
+  await page.select('#orreryAnchor','Earth');await waitReady('Earth');
+  assert.equal((await state()).opticsStatus.Earth,'ready','Close Earth did not admit physical optics');
+  await capture('earth-optics-on');
+  await paintAction('checkbox',{id:'orreryOptics',checked:false});await capture('earth-optics-off');different('earth-optics-on','earth-optics-off');
+  await paintAction('checkbox',{id:'orreryOptics',checked:true});
+  await paintAction('opposite');await capture('earth-night-lights-on');
+  await paintAction('checkbox',{id:'orreryEarthNight',checked:false});await capture('earth-night-lights-off');
+  different('earth-night-lights-on','earth-night-lights-off');
+  await paintAction('checkbox',{id:'orreryEarthNight',checked:true});
+  for(const body of ['Moon','Mars']){
+    await page.select('#orreryAnchor',body);await waitReady(body,{terrain:true});
+    if(body==='Mars')assert.equal((await state()).opticsStatus.Mars,'ready','Close Mars did not admit physical optics');
+    await capture(`${body.toLowerCase()}-terrain-on`);
+    await paintAction('checkbox',{id:'orreryTerrain',checked:false});await capture(`${body.toLowerCase()}-terrain-off`);
+    different(`${body.toLowerCase()}-terrain-on`,`${body.toLowerCase()}-terrain-off`);
+    await paintAction('checkbox',{id:'orreryTerrain',checked:true});
+  }
+  assert.ok(evidence.worker_urls.some(x=>x.includes('terrain.worker.js')),'Real terrain Worker never created');
+  for(const body of ['moon','mars'])assert.ok(evidence.responses.some(x=>x.url.includes(`${body}-radial-height`)&&x.status===200),`${body} height asset was not loaded`);
+  check('Real terrain Worker and both pinned height assets loaded');
+  if(process.argv.includes('--context-loss')){
+    const workersBefore=evidence.worker_urls.filter(x=>x.includes('terrain.worker.js')).length;
+    await page.evaluate(()=>{const c=document.getElementById('orreryCanvas'),gl=c.getContext('webgl2'),ext=gl.getExtension('WEBGL_lose_context');if(!ext)throw new Error('WEBGL_lose_context unavailable');window.__physicalExpectedContextLoss=true;window.__physicalLossExtension=ext;window.__physicalLost=false;c.addEventListener('webglcontextlost',()=>{window.__physicalLost=true;},{once:true});ext.loseContext();});
+    await page.waitForFunction(()=>window.__physicalLost,{timeout:5000,polling:100});
+    await page.evaluate(()=>window.__physicalLossExtension.restoreContext());
+    // Context state is independent of frame presentation. Timer polling avoids
+    // relying on requestAnimationFrame while the drawing context is recovering;
+    // the original 10-second deadline and subsequent rendered-mesh check remain.
+    await page.waitForFunction(()=>!document.getElementById('orreryCanvas').getContext('webgl2').isContextLost(),{timeout:10000,polling:100});
+    await page.evaluate(()=>{window.__physicalExpectedContextLoss=false;});
+    await waitReady('Mars',{terrain:true});await capture('mars-context-restored');
+    assert.ok(evidence.worker_urls.filter(x=>x.includes('terrain.worker.js')).length>workersBefore,'Terrain Worker was not recreated after context restoration');
+    check('Context restoration recreates actual terrain resources and preserves engine state');
+  }
+  const phenomenonManifest=path.join(webRoot,manifest.namespace,'planet-phenomena.v1.json');
+  if(fs.existsSync(phenomenonManifest)){
+    for(const item of JSON.parse(fs.readFileSync(phenomenonManifest)).observations){
+      if((await state()).anchor!==item.body){await page.select('#orreryAnchor',item.body);await waitReady(item.body);}
+      await page.select('.planet-phenomena__select',item.id);
+      await page.waitForFunction(()=>{const image=document.querySelector('.planet-phenomena__image'),status=document.querySelector('.planet-phenomena__status');return status?.textContent.includes('unavailable')||image&&!image.hidden&&image.complete&&image.naturalWidth>0;},{timeout:15000});
+      const shown=await page.evaluate(()=>{const image=document.querySelector('.planet-phenomena__image');return {dimensions:[image.naturalWidth,image.naturalHeight],source:document.querySelector('.planet-phenomena__source').href,status:document.querySelector('.planet-phenomena__status').textContent,title:document.querySelector('.planet-phenomena__heading').textContent};});
+      assert.deepEqual(shown.dimensions,item.asset.dimensions,`${item.id} source dimensions`);
+      assert.equal(shown.source,item.source_page);assert.equal(shown.title,item.title);assert.ok(shown.status.includes('verified'));
+      await capture(`mission-${item.id}`);check(`Actual app gallery loads ${item.id}`,shown);
+    }
+  }
+  await page.setViewport({width:390,height:844});await page.select('#orreryAnchor','Earth');await waitReady('Earth');await capture('earth-mobile-390');
+  check('390 pixel viewport has no horizontal overflow and preserves engine state');
+  assert.deepEqual(evidence.errors,[],'Page errors');assert.deepEqual(evidence.console_errors,[],'Console errors');
+  check('No page, console, shader compilation, or WebGL errors');
+}
+try{
+  const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;controller.abort();reject(new Error('Full application validation exceeded 240 seconds'));},240000);});
+  await Promise.race([run(),deadline]);evidence.passed=true;
+}catch(error){
+  evidence.passed=false;evidence.failure=String(error?.stack||error);
+  if(page&&!page.isClosed())try{evidence.failure_state=await state();}catch(diagnostic){evidence.diagnostic_error=String(diagnostic);}
+  console.error(evidence.failure);process.exitCode=1;
+}finally{
+  clearTimeout(timer);controller.abort();if(browser)await closeOwnedBrowser(browser,{timeoutMs:8000});
+  server?.closeAllConnections();server?.close();evidence.finished_at=new Date().toISOString();save();
+}

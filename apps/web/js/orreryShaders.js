@@ -2,6 +2,9 @@
 // constants — extracted from orrery.js so the renderer file holds plumbing, not shader
 // text. NOISE is the shared value-noise/fbm/crater library interpolated into SPHERE_FS.
 
+import { ATMOSPHERE_GLSL, ATMOSPHERE_REFRACTION_GLSL } from './atmosphereShaders.js';
+import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
+
 const NOISE = `
 float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
 float vn(vec3 x){ vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
@@ -19,14 +22,35 @@ float craters(vec3 p,float sc){ p*=sc; vec3 ip=floor(p); float best=1e9,rnd=0.0;
 `;
 
 export const SPHERE_VS = `#version 300 es
+precision highp float;
+precision mediump int;
 layout(location=0) in vec3 a_pos; layout(location=1) in vec3 a_nrm;
 uniform mat4 u_mvp; uniform mat4 u_model; uniform mat3 u_nmat;
+uniform float u_bodyRadiusKm,u_oblate;
 out vec3 v_obj; out vec3 v_world; out vec3 v_nrm;
-void main(){ v_obj=a_pos; v_world=(u_model*vec4(a_pos,1.0)).xyz; v_nrm=normalize(u_nmat*a_nrm); gl_Position=u_mvp*vec4(a_pos,1.0); }`;
+out float v_surfaceScale;
+out vec3 v_incidentSunBody,v_incidentSunWorld,v_incidentTransmission;
+${ATMOSPHERE_GLSL}
+${ATMOSPHERE_REFRACTION_GLSL}
+void main(){
+  v_obj=a_pos; v_surfaceScale=length(a_pos);
+  v_world=(u_model*vec4(a_pos,1.0)).xyz; v_nrm=normalize(u_nmat*a_nrm);
+  v_incidentSunBody=vec3(0,0,1);v_incidentSunWorld=vec3(0,0,1);v_incidentTransmission=vec3(1);
+  if(u_atmosphereEnabled==1&&u_atmosphereRefractionEnabled==1){
+    AtmosphereSolarRay ray=atmosphereIncidentSun(vec3(a_pos.xy,a_pos.z*u_oblate)*u_bodyRadiusKm);
+    v_incidentSunBody=ray.direction;
+    // Model includes oblate scale; undo its Z component for a physical vector.
+    v_incidentSunWorld=normalize(mat3(u_model)*vec3(ray.direction.xy,ray.direction.z/u_oblate));
+    v_incidentTransmission=ray.transmission;
+  }
+  gl_Position=u_mvp*vec4(a_pos,1.0);
+}`;
 
 export const SPHERE_FS = `#version 300 es
 precision highp float;
 in vec3 v_obj; in vec3 v_world; in vec3 v_nrm; out vec4 o;
+in float v_surfaceScale;
+in vec3 v_incidentSunBody,v_incidentSunWorld,v_incidentTransmission;
 uniform int u_style; uniform int u_mode; uniform float u_time;
 uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_atmo; uniform float u_atmoStr;
 // u_useTex: is a surface map bound at all. u_texMode: 0 = REPLACE (a real photographic map from
@@ -57,6 +81,8 @@ uniform vec3 u_sunA;
 // shadow is exactly as dark as the band is optically thick, and the Cassini Division lets
 // sunlight through for free.
 uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform sampler2D u_ringTex;
+// Physical catalogue radius converts the displaced mesh point to body-frame km.
+uniform float u_bodyRadiusKm;
 // Moon transit shadows — Io and Europa crossing Jupiter's disc, as in a telescope. Everything
 // here is in the planet's BODY frame and in units of its EQUATORIAL radius, which is what makes
 // the shadow honest on an exaggerated globe: the moon positions come from moonshadows.js, which
@@ -71,6 +97,8 @@ uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform
 // majority of frames — and the whole block below is skipped.
 const int MOON_SHADOWS=4;
 uniform int u_moonShadowCount; uniform vec4 u_moonShadowPos[MOON_SHADOWS]; uniform vec4 u_moonShadowAxis[MOON_SHADOWS];
+${ATMOSPHERE_GLSL}
+${TERRAIN_SHADOW_GLSL}
 ${NOISE}
 vec2 referenceUV(vec3 p){
   float z=p.z;
@@ -308,7 +336,20 @@ void main(){
     col=mix(col,u_base,0.55);
     col*=texture(u_tex,vec2(uu,vv)).rgb*2.0;
   }
-  float lambert=max(dot(N,normalize(u_light)),0.0);
+  // Legacy fallback/material recipes are display RGB. Only the enabled optical
+  // path opts them into linear transport; historical disabled uniforms retain
+  // their exact prior appearance. Registered references are already linear.
+  if(u_atmosphereEnabled==1&&!reference) col=decodeSRGB(col);
+  // Raster interpolation follows triangle chords, up to ~6.8 km below Earth's
+  // 48x96 reference ellipsoid. That sag is not atmospheric altitude. Interpolate
+  // the vertex radial scale independently, retaining real DEM displacement while
+  // removing the false underground path responsible for grid-shaped extinction.
+  vec3 surfaceObject=p*v_surfaceScale;
+  vec3 surfaceBodyKm=vec3(surfaceObject.xy,surfaceObject.z*u_oblate)*u_bodyRadiusKm;
+  bool refracted=u_atmosphereEnabled==1&&u_atmosphereRefractionEnabled==1;
+  vec3 incidentWorld=refracted ? normalize(v_incidentSunWorld) : normalize(u_light);
+  vec3 incidentBody=refracted ? normalize(v_incidentSunBody) : u_lightObj;
+  float lambert=max(dot(N,incidentWorld),0.0);
   // How much of the Sun this surface point can still see past any transiting moon. 1 = none in
   // the way. Drop a perpendicular from the point onto each shadow axis and compare with the
   // cone's radius there: r = R_moon -/+ t*alpha, umbra and penumbra (derivation in
@@ -317,7 +358,7 @@ void main(){
   // shadow below already makes.
   float sunVis=1.0;
   if(u_moonShadowCount>0){
-    vec3 sp=vec3(p.xy,p.z*u_oblate);
+    vec3 sp=vec3(v_obj.xy,v_obj.z*u_oblate);
     for(int i=0;i<MOON_SHADOWS;i++){
       if(i>=u_moonShadowCount) break;
       vec3 w=sp-u_moonShadowPos[i].xyz;
@@ -332,18 +373,24 @@ void main(){
       sunVis=min(sunVis,smoothstep(ru,rp,perp));
     }
   }
+  sunVis*=terrainSunVisibility(surfaceBodyKm,incidentBody);
   // The shadow removes DIRECT sunlight only. The 0.05 floor is the light a planet's own
   // atmosphere scatters into it, which is why Io's shadow reads as very dark grey rather than
   // as a hole in the planet.
   float shade=reference ? 0.001+0.999*lambert*sunVis : 0.05+0.95*lambert*sunVis;
-  col*=shade;
+  if(u_atmosphereEnabled==1){
+    // Direct reflected sunlight sees the incident atmospheric column. The
+    // single-scattering mode has no invented diffuse-ambient weather term.
+    col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))
+      *u_atmosphereSolarScale*u_atmosphereExposure;
+  } else col*=shade;
   // Ring shadow on the planet: march from this surface point toward the Sun in the BODY frame
   // (the rings live in the equatorial z=0 plane there) and darken by the ring's own optical
   // depth where the ray crosses the annulus. The march starts from the OBLATE surface point —
   // p is the unit-sphere coordinate, but the rendered surface is squashed by rPol/rEq along z,
   // and starting a Saturn ray ~10% too high shifted every shadow boundary on the globe.
   if(u_ringRad.y>0.0){
-    vec3 q=vec3(p.xy,p.z*u_oblate);
+    vec3 q=vec3(v_obj.xy,v_obj.z*u_oblate);
     vec3 lo=normalize(u_lightObj);
     if(abs(lo.z)>1e-4){
       float s=-q.z/lo.z;
@@ -365,9 +412,12 @@ void main(){
     // The smooth 0 to -6 degree twilight fade is a visual convention, not a switch-on model.
     float night=1.0-smoothstep(-0.1045284633,0.0,dot(N,normalize(u_light)));
     if(u_earthNight==1) col+=decodeSRGB(referenceSample(u_nightTex,p).rgb)*night;
-    col=encodeSRGB(col);
   }
-  col+=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert); // illustrative atmospheric scattering on the disc rim
+  // Emission is attenuated on the observer path only, after direct illumination.
+  // Surface rays end at the actual displaced position, preserving signed relief.
+  if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor(col,surfaceBodyKm);
+  if(reference||u_atmosphereEnabled==1) col=encodeSRGB(col);
+  if(u_atmosphereEnabled==0) col+=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert);
   // The scientific palette is not a material: solar lighting must not change its
   // concentration colours. Composite it after lighting, paired with the source legend.
   if(reference&&u_earthIce==1){ vec4 ice=referenceSample(u_iceTex,p); col=mix(col,ice.rgb,ice.a); }

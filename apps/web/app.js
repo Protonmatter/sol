@@ -289,7 +289,11 @@ const focusBody = body => {
   if (freeFly?.checked) { freeFly.checked = false; freeFly.dispatchEvent(new Event('change')); }
   anchor.value = body; anchor.dispatchEvent(new Event('change')); updateTaskHeader();
 };
-document.getElementById('destinationFocus')?.addEventListener('click', event => focusBody(/** @type {HTMLElement} */ (event.currentTarget).dataset.body));
+document.getElementById('destinationFocus')?.addEventListener('click', event => {
+  const body=/** @type {HTMLElement} */ (event.currentTarget).dataset.body;
+  if(store.activeMode==='orrery'&&body==='Sun')document.getElementById('orreryInspectSun')?.click();
+  else focusBody(body);
+});
 for (const button of document.querySelectorAll('[data-camera-body]')) button.addEventListener('click', () => focusBody(/** @type {HTMLElement} */ (button).dataset.cameraBody));
 document.addEventListener("keydown", event => {
   if (event.key === "Escape" && store.tourIndex < 0 && workspace.focus) {

@@ -28,6 +28,9 @@ unrecognized status, and incomplete workflow enforcement.
 | `SOL-VIS-002` | Physical-scale integrity and deterministic display clearance |
 | `SOL-VIS-003` | Visual source identity, per-use qualification, and missing-detail fallback |
 | `SOL-VIS-004` | Registered planetary maps, dated Earth layers and explicit coverage |
+| `SOL-VIS-005` | Numeric terrain datum, finite geometry, physical extents and source identity |
+| `SOL-VIS-006` | Dimensioned optical transfer with distinct reflection, scattering and emission |
+| `SOL-VIS-007` | Source band, frame, coverage and finite dynamic appearance playback |
 | `SOL-CI-001` | SHA-pinned actions, least privilege, and deployment of the tested SHA |
 | `SOL-DOC-001` | Documentation, plans, instructions, and traceability updated with code |
 | `SOL-SUPPLY-001` | Locked dependencies and automated ecosystem update review |

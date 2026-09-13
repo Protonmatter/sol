@@ -16,7 +16,8 @@ export async function orreryHarness(t, options = {}) {
   const events = [];
   const frames = new Map(), requests = [], errors = [], warnings = [], positionEpochs = [], presentations = [];
   const images = [], textureUploads = [], drawCalls = [], optionalLoads = [], canvasCommands = [];
-  const textureRecords = [], textureParameters = [], mipmapTextures = [], deletedTextures = [], gpuDraws = [];
+  const textureRecords = [], textureParameters = [], mipmapTextures = [], deletedTextures = [], gpuDraws = [], gpuSubmissions=[];
+  let depthWrites=true,blend=[];
   const pixelStoreCalls = [], pixelStore = new Map();
   const textureBindings = new Map(); let activeTextureUnit = 0, textureId = 0, pendingTextureError = 0;
   let textureUploadError = options.textureUploadError || 0;
@@ -41,6 +42,7 @@ export async function orreryHarness(t, options = {}) {
     NEAREST: 9728, LINEAR: 9729, LINEAR_MIPMAP_LINEAR: 9987,
     REPEAT: 10497, CLAMP_TO_EDGE: 33071,
     UNPACK_FLIP_Y_WEBGL: 37440, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 37441,
+    ZERO:0,ONE:1,SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,TRIANGLES:4,LINES:1,LINE_STRIP:3,POINTS:0,
   };
   const gl = new Proxy({
     ...graphicsConstants,
@@ -57,18 +59,22 @@ export async function orreryHarness(t, options = {}) {
     useProgram: program => { currentProgram = program; },
     uniform1i: recordUniform,
     uniform1f: recordUniform,
+    uniform1fv: recordUniform,
     uniform2fv: recordUniform,
     uniform3fv: recordUniform,
     uniform4fv: recordUniform,
     uniformMatrix3fv: (location, _transpose, value) => recordUniform(location, value),
     uniformMatrix4fv: (location, _transpose, value) => recordUniform(location, value),
+    depthMask: value=>{depthWrites=value;},
+    blendFunc:(...values)=>{blend=values;},
     drawElements: (...args) => {
       draws++; drawCalls.push(["elements", ...args]);
       const drawUniforms = { ...uniforms.get(currentProgram) };
       uniformDraws.push(drawUniforms);
       gpuDraws.push({ uniforms: drawUniforms, textures: new Map(textureBindings) });
+      gpuSubmissions.push({kind:'elements',uniforms:drawUniforms,depthWrites,blend:[...blend]});
     },
-    drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]); },
+    drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]);gpuSubmissions.push({kind:'arrays',uniforms:{...uniforms.get(currentProgram)},depthWrites,blend:[...blend]}); },
     createTexture: () => ({ textureId: ++textureId }),
     activeTexture: unit => { activeTextureUnit = unit - graphicsConstants.TEXTURE0; },
     bindTexture: (_target, texture) => { textureBindings.set(activeTextureUnit, texture); },
@@ -141,6 +147,7 @@ export async function orreryHarness(t, options = {}) {
     orreryAnimate: node({ checked: true }), orreryNow: node(),
   };
   if (options.controls) {
+    for(const id of ['InspectSun','PhysicalStatus','SolarControls','SolarMode','SolarPlay','SolarRestart','SolarTime','SolarEpoch','Terrain','Optics'])nodes[`orrery${id}`]=node();
     for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
       nodes[`orrery${id}`] = node();
     }
@@ -209,6 +216,7 @@ export async function orreryHarness(t, options = {}) {
     }
   }
   const context = vm.createContext({ ...bindings, Event, CustomEvent,
+    AbortController,queueMicrotask,
     Date: class extends Date { static now() { return wallUnix * 1000; } },
     console: { error: (...args) => errors.push(args), warn: (...args) => warnings.push(args) },
     document,
@@ -219,6 +227,7 @@ export async function orreryHarness(t, options = {}) {
     requestAnimationFrame(fn) { const id = ++frameId; frames.set(id, fn); return id; },
     cancelAnimationFrame: id => frames.delete(id),
     Image: class { constructor() { this.width = 0; this.height = 0; images.push(this); } },
+    ...(options.solarAtlas ? {createImageBitmap:()=>{throw Error('The solar loader boundary owns this test decode');}} : {}),
     fetch: async () => options.sunMetadata === undefined ? { ok: false } : { ok: true, json: async () => options.sunMetadata },
     ...(options.reducedMotion === undefined ? {} : { matchMedia: () => ({ matches: options.reducedMotion }) }),
     ...(options.controls ? { ResizeObserver: class { constructor(callback) { resizeCallback = callback; } observe() {} } } : {}),
@@ -231,7 +240,8 @@ export async function orreryHarness(t, options = {}) {
     t.after(() => prior ? Object.defineProperty(globalThis, name, prior) : delete globalThis[name]);
   }
   const [lifecycle] = await loadSourceModules(context, [moduleUrl], {
-    resolveImport: specifier => namespaces.get(specifier),
+    resolveImport: (specifier,url) => options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
+      ? {loadSolarAtlas:async()=>({width:2048,height:1024,close(){}})} : namespaces.get(specifier),
     // Optional catalogue downloads remain pending, as they can during first paint.
     importModuleDynamically: specifier => {
       const mode = specifier.includes("geography") ? options.geography || "pending" : optionalMode;
@@ -242,7 +252,7 @@ export async function orreryHarness(t, options = {}) {
     },
   });
   const settle = () => new Promise(resolve => setImmediate(resolve));
-  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
+  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
     ...lifecycle, settle,
     event(id, type, properties = {}) { return nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties }); },
     input(id, value, type = "input") { nodes[id].value = value; return this.event(id, type); },

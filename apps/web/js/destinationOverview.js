@@ -83,5 +83,5 @@ export function renderDestinationOverview(surface, sky, system) {
   const earthLayersCaption = surface === 'orrery' && !system?.galaxy && !system?.selectedStar && system?.selected === 'Earth' && system?.useTextures !== false
     ? earthLayerDescription(system, true) : '';
   text('destinationCaveat', [caveats, earthLayersCaption ? `Reference layers: ${earthLayersCaption}.` : ''].filter(Boolean).join(' '));
-  for (const button of document.querySelectorAll('[data-camera-body]')) button.setAttribute('aria-pressed', String(system?.anchor === /** @type {HTMLElement} */ (button).dataset.cameraBody));
+  for (const button of document.querySelectorAll('[data-camera-body]')) button.setAttribute('aria-pressed', String(!system?.solarInspection&&system?.anchor === /** @type {HTMLElement} */ (button).dataset.cameraBody));
 }
