@@ -9,6 +9,7 @@ import puppeteer from "puppeteer-core";
 import v8ToIstanbul from "v8-to-istanbul";
 import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
 import { waitForCanvasGeometry } from "./canvas_capture.mjs";
+import { assertCaptionLayouts } from "./caption_layout.mjs";
 import {
   ROOT,
   WEB,
@@ -1075,6 +1076,8 @@ async function exerciseOrrery(page, visualDirectory) {
   // ready. Require native fonts/frame delivery, then the exact material/pixel gates
   // below establish that actual assets rendered. No performance threshold is inferred.
   await page.evaluate(async()=>{await document.fonts.ready;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
+  const captionLayouts = await assertCaptionLayouts(page);
+  fs.writeFileSync(path.join(visualDirectory, 'caption-layout.json'), `${JSON.stringify(captionLayouts, null, 2)}\n`);
   await visualAssertions(page, visualDirectory);
 
   for (const id of [

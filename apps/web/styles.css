@@ -1898,9 +1898,15 @@ body[data-surface="orrery"] .system-jumps { display: flex; }
 .system-jumps button { background: #101c2aeb; color: #c5d7ee; border: 1px solid #65768b; border-radius: .5rem; padding: .5rem .75rem; font-size: .73rem; min-height: 44px; cursor: pointer; }
 .system-jumps button[aria-pressed="true"] { border-color: #d3b278; color: #f9dfb0; background: #302719e8; }
 body:not([data-surface="today"]) .destination-caption { display: block; }
-body:not([data-surface="today"]) .stage-band { grid-template-rows: minmax(35rem, calc(100dvh - 15rem)) auto; }
+body:not([data-surface="today"]) .stage-band { grid-template-rows: auto auto; }
 body:not([data-surface="today"]).panel-collapsed:not(.focus-mode) .stage-band { grid-template-columns: minmax(0, 1fr) 20rem; grid-template-areas: "visual overview"; }
-body:not([data-surface="today"]) .viewport { grid-template-rows: minmax(0, 1fr) auto; place-items: stretch; }
+/* Sampling warnings can gain or lose lines during playback. Give the scene its
+   own definite height; let the full caption grow below it without resizing the
+   canvas or covering the view. Reset legacy mobile flex/min-height rules too. */
+body:not([data-surface="today"]) .viewport {
+  display: grid; height: auto; min-height: 0; padding: 0; align-self: start;
+  grid-template-rows: max(32rem, calc(100dvh - 18rem)) auto; place-items: stretch;
+}
 body[data-surface="sky"] #skyCanvas, body[data-surface="orrery"] #orreryCanvas { grid-area: 1 / 1; position: relative; inset: auto; width: 100%; height: 100%; min-height: 0; }
 body:not([data-surface="today"]) .control-panel { padding: 1.3rem; background: #0e1724; box-shadow: none; }
 .destination-control-group, .orrery-group { border: 0; border-bottom: 1px solid #334154; border-radius: 0; padding: .5rem 0; margin-block: 0 .5rem; background: none; }
@@ -1915,7 +1921,7 @@ body:not([data-surface="today"]) .control-panel { padding: 1.3rem; background: #
   .destination-overview { width: 100%; max-height: none; overflow: visible; }
 }
 @media (max-width: 520px) {
-  body:not([data-surface="today"]) .stage-band { grid-template-rows: 30rem auto; }
+  body:not([data-surface="today"]) .viewport { grid-template-rows: 27rem auto; }
   .destination-overview { padding: 1.25rem; }
   .destination-caption { padding: .7rem .8rem; font-size: .64rem; }
   .system-jumps { inset: .6rem auto auto .6rem; max-width: calc(100% - 1.2rem); gap: .3rem; }

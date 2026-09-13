@@ -187,3 +187,76 @@ threshold.
   probes, ten ring GPU probes and 42 reviewed captures retain their original
   provenance. This final follow-up changes only the helper, its tests and this
   record. Hosted checks are verified separately against the pushed head.
+
+## Caption layout regression revealed by the retained capture guard
+
+Head `90dab0bc648cede0bdbe55aa80966378bd43d235` reached 17 passing checks;
+both JavaScript coverage jobs and the dependent release gate failed. The new
+geometry wait completed, and the unchanged pre/post screenshot guard then
+identified an actual canvas resize at the seven-days-per-second Earth capture:
+
+- [Standalone job](https://github.com/Protonmatter/sol/actions/runs/34754281486/job/103715910540).
+- [Reusable job](https://github.com/Protonmatter/sol/actions/runs/34754281610/job/103715976466).
+- Both measured canvas height changing from 575.1875 to 559.109375 pixels;
+  drawing-buffer height followed from 575 to 559. Position, width and page
+  offsets stayed unchanged.
+
+The warning caption shared a constrained-height grid with the canvas. At seven
+simulated days per second, ordinary frame-interval differences cross the moon
+sampling thresholds. Correctly updated warnings add or remove caption lines;
+each added line took 16.078125 pixels from the canvas and triggered its resize
+observer. The failure is a product layout defect, distinct from the earlier
+animation-callback wait problem.
+
+An independent browser reproduction uses the actual `renderDestinationOverview`
+with presentation-only warning cases while the engine remains paused. It records
+canvas/caption heights of 596.0625/61.9375, 579.984375/78.015625 and
+563.90625/94.09375 pixels; returning to the original caption restores the first
+pair. Epoch, body coordinates and animation state remain unchanged. Evidence is
+`coverage/caption-reflow-90dab0b.json`.
+
+The correction gives the non-Sun scene a definite viewport-based height and lets
+the complete caption grow below it in normal document flow. It explicitly resets
+legacy mobile flex/min-height rules and prevents taller adjacent cards from
+stretching the scene. Warnings are neither suppressed nor placed over the canvas.
+The Sun layout and all rendering/physics inputs other than the stylesheet remain
+unchanged. New captures and build provenance are required because layout changed.
+
+## Caption correction validation
+
+- The actual browser regression in `tools/caption_layout.mjs` fails against the
+  frozen `90dab0b` build at the first added warning line. The identical regression
+  passes on `build/system-polish-caption-candidate`: 48 cases across normal/focus
+  views at widths 1280, 881, 880 and 390 pixels. It checks exact scene geometry,
+  complete warning text in normal flow, container bounds, no horizontal overflow,
+  unchanged engine state, and restoration of the viewport and focus state.
+- Red/green evidence: `coverage/caption-layout-red.log` and
+  `coverage/caption-layout-green.json`. The driver saves the integrated matrix
+  as `visual/caption-layout.json` alongside the actual screenshot gates.
+- `node tools/collect_node_coverage.mjs --web-root=build/system-polish-caption-candidate --output-dir=coverage/system-polish-node-caption-final`
+  passes 788/788 tests.
+- `node tools/browser_validation.mjs --web-root=build/system-polish-caption-candidate --output-dir=coverage/system-polish-browser-caption-layout`
+  passes all 48 caption cases and the full Sun, Sky and System runtime/pixel gates,
+  including the previously failing seven-days-per-second capture. Earth has 2,755
+  blue pixels after the layout change; its camera-round-trip mean difference stays
+  zero. Sun G/R is 0.980 and B/R 0.940. Submitted spin advances 0.1885 rad over four
+  draws. Io transit depth is 0.0504 versus 0.0505 predicted with 0.5-pixel center
+  error; the no-transit control is 0.965 and eclipse ratio 0.2891 against the
+  unchanged ramp prediction 0.2784.
+- `node tools/merge_web_coverage.mjs --web-root=build/system-polish-caption-candidate --node-input=coverage/system-polish-node-caption-final/coverage-final.json --browser-input=coverage/system-polish-browser-caption-layout/coverage-final.json --output-dir=coverage/system-polish-combined-caption-final`
+  passes at 96.50% whole-web line coverage.
+- Static web, UX structure, 20 requirement mappings, 80-file TypeScript checking,
+  documentation, module syntax and diff checks pass.
+- All 42 actual browser captures were regenerated. They retain the model-clock
+  and body-state invariants with no page/engine errors or horizontal overflow.
+  Independent visual review of Earth, Saturn, Mimas desktop/mobile and the Sun
+  finds no clipping; the Sun capture is byte-identical to the prior reviewed image.
+- Of 137 application source inputs, only `apps/web/styles.css` differs from the
+  original appearance candidate. The renderer, source pixels, WASM and schemas
+  are unchanged; their previously recorded numerical/source qualifications remain
+  applicable. The committed artifact is compared with this new layout candidate
+  before publication, and hosted status is reported from its actual PR checks.
+
+This layout follow-up changes `apps/web/styles.css`, `tools/caption_layout.mjs`,
+`tools/browser_validation.mjs` and this record. It adds no dependency, provider,
+physical-model change or scientific-state migration.
