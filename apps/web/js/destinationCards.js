@@ -1,6 +1,7 @@
 // Concise orientation from admitted scene state and reference facts. No calculation or I/O.
 import { BODY } from './bodyData.js?v=dcca6290db';
 import { visualBrowsePreview, textureEligible } from './visualAssets.js';
+import { appearanceReference, appearanceDescription } from './planetAppearance.js';
 
 /** @typedef {{eyebrow:string,title:string,description:string,facts:{label:string,value:string}[],note:string,preview:ReturnType<typeof visualBrowsePreview>,focusBody:string|null}} DestinationCard */
 const unavailable = 'Unavailable';
@@ -59,6 +60,6 @@ export function systemCard(state = {}) {
   return {...card, eyebrow: 'LOOK CLOSER', title: name, description: body.blurb,
     facts: [fact('Reference radius', number(body.radiusKm, ' km')), fact('Reference gravity', number(body.gravity, ' m/s²')),
       fact('Reference rotation', Number.isFinite(body.rotationHours) ? `${number(Math.abs(body.rotationHours), ' h')}${body.rotationHours < 0 ? ' · retrograde' : ''}` : unavailable)],
-    note: `Reference facts from the body catalogue, separate from the rendered date. ${scale}${retained}${!textureEligible(name) || state.useTextures === false ? ' Surface detail unavailable in this view; the 3-D appearance is simplified.' : ''}`,
+    note: `Reference facts from the body catalogue, separate from the rendered date. ${scale}${retained} ${appearanceReference(name) ? appearanceDescription(name, state) : !textureEligible(name) || state.useTextures === false ? 'Surface detail unavailable in this view; the 3-D appearance is simplified.' : ''}`,
     preview: visualBrowsePreview(name), focusBody: name};
 }

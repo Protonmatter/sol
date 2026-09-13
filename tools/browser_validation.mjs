@@ -691,11 +691,15 @@ async function moonShadowAssertions(page, visualDirectory) {
     const state = store.orrery;
     return { az: state.az, el: state.el, radius: state.radius, anchor: state.anchor };
   });
-  // Overlays that draw lines and points across the disc are irrelevant to this measurement and
-  // would put stray bright pixels inside the sampled annulus; they are restored below.
+  // These quantitative pixel gates retain their calibrated legacy material (.05
+  // ambient, encoded-space RGB). Switch reference imagery off through its public
+  // control for this measurement and restore it below. The actual source shader's
+  // linear-light shadow term has separate GPU fixtures; archived cloud contrast
+  // cannot serve as an unshadowed radiometric reference for these annular samples.
+  // Overlays would also put stray pixels inside the sampled annulus.
   const overlays = [
     "orreryShowOrbits", "orreryShowSmall", "orreryShowSky", "orreryShowConst",
-    "orreryDeepSky", "orreryShowSunEq",
+    "orreryDeepSky", "orreryShowSunEq", "orreryTextures",
   ];
   const overlayState = {};
   for (const id of overlays) {
@@ -918,28 +922,41 @@ async function visualAssertions(page, visualDirectory) {
   const assertSubmittedSpin = (samples) => {
     if (samples.length < 3) throw new Error(`insufficient Earth sphere draws: ${samples.length}`);
     let totalAngle = 0;
+    let previousRotation = null;
     for (let i = 0; i < samples.length; i++) {
       const sample = samples[i], n = sample.normal, model = sample.model;
       if (n.length !== 9 || model.length !== 16 || ![...n, ...model, sample.epoch, sample.rate].every(Number.isFinite)) throw new Error("nonfinite Earth draw transform");
+      const equatorialScale = Math.hypot(...model.slice(0, 3)), rotation = [];
       for (let column = 0; column < 3; column++) {
         const axis = model.slice(column * 4, column * 4 + 3), length = Math.hypot(...axis);
         if (!(length > 0)) throw new Error("degenerate Earth model axis");
-        for (let row = 0; row < 3; row++) if (Math.abs(axis[row] / length - n[column * 3 + row]) > 1e-5) throw new Error("Earth normal and submitted model rotation disagree");
+        // N = inverse-transpose(M), up to the common equatorial scale. Oblate
+        // normals have a longer polar column; only their normalized directions
+        // form the rotation used by the spin gate.
+        const normalLength = Math.hypot(...n.slice(column * 3, column * 3 + 3));
+        if (!(normalLength > 0)) throw new Error("degenerate Earth normal axis");
+        for (let row = 0; row < 3; row++) {
+          if (Math.abs(axis[row] * equatorialScale / (length * length) - n[column * 3 + row]) > 1e-5) throw new Error("Earth normal is not the submitted model inverse transpose");
+          rotation.push(n[column * 3 + row] / normalLength);
+        }
+      }
+      for (let column = 0; column < 3; column++) {
         for (let other = 0; other < 3; other++) {
-          const dot = n[column * 3] * n[other * 3] + n[column * 3 + 1] * n[other * 3 + 1] + n[column * 3 + 2] * n[other * 3 + 2];
+          const dot = rotation[column * 3] * rotation[other * 3] + rotation[column * 3 + 1] * rotation[other * 3 + 1] + rotation[column * 3 + 2] * rotation[other * 3 + 2];
           if (Math.abs(dot - (column === other ? 1 : 0)) > 1e-5) throw new Error("Earth rotation is not orthonormal");
         }
       }
-      if (!i) continue;
+      if (!i) { previousRotation = rotation; continue; }
       const previous = samples[i - 1];
       // Ephemeris advancement recovers the renderer's bounded simulated step, including its
       // 50ms frame clamp. Wall-clock delay is not an appropriate expected-angle oracle.
       const realStep = (sample.epoch - previous.epoch) / sample.rate;
       const expected = realStep * (2 * Math.PI / 5);
-      const trace = n.reduce((sum, value, k) => sum + value * previous.normal[k], 0);
+      const trace = rotation.reduce((sum, value, k) => sum + value * previousRotation[k], 0);
       const angle = Math.acos(Math.max(-1, Math.min(1, (trace - 1) / 2)));
       if (!(expected > 0) || Math.abs(angle - expected) > Math.max(1e-4, expected * .10)) throw new Error(`Earth submitted spin frozen or outside cap: angle=${angle}, expected=${expected}`);
       totalAngle += angle;
+      previousRotation = rotation;
     }
     if (totalAngle < .01) throw new Error("Earth submitted spin is frozen or undersampled");
     return { draws: samples.length, radians: totalAngle };

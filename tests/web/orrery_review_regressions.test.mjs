@@ -6,6 +6,7 @@ import { moonOffsetAU } from "../../apps/web/js/moonorbits.js";
 import { sunlightOnMoon } from "../../apps/web/js/moonshadows.js";
 import { iauRotation } from "../../apps/web/js/orreryMath.js";
 import { BODY, AU_KM } from "../../apps/web/js/bodyData.js";
+import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
 
 test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse attenuation", async t => {
   const h = await harness(t, { controls: true, catalogues: "ready", reducedMotion: true });
@@ -41,7 +42,8 @@ test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse att
   }
   assert.ok(uploads.get("Europa") > uploads.get("Ganymede"), "the larger Ganymede must retain its lower reflectance");
   assert.ok(Math.abs(uploads.get("Callisto") / uploads.get("Europa") - MOON_ALBEDO.Callisto / MOON_ALBEDO.Europa) < 1e-6);
-  assert.equal(h.images.length, 0, "albedo restoration cannot bypass source qualification");
+  assert.deepEqual(h.images.map(image => image.src).sort(), appearanceReferences().map(a => a.path).sort(),
+    'only dated registered references load; held moon images remain blocked');
   h.leaveOrrery();
 });
 

@@ -16,6 +16,10 @@ export async function orreryHarness(t, options = {}) {
   const events = [];
   const frames = new Map(), requests = [], errors = [], warnings = [], positionEpochs = [], presentations = [];
   const images = [], textureUploads = [], drawCalls = [], optionalLoads = [], canvasCommands = [];
+  const textureRecords = [], textureParameters = [], mipmapTextures = [], deletedTextures = [], gpuDraws = [];
+  const pixelStoreCalls = [], pixelStore = new Map();
+  const textureBindings = new Map(); let activeTextureUnit = 0, textureId = 0, pendingTextureError = 0;
+  let textureUploadError = options.textureUploadError || 0;
   const uniformDraws = [], uniforms = new Map(); let currentProgram;
   const recordUniform = (location, value) => {
     if (!uniforms.has(location.program)) uniforms.set(location.program, {});
@@ -27,10 +31,23 @@ export async function orreryHarness(t, options = {}) {
   let wallUnix = 1800000000, snapshotsHeld = false, engineLoad = Promise.resolve();
   let graphicsFailure = options.graphicsFailure || "", resizeCallback;
   let optionalMode = options.catalogues || "pending";
+  // Distinct WebGL enum values make sampler-unit and scientific-filter regressions
+  // observable; a generic constant value would make LINEAR and NEAREST identical.
+  const graphicsConstants = {
+    NO_ERROR: 0, INVALID_VALUE: 1281, OUT_OF_MEMORY: 1285, MAX_TEXTURE_SIZE: 3379,
+    TEXTURE_2D: 3553, TEXTURE0: 33984, TEXTURE1: 33985,
+    TEXTURE_MIN_FILTER: 10241, TEXTURE_MAG_FILTER: 10240,
+    TEXTURE_WRAP_S: 10242, TEXTURE_WRAP_T: 10243,
+    NEAREST: 9728, LINEAR: 9729, LINEAR_MIPMAP_LINEAR: 9987,
+    REPEAT: 10497, CLAMP_TO_EDGE: 33071,
+    UNPACK_FLIP_Y_WEBGL: 37440, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 37441,
+  };
   const gl = new Proxy({
+    ...graphicsConstants,
     isContextLost: () => false,
-    getExtension: () => options.renderer ? { UNMASKED_RENDERER_WEBGL: 1 } : null,
-    getParameter: () => options.renderer,
+    getExtension: () => options.renderer ? { UNMASKED_RENDERER_WEBGL: 37446 } : null,
+    getParameter: name => name === graphicsConstants.MAX_TEXTURE_SIZE ? options.maxTextureSize ?? 16384 : options.renderer,
+    getError: () => { const error = pendingTextureError; pendingTextureError = 0; return error; },
     getShaderParameter: () => graphicsFailure !== "shader",
     getProgramParameter: () => graphicsFailure !== "link",
     getShaderInfoLog: () => "test GPU shader compile failure",
@@ -39,12 +56,32 @@ export async function orreryHarness(t, options = {}) {
     getUniformLocation: (program, name) => ({ program, name }),
     useProgram: program => { currentProgram = program; },
     uniform1i: recordUniform,
+    uniform1f: recordUniform,
+    uniform2fv: recordUniform,
     uniform3fv: recordUniform,
+    uniform4fv: recordUniform,
     uniformMatrix3fv: (location, _transpose, value) => recordUniform(location, value),
     uniformMatrix4fv: (location, _transpose, value) => recordUniform(location, value),
-    drawElements: (...args) => { draws++; drawCalls.push(["elements", ...args]); uniformDraws.push({ ...uniforms.get(currentProgram) }); },
+    drawElements: (...args) => {
+      draws++; drawCalls.push(["elements", ...args]);
+      const drawUniforms = { ...uniforms.get(currentProgram) };
+      uniformDraws.push(drawUniforms);
+      gpuDraws.push({ uniforms: drawUniforms, textures: new Map(textureBindings) });
+    },
     drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]); },
-    texImage2D: (...args) => { textureUploads.push(args); },
+    createTexture: () => ({ textureId: ++textureId }),
+    activeTexture: unit => { activeTextureUnit = unit - graphicsConstants.TEXTURE0; },
+    bindTexture: (_target, texture) => { textureBindings.set(activeTextureUnit, texture); },
+    pixelStorei: (name, value) => { pixelStore.set(name, value); pixelStoreCalls.push({ name, value }); },
+    texImage2D: (...args) => {
+      textureUploads.push(args);
+      const pixels = args.at(-1);
+      textureRecords.push({ texture: textureBindings.get(activeTextureUnit), pixels, args, pixelStore: new Map(pixelStore) });
+      pendingTextureError = typeof textureUploadError === "function" ? textureUploadError(pixels) : textureUploadError;
+    },
+    texParameteri: (_target, name, value) => { textureParameters.push({ texture: textureBindings.get(activeTextureUnit), name, value }); },
+    generateMipmap: () => { mipmapTextures.push(textureBindings.get(activeTextureUnit)); },
+    deleteTexture: texture => { deletedTextures.push(texture); },
   }, { get(target, name) {
     if (name in target) return target[name];
     if (/^[A-Z_0-9]+$/.test(name)) return 1;
@@ -85,7 +122,7 @@ export async function orreryHarness(t, options = {}) {
         canvasCommands.push({ canvas: element, method, args }); return { addColorStop() {} };
       };
       context2d.getImageData = (_x, _y, width, height) => ({ data: new Uint8ClampedArray(width * height * 4) });
-      element.getContext = type => { assert.equal(type, "2d"); return context2d; };
+      element.getContext = type => { assert.equal(type, "2d"); return options.canvas2dUnavailable ? null : context2d; };
     }
     return element;
   };
@@ -104,9 +141,11 @@ export async function orreryHarness(t, options = {}) {
     orreryAnimate: node({ checked: true }), orreryNow: node(),
   };
   if (options.controls) {
-    for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
+    for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
       nodes[`orrery${id}`] = node();
     }
+    for (const id of ["Textures", "EarthNight", "EarthWeather"]) nodes[`orrery${id}`].checked = true;
+    nodes.orreryEarthIce.checked = false;
     nodes.orrerySpeedUnit.value = "1";
     for (const dps of ["0.041666666666666664", "1", "30", "365.25"]) {
       const button = node({}, "button"); button.dataset.dps = dps; nodes.orrerySpeedPresets.appendChild(button);
@@ -178,7 +217,7 @@ export async function orreryHarness(t, options = {}) {
     performance: { now: () => monotonicNow },
     requestAnimationFrame(fn) { const id = ++frameId; frames.set(id, fn); return id; },
     cancelAnimationFrame: id => frames.delete(id),
-    Image: class { constructor() { images.push(this); } },
+    Image: class { constructor() { this.width = 0; this.height = 0; images.push(this); } },
     fetch: async () => options.sunMetadata === undefined ? { ok: false } : { ok: true, json: async () => options.sunMetadata },
     ...(options.reducedMotion === undefined ? {} : { matchMedia: () => ({ matches: options.reducedMotion }) }),
     ...(options.controls ? { ResizeObserver: class { constructor(callback) { resizeCallback = callback; } observe() {} } } : {}),
@@ -202,7 +241,7 @@ export async function orreryHarness(t, options = {}) {
     },
   });
   const settle = () => new Promise(resolve => setImmediate(resolve));
-  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
+  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
     ...lifecycle, settle,
     event(id, type, properties = {}) { return nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties }); },
     input(id, value, type = "input") { nodes[id].value = value; return this.event(id, type); },
@@ -218,6 +257,7 @@ export async function orreryHarness(t, options = {}) {
     get idleScheduled() { return idleId; },
     setCatalogueMode(value) { optionalMode = value; },
     setGraphicsFailure(value) { graphicsFailure = value; },
+    setTextureUploadError(value) { textureUploadError = value; },
     advanceMonotonicTime(value) { monotonicNow = value; },
     failWorker(value) { workerFailure = value; },
     setWallUnix(value) { wallUnix = value; },

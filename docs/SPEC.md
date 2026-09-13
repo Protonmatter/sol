@@ -32,6 +32,13 @@ reuse the existing view transform without moving physical bodies.
 
 Scientific and source claims remain anchored to public methods and data: NOAA/SWPC products, Helioviewer quicklook imagery and metadata, IERS Earth-orientation data, JPL Horizons/DE441 validation, published analytic ephemerides, and NASA/IAU constants. Sol does not claim proprietary JPL, NOAA, or commercial forecasting algorithms.
 
+Planetary appearance follows [RFC 0004](rfcs/0004-registered-planetary-appearance.md).
+Registered, dated mission display maps are separate from calibrated or complete
+observations. Earth layers distinguish land/ice, annual night lights, dated satellite
+clouds/surface and sea-ice analysis. Their epochs do not follow model time. Source
+coverage masks preserve missing observations; no procedural geography or polar caps
+fill gaps. Atmospheric scattering remains an explicitly illustrative visual effect.
+
 ## Architecture
 
 - Rust CPU-reference engines are the mathematical source of truth.

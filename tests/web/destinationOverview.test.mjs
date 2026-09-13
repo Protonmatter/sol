@@ -8,7 +8,8 @@ import {loadSourceModules} from './helpers/sourceModuleHarness.mjs';
 const ids = ['destinationEyebrow', 'destinationTitle', 'destinationDescription', 'destinationNote',
   'destinationFacts', 'destinationPreview', 'destinationImage', 'destinationImageStatus',
   'destinationImageSource', 'destinationFocus', 'destinationLocation', 'systemJumps',
-  'destinationCaption', 'destinationCaveat'];
+  'destinationCaption', 'destinationCaveat', 'destinationAppearance', 'destinationAppearanceText',
+  'destinationAppearanceSources', 'destinationEarthLayers'];
 
 // Model the DOM operations the card owns, including the observable cost of replacing
 // descendants. Any HTML parsing attempt fails, so external names remain literal text.
@@ -71,6 +72,24 @@ const factsOf = nodes => Object.fromEntries(nodes.destinationFacts.children.map(
   assert.equal(row.tagName, 'DIV');
   assert.deepEqual(row.children.map(child => child.tagName), ['DT', 'DD']);
   return row.children.map(child => child.textContent);
+}));
+
+test('Earth source disclosure retains dates and links while repeated frames preserve focused source controls', () => withDocument(({nodes,doc}) => {
+  const state = {selected:'Earth',useTextures:true};
+  renderDestinationOverview('orrery', null, state);
+  assert.equal(nodes.destinationAppearance.hidden, false);
+  assert.equal(nodes.destinationEarthLayers.hidden, false);
+  const links = nodes.destinationAppearanceSources.children;
+  assert.equal(links.length, 4);
+  assert.ok(links.every(link => link.href.startsWith('https://') && link.rel.includes('noopener')));
+  links[0].focus(); renderDestinationOverview('orrery', null, state);
+  assert.equal(doc.activeElement, links[0]); assert.equal(nodes.destinationAppearanceSources.replacements, 1);
+  renderDestinationOverview('orrery', null, {...state,selected:'Jupiter'});
+  assert.equal(nodes.destinationEarthLayers.hidden, true);
+  assert.equal(nodes.destinationAppearanceSources.children.length, 1);
+  renderDestinationOverview('sky', skyState(), state);
+  assert.equal(nodes.destinationAppearance.hidden, true);
+  assert.equal(nodes.destinationAppearanceSources.children.length, 0);
 }));
 
 test('Today does not alter a destination or require the destination DOM to exist', () => {

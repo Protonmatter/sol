@@ -1877,6 +1877,9 @@ body.focus-mode .observation-image-wrap { right: 0; }
 .destination-facts dt { color: #a7bfdc; font-size: .65rem; margin-bottom: .4rem; }
 .destination-facts dd { margin: 0; font-size: .88rem; font-weight: 550; overflow-wrap: anywhere; }
 .destination-note { color: #a8bed8; font-size: .73rem; line-height: 1.8; }
+.earth-ice-legend { margin: .75rem 0; }
+.earth-ice-legend img { display: block; width: 100%; height: auto; max-width: 420px; background: #fff; border-radius: .25rem; }
+.earth-ice-legend figcaption { color: #b9cde4; font-size: .75rem; line-height: 1.6; margin-top: .5rem; }
 .destination-overview .overview-cta { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; margin-top: .8rem; padding: .8rem 1rem; border: 1px solid #9b8258; border-radius: .5rem; background: linear-gradient(110deg, #382b1b80, #1d2b3c); color: #f6d9a5; font-size: .76rem; font-weight: 500; text-align: left; cursor: pointer; }
 .destination-actions { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .6rem; }
 .destination-actions button { min-height: 44px; padding: .5rem 0; color: #b2c7e2; background: none; border: 0; font-size: .73rem; text-align: left; cursor: pointer; }

@@ -95,6 +95,8 @@ jobs:
         run: python tools/browser_smoke.py --web-root build/site
       - name: Chromium execution coverage and WebGL visual assertions
         run: node tools/browser_validation.mjs --web-root=build/site
+      - name: Registered planetary imagery and Earth layer GPU contract
+        run: node tools/planet_appearance_validation.mjs --web-root=build/site --out=coverage/planet-appearance
       - name: Whole-web Node + Chromium line gate
         # Generated catalogues must load in the browser but are deliberately omitted
         # from the percentage so declarative data rows cannot inflate application coverage.
@@ -108,6 +110,7 @@ jobs:
             coverage/combined
             coverage/node/coverage-final.json
             coverage/node-executed
+            coverage/planet-appearance
           if-no-files-found: ignore
           retention-days: 90
 

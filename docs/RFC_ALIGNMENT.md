@@ -1,6 +1,6 @@
 # RFC alignment matrix
 
-Updated: 2026-09-11
+Updated: 2026-09-13
 
 The original web and solar-system design documents remain useful implementation history.
 Where they conflict with the current system, `SPEC.md`, accepted ADRs and repository RFCs,
@@ -22,6 +22,11 @@ and the traced requirements are authoritative.
 | Validation documented as language-specific commands | One traced governance → unit → contract → integration → browser/visual → determinism → release plan | RFC 0001, `docs/VALIDATION_PLAN.md` |
 
 ## Acceptance-status interpretation
+
+RFC 0004 is accepted for the requested planetary appearance and Earth layers. Its
+registered display-reference collection admits documented source maps and explicit
+partial coverage without weakening the legacy complete-global-observation gate.
+It does not establish current weather, calibrated radiance or production qualification.
 
 RFC 0003 is accepted for the user-authorized local workspace implementation. It adds
 closed-on-entry contextual controls, persistent navigation, display clearance and visual

@@ -36,6 +36,16 @@ uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_at
 // 2 = MOON MOSAIC (a USGS global mosaic browse rendering), which is REPLACE divided by the
 // map's own mean level — see the branch below for why that division is the honest form.
 uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
+// Mode 3: registered, dated display imagery, with explicit map axes and coverage.
+// Latitude refers to the SOURCE grid, not the oblate mesh's parametric latitude.
+uniform vec4 u_map; uniform vec4 u_mapLat; uniform vec4 u_mapWindow; uniform int u_mapNoData;
+uniform int u_earthNight; uniform int u_earthWeather; uniform int u_earthIce;
+uniform sampler2D u_nightTex; uniform sampler2D u_weatherTex; uniform sampler2D u_iceTex;
+vec3 decodeSRGB(vec3 c){ return mix(c/12.92,pow((c+0.055)/1.055,vec3(2.4)),step(vec3(0.04045),c)); }
+vec3 encodeSRGB(vec3 c){ c=max(c,vec3(0)); return mix(c*12.92,1.055*pow(c,vec3(1.0/2.4))-0.055,step(vec3(0.0031308),c)); }
+// Masked photographic inputs are premultiplied at upload. Normalize the filtered
+// color before decoding so missing black pixels cannot darken covered edges.
+vec3 coveredRGB(vec4 c){ return c.a>0.0 ? clamp(c.rgb/c.a,0.0,1.0) : vec3(0); }
 // u_sunA: the SDO disk-centre direction (Sun→Earth at capture time) in the SUN'S BODY FRAME —
 // see sunDiskBasis() in orrery.js. Body-frame, not camera: the image must co-rotate with the
 // Sun's real spin, not follow the eye around.
@@ -62,6 +72,24 @@ uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform
 const int MOON_SHADOWS=4;
 uniform int u_moonShadowCount; uniform vec4 u_moonShadowPos[MOON_SHADOWS]; uniform vec4 u_moonShadowAxis[MOON_SHADOWS];
 ${NOISE}
+vec2 referenceUV(vec3 p){
+  float z=p.z;
+  if(u_map.z>1.5) z/=u_oblate;
+  else if(u_map.z>0.5) z*=u_oblate;
+  float latitude=atan(z,length(p.xy));
+  float longitude=length(p.xy)<1e-7 ? 0.0 : atan(p.y,p.x);
+  return vec2(fract(u_map.x+u_map.y*longitude*0.1591549431),
+    (u_mapLat.y-latitude)/(u_mapLat.y-u_mapLat.x));
+}
+float referenceCoverage(vec3 p,vec4 sampleColor){
+  vec2 uv=referenceUV(p)*u_mapWindow.xy+u_mapWindow.zw;
+  if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1)))) return 0.0;
+  float z=u_map.z>1.5 ? p.z/u_oblate : u_map.z>0.5 ? p.z*u_oblate : p.z;
+  float latitude=atan(z,length(p.xy));
+  if(latitude<u_mapLat.z||latitude>u_mapLat.w) return 0.0;
+  if(u_mapNoData==1&&max(sampleColor.r,max(sampleColor.g,sampleColor.b))<0.00392157) return 0.0;
+  return u_mapNoData==2 ? sampleColor.a : 1.0;
+}
 void main(){
   vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
   float lat=p.z; float fres=pow(1.0-clamp(dot(N,V),0.0,1.0),3.0);
@@ -116,13 +144,26 @@ void main(){
   // north pole. Matches surfacemap.js's lonToX/latToY exactly.
   float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862;
   vec3 col=u_base;
+  bool reference=u_useTex==1&&u_texMode==3;
   // How much relief the procedural moon styles are allowed to add. u_base for a moon is its
   // catalogue HUE scaled to its published geometric albedo (moonAppearance.js), so its own
   // luminance IS the albedo scale — reusing it here means the crater field on charcoal-dark
   // Phobos is a fifth of the amplitude it has on Enceladus, instead of every moon carrying an
   // identical absolute crater contrast regardless of how much light it reflects.
   float relief=dot(u_base,vec3(0.299,0.587,0.114));
-  if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
+  if(reference){
+    vec2 uv=referenceUV(p)*u_mapWindow.xy+u_mapWindow.zw;
+    vec4 mapped=texture(u_tex,uv);
+    vec3 sourceRGB=u_mapNoData==2 ? coveredRGB(mapped) : mapped.rgb;
+    col=mix(decodeSRGB(u_base),decodeSRGB(sourceRGB),referenceCoverage(p,mapped));
+    // Earth auxiliaries share the documented WGS84 pixel-area grid, 180W..180E.
+    // Weather is the provider's dated clouds-and-surface image, never inferred clouds.
+    if(u_earthWeather==1){
+      vec4 weather=texture(u_weatherTex,uv);
+      col=mix(col,decodeSRGB(coveredRGB(weather)),weather.a);
+    }
+  }
+  else if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
   else if(u_useTex==1&&u_texMode==2){ // real USGS moon mosaic
     // The mosaic is a browse rendering: contrast-stretched per product, single-band, with no
     // absolute photometry — Callisto's mean sits at 0.18 and Europa's at 0.57 for reasons of
@@ -260,7 +301,7 @@ void main(){
   // The shadow removes DIRECT sunlight only. The 0.05 floor is the light a planet's own
   // atmosphere scatters into it, which is why Io's shadow reads as very dark grey rather than
   // as a hole in the planet.
-  float shade=0.05+0.95*lambert*sunVis;
+  float shade=reference ? 0.001+0.999*lambert*sunVis : 0.05+0.95*lambert*sunVis;
   col*=shade;
   // Ring shadow on the planet: march from this surface point toward the Sun in the BODY frame
   // (the rings live in the equatorial z=0 plane there) and darken by the ring's own optical
@@ -284,7 +325,17 @@ void main(){
       }
     }
   }
-  col+=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert); // atmospheric scattering on the disc rim
+  if(reference){
+    // Published night-light composite: display emission only, no inferred lamp locations.
+    // The smooth 0 to -6 degree twilight fade is a visual convention, not a switch-on model.
+    float night=1.0-smoothstep(-0.1045284633,0.0,dot(N,normalize(u_light)));
+    if(u_earthNight==1) col+=decodeSRGB(texture(u_nightTex,referenceUV(p)).rgb)*night;
+    col=encodeSRGB(col);
+  }
+  col+=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert); // illustrative atmospheric scattering on the disc rim
+  // The scientific palette is not a material: solar lighting must not change its
+  // concentration colours. Composite it after lighting, paired with the source legend.
+  if(reference&&u_earthIce==1){ vec4 ice=texture(u_iceTex,referenceUV(p)); col=mix(col,ice.rgb,ice.a); }
   o=vec4(col,1.0);
 }`;
 

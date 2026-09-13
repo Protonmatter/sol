@@ -276,6 +276,7 @@ for (const [id, skyTarget, systemTarget] of [
   ['destinationSearch', 'skySearch', 'orrerySearch'],
   ['destinationDetails', 'skySelectedFacts', 'orreryDetail'],
   ['destinationLocation', 'skyLat', 'orreryTime'],
+  ['destinationEarthLayers', 'skySelectedFacts', 'orreryEarthNight'],
 ]) document.getElementById(id)?.addEventListener('click', () => revealWorkspaceControl(store.activeMode, store.activeMode === 'sky' ? skyTarget : systemTarget));
 document.getElementById('destinationTime')?.addEventListener('click', revealTime);
 const focusBody = body => {

@@ -72,6 +72,8 @@ class ReleaseArtifactTests(unittest.TestCase):
         other.update(id="secondary-archive-fixture", path="textures/secondary-archive-fixture.jpg")
         data["observed_images"].append(other)
         paths = {asset["path"] for asset in data["assets"]}
+        paths.update(asset["path"] for asset in data.get("mapped_references", []))
+        paths.update(asset["legend"]["path"] for asset in data.get("mapped_references", []) if "legend" in asset)
         paths.update(asset["path"] for asset in data["procedural_assets"] if "path" in asset)
         paths.update(("js/solarObservation.js", "js/config.js"))
         for path in paths:

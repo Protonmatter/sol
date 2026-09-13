@@ -43,7 +43,7 @@ TRANSITION_SCHEMAS = {"solar-state-snapshot.v2", "solar-state-snapshot.v3", "eph
 SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "ephemerisSchema.js", "ephemerisContract.js", "ephemerisContractV2.js",
     "solarSchema.js", "solarContract.js", "systemContract.js", "dataBundle.js", "sourceAttribution.js",
     "solarProjection.js", "solarRegionFacts.js", "celestial.js", "engineLimits.js",
-    "displayGeometry.js", "visualAssets.js", "visualAssetManifest.js", "solarObservation.js", "orreryShaders.js",
+    "displayGeometry.js", "labelOcclusion.js", "visualAssets.js", "visualAssetManifest.js", "solarObservation.js", "orreryShaders.js", "planetAppearance.js", "surfaceMapping.js",
     "bodyData.js", "moonelements.js", "moonorbits.js", "moonshadows.js", "starphysics.js", "starcatalog.js",
     "orreryMath.js", "orreryTime.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
     "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js"})

@@ -186,12 +186,232 @@ def validate_inventory(data: dict, web_root: Path | None = None, *, require_qual
     if ids & observed_ids or paths & observed_paths:
         raise ValueError("duplicate visual identity across raster collections")
     paths.update(observed_paths)
+    reference_ids, reference_paths = validate_mapped_references(data, web_root)
+    if (ids | observed_ids) & reference_ids or paths & reference_paths:
+        raise ValueError("duplicate visual identity across raster collections")
     validate_dynamic_sources(data, web_root)
     if web_root:
         actual = {p.relative_to(web_root).as_posix() for p in (web_root / "textures").iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}}
         if actual != paths:
             raise ValueError("raster inventory incomplete")
     return data
+
+
+MAPPED_REFERENCE_FIELDS = frozenset({"id", "body", "role", "path", "sha256", "bytes", "dimensions", "label", "credits",
+    "source_url", "source_sha256", "source_bytes", "source_retrieved_at", "observation_label", "color_interpretation",
+    "limitations", "projection", "mapping", "validLatitudeBounds", "nodata", "derivation", "metadata_urls", "reviewed_at"})
+REFERENCE_ARCHIVES = frozenset({"archive.stsci.edu", "outerplanets.stsci.edu"})
+
+
+def reference_url(value: object, *, metadata: bool = False) -> str:
+    """Return an admitted public archive host; this does not fetch or authenticate bytes."""
+    if not isinstance(value, str) or value != value.strip() or any(ord(char) < 32 or ord(char) == 127 for char in value):
+        raise ValueError("mapped reference requires an official HTTPS URL")
+    try:
+        parsed = urlparse(value)
+        host = parsed.hostname or ""
+        official = any(host == domain or host.endswith("." + domain) for domain in ("nasa.gov", "usgs.gov"))
+        if parsed.scheme != "https" or parsed.username or parsed.password or parsed.port not in (None, 443) or not (official or host in REFERENCE_ARCHIVES or (metadata and host == "nasa-gibs.github.io")):
+            raise ValueError("unapproved archive")
+    except ValueError as exc:
+        raise ValueError("mapped reference requires an official HTTPS URL") from exc
+    return host
+
+
+def reference_latitudes(value: object) -> list[float]:
+    if (not isinstance(value, list) or len(value) != 2
+            or any(type(number) not in (int, float) or not math.isfinite(number) for number in value)
+            or not -90 <= value[0] < value[1] <= 90):
+        raise ValueError("invalid mapped reference latitude bounds")
+    return value
+
+
+def validate_reference_mapping(value: object) -> tuple[list[float], list[float], list[float]]:
+    required = {"primeMeridianU", "longitudeDirection", "latitudeType", "latitudeBounds"}
+    if not isinstance(value, dict) or not required.issubset(value) or set(value) - required - {"uvScale", "uvOffset"}:
+        raise ValueError("invalid mapped reference mapping fields")
+    prime = value["primeMeridianU"]
+    if type(prime) not in (int, float) or not math.isfinite(prime) or not 0 <= prime <= 1:
+        raise ValueError("invalid mapped reference prime meridian")
+    if value["longitudeDirection"] not in ("east", "west") or value["latitudeType"] not in ("planetocentric", "planetographic", "parametric"):
+        raise ValueError("invalid mapped reference coordinate convention")
+    latitudes = reference_latitudes(value["latitudeBounds"])
+    scale, offset = value.get("uvScale", [1, 1]), value.get("uvOffset", [0, 0])
+    for field, pair in (("uvScale", scale), ("uvOffset", offset)):
+        if (not isinstance(pair, list) or len(pair) != 2
+                or any(type(number) not in (int, float) or not math.isfinite(number) for number in pair)
+                or (field == "uvScale" and any(number <= 0 for number in pair))):
+            raise ValueError(f"invalid mapped reference {field}")
+    if any(not math.isfinite(origin + extent) or origin >= 1 or origin + extent <= 0 for origin, extent in zip(offset, scale)):
+        raise ValueError("mapped reference UV grid does not overlap its image")
+    return latitudes, scale, offset
+
+
+def reference_raster_dimensions(raw: bytes, suffix: str, nodata: str) -> list[int]:
+    if suffix in {".jpg", ".jpeg"}:
+        if nodata == "alpha":
+            raise ValueError("mapped reference alpha nodata requires an alpha raster")
+        return jpeg_dimensions(raw)
+    if suffix == ".png" and len(raw) >= 33 and raw[:8] == b"\x89PNG\r\n\x1a\n" and raw[8:16] == b"\0\0\0\rIHDR":
+        # RGBA/grayscale-alpha are explicit alpha products. Palette transparency
+        # needs a separate reviewed conversion rather than inferred RGB nodata.
+        if nodata == "alpha" and raw[25] not in {4, 6}:
+            raise ValueError("mapped reference alpha nodata requires an alpha raster")
+        return [int.from_bytes(raw[16:20], "big"), int.from_bytes(raw[20:24], "big")]
+    raise ValueError("mapped reference raster format or dimensions unavailable")
+
+
+def validate_reference_legend(value: object, web_root: Path | None) -> None:
+    """Bind a same-origin original provider palette, separately from data pixels."""
+    if not isinstance(value, dict) or set(value) != {"path", "sha256", "bytes", "dimensions", "source_url"}:
+        raise ValueError("invalid mapped reference legend fields")
+    if not isinstance(value["path"], str) or not re.fullmatch(r"images/[A-Za-z0-9][A-Za-z0-9._-]*\.png", value["path"]):
+        raise ValueError("invalid mapped reference legend path")
+    if not isinstance(value["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", value["sha256"]):
+        raise ValueError("invalid mapped reference legend SHA256")
+    if type(value["bytes"]) is not int or value["bytes"] <= 0:
+        raise ValueError("invalid mapped reference legend byte count")
+    dimensions = value["dimensions"]
+    if not isinstance(dimensions, list) or len(dimensions) != 2 or any(type(number) is not int or number <= 0 for number in dimensions):
+        raise ValueError("invalid mapped reference legend dimensions")
+    reference_url(value["source_url"])
+    if web_root:
+        file = web_root / value["path"]
+        if file.is_symlink() or not file.is_file() or not file.resolve().is_relative_to(web_root.resolve()):
+            raise ValueError("missing mapped reference legend")
+        raw = file.read_bytes()
+        if len(raw) != value["bytes"] or hashlib.sha256(raw).hexdigest() != value["sha256"]:
+            raise ValueError("mapped reference legend bytes differ from inventory")
+        if reference_raster_dimensions(raw, file.suffix, "none") != dimensions:
+            raise ValueError("mapped reference legend dimensions differ from inventory")
+
+
+def validate_earth_layer_grids(references: list[dict]) -> None:
+    """Cross-record admission after field validation: Earth layers share shader UVs."""
+    auxiliary = [item for item in references if item["role"] != "surface"]
+    if not auxiliary:
+        return
+    if any(item["body"] != "Earth" for item in auxiliary):
+        raise ValueError("mapped reference auxiliary roles are only supported for Earth")
+    base = next((item for item in references if item["body"] == "Earth" and item["role"] == "surface"), None)
+    if base is None:
+        raise ValueError("mapped reference auxiliary layers require an Earth surface reference")
+    base_mapping = base["mapping"]
+    # A prime meridian at u=1 is equivalent to u=0 after the shader's fract().
+    base_grid = (base["projection"], base_mapping["primeMeridianU"] % 1,
+                 base_mapping["longitudeDirection"], base_mapping["latitudeType"])
+    for item in [base, *auxiliary]:
+        mapping = item["mapping"]
+        if mapping["latitudeBounds"] != [-90, 90] or item["validLatitudeBounds"] != [-90, 90]:
+            raise ValueError("Earth auxiliary rendering requires full latitude grid and valid bounds")
+        # Night/ice lookups intentionally omit the affine window. A shared but
+        # nonidentity window would therefore still misregister those layers.
+        if mapping.get("uvScale", [1, 1]) != [1, 1] or mapping.get("uvOffset", [0, 0]) != [0, 0]:
+            raise ValueError("Earth auxiliary rendering requires an identity image window")
+        grid = (item["projection"], mapping["primeMeridianU"] % 1, mapping["longitudeDirection"], mapping["latitudeType"])
+        if grid != base_grid:
+            raise ValueError("Earth auxiliary mapping grid differs from the surface reference")
+        if item["role"] != "surface" and item["nodata"] != {"night-lights": "none", "weather": "alpha", "sea-ice": "alpha"}[item["role"]]:
+            raise ValueError("Earth auxiliary nodata policy is incompatible with its shader role")
+
+
+def validate_mapped_references(data: dict, web_root: Path | None = None) -> tuple[set[str], set[str]]:
+    """Admit dated reference layers separately; never upgrade legacy surface holds."""
+    references = data.get("mapped_references", [])
+    if not isinstance(references, list):
+        raise ValueError("invalid mapped reference collection")
+    ids, paths, roles = set(), set(), set()
+    for reference in references:
+        if not isinstance(reference, dict) or not MAPPED_REFERENCE_FIELDS.issubset(reference) or set(reference) - MAPPED_REFERENCE_FIELDS - {"derivation_inputs", "legend"}:
+            raise ValueError("invalid mapped reference fields")
+        for field in ("id", "body", "label", "credits", "observation_label", "color_interpretation", "limitations", "derivation"):
+            if not isinstance(reference[field], str) or not reference[field].strip():
+                raise ValueError(f"missing mapped reference {field}")
+        if reference["role"] not in ("surface", "night-lights", "weather", "sea-ice"):
+            raise ValueError("invalid mapped reference role")
+        if "legend" in reference:
+            if reference["role"] != "sea-ice":
+                raise ValueError("mapped reference legend requires the sea-ice role")
+            validate_reference_legend(reference["legend"], web_root)
+        if not isinstance(reference["path"], str) or not re.fullmatch(r"textures/reference/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:jpg|jpeg|png)", reference["path"]):
+            raise ValueError("invalid mapped reference path")
+        role = (reference["body"], reference["role"])
+        if reference["id"] in ids or reference["path"] in paths or role in roles:
+            raise ValueError("duplicate mapped reference identity or body role")
+        ids.add(reference["id"]); paths.add(reference["path"]); roles.add(role)
+        if reference["projection"] != "equirectangular" or reference["nodata"] not in ("none", "black", "alpha"):
+            raise ValueError("invalid mapped reference projection or nodata")
+        latitudes, _, _ = validate_reference_mapping(reference["mapping"])
+        valid = reference_latitudes(reference["validLatitudeBounds"])
+        if valid[0] < latitudes[0] or valid[1] > latitudes[1]:
+            raise ValueError("mapped reference valid coverage exceeds its source grid")
+        for field in ("sha256", "source_sha256"):
+            if not isinstance(reference[field], str) or not re.fullmatch(r"[0-9a-f]{64}", reference[field]):
+                raise ValueError("invalid mapped reference SHA256")
+        for field in ("bytes", "source_bytes"):
+            if type(reference[field]) is not int or reference[field] <= 0:
+                raise ValueError("invalid mapped reference byte count")
+        if reference["sha256"] == reference["source_sha256"] and reference["bytes"] != reference["source_bytes"]:
+            raise ValueError("mapped reference identical source hash has inconsistent size")
+        if reference["sha256"] != reference["source_sha256"] and reference["derivation"].strip().lower() in {"none", "identity", "original", "original bytes"}:
+            raise ValueError("mapped reference derived bytes require their processing description")
+        dimensions = reference["dimensions"]
+        if not isinstance(dimensions, list) or len(dimensions) != 2 or any(type(number) is not int or number <= 0 for number in dimensions):
+            raise ValueError("invalid mapped reference dimensions")
+        stamps = []
+        for field in ("source_retrieved_at", "reviewed_at"):
+            if not isinstance(reference[field], str) or not reference[field]:
+                raise ValueError("mapped reference timestamp requires an explicit timezone")
+            validate_time(reference[field])
+            stamps.append(datetime.fromisoformat(reference[field]))
+        if stamps[1] < stamps[0]:
+            raise ValueError("mapped reference review precedes source retrieval")
+        if not re.search(r"\b[12]\d{3}\b", reference["observation_label"]):
+            raise ValueError("mapped reference observation label requires a source date or range")
+        if re.search(r"\b(?:live|real[ -]?time|current|today|now)\b", reference["label"] + " " + reference["observation_label"], re.I):
+            raise ValueError("mapped reference cannot claim current observations")
+        host = reference_url(reference["source_url"])
+        metadata = reference["metadata_urls"]
+        if not isinstance(metadata, list) or not metadata:
+            raise ValueError("mapped reference requires official product metadata")
+        metadata_hosts = [reference_url(url, metadata=True) for url in metadata]
+        source_hosts = [host]
+        if "derivation_inputs" in reference:
+            inputs = reference["derivation_inputs"]
+            if not isinstance(inputs, list) or not inputs:
+                raise ValueError("mapped reference derivation inputs must be a nonempty list")
+            input_urls = set()
+            primary = False
+            for item in inputs:
+                if not isinstance(item, dict) or set(item) != {"url", "sha256", "bytes"}:
+                    raise ValueError("invalid mapped reference derivation input")
+                source_hosts.append(reference_url(item["url"]))
+                if item["url"] in input_urls or not isinstance(item["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"]) or type(item["bytes"]) is not int or item["bytes"] <= 0:
+                    raise ValueError("invalid mapped reference derivation input identity")
+                input_urls.add(item["url"])
+                primary |= item == {"url": reference["source_url"], "sha256": reference["source_sha256"], "bytes": reference["source_bytes"]}
+            if not primary:
+                raise ValueError("mapped reference derivation inputs omit its bound primary source")
+        if any(name in REFERENCE_ARCHIVES for name in source_hosts) and not any(name == "nasa.gov" or name.endswith(".nasa.gov") for name in metadata_hosts):
+            raise ValueError("mapped reference STScI archive requires NASA mission evidence")
+        if web_root:
+            file = web_root / reference["path"]
+            if file.is_symlink() or not file.is_file() or not file.resolve().is_relative_to(web_root.resolve()):
+                raise ValueError("missing mapped reference raster")
+            raw = file.read_bytes()
+            if len(raw) != reference["bytes"] or hashlib.sha256(raw).hexdigest() != reference["sha256"]:
+                raise ValueError("mapped reference bytes differ from inventory")
+            if reference_raster_dimensions(raw, file.suffix, reference["nodata"]) != dimensions:
+                raise ValueError("mapped reference dimensions differ from inventory")
+    validate_earth_layer_grids(references)
+    if web_root:
+        directory = web_root / "textures/reference"
+        if directory.is_symlink() or any(file.is_symlink() for file in directory.rglob("*")):
+            raise ValueError("mapped reference symlinks are not permitted")
+        actual = {file.relative_to(web_root).as_posix() for file in directory.rglob("*") if file.is_file()}
+        if actual != paths:
+            raise ValueError("mapped reference raster inventory incomplete")
+    return ids, paths
 
 
 def jpeg_dimensions(raw: bytes) -> list[int]:
@@ -361,8 +581,9 @@ def main() -> None:
     elif generated.read_text(encoding="utf-8") != expected:
         raise ValueError("browser visual inventory drift; run --write-js")
     verified = sum(a["source_identity"]["status"] == "verified" for a in data["assets"])
-    print(f"Visual inventory valid: {len(data['assets'])} surface rasters; {verified} official surface byte identities; "
-          f"{len(data['observed_images'])} pinned observed images; surface qualification holds remain.")
+    print(f"Visual inventory valid: {len(data['assets'])} legacy surface rasters; {verified} official legacy surface byte identities; "
+          f"{len(data['observed_images'])} pinned observed images; {len(data.get('mapped_references', []))} dated mapped reference layers; "
+          "legacy surface qualification holds remain.")
 
 
 if __name__ == "__main__":

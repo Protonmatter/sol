@@ -3,8 +3,8 @@
 // Linux; arm64 + x86_64). Positions come from the same VSOP2013 system_snapshot as the other
 // surfaces; the bodies are drawn as proper spheres with:
 //   • correct size & oblateness, axial tilt and sidereal rotation (IAU WGCCRE 2015 pole + W),
-//   • per-body procedural surfaces (continents/clouds, craters, gas-giant bands, the Great Red
-//     Spot), Lambert lighting from the Sun so every body shows its true phase/terminator,
+//   • registered mission reference imagery with dated source/coverage disclosures,
+//     Lambert lighting from the Sun so every body shows its geometric phase/terminator,
 //   • Saturn / Uranus / Neptune ring systems with real radii and the Cassini Division,
 //   • an animated Sun (granulation, sunspots, limb darkening) with a corona and solar wind,
 //   • atmospheric limb halos for the worlds that have an atmosphere,
@@ -14,8 +14,10 @@
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
 import { store } from "./store.js?v=dcca6290db";
+import { appearanceReference, appearanceReferences, appearanceUniforms, earthLayerDescription } from "./planetAppearance.js";
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
 import { layoutLabels } from "./labelLayout.js?v=dcca6290db";
+import { projectOpaqueDisc, isLabelOccluded } from "./labelOcclusion.js";
 import { resolveSystemPresentation } from "./presentationState.js?v=dcca6290db";
 import { loadSkyEngine, systemPositions, SYSTEM_POSITIONS_ORDER } from "./skyEngine.js?v=dcca6290db";
 import { projectSystemPositions, validateSystemRequest } from "./systemContract.js?v=dcca6290db";
@@ -125,6 +127,8 @@ const state = (store.orrery = {
   yearsPerSec: SOLAR_SPEED_DEFAULT_YPS,
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
+  earthNight: true, earthWeather: true, earthIce: false,
+  appearanceStatus: {},
   showSmall: false, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   moonGuideMode: "context", // advanced callers may explicitly choose all or off
   showMoons: true, // the 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune
@@ -156,6 +160,7 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
 let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, texturesStarted = false;
+let referenceTextures = {}, textureGeneration = 0;
 let ringShadowTex = {}; // per-planet 1-D radial ring-opacity profiles for the ring-shadow lookup
 let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3-D Sun's surface
 let galaxy = null;
@@ -182,16 +187,38 @@ let moonMarkers = [];
 let moonGuideQueue = [];
 let moonPathBuf = null; // GL buffer for the moon orbit polylines (rebuilt per frame; they move)
 
-function makeTexture(img, repeatS) {
+function makeTexture(img, repeatS, nearest = false, premultiplyAlpha = false) {
+  const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  let pixels = img;
+  if (Number.isFinite(maxSize) && (img.width > maxSize || img.height > maxSize)) {
+    if (nearest) throw new Error('Device cannot preserve the scientific palette grid.');
+    // Preserve the full geographic extent on smaller GPUs. This is image
+    // resampling only; no feature, cloud or coverage is synthesized.
+    const ratio = maxSize / Math.max(img.width, img.height);
+    const reduced = document.createElement('canvas');
+    reduced.width = Math.max(1, Math.floor(img.width * ratio));
+    reduced.height = Math.max(1, Math.floor(img.height * ratio));
+    const ctx = reduced.getContext('2d');
+    if (!ctx) throw new Error('Reference image downsampling unavailable.');
+    ctx.drawImage(img, 0, 0, reduced.width, reduced.height);
+    pixels = reduced;
+  }
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  // Filter covered source colors independently of transparent no-data RGB.
+  // Set this for every upload so a masked map cannot affect the next material.
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, premultiplyAlpha);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, nearest ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, nearest ? gl.NEAREST : gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, repeatS ? gl.REPEAT : gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.generateMipmap(gl.TEXTURE_2D);
+  if (!nearest) gl.generateMipmap(gl.TEXTURE_2D);
+  const error = gl.getError();
+  if (Number.isFinite(error) && error !== gl.NO_ERROR) {
+    gl.deleteTexture(t); throw new Error('GPU rejected the reference image upload.');
+  }
   return t;
 }
 
@@ -201,13 +228,12 @@ function makeTexture(img, repeatS) {
 // surfaces. Say so — once in the console per file, and once in the panel for the whole build.
 let texNoteShown = false;
 function texMissing(file) {
-  console.warn(`textures/${file} missing — using the procedural fallback (run tools/fetch_textures.py for photographic maps)`);
+  console.warn(`Reference image unavailable: ${file}; showing the documented simplified surface.`);
   if (texNoteShown) return;
   texNoteShown = true;
   const insight = document.getElementById("orreryInsight");
   if (insight) {
-    insight.textContent += " (Photographic surface maps aren't present in this build — surfaces"
-      + " shown are procedural approximations.)";
+    insight.textContent += " (Some reference images are unavailable; those surfaces are simplified.)";
   }
 }
 
@@ -215,6 +241,27 @@ function loadTextures() {
   if (texturesStarted || !gl) return;
   texturesStarted = true;
   const repaint = () => { if (state.active && !state.animate) paint(); };
+  const generation = ++textureGeneration;
+  for (const asset of appearanceReferences()) {
+    state.appearanceStatus[asset.id] = 'loading';
+    const img = new Image();
+    const fail = () => {
+      if (generation !== textureGeneration) return;
+      state.appearanceStatus[asset.id] = 'unavailable';
+      texMissing(asset.path); updateEarthLayerStatus(); updateOrreryAccuracy();
+    };
+    img.onload = () => {
+      if (generation !== textureGeneration || !gl) return;
+      try {
+        referenceTextures[asset.id] = {tex: makeTexture(img, true, asset.role === 'sea-ice', asset.nodata === 'alpha' && asset.role !== 'sea-ice'), ready: true};
+        state.appearanceStatus[asset.id] = 'ready';
+        updateEarthLayerStatus(); updateOrreryAccuracy(); repaint();
+      } catch { fail(); }
+    };
+    img.onerror = fail;
+    img.src = asset.path;
+  }
+  updateEarthLayerStatus();
   for (const [name, file] of Object.entries(TEXTURE_FILES)) {
     if (!textureEligible(name)) continue;
     const img = new Image();
@@ -394,7 +441,7 @@ function initGL(canvas) {
   // Array uniforms are queried at element 0 — the location uniform4fv() needs to upload the
   // whole array in one call. GLSL ES 3.00 accepts the bare name for that too, but "[0]" is the
   // form the WebGL spec guarantees, and a silently null location would just skip the upload.
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]"]);
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
@@ -1227,6 +1274,32 @@ function moonShadowUniforms(phys, planetPos, rot, drawn) {
   return packMoonShadows(moonShadowsOnPlanet(casters, sunOffset, geom, MAX_MOON_SHADOWS));
 }
 
+function updateEarthLayerStatus() {
+  const node = document.getElementById('orreryEarthLayerStatus');
+  if (node) node.textContent = state.useTextures ? earthLayerDescription(state) : 'Reference imagery is switched off.';
+  const legend = document.getElementById('orreryIceLegend');
+  if (legend) legend.hidden = !state.useTextures || !state.earthIce;
+  const caption = document.getElementById('orreryIceLegendCaption'), ice = appearanceReference('Earth', 'sea-ice');
+  if (caption) caption.textContent = `${ice?.label || 'Sea ice unavailable'} · ${ice?.observation_label || 'Date unavailable'}. Transparent areas have no displayed data.`;
+}
+
+function bindEarthTextures(enabled) {
+  for (const [role, active, flag, sampler, unit] of /** @type {[string,boolean,string,string,number][]} */ ([
+    ['night-lights', state.earthNight, 'u_earthNight', 'u_nightTex', 2],
+    ['weather', state.earthWeather, 'u_earthWeather', 'u_weatherTex', 3],
+    ['sea-ice', state.earthIce, 'u_earthIce', 'u_iceTex', 4],
+  ])) {
+    const asset = appearanceReference('Earth', role);
+    const tex = asset && referenceTextures[asset.id];
+    const ready = !!(enabled && active && tex?.ready);
+    gl.uniform1i(P.sphereU[flag], ready ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, ready ? tex.tex : whiteTex);
+    gl.uniform1i(P.sphereU[sampler], unit);
+  }
+  gl.activeTexture(gl.TEXTURE0);
+}
+
 function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
@@ -1247,7 +1320,11 @@ function drawBody(b, vp, eye) {
   gl.useProgram(P.sphere);
   gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mvp));
   gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
-  gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array(normalMat3(rot)));
+  // Inverse transpose of R * diag(a,a,b), up to an irrelevant common factor.
+  // Without this, oblate planets use mesh normals and the terminator is misplaced.
+  const normals = normalMat3(rot), axisRatio = phys.polarKm / phys.radiusKm;
+  for (let i = 6; i < 9; i++) normals[i] /= axisRatio;
+  gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array(normals));
   gl.uniform1i(P.sphereU.u_style, -1); // unregistered surface detail stays neutral
   gl.uniform1i(P.sphereU.u_mode, b.name === "Sun" ? 1 : 0);
   gl.uniform1f(P.sphereU.u_time, state.renderUnix * 0.0002);
@@ -1260,6 +1337,8 @@ function drawBody(b, vp, eye) {
   // generate from the committed vectors, which in turn beats the procedural shader. Only the
   // generated maps can ask to MODULATE rather than replace.
   const isSun = b.name === "Sun";
+  const reference = appearanceReference(b.name);
+  const referenceTex = state.useTextures && reference && referenceTextures[reference.id]?.ready ? referenceTextures[reference.id] : null;
   const sunTexd = isSun && textureEligible("Sun", "observed-disk") && state.useTextures && sunTex.ready;
   const photoTexd = !isSun && textureEligible(b.name) && state.useTextures && textures[b.name] && textures[b.name].ready;
   // NOT gated on state.useTextures. That checkbox is labelled "NASA textures" and its job is the
@@ -1268,12 +1347,20 @@ function drawBody(b, vp, eye) {
   // procedural noise continents — the exact thing this release exists to remove.
   const gen = !isSun && textureEligible(b.name, "generated-map") && !photoTexd && genTex[b.name] && genTex[b.name].ready
     ? genTex[b.name] : null;
-  const useTex = sunTexd || photoTexd || !!gen;
+  const useTex = referenceTex || sunTexd || photoTexd || !!gen;
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, sunTexd ? sunTex.tex : (photoTexd ? textures[b.name].tex : (gen ? gen.tex : whiteTex)));
+  gl.bindTexture(gl.TEXTURE_2D, referenceTex ? referenceTex.tex : sunTexd ? sunTex.tex : (photoTexd ? textures[b.name].tex : (gen ? gen.tex : whiteTex)));
   gl.uniform1i(P.sphereU.u_tex, 0);
   gl.uniform1i(P.sphereU.u_useTex, useTex ? 1 : 0);
-  gl.uniform1i(P.sphereU.u_texMode, gen ? gen.texMode : 0);
+  gl.uniform1i(P.sphereU.u_texMode, referenceTex ? 3 : gen ? gen.texMode : 0);
+  if (referenceTex) {
+    const uniforms = appearanceUniforms(reference);
+    gl.uniform4fv(P.sphereU.u_map, new Float32Array(uniforms.map));
+    gl.uniform4fv(P.sphereU.u_mapLat, new Float32Array(uniforms.lat));
+    gl.uniform4fv(P.sphereU.u_mapWindow, new Float32Array(uniforms.window));
+    gl.uniform1i(P.sphereU.u_mapNoData, uniforms.nodata);
+  }
+  bindEarthTextures(!!referenceTex && b.name === 'Earth');
   gl.uniform3fv(P.sphereU.u_sunA, new Float32Array(sunTexd ? sunDiskBasis() : [1, 0, 0]));
   // Ring-shadow inputs: the light direction expressed in the BODY frame (Rᵀ·light — rot's
   // upper 3×3 is orthonormal, column-major), the annulus radii in equatorial-radius units, the
@@ -1310,7 +1397,8 @@ function drawBody(b, vp, eye) {
 
   // atmosphere limb halo (additive shell, slightly larger, no depth write)
   if (atmoStr > 0 && b.name !== "Sun") {
-    const sModel = mul(translate(pos), mul(rot, scaleM([rEq * 1.07, rEq * 1.07, rPol * 1.07])));
+    // A restrained illustrative optical limb, not an atmospheric-height measurement.
+    const sModel = mul(translate(pos), mul(rot, scaleM([rEq * 1.015, rEq * 1.015, rPol * 1.015])));
     gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, sModel)));
     gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(sModel));
     gl.uniform1i(P.sphereU.u_mode, 2);
@@ -1459,6 +1547,8 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     // texMode 2: the mosaic is divided by its own mean and multiplied into u_base, so the map
     // supplies structure while the published albedo keeps sole charge of brightness.
     gl.uniform1i(P.sphereU.u_texMode, moonTex ? 2 : 0);
+    bindEarthTextures(false); // auxiliary layers must never leak from Earth onto moons
+    gl.uniform1f(P.sphereU.u_oblate, 1);
     gl.uniform2fv(P.sphereU.u_ringRad, new Float32Array([0, 0])); // no ring shadow on moons — clear the parent's state
     // Nor a moon shadow ON a moon: mutual Galilean events are real but they need each moon's
     // own body frame and an accuracy this element set does not claim (moons.js: "never for an
@@ -1538,7 +1628,7 @@ function atmoColor(name) {
     Jupiter: [0.9, 0.8, 0.6], Saturn: [0.9, 0.85, 0.6], Uranus: [0.6, 0.9, 0.95], Neptune: [0.4, 0.6, 1.0] }[name]) || [0, 0, 0];
 }
 function atmoStrength(name) {
-  return ({ Venus: 0.9, Earth: 0.7, Mars: 0.18, Jupiter: 0.5, Saturn: 0.45, Uranus: 0.5, Neptune: 0.5 }[name]) || 0;
+  return ({ Venus: 0.3, Earth: 0.2, Mars: 0.08, Jupiter: 0.18, Saturn: 0.16, Uranus: 0.18, Neptune: 0.18 }[name]) || 0;
 }
 
 // ---------------------------------------------------------------- galactic-scale view
@@ -1637,6 +1727,7 @@ function updateLabels(canvas, vp, skyVp) {
   host.style.left = canvas.offsetLeft + "px"; host.style.top = canvas.offsetTop + "px";
   host.style.width = cw + "px"; host.style.height = ch + "px";
   const items = [];
+  const discs = [], projectedById = new Map();
   if (state.galaxy && state.localView) {
     items.push({ name: "☉ Sun — 0 ly", p: [0, 0, 0], cls: "orrery-label sky-star" });
     for (const r of nbhd.ringLabels) items.push({ name: r.name, p: r.p, cls: "orrery-label sky-galaxy" });
@@ -1662,14 +1753,21 @@ function updateLabels(canvas, vp, skyVp) {
     for (const name of DRAW_LIST) {
       const b = name === "Sun" ? { name: "Sun" } : state.bodies.find((x) => x.name === name);
       if (!b) continue;
-      items.push({ name, p: bodyWorldPos(b), cls: "orrery-label" });
+      const p = bodyWorldPos(b), phys = BODY[name];
+      const disc = projectOpaqueDisc({id:name,position:p,radius:displayRadiusAU(name)*Math.min(1,phys.polarKm/phys.radiusKm)}, vp, {width:cw,height:ch});
+      if (disc) discs.push(disc);
+      items.push({ name, p, cls: "orrery-label" });
     }
     if (state.showSmall) {
       for (const s of smallBodies) items.push({ name: s.name, p: s.pos, cls: s.kind === "probe" ? "orrery-label sky-pulsar" : "orrery-label sky-galaxy" });
     }
     // Only the moons actually drawn this frame — drawMoons drops whole systems that are too
     // small on screen to be worth it, and a label for an undrawn moon would be a lie.
-    for (const mk of moonMarkers) items.push({ name: mk.name, p: mk.pos, cls: "orrery-label sky-star" });
+    for (const mk of moonMarkers) {
+      const disc = projectOpaqueDisc({id:mk.name,position:mk.pos,radius:moonDisplayRadius(mk.moon,BODY[mk.moon.p].radiusKm,displayRadiusAU(mk.moon.p))}, vp, {width:cw,height:ch});
+      if (disc) discs.push(disc);
+      items.push({ name: mk.name, p: mk.pos, cls: "orrery-label sky-star" });
+    }
     if (state.showSunEq) {
       const pole = norm(poleVector(BODY.Sun, state.renderUnix));
       items.push({ name: "Sun's axis · 7.25° tilt", p: [pole[0] * 1.7, pole[1] * 1.7, pole[2] * 1.7], cls: "orrery-label sky-galaxy" });
@@ -1699,6 +1797,9 @@ function updateLabels(canvas, vp, skyVp) {
     const wv = m[3] * it.p[0] + m[7] * it.p[1] + m[11] * it.p[2] + m[15];
     if (wv <= 0.0001) { el.style.display = "none"; continue; }
     const sx = (x / wv * 0.5 + 0.5) * cw, sy = (1 - (y / wv * 0.5 + 0.5)) * ch;
+    const projected = {id:it.name,x:sx,y:sy,depth:wv,background:it.sky===true};
+    if (isLabelOccluded(projected, discs)) { el.style.display = "none"; continue; }
+    projectedById.set(it.name, projected);
     if (Number.isFinite(sx) && Number.isFinite(sy)) {
       el.dataset.projectionX=String(sx); el.dataset.projectionY=String(sy);
     }
@@ -1708,7 +1809,9 @@ function updateLabels(canvas, vp, skyVp) {
   }
   const placements = new Map(layoutLabels(candidates,{width:cw,height:ch}).map(p=>[p.id,p]));
   for (let i=0;i<items.length;i++) {
-    const el=labelEls[i], box=placements.get(items[i].name);
+    const el=labelEls[i];
+    let box=placements.get(items[i].name);
+    if (box && isLabelOccluded({...projectedById.get(items[i].name),bounds:box}, discs)) box=null;
     el.style.display = box ? "block" : "none";
     if (!box) { delete el.dataset.projectionX; delete el.dataset.projectionY; continue; }
     el.dataset.objectId=box.id; el.classList.toggle("label-callout",box.callout);
@@ -2296,7 +2399,10 @@ async function showFallback(msg) {
   bind("orreryShowSmall", "change", (e) => { state.showSmall = inputTarget(e).checked; buildSceneLines(); rebuildSmallBodies(); paint(); });
   bind("orreryShowMoons", "change", (e) => { state.showMoons = inputTarget(e).checked; paint(); updateOrreryAccuracy(); });
   bind("orreryDeepSky", "change", (e) => { state.galDeepSky = inputTarget(e).checked; paint(); });
-  bind("orreryTextures", "change", (e) => { state.useTextures = inputTarget(e).checked; paint(); });
+  bind("orreryTextures", "change", (e) => { state.useTextures = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
+  for (const [id, key] of [['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
+    bind(id, 'change', e => { state[key] = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
+  }
   bind("orreryTopDown", "change", (e) => {
     state.topDown = inputTarget(e).checked;
     if (state.topDown) { state.preTopRadius = state.radius; state.radius = 78; } // frame the whole system from above
@@ -2358,6 +2464,9 @@ async function showFallback(msg) {
     // texturesStarted=true meant loadTextures() never re-fetched for the life of the tab.
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
+    referenceTextures = {}; textureGeneration++;
+    state.appearanceStatus = Object.fromEntries(appearanceReferences().map(a => [a.id, 'unavailable']));
+    updateEarthLayerStatus(); updateOrreryAccuracy();
     whiteTex = null; ringBufs = {}; ringShadowTex = {}; texturesStarted = false; particles = null;
     genTex = {}; genStarted = false; // generated surface maps died with the context too
     moonPathBuf = null;

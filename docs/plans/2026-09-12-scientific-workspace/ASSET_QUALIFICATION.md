@@ -1,5 +1,11 @@
 # Earth and Moon asset qualification followthrough
 
+Historical legacy-asset review. The retained `earth.jpg` and `moon.jpg` decisions below
+remain valid. The later [planetary appearance RFC](../../rfcs/0004-registered-planetary-appearance.md)
+adds separately acquired and registered display references; it does not promote these
+held rasters. See the current `mapped_references` inventory and
+[planetary source review](../2026-09-13-planetary-appearance/PLANET_SOURCES.md).
+
 Reviewed: 2026-09-13. Scope: the retained Earth and Moon rasters, official replacement
 sources, and the current product-to-renderer admission boundary. This record adds source
 evidence; it does not enable an asset or qualify the full planetary appearance inventory.

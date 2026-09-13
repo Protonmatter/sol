@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { orreryHarness } from "./helpers/orreryHarness.mjs";
+import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
+
+function assertOnlyRegisteredImages(h) {
+  assert.deepEqual(h.images.map(image => image.src).sort(), appearanceReferences().map(a => a.path).sort(),
+    'Only separately registered dated references load; legacy held globe/ring/disk imagery stays blocked');
+}
 
 test("Orrery speed controls preserve the rate across units and bound manual entry", async t => {
   const h = await orreryHarness(t, { controls: true });
@@ -281,11 +287,11 @@ test("Orrery rejects unregistered imagery even when fetch-epoch metadata is avai
   const h = await orreryHarness(t, { controls: true, reducedMotion: true, sunMetadata: { fetched_unix: 1790000000 } });
   await h.enterOrrery(); await h.settle();
   assert.equal(h.state.sunImageUnix, null, "fetch time must not qualify an observation or map registration");
-  assert.equal(h.images.length, 0, "unqualified globe, ring and disk rasters must not be fetched");
+  assertOnlyRegisteredImages(h);
   assert.ok(h.draws > 0, "neutral surfaces keep the scene usable");
   h.check("orreryTextures", false); assert.equal(h.state.useTextures, false);
   h.check("orreryTextures", true); assert.equal(h.state.useTextures, true);
-  assert.equal(h.images.length, 0, "the advanced toggle cannot bypass asset qualification");
+  assertOnlyRegisteredImages(h);
   assert.equal(h.errors.length, 0);
 });
 
@@ -375,7 +381,7 @@ for (const idleScheduler of ["idle", "timeout"]) {
     assert.equal(h.idleTasks.size, 0);
     assert.equal(h.canvasCommands.length, 0, "unqualified geography cannot generate invented surface detail");
     assert.ok(!h.textureUploads.some(args => args.at(-1)?.tagName === "CANVAS"));
-    assert.equal(h.images.length, 0);
+    assertOnlyRegisteredImages(h);
     assert.ok(h.draws > 0);
     assert.equal(h.warnings.length, 0); assert.equal(h.errors.length, 0);
   });

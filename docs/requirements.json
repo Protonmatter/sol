@@ -385,6 +385,34 @@
         "CI / Governance and specification contracts",
         "CI / Engine determinism (cross-OS byte compare + schema)"
       ]
+    },
+    {
+      "id": "SOL-VIS-004",
+      "status": "implemented",
+      "statement": "Registered planetary display references MUST preserve source identity, map axes, source epoch, coverage and color limits; Earth auxiliary layers MUST remain source-based and separate from model time.",
+      "source": "docs/rfcs/0004-registered-planetary-appearance.md#requirements",
+      "implementation": [
+        "apps/web/js/planetAppearance.js",
+        "apps/web/js/surfaceMapping.js",
+        "apps/web/js/orrery.js",
+        "apps/web/js/orreryShaders.js",
+        "apps/web/visual-assets.v1.json"
+      ],
+      "verification": [
+        "tests/web/surfaceMapping.test.mjs",
+        "tests/web/planetAppearanceRuntime.test.mjs",
+        "tests/python/test_mapped_references.py",
+        "tests/python/test_fetch_earth_reference.py",
+        "tests/python/test_planet_reference.py",
+        "tests/python/test_visual_assets.py",
+        "tools/validate_visual_assets.py",
+        "tools/planet_appearance_validation.mjs",
+        "tools/browser_validation.mjs"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts",
+        "CI / Web, provider, and browser validation"
+      ]
     }
   ]
 }

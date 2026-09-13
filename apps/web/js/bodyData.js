@@ -137,7 +137,7 @@ export const BODY = {
     atmosphere: { pressureBar: NaN, composition: "80% H₂, 19% He, 1.5% CH₄" },
     albedo: 0.442, meanTempK: 72, style: "neptune", color: [0.26, 0.40, 0.84],
     rings: { innerKm: 41900, outerKm: 62930 },
-    blurb: "Deepest blue of the giants, with the strongest winds in the solar system (~2,000 km/h) and transient dark storms. A field tilted 47° and offset.",
+    blurb: "An ice giant with the strongest winds in the solar system (~2,000 km/h) and changing cloud systems. Its magnetic field is tilted 47° and offset. This view uses a contrast-enhanced Hubble reference.",
   },
   Moon: {
     radiusKm: 1737.4, polarKm: 1736.0, massKg: 7.346e22, densityGcm3: 3.344,

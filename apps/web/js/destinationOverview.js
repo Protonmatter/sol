@@ -1,6 +1,7 @@
 // Small read-only cards use accepted presentation data; controls keep their existing owners.
 import { skyCard, systemCard } from './destinationCards.js?v=dcca6290db';
 import { elpMoonAliased } from './orreryTime.js?v=dcca6290db';
+import { appearanceReference, appearanceDescription, appearanceReferences, earthLayerDescription } from './planetAppearance.js';
 
 export function renderDestinationOverview(surface, sky, system) {
   if (surface === 'today') return;
@@ -11,6 +12,21 @@ export function renderDestinationOverview(surface, sky, system) {
   text('destinationTitle', card.title);
   text('destinationDescription', card.description);
   text('destinationNote', card.note);
+  const reference = surface === 'orrery' && !system?.galaxy && !system?.selectedStar ? appearanceReference(system?.selected) : null;
+  const appearance = document.getElementById('destinationAppearance');
+  if (appearance) appearance.hidden = !reference;
+  text('destinationAppearanceText', reference ? appearanceDescription(system.selected, system, true) : '');
+  const sourceList = document.getElementById('destinationAppearanceSources');
+  const sourceKey = reference ? system.selected : '';
+  if (sourceList && sourceList.dataset.body !== sourceKey) {
+    sourceList.dataset.body = sourceKey;
+    sourceList.replaceChildren(...appearanceReferences().filter(a => a.body === sourceKey).map(a => {
+      const link = document.createElement('a'); link.href = a.source_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.textContent = `${a.label} · ${a.observation_label} · ${a.credits}`; return link;
+    }));
+  }
+  const earthLayers = document.getElementById('destinationEarthLayers');
+  if (earthLayers) earthLayers.hidden = !reference || system.selected !== 'Earth';
   const facts = document.getElementById('destinationFacts');
   if (facts && facts.dataset.content !== JSON.stringify(card.facts)) {
     facts.dataset.content = JSON.stringify(card.facts);
@@ -49,6 +65,8 @@ export function renderDestinationOverview(surface, sky, system) {
   const caveats = surface === 'sky' || system?.galaxy ? '' : [system?.moonsHiddenReason,
     system?.animate && elpMoonAliased(system?.simStepSeconds) ? 'The Moon’s drawn motion is under-sampled at this speed; physical positions are unchanged.' : '',
     system?.spinLimitedCount && system?.animate && !system?.galaxy ? 'Rotation display rate-limited to one visible turn/5s.' : ''].filter(Boolean).join(' ');
-  text('destinationCaveat', caveats);
+  const earthLayersCaption = surface === 'orrery' && !system?.galaxy && !system?.selectedStar && system?.selected === 'Earth' && system?.useTextures !== false
+    ? earthLayerDescription(system, true) : '';
+  text('destinationCaveat', [caveats, earthLayersCaption ? `Reference layers: ${earthLayersCaption}.` : ''].filter(Boolean).join(' '));
   for (const button of document.querySelectorAll('[data-camera-body]')) button.setAttribute('aria-pressed', String(system?.anchor === /** @type {HTMLElement} */ (button).dataset.cameraBody));
 }

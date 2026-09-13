@@ -1366,5 +1366,619 @@
         "https://sdo.gsfc.nasa.gov/data/rules.php"
       ]
     }
+  ],
+  "mapped_references": [
+    {
+      "id": "earth-bmng-200401-day",
+      "body": "Earth",
+      "role": "surface",
+      "path": "textures/reference/earth-land-2004.jpg",
+      "sha256": "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5",
+      "bytes": 1884678,
+      "dimensions": [
+        5400,
+        2700
+      ],
+      "label": "NASA Blue Marble land and ice",
+      "credits": "NASA Earth Observatory / Reto Stockli",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/january/world.200401.3x5400x2700.jpg",
+      "source_sha256": "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5",
+      "source_bytes": 1884678,
+      "source_retrieved_at": "2026-09-13T07:08:51.764741+00:00",
+      "observation_label": "January 2004",
+      "color_interpretation": "Display-color composite; assigned ocean blue and provider gap filling, not calibrated albedo.",
+      "limitations": "Deep ocean uses assigned uniform blue Temporal and spatial gaps are filled by provider High-latitude winter snow uses temporal interpolation Arctic ocean is blue in this original; do not add a synthetic polar cap.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "Original source bytes preserved. RGB is treated as sRGB display imagery; illumination is a visualization convention, not photometric calibration.",
+      "metadata_urls": [
+        "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+      ],
+      "reviewed_at": "2026-09-13T07:21:44.732254+00:00"
+    },
+    {
+      "id": "earth-black-marble-2016-night-gray",
+      "body": "Earth",
+      "role": "night-lights",
+      "path": "textures/reference/earth-lights-2016.jpg",
+      "sha256": "4d2158f59123dadf0696a1cf8909c45018a1de8d0daab40da04122a5aa7f27c6",
+      "bytes": 365655,
+      "dimensions": [
+        3600,
+        1800
+      ],
+      "label": "NASA Black Marble night lights",
+      "credits": "NASA Earth Observatory; Black Marble 2016",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_01deg_gray.jpg",
+      "source_sha256": "4d2158f59123dadf0696a1cf8909c45018a1de8d0daab40da04122a5aa7f27c6",
+      "source_bytes": 365655,
+      "source_retrieved_at": "2026-09-13T07:08:52.745296+00:00",
+      "observation_label": "2016",
+      "color_interpretation": "Published grayscale display emission, not current lighting or radiance.",
+      "limitations": "Cloud-free nights selected over each land mass A display composite, not instantaneous city lights or an outage measurement No radiometric interpretation of display intensities.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "Original source bytes preserved. RGB is treated as sRGB display imagery; illumination is a visualization convention, not photometric calibration.",
+      "metadata_urls": [
+        "https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/"
+      ],
+      "reviewed_at": "2026-09-13T07:21:44.733043+00:00"
+    },
+    {
+      "id": "earth-jpl-mur-sea-ice-20260907",
+      "body": "Earth",
+      "role": "sea-ice",
+      "path": "textures/reference/earth-sea-ice-20260907.png",
+      "sha256": "89264243ea3c39795b549f68dbafaf86669bc2900f6de9ff8a79dd4b5dcf2e21",
+      "bytes": 121355,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "NASA/JPL sea ice concentration",
+      "credits": "NASA/JPL MUR / PO.DAAC; visualization NASA EOSDIS GIBS",
+      "source_url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=GHRSST_L4_MUR_Sea_Ice_Concentration&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-07",
+      "source_sha256": "89264243ea3c39795b549f68dbafaf86669bc2900f6de9ff8a79dd4b5dcf2e21",
+      "source_bytes": 121355,
+      "source_retrieved_at": "2026-09-13T07:10:21.072107+00:00",
+      "observation_label": "7 September 2026",
+      "color_interpretation": "Scientific false-color concentration palette, not photographic ice.",
+      "limitations": "Data visualization of analyzed sea ice concentration; not a photograph Transparent cells mean no displayed data; cannot generally infer ice-free Data layer dated six days before retrieval Palette pixels may be spatially resampled; do not inverse-map them to exact scientific measurements.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "Original source bytes preserved. RGB is treated as sRGB display imagery; illumination is a visualization convention, not photometric calibration.",
+      "metadata_urls": [
+        "https://podaac.jpl.nasa.gov/dataset/MUR-JPL-L4-GLOB-v4.1",
+        "https://gibs.earthdata.nasa.gov/colormaps/v1.3/GHRSST_Sea_Ice_Concentration.xml"
+      ],
+      "reviewed_at": "2026-09-13T07:21:44.734073+00:00",
+      "legend": {
+        "path": "images/earth-sea-ice-legend.png",
+        "sha256": "460e8ae290340176ebd4f2c0608a1710b0b79e2537b69ef48ebd83da19a771f4",
+        "bytes": 4298,
+        "dimensions": [
+          420,
+          95
+        ],
+        "source_url": "https://gibs.earthdata.nasa.gov/legends/GHRSST_Sea_Ice_Concentration_H.png"
+      }
+    },
+    {
+      "id": "earth-modis-weather-20260912",
+      "body": "Earth",
+      "role": "weather",
+      "path": "textures/reference/earth-weather-20260912.png",
+      "sha256": "4b26e448151fe0ce83cbf34d865c8804a500aa4ff95190fc625585ea4fd70918",
+      "bytes": 4836310,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "NASA satellite clouds and surface",
+      "credits": "NASA Terra/Aqua MODIS / EOSDIS GIBS",
+      "source_url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
+      "source_sha256": "a1452574ed01213f960580171c5fee39b13460f630522ea344a3aa33f7ce6ade",
+      "source_bytes": 4813063,
+      "source_retrieved_at": "2026-09-13T07:43:02.452978+00:00",
+      "observation_label": "12 September 2026 daily composite",
+      "color_interpretation": "MODIS corrected-reflectance display RGB; not a cloud-only layer or calibrated albedo.",
+      "limitations": "Dated Terra-priority/Aqua-fallback MODIS corrected-reflectance composite; different overpass times on the same UTC day. Surface and clouds, not simultaneous or live weather. Seams and remaining gaps are retained; no global completeness claim. Missing areas show the historical land map. Night lights are a separate annual cloud-free reference, not cloud-attenuated live emissions.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "Preserve each original decoded RGB value. Set alpha255 for published mask Data(0,0,0,0), alpha0 for NoData(202,170,86,255). Reject other classes. No inferred cloud pixels or black-color threshold. Same-date Aqua fills only pixels where Terra's published mask is NoData and Aqua's mask is Data. Retain Terra at overlap, including valid black RGB. No averaging, cloud motion extrapolation or interpolation. Both missing stays transparent. Coverage: {\"valid_pixels\": 1909254, \"no_data_pixels\": 187898, \"total_pixels\": 2097152, \"terra_pixels\": 1848641, \"aqua_fill_pixels\": 60613}",
+      "metadata_urls": [
+        "https://gis.earthdata.nasa.gov/portal/home/item.html?id=780c03ffe3dc42e8bb03ca3b07bb283e",
+        "https://nasa-gibs.github.io/gibs-api-docs/python-usage/#using-a-mask",
+        "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml",
+        "https://gibs.earthdata.nasa.gov/layer-metadata/v1.0/MODIS_Aqua_Data_No_Data.json"
+      ],
+      "reviewed_at": "2026-09-13T07:45:12.162127+00:00",
+      "derivation_inputs": [
+        {
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
+          "sha256": "a1452574ed01213f960580171c5fee39b13460f630522ea344a3aa33f7ce6ade",
+          "bytes": 4813063
+        },
+        {
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_Data_No_Data",
+          "sha256": "bd4d4d26c3e65c406a42289c8d14fbdcd36dfad5e6288e4c1f8ec1dded0544df",
+          "bytes": 22190
+        },
+        {
+          "url": "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml",
+          "sha256": "547bd46510b3dd552db7f1b3e032f43bfa5e3568eb66b06ee4ad95cf37c40220",
+          "bytes": 638
+        },
+        {
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Aqua_CorrectedReflectance_TrueColor",
+          "sha256": "67e2583fd6630d8476d47a1db7dfed12f086383b8b460206d3cec77cbd8c2371",
+          "bytes": 4736399
+        },
+        {
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Aqua_Data_No_Data",
+          "sha256": "6fe08aa520499a3e4b4679984d9854daaf3b73a5454e4b52fcfcfe104d938896",
+          "bytes": 23368
+        }
+      ]
+    },
+    {
+      "id": "mercury-mission-reference",
+      "body": "Mercury",
+      "role": "surface",
+      "path": "textures/reference/mercury-reference.png",
+      "sha256": "1dc83dbbf0b59633673dd325b6f3e0f453c4a33c09a54c008bef71c2a0cd5ead",
+      "bytes": 601660,
+      "dimensions": [
+        1024,
+        512
+      ],
+      "label": "MESSENGER monochrome surface reference",
+      "credits": "NASA / Johns Hopkins University Applied Physics Laboratory / Carnegie Institution of Washington / USGS",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/17ebee80-ed66-485a-9b06-5ffd10e935e3/resource/c20d3c86-97d5-4446-8c9d-397ec8fde290/download/mercury_messenger_mdis_basemap_bdr_mosaic_global_1024.jpg",
+      "source_sha256": "f7a5b7b3e7a7e7b61c0e9267d87432a1c5f3f18282b55e264f14ef2f3bff8d31",
+      "source_bytes": 193330,
+      "source_retrieved_at": "2026-09-13T07:11:11.753162+00:00",
+      "observation_label": "2012-03-29 to 2015-04-30; multiple images and illumination geometries",
+      "color_interpretation": "Monochrome NAC and WAC 750 nm reflectance mosaic; stretched grayscale, not visible RGB color or an unlit albedo texture. Source JPEG has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Official browse is natively 1024x512; no invented higher-resolution detail. Photometric normalization retains topographic shading; global lighting is not recalibrated albedo. USGS describes no large gaps, not perfect coverage. JPEG has no independent nodata mask. Local display mask withholds |latitude| > 85 degrees to avoid severe polar seam/shading artifacts; this is a conservative display restriction, not the mission coverage boundary.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0,
+          1.0
+        ],
+        "uvOffset": [
+          0.0,
+          0.0
+        ]
+      },
+      "validLatitudeBounds": [
+        -85,
+        85
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [1024, 512], \"outputDimensions\": [1024, 512], \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Conservative latitude exclusions only; no synthetic pixel fill\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: USGS BDR ISIS label: SimpleCylindrical, planetocentric, positive east, center 0, full -180..180 and -90..90. The official 1024x512 browse retains that full extent. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1]",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/mercury_messenger_mdis_global_basemap_bdr_166m",
+        "https://astrogeology.usgs.gov/ckan/dataset/17ebee80-ed66-485a-9b06-5ffd10e935e3/resource/a9b827d2-1385-4d89-b9f9-5bd7f86e756f/download/mercury_messenger_mdis_basemap_bdr_mosaic_global_166m.lbl"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.840243+00:00"
+    },
+    {
+      "id": "mars-mission-reference",
+      "body": "Mars",
+      "role": "surface",
+      "path": "textures/reference/mars-reference.png",
+      "sha256": "f62de76a876702a3959dc5b2873c34f5cdeedda4c54eb7bddb6f78f62dbcfc74",
+      "bytes": 4072026,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Viking colorized surface reference",
+      "credits": "NASA / USGS / Ames Research Center",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/7131d503-cdc9-45a5-8f83-5126c0fd397e/resource/5ea881c6-01b3-41fa-a7af-42d2131b54f1/download/mars_viking_mdim21_clrmosaic_1km.jpg",
+      "source_sha256": "fdfcd335559c3dc67052b7e8a9565d850e336ac0d1f3ea7f5eb7826ffb44ecb2",
+      "source_bytes": 36708552,
+      "source_retrieved_at": "2026-09-13T07:08:59.668206+00:00",
+      "observation_label": "Viking mission-era composite (1976-1980); exact contributing dates unavailable; USGS publication 2009-02-02",
+      "color_interpretation": "Viking color mosaic warped onto the MDIM 2.1 monochrome map. Colorized reference appearance, not simultaneous natural-color photography or calibrated albedo. Source JPEG has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "The source raster has slight outer latitude/longitude padding. Preserve the supplied bounds; do not assume exact -180/+180 pixel edges. Zero is declared nodata in each source band; JPEG compression and mosaic seams limit exact per-pixel validity. No inference of current dust, polar-cap season, or weather.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.500025982878026,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9999948970612607,
+          0.9999480369442475
+        ],
+        "uvOffset": [
+          0,
+          2.5981527876261516e-05
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [21339, 10670], \"outputDimensions\": [2048, 1024], \"resampling\": \"BOX, full source raster extent retained\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Exact JPEG auxiliary XML supplies the 1000m affine transform and 3396190m sphere; degree bounds and primeU are calculated directly from that transform. Full-resolution ISIS label identifies planetocentric positive-east mapping. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1]",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/mars_viking_colorized_global_mosaic_232m",
+        "https://astrogeology.usgs.gov/ckan/dataset/7131d503-cdc9-45a5-8f83-5126c0fd397e/resource/69f3953f-9791-4d92-bffe-ebe24945eb95/download/mars_viking_mdim21_clrmosaic_1km.jpg.aux.xml",
+        "https://astrogeology.usgs.gov/ckan/dataset/7131d503-cdc9-45a5-8f83-5126c0fd397e/resource/be4e44f4-5ec7-46e1-9498-643b91eecf21/download/mars_viking_mdim21_clrmosaic_global_232m.lbl",
+        "https://astrogeology.usgs.gov/search/map/mars_viking_colorized_global_mosaic_232m"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.842468+00:00"
+    },
+    {
+      "id": "venus-mission-reference",
+      "body": "Venus",
+      "role": "surface",
+      "path": "textures/reference/venus-reference.png",
+      "sha256": "fc043e4ebabe8d50eba42c80378dbb82284f2e3ff7e59f1a0870f17e52c03bd7",
+      "bytes": 1794072,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Magellan radar surface beneath clouds",
+      "credits": "NASA / JPL / USGS",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Venus_Magellan_C3-MDIR_Global_Mosaic_2025m.tif",
+      "source_sha256": "833d5368564b626a787b6d0a2b2432a0afaa89f72d4b46e5221a19b3a01ec380",
+      "source_bytes": 176335453,
+      "source_retrieved_at": "2026-09-13T07:18:54.620588+00:00",
+      "observation_label": "Magellan imaging cycles 1-3, September 1990 to September 1992; multiple observations",
+      "color_interpretation": "Single-band radar backscatter in grayscale. This depicts surface structure beneath opaque clouds, not visible-light terrain colors, cloud structure, elevation, or calibrated optical albedo. Original 8-bit grayscale TIFF has no embedded ICC profile; equal-channel browser RGB is a display assumption.",
+      "limitations": "Incomplete radar coverage: black source gaps are masked, not interpreted as terrain. Conservative source-zero mask plus BOX area downsampling excludes pixels whose support contains withheld values; no gap inpainting or colorization was performed. Actual raster extent is slightly short of a full360degrees; source UV outside[0,1] is unavailable and must not silently repeat to assert coverage. Radar backscatter depends on illumination/viewing geometry and material; visual lighting is illustrative and must not imply optical reflectance.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5000000000000042,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0000047158519485,
+          0.9999514561205971
+        ],
+        "uvOffset": [
+          0,
+          4.263049459555349e-15
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [18775, 9388], \"outputDimensions\": [2048, 1024], \"resampling\": \"BOX, full source raster extent retained\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Original GeoTIFF declares RasterPixelIsArea, 2025m pixel spacing, tie point, equatorial/polar radius6051000m, equirectangular projection and nodata0; exact ISIS label independently specifies planetocentric positive-east mapping. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1]",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/venus_magellan_global_c3_mdir_mosaic_2025m",
+        "https://astrogeology.usgs.gov/ckan/dataset/bf10c4f9-7587-4357-b0d9-81d5b6e6637c/resource/26c2e4b0-bdd5-449b-b075-972ce565b77e/download/venus_magellan_c3-mdir_global_mosaic_2025m.lbl"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.843636+00:00"
+    },
+    {
+      "id": "jupiter-mission-reference",
+      "body": "Jupiter",
+      "role": "surface",
+      "path": "textures/reference/jupiter-reference.png",
+      "sha256": "b134fbf614aa21dda6e951f616067b2d32ed825950e48d35d35d09f6a5c80637",
+      "bytes": 2332112,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Contrast-enhanced Hubble cloud reference",
+      "credits": "NASA / ESA / A. Simon (GSFC) / M. Wong (UC Berkeley) / G. Orton (JPL); HST OPAL",
+      "source_url": "https://archive.stsci.edu/hlsps/opal/cycle22/jupiter/hlsp_opal_hst_wfc3-uvis_jupiter-2015a_f395n-f502n-f631n_v1_globalmap.tif",
+      "source_sha256": "c3b915227ef88899a07a2b62584d9303d77d3491b9bb7de8824fb6df4a52f7b2",
+      "source_bytes": 19461484,
+      "source_retrieved_at": "2026-09-13T07:11:11.166451+00:00",
+      "observation_label": "19 January 2015",
+      "color_interpretation": "F631N red, F502N green, F395N blue; slight contrast enhancement and Minnaert limb correction. Arbitrarily scaled display TIFF, not calibrated I/F. RGB TIFF has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Frozen cloud map from 2015, not current storms or a forecast. Outside supplied coverage, show an explicit approximation; black source caps are not dark planetary terrain. Source replaced some satellite/shadow transit regions using adjacent observations; slight boundaries may remain.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0,
+          1.0
+        ],
+        "uvOffset": [
+          0.0,
+          0.0
+        ]
+      },
+      "validLatitudeBounds": [
+        -79.8,
+        79.8
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [3600, 1800], \"outputDimensions\": [2048, 1024], \"resampling\": \"LANCZOS, full source raster extent retained\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: OPAL README: 10 pixels/degree; -79.8..79.8 planetographic observed coverage; left edge 360 System III west longitude, decreasing to the right (source X is east-positive). Full raster is 3600x1800 with black caps. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1] Source observation interval: 2015-01-19T02:00:00Z/2015-01-19T12:30:00Z",
+      "metadata_urls": [
+        "https://svs.gsfc.nasa.gov/12021/",
+        "https://archive.stsci.edu/hlsps/opal/cycle22/jupiter/hlsp_opal_hst_wfc3-uvis_jupiter-2015_all_v2_readme.txt",
+        "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.844913+00:00"
+    },
+    {
+      "id": "moon-mission-reference",
+      "body": "Moon",
+      "role": "surface",
+      "path": "textures/reference/moon-reference.jpg",
+      "sha256": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170",
+      "bytes": 457942,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "LRO surface reference \u00b7 2025 map",
+      "credits": "NASA's Scientific Visualization Studio / LRO camera and laser altimeter teams",
+      "source_url": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg",
+      "source_sha256": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170",
+      "source_bytes": 457942,
+      "source_retrieved_at": "2026-09-13T07:06:44.293677+00:00",
+      "observation_label": "Multi-observation LROC/LOLA composite; map produced December 2025, not one observation date",
+      "color_interpretation": "643/566/415nm RGB, exposure and white balance adjusted; outside 70N..70S replaced with lower-resolution monochrome LOLA reflectance; small high-latitude dropouts inpainted by the source producer. Embedded original ICC profile: sRGB IEC61966-2.1",
+      "limitations": "NASA describes this as optimized for aesthetics, not science; not calibrated radiometry. Polar pixels and small inpainted gaps are source-produced completion, not measured visible color. Surface map epoch is independent of SOL simulation time.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0,
+          1.0
+        ],
+        "uvOffset": [
+          0.0,
+          0.0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\": \"none\", \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"originalBytesRetained\": true} Registration: NASA CGI Moon Kit explicitly centers this equirectangular map on 0 degrees longitude. LROC/LOLA reference is north-up, positive-east, planetocentric on a 1737.4km sphere. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1]",
+      "metadata_urls": [
+        "https://svs.gsfc.nasa.gov/4720/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.845527+00:00"
+    },
+    {
+      "id": "saturn-mission-reference",
+      "body": "Saturn",
+      "role": "surface",
+      "path": "textures/reference/saturn-reference.png",
+      "sha256": "c88eb864e3c6a2c4a23f7b8cfa32a510e4dc46431da8b0697b7121f45e307fee",
+      "bytes": 1331177,
+      "dimensions": [
+        1800,
+        900
+      ],
+      "label": "Contrast-enhanced Hubble cloud reference",
+      "credits": "NASA / ESA / HST OPAL team; data archived by STScI MAST",
+      "source_url": "https://archive.stsci.edu/missions/hlsp/opal/cycle32/saturn/hlsp_opal_hst_wfc3-uvis_saturn-2025a_f395n-f502n-f631n_v1_globalmap.tif",
+      "source_sha256": "c34a13a8253a39bcc1f8376b24c077b89f05ce0b5202706f535ded20314440d7",
+      "source_bytes": 4885052,
+      "source_retrieved_at": "2026-09-13T07:06:42.955740+00:00",
+      "observation_label": "29 August 2025",
+      "color_interpretation": "F631N red, F502N green, F395N blue; slight contrast enhancement. Arbitrarily scaled display TIFF; not calibrated I/F or a true-color calibration. RGB TIFF has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Source contains moon/shadow transit residuals; transient bright/dark points are not permanent surface features. The source has polar gaps and a black band near the equator. A local conservative display mask withholds the ring/occlusion band from 0 to 7 degrees planetographic and polar fringes. This is a cloud map only; it provides no ring texture or ring geometry. Frozen archival clouds; their rotation with the modeled body is a reference illustration, not current feature tracking.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0,
+          1.0
+        ],
+        "uvOffset": [
+          0.0,
+          0.0
+        ]
+      },
+      "validLatitudeBounds": [
+        -80,
+        75
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [1800, 900], \"outputDimensions\": [1800, 900], \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Exact product README specifies planetographic latitude, source longitude direction, ellipsoid radii, and pixel scale; local masks are deliberately narrower than nonzero coverage. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1] Source observation interval: 2025-08-29T05:53:28Z/2025-08-29T14:20:17Z",
+      "metadata_urls": [
+        "https://archive.stsci.edu/hlsp/opal/opal-saturn-cycle-32",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/saturn/hlsp_opal_hst_wfc3-uvis_saturn-2025_all_v1_readme.txt",
+        "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.846378+00:00"
+    },
+    {
+      "id": "uranus-mission-reference",
+      "body": "Uranus",
+      "role": "surface",
+      "path": "textures/reference/uranus-reference.png",
+      "sha256": "d59ba81033bba3faf30950c2d8893319a8f3e94f968a648c03b16b5d0fd8c8a5",
+      "bytes": 128846,
+      "dimensions": [
+        721,
+        361
+      ],
+      "label": "Contrast-enhanced Hubble cloud reference",
+      "credits": "NASA / ESA / HST OPAL team; data archived by STScI MAST",
+      "source_url": "https://archive.stsci.edu/missions/hlsp/opal/cycle32/uranus/hlsp_opal_hst_wfc3-uvis_uranus-2024a_f657n-f547m-f467m_v1_globalmap.tif",
+      "source_sha256": "838dbf45072d4354425389d7c5869312185fd8df3d0d5ee526661b22db4c3c12",
+      "source_bytes": 787762,
+      "source_retrieved_at": "2026-09-13T07:06:42.956470+00:00",
+      "observation_label": "9 November 2024",
+      "color_interpretation": "F657N red, F547M green, F467M blue; slight contrast enhancement. Arbitrarily scaled display TIFF; not calibrated I/F or a true-color calibration. RGB TIFF has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Large unobserved southern coverage is withheld; neutral completion must be labeled as an approximation. Two pixels/degree oversamples the observations; 721x361 storage does not provide that angular resolving power. The 721x361 endpoint-inclusive interpretation follows the stated 2px/degree and full 360x180 grid dimensions; verify this inference against FITS WCS before geographic feature picking. Frozen archival clouds; their rotation with the modeled body is a reference illustration, not current feature tracking.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "west",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9986130374479889,
+          0.997229916897507
+        ],
+        "uvOffset": [
+          0.0006934812760055479,
+          0.0013850415512465374
+        ]
+      },
+      "validLatitudeBounds": [
+        -5,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [721, 361], \"outputDimensions\": [721, 361], \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Exact product README specifies planetographic latitude, source longitude direction, ellipsoid radii, and pixel scale; local masks are deliberately narrower than nonzero coverage. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1] Source observation interval: 2024-11-09T07:01:00Z/2024-11-09T20:04:00Z",
+      "metadata_urls": [
+        "https://archive.stsci.edu/hlsp/opal/opal-uranus-cycle-32",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/uranus/hlsp_opal_hst_wfc3-uvis_uranus-2024_all_v1_readme.txt",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/uranus/hlsp_opal_hst_wfc3-uvis_uranus-2024a_f467m_v1_globalmap.fits",
+        "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.846862+00:00"
+    },
+    {
+      "id": "neptune-mission-reference",
+      "body": "Neptune",
+      "role": "surface",
+      "path": "textures/reference/neptune-reference.png",
+      "sha256": "c9dee0f329268f801ae5e4c736da72c329539f862a651f536e0c3d4846682adf",
+      "bytes": 175533,
+      "dimensions": [
+        721,
+        361
+      ],
+      "label": "Contrast-enhanced Hubble cloud reference",
+      "credits": "NASA / ESA / HST OPAL team; data archived by STScI MAST",
+      "source_url": "https://archive.stsci.edu/missions/hlsp/opal/cycle32/neptune/hlsp_opal_hst_wfc3-uvis_neptune-2025b_f467m-f547m-f657n_v1_globalmap.tif",
+      "source_sha256": "8c17a2872b5d55577c63abe7ba1369997ff32bb83e0f9b9c350a46db96713cb8",
+      "source_bytes": 789926,
+      "source_retrieved_at": "2026-09-13T07:06:43.730992+00:00",
+      "observation_label": "24-25 August 2025",
+      "color_interpretation": "F657N red, F547M green, F467M blue; some contrast enhancement. The filename lists filters in a different order from RGB; use the source README channel interpretation. Arbitrarily scaled display TIFF; not calibrated I/F or a true-color calibration. RGB TIFF has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Northern unobserved coverage and color fringes are withheld. Green/cyan display colors must not be recolored to a familiar saturated blue and called true color. Two pixels/degree oversamples the observations; source resolving power is lower. Campaign date range is retained; exact B-map rotation range is not asserted because the README names two rotations without mapping B/C unambiguously. The 721x361 endpoint-inclusive interpretation is an explicit dimension-based inference; verify against FITS WCS before geographic feature picking. Frozen archival clouds; their rotation with the modeled body is a reference illustration, not current feature tracking.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9986130374479889,
+          0.997229916897507
+        ],
+        "uvOffset": [
+          0.0006934812760055479,
+          0.0013850415512465374
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        35
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [721, 361], \"outputDimensions\": [721, 361], \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Exact product README specifies planetographic latitude, source longitude direction, ellipsoid radii, and pixel scale; local masks are deliberately narrower than nonzero coverage. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1] Source observation interval: 2025-08-24T03:18:00Z/2025-08-25T09:45:00Z",
+      "metadata_urls": [
+        "https://archive.stsci.edu/hlsp/opal/opal-neptune-cycle-32",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/neptune/hlsp_opal_hst_wfc3-uvis_neptune-2025b_all_v1_readme.txt",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/neptune/hlsp_opal_hst_wfc3-uvis_neptune-2025b_f467m_v1_globalmap.fits",
+        "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.847319+00:00"
+    }
   ]
 }

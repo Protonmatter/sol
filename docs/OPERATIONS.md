@@ -1,6 +1,6 @@
 # Operations
 
-Updated: 2026-09-11. Scope: local research operation. No production, scheduled acquisition,
+Updated: 2026-09-13. Scope: local research operation. No production, scheduled acquisition,
 registry publication or deployed-service qualification is asserted.
 
 ## Preconditions and authority
@@ -46,6 +46,93 @@ live observation. See the separately maintained [data update playbook](DATA_UPDA
 for governed refresh procedures; exact current code and accepted contracts prevail over
 historical prose about fixed output aliases.
 
+## Dated Earth imagery acquisition
+
+`tools/fetch_earth_reference.py` is an explicit operator-run NASA acquisition tool.
+It requires Python 3.11 or later, uses only the standard library, and needs ordinary
+HTTPS access to `gibs.earthdata.nasa.gov`. It creates a new directory under the ignored
+`build/` tree; use a distinct output name for each review. Existing output is preserved.
+It does not update the browser, production assets, a manifest, or a current-data pointer.
+
+For a pinned prior UTC date:
+
+```powershell
+python tools/fetch_earth_reference.py --date 2026-09-12 --out build/earth-reference-20260912-review
+```
+
+Add `--aqua-fill` to fill Terra's missing coverage using the same UTC day's Aqua
+image and its own validity mask. Terra retains priority wherever its mask reports
+data. This preserves source pixels without averaging or inventing clouds:
+
+```powershell
+python tools/fetch_earth_reference.py --date 2026-09-12 --aqua-fill --out build/earth-reference-20260912-paired-review
+```
+
+To select the most recent date advertised for all requested images and masks,
+strictly before today's UTC date:
+
+```powershell
+python tools/fetch_earth_reference.py --latest-prior-day --out build/earth-reference-latest-review
+```
+
+The default output is 2048 by 1024 pixels; `--width 4096` requests 4096 by 2048.
+The tool makes four bounded requests: WMS capabilities, the dated Terra MODIS true-color
+image, its same-date data/no-data mask, and the mask's published classification palette.
+`--aqua-fill` adds two requests for Aqua's same-date image and data/no-data mask;
+date selection then requires availability for both satellites and both masks.
+Requests have a 45-second socket timeout, a fixed NASA HTTPS host, and response limits
+of 8 MiB for capabilities, 24 MiB per image, and 64 KiB for the palette. There is no
+background acquisition or automatic retry. A network failure or rejected response leaves
+no completed candidate directory.
+
+Successful output contains `weather-original.png`, `no-data-original.png`,
+`no-data-palette.xml`, `capabilities.xml`, `weather-rgba.png`, and
+`earth-reference.json`. The JSON records the actual selected date, retrieval time,
+source URLs, hashes, sizes, grid, validity counts, and derivation. Exit 0 means that
+this review candidate was acquired; exit 1 means a rejected or unavailable acquisition;
+argument errors return 2. Repeated acquisition of a date may return revised provider
+bytes, so compare hashes instead of assuming a date identifies immutable imagery.
+
+With `--aqua-fill`, output also retains `aqua-weather-original.png` and
+`aqua-no-data-original.png`. The final `weather-rgba.png` takes each pixel from Terra
+when Terra is valid, otherwise Aqua when Aqua is valid. Both missing stays transparent.
+The JSON records both original image/mask pairs, source priority, Terra pixels retained,
+Aqua pixels used to fill gaps, and remaining no-data pixels. A valid black pixel stays
+valid; RGB brightness is never used as the coverage test.
+
+The derivative retains each original decoded RGB value. Its alpha is 255 only for
+the provider mask's exact Data class `(0,0,0,0)` and 0 for its No Data class
+`(202,170,86,255)`. Different grids, malformed PNG data, changed palette semantics,
+or unrecognized mask colors fail closed. The tool never infers missing observations
+from black photographic pixels. NASA documents this separate mask in its
+[GIBS Python workflow](https://nasa-gibs.github.io/gibs-api-docs/python-usage/#using-a-mask)
+and [classification palette](https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml).
+
+Before incorporating a candidate, verify its original and derived hashes, review its
+coverage and exact date, and run:
+
+```powershell
+python -m unittest discover -s tests/python -p test_fetch_earth_reference.py -v
+python tools/validate_visual_assets.py
+```
+
+Publication requires a separate reviewed asset inventory change and the ordinary
+build/release gates. Rollback keeps or restores the previously reviewed asset hashes;
+an acquired candidate never becomes active merely because the fetch succeeded.
+
+This is a dated satellite mosaic containing clouds, surface, ocean, and ice; it is
+not a cloud-only image, weather forecast, or live global observation. The most recent
+prior UTC day can still contain missing swaths, polar gaps, or later revisions.
+Terra and Aqua observe at different overpass times; the optional combined image is
+not a simultaneous scene. Real seams between overpasses remain visible, and missing
+polar or shared swath coverage is not filled from another date.
+Transparent missing coverage reveals the separately identified historical base map.
+The January 2004 Blue Marble surface and 2016 Black Marble night lights retain their
+own source epochs when the model clock changes. The Blue Marble map contains Antarctic
+and Greenland land ice, but does not establish Arctic sea-ice coverage. A JPL MUR
+sea-ice layer is a dated scientific analysis: retain its percentage legend and
+false-color meaning rather than inventing a photographic white polar cap.
+
 ## Browser/provider operation
 
 Default Sky calculations stay on device. Remote mode requires an explicitly configured
@@ -90,8 +177,10 @@ change schema versions to bypass validation.
 
 ## Scientific and operational limits
 
-Real imagery is not automatically registered; current assessments never permit model
-compositing. Coefficient regeneration/notice gaps and canonical runtime holds are in
+Real imagery is not automatically registered. Globe mapping requires reviewed byte
+identity, coordinate registration, coverage, source epoch, and display interpretation;
+photographic texture does not become state-estimation evidence. Coefficient
+regeneration/notice gaps and canonical runtime holds are in
 [COEFFICIENT_PROVENANCE](COEFFICIENT_PROVENANCE.md) and
 [CANONICAL_GENERATION](CANONICAL_GENERATION.md).
 Keep operational readiness false: no calibrated magnetic/forecast probability,
