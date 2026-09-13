@@ -230,7 +230,8 @@ process.stdout.write(JSON.stringify({ redirects, link: link.href }));
         self.assertTrue((self.root/"solar-v3/releases/ci-abc-123-1/app.js").is_file())
 
     def test_smoke_accepts_current_solar_v3_keyed_rows_before_advancing_to_sky(self):
-        rendered = '<div>solar-state-snapshot.v3</div><div id="regionList"><button data-object-id="AR1">AR1</button></div>'
+        rendered = ('<body data-experience="research"><div id="baseLabel">Base: synthetic photosphere (synthetic)</div>'
+                    '<div>solar-state-snapshot.v3</div><div id="regionList"><button data-object-id="AR1">AR1</button></div></body>')
         # The external Chromium process is replaced at its text-output seam;
         # reaching the next surface proves actual Sun assertions accepted v3.
         with patch.object(browser_smoke,"dump_dom",side_effect=[(rendered,""),RuntimeError("next surface")]):

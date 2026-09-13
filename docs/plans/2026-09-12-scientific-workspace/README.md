@@ -236,3 +236,35 @@ independent astronomical qualification, hosted CI and protected production promo
 distinct from this implementation's local checks. Rollback uses a complete compatible
 artifact, never mixed modules/WASM/data. Publication is for code review; no production
 activation is part of this change.
+
+### Review publication and hosted smoke follow-up
+
+The implementation was committed as `ea70e5e713dd12e2af6fe42ddc08062f6b741c2f`
+and published for review in [PR 107](https://github.com/Protonmatter/sol/pull/107),
+targeting `master`. Initial hosted Rust tests, formatting/lint, Rust and Python coverage,
+three-platform determinism and byte comparison, web/provider/browser validation, docs,
+governance and immutable artifact build passed. The JavaScript coverage jobs stopped
+before Chromium coverage collection because the legacy smoke harness classified the
+hidden Research panel's `Base: loading` placeholder as a default Observe-view failure.
+The dependent release gate consequently failed; that initial run is retained.
+
+The same smoke failure reproduced locally against the unchanged
+`build/destinations-preview-03` artifact. The correction is confined to smoke readiness,
+assertions and their regressions: explicitly validate the visible archived observation,
+enter Research through its native control and require its model to finish loading.
+Hidden model placeholders on other destinations must not substitute for active-view
+readiness. Actual runtime errors and failed model initialization remain failures.
+Product bytes and the delivered screenshots are unchanged by this follow-up.
+
+The corrected real-browser smoke passed on that same artifact with
+`python tools/browser_smoke.py --web-root build/destinations-preview-03`;
+evidence is `coverage/pr107-smoke-followup-02.log`. The 35 focused browser-driver
+and release-artifact tests passed, including invalid observation/model readiness,
+native Research entry, mandatory System assertions and bounded browser cleanup.
+The intermediate Observe capture also exposed the hidden `Loading snapshot.`
+placeholder; both model-loading assertions are now applied after Research entry.
+Initial failed logs are retained. No coverage floor or scientific assertion was lowered.
+The complete Python regression suite then passed all 243 tests; see
+`coverage/pr107-smoke-harness-python.log`. JavaScript syntax, Python compilation,
+documentation references and diff checks also passed. The follow-up adds no runtime
+source, asset, dependency or engine changes, so the final build screenshots remain valid.
