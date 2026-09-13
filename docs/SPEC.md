@@ -277,6 +277,11 @@ exaggeration. Display clearance may constrain enlarged radii but cannot change p
 centers, orbital evolution or real transits. Scientific textures require per-use identity,
 coverage and interpretation evidence; unverifiable global mapping uses a labeled neutral
 fallback. Official source-byte correspondence alone is not global-map qualification.
+The pinned default observation MUST be part of the current release's verified critical
+cache set so a first offline return can retain the image and its archival provenance.
+Other raster previews remain optional. Missing surface detail MUST preserve the existing
+moon albedo display scale without adding unqualified patterns. Physical-scale controls
+MUST refresh even when a hidden or zero-size canvas cannot paint.
 
 Rendered layers are labeled as exactly one of:
 

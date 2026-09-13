@@ -1,6 +1,69 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { orreryHarness as harness } from "./helpers/orreryHarness.mjs";
+import { MOON_ALBEDO, MOON_ALBEDO_REFERENCE } from "../../apps/web/js/moonAppearance.js";
+import { moonOffsetAU } from "../../apps/web/js/moonorbits.js";
+import { sunlightOnMoon } from "../../apps/web/js/moonshadows.js";
+import { iauRotation } from "../../apps/web/js/orreryMath.js";
+import { BODY, AU_KM } from "../../apps/web/js/bodyData.js";
+
+test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse attenuation", async t => {
+  const h = await harness(t, { controls: true, catalogues: "ready", reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  h.input("orreryAnchor", "Jupiter", "change");
+  h.state.radius = 0.1;
+  const first = h.uniformDraws.length;
+  h.check("orreryTrueScale", true);
+  const jupiter = h.state.bodies.find(body => body.name === "Jupiter");
+  const parent = [jupiter.x_au, jupiter.y_au, jupiter.z_au];
+  const rot = iauRotation(BODY.Jupiter, h.state.renderUnix);
+  const toBody = vector => [0, 1, 2].map(i => rot[i * 4] * vector[0] + rot[i * 4 + 1] * vector[1] + rot[i * 4 + 2] * vector[2]);
+  const sun = toBody(parent.map(value => -value * AU_KM));
+  const uploads = new Map();
+  for (const moon of h.moons.filter(moon => moon.p === "Jupiter")) {
+    const offset = moonOffsetAU(moon, h.state.renderUnix);
+    const position = offset.map((value, i) => value + parent[i]);
+    const matches = h.uniformDraws.slice(first).filter(draw => draw.u_style === -1 && draw.u_mode === 0
+      && draw.u_nmat?.every((value, i) => value === (i % 4 === 0 ? 1 : 0))
+      && draw.u_model?.slice(12, 15).every((value, i) => Math.abs(value - position[i]) < 1e-6));
+    assert.equal(matches.length, 1, `${moon.n}: one actual moon sphere upload at its physical position`);
+    const draw = matches[0], [red, green, blue] = draw.u_base;
+    assert.equal(draw.u_useTex, 0, `${moon.n}: held texture cannot supply detail`);
+    assert.equal(draw.u_texMode, 0);
+    assert.equal(red, green, `${moon.n}: no unqualified catalogue hue`);
+    assert.equal(red, blue);
+    const sunlit = sunlightOnMoon(toBody(offset.map(value => value * AU_KM)), sun,
+      { eqRadius: BODY.Jupiter.radiusKm, polarRadius: BODY.Jupiter.polarKm, sunRadius: BODY.Sun.radiusKm });
+    const illumination = 0.06 + 0.94 * sunlit;
+    const expected = (MOON_ALBEDO[moon.n] / MOON_ALBEDO_REFERENCE * illumination) ** (1 / 2.2);
+    assert.ok(Math.abs(red - expected) < 1e-6, `${moon.n}: uploaded brightness retains the existing albedo and eclipse transfer`);
+    uploads.set(moon.n, red ** 2.2 / illumination);
+  }
+  assert.ok(uploads.get("Europa") > uploads.get("Ganymede"), "the larger Ganymede must retain its lower reflectance");
+  assert.ok(Math.abs(uploads.get("Callisto") / uploads.get("Europa") - MOON_ALBEDO.Callisto / MOON_ALBEDO.Europa) < 1e-6);
+  assert.equal(h.images.length, 0, "albedo restoration cannot bypass source qualification");
+  h.leaveOrrery();
+});
+
+test("paused physical-scale control updates immediately when the canvas cannot paint", async t => {
+  const h = await harness(t, { controls: true, reducedMotion: true });
+  await h.enterOrrery(); h.frame(1000);
+  assert.equal(h.frames.size, 0);
+  const epoch = h.state.renderUnix, before = h.draws;
+  h.nodes.orreryCanvas.clientWidth = 0;
+  h.nodes.orrerySize.value = "2";
+  for (const checked of [true, false]) {
+    h.check("orreryTrueScale", checked);
+    assert.equal(h.state.trueScale, checked);
+    assert.equal(h.nodes.orrerySize.disabled, checked, "control state cannot depend on a successful GPU paint");
+    assert.match(h.nodes.orreryScaleStatus.textContent, checked ? /Physical scale/ : /Enlarged for visibility/);
+    assert.equal(h.nodes.orrerySize.value, "2", "preserve the user's parked enlargement value");
+    assert.equal(h.state.renderUnix, epoch);
+    assert.equal(h.frames.size, 0, "scale changes do not resume a paused clock");
+    assert.equal(h.draws, before, "the zero-width canvas did not paint");
+  }
+  h.leaveOrrery();
+});
 
 test("Retry after failed System re-entry restores the retained canvas and animation loop", async t => {
   const h = await harness(t);

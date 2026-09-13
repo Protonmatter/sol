@@ -16,10 +16,10 @@ from validate_release_manifest import RELEASE_ID, base_path as validate_base_pat
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def validate_visual_source(source_root: Path) -> None:
-    """Require hash-bound inventory for the visual runtime, without upgrading its holds."""
+def validate_visual_source(source_root: Path) -> frozenset[str]:
+    """Validate visual identity and return images required by the initial experience."""
     if not any((source_root / name).exists() for name in ("js/visualAssets.js", "js/solarObservation.js")):
-        return  # Historical artifacts without the visual runtime retain their contract.
+        return frozenset()  # Historical artifacts retain their optional-texture contract.
     from validate_visual_assets import browser_module, validate_inventory
     inventory = source_root / "visual-assets.v1.json"
     if not inventory.is_file() or inventory.is_symlink():
@@ -29,6 +29,13 @@ def validate_visual_source(source_root: Path) -> None:
     generated = source_root / "js/visualAssetManifest.js"
     if not generated.is_file() or generated.read_text(encoding="utf-8") != browser_module(data):
         raise ValueError("browser visual inventory drift")
+    # solarObservation.js selects observed_images[0] for the default Sun view.
+    # Its first request can precede SW control, so installation must admit these
+    # exact pinned bytes; remaining archive previews and textures stay on demand.
+    # Cache admission does not upgrade a source's scientific qualification.
+    if (source_root / "js/solarObservation.js").is_file():
+        return frozenset({data["observed_images"][0]["path"]})
+    return frozenset()
 
 TOKEN = re.compile(r"\?v=[0-9a-zA-Z._-]+")
 WASM_FILES = ("solar_wasm.wasm", "solar_ephemeris.wasm")
@@ -54,7 +61,7 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     if not RELEASE_ID.fullmatch(release_id):
         raise ValueError("invalid release ID")
     validate_base_path(base_path)
-    validate_visual_source(source_root)
+    critical_visuals = validate_visual_source(source_root)
     if schemas is None:
         solar_text = (source_root / "js/solarSchema.js").read_text(encoding="utf-8")
         declarations = [line.strip() for line in solar_text.splitlines() if line.strip() and not line.lstrip().startswith("//")]
@@ -91,6 +98,7 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     out_root.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=".sol-stage-", dir=out_root.parent))
     namespace = f"releases/{release_id}/"
+    critical_visual_paths = {namespace + path for path in critical_visuals}
     source_map: dict[str, dict] = {}
     try:
         for file in sorted(source_root.rglob("*")):
@@ -159,7 +167,7 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
                 continue
             relative = file.relative_to(temporary).as_posix()
             current = relative in ("index.html", "sw.js") or relative.startswith(namespace)
-            role = "optional" if "/textures/" in relative or not current else "critical"
+            role = "optional" if not current or ("/textures/" in relative and relative not in critical_visual_paths) else "critical"
             assets.append({"path": relative, "size": file.stat().st_size, "sha256": digest(file),
                            "role": role, **source_map.get(relative, {})})
         data_assets = [asset for asset in assets if asset["path"].startswith(namespace + "data/")]

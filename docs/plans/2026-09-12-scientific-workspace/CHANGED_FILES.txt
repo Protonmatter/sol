@@ -51,6 +51,7 @@ tests/web/helpers/orreryHarness.mjs
 tests/web/orreryCoverage.test.mjs
 tests/web/orreryDetail.test.mjs
 tests/web/orreryShaders.test.mjs
+tests/web/orrery_review_regressions.test.mjs
 tests/web/sky_review_regressions.test.mjs
 tests/web/solarObservation.test.mjs
 tests/web/solar_review_regressions.test.mjs

@@ -20,7 +20,7 @@ const server=http.createServer((req,res)=>{
   if(!file.startsWith(roots[active]+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404).end();return;}
   let bytes=fs.readFileSync(file);
   if(corrupt&&name===`/${manifests[2].namespace}pkg/solar_wasm.wasm`){bytes=Buffer.from(bytes);bytes[0]^=1;}
-  res.setHeader("Content-Type",({".js":"text/javascript",".html":"text/html",".json":"application/json",".wasm":"application/wasm",".css":"text/css"})[path.extname(file)]||"application/octet-stream");
+  res.setHeader("Content-Type",({".js":"text/javascript",".html":"text/html",".json":"application/json",".wasm":"application/wasm",".css":"text/css",".jpg":"image/jpeg"})[path.extname(file)]||"application/octet-stream");
   res.setHeader("Cache-Control","no-store");res.end(bytes);
 });
 await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
@@ -40,6 +40,64 @@ try {
     if(target.type()!=="service_worker")return;
     try{const session=await target.createCDPSession();await session.send("Runtime.enable");session.on("Runtime.exceptionThrown",event=>evidence.workerErrors.push(event.exceptionDetails.exception?.description||event.exceptionDetails.text));}catch{}
   });
+  // The initial page is intentionally never claimed by the installing worker. Its
+  // already-loaded image therefore cannot rely on a later cache-on-fetch request.
+  // Use fresh storage and a new renderer on return so neither a prior tab nor the
+  // HTTP/image memory cache can supply the default observation accidentally.
+  const firstVisitContext=await browser.createBrowserContext();
+  try {
+    active=2;
+    const manifest=manifests[2];
+    const visualAssets=JSON.parse(fs.readFileSync(path.join(roots[2],manifest.namespace,'visual-assets.v1.json'),'utf8'));
+    const observationPath=visualAssets.observed_images?.[0]?.path;
+    assert.equal(typeof observationPath,'string','candidate must declare its default archived observation');
+    const observationAsset=manifest.assets.find(asset=>asset.path===manifest.namespace+observationPath);
+    assert.ok(observationAsset,'candidate must inventory the default archived observation');
+    const first=await firstVisitContext.newPage();await first.setCacheEnabled(false);
+    await first.goto(origin,{waitUntil:'domcontentloaded'});
+    await first.waitForFunction(()=>{const image=document.getElementById('observationImage');return image?.complete&&image.naturalWidth>0;},{timeout:20000});
+    const online=await first.evaluate(()=>({
+      controlled:!!navigator.serviceWorker.controller,
+      source:document.getElementById('viewSource').textContent,
+      time:document.getElementById('viewTime').textContent,
+      caption:document.getElementById('observationStatus').textContent,
+      imageUrl:document.getElementById('observationImage').currentSrc,
+      width:document.getElementById('observationImage').naturalWidth,
+    }));
+    assert.equal(online.controlled,false,'the first image must load before service-worker control');
+    assert.match(online.source,/observed.*NASA/);assert.match(online.time,/archival/);
+    assert.equal(new URL(online.imageUrl).pathname,'/'+observationAsset.path);
+    await ready(first);
+    const installedImage=await first.evaluate(async({cache,url})=>!!(await(await caches.open(cache)).match(url)),{cache:`sol-release-${manifest.release_id}`,url:online.imageUrl});
+    await first.close();offline=true;
+    const returned=await firstVisitContext.newPage();await returned.setCacheEnabled(false);
+    await returned.goto(origin,{waitUntil:'domcontentloaded',timeout:30000});
+    await returned.waitForFunction(()=>{
+      const image=document.getElementById('observationImage'),unavailable=document.getElementById('observationUnavailable');
+      return image?.complete&&(image.naturalWidth>0||unavailable?.hidden===false);
+    },{timeout:20000});
+    const offlineReturn=await returned.evaluate(()=>({
+      controlled:!!navigator.serviceWorker.controller,
+      decoded:document.getElementById('observationImage').naturalWidth>0,
+      imageVisible:document.getElementById('observationImage').getClientRects().length>0,
+      source:document.getElementById('viewSource').textContent,
+      time:document.getElementById('viewTime').textContent,
+      caption:document.getElementById('observationStatus').textContent,
+      imageUrl:document.getElementById('observationImage').currentSrc,
+      unavailable:!document.getElementById('observationUnavailable').hidden,
+      modelVisible:document.getElementById('solarCanvas').getClientRects().length>0,
+    }));
+    const firstOffline={releaseId:manifest.release_id,installedImage,online,offlineReturn};
+    evidence.checks.push({firstOfflineObservation:firstOffline});
+    assert.equal(offlineReturn.controlled,true,'offline return must be served by the installed worker');
+    assert.equal(offlineReturn.decoded,true,'first offline return must decode the original default observation without a second online visit');
+    assert.equal(offlineReturn.imageVisible,true,'cached observation must be visible in the default view');
+    assert.equal(installedImage,true,'completed installation must already contain the default observation');
+    assert.equal(offlineReturn.unavailable,false);assert.equal(offlineReturn.modelVisible,false);
+    for(const key of ['source','time','caption','imageUrl'])assert.equal(offlineReturn[key],online[key],`offline observation retains its original ${key}`);
+    firstOffline.sha256=await fetchHash(returned,online.imageUrl);
+    assert.equal(firstOffline.sha256,observationAsset.sha256,'offline image bytes match the immutable release manifest');
+  } finally {await firstVisitContext.close();offline=false;active=0;}
   const page=await browser.newPage();await page.setViewport({width:1440,height:900});await page.emulateMediaFeatures([{name:"prefers-reduced-motion",value:"reduce"}]);
   await page.goto(origin,{waitUntil:"domcontentloaded"});await ready(page);await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);

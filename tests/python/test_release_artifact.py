@@ -11,6 +11,7 @@ import io
 import os
 import runpy
 import subprocess
+import shutil
 from unittest.mock import patch
 from pathlib import Path
 
@@ -58,6 +59,72 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.assertEqual((out / "web-release-manifest.json").read_bytes(),
             (out / manifest["namespace"] / "web-release-manifest.json").read_bytes())
         self.assertTrue(any(asset["path"] == "index.html" and asset["role"] == "critical" for asset in manifest["assets"]))
+
+    def install_observation_fixture(self):
+        """Retain actual reviewed bytes, with two local paths to test default selection."""
+        from validate_visual_assets import browser_module
+        web = Path(__file__).resolve().parents[2] / "apps/web"
+        data = json.loads((web / "visual-assets.v1.json").read_text(encoding="utf-8"))
+        primary_source = data["observed_images"][0]["path"]
+        primary = data["observed_images"][0]
+        primary["path"] = "textures/default-archive-fixture.jpg"
+        other = copy.deepcopy(primary)
+        other.update(id="secondary-archive-fixture", path="textures/secondary-archive-fixture.jpg")
+        data["observed_images"].append(other)
+        paths = {asset["path"] for asset in data["assets"]}
+        paths.update(asset["path"] for asset in data["procedural_assets"] if "path" in asset)
+        paths.update(("js/solarObservation.js", "js/config.js"))
+        for path in paths:
+            target = self.source / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(web / path, target)
+        for observation in data["observed_images"]:
+            shutil.copyfile(web / primary_source, self.source / observation["path"])
+        (self.source / "visual-assets.v1.json").write_text(json.dumps(data), encoding="utf-8")
+        (self.source / "js/visualAssetManifest.js").write_text(browser_module(data), encoding="utf-8")
+        return primary["path"], other["path"]
+
+    def test_default_observation_is_critical_without_precaching_other_rasters(self):
+        primary, other = self.install_observation_fixture()
+        prior = self.build("observation-first")
+        original = validator.validate_manifest(prior / "web-release-manifest.json")
+        roles = {asset["path"]: asset["role"] for asset in original["assets"]}
+        self.assertEqual(roles[original["namespace"] + primary], "critical")
+        self.assertEqual(roles[original["namespace"] + other], "optional")
+        self.assertEqual(roles[original["namespace"] + "textures/earth.jpg"], "optional")
+        self.assertEqual([path for path, role in roles.items() if "/textures/" in path and role == "critical"],
+                         [original["namespace"] + primary])
+        # An update installs only its own primary image. Previous clients retain
+        # their completed caches; old namespaces must not join the new install set.
+        updated = validator.validate_manifest(self.build("observation-next", prior) / "web-release-manifest.json")
+        updated_roles = {asset["path"]: asset["role"] for asset in updated["assets"]}
+        self.assertEqual(updated_roles[updated["namespace"] + primary], "critical")
+        self.assertEqual(updated_roles[original["namespace"] + primary], "optional")
+        self.assertEqual(updated_roles[updated["namespace"] + other], "optional")
+
+    def test_default_observation_integrity_failure_cannot_produce_a_release(self):
+        primary, _ = self.install_observation_fixture()
+        (self.source / primary).write_bytes(b"not the reviewed original observation")
+        with self.assertRaisesRegex(ValueError, "observed image bytes differ"):
+            self.build("observation-corrupt")
+        self.assertFalse((self.root / "observation-corrupt").exists())
+
+    def test_historical_texture_name_alone_does_not_enter_the_critical_set(self):
+        (self.source / "textures").mkdir()
+        (self.source / "textures/solar-observation-171.jpg").write_bytes(b"historical optional fixture")
+        manifest = validator.validate_manifest(self.build("historical-texture") / "web-release-manifest.json")
+        asset = next(item for item in manifest["assets"] if item["path"].endswith("textures/solar-observation-171.jpg"))
+        self.assertEqual(asset["role"], "optional")
+
+    def test_visual_inventory_without_observation_runtime_keeps_images_optional(self):
+        self.install_observation_fixture()
+        (self.source / "js/solarObservation.js").unlink()
+        web = Path(__file__).resolve().parents[2] / "apps/web"
+        shutil.copyfile(web / "js/visualAssets.js", self.source / "js/visualAssets.js")
+        manifest = validator.validate_manifest(self.build("visual-runtime-only") / "web-release-manifest.json")
+        textures = [item for item in manifest["assets"] if "/textures/" in item["path"]]
+        self.assertTrue(textures)
+        self.assertTrue(all(item["role"] == "optional" for item in textures))
 
     def test_stable_root_bootstrap_preserves_share_fragment_in_current_release(self):
         # Execute the builder's generated script, not a copy of its routing logic.

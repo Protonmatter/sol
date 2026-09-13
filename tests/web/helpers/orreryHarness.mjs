@@ -16,6 +16,11 @@ export async function orreryHarness(t, options = {}) {
   const events = [];
   const frames = new Map(), requests = [], errors = [], warnings = [], positionEpochs = [], presentations = [];
   const images = [], textureUploads = [], drawCalls = [], optionalLoads = [], canvasCommands = [];
+  const uniformDraws = [], uniforms = new Map(); let currentProgram;
+  const recordUniform = (location, value) => {
+    if (!uniforms.has(location.program)) uniforms.set(location.program, {});
+    uniforms.get(location.program)[location.name] = typeof value === "number" ? value : Array.from(value);
+  };
   const idleTasks = new Map(); let idleId = 0;
   const documentHandlers = new Map(), snapshotReplies = new Map();
   let frameId = 0, draws = 0, contexts = 0, workerFailure = false, monotonicNow = 100;
@@ -31,7 +36,13 @@ export async function orreryHarness(t, options = {}) {
     getShaderInfoLog: () => "test GPU shader compile failure",
     getProgramInfoLog: () => "test GPU program link failure",
     getAttribLocation: () => 0,
-    drawElements: (...args) => { draws++; drawCalls.push(["elements", ...args]); },
+    getUniformLocation: (program, name) => ({ program, name }),
+    useProgram: program => { currentProgram = program; },
+    uniform1i: recordUniform,
+    uniform3fv: recordUniform,
+    uniformMatrix3fv: (location, _transpose, value) => recordUniform(location, value),
+    uniformMatrix4fv: (location, _transpose, value) => recordUniform(location, value),
+    drawElements: (...args) => { draws++; drawCalls.push(["elements", ...args]); uniformDraws.push({ ...uniforms.get(currentProgram) }); },
     drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]); },
     texImage2D: (...args) => { textureUploads.push(args); },
   }, { get(target, name) {
@@ -191,7 +202,7 @@ export async function orreryHarness(t, options = {}) {
     },
   });
   const settle = () => new Promise(resolve => setImmediate(resolve));
-  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, drawCalls, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery,
+  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
     ...lifecycle, settle,
     event(id, type, properties = {}) { return nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties }); },
     input(id, value, type = "input") { nodes[id].value = value; return this.event(id, type); },

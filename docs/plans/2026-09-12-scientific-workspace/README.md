@@ -268,3 +268,61 @@ The complete Python regression suite then passed all 243 tests; see
 `coverage/pr107-smoke-harness-python.log`. JavaScript syntax, Python compilation,
 documentation references and diff checks also passed. The follow-up adds no runtime
 source, asset, dependency or engine changes, so the final build screenshots remain valid.
+
+### Automated-review follow-up candidate
+
+All hosted checks, including the dependent release gate, passed at
+`fee93319398a280041fae918d9a7f8f6f3ad2af0`. Three subsequent review findings were
+verified and addressed before final handoff:
+
+- Held moon surfaces again pass their admitted fallback hue through the existing
+  `moonBaseColor` albedo scale. No new colors, details, constants or photometric
+  calibration claims were introduced. Tests record the actual sphere uniform uploads.
+- Physical-scale control state refreshes explicitly after the checkbox event. Normal
+  paused painting already refreshed it; the reproduced gap was a zero-width canvas
+  returning before the label/control update. The regression covers that boundary.
+- The existing validated visual inventory identifies the runtime's primary observation
+  for the current release's critical cache set. Other rasters and retained namespaces
+  remain optional. A fresh-browser regression first failed on the earlier artifact:
+  the first uncontrolled visit displayed the image, but the first offline return lacked
+  it. The corrected build passes with unchanged original bytes and archival metadata.
+
+The final source was staged in `build/review-followup-01`, `-02` and `-03`, using
+`tools/build_web.py`, unchanged `build/workspace-wasm`, base path `/`, source lineage
+`fee93319398a280041fae918d9a7f8f6f3ad2af0` and run IDs 11, 12 and 13. Each later
+artifact includes the preceding artifact through `--previous-root`.
+The final `review-followup-03` manifest digest is
+`4b4a604e75d05824ef9ab8f00aabfde64dd0adf5d983e8ff0caf9dbe080fce12`.
+Its manifest binds the tested candidate bytes; the source SHA records pre-commit lineage.
+
+- Source-bound Node collection: 707 tests passed; evidence `coverage/review-followup-node`.
+- Node-only gate: 98.56% lines, 91.81% branches, 94.90% functions; all 90% floors passed;
+  evidence `coverage/review-followup-node-executed`.
+- Exact configured Python gate: 28 provider and 247 Python tests passed; 91% aggregate
+  coverage passed the unchanged 90% floor; line coverage 3364/3620 = 92.93%; evidence
+  `coverage/review-followup-python-evidence-01.json` and `review-followup-python-01.xml`.
+- Typecheck: 76 files passed; SDLC, 19 requirements, visual inventory and UX structure passed.
+- Release-cache browser checks passed: first offline observation, explicit requester-only
+  update, retained release coherence and corrupt-candidate rejection; evidence
+  `coverage/review-followup-release-cache/evidence.json`.
+- Both rendering regressions failed on original code and passed after correction; evidence
+  `coverage/pr107-orrery-review-red.log` and `pr107-orrery-review-green.log`.
+- Scientific Chromium rendering passed: five actual Earth draws, 0.2513 radians,
+  frozen-transform negative control retained; Io transit 0.0504 versus 0.0505 predicted,
+  0.5-pixel residual, eclipse brightness 0.2891 versus the shipped 0.2784 ramp.
+  Evidence: `coverage/review-followup-browser`.
+- Merged Node/Chromium runtime line coverage: 96.15%, passing the unchanged 90% floor;
+  evidence `coverage/review-followup-combined`.
+- Experience and Sky browser harnesses passed and exited zero; evidence
+  `coverage/review-followup-experience` and `coverage/review-followup-sky`.
+- The final three-view smoke passed in isolation with the unchanged command and timeouts;
+  evidence `coverage/review-followup-smoke-02.log`. A concurrent attempt had timed out
+  during its first 30-second navigation, before any UI assertion. That failed log is
+  retained at `coverage/review-followup-smoke.log`; contention was not established as
+  its cause. No timeout or deterministic assertion was weakened to obtain the pass.
+
+Six fresh desktop/mobile screenshots were inspected and copied without modification to
+`SOL-20260913-final-{sun,sky,system}-{desktop,mobile}.png` in the user's Screenshots folder.
+Exact paths, original artifact paths, SHA-256 hashes and byte lengths are recorded in
+`coverage/review-followup-experience/screenshot-copies.json`. The simplified globe
+appearance and calculated Sky map remain explicit limitations relative to the references.

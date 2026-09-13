@@ -44,7 +44,7 @@ import { textureEligible, missingDetailColor } from "./visualAssets.js?v=dcca629
 import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=dcca6290db";
 import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=dcca6290db";
 import * as moonCatalogue from "./moons.js?v=dcca6290db";
-import { MOON_TEXTURE_FILES } from "./moonAppearance.js?v=dcca6290db";
+import { MOON_TEXTURE_FILES, moonBaseColor } from "./moonAppearance.js?v=dcca6290db";
 import { elpMoonAliased,
   DAYS_PER_YEAR, SOLAR_SPEED_DEFAULT_YPS, solarSpeedFromSlider, solarSliderFromSpeed,
   rotationDisplayIsLimited, rotationDisplayStepSeconds, solarStepSeconds,
@@ -1422,14 +1422,12 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, model)));
     gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
     gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]));
-    // Titan is the one moon with a real atmosphere, so it gets the hazy shader rather than the
-    // cratered one; Europa gets its own because it is not a cratered iceball (see the shader).
-    // Everything else is a rock or an iceball. All three styles MODULATE u_base — the planet
-    // styles would overwrite it and throw away both the catalogue's hue and the albedo scale.
+    // Surface qualification controls detail; the existing published albedo scale
+    // remains meaningful when no photographic texture is eligible.
     gl.uniform1i(P.sphereU.u_style, -1); // no invented craters, clouds, or ice patterns
     gl.uniform1i(P.sphereU.u_mode, 0);
     gl.uniform1f(P.sphereU.u_time, state.renderUnix * 0.0002);
-    // The catalogue's hue at the moon's PUBLISHED geometric albedo — see moonAppearance.js —
+    // The admitted fallback hue at the moon's PUBLISHED geometric albedo — see moonAppearance.js —
     // dimmed if the moon is inside its planet's shadow cone. `sunlit` is the fraction of the
     // solar disc the moon can still see (sunlightOnMoon in moonshadows.js, computed from the
     // PHYSICAL offset like the transit shadows), so an eclipsed Galilean fades out and comes
@@ -1442,7 +1440,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     // ramp must pass through the same transfer or penumbral ingress reads ~2x deeper than
     // the geometry says: linear 0.50 displayed as encoded would show 0.247 of the light.
     const eclipsed = (0.06 + 0.94 * sunlit) ** (1 / 2.2);
-    const baseColor = missingDetailColor(m.n);
+    const baseColor = moonBaseColor({ n: m.n, col: missingDetailColor(m.n) });
     gl.uniform3fv(P.sphereU.u_base, new Float32Array(
       [baseColor[0] * eclipsed, baseColor[1] * eclipsed, baseColor[2] * eclipsed],
     ));
@@ -2258,7 +2256,7 @@ async function showFallback(msg) {
   // ringBufs reset here — nuking the map on every slider input orphaned up to three ~1.3 MB
   // GPU buffers per event without gl.deleteBuffer.
   bind("orrerySize", "input", (e) => { state.exaggeration = Number(inputTarget(e).value); paint(); });
-  bind("orreryTrueScale", "change", (e) => { state.trueScale = inputTarget(e).checked; paint(); });
+  bind("orreryTrueScale", "change", (e) => { state.trueScale = inputTarget(e).checked; paint(); updateOrreryAccuracy(); });
   bind("orreryAnimate", "change", (e) => {
     state.animate = inputTarget(e).checked;
     if (state.animate) startLoop();
