@@ -8,7 +8,7 @@ import { waitForCanvasGeometry } from '../../tools/canvas_capture.mjs';
 const waitSource = waitForCanvasGeometry.toString();
 
 async function runWait({ frames = [], rectangle: initialRectangle, node: initialNode, viewport,
-  defaultFrame = now => ({ at: now + 16.7 }) } = {}) {
+  mutations = [], defaultFrame = now => ({ at: now + 16.7 }) } = {}) {
   let now = 0, nextId = 0, frameCount = 0, canceledFrames = 0, outcome;
   const tasks = new Map();
   const rectangle = { x: 125.796875, y: 144.0625, width: 731.609375, height: 612.140625 };
@@ -31,6 +31,10 @@ async function runWait({ frames = [], rectangle: initialRectangle, node: initial
     clearTimeout(id) { tasks.delete(id); },
   };
   Object.assign(context, viewport);
+  for (const mutation of mutations) schedule(() => {
+    Object.assign(rectangle, mutation.rectangle); Object.assign(node, mutation.node);
+    Object.assign(context.visualViewport, mutation.viewport);
+  }, mutation.at, 'mutation');
   vm.runInNewContext(`(${waitSource})`, context)(node).then(
     value => { outcome = { value }; }, error => { outcome = { error }; });
   for (let step = 0; step < 2_000 && !outcome; step += 1) {
@@ -41,7 +45,8 @@ async function runWait({ frames = [], rectangle: initialRectangle, node: initial
     tasks.delete(task[0]); now = task[1].at; task[1].fn();
   }
   assert.ok(outcome, 'geometry wait must terminate');
-  return { ...outcome, now, frameCount, canceledFrames, pending: tasks.size };
+  return { ...outcome, now, frameCount, canceledFrames,
+    pending: [...tasks.values()].filter(task => task.kind !== 'mutation').length };
 }
 
 test('stable geometry survives a first animation frame near the ten-second deadline', async () => {
@@ -49,6 +54,14 @@ test('stable geometry survives a first animation frame near the ten-second deadl
   assert.ifError(result.error);
   assert.deepEqual(Array.from(result.value), [125.796875, 144.0625, 731.609375, 612.140625, 0, 69, 732, 612]);
   assert.equal(result.now, 9_900);
+  assert.equal(result.pending, 0);
+});
+
+test('stable layout remains capturable when only the first animation frame is delivered', async () => {
+  const result = await runWait({ frames: [{ at: 150 }], defaultFrame: () => null });
+  assert.ifError(result.error);
+  assert.equal(result.now, 200);
+  assert.equal(result.frameCount, 1);
   assert.equal(result.pending, 0);
 });
 
@@ -64,13 +77,15 @@ test('a genuine geometry change restarts the 200ms stability interval', async ()
 });
 
 test('continuous layout movement fails with bounded change and frame diagnostics', async () => {
-  const result = await runWait({ defaultFrame: (now, frame) => ({ at: now + 50,
-    rectangle: { x: 125.796875 + frame % 2 } }) });
+  const result = await runWait({ frames: [{ at: 50 }], defaultFrame: () => null,
+    mutations: Array.from({ length: 199 }, (_, i) => ({ at: (i + 1) * 50,
+      rectangle: { x: 125.796875 + (i + 1) % 2 } })) });
   assert.match(result.error.message, /^canvas capture did not settle:/);
   const detail = JSON.parse(result.error.message.split(': ').slice(1).join(': '));
   assert.equal(result.now, 10_000);
-  assert.equal(detail.frames, 199);
+  assert.equal(detail.frames, 1);
   assert.equal(detail.firstFrameMs, 50);
+  assert.equal(detail.samples, 200);
   assert.equal(detail.initial[0], 125.796875);
   assert.equal(detail.changes.length, 32);
   assert.ok(detail.changes[0].elapsedMs > 0);
@@ -126,10 +141,19 @@ test('backing alignment uses device pixel ratio', async () => {
 });
 
 test('page scrolling restarts stability even when the canvas viewport rectangle is unchanged', async () => {
-  const result = await runWait({ frames: [
-    { at: 150, viewport: { pageTop: 85 } }, { at: 250 }, { at: 350 },
-  ] });
+  const result = await runWait({ frames: [{ at: 50 }], defaultFrame: () => null,
+    mutations: [{ at: 150, viewport: { pageTop: 85 } }] });
   assert.ifError(result.error);
   assert.equal(result.now, 350);
   assert.equal(result.value[5], 85);
+});
+
+test('timer polling detects a layout change after the only delivered animation frame', async () => {
+  const result = await runWait({ frames: [{ at: 50 }], defaultFrame: () => null,
+    mutations: [{ at: 150, rectangle: { height: 628.140625 }, node: { height: 628, clientHeight: 628 } }] });
+  assert.ifError(result.error);
+  assert.equal(result.now, 350);
+  assert.equal(result.value[3], 628.140625);
+  assert.equal(result.frameCount, 1);
+  assert.equal(result.pending, 0);
 });

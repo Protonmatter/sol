@@ -80,3 +80,55 @@ The follow-up changes exactly `tools/browser_validation.mjs`,
 The application captures under `SOL-System-Polish-20260913-aee271f` retain their
 actual originating commit. A later tooling-only head can reuse them only with
 the recorded full application source-input parity proof.
+
+## Hosted frame-delivery evidence
+
+The first correction, commit `5423701beb95f5a4dc76f25cd5a86fd46bf3fa81`,
+again reached 17 passing hosted checks, two JavaScript coverage failures and a
+dependent release-gate failure. Its new diagnostics distinguish this failure
+from actual layout movement:
+
+- [Standalone Coverage run 34753191258](https://github.com/Protonmatter/sol/actions/runs/34753191258):
+  identical initial/last-sampled geometry, one delivered frame at 156.2 ms, no
+  observed geometry changes, then no further frame before the deadline at 9,999.8 ms.
+- [Reusable CI run 34753191301](https://github.com/Protonmatter/sol/actions/runs/34753191301):
+  identical initial/last-sampled geometry, one delivered frame at 28.9 ms, no
+  observed geometry changes, then no further frame before the deadline at 9,999.5 ms.
+
+Thus these runs establish animation-frame delivery starvation that prevents
+further geometry sampling. The last sample was taken at the sole delivered frame,
+not freshly at timeout; it cannot prove the intervening layout stayed stationary.
+The logs also do not establish whether GPU compilation,
+headless compositor scheduling or another underlying cause stopped delivery.
+Increasing a timeout or changing a pixel threshold would not address the
+geometry-check scheduling dependency.
+
+The follow-up retains one delivered-frame requirement and then samples actual
+layout with bounded timer polling. The same exact fingerprint must remain
+unchanged for 200 ms; movement, scrolling or drawing-buffer changes restart
+stability. An absent initial frame still fails. The overall ten-second deadline,
+visibility and alignment checks, exact screenshot pre/post equality and actual
+image assertions remain in force. This check qualifies a stable capture rectangle,
+not a frame-rate or responsiveness benchmark. It does not alter application
+animation, drawing, layout, source imagery or scientific state.
+
+## Timer-poll follow-up validation
+
+- The one-frame-only case (first RAF at 150 ms, no subsequent RAF) fails before
+  correction in `coverage/canvas-capture-one-frame-red.log` and passes at 200 ms
+  afterward. Later geometry and scroll changes are independently scheduled in
+  the tests; they are observed and restart stability without further RAF delivery.
+- `node --test tests/web/canvasCapture.test.mjs tests/web/visualAssertions.test.mjs`
+  passes 20/20: eleven capture cases and nine unchanged pixel-assertion cases.
+  The independent review reran all eleven capture cases and found no code blocker.
+- `node tools/check_node_coverage.mjs --output-dir=coverage/system-polish-node-poll-final`
+  and `node tools/collect_node_coverage.mjs --web-root=build/system-polish-aee271f --output-dir=coverage/system-polish-node-poll-all`
+  each pass 789/789 tests. Production-module coverage remains unchanged.
+- `node tools/browser_validation.mjs --web-root=build/system-polish-aee271f --output-dir=coverage/system-polish-browser-poll-final`
+  passes the complete runtime and actual WebGL image assertions. The Sun, Earth,
+  camera-round-trip, submitted-spin, transit and eclipse values remain as recorded above.
+- `node tools/merge_web_coverage.mjs --web-root=build/system-polish-aee271f --node-input=coverage/system-polish-node-poll-all/coverage-final.json --browser-input=coverage/system-polish-browser-poll-final/coverage-final.json --output-dir=coverage/system-polish-combined-poll-final`
+  passes at 96.50% whole-web line coverage.
+- Syntax, documentation and diff checks pass. This second follow-up changes only
+  `tools/canvas_capture.mjs`, `tests/web/canvasCapture.test.mjs` and this record.
+  Hosted results must still be verified on its newly pushed commit.
