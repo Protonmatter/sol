@@ -34,14 +34,21 @@ application and full-feature memory qualification remain pending. Combined local
 checks pass 1,207 Node tests, 395 Python tests, 110-module typechecking, static web,
 UX structure, 23-requirement SDLC and 130 tracked Markdown checks.
 
-Independent actual-source binary32 reconstruction locates the native discrepancy
-at atlas node `x31/y23/z12`, whose illuminated suffix is about 13 metres. The
-local solar-ground test rounds five Gauss-point discriminants to zero, although
-independent binary64 intersections of the same points miss the body. The
-remaining weights sum to about 0.62457, consistent with the bad native residual.
-A source-kernel correction must preserve genuinely shadowed paths, public solar
-visibility, original node/allocation budgets and the complete numerical gates.
-No correction is admitted merely from that diagnostic explanation.
+Independent non-FMA binary32 reconstruction located the discrepancy at atlas node
+`x31/y23/z12` and reproduced five rejected Gauss points. Exact native readback then
+corrected the attribution: its prepared segment and shadow arithmetic differ
+from that CPU model. Native's illuminated suffix is 20.62988 metres, while a
+binary64 intersection of the actual native segment gives 15.80139 metres. The
+native shadow boundary starts illuminated support 4.82849 metres too early.
+Four rejected native points are genuinely shadowed; the fifth is a false tangent
+hit. Instrumented and original generator residuals agree exactly across the eight
+captured nodes. The retained diagnostic is
+`sol-scattering-backend-diagnostic-20260914/build/observer-prepared-path/node-native/evidence.json`.
+The analytical boundary must become robust before a source kernel can trust its
+clipped support. Bypassing local visibility alone would include genuinely
+occluded samples. Public solar visibility, original node/allocation budgets and
+the complete numerical gates remain controlling; no correction is admitted
+merely from this diagnostic explanation.
 
 The independent memory review also requires exact registered-source readiness
 after context restoration, before accepting the declared imagery workload.
