@@ -252,12 +252,14 @@ test('accepts the fixed 65536-node ceiling and rejects a one-node excess indepen
   }
 });
 
-test('supports qualified nine/seventeen-plane shapes and a failed resize leaves no old submission',()=>{
-  for(const shape of [[96,65,9],[64,49,17]]){
+test('supports current and legacy nine/seventeen-plane shapes and a failed resize leaves no old submission',()=>{
+  for(const shape of [[128,49,9],[80,41,17],[96,65,9],[64,49,17]]){
     const h=setup(),args=input();args.plan.surfaceSize=shape;args.plan.limbSize=[128,64];args.plan.heightRange=[0,1];
     args.plan.evaluations=shape.reduce((a,b)=>a*b,1)+8192;args.plan.bytes=args.plan.evaluations*16;
     h.manager.beginFrame(args.frame);assert.equal(h.manager.generate('Earth',args,h.restore),true);
     assert.deepEqual(h.allocations.map(({width,height})=>[width,height]),[[shape[0],shape[1]*shape[2]],[128,64]]);
+    assert.deepEqual(h.draws.map(({viewport})=>viewport),[[0,0,shape[0],shape[1]*shape[2]],[0,0,128,64]]);
+    assert.equal(h.manager.status('Earth').estimatedBytes,args.plan.bytes);
     h.options.incomplete=true;args.plan.surfaceSize=[8,9,1];args.plan.evaluations=8264;args.plan.bytes=132224;
     assert.equal(h.manager.generate('Earth',args,h.restore),false);assert.equal(h.live.size,0);
     assert.equal(h.manager.bind('Earth',args,{program:h.restore.program,locations,activeTexture:102}),false);
