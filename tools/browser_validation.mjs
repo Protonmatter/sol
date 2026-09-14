@@ -16,6 +16,7 @@ import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
 import { installScatteringProducerEvidence, beginScatteringProducerHold, endScatteringProducerHold } from './scattering_producer_probe.mjs';
 import { browserBackendFromArgs, browserBackendArgs, assertBrowserBackend, captureBrowserCapabilities } from './browser_backend.mjs';
 import { classifyTextureBackend } from './texture_device_telemetry.mjs';
+import {memoryRequested,runFullFeatureMemoryCheckpoints} from './full_feature_memory.mjs';
 import { assertCaptionLayouts } from "./caption_layout.mjs";
 import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
 import { waitForReferenceReadiness } from "./reference_readiness.mjs";
@@ -1281,6 +1282,7 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
 async function main() {
   let phase="setup";
   const backend=browserBackendFromArgs(process.argv.slice(2));
+  const memory=memoryRequested(process.argv.slice(2));
   const webRoot = path.resolve(argument("web-root", WEB));
   const outputDirectory = path.resolve(argument("output-dir", path.join(ROOT, "coverage", "browser")));
   fs.mkdirSync(outputDirectory, { recursive: true });
@@ -1306,11 +1308,12 @@ async function main() {
   let diagnosticPage;
   const failures = [];
   const evidence={schema_version:'browser-validation.v1',status:'running',started_at:new Date().toISOString(),
-    requested_backend:backend,scope:'Complete existing application gates; native execution requires actual application-context renderer identity.',
+    requested_backend:backend,memory_requested:memory,scope:'Complete existing application gates; native execution requires actual application-context renderer identity.',
     artifact:mapping?{release_id:mapping.manifest.release_id,source_sha:mapping.manifest.source_sha,
       manifest_sha256:createHash('sha256').update(fs.readFileSync(path.join(webRoot,'web-release-manifest.json'))).digest('hex')}:null,
     validation_source_sha256:Object.fromEntries(['browser_validation.mjs','browser_backend.mjs','texture_device_telemetry.mjs',
-      'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs'].map(name=>[name,
+      'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs',
+      'full_feature_memory.mjs','texture_device_memory.ps1','context_restore.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,
       createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')])),
   };
   const saveEvidence=()=>fs.writeFileSync(path.join(outputDirectory,'browser-evidence.json'),JSON.stringify(evidence,null,2)+'\n');
@@ -1441,6 +1444,13 @@ async function main() {
     }
     phase="coverage mapping";console.log(`Browser validation: ${phase}`);
     await writeBrowserCoverage(entries, webRoot, outputDirectory);
+    evidence.original_gates={passed:true,completed_at:new Date().toISOString()};saveEvidence();
+    if(memory){
+      phase='optional memory follow-up';console.log(`Browser validation: ${phase}; original gates complete`);
+      await workerCoverage.dispose();workerCoverage=null;
+      await runFullFeatureMemoryCheckpoints({browser,page,body:'Earth',backend,originalReceipt:evidence.original_gates,
+        save:observation=>{evidence.memory=observation;saveEvidence();}});
+    }
     evidence.status='passed';
   } catch(error) {
     evidence.status='failed';evidence.failure={phase,error:error.message};

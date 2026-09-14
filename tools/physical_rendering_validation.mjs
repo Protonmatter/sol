@@ -17,6 +17,8 @@ import {installProgramSourceEvidence,preparePhysicalSpinEvidence} from './physic
 import {collectSubmittedEarthSpin} from './earth_spin_probe.mjs';
 import {prepareMarsTerrainEvidence} from './mars_terrain_probe.mjs';
 import {assertMarsOpticalTerrainSpin} from './mars_spin_assertions.mjs';
+import {browserBackendFromArgs,browserBackendArgs,assertBrowserBackend,captureBrowserCapabilities} from './browser_backend.mjs';
+import {memoryRequested,runFullFeatureMemoryCheckpoints} from './full_feature_memory.mjs';
 
 const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const option=(name,fallback)=>process.argv.find(x=>x.startsWith(`--${name}=`))?.slice(name.length+3)||fallback;
@@ -24,6 +26,8 @@ const webRoot=path.resolve(option('web-root',path.join(repo,'build/physical-prev
 const out=path.resolve(option('out',path.join(repo,'coverage/physical-rendering')));
 const chrome=option('browser',process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':'/usr/bin/google-chrome'));
 const marsOpticalAnimation=process.argv.includes('--mars-optical-animation');
+const backend=browserBackendFromArgs(process.argv.slice(2)),memory=memoryRequested(process.argv.slice(2));
+assert.ok(!memory||marsOpticalAnimation,'--memory requires --mars-optical-animation so the original physical terrain gate runs first');
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const manifestBytes=fs.readFileSync(path.join(webRoot,'web-release-manifest.json'));
 const manifest=JSON.parse(manifestBytes);
@@ -31,7 +35,12 @@ const evidence={schema_version:'physical-rendering-validation.v1',web_root:webRo
   release_manifest_sha256:digest(manifestBytes),started_at:new Date().toISOString(),
   manifest_base_revision:manifest.source_sha,component_hashes:manifest.components,
   source_binding:'The manifest and per-file hashes identify the tested snapshot. The base revision alone does not establish that working-tree changes were committed.',
-  scope:'Full staged application, real terrain Worker and source assets, software WebGL2. Reference rendering checks do not establish astronomical calibration or native GPU performance.',
+  requested_backend:backend,memory_requested:memory,
+  validation_source_sha256:Object.fromEntries(['physical_rendering_validation.mjs','browser_backend.mjs','full_feature_memory.mjs',
+    'texture_device_telemetry.mjs','texture_device_memory.ps1','context_restore.mjs','earth_spin_probe.mjs','physical_spin_probe.mjs',
+    'physical_texture_probe.mjs','scattering_producer_probe.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs']
+    .map(name=>[name,digest(fs.readFileSync(path.join(repo,'tools',name)))])),
+  scope:'Full staged application, real terrain Worker and source assets. Backend identity is observed from the actual application context. Reference rendering does not establish astronomical calibration.',
   source_differences:[],checks:[],captures:[],worker_urls:[],responses:[],request_failures:[],errors:[],console_errors:[]};
 for(const asset of manifest.assets){
   const file=path.resolve(webRoot,asset.path);
@@ -131,9 +140,10 @@ function different(a,b){
 async function run(){
   server=createStagedPreviewServer(webRoot,manifest.base_path);
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
-  browser=await puppeteer.launch({executablePath:chrome,headless:true,timeout:20000,protocolTimeout:45000,signal:controller.signal,
-    args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1']});
+  evidence.browser_launch_args=['--no-sandbox','--disable-dev-shm-usage',...browserBackendArgs(backend),'--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'];save();
+  browser=await puppeteer.launch({executablePath:chrome,headless:true,timeout:20000,protocolTimeout:45000,signal:controller.signal,args:evidence.browser_launch_args});
   if(expired){await closeOwnedBrowser(browser,{timeoutMs:8000});throw new Error('Browser launch exceeded validation deadline');}
+  evidence.browser_version=await browser.version();save();
   page=await browser.newPage();
   page.on('pageerror',e=>evidence.errors.push(e.message));
   page.on('console',m=>{if(m.type()==='error')evidence.console_errors.push({text:m.text(),location:m.location()});});
@@ -183,6 +193,8 @@ async function run(){
     const {store}=await import('./js/store.js'+q);return store.orrery?.bodies?.length===9;
   },{timeout:40000});
   await paintAction('checkbox',{id:'orreryAnimate',checked:false});
+  evidence.capabilities=await page.evaluate(captureBrowserCapabilities);
+  evidence.observed_backend=assertBrowserBackend(backend,evidence.capabilities);save();
   invariant=(await state()).invariant;
   check('Pinned staged bytes match release manifest',{assets:manifest.assets.length});
   await page.click('#orreryInspectSun');await waitReady('Sun',{solar:true});
@@ -313,6 +325,8 @@ async function run(){
         'physical_texture_probe.mjs','scattering_producer_probe.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,digest(fs.readFileSync(path.join(repo,'tools',name)))]));
       evidence.mars_optical_animation=probe;save();
       const rotation=assertMarsOpticalTerrainSpin(probe);
+      probe.capabilities=await page.evaluate(captureBrowserCapabilities);
+      probe.observed_backend=assertBrowserBackend(backend,probe.capabilities);save();
       assert.throws(()=>assertMarsOpticalTerrainSpin({...probe,samples:probe.samples.map(sample=>({...sample,
         model:probe.samples[0].model,normal:probe.samples[0].normal}))}),/frozen|cap/);
       await page.screenshot({path:path.join(out,'mars-level4-physical-animation.png'),fullPage:true});
@@ -329,7 +343,12 @@ async function run(){
 }
 try{
   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;controller.abort();reject(new Error('Full application validation exceeded 240 seconds'));},240000);});
-  await Promise.race([run(),deadline]);evidence.passed=true;
+  await Promise.race([run(),deadline]);
+  clearTimeout(timer);timer=null;
+  evidence.original_gates={passed:true,deadline_ms:240000,completed_at:new Date().toISOString()};save();
+  if(memory)await runFullFeatureMemoryCheckpoints({browser,page,body:'Mars',backend,originalReceipt:evidence.original_gates,
+    save:observation=>{evidence.memory=observation;save();}});
+  evidence.passed=true;
 }catch(error){
   evidence.passed=false;evidence.failure=String(error?.stack||error);
   if(page&&!page.isClosed())try{evidence.failure_state=await state();}catch(diagnostic){evidence.diagnostic_error=String(diagnostic);}
