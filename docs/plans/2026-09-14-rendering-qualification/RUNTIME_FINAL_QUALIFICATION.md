@@ -14,10 +14,10 @@ The first six passes used the original frozen raw checkout. The Mars runs used a
 |---|---|---|
 | earth-native | Complete original application gates | 5 physical final frames in 135.5 ms |
 | earth-swiftshader | Complete original application gates | 5 physical final frames in 1623.4 ms |
-| material-native | 266/266 checks; reference=fixed-domain | — |
-| material-swiftshader | 266/266 checks; reference=uniform | — |
-| appearance | 110/110 checks | — |
-| hdr | 66/66 checks | — |
+| material-native | 266/266 checks; reference=fixed-domain | â€” |
+| material-swiftshader | 266/266 checks; reference=uniform | â€” |
+| appearance | 110/110 checks | â€” |
+| hdr | 66/66 checks | â€” |
 | mars-native | 22/22 checks | 5 physical final frames in 131.8 ms |
 | mars-swiftshader | 22/22 checks | 5 physical final frames in 1577.8 ms |
 
@@ -71,7 +71,7 @@ These measurements include the instrumented validator workload. They are OS proc
 
 ## Separate workspace illustrations
 
-The normal 1440-pixel Earth globe and source-mode Sun workspace captures passed source/tool/browser audits and preserved the same epoch and physical body state across UI camera selections. The Sun's AIA 171 Å source date, assigned EUV color, modeled corona and unobserved hemisphere are disclosed. Screenshots use the default HDR-disabled UI; the candidate HDR runs above are separate. PNG artifacts remain outside the compact documentation record.
+The normal 1440-pixel Earth globe and source-mode Sun workspace captures passed source/tool/browser audits and preserved the same epoch and physical body state across UI camera selections. The Sun's AIA 171 Ã… source date, assigned EUV color, modeled corona and unobserved hemisphere are disclosed. Screenshots use the default HDR-disabled UI; the candidate HDR runs above are separate. PNG artifacts remain outside the compact documentation record.
 
 Screenshot receipt SHA-256: `78d0b1920e69554a98188211a09915ebfa5d5b53aa89927e06072e86d6f39053`.
 
@@ -86,4 +86,6 @@ Screenshot receipt SHA-256: `78d0b1920e69554a98188211a09915ebfa5d5b53aa89927e060
 - HDR remains an opt-in linear display composition candidate with fixed exposure and SDR output; no calibrated imagery, absolute radiometry or HDR-display calibration claim.
 - Normal workspace screenshots use default HDR-disabled UI and source disclosures, separately from the opted-in HDR qualification runs.
 
-Machine-readable final receipt SHA-256: `6675f1fb0aa26c27cb50acee12de8d96fd3489891d8b33d4b1758fda16a21cab`.
+Original immutable local capture JSON SHA-256: `6675f1fb0aa26c27cb50acee12de8d96fd3489891d8b33d4b1758fda16a21cab`.
+
+Repository LF-normalized JSON copy SHA-256: `1ea5f9ae9bcec76366ccbab413d6af02df9546eab9b3fccdf1fc9f93837c8002`. Git's declared text policy converts CRLF to LF; the parsed record is identical. The original local capture and its referenced evidence remain unchanged.
