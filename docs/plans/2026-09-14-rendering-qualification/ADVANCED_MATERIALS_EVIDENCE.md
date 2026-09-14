@@ -125,3 +125,36 @@ geometry, noise/saturation limits, uncertainty and independent holdout samples.
 The available Cassini RSS archive is radio-band evidence and cannot directly
 calibrate visible RGB transmission. Reflected ring brightness/phase scattering is
 also distinct from transmission. Existing display assets retain their declared role.
+
+## D5: physical moon photometry reference
+
+`tools/moon_photometry_reference.py` now supplies two independent quadratures: equal
+projected-area disk sampling and visible-hemisphere surface-area sampling with the
+explicit normal/view factor. Both compare the outgoing Lambertian signal to the
+same unit-reflectance flat disk. The analytic phase law and zero-phase 2*rho/3
+geometric albedo are tested at rho 0.1, 0.5 and 1 and phases 0, 30, 60, 90, 120, 150
+and 180 degrees. The two quadratures agree within 1e-4 absolute normalized units
+and reject the texture-mean shortcut. A 256 by 256 float-target GLSL disk fixture
+is included in `tools/advanced_material_validation.mjs`, separately from live moons.
+
+Partial source coverage reports observed contribution and unresolved illuminated
+projected fraction separately. The disk result remains unavailable while a required
+illuminated/visible contribution is missing; observed cells are never renormalized
+to a full globe. Valid black cells count as measured zero. Asymmetric hemispheres,
+orientation changes, explicit bands and invalid inputs have independent tests.
+
+The existing `moonAlbedoGain`, hue recipe, mapped source modes (including Io mode 5)
+and simplified materials remain unchanged. A geometric albedo above one can arise
+from directional scattering and cannot be used as a Lambertian diffuse reflectance
+above one. No catalogue value or image mean has been fitted into a new material.
+
+No real per-body/band model is admitted. Required missing inputs are calibrated
+angular or disk photometry over a declared phase/aspect domain, band responses,
+uncertainties, registered normalization history and valid body attitude for the
+observed epochs, followed by independent holdout epochs/aspects. ROLO demonstrates
+why phase and libration are needed for the Moon; its program description does not
+supply equivalent calibrated models for the other satellites. The current fixed
+source-map reference orientation is not a time-dependent attitude solution.
+
+Sources: [JPL geometric-albedo technical definition](https://ssd.jpl.nasa.gov/glossary/albedo.html),
+[USGS ROLO measurements and domain](https://www.usgs.gov/centers/astrogeology-science-center/science/rolo-further-details-lunar-calibration).
