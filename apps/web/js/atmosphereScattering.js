@@ -454,6 +454,11 @@ vec4 scatteringResidual(vec3 p){
     if(lo.y==0)rows[0]=2.0*rows[1]-rows[2];
     if(lo.y>=u_scatteringSurfaceSize.y-2)rows[3]=2.0*rows[2]-rows[1];
     planes[z]=scatteringCubic(rows[0],rows[1],rows[2],rows[3],f.y);
+    // A one-layer field clamps every z stencil to this same computed plane.
+    if(u_scatteringSurfaceSize.z==1){
+      planes[1]=planes[0];planes[2]=planes[0];planes[3]=planes[0];
+      break;
+    }
   }
   if(lo.z==0)planes[0]=2.0*planes[1]-planes[2];
   if(lo.z>=u_scatteringSurfaceSize.z-2)planes[3]=2.0*planes[2]-planes[1];
