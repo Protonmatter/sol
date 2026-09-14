@@ -32,7 +32,7 @@ invariants and the existing 40-second recovery and 240-second total limits remai
 | Combined local code checks | 1,234 web tests, 395 Python tests, 110-file typechecking, static/UX/SDLC/asset checks pass. Node coverage: 98.10% lines, 91.12% branches and 95.45% functions, above every 90% floor. |
 | Final application and composition | All eight gates pass: native/software Earth, native/software Mars (22 checks each), native/software material (266 each), appearance (110) and HDR (66). They include actual current physical producer/consumer/final-presentation joins, fine terrain, animation and context restoration. |
 | Full-workload native memory | Earth and Mars each pass all five checkpoints after their original application gates. Active/restored shared GPU-process usage is 471,040,000/411,668,480 bytes for Earth and 486,653,952/324,415,488 bytes for Mars. These are owned-process/WDDM observations, not per-texture VRAM or continuous residency. |
-| Final published-head hosted CI | Pending publication and fresh hosted results. The earlier `6083b5c` failures remain retained. |
+| Final published-head hosted CI | This local record closes before publication. Current published-head results and review disposition are recorded in [PR 107](https://github.com/Protonmatter/sol/pull/107). The earlier `6083b5c` failures remain retained. |
 
 The [numerical qualification](ATMOSPHERE_SHADOW_CONDITIONING.md) and
 [source-bound receipt](ATMOSPHERE_SHADOW_CONDITIONING_QUALIFICATION.json)

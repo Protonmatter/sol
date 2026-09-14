@@ -9,7 +9,8 @@ qualification requirements; RFC 0006 is Accepted for its design and work sequenc
 Its status does not admit an unfinished slice or replace source-specific gates.
 
 The [D1 implementation record](HDR_IMPLEMENTATION_RESULTS.md) documents the opt-in
-HDR runtime, GPU composition evidence and remaining application/native gates.
+HDR runtime and GPU composition evidence. The [final application record](RUNTIME_FINAL_QUALIFICATION.md)
+records the passing native/software application captures and their device limits.
 The [advanced material evidence](ADVANCED_MATERIALS_EVIDENCE.md) records the D3
 source-derived v2 Moon/Mars terrain and the D2/D4/D5 reference helpers. Those
 helpers do not enable reflection, revised ring transport or calibrated moon
