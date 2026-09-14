@@ -6,6 +6,77 @@ const mesh=()=>({pos:new Float32Array([1,0,0,1,0,0,0,1,0,0,1,0,0,0,1,0,0,1]),idx
   width:4,height:2,heightsKm:new Float32Array(8),minRadiusKm:1737.4,maxRadiusKm:1737.4,
   shadow:{shape:[1737.4,1737.4,1737.4,0.5],poles:[0,0]}});
 
+test('failed demanded terrain detail stays visible as a failure while lower detail renders and retries explicitly',async t=>{
+  const loads=[];
+  const h=await orreryHarness(t,{controls:true,terrainMesh:(body,level,_shape,{signal})=>
+    new Promise((resolve,reject)=>loads.push({body,level,signal,resolve,reject}))});
+  await h.enterOrrery();h.setAnimate(false);h.resize(240,160);h.input('orreryAnchor','Moon','change');
+  assert.equal(loads.length,1);assert.equal(loads[0].level,1);
+  loads[0].resolve(mesh());await h.settle();assert.equal(h.state.terrainStatus.Moon,'ready');
+  h.resize(800,600);await h.settle();assert.equal(loads.length,2);assert.equal(loads[1].level,2);
+  assert.equal(h.state.terrainRendered.Moon,true,'ready lower detail continues to render');
+  assert.equal(h.state.terrainStatus.Moon,'loading','the pending requested level owns status');
+  assert.match(h.nodes.orreryPhysicalStatus.textContent,/loading.*lower detail/i);
+  loads[1].reject(Error('higher detail unavailable'));await h.settle();
+  assert.equal(h.state.terrainStatus.Moon,'unavailable');assert.equal(h.state.terrainRendered.Moon,true);
+  assert.match(h.nodes.orreryPhysicalStatus.textContent,/unavailable.*lower detail.*retry/i);
+  h.resize(40,24);await h.settle();assert.equal(h.state.terrainStatus.Moon,'deferred');
+  assert.equal(h.state.terrainRendered.Moon,false);assert.equal(loads.length,2,'sub-threshold views have no terrain demand');
+  h.resize(240,160);await h.settle();assert.equal(h.state.terrainStatus.Moon,'ready','returning to cached low detail clears the unrelated failure');
+  h.resize(800,600);await h.settle();assert.equal(h.state.terrainStatus.Moon,'unavailable');assert.equal(loads.length,2);
+  h.check('orreryTerrain',false);h.check('orreryTerrain',true);await h.settle();
+  assert.equal(loads.length,3);assert.equal(loads[2].level,2);assert.equal(h.state.terrainRendered.Moon,true);
+  loads[2].resolve(mesh());await h.settle();assert.equal(h.state.terrainStatus.Moon,'ready');
+  assert.doesNotMatch(h.nodes.orreryPhysicalStatus.textContent,/unavailable|retry/i);h.leaveOrrery();
+});
+
+test('late completion of another terrain level cannot replace current demand status',async t=>{
+  const loads=[];
+  const h=await orreryHarness(t,{controls:true,terrainMesh:(body,level)=>
+    new Promise((resolve,reject)=>loads.push({body,level,resolve,reject}))});
+  await h.enterOrrery();h.setAnimate(false);h.resize(240,160);h.input('orreryAnchor','Moon','change');
+  h.resize(800,600);assert.deepEqual(loads.map(load=>load.level),[1,2]);
+  loads[0].resolve(mesh());await h.settle();
+  assert.equal(h.state.terrainStatus.Moon,'loading');assert.equal(h.state.terrainRendered.Moon,true);
+  loads[1].reject(Error('requested level failed'));await h.settle();
+  assert.equal(h.state.terrainStatus.Moon,'unavailable');assert.equal(h.state.terrainRendered.Moon,true);h.leaveOrrery();
+});
+
+test('a background star clears planetary status and disposes the anchor gallery without another image request',async t=>{
+  const images=[];
+  const h=await orreryHarness(t,{controls:true,catalogues:'ready',phenomenonImage:(id,{signal})=>{
+    images.push({id,signal});return new Promise(()=>{});
+  }});
+  await h.enterOrrery();await h.settleCatalogues();h.setAnimate(false);
+  h.input('orreryAnchor','Jupiter','change');assert.equal(images.length,1);
+  h.input('orrerySearch','Earth');h.nodes.orreryPositions.children[0].click();
+  assert.equal(images[0].signal.aborted,true);assert.equal(h.nodes.orreryPlanetPhenomena.hidden,true);
+  assert.match(h.nodes.orreryPhysicalStatus.textContent,/optical/i);
+  let label;
+  for(let turn=0;turn<64&&!label;turn++){
+    label=h.nodes.orreryLabels.children.find(node=>node.style.display==='block'
+      &&node.className.includes('sky-star')&&!h.moons.some(moon=>moon.n===node.textContent));
+    if(!label)h.event('orreryCanvas','keydown',{key:'ArrowLeft'});
+  }
+  assert.ok(label,'a named background star has a visible label');
+  const point={pointerId:1,clientX:Number(label.dataset.projectionX),clientY:Number(label.dataset.projectionY)};
+  h.setAnimate(true);
+  h.event('orreryCanvas','pointerdown',point);h.event('orreryCanvas','pointerup',point);
+  assert.ok(h.state.selectedStar);assert.equal(h.state.selected,null);assert.equal(h.state.galaxy,false);
+  assert.equal(h.nodes.orreryPhysicalStatus.hidden,true,'selection clears status without waiting for a drawable frame');
+  assert.equal(h.nodes.orreryPhysicalStatus.textContent,'');assert.equal(h.nodes.orreryPlanetPhenomena.hidden,true);
+  h.frame(100);await h.settle();assert.equal(images.length,1,'star inspection cannot reload the unrelated anchor observation');
+  h.input('orreryAnchor','Jupiter','change');assert.equal(h.state.selectedStar,null);
+  assert.equal(images.length,2);assert.equal(h.nodes.orreryPlanetPhenomena.hidden,false);
+  h.nodes.orreryCanvas.clientWidth=0;
+  h.input('orreryObjectGroup','star','change');h.input('orrerySearch','Sirius');h.nodes.orreryPositions.children[0].click();
+  assert.ok(h.state.selectedStar);assert.equal(images[1].signal.aborted,true,'a star selection cancels the active planetary image');
+  assert.equal(h.nodes.orreryPlanetPhenomena.hidden,true);assert.equal(h.nodes.orreryPlanetPhenomena.children.length,0);
+  h.input('orreryAnchor','Earth','change');assert.equal(h.state.selectedStar,null);
+  assert.equal(h.nodes.orreryPhysicalStatus.hidden,false);assert.match(h.nodes.orreryPhysicalStatus.textContent,/optical/i);
+  assert.equal(images.length,2);h.leaveOrrery();
+});
+
 test('terrain layer off/on explicitly retries failed current detail and ordinary paints do not',async t=>{
   const calls=[];
   const h=await orreryHarness(t,{controls:true,terrainMesh:async(body,level)=>{

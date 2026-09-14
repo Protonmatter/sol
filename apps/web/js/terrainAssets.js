@@ -164,10 +164,12 @@ export function terrainExtentKm(body) {
   return reference?{minRadiusKm:reference.minRadiusKm,maxRadiusKm:reference.maxRadiusKm}:null;
 }
 
-export function terrainSummary(body,status='deferred') {
+export function terrainSummary(body,status='deferred',fallbackVisible=false) {
   const reference=terrainReference(body);
   if(!reference)return 'Qualified numerical terrain unavailable for this body.';
-  if(status==='unavailable')return `${reference.label} unavailable; smooth reference surface retained.`;
+  const fallback=fallbackVisible?'lower detail remains visible':'smooth reference surface retained';
+  if(status==='unavailable')return `${reference.label} requested detail unavailable; ${fallback}. Toggle terrain relief off and on to retry.`;
+  if(status==='loading')return `${reference.label} requested detail loading; ${fallback}.`;
   if(status!=='ready')return `${reference.label}; relief loads when focused at a useful scale.`;
   return `${reference.label} · true-scale relief · 0.25° source cells. Archive topography; source date is separate from model time.`;
 }

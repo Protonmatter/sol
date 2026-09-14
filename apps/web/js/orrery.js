@@ -179,7 +179,7 @@ let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, textu
 let referenceTextures = {}, textureGeneration = 0;
 let referenceDemand = [], referenceVisible = new Map(), referenceUseSerial = 0;
 let referenceViewport = {width:0,height:0};
-let terrainDetails=null;
+let terrainDetails=null,terrainDemand={};
 let incidentFields=null,incidentDemand='';
 let retryTerrainFailures=false;
 let solarDetail=null,solarRotation=null;
@@ -298,9 +298,10 @@ function bindAtmosphereColumns(body,locations){
 
 function initTerrainResources() {
   terrainDetails?.dispose();
+  terrainDemand={};
   if(typeof Worker!=='function'){terrainDetails=null;state.terrainStatus={Moon:'unavailable',Mars:'unavailable'};return;}
   const context=gl;
-  terrainDetails=createDetailCache({capacity:2,load:async(key,signal)=>{
+  const cache=createDetailCache({capacity:2,load:async(key,signal)=>{
     const [body,rawLevel]=key.split(':');const phys=BODY[body];
     const mesh=await requestTerrainMesh(body,Number(rawLevel),{equatorialRadiusKm:phys.radiusKm,polarRadiusKm:phys.polarKm},{signal});
     if(signal.aborted||!state.active||gl!==context||context.isContextLost())throw new Error('Terrain graphics generation changed');
@@ -319,23 +320,30 @@ function initTerrainResources() {
     return {pos,idx,count:mesh.idx.length,indexType:mesh.idx instanceof Uint32Array?context.UNSIGNED_INT:context.UNSIGNED_SHORT,
       interleaved:true,body,level:Number(rawLevel),minRadiusKm:mesh.minRadiusKm,maxRadiusKm:mesh.maxRadiusKm,heightTex,shadow:mesh.shadow};
   },release:mesh=>{if(mesh){context.deleteBuffer(mesh.pos);context.deleteBuffer(mesh.idx);context.deleteTexture(mesh.heightTex);}},
-  onChange:(key,status)=>{
+  onChange:key=>{
     queueMicrotask(()=>{
-      const body=key.split(':')[0],statuses=[1,2,3].map(n=>terrainDetails?.status(`${body}:${n}`));
-      state.terrainStatus[body]=statuses.includes('ready')?'ready':statuses.includes('loading')?'loading':status;
+      if(terrainDetails!==cache||gl!==context)return;
+      const body=key.split(':')[0];
+      state.terrainStatus[body]=terrainDemand[body]?cache.status(terrainDemand[body]):'deferred';
       updatePhysicalAppearance();if(state.active&&gl===context&&!state.animate)paint();
     });
   }});
+  terrainDetails=cache;
 }
 
 function detailMesh(body,pixels) {
   if(!state.terrainEnabled||!terrainReference(body)||!terrainDetails||state.galaxy)return null;
   const level=terrainDetailLevel(pixels);
+  const focused=!state.selectedStar&&(state.selected===body||state.anchor===body);
+  if(focused&&!level){terrainDemand[body]='';state.terrainStatus[body]='deferred';}
   if(!level)return null;
-  if(state.selected===body||state.anchor===body){
+  if(focused){
     const key=`${body}:${level}`;
+    terrainDemand[body]=key;
     if(retryTerrainFailures&&terrainDetails.status(key)==='unavailable')terrainDetails.retry(key);
     else terrainDetails.request(key);
+    // The demanded level owns status even while a lower ready mesh is drawn.
+    state.terrainStatus[body]=terrainDetails.status(key);
   }
   for(let n=level;n>0;n--){const mesh=terrainDetails.get(`${body}:${n}`);if(mesh)return mesh;}
   return null;
@@ -349,14 +357,14 @@ function bindBodyMesh(mesh=sphere) {
 }
 
 function updatePhysicalAppearance() {
-  const body=state.selected||state.anchor,notes=[];
-  const galleryBody=state.galaxy||!state.active?'':body;
+  const body=state.active&&!state.galaxy&&!state.selectedStar?(state.selected||state.anchor):'',notes=[];
+  const galleryBody=body;
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
-  if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body]):'Terrain relief disabled.');
+  if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?'Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, adaptive display exposure. Not current weather.':state.opticsStatus[body]==='loading'?'Reference optical fields loading; illustrative limb shown until ready.':state.opticsStatus[body]==='unavailable'?'Reference optical fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
   if(body==='Sun')notes.push(state.solarMode==='reconstructed-euv'?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
-  if(state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
+  if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
   if(node){const text=notes.join(' ');if(node.textContent!==text)node.textContent=text;node.hidden=!text||state.galaxy||!state.active;}
@@ -2225,7 +2233,7 @@ function updateLabels(canvas, vp, skyVp) {
 // body's live snapshot row.)
 function showDetail(name) {
   syncIncidentDemand();
-  syncSolarPlaybackControls();
+  updatePhysicalAppearance();
   const focus=document.getElementById('orreryFocusSelected');
   if(focus)focus.toggleAttribute('disabled',!!state.selectedStar);
   const status=document.getElementById("orrerySelectionStatus");
@@ -2947,7 +2955,7 @@ async function showFallback(msg) {
     // invalidated too: their `ready` flags used to survive the loss, so after a restore
     // drawBody bound dead textures (planets rendered flat, rings vanished) and
     // texturesStarted=true meant loadTextures() never re-fetched for the life of the tab.
-    terrainDetails?.dispose();terrainDetails=null;state.terrainStatus={};
+    terrainDetails?.dispose();terrainDetails=null;terrainDemand={};state.terrainStatus={};
     incidentFields?.dispose();incidentFields=null;incidentDemand='';state.opticsStatus={};
     solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
     gl = null; P = {};

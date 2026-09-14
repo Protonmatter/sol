@@ -119,6 +119,7 @@ export async function orreryHarness(t, options = {}) {
     };
     const append = element.append.bind(element);
     element.append = (...children) => append(...children.map(child => typeof child === "string" ? document.createTextNode(child) : child));
+    element.replaceChildren = (...children) => { element.textContent='';element.append(...children); };
     element.offsetWidth = 70; element.offsetHeight = 16;
     if (tag === "canvas") {
       const context2d = {};
@@ -152,6 +153,7 @@ export async function orreryHarness(t, options = {}) {
   };
   if (options.controls) {
     for(const id of ['InspectSun','PhysicalStatus','SolarControls','SolarMode','SolarPlay','SolarRestart','SolarTime','SolarEpoch','Terrain','Optics'])nodes[`orrery${id}`]=node();
+    if(options.phenomenonImage)nodes.orreryPlanetPhenomena=node();
     for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
       nodes[`orrery${id}`] = node();
     }
@@ -250,11 +252,15 @@ export async function orreryHarness(t, options = {}) {
   const columnBoundary={...columnModule,loadAtmosphereFields:(body,{signal})=>columnModule.loadAtmosphereFields(body,{signal,
     incidentLoader:incidentBoundary.loadIncidentField,
     columnLoader:options.atmosphereColumns||(async()=>({values:new Float32Array([8,1.2]),width:1,height:1}))})};
+  const phenomenaModule=await import('../../../apps/web/js/planetPhenomena.js');
+  const phenomenaBoundary={...phenomenaModule,renderPlanetPhenomena:(container,body)=>
+    phenomenaModule.renderPlanetPhenomena(container,body,{loadImage:options.phenomenonImage})};
   const [lifecycle] = await loadSourceModules(context, [moduleUrl], {
     resolveImport: (specifier,url) => options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
       ? {loadSolarAtlas:typeof options.solarAtlas==='function'?options.solarAtlas:async()=>({width:2048,height:1024,close(){}})}
       : options.terrainMesh && url.pathname.endsWith('/terrainWorkerClient.js')
         ? {requestTerrainMesh:options.terrainMesh}
+        : options.phenomenonImage && url.pathname.endsWith('/planetPhenomena.js')?phenomenaBoundary
         : url.pathname.endsWith('/atmosphereIncident.js')?incidentBoundary
           :url.pathname.endsWith('/atmosphereColumnField.js')?columnBoundary:namespaces.get(specifier),
     // Optional catalogue downloads remain pending, as they can during first paint.
