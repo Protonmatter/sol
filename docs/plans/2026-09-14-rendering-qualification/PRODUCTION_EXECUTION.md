@@ -6,7 +6,53 @@ The original numerical limits, 5,592-query interpolation domain, three final
 Earth draws in five seconds, startup deadline, texture detail and scientific
 state remain controlling. Failed experiments and their receipts are retained.
 
-## Current work and evidence boundaries
+## Current combined source
+
+The current bounded-scattering implementation at `649ab1ca56402765fed601c4d1424e2bae1c82f6`
+passes the complete 7,192-query interpolation matrix on native Adreno and
+SwiftShader. The original 5,592 queries, all numerical thresholds and the 65,536
+integration ceiling remain unchanged. The additive domain includes the admitted
+v2 Mars mesh and explicit material heights. Q2 fixes native packed-atlas row
+decoding and uses fixed density partitions across shadow changes. The atmosphere
+shell's drawn radius now matches its optical endpoint radius for Earth and Mars.
+See [the exact numerical receipts](SCATTERING_INTERPOLATION_RECEIPT.json).
+
+Independent physical-source admission remains open. Actual GPU comparisons to the
+converged supplemental corpus find an Earth grazing-ray transmission discrepancy
+on both backends and a software-GPU Mars outer-boundary geometry discrepancy.
+These are not interpolator failures and are not removed from the domain. Their
+uploaded-coordinate geometry is being checked independently. The constant-datum
+source-coordinate fix retains the 60-node analytic bound and reproduces the four
+numerical field payloads unchanged; its [separate record](ATMOSPHERE_OPTICAL_COORDINATE.md)
+does not waive these actual GPU checks.
+
+The prior immutable bounded runtime at `2ba2911` passed the original final-frame
+application gates with HDR and physical optics on both native Adreno and
+SwiftShader. The latter also passed withheld-generator rejection and fresh
+generation recovery. Those timings are retained in the
+[application receipts](SCATTERING_APPLICATION_RECEIPTS.md); final-source replay
+remains required. Optional [full-feature memory checkpoints](FULL_FEATURE_MEMORY.md)
+now run only after all original timing gates have finished.
+
+The first native replay of immutable stage `scattering-runtime-649ab1c-full`
+(manifest SHA-256 `e9a93cde4d69d3a2dd624ee33dd49c5d5abc59d01044a6d0559ac27d270d5bbd`)
+failed additional physical readiness. The original HDR Earth gate accepted four
+matching final draws in 74.5 ms and rejected its frozen control, but both the
+physical surface and scattering generator exceeded the unchanged 30-second
+shader-completion deadline. No eligible physical candidate was accepted; memory
+sampling did not start. The frozen 501-file tool/source snapshot and 205 staged
+asset hashes reproduced unchanged after failure. This is a current performance
+hold, retained at
+`sol-color-hdr-20260914/coverage/scattering-runtime-649ab1c-native-memory`.
+
+Combined local validation before the final four geometry regression additions:
+1,172 Node tests and 395 Python tests passed; 110 JavaScript modules typechecked;
+static web, physical assets and the 23-requirement SDLC contract passed. Individual
+regressions additionally cover exact axes, periodic seams and 315 reconstructed
+surface endpoints. Hosted CI and publication still refer to the previously pushed
+head until a new push and completed checks are recorded below.
+
+## Earlier checkpoints and evidence boundaries
 
 | Slice | Implementation / qualification | Remaining admission |
 | --- | --- | --- |
