@@ -12,6 +12,7 @@ import {closeOwnedBrowser} from './worker_coverage.mjs';
 import {createStagedPreviewServer} from './staged_preview_server.mjs';
 import {requestContextRestoration} from './context_restore.mjs';
 import {installPhysicalTextureEvidence} from './physical_texture_probe.mjs';
+import {installScatteringProducerEvidence} from './scattering_producer_probe.mjs';
 import {installProgramSourceEvidence,preparePhysicalSpinEvidence} from './physical_spin_probe.mjs';
 import {collectSubmittedEarthSpin} from './earth_spin_probe.mjs';
 import {prepareMarsTerrainEvidence} from './mars_terrain_probe.mjs';
@@ -144,6 +145,7 @@ async function run(){
   if(marsOpticalAnimation){
     await page.evaluateOnNewDocument(installPhysicalTextureEvidence);
     await page.evaluateOnNewDocument(installProgramSourceEvidence);
+    await page.evaluateOnNewDocument(installScatteringProducerEvidence);
   }
   await page.evaluateOnNewDocument(()=>{
     const Native=Date,t=Native.parse('2026-09-12T15:00:00Z');
@@ -298,7 +300,7 @@ async function run(){
       const {store}=await import('./js/store.js'+q);return store.orrery.hdrStatus?.state==='ready'&&store.orrery.hdrStatus.presented;
     },{timeout:20000,polling:100});
     const beforePreparation=await state();assert.equal(beforePreparation.invariant,invariant);
-    evidence.mars_physical_preparation=await page.evaluate(preparePhysicalSpinEvidence,{body:'Mars'});
+    evidence.mars_physical_preparation=await page.evaluate(preparePhysicalSpinEvidence,{body:'Mars',terrain:true});
     evidence.mars_terrain_preparation=await page.evaluate(prepareMarsTerrainEvidence);save();
     assert.equal((await state()).invariant,invariant,'Terrain evidence preparation advanced the engine');
     await page.$eval('#orrerySpeedPresets button[data-dps="7"]',button=>button.click());
@@ -308,7 +310,7 @@ async function run(){
     try {
       probe=await page.evaluate(collectSubmittedEarthSpin,{body:'Mars',physicalEvidence:true,requireTerrainEvidence:true});
       probe.validation_source_sha256=Object.fromEntries(['earth_spin_probe.mjs','physical_spin_probe.mjs',
-        'physical_texture_probe.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,digest(fs.readFileSync(path.join(repo,'tools',name)))]));
+        'physical_texture_probe.mjs','scattering_producer_probe.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,digest(fs.readFileSync(path.join(repo,'tools',name)))]));
       evidence.mars_optical_animation=probe;save();
       const rotation=assertMarsOpticalTerrainSpin(probe);
       assert.throws(()=>assertMarsOpticalTerrainSpin({...probe,samples:probe.samples.map(sample=>({...sample,

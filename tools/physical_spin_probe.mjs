@@ -34,22 +34,32 @@ export function installProgramSourceEvidence() {
  * Actual linked source, actual uniform values and actual current texture bindings
  * must agree with admitted immutable inputs. Metadata readiness alone cannot pass.
  */
-export async function preparePhysicalSpinEvidence({body='Earth'}={}) {
-  if(!globalThis.__solProgramSourceEvidence||!globalThis.__solPhysicalTextureEvidence)
+export async function preparePhysicalSpinEvidence({body='Earth',terrain=false}={}) {
+  if(!globalThis.__solProgramSourceEvidence||!globalThis.__solPhysicalTextureEvidence||!globalThis.__solScatteringProducerEvidence)
     throw new Error('Physical draw observers must be installed before application startup');
   const entry=document.querySelector('script[type="module"][src^="app.js"]'),token=entry?new URL(entry.src).search:'';
-  const [{SPHERE_VS,SPHERE_FS},{getAtmosphereProfile,serializeAtmosphereProfile},{BODY},
-    {INCIDENT_FIELDS},{ATMOSPHERE_COLUMN_FIELDS},{store}]=await Promise.all([
+  const [{SCATTERING_SPHERE_VS:SPHERE_VS,SCATTERING_SPHERE_FS:SPHERE_FS},{getAtmosphereProfile,serializeAtmosphereProfile},{BODY},
+    {INCIDENT_FIELDS},{ATMOSPHERE_COLUMN_FIELDS},{store},{SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS},{terrainReference}]=await Promise.all([
       import(`./js/orreryShaders.js${token}`),import(`./js/atmosphereOptics.js${token}`),import(`./js/bodyData.js${token}`),
       import(`./js/atmosphereIncidentManifest.js${token}`),import(`./js/atmosphereColumnManifest.js${token}`),import(`./js/store.js${token}`),
+      import(`./js/atmosphereScattering.js${token}`),import(`./js/terrainAssets.js${token}`),
     ]);
   const profile=getAtmosphereProfile(body),catalogue=BODY[body],incident=INCIDENT_FIELDS[body],columns=ATMOSPHERE_COLUMN_FIELDS[body];
   if(!profile||!catalogue||!incident||!columns)throw new Error('Physical spin body is not admitted');
+  const terrainSource=terrain?terrainReference(body):null;
+  if(terrain&&!terrainSource)throw new Error('Physical spin terrain source is not admitted');
+  const datum=catalogue.radiusKm-profile.radiusKm;
+  const heightRange=terrain?[Math.min(0,datum,terrainSource.minRadiusKm-profile.radiusKm),
+    Math.max(0,datum,terrainSource.maxRadiusKm/(catalogue.polarKm/catalogue.radiusKm)-profile.radiusKm)]:[datum,datum];
   const hash=async text=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(x=>x.toString(16).padStart(2,'0')).join('');
-  const [vertexHash,fragmentHash,profileHash]=await Promise.all([hash(SPHERE_VS),hash(SPHERE_FS),hash(serializeAtmosphereProfile(profile))]);
+  const [vertexHash,fragmentHash,profileHash,generatorVertexHash,generatorFragmentHash]=await Promise.all([
+    hash(SPHERE_VS),hash(SPHERE_FS),hash(serializeAtmosphereProfile(profile)),hash(SCATTERING_GENERATOR_VS),hash(SCATTERING_GENERATOR_FS)]);
   if(profileHash!==incident.profile_sha256||profileHash!==columns.profile_sha256)throw new Error('Physical spin source profile identity mismatch');
   await globalThis.__solPhysicalTextureEvidence.settle();
-  const summary={body,shader_sha256:{vertex:vertexHash,fragment:fragmentHash},profile_sha256:profileHash,
+  globalThis.__solScatteringProducerEvidence.configure({vertexSource:SCATTERING_GENERATOR_VS,fragmentSource:SCATTERING_GENERATOR_FS,
+    getFrame:()=>store.orrery.scatteringFrame});
+  const summary={body,terrain,scattering_height_range_km:heightRange,
+    generator_shader_sha256:{vertex:generatorVertexHash,fragment:generatorFragmentHash},shader_sha256:{vertex:vertexHash,fragment:fragmentHash},profile_sha256:profileHash,
     fields:{incident:{sha256:incident.sha256,dimensions:incident.dimensions},columns:{sha256:columns.sha256,dimensions:columns.dimensions}}};
   const knownPrograms=new WeakMap(),locations=new WeakMap();
   const matchesSources=(gl,observed)=>observed?.sources.length===2
@@ -57,7 +67,7 @@ export async function preparePhysicalSpinEvidence({body='Earth'}={}) {
     &&observed.sources.some(s=>s?.type===gl.FRAGMENT_SHADER&&s.source===SPHERE_FS);
   const matchesProgram=(gl,program)=>!!program&&matchesSources(gl,globalThis.__solProgramSourceEvidence.snapshot(gl,program));
   const scalar={u_atmosphereEnabled:1,u_atmosphereRefractionEnabled:1,u_incidentFieldReady:1,
-    u_atmosphereRadiusKm:profile.radiusKm,u_bodyRadiusKm:catalogue.radiusKm,u_atmosphereTopKm:profile.topKm,
+    u_scatteringReferenceHeightKm:datum,u_atmosphereRadiusKm:profile.radiusKm,u_bodyRadiusKm:catalogue.radiusKm,u_atmosphereTopKm:profile.topKm,
     u_atmospherePolarRatio:catalogue.polarKm/catalogue.radiusKm,u_atmosphereG:profile.aerosolG,u_atmosphereRefractivity:profile.surfaceRefractivity};
   const vectors={u_atmosphereDensityScaleKm:[profile.rayleighScaleHeightKm,profile.aerosolScaleHeightKm],
     u_atmosphereRayleighKm:profile.betaRayleighKm,u_atmosphereAerosolKm:profile.betaAerosolExtinctionKm,
@@ -120,14 +130,14 @@ export async function preparePhysicalSpinEvidence({body='Earth'}={}) {
     for(const [name,values]of Object.entries(vectors))if(!Array.isArray(uniforms[name])||uniforms[name].length!==values.length
       ||values.some((value,i)=>uniforms[name][i]!==Math.fround(value)))return rejected(`Physical vector mismatch: ${name}`);
     const state=store.orrery,position=state.bodies.find(item=>item.name===body);
-    if(!state.opticsEnabled||state.opticsStatus[body]!=='ready'||!position)return rejected('Physical source not currently admitted');
+    if(!state.opticsEnabled||state.opticsStatus[body]!=='ready'||!position||(terrain&&!state.terrainEnabled))return rejected('Physical source not currently admitted');
     const distance=Math.hypot(position.x_au,position.y_au,position.z_au),exposure=state.hdrFrame?1:distance*distance;
     if(uniforms.u_atmosphereSolarScale!==Math.fround(1/(distance*distance))||uniforms.u_atmosphereExposure!==Math.fround(exposure))return rejected('Physical flux or exposure does not match the current frame');
     for(const name of ['u_atmosphereCameraKm','u_atmosphereSunDirection'])
       if(!Array.isArray(uniforms[name])||uniforms[name].length!==3||!uniforms[name].every(Number.isFinite))return rejected(`Physical geometry is not finite: ${name}`);
     const geometry=geometryEvidence(uniforms,position);
     if(!geometry)return rejected('Optical camera or Sun does not match the actual current GPU model/camera');
-    const originalUnit=gl.getParameter(gl.ACTIVE_TEXTURE),fields={};
+    const originalUnit=gl.getParameter(gl.ACTIVE_TEXTURE),fields={};let columnTexture;
     try{
       for(const [name,sampler,reference,width,height,format]of [
         ['incident','u_incidentField',incident,incident.dimensions[0],incident.dimensions[1]*incident.dimensions[2],gl.RGBA32F],
@@ -140,11 +150,15 @@ export async function preparePhysicalSpinEvidence({body='Earth'}={}) {
           ||upload.internalFormat!==format||upload.type!==gl.FLOAT||upload.byteLength!==reference.bytes
           ||upload.unpack.flipY||upload.unpack.premultiplyAlpha)
           return rejected(`Current ${name} texture does not match its observed immutable upload`);
+        if(name==='columns')columnTexture=texture;
         fields[name]={sha256:upload.sha256,width,height,internalFormat:format,unit,uploadSequence:upload.sequence,
           byteLength:upload.byteLength,unpack:upload.unpack};
       }
     }finally{gl.activeTexture(originalUnit);}
-    return {passed:true,...summary,programSequence:observed.sequence,uniforms,fields,geometry};
+    const scattering=globalThis.__solScatteringProducerEvidence.capture(gl,program,uniforms,
+      {frame:state.scatteringFrame,columnTexture,published:state.scatteringStatus?.[body],heightRange});
+    if(!scattering.passed)return rejected(scattering.reason);
+    return {passed:true,...summary,programSequence:observed.sequence,uniforms,fields,geometry,scattering};
   };
   Object.defineProperty(globalThis,'__solPhysicalSpinEvidence',{configurable:true,value:Object.freeze({body,summary,capture,matchesProgram})});
   return summary;

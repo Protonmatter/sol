@@ -13,6 +13,7 @@ import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
 import { installProgramSourceEvidence, preparePhysicalSpinEvidence, waitForPhysicalSpinReadiness } from './physical_spin_probe.mjs';
 import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
+import { installScatteringProducerEvidence } from './scattering_producer_probe.mjs';
 import { browserBackendFromArgs, browserBackendArgs, assertBrowserBackend, captureBrowserCapabilities } from './browser_backend.mjs';
 import { classifyTextureBackend } from './texture_device_telemetry.mjs';
 import { assertCaptionLayouts } from "./caption_layout.mjs";
@@ -1003,7 +1004,7 @@ async function visualAssertions(page, visualDirectory, observeContext, systemBud
     const physicalSpin=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});
     physicalSpin.backend=physicalBackend;
     physicalSpin.readiness=readiness;
-    physicalSpin.validation_source_sha256=Object.fromEntries(['earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs']
+    physicalSpin.validation_source_sha256=Object.fromEntries(['earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs']
       .map(name=>[name,createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')]));
     fs.writeFileSync(path.join(visualDirectory,'earth-physical-spin.json'),JSON.stringify(physicalSpin,null,2));
     if(physicalSpin.sampleError)throw new Error(`Physical Earth draw inspection failed: ${physicalSpin.sampleError}`);
@@ -1292,7 +1293,7 @@ async function main() {
     artifact:mapping?{release_id:mapping.manifest.release_id,source_sha:mapping.manifest.source_sha,
       manifest_sha256:createHash('sha256').update(fs.readFileSync(path.join(webRoot,'web-release-manifest.json'))).digest('hex')}:null,
     validation_source_sha256:Object.fromEntries(['browser_validation.mjs','browser_backend.mjs','texture_device_telemetry.mjs',
-      'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs'].map(name=>[name,
+      'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs'].map(name=>[name,
       createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')])),
   };
   const saveEvidence=()=>fs.writeFileSync(path.join(outputDirectory,'browser-evidence.json'),JSON.stringify(evidence,null,2)+'\n');
@@ -1321,6 +1322,7 @@ async function main() {
     const page = await browser.newPage();
     await page.evaluateOnNewDocument(installProgramSourceEvidence);
     await page.evaluateOnNewDocument(installPhysicalTextureEvidence);
+    await page.evaluateOnNewDocument(installScatteringProducerEvidence);
     diagnosticPage=page;
     await page.setBypassServiceWorker(true);
     workerCoverage=await startWorkerCoverage(page);
