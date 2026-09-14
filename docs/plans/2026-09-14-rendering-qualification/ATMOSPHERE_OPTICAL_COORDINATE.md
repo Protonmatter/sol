@@ -109,3 +109,25 @@ query names alone. Full scattering-matrix runs assess interpolation separately;
 improving the source integrator does not prove every atlas case passes. Reverting
 the core and its two generated manifests restores the prior coordinate; the four
 numerical payloads require no rollback change.
+
+## Comparing full-matrix source readbacks
+
+`tools/compare_scattering_physical_reference.py` performs that additional physical
+comparison without a browser or external dependency. It verifies the actual
+snapshot shader, retained CPU input hashes, complete fixture input objects,
+sample geometry, all 1,600 unique query identities and finite RGBA source validity
+before applying the fixed scattering/transmission limits. It includes the direct
+source values of explicit-height negative controls; their deliberately invalid
+atlas-admission result does not erase the finite physical ray. An atlas failure
+is reported separately from the source comparison.
+
+```text
+python tools/compare_scattering_physical_reference.py --reference=docs/plans/2026-09-14-rendering-qualification/ATMOSPHERE_OPTICAL_COORDINATE_RECEIPT.json --cpu-source-root=PATH_TO_RETAINED_O_INPUTS --gpu-run=PATH_TO_COMPLETE_GPU_RUN --out=build/physical-source-comparison.json
+```
+
+The supplied CPU/GPU roots are read only. The tool writes the requested JSON
+receipt, returns zero for a passing physical comparison and one for a measured
+failure. Invalid source/input identity or malformed readback raises an error
+without producing a passing receipt. Removing this diagnostic tool has no runtime
+effect. Eight adversarial tests cover source/input mutation, omitted or duplicate
+samples, nonfinite/invalid channels and the unchanged exact-zero threshold.
