@@ -1,7 +1,8 @@
 # D1 linear scene target and SDR presentation candidate
 
-Status: implemented locally, opt-in only. Whole-application, physical-shell,
-native-device, runtime coverage and hosted enablement gates remain pending.
+Status: implemented and qualified on the isolated immutable candidate below,
+opt-in only. Combined atmosphere-domain, native-device, merged runtime coverage
+and hosted enablement gates remain pending.
 This adds no image/terrain assets, dependencies, network providers or telemetry.
 It does not claim HDR-monitor output, absolute radiometry or calibrated imagery.
 
@@ -106,13 +107,28 @@ of colored stars. Synthetic Mars emission tests admit no Mars night-light source
 | `coverage/hdr-physical-expanded-source/evidence.json` | 66/66, including actual physical surface/shell, independent S/T, night and pre-exposure flux checks. |
 | `coverage/planet-hdr-sun-green-source/evidence.json` | 110/110 actual sphere/filter/material checks, including colored night emission. |
 | `coverage/hdr-followup-final-node-50.log` | 50/50 focused manager, lifecycle, color and Earth probe tests. Deliberate stale producer, suppressed draw and rejected completion controls were red before their respective guards. |
+| `coverage/hdr-physical-b0c5438-staged/evidence.json` | 66/66 against immutable release `hdr-candidate-b0c5438`, including actual physical material and shell output. |
+| `coverage/hdr-browser-b0c5438.log` and `coverage/hdr-browser-b0c5438/visual/earth-submitted-spin.json` | Full staged HDR browser gate passed, including original Sun/Earth/orbit/moon criteria, frozen rotation and held final-presentation controls. |
 
-Web typecheck, docs, SDLC and UX validators passed locally. The receipts are
-retained ignored local evidence. They are not a full immutable staged application
-run, current-host native result, accepted cross-device performance qualification,
-runtime coverage result or hosted CI result. The selected physical surface/shell
-matrix and additive/flux fixtures do not replace the full atmosphere domain,
-native target admission, or staged HDR Earth deadline gates before default enablement.
+The final isolated runtime commit is
+`b0c5438b6788c947a55b8b4c16aef1c47c2e1b4e`; its immutable release digest is
+`10c0191712186ff36797a31e6ba7244053a58a74b43a57a0fa306579b0eaf93b`.
+The browser used Chrome/SwiftShader, a 1280-by-900 viewport and the original
+732-by-612 canvas, without reducing texture or terrain detail. Four observed
+Earth producers reached matching final presentations in 1193.8 ms, with no
+presentation mismatch or late accepted readback. The frozen-transform control
+failed as required. Holding the final draw produced 15 offscreen Earth draws
+and zero accepted presentations. Its timer callback ran after 5560.5 ms under
+render load; the original 5000 ms acceptance deadline rejected all late evidence.
+
+The full browser gate also retained the original Sun, Earth orbit and moon
+transit/eclipse criteria. Browser-only coverage was 86.94% lines, 76.21% branches
+and 82.80% functions. This is an observed browser coverage result, not a claim
+that merged coverage thresholds passed. Web typecheck, docs, SDLC and UX validators
+passed locally. Receipts remain ignored local evidence. These results are not
+qualification of the subsequent integrated atmosphere/terrain/startup tree,
+the native device, cross-device performance, or hosted CI. The selected physical
+surface/shell matrix does not replace the full atmosphere-domain gate.
 
 Required integrating commands include the existing atmosphere, planet, ring,
 solar/physical rendering, context-loss and browser tools against one immutable
