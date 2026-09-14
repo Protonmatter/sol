@@ -1,10 +1,11 @@
 # Bounded scattering interpolation qualification
 
-Status: the earlier Q2 source passes the complete interpolation matrix on native
-Adreno and SwiftShader. The subsequent observer-geometry candidate at `adb4560`
-passes 7,182/7,192 software queries and fails ten grazing limb consistency cases;
-its native matrix did not complete. The separate software physical-source join
-passes all 1,600 supplemental cases. These results are not interchangeable.
+Status: the prepared-path candidate at `256e935` passes 7,192/7,192 software
+queries and 7,191/7,192 native Adreno queries. The remaining native failure is
+`Mars-forward-terrain/surface/500`. Both independent supplemental physical-source
+comparisons pass 1,600/1,600; these do not qualify every generated atlas node or
+override the interpolation failure. Earlier Q2 and `adb4560` attempts remain
+retained with their own source identities and limitations.
 See [the current combined-source ledger](PRODUCTION_EXECUTION.md) and
 [all retained interpolation attempts](SCATTERING_INTERPOLATION_RECEIPT.json).
 

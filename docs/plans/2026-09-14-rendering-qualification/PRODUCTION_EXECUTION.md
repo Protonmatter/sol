@@ -8,6 +8,48 @@ state remain controlling. Failed experiments and their receipts are retained.
 
 ## Current combined source
 
+Candidate `256e935950f2820dcd695f55c6aeaba79a90f679` carries one prepared physical
+path through source integration, conditioning, lookup and transmission. Its stage
+is `scattering-runtime-prepared-full`, manifest SHA-256
+`04ad2e94588e8860719e750cea50954e21be4ee22164fe97a0993ce5bc08c7aa`.
+All four optical payloads again reproduced byte-identically. The ten earlier
+grazing failures pass on both backends, but this candidate is still unqualified.
+
+The complete software matrix passes 7,192/7,192; native Adreno passes 7,191/7,192.
+All 42 atlases per backend are finite and valid. Native's sole failure is
+`Mars-forward-terrain/surface/500`, with matching direct-source transmission but
+an incorrect interpolated scattering contribution. Separate strict comparisons
+of the 1,600 supplemental direct GPU values against the converged physical CPU
+reference pass on both backends. Those source comparisons do not cover every
+generated atlas node and do not override the interpolation failure. The
+[interpolation receipt](SCATTERING_INTERPOLATION_RECEIPT.json) preserves both
+attempts, their source identities and all eleven earlier run records.
+
+The native three-program compiler diagnostic passes the unchanged 30,000 ms
+deadline: physical sphere 6,027.1 ms, shell 2,526.6 ms and generator 29,792.6 ms.
+The generator's 207.4 ms margin is one observation, not stable startup latency.
+The [prepared-path receipt](ATMOSPHERE_PREPARED_PATH_RECEIPT.json) also retains
+the focused 16-query replays and strict original physical regressions. Final
+application and full-feature memory qualification remain pending. Combined local
+checks pass 1,207 Node tests, 395 Python tests, 110-module typechecking, static web,
+UX structure, 23-requirement SDLC and 130 tracked Markdown checks.
+
+Independent actual-source binary32 reconstruction locates the native discrepancy
+at atlas node `x31/y23/z12`, whose illuminated suffix is about 13 metres. The
+local solar-ground test rounds five Gauss-point discriminants to zero, although
+independent binary64 intersections of the same points miss the body. The
+remaining weights sum to about 0.62457, consistent with the bad native residual.
+A source-kernel correction must preserve genuinely shadowed paths, public solar
+visibility, original node/allocation budgets and the complete numerical gates.
+No correction is admitted merely from that diagnostic explanation.
+
+The independent memory review also requires exact registered-source readiness
+after context restoration, before accepting the declared imagery workload.
+Enabling textures alone does not establish that their resources are ready. This
+additional predicate must retain the existing preparation and application limits.
+
+## Earlier observer geometry source
+
 Candidate `adb456062e849d754247a658bd287aad7ad57bc4` combines the guarded physical
 material consumer with compensated observer roots and endpoint-preserving surface
 preparation. Its immutable stage is `scattering-runtime-adb4560-full`, manifest

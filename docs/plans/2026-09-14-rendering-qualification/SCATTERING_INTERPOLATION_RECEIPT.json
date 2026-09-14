@@ -1727,11 +1727,125 @@
           "atlas_passed": true
         }
       ]
+    },
+    {
+      "candidate": "Prepared observer paths at 256e935",
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-scattering-backend-diagnostic-20260914\\build\\observer-prepared-path\\full-native\\evidence.json",
+      "sha256": "fe6d8a3314ac03460e83c5f342fcd39245c1a43c716c1c9756cf0ebb9918067f",
+      "passed": false,
+      "evaluated_queries": 7192,
+      "required_queries": 7192,
+      "failed": 1,
+      "completed_datasets": 21,
+      "complete_matrix": true,
+      "original_queries": 5592,
+      "supplemental_queries": 1600,
+      "limits": {
+        "scatteringAbsolute": 0.0002,
+        "scatteringRelative": 0.01,
+        "zeroLeak": 1e-07,
+        "transmissionAbsolute": 0.0001,
+        "transmissionRelative": 0.002,
+        "displayAbsolute": 0.00784313725490196
+      },
+      "source_hashes": {
+        "js/atmosphereScattering.js": "7dd447d550ff743c1a04a93bb9c6a855c2d63f038be41d74d88121ffb018a1aa",
+        "js/atmosphereColumnField.js": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
+        "js/atmosphereShaders.js": "693d856dd0d9ae58c8c0ade448a2c5e7a96b01654af7af784d1ea084e6d497f7",
+        "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+        "js/atmosphereColumnManifest.js": "a1d7dcc1c79f955dad9454ab932f742bc7f97f2a4872e024009240c7d02bd23d",
+        "js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+        "js/atmosphereIncidentManifest.js": "2434d334fd0caefdda8a9ba7772a83a7f8ff5a0cfd7ab3e39b787546f13ef56e",
+        "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+        "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+        "terrain-assets.v1.json": "1c8b2e5f7d38b2b45464bbbb9da4f0d992c7748b6b4f3d0d2ce70d7665b97b93",
+        "js/terrainAssets.js": "b6cd8dd2c8bb73b98da58b9200a9ec634c697b2bf22651ddfd3f380f6a1516b8",
+        "js/terrainGeometry.js": "1ae3c76d97f699cc1553d29e2626c946bc46bb270e38ea11720b6e7b4801a04a",
+        "textures/terrain/mars-radial-height-v2.u16.bin": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba"
+      },
+      "tool_sha256": "3d27c68e7bdb4744e6fc1de652b153de6c33f3dbaf836a2d82eb46108ffea2c2",
+      "fixtures_sha256": "b677fbc021ca17362a39649ffe74c9a994dffb0ae9ba26ab3366762352d4f1b8",
+      "original_dataset_sha256": "20cef31efdf06deb16196fcb73dabf638600e6edc52a79bdf92ad2d1019c3e4f",
+      "gpu": {
+        "vendor": "WebKit",
+        "renderer": "WebKit WebGL",
+        "unmasked_renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "max_texture_size": 16384,
+        "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+      },
+      "observed_backend": {
+        "kind": "native-device",
+        "basis": "Observed WebGL renderer string; requested launch mode alone does not attest hardware execution"
+      },
+      "errors": [],
+      "failed_datasets": [
+        {
+          "name": "Mars-forward-terrain",
+          "total": 768,
+          "failed": 1,
+          "raw_failed": 1,
+          "atlas_passed": true
+        }
+      ]
+    },
+    {
+      "candidate": "Prepared observer paths at 256e935",
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-scattering-backend-diagnostic-20260914\\build\\observer-prepared-path\\full-swiftshader\\evidence.json",
+      "sha256": "56984787d23a5fd049420b42cac38657ef485d647af5c5f4b098f96f646f1f82",
+      "passed": true,
+      "evaluated_queries": 7192,
+      "required_queries": 7192,
+      "failed": 0,
+      "completed_datasets": 21,
+      "complete_matrix": true,
+      "original_queries": 5592,
+      "supplemental_queries": 1600,
+      "limits": {
+        "scatteringAbsolute": 0.0002,
+        "scatteringRelative": 0.01,
+        "zeroLeak": 1e-07,
+        "transmissionAbsolute": 0.0001,
+        "transmissionRelative": 0.002,
+        "displayAbsolute": 0.00784313725490196
+      },
+      "source_hashes": {
+        "js/atmosphereScattering.js": "7dd447d550ff743c1a04a93bb9c6a855c2d63f038be41d74d88121ffb018a1aa",
+        "js/atmosphereColumnField.js": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
+        "js/atmosphereShaders.js": "693d856dd0d9ae58c8c0ade448a2c5e7a96b01654af7af784d1ea084e6d497f7",
+        "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+        "js/atmosphereColumnManifest.js": "a1d7dcc1c79f955dad9454ab932f742bc7f97f2a4872e024009240c7d02bd23d",
+        "js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+        "js/atmosphereIncidentManifest.js": "2434d334fd0caefdda8a9ba7772a83a7f8ff5a0cfd7ab3e39b787546f13ef56e",
+        "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+        "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+        "terrain-assets.v1.json": "1c8b2e5f7d38b2b45464bbbb9da4f0d992c7748b6b4f3d0d2ce70d7665b97b93",
+        "js/terrainAssets.js": "b6cd8dd2c8bb73b98da58b9200a9ec634c697b2bf22651ddfd3f380f6a1516b8",
+        "js/terrainGeometry.js": "1ae3c76d97f699cc1553d29e2626c946bc46bb270e38ea11720b6e7b4801a04a",
+        "textures/terrain/mars-radial-height-v2.u16.bin": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba"
+      },
+      "tool_sha256": "3d27c68e7bdb4744e6fc1de652b153de6c33f3dbaf836a2d82eb46108ffea2c2",
+      "fixtures_sha256": "b677fbc021ca17362a39649ffe74c9a994dffb0ae9ba26ab3366762352d4f1b8",
+      "original_dataset_sha256": "20cef31efdf06deb16196fcb73dabf638600e6edc52a79bdf92ad2d1019c3e4f",
+      "gpu": {
+        "vendor": "WebKit",
+        "renderer": "WebKit WebGL",
+        "unmasked_renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+        "max_texture_size": 8192,
+        "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+      },
+      "observed_backend": {
+        "kind": "software",
+        "basis": "Observed WebGL renderer string; requested launch mode alone does not attest hardware execution"
+      },
+      "errors": [],
+      "failed_datasets": []
     }
   ],
-  "current_candidate": "Observer geometry v1: software interpolation fails 10 queries; native matrix incomplete",
-  "current_solver_sha256": "f2c85a8477d6c647a9caace9ac6316170e6e97a0d9a354439eaf37b073e9b127",
-  "current_scattering_sha256": "d879a668d94cc9e28eb7b16514f2d68e63c3a154b957df9f0733f4cb6e14dea2",
+  "current_candidate": "Prepared observer paths: software passes 7192; native fails one Mars terrain interpolation query",
+  "current_solver_sha256": "693d856dd0d9ae58c8c0ade448a2c5e7a96b01654af7af784d1ea084e6d497f7",
+  "current_scattering_sha256": "7dd447d550ff743c1a04a93bb9c6a855c2d63f038be41d74d88121ffb018a1aa",
   "observer_v1_physical_source_join": {
     "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-scattering-backend-diagnostic-20260914\\build\\observer-geometry-scattering-7192-swiftshader-physical-join.json",
     "sha256": "9c2155479da9a907500374bf206ea74f53ab0aa925d1131e785c498c0a80ee05",
@@ -1742,5 +1856,39 @@
     "solver_sha256": "f2c85a8477d6c647a9caace9ac6316170e6e97a0d9a354439eaf37b073e9b127",
     "requested_backend": "swiftshader",
     "gpu_atlas_gate_passed": false
-  }
+  },
+  "prepared_v2_physical_source_joins": [
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-scattering-backend-diagnostic-20260914\\build\\observer-prepared-path\\full-native-physical-join.json",
+      "sha256": "541c37ae5df710339b84b7ac7415106477310cc66ddba63cb78e3508e8eede99",
+      "passed": true,
+      "scope": "Direct GPU scattering/transmission against converged physical CPU values; atlas interpolation and application gates remain separate",
+      "count": 1600,
+      "maximum_error_over_tolerance": {
+        "scattering": 0.29533262688555706,
+        "transmission": 0.22052521225334132
+      },
+      "cpu_reference_sha256": "aeaf220518e7176b22005539e4b0d142ccbaf95b41728fde6fe004b14bfdb6fd",
+      "gpu_evidence_sha256": "fe6d8a3314ac03460e83c5f342fcd39245c1a43c716c1c9756cf0ebb9918067f",
+      "solver_sha256": "693d856dd0d9ae58c8c0ade448a2c5e7a96b01654af7af784d1ea084e6d497f7",
+      "requested_backend": "native",
+      "gpu_atlas_gate_passed": false
+    },
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-scattering-backend-diagnostic-20260914\\build\\observer-prepared-path\\full-swiftshader-physical-join.json",
+      "sha256": "304c904cbd68b8d0d1b59ccbf3aa5e16c40d188e6cb0bbdc5379921976ac72b1",
+      "passed": true,
+      "scope": "Direct GPU scattering/transmission against converged physical CPU values; atlas interpolation and application gates remain separate",
+      "count": 1600,
+      "maximum_error_over_tolerance": {
+        "scattering": 0.4159951185357465,
+        "transmission": 0.27432067854888775
+      },
+      "cpu_reference_sha256": "aeaf220518e7176b22005539e4b0d142ccbaf95b41728fde6fe004b14bfdb6fd",
+      "gpu_evidence_sha256": "56984787d23a5fd049420b42cac38657ef485d647af5c5f4b098f96f646f1f82",
+      "solver_sha256": "693d856dd0d9ae58c8c0ade448a2c5e7a96b01654af7af784d1ea084e6d497f7",
+      "requested_backend": "swiftshader",
+      "gpu_atlas_gate_passed": true
+    }
+  ]
 }
