@@ -29,6 +29,9 @@ async function loadModule(name) {
   return import(pathToFileURL(file).href);
 }
 const { RING_VS, RING_FS, SPHERE_FS } = await loadModule('orreryShaders.js');
+// Historical stages inline this expression; newer stages bind the same display helper.
+const { RING_TRANSPORT_GLSL } = SPHERE_FS.includes('displayRingShadowTransmission(')
+  ? await loadModule('ringTransportShaders.js') : { RING_TRANSPORT_GLSL: '' };
 const { BODY } = await loadModule('bodyData.js');
 const { ringOpacityProfile } = await loadModule('orreryMath.js');
 const out = path.resolve(root, process.argv.find(x => x.startsWith('--out='))?.slice(6) || 'coverage/rings-gpu');
@@ -55,7 +58,7 @@ try {
     radii: [BODY[name].rings.innerKm, BODY[name].rings.outerKm], data: [...ringOpacityProfile(BODY[name].rings)],
     radiusKm:BODY[name].radiusKm,polarRatio:BODY[name].polarKm/BODY[name].radiusKm,
   }]));
-  evidence.samples = await page.evaluate(({ vertex, fragment, block, profiles }) => {
+  evidence.samples = await page.evaluate(({ vertex, fragment, block, transport, profiles }) => {
     const gl = document.querySelector('canvas').getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
     if (!gl) throw new Error('WebGL2 unavailable');
     const compile = (type, src) => {
@@ -74,7 +77,7 @@ try {
     const shadow = program('#version 300 es\nlayout(location=0) in vec3 a_pos; void main(){gl_Position=vec4(a_pos,1);}',
       // Production uses the displaced mesh point v_obj for this ray origin. Bind that
       // exact coordinate; retain p as the synthetic input for older source fixtures.
-      '#version 300 es\nprecision highp float; uniform vec3 p; uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform sampler2D u_ringTex; out vec4 o; void main(){vec3 v_obj=p;vec3 col=vec3(1);\n' + block + '\no=vec4(col,1); }');
+      '#version 300 es\nprecision highp float;\n' + transport + '\nuniform vec3 p; uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform sampler2D u_ringTex; out vec4 o; void main(){vec3 v_obj=p;vec3 col=vec3(1);\n' + block + '\no=vec4(col,1); }');
     const I = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
     const R = [1,0,0,0,0,0,1,0,0,-1,0,0,0,0,0,1];
     const buffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -120,7 +123,7 @@ try {
     samples.keeler = shadowAt('Saturn',136505); samples.aRing = shadowAt('Saturn',136450);
     samples.displacedKeeler=shadowAt('Saturn',136505,20);
     samples.glError=gl.getError(); return samples;
-  }, { vertex:RING_VS, fragment:RING_FS, block:shadowBlock, profiles });
+  }, { vertex:RING_VS, fragment:RING_FS, block:shadowBlock, transport:RING_TRANSPORT_GLSL, profiles });
   const s=evidence.samples;
   const check = (name, condition) => { evidence.checks.push({name,passed:Boolean(condition)}); };
   const encode = x => x<=.0031308 ? 12.92*x : 1.055*Math.pow(x,1/2.4)-.055;

@@ -35,8 +35,9 @@ test('late completion of another terrain level cannot replace current demand sta
   const h=await orreryHarness(t,{controls:true,terrainMesh:(body,level)=>
     new Promise((resolve,reject)=>loads.push({body,level,resolve,reject}))});
   await h.enterOrrery();h.setAnimate(false);h.resize(240,160);h.input('orreryAnchor','Moon','change');
-  h.resize(800,600);assert.deepEqual(loads.map(load=>load.level),[1,2]);
+  h.resize(800,600);assert.deepEqual(loads.map(load=>load.level),[1],'new source work queues behind the active CPU reservation');
   loads[0].resolve(mesh());await h.settle();
+  assert.deepEqual(loads.map(load=>load.level),[1,2]);
   assert.equal(h.state.terrainStatus.Moon,'loading');assert.equal(h.state.terrainRendered.Moon,true);
   loads[1].reject(Error('requested level failed'));await h.settle();
   assert.equal(h.state.terrainStatus.Moon,'unavailable');assert.equal(h.state.terrainRendered.Moon,true);h.leaveOrrery();

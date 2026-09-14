@@ -23,7 +23,9 @@ export function createTerrainPreparationQueue() {
     const item=waiting.shift();item.signal.removeEventListener('abort',item.abort);
     if(item.signal.aborted){item.reject(new Error('Terrain request aborted'));next();return;}
     active=true;
-    Promise.resolve().then(()=>item.task()).then(item.resolve,item.reject).finally(()=>{active=false;next();});
+    let task;
+    try{task=item.task();}catch(error){task=Promise.reject(error);}
+    Promise.resolve(task).then(item.resolve,item.reject).finally(()=>{active=false;next();});
   }
   return {
     /** @param {AbortSignal} signal @param {()=>Promise<any>} task */

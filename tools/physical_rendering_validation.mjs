@@ -68,6 +68,11 @@ async function paintAction(action,value){
     if(action==='opposite'){s.az+=Math.PI;s.el=-s.el;}
     if(action==='checkbox'){const e=document.getElementById(value.id);e.checked=value.checked;e.dispatchEvent(new Event('change'));return;}
     if(action==='scrub'){const e=document.getElementById('orrerySolarTime');e.value=String(value);e.dispatchEvent(new Event('input'));return;}
+    if(action==='close-terrain'){
+      window.__physicalTerrainMeshes=[];window.__physicalTerrainDraws=[];
+      s.radius*=.35;
+    }
+    if(action==='restore-radius')s.radius=value;
     document.getElementById('orrerySize').dispatchEvent(new Event('input'));
   },action,value);
 }
@@ -134,7 +139,27 @@ async function run(){
     const Native=Date,t=Native.parse('2026-09-12T15:00:00Z');
     globalThis.Date=class extends Native{constructor(...args){super(...(args.length?args:[t]));}static now(){return t;}};
     window.__physicalShaderErrors=[];window.__physicalGlErrors=[];window.__physicalExpectedLossErrors=[];
+    window.__physicalTerrainMeshes=[];window.__physicalTerrainDraws=[];
+    const NativeWorker=window.Worker;
+    window.Worker=class extends NativeWorker {
+      constructor(url,options){super(url,options);this.addEventListener('message',event=>{
+        const data=event.data,mesh=data?.mesh;
+        if(mesh?.sourceId&&window.__physicalTerrainMeshes.length<64)window.__physicalTerrainMeshes.push({body:data.body,level:data.level,
+          sourceId:mesh.sourceId,sourceSha256:mesh.sourceSha256,width:mesh.width,height:mesh.height,
+          vertexCount:mesh.pos.length/6,indexCount:mesh.idx.length});
+      });}
+    };
     const p=WebGL2RenderingContext.prototype,read=p.getShaderParameter,link=p.getProgramParameter,error=p.getError;
+    const drawElements=p.drawElements;
+    p.drawElements=function(mode,count,type,offset){
+      const result=drawElements.call(this,mode,count,type,offset);
+      if(count>500000&&window.__physicalTerrainDraws.length<256){
+        const program=this.getParameter(this.CURRENT_PROGRAM),location=this.getUniformLocation(program,'u_terrainShadowEnabled');
+        if(location&&this.getUniform(program,location)===1)window.__physicalTerrainDraws.push({mode,count,type,
+          indexBufferBytes:this.getBufferParameter(this.ELEMENT_ARRAY_BUFFER,this.BUFFER_SIZE)});
+      }
+      return result;
+    };
     p.getShaderParameter=function(shader,param){const result=read.call(this,shader,param);if(param===this.COMPILE_STATUS&&!result)window.__physicalShaderErrors.push(this.getShaderInfoLog(shader));return result;};
     p.getProgramParameter=function(program,param){const result=link.call(this,program,param);if(param===this.LINK_STATUS&&!result)window.__physicalShaderErrors.push(this.getProgramInfoLog(program));return result;};
     p.getError=function(){const result=error.call(this);if(result!==this.NO_ERROR){if(result===this.CONTEXT_LOST_WEBGL&&window.__physicalExpectedContextLoss)window.__physicalExpectedLossErrors.push(result);else window.__physicalGlErrors.push(result);}return result;};
@@ -185,6 +210,21 @@ async function run(){
     await paintAction('checkbox',{id:'orreryTerrain',checked:false});await capture(`${body.toLowerCase()}-terrain-off`);
     different(`${body.toLowerCase()}-terrain-on`,`${body.toLowerCase()}-terrain-off`);
     await paintAction('checkbox',{id:'orreryTerrain',checked:true});
+    if(process.argv.includes('--terrain-close-detail')){
+      const radius=(await state()).radius;
+      await paintAction('close-terrain');
+      await page.waitForFunction(body=>window.__physicalTerrainMeshes.some(x=>x.body===body&&x.level===4)
+        &&window.__physicalTerrainDraws.some(x=>x.count===783360),{timeout:40000,polling:100},body);
+      await waitReady(body,{terrain:true});
+      const actual=await page.evaluate(()=>({meshes:window.__physicalTerrainMeshes,draws:window.__physicalTerrainDraws}));
+      const prepared=actual.meshes.find(x=>x.body===body&&x.level===4);
+      assert.equal(prepared.vertexCount,131841);assert.equal(prepared.indexCount,783360);
+      assert.equal(prepared.width,2880);assert.equal(prepared.height,1440);
+      assert.ok(actual.draws.some(x=>x.count===prepared.indexCount&&x.indexBufferBytes===prepared.indexCount*4));
+      await capture(`${body.toLowerCase()}-terrain-close-level4`);
+      check(`${body} level 4 submits actual 256 by 512 geometry with complete terrain shadows`,actual);
+      await paintAction('restore-radius',radius);await waitReady(body,{terrain:true});
+    }
   }
   assert.ok(evidence.worker_urls.some(x=>x.includes('terrain.worker.js')),'Real terrain Worker never created');
   for(const body of ['moon','mars'])assert.ok(evidence.responses.some(x=>x.url.includes(`${body}-radial-height`)&&x.status===200),`${body} height asset was not loaded`);

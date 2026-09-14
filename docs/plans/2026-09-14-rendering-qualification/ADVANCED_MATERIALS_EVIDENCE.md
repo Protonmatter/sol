@@ -17,7 +17,10 @@ indices 1 and 1.5. CPU comparisons, reciprocity, equal-index and total-internal-
 reflection cases pass. Normal-incidence hemisphere integration for alpha 0.2, 0.5
 and 1 converges by less than 1e-5 between 256 and 512 midpoint polar samples and
 remains below unit incident energy. This limited convergence corpus does not qualify
-all grazing or narrow-lobe hemispheric integrals. GPU evaluation remains pending.
+all grazing or narrow-lobe hemispheric integrals. The synthetic GPU directional
+corpus now passes all 400 cases under the prescribed 1e-5 + 1e-3*abs(reference)
+criterion; the maximum error/budget ratio is 0.09304. This qualifies the tested
+synthetic shader values, not a real Earth reflection material.
 
 No Earth reflection record is admitted. The concrete missing inputs are a registered
 categorical water/land/ice/unknown product, a band-specific refractive-index and
@@ -94,8 +97,10 @@ node --test tests/web/terrainAssets.test.mjs tests/web/terrainDetail.test.mjs te
 
 The receipt destination must be new; failed receipts are retained. The original
 source cache must match the pinned hashes before derivation. Revert this slice's
-commit to select the preserved v1 catalog and loader budgets together. GPU source,
-geometry, shadow and full-application qualification remains pending for this slice.
+commit to select the preserved v1 catalog and loader budgets together. The numerical
+GPU shadow corpus and staged application qualification described below now pass
+on software WebGL2. New native-device and integrated release qualification remain
+separate requirements.
 
 Sources: [NASA numerical displacement product](https://svs.gsfc.nasa.gov/4720/),
 [PDS MOLA product description](https://pds-geosciences.wustl.edu/missions/mgs/megdr.html),
@@ -158,3 +163,49 @@ source-map reference orientation is not a time-dependent attitude solution.
 
 Sources: [JPL geometric-albedo technical definition](https://ssd.jpl.nasa.gov/glossary/albedo.html),
 [USGS ROLO measurements and domain](https://www.usgs.gov/centers/astrogeology-science-center/science/rolo-further-details-lunar-calibration).
+
+## GPU and whole-application receipts
+
+All runs used Node 22.23.2 and serialized owned Chrome/SwiftShader processes. These
+are local software-WebGL results, not new native-driver or production release claims.
+Receipts and screenshots are retained under the named `coverage` directories in the
+implementation checkout. Each selected stage binds release and per-file hashes.
+
+| Stage source | Receipt directory | Result |
+| --- | --- | --- |
+| `fee4035` | `coverage/terrain-v2-shadow-01` | 32/32 real shader/R32F shadow checks pass, including actual v2 Moon/Mars grids, seams, poles and analytic ridge/flat cases. |
+| `fee4035` | `coverage/terrain-v2-physical-01` | 19 full-app checks pass, real workers/new height assets, relief on/off, source views, context restoration and 390-pixel layout; later ring-helper work is separately reported as current-source drift. |
+| `acb3c94` | `coverage/advanced-material-gpu-01` | 425/425 pass: 400 GGX, 4 ring transmission fixtures and 21 pre-exposure Lambert disk sums. |
+| `acb3c94` | `coverage/advanced-ring-01` | Retained failed harness attempt: extracting only the ring shadow block omitted its new helper dependency. No production shader error was inferred from this fixture error. |
+| `acb3c94` | `coverage/advanced-ring-02` | After hash-binding the helper into that fixture, 11/11 established ring display/alpha/gap/shadow checks pass. |
+| `acb3c94` | `coverage/terrain-v2-physical-level4-02` | 21 full-app checks pass with additive `--terrain-close-detail --context-loss`; both bodies submit actual level 4 draws, then restore the prior zoom and complete the original tour. |
+
+The level 4 probe observes real worker payload identity and the real indexed draw,
+including 131,841 vertices, 783,360 indices, unsigned-32 index type, a 3,133,440-byte
+index buffer and the enabled terrain-shadow uniform. It adds no runtime hook and
+does not relax the existing application predicates or 240-second total deadline.
+Both body captures were inspected. Magnification still exposes the finite resolution
+of existing source color maps; this change does not create additional color detail.
+
+The ring synthetic maximum absolute error was 1.24e-8. The 256-square Lambert
+fixture's maximum normalized disk error was 3.78e-5, within the prescribed relative
+1e-3 plus absolute 1e-5 criterion in every case. Per-case raster coverage error is
+reported separately. These are synthetic shader observables; calibration of live
+moon materials and real ring angular transmission remains held.
+
+The established three-final-Earth-draws-within-five-seconds gate was not changed by
+these slices and is owned by the integrating workstream. New integrated color/HDR
+and atmosphere changes require their own final combined stage; these receipts
+cannot be relabeled as results for later commits.
+
+The final JavaScript suite passes 1,010/1,010 tests. Its first broad run caught three
+older lifecycle assumptions about immediate/concurrent terrain starts. The queue
+now starts its first admitted task synchronously, preserving that existing behavior;
+the intentional single-worker contract queues the next level until the first ends.
+The lifecycle test now asserts both that serialization and the original late-result,
+fallback/status, cancellation and explicit-retry behavior. All 29 focused lifecycle
+and resource checks then pass. This scheduling-only follow-up does not change the
+shader or terrain bytes, but later combined application validation must still bind
+the final integrated source. The failed first full-suite output is retained in
+`build/advanced-full-node-tests.txt`; the passing run is
+`build/advanced-full-node-tests-02.txt`.
