@@ -11,7 +11,7 @@ export function physicalCameraPosition(eye, center, rotation, displayRadius, phy
 
 export function terrainDetailLevel(pixelDiameter) {
   if (!Number.isFinite(pixelDiameter) || pixelDiameter<64) return 0;
-  return pixelDiameter<320 ? 1 : pixelDiameter<900 ? 2 : 3;
+  return pixelDiameter<320 ? 1 : pixelDiameter<900 ? 2 : pixelDiameter<1500 ? 3 : 4;
 }
 
 export function advanceReferencePlayback(state, dt, {active=true,reducedMotion=false}={}) {

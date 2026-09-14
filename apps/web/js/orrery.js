@@ -21,6 +21,7 @@ import { appearanceReference, appearanceReferences, appearanceUniforms, appearan
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
 import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.js';
 import {requestTerrainMesh} from './terrainWorkerClient.js';
+import {createTerrainPreparationQueue,terrainResourceEstimate,uploadTerrainMesh} from './terrainResources.js';
 import {physicalCameraPosition,terrainDetailLevel,advanceReferencePlayback,createDetailCache} from './physicalRendering.js';
 import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms} from './atmosphereOptics.js';
 import {INCIDENT_FIELD_UNIFORMS} from './atmosphereIncident.js';
@@ -308,25 +309,16 @@ function initTerrainResources() {
   terrainDemand={};
   if(typeof Worker!=='function'){terrainDetails=null;state.terrainStatus={Moon:'unavailable',Mars:'unavailable'};return;}
   const context=gl;
-  const cache=createDetailCache({capacity:2,load:async(key,signal)=>{
+  const preparation=createTerrainPreparationQueue();
+  const cache=createDetailCache({capacity:2,load:(key,signal)=>preparation.run(signal,async()=>{
     const [body,rawLevel]=key.split(':');const phys=BODY[body];
+    const reference=terrainReference(body);
+    const estimate=terrainResourceEstimate(reference,Number(rawLevel));
+    if(reference.width>context.getParameter(context.MAX_TEXTURE_SIZE)||reference.height>context.getParameter(context.MAX_TEXTURE_SIZE))throw new Error('Terrain exceeds device texture dimensions');
     const mesh=await requestTerrainMesh(body,Number(rawLevel),{equatorialRadiusKm:phys.radiusKm,polarRadiusKm:phys.polarKm},{signal});
     if(signal.aborted||!state.active||gl!==context||context.isContextLost())throw new Error('Terrain graphics generation changed');
-    const pos=context.createBuffer(),idx=context.createBuffer();
-    context.bindBuffer(context.ARRAY_BUFFER,pos);context.bufferData(context.ARRAY_BUFFER,mesh.pos,context.STATIC_DRAW);
-    context.bindBuffer(context.ELEMENT_ARRAY_BUFFER,idx);context.bufferData(context.ELEMENT_ARRAY_BUFFER,mesh.idx,context.STATIC_DRAW);
-    const heightTex=context.createTexture();context.activeTexture(context.TEXTURE0+5);
-    context.bindTexture(context.TEXTURE_2D,heightTex);
-    context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
-    context.texImage2D(context.TEXTURE_2D,0,context.R32F,mesh.width,mesh.height,0,context.RED,context.FLOAT,mesh.heightsKm);
-    for(const parameter of [context.TEXTURE_MIN_FILTER,context.TEXTURE_MAG_FILTER])context.texParameteri(context.TEXTURE_2D,parameter,context.NEAREST);
-    context.texParameteri(context.TEXTURE_2D,context.TEXTURE_WRAP_S,context.REPEAT);context.texParameteri(context.TEXTURE_2D,context.TEXTURE_WRAP_T,context.CLAMP_TO_EDGE);
-    context.activeTexture(context.TEXTURE0);
-    const error=context.getError();
-    if(error!==context.NO_ERROR){context.deleteBuffer(pos);context.deleteBuffer(idx);context.deleteTexture(heightTex);throw new Error('GPU rejected terrain geometry');}
-    return {pos,idx,count:mesh.idx.length,indexType:mesh.idx instanceof Uint32Array?context.UNSIGNED_INT:context.UNSIGNED_SHORT,
-      interleaved:true,body,level:Number(rawLevel),minRadiusKm:mesh.minRadiusKm,maxRadiusKm:mesh.maxRadiusKm,heightTex,shadow:mesh.shadow};
-  },release:mesh=>{if(mesh){context.deleteBuffer(mesh.pos);context.deleteBuffer(mesh.idx);context.deleteTexture(mesh.heightTex);}},
+    return {...uploadTerrainMesh(context,mesh),body,level:Number(rawLevel),resourceBytes:estimate};
+  }),release:mesh=>{if(mesh){context.deleteBuffer(mesh.pos);context.deleteBuffer(mesh.idx);context.deleteTexture(mesh.heightTex);}},
   onChange:key=>{
     queueMicrotask(()=>{
       if(terrainDetails!==cache||gl!==context)return;

@@ -6,7 +6,8 @@ import {terrainReference} from './terrainAssets.js';
  * @param {{signal?:AbortSignal,workerFactory?:()=>any,timeoutMs?:number}} options
  */
 export function requestTerrainMesh(body,level,radii,{signal,workerFactory=()=>new Worker(new URL('./terrain.worker.js',import.meta.url),{type:'module'}),timeoutMs=30000}={}) {
-  if(!terrainReference(body)||!Number.isInteger(level)||level<1||level>3
+  const reference=terrainReference(body);
+  if(!reference||!Number.isInteger(level)||level<1||level>4
       ||![radii.equatorialRadiusKm,radii.polarRadiusKm,timeoutMs].every(x=>Number.isFinite(x)&&x>0)
       ||timeoutMs>30000)throw new Error('Invalid terrain worker request');
   return new Promise((resolve,reject)=>{
@@ -31,7 +32,8 @@ export function requestTerrainMesh(body,level,radii,{signal,workerFactory=()=>ne
           ||!Number.isFinite(mesh.maxRadiusKm)||!Number.isFinite(mesh.minRadiusKm)||mesh.minRadiusKm<=0
           ||mesh.maxRadiusKm<mesh.minRadiusKm||!mesh.pos.every(Number.isFinite)
           ||!mesh.idx.every(i=>i<mesh.pos.length/6)
-          ||!(mesh.heightsKm instanceof Float32Array)||mesh.width!==1440||mesh.height!==720
+          ||!(mesh.heightsKm instanceof Float32Array)||mesh.width!==reference.width||mesh.height!==reference.height
+          ||mesh.sourceId!==reference.id||mesh.sourceSha256!==reference.sha256
           ||mesh.heightsKm.length!==mesh.width*mesh.height||!mesh.heightsKm.every(Number.isFinite)
           ||mesh.shadow?.shape?.length!==4||!mesh.shadow.shape.every(Number.isFinite)
           ||mesh.shadow?.poles?.length!==2||!mesh.shadow.poles.every(Number.isFinite)){

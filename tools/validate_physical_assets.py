@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 ROOT=Path(__file__).resolve().parents[1]
 SHA=re.compile(r"[0-9a-f]{64}")
 MANIFEST_CAP=256*1024
-TERRAIN_CAP=4*1024*1024
+TERRAIN_CAP=8*1024*1024
 SOLAR_CAP=2*1024*1024
 SOURCES=("nasa.gov","pds-geosciences.wustl.edu","api.helioviewer.org")
 

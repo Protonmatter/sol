@@ -10,7 +10,7 @@ test('physical camera ignores display enlargement and translates into orthonorma
 });
 test('terrain detail is finite and capped independently of arbitrary zoom',()=>{
   assert.equal(terrainDetailLevel(4),0); assert.equal(terrainDetailLevel(100),1);
-  assert.equal(terrainDetailLevel(600),2); assert.equal(terrainDetailLevel(2000),3);
+  assert.equal(terrainDetailLevel(600),2); assert.equal(terrainDetailLevel(1000),3); assert.equal(terrainDetailLevel(2000),4);
   assert.equal(terrainDetailLevel(Infinity),0); assert.equal(terrainDetailLevel(-1),0);
 });
 test('reference playback is bounded and separate from orbit time and frame partitions',()=>{

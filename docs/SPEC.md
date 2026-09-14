@@ -48,6 +48,13 @@ Other atmospheres retain their disclosed illustrative treatment until qualified.
 Terrain is prepared in cancellable workers, uses physical kilometre heights, and changes
 both geometry and normals. Up to two detail entries are resident, with bounded LOD and
 directional terrain shadows. Source-cell resolution limits narrow geological features;
+Moon/Mars terrain now uses 0.125-degree derivatives of exact 0.0625-degree numerical
+source products. A close view at projected diameter >=1500 pixels selects a fourth
+256-by-512 segment mesh; the earlier three levels and immutable v1 assets remain
+available. One terrain worker runs at a time within explicit CPU/GPU byte admission.
+The [advanced material evidence](plans/2026-09-14-rendering-qualification/ADVANCED_MATERIALS_EVIDENCE.md)
+distinguishes source sampling, derivative spacing, source interpolation and pending
+runtime qualification. This complete-globe route does not claim regional tiling.
 unsupported bodies retain their source maps and smooth reference geometry. Missing or
 invalid optional products retain a usable, disclosed fallback. Release staging verifies
 the terrain/solar manifests, numeric products, hashes and generated browser metadata.
