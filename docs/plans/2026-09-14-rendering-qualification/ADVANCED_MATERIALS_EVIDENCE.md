@@ -4,6 +4,19 @@ The implementation extends the accepted rendering direction without changing sou
 images, engine state, orbit/radius values, or the existing Earth presentation gate.
 Each source/model admission below is separate from whole-application qualification.
 
+## Runtime status and remaining requested work
+
+| Requested feature | Enabled runtime behavior in these commits | Reference/tooling result | Remaining qualification |
+| --- | --- | --- | --- |
+| D2 Earth reflection | No new Earth reflection material. | Independently implemented GGX/Fresnel CPU and real GLSL float-target corpus. | Real material/coverage admission, measured angular comparisons and integrated HDR qualification. |
+| D3 finer terrain | New Moon/Mars numerical height products drive displacement, normals and the full shadow grid; close views select level 4. | Exhaustive source/derivative comparison, allocation/cancellation checks and actual level 4 draw submissions. | Final integrated/native-device qualification. Regional tiled terrain and finer photographic color products have not been implemented. |
+| D4 ring transport | The existing display shadow now uses the explicitly named display-transmission helper; its numerical behavior is preserved. | Mixed-subregion transmission, coverage separation and independent CPU/GLSL observables. | A real band/geometry-specific transmission product and separate reflected-light model. No calibrated angular material is enabled. |
+| D5 moon photometry | Existing moon materials and source map modes continue. | Independent disk and hemisphere quadratures, partial-coverage accounting and GLSL disk sums. | Per-body calibrated material/attitude data and independent epoch/aspect validation. No moon receives fitted brightness or a calibrated surface model. |
+
+Only the bounded D3 terrain change supplies new live visual detail here. D2, the
+calibrated portion of D4, and D5 remain incomplete requested production work;
+passing synthetic references does not complete them.
+
 ## D2: synthetic dielectric reflection
 
 `surfaceReflection.js` implements the bounded GGX distribution, separable Smith
@@ -163,6 +176,52 @@ source-map reference orientation is not a time-dependent attitude solution.
 
 Sources: [JPL geometric-albedo technical definition](https://ssd.jpl.nasa.gov/glossary/albedo.html),
 [USGS ROLO measurements and domain](https://www.usgs.gov/centers/astrogeology-science-center/science/rolo-further-details-lunar-calibration).
+
+## Bounded source admission assessment
+
+The [acquisition receipts](MATERIAL_SOURCE_ACQUISITION.json) preserve successful and
+failed documentation/product requests made on 2026-09-14. Successful original bytes
+remain in `build/material-source-assessment`; the receipt records byte counts, SHA-256,
+content type and final URL. These are source investigation records, not admitted
+runtime assets. A successful HTTP response is insufficient when its content is wrong.
+
+The [PDS ring-occultation index](https://pds-rings.seti.org/ringocc/) identifies the
+specific Earth-based `EBROCC_0001` volume: six telescope data sets from the July 1989
+28 Sgr Saturn occultation. Its 5.14 MB original archive request returned HTTP 403;
+no product label or profile was acquired. Its exact band, radial registration,
+uncertainty and quality/saturation definitions therefore remain unverified here.
+Cassini RSS/UVIS/VIMS archive descriptions identify radio/ultraviolet/infrared
+measurements; they do not admit visible RGB transport. Even a downloaded profile
+of effective normal optical depth would not independently identify unresolved
+opaque area and depth within its measurement footprint. The current values in
+`orreryMath.js:ringColorAt` and `ringOpacityProfile` remain display recipes.
+
+The Moon does have source-backed band/phase observables. The
+[USGS instrument-team documentation](https://www.usgs.gov/centers/astrogeology-science-center/science/rolo-information-instrument-teams)
+contains an EO-1/ROLO worked exchange example at 2001-11-01T21:05:43 UTC, phase
+8.599 degrees. For the nominal 485 nm band (effective 485.70 nm), it lists modeled
+disk irradiance 3.3652 microW m^-2 nm^-1 and the observing geometry. It also gives
+ten observation examples. These are documented exchange examples, not an independently
+admitted holdout corpus. USGS explicitly limits this interface to disk-integrated
+irradiance; it requires spectral response and detailed geometry. A disk result does
+not determine the distribution of radiance over this application's photographic map.
+
+The exact Kieffer/Stone 2005 publication is
+[USGS record 70029564](https://www.usgs.gov/publications/spectral-irradiance-moon),
+DOI `10.1086/430185`. The former NASA SeaWiFS coefficient-paper URL now returns
+generic SeaWiFS HTML with HTTP 200, rather than the requested PDF. That response
+is preserved and rejected for coefficient admission. The
+[Buratti 2011 NASA record](https://ntrs.nasa.gov/citations/20120013529), DOI
+`10.1029/2010JE003724`, returns metadata with an empty downloads array. Neither
+record supplies an acquired complete coefficient/adjustment product here. Search
+snippets are not substituted for original numerical tables.
+
+The smallest plausible next Moon step is an explicitly band-limited disk-observable
+model after acquiring exact versioned coefficients/adjustments, spectral integration
+and geometry inputs plus independent comparison epochs. It would remain a disk
+observable until a separately sourced surface radiance model and attitude/registration
+contract support live mapped rendering. These acquisition results establish the
+current admission boundary; they do not claim that suitable data do not exist.
 
 ## GPU and whole-application receipts
 

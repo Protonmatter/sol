@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Bounded advanced-material source assessment; no records are admitted runtime materials",
+  "originalCache": "build/material-source-assessment",
+  "records": [
+    {
+      "name": "EBROCC_0001.tar.gz",
+      "url": "https://pds-rings.seti.org/holdings/archives-volumes/EBROCC_xxxx/EBROCC_0001.tar.gz",
+      "retrievedAt": "2026-09-14T02:39:58.983460+00:00",
+      "failure": "HTTP Error 403: Forbidden",
+      "admission": "not-acquired: access denied; exact product label, band, profile and uncertainty not validated"
+    },
+    {
+      "name": "buratti-2011-ntrs.json",
+      "url": "https://ntrs.nasa.gov/api/citations/20120013529",
+      "retrievedAt": "2026-09-14T02:39:59.058766+00:00",
+      "bytes": 4869,
+      "sha256": "5ddb60e5244800032aee984a4c840ed47c2369c3fdfc52fc9105b53df59e5c26",
+      "contentType": "application/json; charset=utf-8",
+      "status": 200,
+      "finalUrl": "https://ntrs.nasa.gov/api/citations/20120013529",
+      "admission": "metadata-only: downloads array empty; no numerical coefficient product acquired"
+    },
+    {
+      "name": "rolo-instrument-teams.html",
+      "url": "https://www.usgs.gov/centers/astrogeology-science-center/science/rolo-information-instrument-teams",
+      "retrievedAt": "2026-09-14T02:45:33.893473+00:00",
+      "bytes": 147531,
+      "sha256": "076b8b575f57091d5dcdc22351f1c867ba16b37937a7f2d7f2dfa91cf8ed7be2",
+      "status": 200,
+      "contentType": "text/html; charset=UTF-8",
+      "finalUrl": "https://www.usgs.gov/centers/astrogeology-science-center/science/rolo-information-instrument-teams",
+      "admission": "documentation-only: worked observation/model exchange examples; no full coefficient set or independent holdout admission"
+    },
+    {
+      "name": "rolo-publication.html",
+      "url": "https://pubs.usgs.gov/publication/70029564",
+      "retrievedAt": "2026-09-14T02:45:33.893704+00:00",
+      "failure": "HTTP Error 403: Forbidden",
+      "admission": "not-acquired: access denied; publication metadata browsed separately"
+    },
+    {
+      "name": "pds-ring-occultation-index.html",
+      "url": "https://pds-rings.seti.org/ringocc/",
+      "retrievedAt": "2026-09-14T02:45:33.894034+00:00",
+      "failure": "HTTP Error 403: Forbidden",
+      "admission": "not-acquired: access denied; index browsed separately, no numerical profile admission"
+    },
+    {
+      "name": "seawifs-requested-coefficients-response.html",
+      "url": "https://oceancolor.gsfc.nasa.gov/SeaWiFS/On_Orbit/lcal/docs/kieffer_stone_irradiance_moon_aj.pdf",
+      "retrievedAt": "2026-09-14T02:45:33.894291+00:00",
+      "bytes": 157188,
+      "sha256": "8083fd9c0ac5f05b93246c64100c819842487eba738ccb02df93a47395800379",
+      "status": 200,
+      "contentType": "text/html; charset=UTF-8",
+      "finalUrl": "https://www.earthdata.nasa.gov/data/projects/seawifs",
+      "admission": "wrong-content: requested coefficient paper redirected to generic HTML; no PDF/coefficients acquired"
+    }
+  ]
+}
