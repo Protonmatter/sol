@@ -67,7 +67,7 @@ export function planAtmosphereScattering(profile,options){
   // Normalizing a visible raster triangle's chord can put its endpoint just
   // beyond closest approach even on the smooth Earth sphere. Both signs are
   // required independently of whether a radial DEM is present.
-  const surfaceSize=volume?(singleScale?[64,49,17]:[96,65,9]):[128,193,1],limbSize=[128,64];
+  const surfaceSize=volume?(singleScale?[80,41,17]:[128,49,9]):[128,193,1],limbSize=[128,64];
   const evaluations=surfaceSize.reduce((a,b)=>a*b,1)+limbSize[0]*limbSize[1];
   if(evaluations>SCATTERING_MAX_EVALUATIONS)return unavailable('Scattering evaluation budget exceeded');
   return {status:'ready',singleScale,body:profile.body,radiusKm:R,topKm:T,polarRatio:q,cameraBodyKm:[...options.cameraBodyKm],cameraRadius,axis,u,v,heightRange:heights,surfaceSize,limbSize,evaluations,bytes:evaluations*16};
@@ -116,14 +116,17 @@ export function scatteringLimbRay(plan,azimuth,impactHeightKm){
   if(!Number.isFinite(impactHeightKm)||impactHeightKm<0||impactHeightKm>plan.topKm)throw new RangeError('Limb scattering coordinate outside domain');
   return {origin:[...plan.cameraBodyKm],direction:rayAtImpact(plan,azimuth,plan.radiusKm+impactHeightKm).direction,maxDistance:1e20};
 }
-/** @param {ScatteringPlan} plan @param {number[]} transformedDirection */
-function rayAzimuth(plan,transformedDirection){
+/** @param {ScatteringPlan} plan @param {number[]} transformedDirection @param {number} [power] */
+function rayAzimuth(plan,transformedDirection,power=3){
   const x=dot(transformedDirection,plan.u),y=dot(transformedDirection,plan.v);
   if(Math.hypot(x,y)<1e-12)return 0;
-  const raw=((Math.atan2(y,x)/(2*PI))%1+1)%1,v=raw*4;
-  if(!plan.singleScale)return raw;
-  const t=v-Math.floor(v),a=Math.cbrt(t),b=Math.cbrt(1-t);
-  return .25*(Math.floor(v)+a/(a+b));
+  if(!plan.singleScale)return ((Math.atan2(y,x)/(2*PI))%1+1)%1;
+  // Select a quadrant before atan; retain a tiny angle to either bounding axis.
+  const quadrant=x>=0?(y>=0?0:3):(y>=0?1:2);
+  const a=quadrant%2===0?Math.abs(x):Math.abs(y),b=quadrant%2===0?Math.abs(y):Math.abs(x);
+  const near=Math.atan2(Math.min(a,b),Math.max(a,b))*2/PI;
+  const left=near**(1/power),right=(1-near)**(1/power),fraction=left/(left+right);
+  return .25*(quadrant+(a>=b?fraction:1-fraction));
 }
 /** Float64 coordinate oracle. Out-of-domain inputs return null, never edge samples.
  * @param {ScatteringPlan} plan @param {readonly number[]} surface */
@@ -149,7 +152,7 @@ export function scatteringSurfaceCoordinates(plan,surface){
     z=critical>0&&h<=critical?base+span*.5*Math.sqrt(h/critical)
       :plan.heightRange[1]>critical?base+span*.5+span*.5*Math.sqrt(Math.max(0,(h-critical)/(plan.heightRange[1]-critical))):last;
   }
-  return [rayAzimuth(plan,d)*plan.surfaceSize[0],y,Math.max(0,Math.min(plan.surfaceSize[2]-1,z))];
+  return [rayAzimuth(plan,d,5)*plan.surfaceSize[0],y,Math.max(0,Math.min(plan.surfaceSize[2]-1,z))];
 }
 /** @param {ScatteringPlan} plan @param {readonly number[]} direction */
 export function scatteringLimbCoordinates(plan,direction){
@@ -194,20 +197,34 @@ vec2 scatteringRadialMoment(float radius){
   vec2 H=u_atmosphereDensityScaleKm,e=exp(-h/H);
   return u_atmosphereRadiusKm*H*(1.0-e)+H*H*(1.0-e*(1.0+h/H));
 }
-vec3 scatteringReferenceSegment(vec3 entry,vec3 ray,AtmosphereColumnRay columnRay,vec2 interval,vec2 phase){
-  if(interval.y<=interval.x)return vec3(0);
-  vec2 columns=max(vec2(0),scatteringViewColumns(columnRay,interval.y)-scatteringViewColumns(columnRay,interval.x));
+vec2 scatteringReferenceMoments(AtmosphereColumnRay columnRay,vec2 interval){
+  if(interval.y<=interval.x)return vec2(0);
+  float column=max(0.0,scatteringViewColumns(columnRay,interval.y).x-scatteringViewColumns(columnRay,interval.x).x);
   float a=columnRay.begin+interval.x*columnRay.scale,b=columnRay.begin+interval.y*columnRay.scale;
-  vec2 moment=scatteringRadialMoment(length(vec2(columnRay.impact,b)))-scatteringRadialMoment(length(vec2(columnRay.impact,a)));
-  vec2 centerT=moment/(columnRay.scale*columnRay.scale*max(columns,vec2(1e-20)))-columnRay.begin/columnRay.scale;
-  centerT=mix(vec2((interval.x+interval.y)*.5),centerT,step(vec2(1e-8),columns));
-  centerT=clamp(centerT,vec2(interval.x),vec2(interval.y));
-  // Closed-form density centroids condition the residual at actual endpoints.
-  // The shared density scale needs at most two lit-interval evaluations here.
-  vec3 solar=exp(-atmosphereSunOpticalDepthToTop(entry+ray*centerT.x,normalize(u_atmosphereSunDirection)));
-  vec3 beta=u_atmosphereRayleighKm+u_atmosphereAerosolKm;
-  vec3 q=(u_atmosphereRayleighKm*phase.x+u_atmosphereAerosolKm*u_atmosphereAerosolSSA*phase.y)/max(beta,vec3(1e-30));
-  return q*scatteringTransmissionMass(columnRay,interval)*solar;
+  float radial=scatteringRadialMoment(length(vec2(columnRay.impact,b))).x-scatteringRadialMoment(length(vec2(columnRay.impact,a))).x;
+  return vec2(column,radial/(columnRay.scale*columnRay.scale)-columnRay.begin/columnRay.scale*column);
+}
+// Fixed ray partitions preserve continuity as a shadow gap opens or closes.
+// Each partition combines all its lit support before choosing one centroid.
+vec3 scatteringReferencePartition(vec3 entry,vec3 ray,AtmosphereColumnRay columnRay,
+    vec2 band,vec2 shadow,vec3 ratio){
+  if(band.y<=band.x)return vec3(0);
+  vec3 mass;vec2 moments;
+  if(shadow.y<=shadow.x||shadow.y<=band.x||shadow.x>=band.y){
+    mass=scatteringTransmissionMass(columnRay,band);
+    moments=scatteringReferenceMoments(columnRay,band);
+  }else{
+    vec2 first=vec2(band.x,max(band.x,shadow.x)),last=vec2(min(band.y,shadow.y),band.y);
+    vec3 a=scatteringTransmissionMass(columnRay,first),b=scatteringTransmissionMass(columnRay,last);
+    if(any(lessThan(a,vec3(0)))||any(lessThan(b,vec3(0))))return vec3(-1);
+    mass=a+b;moments=scatteringReferenceMoments(columnRay,first)+scatteringReferenceMoments(columnRay,last);
+  }
+  if(any(lessThan(mass,vec3(0))))return vec3(-1);
+  float centerT=moments.x>1e-8?moments.y/moments.x:(band.x+band.y)*.5;
+  centerT=clamp(centerT,band.x,band.y);
+  // Opacity is a positive conditioning scale, including for a dark-gap centroid.
+  vec3 solar=exp(-atmosphereSunOpticalDepthToTop(entry+ray*centerT,normalize(u_atmosphereSunDirection)));
+  return ratio*mass*solar;
 }
 vec3 scatteringReferenceWeight(vec3 origin,vec3 direction,float maximum){
   if(u_atmosphereEnabled==0)return vec3(0);
@@ -221,15 +238,24 @@ vec3 scatteringReferenceWeight(vec3 origin,vec3 direction,float maximum){
   float phaseR=3.0*(1.0+mu*mu)/(16.0*ATM_PI);
   float phaseA=(1.0-g*g)/(4.0*ATM_PI*pow(1.0+g*g-2.0*g*mu,1.5));
   vec2 shadow=atmosphereShadowInterval(entry,ray);
-  // A shared density scale admits a single density centroid per lit interval.
-  // This is a conditioning weight only: independently generated residuals retain
-  // the original integral, and no per-fragment quadrature is introduced.
+  // Use fixed density pieces: ground entry, metric closest, and ground exit.
+  // Each aggregates its lit support before one opacity evaluation. At ground
+  // tangency the two interior pieces shrink to zero, preserving continuity.
   if(u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y){
-    vec3 source;
-    if(shadow.y<=shadow.x||shadow.y<=0.0||shadow.x>=distance)
-      source=scatteringReferenceSegment(entry,ray,columnRay,vec2(0,distance),vec2(phaseR,phaseA));
-    else source=scatteringReferenceSegment(entry,ray,columnRay,vec2(0,max(0.0,shadow.x)),vec2(phaseR,phaseA))
-      +scatteringReferenceSegment(entry,ray,columnRay,vec2(min(distance,shadow.y),distance),vec2(phaseR,phaseA));
+    vec3 metricEntry=atmosphereUnflatten(entry),metricRay=atmosphereUnflatten(ray);
+    float closest=clamp(-dot(metricEntry,metricRay)/dot(metricRay,metricRay),0.0,distance);
+    vec3 beta=u_atmosphereRayleighKm+u_atmosphereAerosolKm;
+    vec3 ratio=(u_atmosphereRayleighKm*phaseR+u_atmosphereAerosolKm*u_atmosphereAerosolSSA*phaseA)/max(beta,vec3(1e-30));
+    vec2 ground=atmosphereRayInterval(entry,ray,u_atmosphereRadiusKm);
+    if(ground.y<ground.x)ground=vec2(closest);
+    float cuts[5]=float[5](0.0,clamp(ground.x,0.0,distance),closest,
+      clamp(ground.y,0.0,distance),distance);
+    vec3 source=vec3(0);
+    for(int i=0;i<4;i++){
+      vec3 part=scatteringReferencePartition(entry,ray,columnRay,vec2(cuts[i],cuts[i+1]),shadow,ratio);
+      if(any(lessThan(part,vec3(0))))return vec3(-1);
+      source+=part;
+    }
     return source*ATM_PI*u_atmosphereSolarScale*u_atmosphereExposure;
   }
   vec3 mass;float litLength;
@@ -266,14 +292,20 @@ uniform float u_scatteringCameraRadius;
 uniform vec2 u_scatteringHeightRange;
 uniform ivec3 u_scatteringSurfaceSize;
 uniform ivec2 u_scatteringLimbSize;
-float scatteringAzimuthAt(float u){
-  if(u_atmosphereDensityScaleKm.x!=u_atmosphereDensityScaleKm.y)return 2.0*ATM_PI*u;
-  float x=4.0*u,k=floor(x),t=fract(x),a=t*t*t,b=(1.0-t)*(1.0-t)*(1.0-t);
-  return .5*ATM_PI*(k+a/(a+b));
-}
-float scatteringAzimuthCoordinate(float u){
-  if(u_atmosphereDensityScaleKm.x!=u_atmosphereDensityScaleKm.y)return u;
-  float x=4.0*u,t=fract(x),a=pow(t,1.0/3.0),b=pow(1.0-t,1.0/3.0);return .25*(floor(x)+a/(a+b));
+vec2 scatteringAzimuthComponentsAt(float u,bool surface){
+  if(u_atmosphereDensityScaleKm.x!=u_atmosphereDensityScaleKm.y){
+    float azimuth=2.0*ATM_PI*u;return vec2(cos(azimuth),sin(azimuth));
+  }
+  float x=4.0*u,t=fract(x),near=min(t,1.0-t),far=1.0-near;
+  float a=near*near*near,b=far*far*far;
+  if(surface){a*=near*near;b*=far*far;}
+  float angle=.5*ATM_PI*a/(a+b);
+  vec2 local=vec2(cos(angle),sin(angle));
+  if(t>.5)local=local.yx;
+  // Rotate a small local angle; no trig residue is introduced at cardinal axes.
+  int quadrant=int(floor(x))%4;
+  return quadrant==0?local:quadrant==1?vec2(-local.y,local.x)
+    :quadrant==2?-local:vec2(local.y,-local.x);
 }
 float scatteringMu(float y){
   float s=2.0*y/float(u_scatteringSurfaceSize.y-1)-1.0;return sin(ATM_PI*.5*s*abs(s));
@@ -292,18 +324,27 @@ float scatteringHeight(float z,float mu){
   if(u_scatteringHeightRange.y<=0.0)return u_scatteringHeightRange.x*pow(1.0-z/last,2.0);
   float s=z/halfGrid-1.0;return (s<0.0?u_scatteringHeightRange.x:u_scatteringHeightRange.y)*s*s;
 }
-vec3 scatteringRay(float azimuth,float impact,out float jacobian){
+vec3 scatteringRay(vec2 azimuthComponents,float impact,out float jacobian){
   float s=impact/u_scatteringCameraRadius;
   // Preserve the prescribed impact even if highp sin/cos approximations do not
   // satisfy the unit-circle identity. Final ray normalization cannot repair a
   // transverse amplitude error: it changes the cone angle and physical height.
-  vec3 transverse=normalize(cos(azimuth)*u_scatteringU+sin(azimuth)*u_scatteringV);
+  vec3 transverse=normalize(azimuthComponents.x*u_scatteringU+azimuthComponents.y*u_scatteringV);
   vec3 d=-sqrt(max(0.0,1.0-s*s))*u_scatteringAxis+s*transverse;
   d.z*=u_atmospherePolarRatio;jacobian=length(d);return d/jacobian;
 }
-float scatteringAzimuth(vec3 d){
+float scatteringAzimuth(vec3 d,bool surface){
   vec2 p=vec2(dot(d,u_scatteringU),dot(d,u_scatteringV));
-  return dot(p,p)<1e-16?0.0:scatteringAzimuthCoordinate(fract(atan(p.y,p.x)/(2.0*ATM_PI)+1.0));
+  if(dot(p,p)<1e-16)return 0.0;
+  if(u_atmosphereDensityScaleKm.x!=u_atmosphereDensityScaleKm.y)return fract(atan(p.y,p.x)/(2.0*ATM_PI)+1.0);
+  // A global atan followed by fract loses tiny offsets near a quadrant axis.
+  // Apply the inverse power to a local small angle before restoring quadrant.
+  int quadrant=p.x>=0.0?(p.y>=0.0?0:3):(p.y>=0.0?1:2);
+  vec2 local=quadrant==0||quadrant==2?abs(p):abs(p.yx);
+  float near=atan(min(local.x,local.y),max(local.x,local.y))*2.0/ATM_PI;
+  float power=surface?.2:1.0/3.0;
+  float a=pow(near,power),b=pow(1.0-near,power),fraction=a/(a+b);
+  return .25*(float(quadrant)+(local.x>=local.y?fraction:1.0-fraction));
 }
 `;
 
@@ -317,16 +358,18 @@ ${SOURCE_WEIGHT_GLSL}
 ${COORDINATES_GLSL}
 uniform int u_scatteringPass;
 void main(){
-  vec2 cell=floor(gl_FragCoord.xy);float azimuth,jacobian;vec3 direction;float maximum;
+  // Decode packed atlas rows as integers: reciprocal-based float division can
+  // put an exact layer boundary in the preceding layer on native GPUs.
+  ivec2 cell=ivec2(gl_FragCoord.xy);vec2 azimuth;float jacobian;vec3 direction;float maximum;
   if(u_scatteringPass==0){
-    float y=mod(cell.y,float(u_scatteringSurfaceSize.y)),z=floor(cell.y/float(u_scatteringSurfaceSize.y));
+    float y=float(cell.y%u_scatteringSurfaceSize.y),z=float(cell.y/u_scatteringSurfaceSize.y);
     float mu=scatteringMu(y),r=u_atmosphereRadiusKm+scatteringHeight(z,mu),impact=r*sqrt(max(0.0,1.0-mu*mu));
-    azimuth=scatteringAzimuthAt(cell.x/float(u_scatteringSurfaceSize.x));
+    azimuth=scatteringAzimuthComponentsAt(float(cell.x)/float(u_scatteringSurfaceSize.x),true);
     direction=scatteringRay(azimuth,impact,jacobian);
     maximum=(sqrt(max(0.0,u_scatteringCameraRadius*u_scatteringCameraRadius-impact*impact))+r*mu)*jacobian;
   }else{
-    float v=cell.y/float(u_scatteringLimbSize.y-1),impact=u_atmosphereRadiusKm+u_atmosphereTopKm*v*v*(u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y?v:1.0);
-    azimuth=scatteringAzimuthAt(cell.x/float(u_scatteringLimbSize.x));
+    float v=float(cell.y)/float(u_scatteringLimbSize.y-1),impact=u_atmosphereRadiusKm+u_atmosphereTopKm*v*v*(u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y?v:1.0);
+    azimuth=scatteringAzimuthComponentsAt(float(cell.x)/float(u_scatteringLimbSize.x),false);
     direction=scatteringRay(azimuth,impact,jacobian);maximum=1e20;
   }
   AtmosphereResult result=integrateAtmosphere(u_atmosphereCameraKm,direction,maximum);
@@ -432,7 +475,7 @@ vec4 atmosphereSurfaceScattering(vec3 surfaceBodyKm,float physicalHeightKm){
         :u_scatteringHeightRange.y>critical?base+span*.5+span*.5*sqrt(max(0.0,(height-critical)/(u_scatteringHeightRange.y-critical))):last;
     }
   }
-  vec2 xy=vec2(scatteringAzimuth(d)*float(u_scatteringSurfaceSize.x),y);
+  vec2 xy=vec2(scatteringAzimuth(d,true)*float(u_scatteringSurfaceSize.x),y);
   vec4 residual=scatteringResidual(vec3(xy,z));
   return vec4(residual.rgb*scatteringReferenceWeight(u_atmosphereCameraKm,delta,length(delta)),residual.a);
 }
@@ -471,7 +514,7 @@ vec4 atmosphereLimbScattering(vec3 direction){
   float impact=length(c+center*d),height=impact-u_atmosphereRadiusKm;
   float residue=u_atmosphereRadiusKm*3.5762786865234375e-7;
   if(height< -residue||height>u_atmosphereTopKm+residue)return vec4(0);
-  vec2 p=vec2(scatteringAzimuth(d)*float(u_scatteringLimbSize.x),pow(clamp(height/u_atmosphereTopKm,0.0,1.0),u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y?1.0/3.0:.5)*float(u_scatteringLimbSize.y-1));
+  vec2 p=vec2(scatteringAzimuth(d,false)*float(u_scatteringLimbSize.x),pow(clamp(height/u_atmosphereTopKm,0.0,1.0),u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y?1.0/3.0:.5)*float(u_scatteringLimbSize.y-1));
   vec4 residual=scatteringLimbResidual(p);
   return vec4(residual.rgb*scatteringReferenceWeight(u_atmosphereCameraKm,direction,1e20),residual.a);
 }

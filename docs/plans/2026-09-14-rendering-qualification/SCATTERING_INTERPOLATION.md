@@ -1,6 +1,8 @@
 # Bounded scattering interpolation qualification
 
-Status: candidate; final runtime and native accuracy admission remain open.
+Status: Q2 passes the complete interpolation matrix on native Adreno and
+SwiftShader. Independent physical-reference and final application admission
+remain separate; supplemental direct-source geometry discrepancies are under review.
 
 This continues A3 under [RFC 0006](../../rfcs/0006-rendering-qualification-and-color.md).
 The direct Earth/Mars reference integrator, optical profiles, physical endpoints,
@@ -12,7 +14,9 @@ weather. Transmittance still uses the original column evaluator at the actual ra
 
 Each current-camera field has a surface atlas and a limb atlas. Each texel runs
 the retained direct integrator once. Its 12-node rule and ground, closest-point
-and shadow segmentation are unchanged; its analytic bound remains 60 nodes.
+and shadow segmentation retain the 60-node analytic bound. Fully datum-bounded
+pieces now use the independently tested constant-extinction coordinate described
+in [the source integration record](ATMOSPHERE_OPTICAL_COORDINATE.md).
 The two atlas passes have at most 65,536 texels in total, use RGBA32F, and occupy
 at most 1,048,576 logical bytes per resident body. This byte count describes the
 texture payload, not measured driver or process memory. At most two groups reside.
@@ -27,14 +31,23 @@ For Mars's common species scale height, the positive-height grid splits at
 `h = R * (1 / sqrt(1 - mu * mu) - 1)`, clipped to the existing envelope. This is
 the endpoint height whose ray impact is exactly the reference-body radius.
 Sun-aligned azimuth coordinates place more points near the shadow plane through a
-monotone rational cubic transform. The Earth profile retains its separate grid.
+monotone rational quintic surface transform and cubic limb transform. Local
+quadrant coordinates retain exact cardinal axes and periodic seam behavior.
+The Earth volume uses 128 by 49 by 9 nodes; the Mars volume uses 80 by 41 by 17.
+Together with each 128 by 64 limb atlas, these require 64,640 and 63,952 texels,
+respectively, below the unchanged 65,536 limit. Smooth surfaces retain their
+128 by 193 single-height atlas. Packed generator rows use integer division and
+remainder before conversion to physical coordinates.
 Duplicated knots at zero or maximum critical height represent identical geometry;
 inverse coordinates there need not be unique. No physical query is excluded.
 
 The atlas stores scattering divided by a positive conditioning weight. That
 weight uses analytically delimited lit intervals and view-attenuated column mass.
 The Mars weight additionally uses its common source/extinction ratio and Sun
-transmission at a density centroid. It is a normalization, not a substitute
+transmission at density centroids in at most four fixed pieces bounded by ground
+entry, closest approach and ground exit. Each piece combines its complete lit
+support before choosing one centroid, preserving continuity when a shadow gap
+opens or closes. It is a normalization, not a substitute
 physical transport approximation: the separately evaluated residual restores the
 reference result at field nodes. Earth includes a conservative source term for
 density above the column table's 12-scale-height cutoff. The final consumer
@@ -68,15 +81,34 @@ Candidate L passed all 5,592 software-GPU queries before and after the independe
 near-ground visibility correction. The imported math module passed again after
 its synchronous validation adapter was moved out of production code. However,
 the first native Adreno replay rejected two queries: Earth-elevated-10km/379 and
-Mars-terminator-terrain/499. The native failure remains controlling. Source hashes,
+Mars-terminator-terrain/499. Later P passed the original native domain but failed
+one added Mars terrain query. Q's proposed 41-row grid exposed floating-point
+packed-row division selecting the previous layer at exact layer boundaries:
+108 original queries failed while all 1,600 supplemental queries passed.
+Q2 corrects that address decoding with integer arithmetic and passes all 7,192
+queries on both native Adreno and SwiftShader, including all 5,592 original
+queries, 1,596 additional physical/terrain queries and four invalid-height controls.
+All 42 generated atlases per backend have finite, nonnegative values and valid
+alpha. Source hashes,
 limits, case summaries and full local receipt hashes are retained in the
 [interpolation receipt](SCATTERING_INTERPOLATION_RECEIPT.json).
 
 The earlier retained experiments include 144, 105, 51, eight, four and two rejected
 queries; three shader-compilation mistakes were also retained. None was admitted
 by relaxing a limit. The older 368-failure experiment remains untouched in its
-separate worktree. Native differences are being diagnosed independently before
-candidate admission.
+separate worktree. No failed receipt was overwritten or removed.
+
+Interpolation agreement is not an independent physical reference. A separate
+join of the actual GPU direct-source values to the converged supplemental corpus
+passes all 1,600 native scattering comparisons but currently rejects one native
+transmission channel: Earth-forward-oblique-explicit-height/surface/13. Its red
+transmission is 0.1191005334 against 0.1194608801, exceeding the unchanged
+`1e-4 + .002 * abs(reference)` bound. The same value predates Q2. Physical
+admission remains open until the cause is corrected and both backends replayed.
+The software comparison also flags this transmission query and a near-tangent
+Mars outer-boundary source query. Their exact uploaded geometry and physical
+reference semantics require independent review; interpolation agreement alone
+does not settle either discrepancy.
 
 ## Separate runtime acceptance
 
@@ -98,8 +130,8 @@ source and accuracy contracts; this field does not admit those features.
 
 ```powershell
 node --test tests/web/scatteringGeometry.test.mjs tests/web/scatteringTargets.test.mjs
-node tools/scattering_validation.mjs --web-root=apps/web --backend=swiftshader --out=build/scattering-software-unique
-node tools/scattering_validation.mjs --web-root=apps/web --backend=native --out=build/scattering-native-unique
+node tools/scattering_validation.mjs --web-root=apps/web --backend=swiftshader --terrain-v2-explicit-height --out=build/scattering-software-unique
+node tools/scattering_validation.mjs --web-root=apps/web --backend=native --terrain-v2-explicit-height --out=build/scattering-native-unique
 ```
 
 Output directories must not exist. Each run snapshots its inputs, verifies source
