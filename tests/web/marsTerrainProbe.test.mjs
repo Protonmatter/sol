@@ -18,6 +18,8 @@ async function fixture({ corrupt = false, outside = false, gpuError = false } = 
   const gl = { lost: false, getError: () => gpuError ? 1282 : 0, isContextLost() { return this.lost; } };
   for (const [i, name] of ['ARRAY_BUFFER', 'ELEMENT_ARRAY_BUFFER', 'COPY_READ_BUFFER', 'COPY_WRITE_BUFFER',
     'ARRAY_BUFFER_BINDING', 'ELEMENT_ARRAY_BUFFER_BINDING', 'COPY_READ_BUFFER_BINDING', 'COPY_WRITE_BUFFER_BINDING',
+    'PIXEL_PACK_BUFFER', 'PIXEL_UNPACK_BUFFER', 'UNIFORM_BUFFER', 'TRANSFORM_FEEDBACK_BUFFER',
+    'PIXEL_PACK_BUFFER_BINDING', 'PIXEL_UNPACK_BUFFER_BINDING', 'UNIFORM_BUFFER_BINDING', 'TRANSFORM_FEEDBACK_BUFFER_BINDING',
     'CURRENT_PROGRAM', 'ACTIVE_TEXTURE', 'TEXTURE0', 'TEXTURE_BINDING_2D', 'TRANSFORM_FEEDBACK_ACTIVE',
     'TRIANGLES', 'UNSIGNED_INT', 'FLOAT', 'R32F', 'RED', 'BUFFER_SIZE', 'VERTEX_ATTRIB_ARRAY_BUFFER_BINDING',
     'VERTEX_ATTRIB_ARRAY_ENABLED', 'VERTEX_ATTRIB_ARRAY_SIZE', 'VERTEX_ATTRIB_ARRAY_TYPE', 'VERTEX_ATTRIB_ARRAY_NORMALIZED',
@@ -28,7 +30,8 @@ async function fixture({ corrupt = false, outside = false, gpuError = false } = 
   gl.getParameter = key => key === gl.CURRENT_PROGRAM ? program : key === gl.ACTIVE_TEXTURE ? active
     : key === gl.TEXTURE_BINDING_2D ? texture : key === gl.TRANSFORM_FEEDBACK_ACTIVE ? false
       : bindings.get(new Map([[gl.ARRAY_BUFFER_BINDING, gl.ARRAY_BUFFER], [gl.ELEMENT_ARRAY_BUFFER_BINDING, gl.ELEMENT_ARRAY_BUFFER],
-        [gl.COPY_READ_BUFFER_BINDING, gl.COPY_READ_BUFFER], [gl.COPY_WRITE_BUFFER_BINDING, gl.COPY_WRITE_BUFFER]]).get(key));
+        [gl.COPY_READ_BUFFER_BINDING, gl.COPY_READ_BUFFER], [gl.COPY_WRITE_BUFFER_BINDING, gl.COPY_WRITE_BUFFER],
+        ...['PIXEL_PACK_BUFFER', 'PIXEL_UNPACK_BUFFER', 'UNIFORM_BUFFER', 'TRANSFORM_FEEDBACK_BUFFER'].map(name => [gl[name + '_BINDING'], gl[name]])]).get(key));
   gl.bindBuffer = (target, buffer) => {
     if (target === gl.ARRAY_BUFFER && buffer === index) throw Error('Index buffer cannot be bound as ARRAY_BUFFER');
     bindings.set(target, buffer);
@@ -120,4 +123,12 @@ test('same-sized different index buffer and lost context cannot reuse old readba
   env.bindings.set(env.gl.ELEMENT_ARRAY_BUFFER, { bytes: env.index.bytes }); assert.equal(env.capture().passed, false);
   env.bindings.set(env.gl.ELEMENT_ARRAY_BUFFER, env.index); env.gl.lost = true; assert.equal(env.capture().passed, false);
   env.scope.__solMarsTerrainEvidence.dispose();
+});
+
+test('alternate WebGL2 target aliases cannot mutate a qualified vertex buffer unnoticed', async () => {
+  for (const name of ['PIXEL_PACK_BUFFER', 'PIXEL_UNPACK_BUFFER', 'UNIFORM_BUFFER', 'TRANSFORM_FEEDBACK_BUFFER']) {
+    const env = await fixture(); await env.invoke();
+    env.gl.bindBuffer(env.gl[name], env.position); env.gl.bufferData(env.gl[name], 72, 35044);
+    assert.equal(env.capture().passed, false, name); env.scope.__solMarsTerrainEvidence.dispose();
+  }
 });

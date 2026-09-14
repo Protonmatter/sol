@@ -47,12 +47,11 @@ export async function prepareMarsTerrainEvidence() {
   let positionBuffer = null, indexBuffer = null, positionRevision = 0, indexRevision = 0, disposed = false;
   const revision = buffer => revisions.get(buffer) || 0;
   const invalidate = buffer => { if (buffer) revisions.set(buffer, revision(buffer) + 1); };
+  const bindingNames = ['ARRAY_BUFFER', 'ELEMENT_ARRAY_BUFFER', 'COPY_WRITE_BUFFER', 'COPY_READ_BUFFER',
+    'PIXEL_PACK_BUFFER', 'PIXEL_UNPACK_BUFFER', 'UNIFORM_BUFFER', 'TRANSFORM_FEEDBACK_BUFFER'];
   const binding = target => {
-    const name = target === gl.ARRAY_BUFFER ? gl.ARRAY_BUFFER_BINDING
-      : target === gl.ELEMENT_ARRAY_BUFFER ? gl.ELEMENT_ARRAY_BUFFER_BINDING
-        : target === gl.COPY_WRITE_BUFFER ? gl.COPY_WRITE_BUFFER_BINDING
-          : target === gl.COPY_READ_BUFFER ? gl.COPY_READ_BUFFER_BINDING : null;
-    return name === null ? null : gl.getParameter(name);
+    const name = bindingNames.find(name => gl[name] === target);
+    return name ? gl.getParameter(gl[name + '_BINDING']) : null;
   };
   for (const name of ['bufferData', 'bufferSubData', 'copyBufferSubData', 'deleteBuffer',
     'bindBufferBase', 'bindBufferRange', 'beginTransformFeedback']) {
