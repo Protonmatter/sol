@@ -10,12 +10,15 @@ import {execFileSync} from 'node:child_process';
 import puppeteer from 'puppeteer-core';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
 import {terrainEndpointFixtures,withTerrainGroundCuts,withIntegrationNodeCounter,TERRAIN_CANDIDATE_VERSION,TERRAIN_CANDIDATE_MAX_NODES,SEGMENTED} from './atmosphere_terrain_candidate.mjs';
+import {nearGroundVisibilityFixtures,NEAR_GROUND_VISIBILITY_VERSION} from './atmosphere_visibility_fixtures.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function argument(name,fallback){const flag=process.argv.find(value=>value.startsWith(`--${name}=`));return flag?flag.slice(name.length+3):fallback;}
 const webRoot=path.resolve(argument('web-root',path.join(ROOT,'apps/web')));
 const out=path.resolve(argument('out',path.join(ROOT,'coverage/atmosphere')));
 const includeTerrain=process.argv.includes('--terrain-endpoints');
+const includeVisibility=process.argv.includes('--near-ground-visibility');
+assert.ok(!includeVisibility||includeTerrain,'Near-ground visibility requires --terrain-endpoints qualification');
 const groundCandidate=process.argv.includes('--ground-crossing-candidate');
 assert.ok(!groundCandidate||includeTerrain,'Ground candidate requires --terrain-endpoints qualification');
 const chrome=argument('browser',process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':'/usr/bin/google-chrome'));
@@ -45,6 +48,7 @@ if(groundCandidate){
  SPHERE_FS=withTerrainGroundCuts(SPHERE_FS);
 }
 hashes.terrain_candidate=digest(fs.readFileSync(path.join(ROOT,'tools/atmosphere_terrain_candidate.mjs')));
+hashes.visibility_fixtures=digest(fs.readFileSync(path.join(ROOT,'tools/atmosphere_visibility_fixtures.mjs')));
 hashes.evaluated_transfer=digest(ATMOSPHERE_GLSL);
 hashes.evaluated_surface=digest(SPHERE_FS);
 hashes.evaluated_shell=digest(ATMOSPHERE_FS);
@@ -102,6 +106,7 @@ fixture('Earth elevated surface','Earth',[0,0,8000],[0,0,-1],[0,0,1],1,1,false,1
 const obliqueDirection=[-8000,0,6378.137-8000];
 fixture('Earth oblique surface','Earth',[8000,0,8000],obliqueDirection.map(v=>v/Math.hypot(...obliqueDirection)),[0,0,1]);
 if(includeTerrain)cases.push(...terrainEndpointFixtures(getAtmosphereProfile,atmosphereUniformValues));
+if(includeVisibility)cases.push(...nearGroundVisibilityFixtures(getAtmosphereProfile,atmosphereUniformValues));
 const script=`import json,sys
 sys.path.insert(0,'tools')
 from atmosphere_reference import trace_single_scattering
@@ -246,6 +251,7 @@ materialCases.push(
 );
 const evidence={schema_version:'atmosphere-validation.v1',scope:'Reference-model numerical GPU comparison; not observed atmospheric qualification or frame-rate qualification',
  terrain_endpoint_qualification:includeTerrain,ground_crossing_candidate:groundCandidate?TERRAIN_CANDIDATE_VERSION:null,
+ near_ground_visibility_qualification:includeVisibility?NEAR_GROUND_VISIBILITY_VERSION:null,
  ground_crossing_integration:segmentedIntegration,maximum_integration_nodes:maximumIntegrationNodes,
  candidate_max_nodes:groundCandidate?TERRAIN_CANDIDATE_MAX_NODES:null,production_shader_changed:false,
  web_root:webRoot,release_namespace:release?.namespace??null,source_sha256:hashes,started_at:new Date().toISOString(),checks:[],status:'failed'};

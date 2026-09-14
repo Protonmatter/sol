@@ -146,7 +146,10 @@ def trace_single_scattering(origin: Sequence[float], direction: Sequence[float],
                 continue
             metric_height = math.sqrt(p[0]**2 + p[1]**2 + (p[2]/polar_ratio)**2) - radius_km
             light_dot = p[0]*sun[0] + p[1]*sun[1] + p[2]*sun[2]/polar_ratio**2
-            if metric_height < .002 and light_dot < 0:
+            # Above the datum, a slightly inward solar ray can still miss the
+            # curved planet. The near-ground convention only applies to hits.
+            if (blocked is not None and blocked[1] > .001
+                    and metric_height < .002 and light_dot < 0):
                 continue
         elif blocked is not None and blocked[0] > 1e-6:
             continue

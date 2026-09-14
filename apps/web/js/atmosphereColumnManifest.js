@@ -14,7 +14,7 @@ export const ATMOSPHERE_COLUMN_FIELDS=Object.freeze({
     "profile_sha256": "0a3fe3c7688556331ebfc2725d533472751eeb498479dcc7d1f3a34390675e9d",
     "generator_source_sha256": "6c7c90d4a4b72fc4d9c38bdb191889780e2f3a2cf44375cfe00f87c82c2fb48c",
     "field_source_sha256": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
-    "solver_source_sha256": "71be7ee8dafe8cbe3c6f544c064169a4ac49d9ca396b4200beb67e1bb098c320",
+    "solver_source_sha256": "d38b28d0da7168af2f529b45e7d764f6da3477600960f049b253b062bee7cbc0",
     "profile_source_sha256": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c"
   },
   "Mars": {
@@ -31,7 +31,7 @@ export const ATMOSPHERE_COLUMN_FIELDS=Object.freeze({
     "profile_sha256": "133be6dfe9ff85c742be6518ab81b3ea1f4d272863ff5e1a8ac7435423e36e48",
     "generator_source_sha256": "6c7c90d4a4b72fc4d9c38bdb191889780e2f3a2cf44375cfe00f87c82c2fb48c",
     "field_source_sha256": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
-    "solver_source_sha256": "71be7ee8dafe8cbe3c6f544c064169a4ac49d9ca396b4200beb67e1bb098c320",
+    "solver_source_sha256": "d38b28d0da7168af2f529b45e7d764f6da3477600960f049b253b062bee7cbc0",
     "profile_source_sha256": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c"
   }
 });

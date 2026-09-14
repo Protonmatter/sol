@@ -7,7 +7,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
-from atmosphere_reference import trace_single_scattering
+from atmosphere_reference import ray_sphere_interval, trace_single_scattering
 
 
 class TerrainEndpointReferenceTests(unittest.TestCase):
@@ -94,6 +94,48 @@ class TerrainEndpointReferenceTests(unittest.TestCase):
             values.append(result["scattering"])
         self.assertEqual(values[0], (0., 0., 0.))
         self.assertTrue(all(math.isfinite(v) and v > 0 for v in values[1]))
+
+    def test_near_ground_inward_sun_can_clear_the_curved_planet(self) -> None:
+        # A negative local-normal dot is not a ground intersection above the
+        # datum. This entire short ray remains below the historical 2 m guard,
+        # but its solar impact parameter exceeds R by more than 0.98 m.
+        radius, height, length, beta, scale = 3396.19, .001, 4., .001, 11.1
+        for q in (1., .9941):
+            with self.subTest(q=q):
+                origin = (radius + height, -length / 2, 0.)
+                sun = (-1e-4, 0., q * math.sqrt(1 - 1e-8))
+                metric_impact = (radius + height) * math.sqrt(1 - 1e-8)
+                self.assertGreater(metric_impact - radius, .00098)
+                maximum_height = math.hypot(radius + height, length / 2) - radius
+                self.assertLess(maximum_height, .002)
+                for y in (-length / 2, 0., length / 2):
+                    point = (radius + height, y, 0.)
+                    self.assertLess(sum(a*b for a, b in zip(point, sun)), 0)
+                    self.assertIsNone(ray_sphere_interval(point, sun, radius, q))
+                # Density <= 1 and the physical solar distance is <= the
+                # unflattened sphere exit (q <= 1). Isotropic pi*phase=1/4.
+                # These inequalities give a conservative analytic lower bound;
+                # it is independent of either integrator's sample locations.
+                maximum_solar_length = (radius + height) * 1e-4 + math.sqrt(
+                    (radius + 100.)**2 - metric_impact**2)
+                lower_bound = beta * length / 4 * math.exp(-maximum_height / scale
+                    - beta * (length + maximum_solar_length))
+                self.assertGreater(lower_bound, 1e-4)
+                options = dict(radius_km=radius, top_km=100., rayleigh_h_km=scale,
+                    aerosol_h_km=scale, beta_rayleigh=(0., 0., 0.),
+                    beta_extinction=(beta, beta, beta), aerosol_ssa=(1., 1., 1.),
+                    g=0., polar_ratio=q, view_steps=64, solar_steps=128,
+                    max_distance_km=length, terrain_endpoint=True)
+                lit = trace_single_scattering(origin, (0., 1., 0.), sun, **options)
+                self.assertFalse(lit["ground_hit"])
+                for value in lit["scattering"]:
+                    self.assertGreater(value, lower_bound)
+                # A more inward Sun actually intersects the planet; preserve
+                # zero illumination for that case with the same near-ground ray.
+                blocked_sun = (-.01, 0., q * math.sqrt(1 - .01**2))
+                self.assertIsNotNone(ray_sphere_interval(origin, blocked_sun, radius, q))
+                blocked = trace_single_scattering(origin, (0., 1., 0.), blocked_sun, **options)
+                self.assertEqual(blocked["scattering"], (0., 0., 0.))
 
 
 if __name__ == "__main__":

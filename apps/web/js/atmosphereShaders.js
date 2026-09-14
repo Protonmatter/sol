@@ -63,8 +63,10 @@ vec3 atmosphereSunTransmission(vec3 point){
   vec3 light=normalize(u_atmosphereSunDirection);
   vec2 ground=atmosphereRayInterval(point,light,u_atmosphereRadiusKm);
   if(ground.y>0.001&&ground.x>0.001) return vec3(0.0);
-  // At the ground boundary a sunward ray may start at a rounding error inside.
-  if(atmosphereHeight(point)<0.002&&dot(atmosphereUnflatten(point),atmosphereUnflatten(light))<0.0) return vec3(0.0);
+  // An inward ray starting just inside the datum still hits the planet. Above
+  // it, a negative normal dot alone does not imply a hit: curvature can leave
+  // the entire solar ray clear. Require the already-computed forward exit.
+  if(ground.y>0.001&&atmosphereHeight(point)<0.002&&dot(atmosphereUnflatten(point),atmosphereUnflatten(light))<0.0) return vec3(0.0);
   vec2 sky=atmosphereRayInterval(point,light,u_atmosphereRadiusKm+u_atmosphereTopKm);
   return sky.y>0.0 ? exp(-atmosphereOpticalDepth(point,light,sky.y)) : vec3(1.0);
 }
