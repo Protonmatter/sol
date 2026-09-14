@@ -24,10 +24,14 @@ import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.j
 import {requestTerrainMesh} from './terrainWorkerClient.js';
 import {createTerrainPreparationQueue,terrainResourceEstimate,uploadTerrainMesh} from './terrainResources.js';
 import {physicalCameraPosition,terrainDetailLevel,advanceReferencePlayback,createDetailCache} from './physicalRendering.js';
-import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms} from './atmosphereOptics.js';
+import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms,serializeAtmosphereProfile} from './atmosphereOptics.js';
 import {INCIDENT_FIELD_UNIFORMS} from './atmosphereIncident.js';
 import {ATMOSPHERE_VS} from './atmosphereShaders.js';
-import {ATMOSPHERE_RENDER_FS as ATMOSPHERE_FS,loadAtmosphereFields} from './atmosphereColumnField.js';
+import {loadAtmosphereFields} from './atmosphereColumnField.js';
+import {ATMOSPHERE_COLUMN_FIELDS} from './atmosphereColumnManifest.js';
+import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,
+  SCATTERING_UNIFORMS,planAtmosphereScattering,validScatteringPlanBudget} from './atmosphereScattering.js';
+import {createScatteringTargets} from './scatteringTargets.js';
 import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,solarReferenceRotation,solarRenderUniforms,solarPlayback} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
@@ -49,7 +53,8 @@ import {
   iauRotation, buildSphere, buildRing, ringOpacityProfile, ellipse3d,
 } from "./orreryMath.js?v=dcca6290db";
 import {
-  SPHERE_VS, SPHERE_FS, BASE_SPHERE_VS, BASE_SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
+  SCATTERING_SPHERE_VS as SPHERE_VS, SCATTERING_SPHERE_FS as SPHERE_FS,
+  BASE_SPHERE_VS, BASE_SPHERE_FS, LINE_VS, LINE_FS, RING_VS, RING_FS, PT_VS, PT_FS, GLOW_VS, GLOW_FS,
 } from "./orreryShaders.js?v=dcca6290db";
 import {
   GAL_SUN_R, GAL_THETA0, GAL_OMEGA, GAL_SHEAR_K, GAL_SHEAR_RC,
@@ -148,7 +153,7 @@ const state = (store.orrery = {
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite',
   appearanceStatus: {},
-  terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{},
+  terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{}, scatteringStatus:{}, scatteringFrame:null,
   programStatus:{base:'deferred',physical:'deferred'},programDiagnostics:{},
   // Qualification candidate only; default enablement requires integrated/native gates.
   hdrEnabled:false, hdrStatus:{state:'deferred',reason:'HDR candidate disabled.'}, hdrFrame:null,
@@ -184,6 +189,8 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
 let shaderPrograms=null,programContextGeneration=0;
 let hdrPresentation=null,contextGeneration=0,sceneSerial=0,linearFrame=false;
+let scatteringTargets=null,scatteringFrame=null;
+const PHYSICAL_PROGRAMS=['physicalSphere','atmosphere','scatteringGenerator'];
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
 let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, texturesStarted = false;
 let referenceTextures = {}, textureGeneration = 0;
@@ -291,7 +298,11 @@ function incidentBodyDemand(){
 
 function syncIncidentDemand(){
   const demand=incidentBodyDemand();
-  if(demand!==incidentDemand){incidentFields?.abortPending();incidentDemand=demand;if(!demand&&state.programStatus.base==='ready')cancelPendingPrograms();}
+  if(demand!==incidentDemand){
+    incidentFields?.abortPending();scatteringTargets?.cancel();state.scatteringStatus={};
+    if(demand)scatteringTargets?.retry(demand);
+    incidentDemand=demand;if(!demand&&state.programStatus.base==='ready')cancelPendingPrograms();
+  }
 }
 
 function bindIncidentField(body,profile,locations=P.sphereU){
@@ -717,9 +728,10 @@ function initGL(canvas) {
   gl = canvas.getContext("webgl2", { antialias: true, depth: true, alpha: false, premultipliedAlpha: false });
   if (!gl) return null;
   contextGeneration++;sceneSerial=0;
+  scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
   shaderPrograms?.dispose();P={};state.programStatus={base:'loading',physical:'deferred'};state.programDiagnostics={};
   const context=gl;
-  const manager=createShaderPrograms(context,{generation:++programContextGeneration,
+  const manager=createShaderPrograms(context,{generation:++programContextGeneration,capacity:9,
     now:()=>performance.now(),schedule:callback=>requestAnimationFrame(callback),cancel:handle=>cancelAnimationFrame(handle),
     onChange:(key,status)=>{
       if(shaderPrograms!==manager||gl!==context)return;
@@ -729,7 +741,7 @@ function initGL(canvas) {
       if(!manager.parallel||status==='loading')return;
       queueMicrotask(()=>{
         if(shaderPrograms!==manager||gl!==context)return;
-        if(key==='physicalSphere'||key==='atmosphere'){
+        if(PHYSICAL_PROGRAMS.includes(key)){
           // Read current state: an explicit retry may precede this notification.
           if(manager.status(key)==='unavailable')manager.cancelPending();
           admitPhysicalPrograms();updatePhysicalAppearance();
@@ -805,26 +817,35 @@ function finishGL(){
 
 function admitPhysicalPrograms(){
   if(!shaderPrograms||!P.sphereU)return;
-  const states=['physicalSphere','atmosphere'].map(key=>shaderPrograms.status(key));
+  const states=PHYSICAL_PROGRAMS.map(key=>shaderPrograms.status(key));
   if(states.every(status=>status==='ready')){
     if(!P.physicalSphere){
-      P.physicalSphere=shaderPrograms.get('physicalSphere');P.physicalSphereU=uloc(P.physicalSphere,Object.keys(P.sphereU));
+      P.physicalSphere=shaderPrograms.get('physicalSphere');
+      P.physicalSphereU=uloc(P.physicalSphere,[...Object.keys(P.sphereU),...SCATTERING_UNIFORMS,'u_scatteringReferenceHeightKm']);
       P.atmosphere=shaderPrograms.get('atmosphere');
-      P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,'u_atmosphereColumnField','u_linearOutput']);
+      P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,...SCATTERING_UNIFORMS,'u_atmosphereColumnField','u_linearOutput']);
+      P.scatteringGenerator=shaderPrograms.get('scatteringGenerator');
+      P.scatteringGeneratorU=uloc(P.scatteringGenerator,[...ATMOSPHERE_UNIFORMS,...SCATTERING_UNIFORMS,'u_atmosphereColumnField','u_scatteringPass']);
     }
+    scatteringTargets??=createScatteringTargets(gl,{contextGeneration,programGeneration:programContextGeneration,
+      programs:shaderPrograms,generatorKey:'scatteringGenerator',generatorUniforms:P.scatteringGeneratorU,
+      admitPlan:(plan,profile,options)=>validScatteringPlanBudget(plan)
+        &&serializeAtmosphereProfile(plan)===serializeAtmosphereProfile(planAtmosphereScattering(profile,options))});
     state.programStatus.physical='ready';
   }else state.programStatus.physical=states.includes('unavailable')?'unavailable':states.includes('loading')?'loading':'deferred';
 }
 
 function requestPhysicalPrograms(){
   if(!shaderPrograms||state.programStatus.base!=='ready')return;
-  if(['physicalSphere','atmosphere'].some(key=>shaderPrograms.status(key)==='unavailable'))return;
+  if(PHYSICAL_PROGRAMS.some(key=>shaderPrograms.status(key)==='unavailable'))return;
   shaderPrograms.request('physicalSphere',SPHERE_VS,SPHERE_FS);
   shaderPrograms.request('atmosphere',ATMOSPHERE_VS,ATMOSPHERE_FS);
+  shaderPrograms.request('scatteringGenerator',SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS);
   admitPhysicalPrograms();
 }
 
 function cancelPendingPrograms(){
+  scatteringTargets?.cancel();scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
   if(!shaderPrograms)return;
   if(state.programStatus.base==='loading'){
     shaderPrograms.dispose();shaderPrograms=null;gl=null;P={};state.programStatus={base:'deferred',physical:'deferred'};
@@ -833,7 +854,10 @@ function cancelPendingPrograms(){
 
 function opticalReadiness(body){
   const fields=incidentFields?.status(body)||'unavailable',program=state.programStatus.physical;
-  return fields==='unavailable'||program==='unavailable'?'unavailable':fields==='ready'&&program==='ready'?'ready':'loading';
+  const scattering=state.scatteringStatus[body];
+  return fields==='unavailable'||program==='unavailable'||scattering?.state==='unavailable'?'unavailable':
+    fields==='ready'&&program==='ready'&&scattering?.state==='submitted'
+    &&scattering.submission?.sceneSerial===scatteringFrame?.sceneSerial?'ready':'loading';
 }
 
 function buildCelestialBuffers() {
@@ -1358,6 +1382,9 @@ function queueTransparent(pos,eye,draw) {
 
 function beginSceneFrame(width,height){
   linearFrame=false;state.hdrFrame=null;
+  scatteringFrame={contextGeneration,sceneSerial:++sceneSerial,epoch:state.renderUnix};
+  state.scatteringFrame={...scatteringFrame};state.scatteringStatus={};
+  scatteringTargets?.beginFrame(scatteringFrame);
   if(!state.hdrEnabled||state.earthIce){
     hdrPresentation?.dispose();hdrPresentation=null;
     state.hdrStatus={state:'deferred',reason:state.earthIce?'Scientific palette selected; SDR composition preserved.':'HDR candidate disabled.'};
@@ -1365,7 +1392,7 @@ function beginSceneFrame(width,height){
     hdrPresentation??=createHdrPresentation(gl,{generation:contextGeneration});
     state.hdrStatus=hdrPresentation.resize(width,height);
     if(state.hdrStatus.state==='ready'){
-      const frameIdentity={generation:contextGeneration,epoch:state.renderUnix,serial:++sceneSerial};
+      const frameIdentity={generation:contextGeneration,epoch:state.renderUnix,serial:sceneSerial};
       linearFrame=hdrPresentation.beginFrame(frameIdentity);
       if(linearFrame)state.hdrFrame=frameIdentity;
     }
@@ -1375,6 +1402,60 @@ function beginSceneFrame(width,height){
     if(!P[name]||!P[`${name}U`])continue;
     gl.useProgram(P[name]);gl.uniform1i(P[`${name}U`].u_linearOutput,linearFrame?1:0);
   }
+}
+
+// Output units belong exclusively to the scattering consumers. Release their
+// prior bindings before taking the caller snapshot: restoring an owner texture
+// which generation may replace would create a dangling or feedback binding.
+function scatteringCallerState(){
+  const activeTexture=gl.getParameter(gl.ACTIVE_TEXTURE),textureUnits=[];
+  try{
+    for(const unit of [7,8,9]){
+      gl.activeTexture(gl.TEXTURE0+unit);
+      if(unit!==7){gl.bindTexture(gl.TEXTURE_2D,null);gl.bindSampler(unit,null);}
+      textureUnits.push({unit,texture:gl.getParameter(gl.TEXTURE_BINDING_2D),sampler:gl.getParameter(gl.SAMPLER_BINDING)});
+    }
+  }finally{gl.activeTexture(activeTexture);}
+  return {drawFramebuffer:gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING),readFramebuffer:gl.getParameter(gl.READ_FRAMEBUFFER_BINDING),
+    viewport:Array.from(gl.getParameter(gl.VIEWPORT)),program:gl.getParameter(gl.CURRENT_PROGRAM),vertexArray:gl.getParameter(gl.VERTEX_ARRAY_BINDING),
+    activeTexture,textureUnits,colorMask:Array.from(gl.getParameter(gl.COLOR_WRITEMASK)),depthMask:gl.getParameter(gl.DEPTH_WRITEMASK),
+    enabled:Object.fromEntries(Object.entries({blend:'BLEND',depthTest:'DEPTH_TEST',cullFace:'CULL_FACE',scissorTest:'SCISSOR_TEST',
+      stencilTest:'STENCIL_TEST',rasterizerDiscard:'RASTERIZER_DISCARD',sampleCoverage:'SAMPLE_COVERAGE',
+      sampleAlphaToCoverage:'SAMPLE_ALPHA_TO_COVERAGE',dither:'DITHER'}).map(([key,constant])=>[key,gl.isEnabled(gl[constant])]))};
+}
+
+function generateBodyScattering(body,profile,opticalOptions,physicalRadius,mesh){
+  if(!scatteringTargets||!scatteringFrame)return null;
+  const reference=mesh.heightTex?terrainReference(body):null;
+  if(mesh.heightTex&&(!reference||mesh.sourceId!==reference.id||mesh.sourceSha256!==reference.sha256)){
+    state.scatteringStatus[body]={state:'unavailable',reason:'Terrain source does not match the scattering envelope.',submission:null};return null;
+  }
+  const options={...opticalOptions,referenceRadiusKm:physicalRadius,
+    ...(reference?{minRadiusKm:reference.minRadiusKm,maxRadiusKm:reference.maxRadiusKm}:{} )};
+  const plan=planAtmosphereScattering(profile,options);
+  if(plan.status!=='ready'){
+    state.scatteringStatus[body]={state:'unavailable',reason:plan.reason,submission:null};return null;
+  }
+  const columnTexture=incidentFields?.get(body)?.columnTexture;
+  const args={frame:scatteringFrame,plan,profile,opticalOptions:options,columnTexture,columnIdentity:ATMOSPHERE_COLUMN_FIELDS[body].sha256};
+  let generated=false;
+  try{generated=scatteringTargets.beginFrame(scatteringFrame)&&scatteringTargets.generate(body,args,scatteringCallerState());}
+  catch(error){
+    scatteringTargets.cancel(body);
+    state.scatteringStatus[body]={state:'unavailable',reason:`Scattering preparation failed: ${String(error?.message??error).slice(0,300)}`,submission:null};
+    return null;
+  }
+  state.scatteringStatus[body]=scatteringTargets.status(body);
+  return generated?args:null;
+}
+
+function bindBodyScattering(body,args,program,locations){
+  const bound=scatteringTargets?.bind(body,args,{program,locations,activeTexture:gl.TEXTURE0});
+  if(!bound){
+    state.scatteringStatus[body]={...scatteringTargets?.status(body),state:'unavailable',reason:'Current scattering field binding rejected.'};
+    state.opticsStatus[body]='unavailable';
+  }
+  return !!bound;
 }
 function sceneClearColor(r,g,b){
   gl.clearColor(.../** @type {[number,number,number]} */(linearFrame?[r,g,b].map(srgbToLinear):[r,g,b]),1);
@@ -1396,6 +1477,7 @@ function paint() {
   const canvas = document.getElementById("orreryCanvas");
   if (!canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0) {
     hdrPresentation?.dispose();hdrPresentation=null;state.hdrFrame=null;linearFrame=false;
+    scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
     state.hdrStatus={state:'deferred',reason:'No visible frame.'};return;
   }
   const [w, h] = ensureSized(canvas);
@@ -1772,10 +1854,17 @@ function drawBody(b, vp, eye) {
   state.opticsStatus[b.name]=requestedProfile?opticalReadiness(b.name):'deferred';
   // Nested quadrature is never a frame-time fallback. Both immutable numerical
   // fields must pass admission before reference optical transfer becomes active.
-  const profile=requestedProfile&&state.programStatus.physical==='ready'&&incidentFields?.get(b.name)?.columnTexture?requestedProfile:null;
+  let profile=requestedProfile&&state.programStatus.physical==='ready'&&incidentFields?.get(b.name)?.columnTexture?requestedProfile:null;
   const distanceAu=b.name==='Sun'?1:Math.hypot(b.x_au,b.y_au,b.z_au);
   const opticalOptions={cameraBodyKm:physicalCameraPosition(eye,pos,rot,rEq,phys.radiusKm),sunDirectionBody:lightObj,
     polarRatio:phys.polarKm/phys.radiusKm,solarDistanceAu:distanceAu,exposure:linearFrame?1:distanceAu*distanceAu};
+  const scattering=profile?generateBodyScattering(b.name,profile,opticalOptions,phys.radiusKm,mesh):null;
+  if(profile&&!scattering)profile=null;
+  if(profile){
+    gl.useProgram(P.physicalSphere);
+    if(!bindBodyScattering(b.name,scattering,P.physicalSphere,P.physicalSphereU))profile=null;
+  }
+  state.opticsStatus[b.name]=requestedProfile?opticalReadiness(b.name):'deferred';
   const atmo = atmoColor(b.name), atmoStr = atmoStrength(b.name);
   // Solve the moon positions ONCE per planet per frame: the transit shadows need them before
   // this sphere is drawn, drawMoons needs them after.
@@ -1784,6 +1873,7 @@ function drawBody(b, vp, eye) {
 
   const sphereUniforms=profile?P.physicalSphereU:P.sphereU;
   gl.useProgram(profile?P.physicalSphere:P.sphere);
+  if(profile)gl.uniform1f(sphereUniforms.u_scatteringReferenceHeightKm,phys.radiusKm-profile.radiusKm);
   gl.uniform1i(sphereUniforms.u_linearOutput,linearFrame?1:0);
   setAtmosphereUniforms(gl,sphereUniforms,profile,opticalOptions);
   bindAtmosphereColumns(b.name,sphereUniforms);
@@ -1892,6 +1982,7 @@ function drawBody(b, vp, eye) {
     const shell=mul(translate(pos),mul(rot,scaleM([rEq*extent,rEq*extent,rPol*extent])));
     queueTransparent(pos,eye,()=>{
       gl.useProgram(P.atmosphere);gl.uniform1i(P.atmosphereU.u_linearOutput,linearFrame?1:0);setAtmosphereUniforms(gl,P.atmosphereU,profile,opticalOptions);
+      if(!bindBodyScattering(b.name,scattering,P.atmosphere,P.atmosphereU))return;
       bindAtmosphereColumns(b.name,P.atmosphereU);
       gl.uniformMatrix4fv(P.atmosphereU.u_mvp,false,new Float32Array(mul(vp,shell)));
       bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.depthMask(false);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
@@ -2708,6 +2799,7 @@ export function leaveOrrery() {
   state.active = false;
   cancelPendingPrograms();
   hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
+  scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
   state.hdrStatus={state:'deferred',reason:'View inactive.'};
   cancelPendingReferenceTextures();
   incidentFields?.dispose();incidentFields=null;incidentDemand='';
@@ -2968,7 +3060,8 @@ async function showFallback(msg) {
   });
   bind('orreryOptics','change',e=>{
     state.opticsEnabled=inputTarget(e).checked;incidentFields?.dispose();incidentFields=null;incidentDemand='';
-    if(state.opticsEnabled){for(const key of ['physicalSphere','atmosphere'])shaderPrograms?.retry(key);}
+    scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
+    if(state.opticsEnabled){for(const key of PHYSICAL_PROGRAMS)shaderPrograms?.retry(key);}
     else cancelPendingPrograms();
     if(state.opticsEnabled&&gl)initIncidentResources();updatePhysicalAppearance();paint();
   });
@@ -3060,6 +3153,7 @@ async function showFallback(msg) {
     incidentFields?.dispose();incidentFields=null;incidentDemand='';state.opticsStatus={};
     solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
     shaderPrograms?.dispose();shaderPrograms=null;state.programStatus={base:'deferred',physical:'deferred'};
+    scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
     hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
     state.hdrStatus={state:'deferred',reason:'Graphics context lost.'};
     gl = null; P = {};

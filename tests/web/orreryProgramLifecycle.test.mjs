@@ -31,14 +31,18 @@ test('leaving pending parallel startup deletes its programs and ignores stale co
   assert.ok(h.draws>0);h.leaveOrrery();
 });
 
-test('the base scene renders while demanded physical programs load; both programs and fields own readiness',async t=>{
+test('the base scene renders while all three demanded physical programs and fields own readiness',async t=>{
   const h=await boot(t);assert.equal(h.programs.length,6);assert.equal(h.state.programStatus.physical,'deferred');
   h.input('orreryAnchor','Earth','change');await h.settle();
-  assert.equal(h.programs.length,8);assert.equal(h.state.opticsStatus.Earth,'loading');assert.equal(physicalDraws(h).length,0);
+  assert.equal(h.programs.length,9);assert.equal(h.state.opticsStatus.Earth,'loading');assert.equal(physicalDraws(h).length,0);
   assert.match(h.nodes.orreryPhysicalStatus.textContent,/programs and fields loading/i);
   const pending=h.programs.slice(6),draws=h.draws;await poll(h);assert.ok(h.draws>=draws);
   h.completePrograms(program=>program===pending[0]);await poll(h);
   assert.equal(h.state.programStatus.physical,'loading');assert.equal(physicalDraws(h).length,0);
+  assert.equal(h.shaderQueries.filter(query=>query.method==='getUniformLocation'&&pending.includes(query.program)).length,0);
+  h.completePrograms(program=>program===pending[1]);await poll(h);
+  assert.equal(h.state.programStatus.physical,'loading','the complete generator is independently required');
+  assert.equal(physicalDraws(h).length,0);
   assert.equal(h.shaderQueries.filter(query=>query.method==='getUniformLocation'&&pending.includes(query.program)).length,0);
   h.completePrograms();await poll(h);assert.equal(h.state.opticsStatus.Earth,'ready');assert.ok(physicalDraws(h).length>0);
   const sphereDraw=physicalDraws(h).find(draw=>Object.hasOwn(draw.uniforms,'u_style'));
@@ -56,7 +60,7 @@ for(const failure of ['link','timeout'])test(`physical ${failure} failure keeps 
   const count=h.programs.length,draws=h.draws;h.resize(900,600);await h.settle();
   assert.equal(h.programs.length,count,'a failed program does not recompile on repaint');assert.ok(h.draws>draws);
   h.setGraphicsFailure('');h.check('orreryOptics',false);h.check('orreryOptics',true);await h.settle();
-  assert.equal(h.programs.length,count+2);assert.equal(h.state.opticsStatus.Earth,'loading');
+  assert.equal(h.programs.length,count+3);assert.equal(h.state.opticsStatus.Earth,'loading');
   h.completePrograms();await poll(h);assert.equal(h.state.opticsStatus.Earth,'ready');assert.ok(physicalDraws(h).length>0);
   h.leaveOrrery();
 });
@@ -81,7 +85,7 @@ test('a queued failed-program notification cannot cancel a newer explicit retry 
   while(notifications.length)notifications.shift()();
   h.input('orreryAnchor','Earth','change');await h.settle();h.setGraphicsFailure('link');h.completePrograms();await poll(h);
   h.setGraphicsFailure('');h.check('orreryOptics',false);h.check('orreryOptics',true);await h.settle();
-  const renewed=h.programs.slice(-2);while(notifications.length)notifications.shift()();
+  const renewed=h.programs.slice(-3);while(notifications.length)notifications.shift()();
   assert.equal(h.state.opticsStatus.Earth,'loading');assert.ok(renewed.every(program=>!h.deletedPrograms.includes(program)));
   h.completePrograms();await poll(h);while(notifications.length)notifications.shift()();
   assert.equal(h.state.opticsStatus.Earth,'ready');h.leaveOrrery();

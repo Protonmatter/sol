@@ -35,11 +35,31 @@ test('candidate dispatches every pass to linear composition and palettes restore
 });
 
 test('missing float capability preserves usable scene and explicit unavailable status without changing resolution',async t=>{
-  const h=await orreryHarness(t,{controls:true,reducedMotion:true});
+  const h=await orreryHarness(t,{controls:true,reducedMotion:true,floatTargets:false});
   await h.enterOrrery();t.after(()=>h.leaveOrrery());h.state.hdrEnabled=true;
   const canvas=h.nodes.orreryCanvas,size=[canvas.width,canvas.height];
   h.check('orreryTextures',true);
   assert.equal(h.state.hdrStatus.state,'unavailable');assert.match(h.state.hdrStatus.reason,/Floating-point/);
   assert.equal(h.state.hdrFrame,null);assert.deepEqual([canvas.width,canvas.height],size);
   assert.equal(h.errors.length,0);
+});
+
+test('scattering generation restores the active HDR target before physical surface and shell composition',async t=>{
+  const h=await orreryHarness(t,{controls:true,reducedMotion:true,incidentField:async()=>({
+    values:new Float32Array(4*257*195),width:257,height:195,domain:{minHeightKm:0,maxHeightKm:16,quadratic:true}})});
+  await h.enterOrrery();t.after(()=>h.leaveOrrery());h.setAnimate(false);allowFloatTarget(h.gl);h.state.hdrEnabled=true;
+  h.input('orreryAnchor','Earth','change');await h.settle();
+  const first=h.gpuSubmissions.length;h.resize(810,610);
+  const draws=h.gpuSubmissions.slice(first),generated=draws.filter(draw=>Number.isInteger(draw.uniforms.u_scatteringPass));
+  const physical=draws.filter(draw=>draw.kind==='elements'&&draw.uniforms.u_scatteringReady===1);
+  const presented=draws.find(draw=>draw.uniforms.u_frameSerial);
+  assert.equal(generated.length,2);assert.equal(physical.length,2);assert.ok(presented);
+  assert.ok(physical[0].framebuffer);assert.equal(physical[0].framebuffer,physical[1].framebuffer);
+  assert.notEqual(generated[0].framebuffer,physical[0].framebuffer);
+  assert.equal(presented.framebuffer,null);
+  assert.ok(physical.every(draw=>draw.uniforms.u_linearOutput===1));
+  assert.deepEqual(physical[0].viewport,[0,0,810,610]);
+  assert.equal(h.state.scatteringStatus.Earth.submission.sceneSerial,h.state.hdrStatus.presented.serial);
+  assert.equal(h.state.scatteringStatus.Earth.submission.epoch,h.state.hdrStatus.presented.epoch);
+  assert.deepEqual(h.errors,[]);
 });

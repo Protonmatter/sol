@@ -94,10 +94,15 @@ test('queued field notifications read current cache status and stale cache gener
     incidentField:(body,{signal})=>new Promise(resolve=>pending.push({body,signal,resolve}))});
   await h.enterOrrery();h.setAnimate(false);h.input('orreryAnchor','Earth','change');
   pending[0].resolve(field());await h.settle();h.nodes.orreryCanvas.clientWidth=0;
-  assert.ok(notifications.length>=2);notifications.shift()();assert.equal(h.state.opticsStatus.Earth,'ready','an old loading notification must observe the now-ready cache');
+  assert.ok(notifications.length>=2);notifications.shift()();
+  assert.equal(h.state.opticsStatus.Earth,'loading','a ready static cache cannot establish an unsubmitted current scattering frame');
+  assert.equal(pending.length,1,'an old loading notification does not restart the completed field request');
   h.check('orreryOptics',false);h.check('orreryOptics',true);h.nodes.orreryCanvas.clientWidth=800;h.resize(800,600);
   pending[1].resolve(field());await h.settle();h.nodes.orreryCanvas.clientWidth=0;
-  while(notifications.length)notifications.shift()();assert.equal(h.state.opticsStatus.Earth,'ready');h.leaveOrrery();
+  while(notifications.length)notifications.shift()();
+  assert.equal(pending.length,2,'stale cache generations cannot replace or reload the current field');
+  h.nodes.orreryCanvas.clientWidth=800;h.resize(800,600);
+  assert.equal(h.state.opticsStatus.Earth,'ready');assert.equal(h.state.scatteringStatus.Earth.state,'submitted');h.leaveOrrery();
 });
 
 for(const reset of ['context','leave','optics'])test(`old field completion after ${reset} replacement cannot upload or overwrite the new request`,async t=>{

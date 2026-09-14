@@ -20,6 +20,8 @@ export async function orreryHarness(t, options = {}) {
   let depthWrites=true,blend=[];
   const pixelStoreCalls = [], pixelStore = new Map();
   const textureBindings = new Map(); let activeTextureUnit = 0, textureId = 0, pendingTextureError = 0;
+  const samplerBindings=new Map(),enabledCapabilities=new Set([3024]);
+  let drawFramebuffer=null,readFramebuffer=null,vertexArray=null,viewport=[0,0,800,600],colorMask=[true,true,true,true],framebufferId=0;
   let textureUploadError = options.textureUploadError || 0;
   const uniformDraws = [], uniforms = new Map(); let currentProgram;
   const recordUniform = (location, value) => {
@@ -47,13 +49,33 @@ export async function orreryHarness(t, options = {}) {
     UNPACK_FLIP_Y_WEBGL: 37440, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 37441,
     ZERO:0,ONE:1,SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,TRIANGLES:4,LINES:1,LINE_STRIP:3,POINTS:0,
     COMPILE_STATUS:35713,LINK_STATUS:35714,VERTEX_SHADER:35633,FRAGMENT_SHADER:35632,
+    MAX_TEXTURE_IMAGE_UNITS:34930,MAX_COMBINED_TEXTURE_IMAGE_UNITS:35661,ACTIVE_TEXTURE:34016,
+    TEXTURE_BINDING_2D:32873,SAMPLER_BINDING:35097,CURRENT_PROGRAM:35725,VERTEX_ARRAY_BINDING:34229,
+    FRAMEBUFFER:36160,DRAW_FRAMEBUFFER:36009,READ_FRAMEBUFFER:36008,DRAW_FRAMEBUFFER_BINDING:36006,READ_FRAMEBUFFER_BINDING:36010,
+    FRAMEBUFFER_COMPLETE:36053,COLOR_ATTACHMENT0:36064,VIEWPORT:2978,COLOR_WRITEMASK:3107,DEPTH_WRITEMASK:2930,
+    BLEND:3042,DEPTH_TEST:2929,CULL_FACE:2884,SCISSOR_TEST:3089,STENCIL_TEST:2960,RASTERIZER_DISCARD:35977,
+    SAMPLE_COVERAGE:32928,SAMPLE_ALPHA_TO_COVERAGE:32926,DITHER:3024,RGBA32F:34836,
   };
   const gl = new Proxy({
     ...graphicsConstants,
     isContextLost: () => false,
     getExtension: name => name==='KHR_parallel_shader_compile' ? options.parallelPrograms ? {COMPLETION_STATUS_KHR:37297} : null
+      : name==='EXT_color_buffer_float'&&options.floatTargets!==false ? {}
       : name==='WEBGL_debug_renderer_info'&&options.renderer ? { UNMASKED_RENDERER_WEBGL: 37446 } : null,
-    getParameter: name => name === graphicsConstants.MAX_TEXTURE_SIZE ? options.maxTextureSize ?? 16384 : options.renderer,
+    getParameter: name => {
+      const values=new Map([[3379,options.maxTextureSize??16384],[34930,16],[35661,32],[34016,graphicsConstants.TEXTURE0+activeTextureUnit],
+        [32873,textureBindings.get(activeTextureUnit)??null],[35097,samplerBindings.get(activeTextureUnit)??null],
+        [35725,currentProgram??null],[34229,vertexArray],[36006,drawFramebuffer],[36010,readFramebuffer],
+        [2978,[...viewport]],[3107,[...colorMask]],[2930,depthWrites]]);
+      return values.has(name)?values.get(name):options.renderer;
+    },
+    enable:capability=>enabledCapabilities.add(capability),disable:capability=>enabledCapabilities.delete(capability),
+    isEnabled:capability=>enabledCapabilities.has(capability),
+    viewport:(...value)=>{viewport=value;},colorMask:(...value)=>{colorMask=value;},
+    createFramebuffer:()=>({framebufferId:++framebufferId}),
+    bindFramebuffer:(target,value)=>{if(target!==36008)drawFramebuffer=value;if(target!==36009)readFramebuffer=value;},
+    bindVertexArray:value=>{vertexArray=value;},bindSampler:(unit,value)=>samplerBindings.set(unit,value),
+    checkFramebufferStatus:()=>options.scatteringFramebufferFailure?0:36053,
     getError: () => { const error = pendingTextureError; pendingTextureError = 0; return error; },
     getShaderParameter: (shader,parameter) => {
       shaderQueries.push({method:'getShaderParameter',shader,parameter});
@@ -84,7 +106,9 @@ export async function orreryHarness(t, options = {}) {
     uniform1f: recordUniform,
     uniform1fv: recordUniform,
     uniform2fv: recordUniform,
+    uniform2iv: recordUniform,
     uniform3fv: recordUniform,
+    uniform3iv: recordUniform,
     uniform4fv: recordUniform,
     uniformMatrix3fv: (location, _transpose, value) => recordUniform(location, value),
     uniformMatrix4fv: (location, _transpose, value) => recordUniform(location, value),
@@ -95,9 +119,11 @@ export async function orreryHarness(t, options = {}) {
       const drawUniforms = { ...uniforms.get(currentProgram) };
       uniformDraws.push(drawUniforms);
       gpuDraws.push({ program: currentProgram, uniforms: drawUniforms, textures: new Map(textureBindings) });
-      gpuSubmissions.push({kind:'elements',uniforms:drawUniforms,depthWrites,blend:[...blend]});
+      gpuSubmissions.push({kind:'elements',uniforms:drawUniforms,depthWrites,blend:[...blend],framebuffer:drawFramebuffer,
+        viewport:[...viewport],vertexArray,textures:new Map(textureBindings),enabled:new Set(enabledCapabilities)});
     },
-    drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]);gpuSubmissions.push({kind:'arrays',uniforms:{...uniforms.get(currentProgram)},depthWrites,blend:[...blend]}); },
+    drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]);gpuSubmissions.push({kind:'arrays',uniforms:{...uniforms.get(currentProgram)},
+      depthWrites,blend:[...blend],framebuffer:drawFramebuffer,viewport:[...viewport],vertexArray,textures:new Map(textureBindings),enabled:new Set(enabledCapabilities)}); },
     createTexture: () => ({ textureId: ++textureId }),
     activeTexture: unit => { activeTextureUnit = unit - graphicsConstants.TEXTURE0; },
     bindTexture: (_target, texture) => { textureBindings.set(activeTextureUnit, texture); },

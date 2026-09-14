@@ -3,6 +3,7 @@
 // text. NOISE is the shared value-noise/fbm/crater library interpolated into SPHERE_FS.
 
 import { ATMOSPHERE_RENDER_GLSL as ATMOSPHERE_GLSL } from './atmosphereColumnField.js';
+import { ATMOSPHERE_LIGHT_GLSL, ATMOSPHERE_SCATTERING_GLSL } from './atmosphereScattering.js';
 import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
@@ -455,6 +456,20 @@ function baseSphereSource(source) {
 }
 export const BASE_SPHERE_VS = baseSphereSource(SPHERE_VS);
 export const BASE_SPHERE_FS = baseSphereSource(SPHERE_FS);
+
+// Keep the complete reference sources above available to independent optical
+// fixtures. Runtime physical draws use only these consumers; the exact original
+// scattering integral belongs to a separately admitted field-generation program.
+function scatteringSphereSource(source,atmosphere) {
+  if(source.split(ATMOSPHERE_GLSL).length!==2)throw new Error('Physical atmosphere source boundary changed');
+  return source.replace(ATMOSPHERE_GLSL,atmosphere);
+}
+export const SCATTERING_SPHERE_VS=scatteringSphereSource(SPHERE_VS,ATMOSPHERE_LIGHT_GLSL);
+const surfaceTransfer='atmosphereSurfaceColor(col,surfaceBodyKm)';
+if(SPHERE_FS.split(surfaceTransfer).length!==2)throw new Error('Physical surface transfer boundary changed');
+export const SCATTERING_SPHERE_FS=scatteringSphereSource(SPHERE_FS,ATMOSPHERE_SCATTERING_GLSL)
+  .replace('uniform float u_bodyRadiusKm;','uniform float u_bodyRadiusKm;\nuniform float u_scatteringReferenceHeightKm;')
+  .replace(surfaceTransfer,'atmosphereSurfaceColor(col,surfaceBodyKm,(v_surfaceScale-1.0)*u_bodyRadiusKm+u_scatteringReferenceHeightKm)');
 
 export const LINE_VS = `#version 300 es
 layout(location=0) in vec3 a_pos; layout(location=1) in vec3 a_col;
