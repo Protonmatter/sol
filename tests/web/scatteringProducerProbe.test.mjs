@@ -61,6 +61,7 @@ function fixture(){
   const generator={uniforms:{...atmosphere,...grid,u_scatteringPass:0,u_atmosphereColumnField:7}},consumer={uniforms:{...grid,
     u_scatteringReady:1,u_scatteringSurface:8,u_scatteringLimb:9}};
   delete consumer.uniforms.u_scatteringAxis;delete consumer.uniforms.u_scatteringCameraRadius;
+  delete consumer.uniforms.u_scatteringLimb;delete consumer.uniforms.u_scatteringLimbSize;
   const link=(program=generator,fragment='generator fragment')=>{
     const vs=gl.createShader(gl.VERTEX_SHADER),fs=gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(vs,'generator vertex');gl.shaderSource(fs,fragment);gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);
@@ -79,7 +80,7 @@ function fixture(){
   const bound=()=>{gl.useProgram(consumer);gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,null);
     for(const [unit,texture]of [[8,surface],[9,limb]]){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);}gl.activeTexture(gl.TEXTURE0+2);};
   const published={state:'submitted',submission:{...frame}};
-  const capture=()=>evidence.capture(gl,consumer,atmosphere,{frame,columnTexture,published,heightRange:[0,0]});
+  const capture=(overrides={})=>evidence.capture(gl,consumer,atmosphere,{frame,columnTexture,published,heightRange:[0,0],sizes:{surface:[128,193,1],limb:[128,64]},...overrides});
   return {gl,context,evidence,calls,frame,column,columnTexture,surface,limb,fbo,atmosphere,grid,generator,consumer,published,
     link,configure,allocate,produce,bound,capture,complete:()=>{produce(0);produce(1);bound();}};
 }
@@ -188,4 +189,24 @@ test('invalid native binding hints cannot hide writes or mutations to previously
     f=>{f.gl.program={uniforms:f.consumer.uniforms};}]){
     const f=fixture();f.complete();change(f);assert.equal(f.capture().passed,false);
   }
+});
+
+test('surface-only optimized limb uniforms are absent while required surface uniforms and both producer dimensions stay mandatory',()=>{
+  const f=fixture();f.complete();assert.equal(f.capture().passed,true);
+  assert.equal(f.gl.getUniformLocation(f.consumer,'u_scatteringLimb'),null);
+  assert.equal(f.gl.getUniformLocation(f.consumer,'u_scatteringLimbSize'),null);
+  for(const name of ['u_scatteringSurface','u_scatteringSurfaceSize','u_scatteringHeightRange','u_scatteringU','u_scatteringV']){
+    const g=fixture();g.complete();delete g.consumer.uniforms[name];assert.equal(g.capture().passed,false,name);
+  }
+  const g=fixture();g.generator.uniforms.u_scatteringLimbSize=[64,64];g.allocate(g.limb,64,64);
+  g.produce(0);g.produce(1,()=>g.gl.viewport(0,0,64,64));g.bound();assert.equal(g.capture().passed,false,'unused limb dimensions still require the admitted plan');
+});
+
+test('shell schema requires its active limb uniforms while still validating the complete producer pair',()=>{
+  const f=fixture();f.complete();delete f.consumer.uniforms.u_scatteringSurface;delete f.consumer.uniforms.u_scatteringSurfaceSize;
+  delete f.consumer.uniforms.u_scatteringHeightRange;Object.assign(f.consumer.uniforms,{u_scatteringLimb:9,u_scatteringLimbSize:[128,64]});
+  const result=f.capture({consumerKind:'shell'});assert.equal(result.passed,true,result.reason);
+  assert.equal(result.passes.length,2);delete f.consumer.uniforms.u_scatteringLimbSize;
+  assert.equal(f.capture({consumerKind:'shell'}).passed,false);
+  assert.equal(f.capture({consumerKind:'unknown'}).passed,false);
 });

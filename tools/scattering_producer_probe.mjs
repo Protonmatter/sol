@@ -12,7 +12,8 @@ export function installScatteringProducerEvidence(){
     'u_atmosphereG','u_atmosphereCameraKm','u_atmosphereSunDirection','u_atmosphereSolarScale','u_atmosphereExposure'];
   const gridNames=['u_scatteringAxis','u_scatteringU','u_scatteringV','u_scatteringCameraRadius',
     'u_scatteringHeightRange','u_scatteringSurfaceSize','u_scatteringLimbSize'];
-  const consumerGridNames=gridNames.filter(name=>!['u_scatteringAxis','u_scatteringCameraRadius'].includes(name));
+  const consumerGrids={surface:['u_scatteringU','u_scatteringV','u_scatteringHeightRange','u_scatteringSurfaceSize'],
+    shell:['u_scatteringU','u_scatteringV','u_scatteringLimbSize']};
   const state=gl=>{if(!contexts.has(gl))contexts.set(gl,{program:null,unit:gl.TEXTURE0,textures:new Map(),framebuffer:null,attachments:new Map()});return contexts.get(gl);};
   const wrap=(name,after)=>{
     const native=prototype[name];if(typeof native!=='function')return;
@@ -161,16 +162,19 @@ export function installScatteringProducerEvidence(){
         throw Error('Immutable scattering generator configuration required');
       configuration={...value};outputs=new WeakMap();
     },
-    capture(gl,program,consumerUniforms,{frame,columnTexture,published,heightRange}){
+    capture(gl,program,consumerUniforms,{frame,columnTexture,published,heightRange,sizes,consumerKind='surface'}){
       const rejected=reason=>({passed:false,reason,counters:{...counters}});
       if(!configuration||gl.isContextLost()||gl.getParameter(gl.CURRENT_PROGRAM)!==program||!validFrame(frame)||!sameFrame(frame,configuration.getFrame())
         ||published?.state!=='submitted'||!sameFrame(frame,published.submission))return rejected('Current producer submission is not admitted');
       const selector=gl.getParameter(gl.ACTIVE_TEXTURE),records=[];
       try{
-        const grid=values(gl,program,[...consumerGridNames,'u_scatteringReady','u_scatteringSurface','u_scatteringLimb']);
-        if(grid.u_scatteringReady!==1||grid.u_scatteringSurface!==8||grid.u_scatteringLimb!==9)return rejected('Consumer scattering samplers are not ready');
-        if(!Array.isArray(heightRange)||heightRange.length!==2
-          ||heightRange.some((value,i)=>grid.u_scatteringHeightRange[i]!==Math.fround(value)))return rejected('Scattering height range differs from the admitted physical source bounds');
+        const consumerGridNames=consumerGrids[consumerKind];if(!consumerGridNames)return rejected('Unknown scattering consumer kind');
+        const sampler=consumerKind==='surface'?'u_scatteringSurface':'u_scatteringLimb';
+        const grid=values(gl,program,[...consumerGridNames,'u_scatteringReady',sampler]);
+        if(grid.u_scatteringReady!==1||grid[sampler]!== (consumerKind==='surface'?8:9))return rejected('Consumer scattering samplers are not ready');
+        if(!Array.isArray(heightRange)||heightRange.length!==2||!heightRange.every(Number.isFinite)
+          ||!Array.isArray(sizes?.surface)||sizes.surface.length!==3||!Array.isArray(sizes?.limb)||sizes.limb.length!==2)
+          return rejected('Admitted scattering source plan is absent');
         for(const pass of [0,1]){
           gl.activeTexture(gl.TEXTURE0+8+pass);const texture=gl.getParameter(gl.TEXTURE_BINDING_2D),record=outputs.get(texture),storage=allocations.get(texture);
           if(gl.getParameter(gl.SAMPLER_BINDING)!==null||!record||record.gl!==gl||record.pass!==pass||storage?.sequence!==record.storageSequence
@@ -178,6 +182,10 @@ export function installScatteringProducerEvidence(){
             return rejected('Actual bound scattering texture lacks a matching current producer draw');
           if([...atmosphereNames,...consumerGridNames].some(name=>JSON.stringify(record.uniforms[name])!==JSON.stringify(consumerGridNames.includes(name)?grid[name]:consumerUniforms[name])))
             return rejected('Producer geometry, profile or grid does not match the actual consumer');
+          if(heightRange.some((value,i)=>record.uniforms.u_scatteringHeightRange[i]!==Math.fround(value))
+            ||JSON.stringify(record.uniforms.u_scatteringSurfaceSize)!==JSON.stringify(sizes.surface)
+            ||JSON.stringify(record.uniforms.u_scatteringLimbSize)!==JSON.stringify(sizes.limb))
+            return rejected('Producer grid or height range differs from the admitted physical source plan');
           if(!cameraBasisMatches(record.uniforms))return rejected('Producer grid basis or radius does not match current physical camera and Sun');
           const column=globalThis.__solPhysicalTextureEvidence?.snapshot(gl,columnTexture);
           if(column?.status!=='ready'||column.sha256!==record.column.sha256||column.sequence!==record.column.sequence)
@@ -186,7 +194,7 @@ export function installScatteringProducerEvidence(){
         }
         if(records[0].sequence>=records[1].sequence||records[0].program!==records[1].program||records[0].programSequence!==records[1].programSequence)
           return rejected('Scattering pass pair is incomplete or mismatched');
-        return {passed:true,frame:{...frame},programSequence:records[0].programSequence,counters:{...counters},
+        return {passed:true,consumerKind,observedConsumerUniforms:grid,frame:{...frame},programSequence:records[0].programSequence,counters:{...counters},
           passes:records.map(record=>({pass:record.pass,drawSequence:record.sequence,storageSequence:record.storageSequence,
             uniforms:record.uniforms,column:record.column}))};
       }catch(error){return rejected(`Scattering producer inspection failed: ${error.message}`);}

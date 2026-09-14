@@ -39,7 +39,7 @@ export async function preparePhysicalSpinEvidence({body='Earth',terrain=false}={
     throw new Error('Physical draw observers must be installed before application startup');
   const entry=document.querySelector('script[type="module"][src^="app.js"]'),token=entry?new URL(entry.src).search:'';
   const [{SCATTERING_SPHERE_VS:SPHERE_VS,SCATTERING_SPHERE_FS:SPHERE_FS},{getAtmosphereProfile,serializeAtmosphereProfile},{BODY},
-    {INCIDENT_FIELDS},{ATMOSPHERE_COLUMN_FIELDS},{store},{SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS},{terrainReference}]=await Promise.all([
+    {INCIDENT_FIELDS},{ATMOSPHERE_COLUMN_FIELDS},{store},{SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,planAtmosphereScattering},{terrainReference}]=await Promise.all([
       import(`./js/orreryShaders.js${token}`),import(`./js/atmosphereOptics.js${token}`),import(`./js/bodyData.js${token}`),
       import(`./js/atmosphereIncidentManifest.js${token}`),import(`./js/atmosphereColumnManifest.js${token}`),import(`./js/store.js${token}`),
       import(`./js/atmosphereScattering.js${token}`),import(`./js/terrainAssets.js${token}`),
@@ -51,6 +51,11 @@ export async function preparePhysicalSpinEvidence({body='Earth',terrain=false}={
   const datum=catalogue.radiusKm-profile.radiusKm;
   const heightRange=terrain?[Math.min(0,datum,terrainSource.minRadiusKm-profile.radiusKm),
     Math.max(0,datum,terrainSource.maxRadiusKm/(catalogue.polarKm/catalogue.radiusKm)-profile.radiusKm)]:[datum,datum];
+  const sourcePlan=planAtmosphereScattering(profile,{cameraBodyKm:[0,0,profile.radiusKm+profile.topKm+1],
+    sunDirectionBody:[0,0,1],polarRatio:catalogue.polarKm/catalogue.radiusKm,referenceRadiusKm:catalogue.radiusKm,
+    ...(terrain?{minRadiusKm:terrainSource.minRadiusKm,maxRadiusKm:terrainSource.maxRadiusKm}:{})});
+  if(sourcePlan.status!=='ready')throw new Error('Physical source scattering plan unavailable');
+  const sizes={surface:sourcePlan.surfaceSize,limb:sourcePlan.limbSize};
   const hash=async text=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(x=>x.toString(16).padStart(2,'0')).join('');
   const [vertexHash,fragmentHash,profileHash,generatorVertexHash,generatorFragmentHash]=await Promise.all([
     hash(SPHERE_VS),hash(SPHERE_FS),hash(serializeAtmosphereProfile(profile)),hash(SCATTERING_GENERATOR_VS),hash(SCATTERING_GENERATOR_FS)]);
@@ -58,7 +63,7 @@ export async function preparePhysicalSpinEvidence({body='Earth',terrain=false}={
   await globalThis.__solPhysicalTextureEvidence.settle();
   globalThis.__solScatteringProducerEvidence.configure({vertexSource:SCATTERING_GENERATOR_VS,fragmentSource:SCATTERING_GENERATOR_FS,
     getFrame:()=>store.orrery.scatteringFrame});
-  const summary={body,terrain,scattering_height_range_km:heightRange,
+  const summary={body,terrain,scattering_height_range_km:heightRange,scattering_sizes:sizes,
     generator_shader_sha256:{vertex:generatorVertexHash,fragment:generatorFragmentHash},shader_sha256:{vertex:vertexHash,fragment:fragmentHash},profile_sha256:profileHash,
     fields:{incident:{sha256:incident.sha256,dimensions:incident.dimensions},columns:{sha256:columns.sha256,dimensions:columns.dimensions}}};
   const knownPrograms=new WeakMap(),locations=new WeakMap();
@@ -156,7 +161,7 @@ export async function preparePhysicalSpinEvidence({body='Earth',terrain=false}={
       }
     }finally{gl.activeTexture(originalUnit);}
     const scattering=globalThis.__solScatteringProducerEvidence.capture(gl,program,uniforms,
-      {frame:state.scatteringFrame,columnTexture,published:state.scatteringStatus?.[body],heightRange});
+      {frame:state.scatteringFrame,columnTexture,published:state.scatteringStatus?.[body],heightRange,sizes});
     if(!scattering.passed)return rejected(scattering.reason);
     return {passed:true,...summary,programSequence:observed.sequence,uniforms,fields,geometry,scattering};
   };

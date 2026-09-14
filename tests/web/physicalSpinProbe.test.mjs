@@ -36,7 +36,7 @@ async function fixture({datum=0}={}){
   vm.runInContext(`(${installProgramSourceEvidence.toString()})()`,context);
   const modules={
     orreryShaders:{SCATTERING_SPHERE_VS:'physical vertex',SCATTERING_SPHERE_FS:'physical fragment'},
-    atmosphereScattering:{SCATTERING_GENERATOR_VS:'generator vertex',SCATTERING_GENERATOR_FS:'generator fragment'},terrainAssets:{terrainReference:()=>null},
+    atmosphereScattering:{SCATTERING_GENERATOR_VS:'generator vertex',SCATTERING_GENERATOR_FS:'generator fragment',planAtmosphereScattering:()=>({status:'ready',surfaceSize:[128,193,1],limbSize:[128,64]})},terrainAssets:{terrainReference:()=>null},
     atmosphereOptics:{getAtmosphereProfile:()=>profile,serializeAtmosphereProfile:()=>'profile'},
     bodyData:{BODY:{Earth:{radiusKm:1+datum,polarKm:1+datum}}},atmosphereIncidentManifest:{INCIDENT_FIELDS:{Earth:incident}},
     atmosphereColumnManifest:{ATMOSPHERE_COLUMN_FIELDS:{Earth:columns}},store:{store},

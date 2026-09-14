@@ -28,7 +28,11 @@ At the final physical surface draw, the existing actual model/camera/Sun and
 static field guards still apply. The added checks require both actual bound
 surface/limb textures, in order, from the current generator program and scene.
 All contributing producer and consumer profile/grid uniforms must match.
-Generator-only camera radius and axis can be optimized out of the consumer, so
+Surface and shell consumers have separate required active uniform schemas: a
+surface shader can optimize out the limb sampler/size, and a shell shader can
+optimize out the surface sampler/height/size. Both actual bound producer textures,
+allocations and pass dimensions remain mandatory and must match an independently
+prepared source plan. Generator-only camera radius and axis can be optimized out of the consumer, so
 their consistency with the actual uploaded physical camera is checked using
 propagated binary32 rounding bins. The same check validates the generator's
 camera/Sun-derived basis. This does not introduce a physical km/angle tolerance.
@@ -51,7 +55,7 @@ restored. The observer adds no application dependencies, assets or network calls
 
 ## Validation
 
-The focused producer and physical-profile suite passes 16 groups. It includes
+The initial focused producer and physical-profile suite passed 16 groups. It includes
 held and mismatched outputs; stale serial, epoch and generation; source relinks;
 wrong current programs despite matching CPU hints; partial color writes; wrong
 pass dimensions; mutated static columns; differing camera, Sun, basis and profile;
@@ -71,3 +75,11 @@ automatically to the new scattering consumer. HDR remains opt-in.
 Rollback restores the previous validation tooling and its matching immutable
 runtime together; a current consumer cannot be qualified using the older static
 field-only probe. Retained older successful and failed receipts are unchanged.
+
+The first real SwiftShader application replay of runtime `2ba2911` retained four
+original final Earth draws, but rejected 91 physical candidates because the probe
+required the optimized-out surface-side limb-size uniform. That failed receipt
+is preserved. The corrected active schema passes 18 focused CPU groups, including
+absent required uniforms, a wrong unused-side producer grid and shell-specific
+requirements. This is a probe correction, not a numerical or deadline change;
+a corrected immutable browser replay remains required.
