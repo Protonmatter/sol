@@ -83,3 +83,15 @@ is preserved. The corrected active schema passes 18 focused CPU groups, includin
 absent required uniforms, a wrong unused-side producer grid and shell-specific
 requirements. This is a probe correction, not a numerical or deadline change;
 a corrected immutable browser replay remains required.
+
+The browser gate also contains an explicit held-generator control. After the
+positive physical gate, it holds only full triangles whose observed immutable
+generator source and actual current GPU program both match. Normal clears,
+bindings and manager status checks still occur. The same five-second collector
+must accept zero physical finals and record rejected physical candidates;
+restoration must then admit at least three fresh current producer/physical/HDR
+finals. Both control and recovery must fit the original absolute 75-second System
+budget. This does not extend the 30-second shader completion timeout. The held
+source/query/mismatch counters and recovery receipt are retained independently.
+The focused control, producer, profile and original spin suite passes 61 tests;
+a real held-generator browser result is still required.

@@ -202,3 +202,43 @@ export function installScatteringProducerEvidence(){
     },
   })});
 }
+
+/** Explicit validation negative control. The generator's normal clears, binds
+ * and status checks continue, while its observed actual triangle draws are held.
+ * Call endScatteringProducerHold in finally after the normal five-second probe.
+ */
+export async function beginScatteringProducerHold(){
+  if(globalThis.__solScatteringProducerHold)throw Error('Scattering hold control already active');
+  const entry=document.querySelector('script[type="module"][src^="app.js"]'),query=entry?new URL(entry.src).search:'';
+  const {SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS}=await import(`./js/atmosphereScattering.js${query}`);
+  const gl=document.getElementById('orreryCanvas').getContext('webgl2'),sources=globalThis.__solProgramSourceEvidence;
+  if(!gl||gl.isContextLost()||!sources)throw Error('Observed live scattering context required');
+  const nativeDraw=gl.drawArrays,nativeUse=gl.useProgram;
+  let hint=null;const counts={sourceFiltered:0,candidateQueries:0,currentProgramMismatch:0,held:0};
+  const use=function(...args){const result=nativeUse.apply(this,args);if(this===gl)hint=args[0];return result;};
+  const draw=function(...args){
+    if(this===gl&&args[0]===gl.TRIANGLES&&args[1]===0&&args[2]===3){
+      const linked=sources.snapshot(gl,hint);
+      const matches=linked?.sources.length===2
+        &&linked.sources.some(s=>s?.type===gl.VERTEX_SHADER&&s.source===SCATTERING_GENERATOR_VS)
+        &&linked.sources.some(s=>s?.type===gl.FRAGMENT_SHADER&&s.source===SCATTERING_GENERATOR_FS);
+      if(matches){
+        counts.candidateQueries++;
+        if(gl.getParameter(gl.CURRENT_PROGRAM)===hint){counts.held++;return;}
+        counts.currentProgramMismatch++;
+      }else counts.sourceFiltered++;
+    }
+    return nativeDraw.apply(this,args);
+  };
+  gl.useProgram=use;gl.drawArrays=draw;
+  globalThis.__solScatteringProducerHold={release(){
+    const restored=gl.useProgram===use&&gl.drawArrays===draw;
+    gl.useProgram=nativeUse;gl.drawArrays=nativeDraw;
+    return {restored,...counts};
+  }};
+}
+
+export function endScatteringProducerHold(){
+  const control=globalThis.__solScatteringProducerHold;if(!control)throw Error('Scattering hold control is not active');
+  try{return control.release();}finally{delete globalThis.__solScatteringProducerHold;}
+}

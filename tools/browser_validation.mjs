@@ -13,7 +13,7 @@ import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
 import { installProgramSourceEvidence, preparePhysicalSpinEvidence, waitForPhysicalSpinReadiness } from './physical_spin_probe.mjs';
 import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
-import { installScatteringProducerEvidence } from './scattering_producer_probe.mjs';
+import { installScatteringProducerEvidence, beginScatteringProducerHold, endScatteringProducerHold } from './scattering_producer_probe.mjs';
 import { browserBackendFromArgs, browserBackendArgs, assertBrowserBackend, captureBrowserCapabilities } from './browser_backend.mjs';
 import { classifyTextureBackend } from './texture_device_telemetry.mjs';
 import { assertCaptionLayouts } from "./caption_layout.mjs";
@@ -1010,6 +1010,23 @@ async function visualAssertions(page, visualDirectory, observeContext, systemBud
     if(physicalSpin.sampleError)throw new Error(`Physical Earth draw inspection failed: ${physicalSpin.sampleError}`);
     assertSubmittedSpin(physicalSpin.samples);
     if(physicalSpin.samples.some(sample=>!sample.physical?.passed))throw new Error('Physical Earth spin admitted fallback evidence');
+    if(await page.evaluate(deadline=>deadline-performance.now(),systemBudget.deadlineMs)<5000)
+      throw new Error('Insufficient original System budget for held scattering producer control');
+    let heldScattering,heldScatteringState;
+    await page.evaluate(beginScatteringProducerHold);
+    try{heldScattering=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});}
+    finally{heldScatteringState=await page.evaluate(endScatteringProducerHold);}
+    fs.writeFileSync(path.join(visualDirectory,'earth-held-scattering-producer.json'),JSON.stringify({probe:heldScattering,control:heldScatteringState},null,2));
+    if(!heldScatteringState.restored||!heldScatteringState.held||heldScatteringState.currentProgramMismatch
+      ||heldScattering.samples.length||!heldScattering.drawCounts.physicalRejected||heldScattering.sampleError)
+      throw new Error('Physical gate accepted held scattering producers or did not exercise their negative control');
+    const recoveredScattering=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});
+    fs.writeFileSync(path.join(visualDirectory,'earth-scattering-recovery.json'),JSON.stringify(recoveredScattering,null,2));
+    if(recoveredScattering.sampleError||recoveredScattering.samples.some(sample=>!sample.physical?.scattering?.passed))
+      throw new Error('Scattering producer recovery did not observe fresh physical fields');
+    assertSubmittedSpin(recoveredScattering.samples);
+    if(await page.evaluate(deadline=>performance.now()>deadline,systemBudget.deadlineMs))
+      throw new Error('Scattering producer controls exceeded the original System deadline');
   }
   const spinDisclosure = await page.$eval("#orreryAccuracy", (node) => node.textContent);
   if (!spinDisclosure.includes("Rotation display rate-limited")) {
