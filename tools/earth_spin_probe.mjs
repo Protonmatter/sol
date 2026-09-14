@@ -93,7 +93,13 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
           const active=gl.getParameter(gl.ACTIVE_TEXTURE);
           gl.activeTexture(gl.TEXTURE0+sampler);const texture=gl.getParameter(gl.TEXTURE_BINDING_2D);gl.activeTexture(active);
           const wanted=pendingEarth.identity;
+          const viewport=gl.getParameter(gl.VIEWPORT),mask=gl.getParameter(gl.COLOR_WRITEMASK);
+          const writesFrame=args[0]===gl.TRIANGLES&&args[1]===0&&args[2]===3
+            &&viewport[0]===0&&viewport[1]===0&&viewport[2]===canvas.width&&viewport[3]===canvas.height
+            &&Array.from(mask).every(Boolean)
+            &&![gl.RASTERIZER_DISCARD,gl.SCISSOR_TEST,gl.DEPTH_TEST,gl.STENCIL_TEST].some(cap=>gl.isEnabled(cap));
           if(gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING)===null&&texture===pendingEarth.texture
+            &&writesFrame
             &&serial===wanted.serial&&generation===wanted.generation
             &&high===Math.fround(wanted.epoch)&&low===Math.fround(wanted.epoch-Math.fround(wanted.epoch)))
             presentation={serial,generation,epoch:wanted.epoch};
@@ -104,11 +110,17 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
       const result = originalArrays.apply(this, args);
       draws.arraySubmitted++;
       if(presentation&&pendingEarth){
-        const sampledMs=performance.now();
-        if(sampledMs<=deadlineMs){
-          samples.push({...pendingEarth.sample,sampledMs,elapsedMs:sampledMs-timing.startedMs,presentation});draws.presentedEarth++;
-        }else draws.lateReadbacks++;
-        pendingEarth=null;
+        const producer=pendingEarth;pendingEarth=null;
+        // Let the renderer consume its own GL error and publish completion. This
+        // adds confirmation to observed GPU draw evidence; state alone never
+        // creates a producer or presentation. Microtask time stays in the 5s gate.
+        queueMicrotask(()=>{
+          const sampledMs=performance.now(),status=store.orrery.hdrStatus,done=status?.presented;
+          if(sampledMs>deadlineMs){draws.lateReadbacks++;return;}
+          if(status?.state!=='ready'||done?.serial!==presentation.serial||done?.generation!==presentation.generation
+            ||done?.epoch!==presentation.epoch){draws.presentationMismatch++;return;}
+          samples.push({...producer.sample,sampledMs,elapsedMs:sampledMs-timing.startedMs,presentation});draws.presentedEarth++;
+        });
       }
       return result;
     } finally { clearHints(); }
@@ -157,7 +169,7 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
         // reaches the default framebuffer's actual presentation shader.
         const framebuffer=gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
         const output=gl.getUniformLocation(program,'u_linearOutput');
-        if(!framebuffer||!output||gl.getUniform(program,output)!==1){draws.presentationMismatch++;return result;}
+        if(!framebuffer||!output||gl.getUniform(program,output)!==1||store.orrery.hdrFrame.epoch!==epoch){draws.presentationMismatch++;return result;}
         const texture=gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
         if(texture){pendingEarth={sample,texture,identity:{...store.orrery.hdrFrame}};draws.offscreenEarth++;}
       }else samples.push(sample);

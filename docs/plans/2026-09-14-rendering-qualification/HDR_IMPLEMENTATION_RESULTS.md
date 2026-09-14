@@ -37,6 +37,14 @@ legacy SDR fallback restores its existing distance-squared display compensation.
 Moon and other display recipes remain declared relative display signals; HDR does
 not make their physical brightness scales comparable.
 
+The visible-light Sun approximation uses a fixed HDR display emission scale of two
+after decoding its existing warm-white recipe. This is a declared relative display
+normalization, not measured solar radiance or incident flux. Exposure remains one;
+the scale does not depend on camera or distance. The SDR Sun and source EUV paths
+retain their recipes. The first full staged HDR run revealed that unit emission
+produced median Sun luminance 183.1, below the unchanged 190 emissive-white gate;
+that failed receipt is retained in `coverage/hdr-browser-571040d/failure.json`.
+
 Selecting sea ice forces the whole frame onto the preserved SDR path, including
 while that optional source is pending. The scientific palette/legend, original
 nearest sampling and straight alpha remain unchanged. Capability/allocation
@@ -56,6 +64,12 @@ binary32 epoch. The Earth probe preserves its existing GPU model/normal readback
 and five-second deadline. An offscreen Earth draw is held as a producer; acceptance
 additionally requires an observed default-framebuffer presentation whose sampled
 texture and identity match that producer. Metadata alone cannot pass the gate.
+The observed draw must also be the full-viewport presentation triangle, with color
+writes enabled and no rasterizer discard, scissor, depth or stencil rejection.
+An additional microtask confirms the renderer's own successful GL error check and
+matching published completion; it remains inside the original five-second deadline.
+The probe never consumes the renderer's GL error, and matching stale producer and
+consumer metadata cannot legitimize a different actual draw epoch.
 
 New tests reject offscreen-only producers, a stale scene texture, serial, epoch or
 context generation, and held final draws while producers advance. The browser
@@ -69,6 +83,16 @@ seconds remain unchanged.
 guide, point, glow, ring and solar fragment programs. It measures float storage,
 single exposure/tone/output transfer, preserved display recipes, alpha and held
 visible pixels. Independent formulas predict the expected float/byte values.
+The expanded fixture also runs actual Earth/Mars physical surface and atmosphere
+shell fragments using admitted column fields. Independent Python float64 integration
+predicts scattering and transmission. These selected geometries retain the existing
+`1e-4 + 0.002 * abs(reference)` optics tolerance, plus an explicit binary16 storage
+rounding bound of `abs(reference)/1024`. They cover colored synthetic night emission,
+one-AU/two-AU pre-exposure flux, final output transfer and distinct backgrounds.
+Shell composition checks `S + background * (1-alpha)` with
+`alpha = 1-dot(T,[0.2126,0.7152,0.0722])`. This preserves and labels the existing
+scalar background-extinction approximation; it is not channel-wise transmission
+of colored stars. Synthetic Mars emission tests admit no Mars night-light source.
 
 | Local receipt | Result |
 | --- | --- |
@@ -76,13 +100,19 @@ visible pixels. Independent formulas predict the expected float/byte values.
 | `coverage/hdr-d1-green-20260914/evidence.json` | 27/27 on Chrome/SwiftShader; source module hashes are recorded. |
 | `coverage/color-b2-green-20260914/evidence.json` | 109/109 actual sphere/filter/material checks at unchanged tolerances. |
 | `coverage/color-hdr-all-node.log` | 1009/1009 Node 22 tests, including the original 1000 and nine new HDR/probe tests. |
+| `coverage/hdr-d1-571040d-staged/evidence.json` | 27/27 against immutable release `hdr-candidate-571040d`. |
+| `coverage/hdr-sun-scale-red-571040d/evidence.json` | 39/44; all five Sun emission/transfer/composition checks reject the previous unit scale. |
+| `coverage/hdr-sun-scale-green-source/evidence.json` | 44/44, including distinct-background alpha and additive composition for all material fixtures. |
+| `coverage/hdr-physical-expanded-source/evidence.json` | 66/66, including actual physical surface/shell, independent S/T, night and pre-exposure flux checks. |
+| `coverage/planet-hdr-sun-green-source/evidence.json` | 110/110 actual sphere/filter/material checks, including colored night emission. |
+| `coverage/hdr-followup-final-node-50.log` | 50/50 focused manager, lifecycle, color and Earth probe tests. Deliberate stale producer, suppressed draw and rejected completion controls were red before their respective guards. |
 
 Web typecheck, docs, SDLC and UX validators passed locally. The receipts are
 retained ignored local evidence. They are not a full immutable staged application
 run, current-host native result, accepted cross-device performance qualification,
-runtime coverage result or hosted CI result. In particular, the complete physical
-surface/shell material matrix, additive/flux extensions, native target admission,
-and staged HDR Earth deadline must pass before default enablement.
+runtime coverage result or hosted CI result. The selected physical surface/shell
+matrix and additive/flux fixtures do not replace the full atmosphere domain,
+native target admission, or staged HDR Earth deadline gates before default enablement.
 
 Required integrating commands include the existing atmosphere, planet, ring,
 solar/physical rendering, context-loss and browser tools against one immutable

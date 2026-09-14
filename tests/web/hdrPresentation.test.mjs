@@ -12,7 +12,7 @@ function graphics(options={}) {
     TEXTURE_MIN_FILTER:13,TEXTURE_MAG_FILTER:14,TEXTURE_WRAP_S:15,TEXTURE_WRAP_T:16,
     DEPTH_COMPONENT24:17,MAX_TEXTURE_SIZE:18,MAX_RENDERBUFFER_SIZE:19,VERTEX_SHADER:20,FRAGMENT_SHADER:21,
     COMPILE_STATUS:22,LINK_STATUS:23,NO_ERROR:0,COLOR:24,SCISSOR_TEST:25,DEPTH_TEST:26,BLEND:27,CULL_FACE:28,
-    TEXTURE0:100,TRIANGLES:29,
+    TEXTURE0:100,TRIANGLES:29,STENCIL_TEST:30,RASTERIZER_DISCARD:31,
     getExtension:()=>options.extension===false?null:{},getParameter:()=>4096,
     createTexture:resource,createRenderbuffer:resource,createFramebuffer:resource,createShader:resource,
     createProgram:resource,createVertexArray:resource,

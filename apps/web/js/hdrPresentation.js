@@ -105,6 +105,7 @@ export function createHdrPresentation(gl,{generation,maxBytes=DEFAULT_MAX_BYTES}
     if(disposed||!group||gl.isContextLost()||!validExposure(exposure)||!same(pending,frameIdentity))return false;
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,report.width,report.height);
     gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);gl.disable(gl.SCISSOR_TEST);
+    gl.disable(gl.STENCIL_TEST);gl.disable(gl.RASTERIZER_DISCARD);
     gl.colorMask(true,true,true,true);gl.depthMask(false);gl.bindVertexArray(group.vao);gl.useProgram(group.program);
     gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,group.color);
     gl.uniform1i(group.uniforms.u_scene,0);gl.uniform1f(group.uniforms.u_exposure,exposure);

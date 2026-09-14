@@ -32,7 +32,7 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
     renderUnix: 100, yearsPerSec: 7 / 365.25, bodies: [{ name: 'Earth', x_au: .1, y_au: .2, z_au: .3 }] };
   const program = { name: 'sphere' }, otherProgram = { name: 'other' }, uniforms = new Map();
   const presentationProgram={name:'presentation'},sceneTexture={name:'scene'},sceneFramebuffer={name:'scene-fbo'};
-  let framebuffer=null,boundTexture=sceneTexture,activeUnit=100;
+  let framebuffer=null,boundTexture=sceneTexture,activeUnit=100,presentationState={};
   const queryCounts = { parameter: 0, uniform: 0, location: 0 };
   let rejection = null, readbackError = null, readbackDelay = () => 0, drawDelay = 0;
   function native(api, self, args, effect, result) {
@@ -48,7 +48,9 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
   const values = p => { if (!uniforms.has(p)) uniforms.set(p, new Map()); return uniforms.get(p); };
   const gl = { CURRENT_PROGRAM: 1, isContextLost: () => false,
     DRAW_FRAMEBUFFER_BINDING:2,DRAW_FRAMEBUFFER:3,COLOR_ATTACHMENT0:4,FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:5,
-    ACTIVE_TEXTURE:6,TEXTURE_BINDING_2D:7,TEXTURE0:100,
+    ACTIVE_TEXTURE:6,TEXTURE_BINDING_2D:7,TEXTURE0:100,TRIANGLES:4,
+    COLOR_WRITEMASK:8,VIEWPORT:9,RASTERIZER_DISCARD:10,SCISSOR_TEST:11,DEPTH_TEST:12,STENCIL_TEST:13,
+    isEnabled:name=>!!presentationState[name],
     useProgram(...args) { return native('useProgram', this, args, () => { currentProgram = args[0]; }); },
     uniform1i(...args) { return native('uniform1i', this, args, () => {
       if (args[0]?.program === currentProgram) values(currentProgram).set(args[0].name, args[1]);
@@ -60,7 +62,8 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
     }); },
     drawElements(...args) { return native('drawElements', this, args, null, 41); },
     drawArrays(...args) { return native('drawArrays', this, args, null, 42); },
-    getParameter(name) { queryCounts.parameter++;return name===2?framebuffer:name===6?activeUnit:name===7?boundTexture:currentProgram; },
+    getParameter(name) { queryCounts.parameter++;return name===2?framebuffer:name===6?activeUnit:name===7?boundTexture:
+      name===8?(presentationState.mask??[true,true,true,true]):name===9?(presentationState.viewport??[0,0,732,612]):currentProgram; },
     getFramebufferAttachmentParameter(){return sceneTexture;},activeTexture(unit){activeUnit=unit;},
     // Deliberately fresh identities: production cached locations cannot be
     // matched against separately queried WebGLUniformLocation objects.
@@ -72,11 +75,14 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
   const env = { gl, state, program, otherProgram, values, queryCounts, nativeCalls, appLocation,
     hdr(index){state.hdrFrame={generation:1,epoch:state.renderUnix,serial:index};framebuffer=sceneFramebuffer;values(program).set('u_linearOutput',1);},
     present(changes={}){
+      presentationState=changes;
       framebuffer=null;boundTexture=changes.texture??sceneTexture;gl.useProgram(presentationProgram);
       const frame={...state.hdrFrame,...changes},u=values(presentationProgram);
       u.set('u_scene',0);u.set('u_frameSerial',frame.serial);u.set('u_frameGeneration',frame.generation);
       u.set('u_frameEpochHigh',Math.fround(frame.epoch));u.set('u_frameEpochLow',frame.epoch-Math.fround(frame.epoch));
-      gl.drawArrays(4,0,3);
+      gl.drawArrays(changes.mode??4,0,changes.count??3);
+      now+=changes.completionDelay??0;
+      state.hdrStatus=changes.rejected?{state:'unavailable'}:{state:'ready',presented:frame};
     },
     reject: (api, type = 'throw') => { rejection = { api, type }; },
     failReadback: message => { readbackError = message; },
@@ -105,7 +111,7 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
   const schedule = (fn, delay, interval = 0) => { const id = ++nextId; tasks.set(id, { fn, at: now + delay, interval }); return id; };
   const context = vm.createContext({ document: { hidden: false, visibilityState: 'visible',
     querySelector: () => importToken === null ? null : { src: `https://sol.invalid/sol/app.js${importToken}` }, getElementById: () => canvas },
-    performance: { now: () => now }, URL,
+    performance: { now: () => now }, URL,queueMicrotask,
     setTimeout: (fn, delay) => schedule(fn, delay), clearTimeout: id => tasks.delete(id),
     setInterval: (fn, delay) => schedule(fn, delay, delay), clearInterval: id => tasks.delete(id),
     requestAnimationFrame: fn => { const id = ++nextId; frames.set(id, fn); return id; }, cancelAnimationFrame: id => frames.delete(id),
@@ -165,11 +171,36 @@ test('stale texture, frame serial, epoch and context generation cannot present a
   }
 });
 
+test('a stale producer epoch cannot be legitimized by matching stale presentation metadata',async()=>{
+  const {result}=await spin({actions:[1,2,3,4].map(i=>[i*100,env=>{
+    env.advance(i);env.upload(i*.01*2*Math.PI/5);env.hdr(i);env.state.hdrFrame.epoch--;
+    env.draw();env.present();
+  }])});
+  assert.equal(result.samples.length,0);
+});
+
 test('held final draw negative control rejects advancing HDR producers without weakening five seconds',async()=>{
   const {result,now}=await spin({probeOptions:{holdPresentation:true},actions:[1,2,3,4].map(i=>[i*100,env=>{
     env.advance(i);env.upload(i*.01*2*Math.PI/5);env.hdr(i);env.draw();env.present();
   }])});
   assert.equal(result.samples.length,0);assert.equal(now,5000);
+});
+
+test('identity metadata cannot substitute for a full color-writing presentation draw',async()=>{
+  for(const changes of [{count:0},{mode:0},{mask:[false,false,false,false]},{viewport:[0,0,0,0]},
+    {10:true},{11:true},{12:true},{13:true},{rejected:true}]){
+    const {result,now}=await spin({actions:[1,2,3,4].map(i=>[i*100,env=>{
+      env.advance(i);env.upload(i*.01*2*Math.PI/5);env.hdr(i);env.draw();env.present(changes);
+    }])});
+    assert.equal(result.samples.length,0,JSON.stringify(changes));assert.equal(now,5000);
+  }
+});
+
+test('presentation completion after five seconds cannot accept an earlier HDR producer',async()=>{
+  const {result}=await spin({actions:[[4999,env=>{
+    env.advance(1);env.upload();env.hdr(1);env.draw();env.present({completionDelay:2});
+  }]]});
+  assert.equal(result.samples.length,0);assert.equal(result.drawCounts.lateReadbacks,1);
 });
 
 test('zero draws retain the five-second window and initial/final state evidence', async () => {

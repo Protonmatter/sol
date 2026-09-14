@@ -59,6 +59,7 @@ const fixtures = new Map([
   ["/color-deposits.png", fixture(64, 32, x => x < 8 ? [48,12,6,255] : [192,192,192,255])],
   ["/black.png", fixture(4, 2, () => [0, 0, 0, 255])],
   ["/white.png", fixture(4, 2, () => [255, 255, 255, 255])],
+  ["/night-color.png", fixture(4, 2, () => [64, 128, 224, 255])],
   ["/transparent.png", fixture(4, 2, () => [255, 255, 255, 0])],
   ["/half-white.png", fixture(4, 2, () => [255, 255, 255, 128])],
   // Adjacent opaque white and missing transparent black. At u=.5 LINEAR
@@ -259,14 +260,17 @@ async function run() {
     {name:'Io RGB',options:{texture:'/color-deposits.png',texMode:5,base:[.6,.6,.6]}},
     {name:'fallback',options:{useTexture:false,base:[.4,.25,.1],light:[0,0,-1]}},
     {name:'Titan',options:{useTexture:false,base:[.72,.48,.24],atmosphereColor:[.2,.5,1],atmosphereStrength:.5}},
-    {name:'Sun',options:{mode:1,useTexture:false,base:[1,.98,.94],position:[0,0,1]}},
+    {name:'Sun fixed display emission scale',linearScale:2,options:{mode:1,useTexture:false,base:[1,.98,.94],position:[0,0,1]}},
     {name:'illustrative shell',options:{mode:2,normal:[1,0,0],atmosphereColor:[.2,.5,1],atmosphereStrength:.5}},
   ];
-  for(const {name,options} of linearCases){
+  for(const {name,options,linearScale=1} of linearCases){
     const display=await probe(options),linear=await probe({...options,linearOutput:true});
     check(`linear composition preserves ${name} recipe`,linear,
-      [...display.slice(0,3).map(value=>srgbToLinear(value/255)),1],.0045);
+      [...display.slice(0,3).map(value=>srgbToLinear(value/255)*linearScale),1],.0045);
   }
+  check('colored night emission is decoded once before composition',
+    await probe({texture:'/black.png',night:true,nightTexture:'/night-color.png',light:[0,0,-1],linearOutput:true}),
+    [...[64,128,224].map(value=>srgbToLinear(value/255)),1],.001);
   for(const [name,expected] of [['/opaque-edge.png',[.5,.5,.5,1]],['/saturated-edge.png',[.5,.5,0,1]]]){
     const options={texture:`${name}:linear`,textureLinear:true,linearOutput:true,position:[1,0,0]};
     check(`decode before filtering ${name}`,await probe(options),expected,.003);
