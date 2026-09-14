@@ -307,7 +307,7 @@
   "passed": true,
   "limits": [
     "Local staged application consumption; no hosted/native-driver production performance claim.",
-    "Existing calibrated-reference atmospheric profile and static incident/column fields only; dynamic scattering fields require separate producer/domain qualification.",
+    "Existing disclosed reference atmospheric profile and static incident/column fields only; dynamic scattering fields require separate producer/domain qualification.",
     "Finer numerical terrain is a whole-globe v2 derivative, not tiled terrain; original color imagery retains its finite source resolution.",
     "D2 reflection, calibrated D4 ring transfer and calibrated D5 mapped moon photometry remain source/admission holds."
   ]
