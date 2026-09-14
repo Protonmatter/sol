@@ -112,25 +112,25 @@ test('failure hook persists original failed result before replay and never promo
   const start=source.indexOf("    evidence.status='failed';evidence.failure={phase,error:error.message};");
   const end=source.indexOf('    let timer, diagnostic, diagnosticError;',start);
   assert.ok(start>0&&end>start);
-  const body=source.slice(start,end),events=[];
+  const body=source.slice(start,end),events=[],helperHash=createHash('sha256').update('loaded helper').digest('hex');
   const run=new (Object.getPrototypeOf(async function(){}).constructor)('error','evidence','phase','saveEvidence','path','outputDirectory',
-    'createHash','fs','diagnosticPage','collectFrameCostDiagnostic',body.replace("new URL('./frame_cost_diagnostic.mjs',import.meta.url)","'helper'"));
+    'fs','diagnosticPage','collectFrameCostDiagnostic',body);
   for(const failureMode of ['none','evaluate','write','timeout','physical']){
-    events.length=0;const evidence={status:'running'},original=new Error('insufficient Earth sphere draws: 1');
+    events.length=0;const evidence={status:'running',validation_source_sha256:{'frame_cost_diagnostic.mjs':helperHash}},original=new Error('insufficient Earth sphere draws: 1');
     if(failureMode==='physical')original.message='Physical Earth preparation failed: Physical preparation exceeded the original System deadline';
     const nativeSetTimeout=globalThis.setTimeout,nativeClearTimeout=globalThis.clearTimeout;
     if(failureMode==='timeout')globalThis.setTimeout=(fn,ms)=>{assert.equal(ms,25000);queueMicrotask(fn);return 1;};
     if(failureMode==='timeout')globalThis.clearTimeout=()=>{};
     try{
-    await run(original,evidence,'System/WebGL',()=>events.push(['save',evidence.status]),{join:(...x)=>x.join('/')},'out',createHash,
-      {readFileSync:()=>Buffer.from('helper'),writeFileSync:(_p,value)=>{if(failureMode==='write')throw new Error('disk full');events.push(['write',JSON.parse(value)]);}},
+    await run(original,evidence,'System/WebGL',()=>events.push(['save',evidence.status]),{join:(...x)=>x.join('/')},'out',
+      {readFileSync:()=>assert.fail('Must reuse the initial source identity'),writeFileSync:(_p,value)=>{if(failureMode==='write')throw new Error('disk full');events.push(['write',JSON.parse(value)]);}},
       {evaluate:async()=>{events.push(['replay']);if(failureMode==='evaluate')throw new Error('diagnostic failed');
         if(failureMode==='timeout')return new Promise(()=>{});return {status:'captured'};}},()=>{});
     }finally{globalThis.setTimeout=nativeSetTimeout;globalThis.clearTimeout=nativeClearTimeout;}
     assert.deepEqual(events[0],['save','failed']);assert.deepEqual(events[1],['replay']);
     assert.equal(evidence.status,'failed');assert.equal(evidence.failure.error,original.message);
     if(failureMode==='write')assert.equal(evidence.frame_cost_diagnostic.error,'disk full');
-    else{const record=events.find(x=>x[0]==='write')[1];assert.equal(record.original_status,'failed');assert.equal(record.outer_budget_ms,25000);
+    else{const record=events.find(x=>x[0]==='write')[1];assert.equal(record.original_status,'failed');assert.equal(record.outer_budget_ms,25000);assert.equal(record.tool_sha256,helperHash);
       if(failureMode==='timeout')assert.equal(record.error,'Separate frame-cost diagnostic deadline');}
   }
   assert.match(source.slice(end,end+2100),/throw error;/);

@@ -1468,7 +1468,7 @@ async function main() {
       let frameCostTimer;
       const frameCost={schema:'post-failure-frame-cost.v1',original_failure:{...evidence.failure},
         original_status:'failed',outer_budget_ms:25000,
-        tool_sha256:createHash('sha256').update(fs.readFileSync(new URL('./frame_cost_diagnostic.mjs',import.meta.url))).digest('hex')};
+        tool_sha256:evidence.validation_source_sha256['frame_cost_diagnostic.mjs']};
       try{
         frameCost.observation=await Promise.race([diagnosticPage.evaluate(collectFrameCostDiagnostic),
           new Promise((_,reject)=>{frameCostTimer=setTimeout(()=>reject(new Error('Separate frame-cost diagnostic deadline')),25000);})]);
