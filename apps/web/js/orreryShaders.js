@@ -464,10 +464,30 @@ function scatteringSphereSource(source,atmosphere) {
   if(source.split(ATMOSPHERE_GLSL).length!==2)throw new Error('Physical atmosphere source boundary changed');
   return source.replace(ATMOSPHERE_GLSL,atmosphere);
 }
+// drawBody admits physical profiles only for Earth/Mars and uploads mode 0 /
+// style -1. Keep those uniforms observable and reject misuse rather than silently
+// selecting another material. The complete SPHERE/BASE references above retain
+// every Sun, halo and procedural recipe. Source lookups and the lighting tail
+// remain verbatim, including neutral fallback, terrain and moon transit shadows.
+function physicalMaterialSource(source) {
+  const sections=[
+    ['  if(u_mode==2){','  // Equirectangular lookup:',
+      '  if(u_mode!=0||u_style!=-1) discard;\n'],
+    ['  else if(u_style==1){','  // Real IAU albedo units',''],
+  ];
+  for(const [begin,end,replacement] of sections){
+    if(source.split(begin).length!==2||source.split(end).length!==2)
+      throw new Error('Physical material source boundary changed');
+    const first=source.indexOf(begin),last=source.indexOf(end);
+    if(last<=first)throw new Error('Physical material source boundary order changed');
+    source=source.slice(0,first)+replacement+source.slice(last);
+  }
+  return source;
+}
 export const SCATTERING_SPHERE_VS=scatteringSphereSource(SPHERE_VS,ATMOSPHERE_LIGHT_GLSL);
 const surfaceTransfer='atmosphereSurfaceColor(col,surfaceBodyKm)';
 if(SPHERE_FS.split(surfaceTransfer).length!==2)throw new Error('Physical surface transfer boundary changed');
-export const SCATTERING_SPHERE_FS=scatteringSphereSource(SPHERE_FS,ATMOSPHERE_SCATTERING_GLSL)
+export const SCATTERING_SPHERE_FS=physicalMaterialSource(scatteringSphereSource(SPHERE_FS,ATMOSPHERE_SCATTERING_GLSL))
   .replace('uniform float u_bodyRadiusKm;','uniform float u_bodyRadiusKm;\nuniform float u_scatteringReferenceHeightKm;')
   .replace(surfaceTransfer,'atmosphereSurfaceColor(col,surfaceBodyKm,(v_surfaceScale-1.0)*u_bodyRadiusKm+u_scatteringReferenceHeightKm)');
 
