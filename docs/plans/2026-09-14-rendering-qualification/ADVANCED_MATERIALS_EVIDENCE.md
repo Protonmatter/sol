@@ -188,8 +188,12 @@ runtime assets. A successful HTTP response is insufficient when its content is w
 The [PDS ring-occultation index](https://pds-rings.seti.org/ringocc/) identifies the
 specific Earth-based `EBROCC_0001` volume: six telescope data sets from the July 1989
 28 Sgr Saturn occultation. Its 5.14 MB original archive request returned HTTP 403;
-no product label or profile was acquired. Its exact band, radial registration,
-uncertainty and quality/saturation definitions therefore remain unverified here.
+this is a historical failed request, and no product label or profile was acquired
+in that attempt. The [visible-source follow-up](VISIBLE_RING_SOURCE_CANDIDATE.md)
+records a later successful directory GET separately, resolves the bands of three
+EBROCC catalog entries, and identifies an exact visible-sensitive HST candidate.
+Its bounded science-file prefix and complete quality product do not constitute
+an admitted radial optical-depth profile; runtime source admission remains held.
 Cassini RSS/UVIS/VIMS archive descriptions identify radio/ultraviolet/infrared
 measurements; they do not admit visible RGB transport. Even a downloaded profile
 of effective normal optical depth would not independently identify unresolved

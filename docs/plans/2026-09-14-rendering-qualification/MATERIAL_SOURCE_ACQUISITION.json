@@ -8,6 +8,8 @@
       "url": "https://pds-rings.seti.org/holdings/archives-volumes/EBROCC_xxxx/EBROCC_0001.tar.gz",
       "retrievedAt": "2026-09-14T02:39:58.983460+00:00",
       "failure": "HTTP Error 403: Forbidden",
+      "historical": true,
+      "followupNote": "VISIBLE_RING_SOURCE_CANDIDATE.md",
       "admission": "not-acquired: access denied; exact product label, band, profile and uncertainty not validated"
     },
     {
@@ -44,6 +46,7 @@
       "url": "https://pds-rings.seti.org/ringocc/",
       "retrievedAt": "2026-09-14T02:45:33.894034+00:00",
       "failure": "HTTP Error 403: Forbidden",
+      "historical": true,
       "admission": "not-acquired: access denied; index browsed separately, no numerical profile admission"
     },
     {
@@ -56,6 +59,90 @@
       "contentType": "text/html; charset=UTF-8",
       "finalUrl": "https://www.earthdata.nasa.gov/data/projects/seawifs",
       "admission": "wrong-content: requested coefficient paper redirected to generic HTML; no PDF/coefficients acquired"
+    }
+  ],
+  "followups": [
+    {
+      "note": "VISIBLE_RING_SOURCE_CANDIDATE.md",
+      "candidate": "HST proposal 5824; GSC5249-01240; selected exposure Y2ZY0308R",
+      "assessedSourceCommit": "59ecf497065f426faa42bc4dd5e28bada6ce899a",
+      "originalCache": "build/ring-visible-source-assessment-20260914",
+      "manifestSha256": "86ce09016534e4acd0987de7859ed3b36a13f7480b94a936aa0932027761bf6c",
+      "totalVerifiedResponses": 15,
+      "totalRemoteBytesRetained": 1193617,
+      "recordsScope": "Selected evidence below; all 15 responses are bound by the local manifest",
+      "admission": "held: no validated radial optical-depth reduction or independent coverage/material-depth decomposition; no runtime input added",
+      "records": [
+        {
+          "name": "ebrocc-browser.response",
+          "url": "https://pds-rings.seti.org/viewmaster/volumes/EBROCC_xxxx/EBROCC_0001/",
+          "retrievedAt": "2026-09-14T04:03:14.134537+00:00",
+          "mechanism": "direct standard-library GET",
+          "status": 200,
+          "bytes": 36545,
+          "sha256": "51a3ca61eb0ed3e5e8362bf42b32106b04e30037ba5fe67fd3b6c5c292b0c500",
+          "admission": "directory-only; different endpoint from historical archive403; no archive or numerical profile acquired"
+        },
+        {
+          "name": "hst5824-proposal.response",
+          "url": "https://archive.stsci.edu/proposal_search.php?id=5824&mission=hst",
+          "retrievedAt": "2026-09-14T04:03:14.971025+00:00",
+          "status": 200,
+          "bytes": 82946,
+          "sha256": "50d3d809504e11baef07063b377555c20a1487d1898ac4b462c2c7dbb1374150",
+          "admission": "metadata-only: exact observation identifiers, instruments and dates"
+        },
+        {
+          "name": "fos-handbook-v6.response",
+          "url": "https://stecf-poa.stsci.edu/poa/pdf/FOS_IHv60.pdf",
+          "retrievedAt": "2026-09-14T04:04:58.069217+00:00",
+          "status": 200,
+          "bytes": 803127,
+          "sha256": "ad9dfec6fc40bf2c1ea4e8dbdea907d9c505a665c815e3f456cc6ce192bd2c58",
+          "admission": "instrument documentation; nominal disperser range is not an admitted exposure passband"
+        },
+        {
+          "name": "y2zy0308r_c1f.fits.prefix",
+          "url": "https://archive.stsci.edu/missions/hst/public/y2zy/y2zy0308r/y2zy0308r_c1f.fits",
+          "retrievedAt": "2026-09-14T04:07:01.061279+00:00",
+          "status": 206,
+          "requestedRange": "bytes=0-65535",
+          "contentRange": "bytes 0-65535/20715840",
+          "bytes": 65536,
+          "fullObjectBytes": 20715840,
+          "prefixOnly": true,
+          "sha256Scope": "retained prefix only; not the complete science file",
+          "sha256": "a6070df96914c0c319dab5306ac6375c9bfcad831fcc4356fe95184790e1a984",
+          "observedHeader": {"ROOTNAME": "Y2ZY0308R", "FILETYPE": "FLX", "BUNIT": "COUNTS/S", "FLX_CORR": "SKIPPED", "NAXIS1": 512, "NAXIS2": 8617},
+          "admission": "header inspection only; no complete array integrity, normalization or radial optical-depth reduction"
+        },
+        {
+          "name": "y2zy0308r_pdq.fits",
+          "url": "https://archive.stsci.edu/missions/hst/public/y2zy/y2zy0308r/y2zy0308r_pdq.fits",
+          "retrievedAt": "2026-09-14T04:07:01.349139+00:00",
+          "status": 200,
+          "bytes": 17280,
+          "prefixOnly": false,
+          "sha256": "bb39815658b7b2ee87fb8cb49514aeed4e3c8afec14bbbeca468181c1c505a24",
+          "admission": "complete observation-level quality file; not a per-channel quality mask or calibrated material"
+        },
+        {
+          "name": "bosh2002-ads.response",
+          "url": "https://ui.adsabs.harvard.edu/abs/2002Icar..157...57B/abstract",
+          "retrievedAt": "2026-09-14T04:04:58.015292+00:00",
+          "status": 405,
+          "bytes": 2203,
+          "sha256": "28ae14e7349d18038d09a043aa547b9dd3cc6a658ef7deb0785f3d98e961224d",
+          "admission": "failed metadata request; response bytes retained, no paper or numerical tables acquired"
+        }
+      ],
+      "browserToolObservation": {
+        "url": "https://pds-rings.seti.org/viewmaster/volumes/EBROCC_xxxx/EBROCC_0001/",
+        "reportedStatus": 403,
+        "rawResponseAcquired": false,
+        "rawResponseSha256": null,
+        "scope": "web browsing tool result, separate from the successful direct GET; no raw HTTP bytes invented"
+      }
     }
   ]
 }
