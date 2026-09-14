@@ -1,0 +1,314 @@
+{
+  "schema_version": "mars-optical-terrain-receipt.v1",
+  "source_receipt": "coverage/mars-optical-terrain-03/evidence.json",
+  "source_receipt_sha256": "5e4f5f9f6c05f4417c9571ef34f92c93875d9982d058a5c1d1e0a1682110e790",
+  "runtime_source_revision": "f022ceaade3f230e0ad5a8fa0b2a9b04909e53df",
+  "harness_revision": "58fd468",
+  "release_manifest_sha256": "15e98b0049fff99fb605f752211de7db657cda2708d1bfea3873f0f72a517399",
+  "started_at": "2026-09-14T03:58:34.824Z",
+  "finished_at": "2026-09-14T03:59:52.720Z",
+  "elapsed_seconds": 77.896,
+  "requested_backend": "swiftshader",
+  "observed_adapter": null,
+  "backend_limit": "The original physical app harness requested SwiftShader but did not capture the context adapter string; no native-driver qualification is claimed.",
+  "checks": [
+    {
+      "name": "Pinned staged bytes match release manifest",
+      "passed": true
+    },
+    {
+      "name": "sun-source-front versus sun-unobserved-back changes rendered pixels",
+      "passed": true
+    },
+    {
+      "name": "sun-source-front versus sun-source-midpoint changes rendered pixels",
+      "passed": true
+    },
+    {
+      "name": "Reference playback reaches 20 seconds, stops without looping, and preserves paused engine time and positions",
+      "passed": true
+    },
+    {
+      "name": "The Sun inspection and Our system restoration preserve the physical model",
+      "passed": true
+    },
+    {
+      "name": "earth-optics-on versus earth-optics-off changes rendered pixels",
+      "passed": true
+    },
+    {
+      "name": "earth-night-lights-on versus earth-night-lights-off changes rendered pixels",
+      "passed": true
+    },
+    {
+      "name": "moon-terrain-on versus moon-terrain-off changes rendered pixels",
+      "passed": true
+    },
+    {
+      "name": "Moon level 4 submits actual 256 by 512 geometry with complete terrain shadows",
+      "passed": true
+    },
+    {
+      "name": "mars-terrain-on versus mars-terrain-off changes rendered pixels",
+      "passed": true
+    },
+    {
+      "name": "Mars level 4 submits actual 256 by 512 geometry with complete terrain shadows",
+      "passed": true
+    },
+    {
+      "name": "Real terrain Worker and both pinned height assets loaded",
+      "passed": true
+    },
+    {
+      "name": "Both incident refraction fields loaded and were admitted for close captures",
+      "passed": true
+    },
+    {
+      "name": "Context restoration recreates actual terrain resources and preserves engine state",
+      "passed": true
+    },
+    {
+      "name": "Actual app gallery loads jupiter-aurora",
+      "passed": true
+    },
+    {
+      "name": "Actual app gallery loads jupiter-storm",
+      "passed": true
+    },
+    {
+      "name": "Actual app gallery loads saturn-hexagon",
+      "passed": true
+    },
+    {
+      "name": "Actual app gallery loads saturn-decagon",
+      "passed": true
+    },
+    {
+      "name": "Actual app gallery loads neptune-aurora",
+      "passed": true
+    },
+    {
+      "name": "390 pixel viewport has no horizontal overflow and preserves engine state",
+      "passed": true
+    },
+    {
+      "name": "No page, console, shader compilation, or WebGL errors",
+      "passed": true
+    },
+    {
+      "name": "Mars level-4 source geometry, physical optical fields, animation and matching HDR final draws",
+      "passed": true
+    }
+  ],
+  "source_differences": [],
+  "source_geometry": {
+    "sourceId": "mars-radial-height-v2",
+    "sourceSha256": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba",
+    "level": 4,
+    "latSegments": 256,
+    "lonSegments": 512,
+    "vertexCount": 131841,
+    "count": 783360,
+    "positionBytes": 3164184,
+    "indexBytes": 3133440,
+    "positionHash": "6d0bd31d8dd351c2e3b3527f568516e00d6924be3ffb54d5f8364db089f58abb",
+    "indexHash": "d3282270d141cf7923277642eee9adadbb745f050b4f08d0324d5b92604fe2dc",
+    "heightHash": "3f3f93bbe120fa44a28af7876c2cb09c36c2ad8b666f4ad368d050f40acc6d2f",
+    "width": 2880,
+    "height": 1440,
+    "shape": [
+      3396,
+      3372.94091796875,
+      3417.27197265625,
+      0
+    ],
+    "poles": [
+      -19.774662017822266,
+      -13.714715957641602
+    ],
+    "bodyRadiusKm": 3396.199951171875,
+    "incidentHeightDomain": {
+      "minHeightKm": -7.069048495233801,
+      "maxHeightKm": 22.78632573321738,
+      "outsideHeightDomain": 0,
+      "vertexCount": 131841,
+      "admitted": {
+        "minHeightKm": -24,
+        "maxHeightKm": 24,
+        "quadratic": false
+      }
+    },
+    "actualPositionHash": "6d0bd31d8dd351c2e3b3527f568516e00d6924be3ffb54d5f8364db089f58abb",
+    "actualIndexHash": "d3282270d141cf7923277642eee9adadbb745f050b4f08d0324d5b92604fe2dc"
+  },
+  "physical_preparation": {
+    "body": "Mars",
+    "shader_sha256": {
+      "vertex": "dd01bf3f1ffdd7e5d8d62f07ceedc6b29589410b0277dfbf43ecdc79182085dc",
+      "fragment": "013ef79a6c88e7d2a1f72ca7d022679db024f160cce4f3777bd7a6ddf7baad61"
+    },
+    "profile_sha256": "133be6dfe9ff85c742be6518ab81b3ea1f4d272863ff5e1a8ac7435423e36e48",
+    "fields": {
+      "incident": {
+        "sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+        "dimensions": [
+          385,
+          65,
+          3
+        ]
+      },
+      "columns": {
+        "sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+        "dimensions": [
+          512,
+          512,
+          2
+        ]
+      }
+    }
+  },
+  "source_fields": {
+    "incident": {
+      "sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+      "width": 385,
+      "height": 195,
+      "internalFormat": 34836,
+      "unit": 6,
+      "uploadSequence": 145,
+      "byteLength": 1201200,
+      "unpack": {
+        "alignment": 4,
+        "flipY": false,
+        "premultiplyAlpha": false,
+        "colorspaceConversion": 37444,
+        "rowLength": 0,
+        "imageHeight": 0,
+        "skipPixels": 0,
+        "skipRows": 0,
+        "skipImages": 0
+      }
+    },
+    "columns": {
+      "sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+      "width": 512,
+      "height": 512,
+      "internalFormat": 33328,
+      "unit": 7,
+      "uploadSequence": 147,
+      "byteLength": 2097152,
+      "unpack": {
+        "alignment": 4,
+        "flipY": false,
+        "premultiplyAlpha": false,
+        "colorspaceConversion": 37444,
+        "rowLength": 0,
+        "imageHeight": 0,
+        "skipPixels": 0,
+        "skipRows": 0,
+        "skipImages": 0
+      }
+    }
+  },
+  "shader_sha256": {
+    "vertex": "dd01bf3f1ffdd7e5d8d62f07ceedc6b29589410b0277dfbf43ecdc79182085dc",
+    "fragment": "013ef79a6c88e7d2a1f72ca7d022679db024f160cce4f3777bd7a6ddf7baad61"
+  },
+  "validation_source_sha256": {
+    "earth_spin_probe.mjs": "894c3c1b9a275df2c1532fb16bc9f065e9c287a75029e769cddf546e9185d063",
+    "physical_spin_probe.mjs": "a36cb5348d67b91d8a990198613610037bcd839bd86f14fbce10426a6035487f",
+    "physical_texture_probe.mjs": "7ef5351c8aff31ab0b7d9f495b28beb3bc90bcfd6b0e808018aa8db168754f9c",
+    "mars_terrain_probe.mjs": "85bf707353b7f5179c43d3784bcfc889bb7b26e5e2b966874a8aab0eb836b65a",
+    "mars_spin_assertions.mjs": "cb961eb7816a48838890b994889fe1ccf15dfa39d27e42507fa7e9d45ff2fe15"
+  },
+  "spin": {
+    "required_final_draws": 3,
+    "deadline_ms": 5000,
+    "accepted_final_draws": 5,
+    "elapsed_ms": [
+      24.30000001192093,
+      418.89999997615814,
+      768.3000000119209,
+      811.3999999761581,
+      1841
+    ],
+    "draw_counts": {
+      "attempted": 183,
+      "submitted": 183,
+      "arrayAttempted": 100,
+      "arraySubmitted": 100,
+      "surface": 5,
+      "earth": 5,
+      "duplicateEpoch": 0,
+      "candidates": 5,
+      "unknown": 178,
+      "gpuMismatch": 0,
+      "expiredDraws": 0,
+      "lateReadbacks": 0,
+      "offscreenEarth": 5,
+      "presentedEarth": 5,
+      "presentationMismatch": 0,
+      "heldPresentations": 0,
+      "physicalRejected": 0,
+      "physicalAccepted": 5,
+      "terrainRejected": 0,
+      "terrainAccepted": 5
+    },
+    "epochs": [
+      1789234876.8,
+      1789244976.96,
+      1789275216.96,
+      1789305456.96,
+      1789325596.8
+    ],
+    "presentations": [
+      {
+        "serial": 3,
+        "generation": 2,
+        "epoch": 1789234876.8
+      },
+      {
+        "serial": 4,
+        "generation": 2,
+        "epoch": 1789244976.96
+      },
+      {
+        "serial": 5,
+        "generation": 2,
+        "epoch": 1789275216.96
+      },
+      {
+        "serial": 6,
+        "generation": 2,
+        "epoch": 1789305456.96
+      },
+      {
+        "serial": 7,
+        "generation": 2,
+        "epoch": 1789325596.8
+      }
+    ],
+    "timing": {
+      "startedMs": 69309.90000003576,
+      "endedMs": 71155.20000004768,
+      "elapsedMs": 1845.300000011921
+    }
+  },
+  "context_restore": {
+    "loss_ms": 38384.80000001192,
+    "request_ms": 38391.200000047684,
+    "event_ms": 38395,
+    "callback_completed_ms": 38634.200000047684,
+    "ready_ms": 47703.5,
+    "context_lost": false
+  },
+  "page_errors": [],
+  "console_errors": [],
+  "passed": true,
+  "limits": [
+    "Local staged application consumption; no hosted/native-driver production performance claim.",
+    "Existing calibrated-reference atmospheric profile and static incident/column fields only; dynamic scattering fields require separate producer/domain qualification.",
+    "Finer numerical terrain is a whole-globe v2 derivative, not tiled terrain; original color imagery retains its finite source resolution.",
+    "D2 reflection, calibrated D4 ring transfer and calibrated D5 mapped moon photometry remain source/admission holds."
+  ]
+}

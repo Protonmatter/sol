@@ -306,9 +306,11 @@ terrain envelope added as supplemental cases before a new scattering field is
 admitted for these assets.
 
 CPU regressions cover equal-sized corrupted geometry, rejected readbacks, changed
-layouts and source textures, partial draws, post-readback mutations, stale/frozen
-transforms and late or mismatched HDR presentation. No browser result is claimed
-for this new phase until an immutable staged receipt is recorded below.
+layouts and source textures, partial draws, post-readback mutations through every
+WebGL2 buffer target alias, stale/frozen transforms and late or mismatched HDR
+presentation. The combined suite passed 1,076 tests before the final buffer-alias
+guard; all six terrain-probe groups passed after that guard. Runtime type checking
+passed 108 files and documentation validation passed 117 Markdown files.
 
 Example, using an existing pinned stage and Node 22:
 
@@ -320,3 +322,31 @@ Exit 0 means every enabled predicate passed on the recorded local backend. A
 nonzero result retains failure state and the receipt. Removing the optional flag
 returns to the established application tour; no product runtime hook is installed
 outside this validation process.
+
+The first immutable combined run passed all 22 checks in 77.896 seconds. Runtime
+source `f022cea` is staged in `build/mars-optical-terrain-03`; the release manifest
+SHA-256 is `15e98b0049fff99fb605f752211de7db657cda2708d1bfea3873f0f72a517399`.
+The harness includes buffer-alias guard `58fd468`, and its exact tool hashes are
+bound in the receipt. There were no current-source differences, page/console/GL
+errors, rejected physical/terrain draws, presentation mismatches or late reads.
+Five accepted Mars final presentations completed at 24.3, 418.9, 768.3, 811.4 and
+1,841.0 milliseconds; each includes current source geometry, optical fields and
+camera/Sun intervals. The independently captured model and inverse-transpose
+normal rotations passed the seven-days-per-second bounded spin check, and a
+frozen-transform control was rejected.
+
+Context restoration delivered the native event 3.8 milliseconds after request and
+restored actual terrain/optics readiness after 9.3123 seconds, retaining the
+original 10-second native-event and 40-second resource deadlines. The final image
+was inspected: the highly magnified numerical terrain is visible, while the
+existing color map remains limited by its original resolution.
+
+The complete local receipt is `coverage/mars-optical-terrain-03/evidence.json`,
+SHA-256 `5e4f5f9f6c05f4417c9571ef34f92c93875d9982d058a5c1d1e0a1682110e790`.
+Its bounded checked-in summary is
+[MARS_TERRAIN_OPTICAL_RUNTIME_RECEIPT.json](MARS_TERRAIN_OPTICAL_RUNTIME_RECEIPT.json).
+This harness requested SwiftShader but did not record the context adapter string;
+the receipt does not establish a native-driver result. These are successful
+application-consumption checks for the staged direct reference optics path and
+static fields. They do not admit a later dynamic scattering candidate or remove
+the distinct reflection, calibrated ring and calibrated moon source holds.
