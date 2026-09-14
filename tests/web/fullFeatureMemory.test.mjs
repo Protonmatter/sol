@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import * as url from 'node:url';
 import {memoryRequested,createMemoryCheckpointRecorder,assertMemoryFeatureState,assertMemoryDrawProof} from '../../tools/full_feature_memory.mjs';
+import * as memory from '../../tools/full_feature_memory.mjs';
 
 test('memory follow-up is explicit and rejects ambiguous flags',()=>{
   assert.equal(memoryRequested([]),false);assert.equal(memoryRequested(['--memory']),true);
@@ -51,16 +52,131 @@ test('cancellation while snapshotting cannot begin a later OS capture',async()=>
   await assert.rejects(recorder.protectedWork('late',async()=>{}),/cancelled/);
 });
 
-function features(){return {active:true,animate:true,textures:true,terrain:true,optics:true,hdr:true,anchor:'Earth',
+function references(){return [
+  ['earth-reference','Earth','surface'],['earth-night','Earth','night-lights'],
+  ['earth-composite','Earth','cloud-composite'],['earth-daily','Earth','weather'],
+  ['earth-ice','Earth','sea-ice'],['mars-reference','Mars','surface'],['unrelated','Venus','surface'],
+].map(([id,body,role],i)=>({id,body,role,path:`textures/${id}.png`,sha256:String(i+1).repeat(64),dimensions:[2048,1024]}));}
+function required(body='Earth'){return {body,earth_layers:body==='Earth'?{night:true,weather:true,ice:true,cloud_source:'composite'}:null,
+  sources:references().filter(source=>body==='Earth'?['earth-reference','earth-night','earth-composite','earth-ice'].includes(source.id):source.id==='mars-reference')};}
+function features(){return {sampled_ms:1000,active:true,animate:true,textures:true,terrain:true,optics:true,hdr:true,anchor:'Earth',
   context_lost:false,hidden:false,engine_error:'',optics_status:{Earth:'ready'},hdr_status:{state:'ready',presented:true},
-  scattering_status:{Earth:{state:'submitted'}},scattering_frame:{contextGeneration:2}};}
+  scattering_status:{Earth:{state:'submitted'}},scattering_frame:{contextGeneration:2},
+  earth_layers:{night:true,weather:true,ice:true,cloud_source:'composite'},appearance_references:references(),
+  appearance_status:Object.fromEntries(references().map(source=>[source.id,source.id==='unrelated'?'deferred':'ready']))};}
 test('feature-state brackets reject fallback, stale generation and disabled features',()=>{
-  assertMemoryFeatureState(features(),'Earth',2);
+  assertMemoryFeatureState(features(),'Earth',2,required(),75000);
   for(const change of [s=>s.animate=false,s=>s.terrain=false,s=>s.textures=false,s=>s.hdr=false,s=>s.context_lost=true,
     s=>s.optics_status.Earth='loading',s=>s.scattering_status.Earth.state='cancelled',s=>s.hdr_status.presented=false,
     s=>s.scattering_frame.contextGeneration=1]){
-    const state=features();change(state);assert.throws(()=>assertMemoryFeatureState(state,'Earth',2));
+    const state=features();change(state);assert.throws(()=>assertMemoryFeatureState(state,'Earth',2,required(),75000));
   }
+});
+
+test('active memory brackets reject missing or unready required registered imagery despite ready optics',()=>{
+  for(const source of required().sources){
+    for(const status of [undefined,'queued','loading','deferred','unavailable']){
+      const state=features();state.appearance_status[source.id]=status;
+      assert.throws(()=>assertMemoryFeatureState(state,'Earth',2,required(),75000),/imagery|appearance|source/i,`${source.id}: ${status}`);
+    }
+  }
+  const missing=features();delete missing.appearance_status;
+  assert.throws(()=>assertMemoryFeatureState(missing,'Earth',2,required(),75000),/imagery|appearance|source/i);
+});
+
+test('memory brackets reject changed source identity, switched Earth layer and expired preparation',()=>{
+  for(const change of [s=>s.appearance_references[0].sha256='f'.repeat(64),
+    s=>s.appearance_references[0].path='textures/wrong.png',s=>s.appearance_references[0].dimensions=[1024,512],
+    s=>s.appearance_references[0].id='wrong-ready-source',s=>s.appearance_references.shift(),
+    s=>s.earth_layers.cloud_source='daily',s=>s.earth_layers.night=false,s=>s.sampled_ms=75000.1]){
+    const state=features();change(state);
+    assert.throws(()=>assertMemoryFeatureState(state,'Earth',2,required(),75000));
+  }
+  assertMemoryFeatureState(features(),'Earth',2,required(),75000);
+  const blackUnrelated=features();blackUnrelated.appearance_status.unrelated='unavailable';
+  assertMemoryFeatureState(blackUnrelated,'Earth',2,required(),75000);
+});
+
+test('required imagery selects exact Earth layer roles and Mars surface while allowing unrelated deferred maps',()=>{
+  assert.deepEqual(memory.createMemoryAppearanceRequirement(features(),'Earth'),required());
+  const state=features();state.earth_layers={night:false,weather:true,ice:false,cloud_source:'daily'};
+  const expected={body:'Earth',earth_layers:state.earth_layers,sources:references().filter(s=>['earth-reference','earth-daily'].includes(s.id))};
+  assert.deepEqual(memory.createMemoryAppearanceRequirement(state,'Earth'),expected);
+  const snapshot=memory.createMemoryAppearanceRequirement(features(),'Earth');
+  const original=features(),isolated=memory.createMemoryAppearanceRequirement(original,'Earth');
+  original.appearance_references[0].dimensions[0]=99;original.earth_layers.night=false;
+  assert.deepEqual(isolated,snapshot,'Required identities must not alias later state');
+  const mars=features();mars.anchor='Mars';
+  assert.deepEqual(memory.createMemoryAppearanceRequirement(mars,'Mars'),required('Mars'));
+  for(const mutate of [s=>s.appearance_references.push({...s.appearance_references[0]}),
+    s=>s.appearance_references[0].sha256='unverified',s=>s.appearance_references[0].dimensions=[0,1024]]){
+    const invalid=features();mutate(invalid);assert.throws(()=>memory.createMemoryAppearanceRequirement(invalid,'Earth'));
+  }
+});
+
+test('page memory reader reports the actual registered manifest and fresh restored appearance statuses',async()=>{
+  const requests=[],state={active:true,anchor:'Earth',selected:'Earth',useTextures:true,earthNight:true,earthWeather:true,
+    earthIce:false,earthCloudSource:'composite',appearanceStatus:{},scatteringFrame:{contextGeneration:2}};
+  const context=vm.createContext({URL,performance:{now:()=>1234},
+    document:{hidden:false,querySelector:()=>({src:'https://fixture.invalid/app.js?v=frozen'}),
+      getElementById:()=>({getContext:()=>({isContextLost:()=>false,drawingBufferWidth:1440,drawingBufferHeight:1000})})}});
+  const manifest=new vm.SourceTextModule(fs.readFileSync(new URL('../../apps/web/js/visualAssetManifest.js',import.meta.url),'utf8'),{context});
+  await manifest.link(()=>{throw new Error('Unexpected manifest dependency');});await manifest.evaluate();
+  const appearance=new vm.SourceTextModule(fs.readFileSync(new URL('../../apps/web/js/planetAppearance.js',import.meta.url),'utf8'),{context});
+  await appearance.link(name=>{assert.equal(name,'./visualAssetManifest.js');return manifest;});await appearance.evaluate();
+  const store=new vm.SyntheticModule(['store'],function(){this.setExport('store',{orrery:state});},{context});
+  await store.link(()=>{});await store.evaluate();
+  const read=new vm.Script(`(${memory.readMemoryFeatureState.toString()})()`,{importModuleDynamically:async name=>{
+    requests.push(name);assert.ok(['./js/store.js?v=frozen','./js/planetAppearance.js?v=frozen'].includes(name));
+    return name.startsWith('./js/store')?store:appearance;
+  }});
+  const first=JSON.parse(JSON.stringify(await read.runInContext(context)));
+  const registered=JSON.parse(JSON.stringify(manifest.namespace.visualAssetManifest.mapped_references));
+  assert.equal(first.appearance_references.length,registered.length);
+  const earthSurface=registered.find(asset=>asset.body==='Earth'&&asset.role==='surface');
+  const {id,body,role,path,sha256,dimensions}=earthSurface;
+  assert.deepEqual(first.appearance_references.find(asset=>asset.id===id),{id,body,role,path,sha256,dimensions});
+  state.appearanceStatus[id]='loading';state.earthCloudSource='daily';state.scatteringFrame.contextGeneration=3;
+  const second=JSON.parse(JSON.stringify(await read.runInContext(context)));
+  assert.equal(second.appearance_status[id],'loading');assert.equal(second.earth_layers.cloud_source,'daily');
+  assert.equal(second.scattering_frame.contextGeneration,3);assert.equal(first.appearance_status[id],undefined);
+  state.appearanceStatus[id]='ready';
+  const third=JSON.parse(JSON.stringify(await read.runInContext(context)));
+  assert.equal(third.appearance_status[id],'ready');assert.equal(requests.length,6);
+});
+
+test('restored imagery preparation polls fresh state under one absolute deadline and never admits unavailable or wrong sources',async()=>{
+  const loading=features();loading.sampled_ms=74000;loading.appearance_status['earth-night']='loading';
+  const ready=features();ready.sampled_ms=74100;ready.scattering_frame.contextGeneration=3;
+  const states=[loading,ready],pauses=[];
+  const page={evaluate:async fn=>{assert.equal(fn,memory.readMemoryFeatureState);return states.shift();}};
+  const state=await memory.waitForMemoryAppearance(page,required(),75000,{pause:async ms=>pauses.push(ms)});
+  assert.equal(state.scattering_frame.contextGeneration,3);assert.deepEqual(pauses,[100]);assert.equal(states.length,0);
+  assertMemoryFeatureState(state,'Earth',3,required(),75000);
+  for(const status of ['loading','deferred',undefined]){
+    let reads=0;
+    const expired={evaluate:async()=>{reads++;const s=features();s.sampled_ms=reads===1?74999:75001;s.appearance_status['earth-night']=status;return s;}};
+    await assert.rejects(memory.waitForMemoryAppearance(expired,required(),75000,{pause:async ms=>assert.equal(ms,1)}),/75 seconds|deadline/i);
+    assert.equal(reads,2);
+  }
+  for(const mutate of [s=>s.appearance_status['earth-night']='unavailable',s=>s.appearance_references[0].sha256='f'.repeat(64)]){
+    const s=features();mutate(s);let paused=false;
+    await assert.rejects(memory.waitForMemoryAppearance({evaluate:async()=>s},required(),75000,{pause:async()=>{paused=true;}}));
+    assert.equal(paused,false);
+  }
+});
+
+test('OS sampling is blocked before missing imagery and rejected immediately if imagery becomes unready during capture',async()=>{
+  let captures=0;const state=features(),expectation=required();
+  const recorder=createMemoryCheckpointRecorder({browser:{},capture:async()=>{captures++;state.appearance_status['earth-composite']='loading';return {status:'available'};}});
+  recorder.originalGatesCompleted({passed:true});
+  const snapshot=()=>assertMemoryFeatureState(state,'Earth',2,expectation,75000);
+  state.appearance_status['earth-night']='loading';
+  await assert.rejects(recorder.checkpoint('blocked',{before:snapshot,after:snapshot}));assert.equal(captures,0);
+  state.appearance_status['earth-night']='ready';
+  await assert.rejects(recorder.checkpoint('invalidated',{before:snapshot,after:snapshot}));assert.equal(captures,1);
+  assert.equal(recorder.evidence.checkpoints[1].observation.status,'available');
+  assert.equal(recorder.evidence.checkpoints[1].after,undefined,'Recovery must not replace post-sample rejection');
 });
 
 function proof(){return {subjectBody:'Earth',sampleError:'',initialState:{animate:true,hdrEnabled:true},

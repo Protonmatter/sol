@@ -22,6 +22,7 @@ export function createMemoryCheckpointRecorder({browser,save=()=>{},capture=capt
     basis:'OS process and WDDM observations from owned browser PIDs; not attributable texture VRAM or physical residency.',
     limitations:['Missing counters remain unavailable, never zero. Working-set sums may share pages.',
       'Actual draw proof precedes sampling; feature states bracket sampling. This does not prove every frame in the sampling interval.',
+      'Registered imagery readiness is a source/cache workload check, not proof of imagery texture bindings at a GPU draw.',
       'Memory sampling is excluded from the original performance gates and adds measurement overhead.']};
   let active=null,completed=false,cancelled=false;
   const originalGatesCompleted=receipt=>{
@@ -55,7 +56,9 @@ export function createMemoryCheckpointRecorder({browser,save=()=>{},capture=capt
 
 export async function readMemoryFeatureState(){
   const entry=document.querySelector('script[type="module"][src^="app.js"]');
-  const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`),s=store.orrery;
+  const query=entry?new URL(entry.src).search:'';
+  const {store}=await import(`./js/store.js${query}`),s=store.orrery;
+  const {appearanceReferences}=await import(`./js/planetAppearance.js${query}`);
   const gl=document.getElementById('orreryCanvas').getContext('webgl2');
   return JSON.parse(JSON.stringify({sampled_ms:performance.now(),active:s.active,anchor:s.anchor,selected:s.selected,
     animate:s.animate,textures:s.useTextures,terrain:s.terrainEnabled,optics:s.opticsEnabled,hdr:s.hdrEnabled,
@@ -63,10 +66,59 @@ export async function readMemoryFeatureState(){
     hdr_status:s.hdrStatus,optics_status:s.opticsStatus,terrain_status:s.terrainStatus,
     terrain_rendered:s.terrainRendered,scattering_frame:s.scatteringFrame,scattering_status:s.scatteringStatus,
     program_status:s.programStatus,program_diagnostics:s.programDiagnostics,epoch:s.renderUnix,
+    appearance_status:s.appearanceStatus,
+    earth_layers:{night:s.earthNight,weather:s.earthWeather,ice:s.earthIce,cloud_source:s.earthCloudSource},
+    appearance_references:appearanceReferences().map(({id,body,role,path,sha256,dimensions})=>({id,body,role,path,sha256,dimensions})),
     canvas:{width:gl.drawingBufferWidth,height:gl.drawingBufferHeight}}));
 }
 
-export function assertMemoryFeatureState(state,body,generation){
+/** Freeze identities from the immutable page's registered source inventory.
+ * Status changes do not change demand. Unrelated/deferred sources stay outside it.
+ */
+export function createMemoryAppearanceRequirement(state,body){
+  assert.ok(['Earth','Mars'].includes(body),'Unsupported memory imagery body');
+  assert.equal(state.anchor,body,'Memory imagery anchor changed');
+  const earth_layers=body==='Earth'?{...state.earth_layers}:null,roles=['surface'];
+  if(earth_layers){
+    for(const key of ['night','weather','ice'])assert.equal(typeof earth_layers[key],'boolean',`Missing Earth imagery selector ${key}`);
+    assert.ok(['daily','composite'].includes(earth_layers.cloud_source),'Unknown Earth imagery cloud source');
+    if(earth_layers.night)roles.push('night-lights');
+    if(earth_layers.weather)roles.push(earth_layers.cloud_source==='daily'?'weather':'cloud-composite');
+    if(earth_layers.ice)roles.push('sea-ice');
+  }
+  const sources=roles.map(role=>{
+    const matches=state.appearance_references?.filter(source=>source.body===body&&source.role===role);
+    assert.equal(matches?.length,1,`Memory imagery source missing or ambiguous: ${body}/${role}`);
+    const {id,path,sha256,dimensions}=matches[0];
+    assert.ok(typeof id==='string'&&id&&typeof path==='string'&&path,`Invalid memory imagery source: ${body}/${role}`);
+    assert.match(sha256??'',/^[a-f0-9]{64}$/,'Invalid memory imagery source digest');
+    assert.ok(Array.isArray(dimensions)&&dimensions.length===2&&dimensions.every(n=>Number.isSafeInteger(n)&&n>0),'Invalid memory imagery dimensions');
+    return {id,body,role,path,sha256,dimensions:[...dimensions]};
+  });
+  assert.equal(new Set(sources.map(source=>source.id)).size,sources.length,'Duplicate memory imagery identity');
+  return {body,earth_layers,sources};
+}
+
+function pendingMemoryAppearance(state,required,deadlineMs){
+  assert.ok(Number.isFinite(deadlineMs)&&Number.isFinite(state.sampled_ms)&&state.sampled_ms<=deadlineMs,
+    'Memory imagery exceeded the original 75 seconds preparation deadline');
+  assert.ok(required?.sources?.length,'Missing memory imagery requirement');
+  assert.deepEqual(createMemoryAppearanceRequirement(state,required.body),required,'Memory imagery source identity or selectors changed');
+  return required.sources.filter(source=>state.appearance_status?.[source.id]!=='ready')
+    .map(source=>({id:source.id,status:state.appearance_status?.[source.id]??'missing'}));
+}
+
+export async function waitForMemoryAppearance(page,required,deadlineMs,{pause=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={}){
+  for(;;){
+    const state=await page.evaluate(readMemoryFeatureState),pending=pendingMemoryAppearance(state,required,deadlineMs);
+    if(!pending.length)return state;
+    assert.ok(!pending.some(source=>source.status==='unavailable'),`Memory imagery source unavailable: ${JSON.stringify(pending)}`);
+    assert.ok(state.sampled_ms<deadlineMs,`Memory imagery exceeded the original 75 seconds preparation deadline: ${JSON.stringify(pending)}`);
+    await pause(Math.min(100,deadlineMs-state.sampled_ms));
+  }
+}
+
+export function assertMemoryFeatureState(state,body,generation,appearance,deadlineMs){
   for(const key of ['active','animate','textures','terrain','optics','hdr'])assert.equal(state[key],true,`Memory scope requires ${key}`);
   assert.equal(state.anchor,body);assert.equal(state.context_lost,false);assert.equal(state.hidden,false);
   assert.ok(!state.engine_error);assert.equal(state.optics_status?.[body],'ready');
@@ -74,6 +126,9 @@ export function assertMemoryFeatureState(state,body,generation){
   assert.equal(state.scattering_status?.[body]?.state,'submitted');
   assert.equal(state.scattering_frame?.contextGeneration,generation,'Memory scope changed graphics context');
   if(body==='Mars'){assert.equal(state.terrain_status?.Mars,'ready');assert.equal(state.terrain_rendered?.Mars,true);}
+  assert.equal(appearance?.body,body,'Memory imagery requirement belongs to another body');
+  const pending=pendingMemoryAppearance(state,appearance,deadlineMs);
+  assert.equal(pending.length,0,`Memory imagery source not ready: ${JSON.stringify(pending)}`);
   return state;
 }
 
@@ -108,6 +163,8 @@ async function prepareMemoryProof(page,body,{restored=false}={}){
     if(!restored){const anchor=document.getElementById('orreryAnchor');anchor.value=body;anchor.dispatchEvent(new Event('change'));if(body==='Mars')s.radius*=.35;}
     document.getElementById('orrerySize').dispatchEvent(new Event('input'));
   },{body,restored});
+  const appearance=createMemoryAppearanceRequirement(await page.evaluate(readMemoryFeatureState),body);
+  await waitForMemoryAppearance(page,appearance,budget.deadlineMs);
   // Source/status wait is preparation only; actual current GPU proof below is mandatory.
   const remaining=await page.evaluate(deadline=>deadline-performance.now(),budget.deadlineMs);
   assert.ok(remaining>0,'Memory source preparation exceeded 75 seconds');
@@ -124,7 +181,8 @@ async function prepareMemoryProof(page,body,{restored=false}={}){
   assert.ok(readiness.passed,`Memory physical readiness: ${readiness.reason}`);
   const probe=await page.evaluate(collectSubmittedEarthSpin,{body,physicalEvidence:true,requireTerrainEvidence:body==='Mars'});
   assertMemoryDrawProof(probe,body);
-  return {scope:'Separate optional memory preparation, after all original gates; original readiness helper and five-second collector reused unchanged.',preparation,terrain,readiness,probe};
+  return {scope:'Separate optional memory preparation, after all original gates; original readiness helper and five-second collector reused unchanged.',
+    budget,appearance,preparation,terrain,readiness,probe};
 }
 
 async function restoreMemoryContext(page){
@@ -167,8 +225,14 @@ export async function runFullFeatureMemoryCheckpoints({browser,page,body,backend
       if(restored)assert.ok(generation>previousGeneration,'Restoration reused the old graphics generation');
       previousGeneration=generation;
       const capabilities=await page.evaluate(captureBrowserCapabilities);assertBrowserBackend(backend,capabilities);proof.capabilities=capabilities;
-      const snapshot=async()=>assertMemoryFeatureState(await page.evaluate(readMemoryFeatureState),body,generation);
-      await recorder.checkpoint(label,{page,scope:{body,terrain_actual:body==='Mars',earth_terrain_supported:false},proof,before:snapshot,after:snapshot});
+      const snapshot=async()=>assertMemoryFeatureState(await page.evaluate(readMemoryFeatureState),body,generation,proof.appearance,proof.budget.deadlineMs);
+      const before=async()=>{
+        await waitForMemoryAppearance(page,proof.appearance,proof.budget.deadlineMs);
+        return snapshot();
+      };
+      // Post-sample readiness is immediate. Waiting for recovery would substitute
+      // a later workload for the resource set actually bracketed by this sample.
+      await recorder.checkpoint(label,{page,scope:{body,terrain_actual:body==='Mars',earth_terrain_supported:false},proof,before,after:snapshot});
     }
     await recorder.protectedWork('leave-system',async()=>{
       await page.click('[data-mode="sky"]');
