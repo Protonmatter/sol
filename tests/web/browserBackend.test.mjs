@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
+import fs from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {browserBackendFromArgs,browserBackendArgs,assertBrowserBackend,captureBrowserCapabilities} from '../../tools/browser_backend.mjs';
+
+test('physical1280 harness rejects invalid backend before any qualification work',()=>{
+  const tool=new URL('../../tools/atmosphere_validation.mjs',import.meta.url);
+  const result=spawnSync(process.execPath,[fileURLToPath(tool),'--backend=automatic'],{encoding:'utf8'});
+  assert.notEqual(result.status,0);assert.match(result.stderr,/Unsupported browser backend/);
+  const source=fs.readFileSync(tool,'utf8');
+  assert.ok(source.includes('...browserBackendArgs(backend)'));
+  assert.ok(source.indexOf('assertBrowserBackend(backend,evidence.gpu)')<source.indexOf('const actual=await page.evaluate('));
+  assert.ok(source.includes('protocolTimeout:30000'));
+});
 
 test('backend option supports explicit values and rejects missing or ambiguous requests',()=>{
   assert.equal(browserBackendFromArgs([]),'swiftshader');

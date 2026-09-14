@@ -9,10 +9,12 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import puppeteer from 'puppeteer-core';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
+import {browserBackendFromArgs,browserBackendArgs,assertBrowserBackend} from './browser_backend.mjs';
 import {terrainEndpointFixtures,withTerrainGroundCuts,withIntegrationNodeCounter,TERRAIN_CANDIDATE_VERSION,TERRAIN_CANDIDATE_MAX_NODES,SEGMENTED} from './atmosphere_terrain_candidate.mjs';
 import {nearGroundVisibilityFixtures,NEAR_GROUND_VISIBILITY_VERSION} from './atmosphere_visibility_fixtures.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const backend=browserBackendFromArgs(process.argv.slice(2));
 function argument(name,fallback){const flag=process.argv.find(value=>value.startsWith(`--${name}=`));return flag?flag.slice(name.length+3):fallback;}
 const webRoot=path.resolve(argument('web-root',path.join(ROOT,'apps/web')));
 const out=path.resolve(argument('out',path.join(ROOT,'coverage/atmosphere')));
@@ -49,6 +51,7 @@ if(groundCandidate){
 }
 hashes.terrain_candidate=digest(fs.readFileSync(path.join(ROOT,'tools/atmosphere_terrain_candidate.mjs')));
 hashes.visibility_fixtures=digest(fs.readFileSync(path.join(ROOT,'tools/atmosphere_visibility_fixtures.mjs')));
+hashes.browser_backend=digest(fs.readFileSync(path.join(ROOT,'tools/browser_backend.mjs')));
 hashes.evaluated_transfer=digest(ATMOSPHERE_GLSL);
 hashes.evaluated_surface=digest(SPHERE_FS);
 hashes.evaluated_shell=digest(ATMOSPHERE_FS);
@@ -250,6 +253,7 @@ materialCases.push(
   expected:color.map(value=>encode(decode(value)*high[0]))},
 );
 const evidence={schema_version:'atmosphere-validation.v1',scope:'Reference-model numerical GPU comparison; not observed atmospheric qualification or frame-rate qualification',
+ requested_backend:backend,tool_sha256:digest(fs.readFileSync(fileURLToPath(import.meta.url))),
  terrain_endpoint_qualification:includeTerrain,ground_crossing_candidate:groundCandidate?TERRAIN_CANDIDATE_VERSION:null,
  near_ground_visibility_qualification:includeVisibility?NEAR_GROUND_VISIBILITY_VERSION:null,
  ground_crossing_integration:segmentedIntegration,maximum_integration_nodes:maximumIntegrationNodes,
@@ -258,10 +262,19 @@ const evidence={schema_version:'atmosphere-validation.v1',scope:'Reference-model
 fs.mkdirSync(out,{recursive:true});
 let browser;
 try {
- browser=await puppeteer.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-background-networking','--use-angle=swiftshader','--enable-unsafe-swiftshader'],timeout:20000,protocolTimeout:30000});
+ browser=await puppeteer.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-background-networking',...browserBackendArgs(backend)],timeout:20000,protocolTimeout:30000});
  evidence.browser_version=await browser.version();
  const page=await browser.newPage(); await page.setRequestInterception(true);page.on('request',request=>request.abort());
  await page.setContent('<canvas width=1 height=1></canvas>');
+ evidence.gpu=await page.evaluate(()=>{
+  const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false});
+  if(!gl)throw Error('WebGL2 context unavailable');
+  const debug=gl.getExtension('WEBGL_debug_renderer_info');
+  return {renderer:gl.getParameter(debug?debug.UNMASKED_RENDERER_WEBGL:gl.RENDERER),
+    vendor:gl.getParameter(debug?debug.UNMASKED_VENDOR_WEBGL:gl.VENDOR),version:gl.getParameter(gl.VERSION),
+    khr_parallel_shader_compile:!!gl.getExtension('KHR_parallel_shader_compile')};
+ });
+ evidence.observed_backend=assertBrowserBackend(backend,evidence.gpu);
  const actual=await page.evaluate(({cases,cacheCases,sunCases,genericSunSource,materials,refractionCases,fields,columns,shared,probeShared,shellVs,shellFs,sphereVs,sphereFs})=>{
   const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false});
   if(!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('float WebGL2 unavailable');

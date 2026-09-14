@@ -228,11 +228,9 @@ vec3 scatteringReferencePartition(vec3 entry,vec3 ray,AtmosphereColumnRay column
 }
 vec3 scatteringReferenceWeight(vec3 origin,vec3 direction,float maximum){
   if(u_atmosphereEnabled==0)return vec3(0);
-  vec3 ray=normalize(direction);
-  vec2 outer=atmosphereRayInterval(origin,ray,u_atmosphereRadiusKm+u_atmosphereTopKm);
-  float begin=max(0.0,outer.x),end=min(maximum,outer.y);
-  if(end<=begin)return vec3(0);
-  vec3 entry=origin+ray*begin;float distance=end-begin;
+  vec3 entry,ray;float distance;
+  atmosphereObserverSegment(origin,direction,maximum,entry,ray,distance);
+  if(distance<=0.0)return vec3(0);
   AtmosphereColumnRay columnRay=atmosphereColumnRay(entry,ray,distance);
   float mu=clamp(dot(ray,normalize(u_atmosphereSunDirection)),-1.0,1.0),g=u_atmosphereG;
   float phaseR=3.0*(1.0+mu*mu)/(16.0*ATM_PI);
@@ -333,6 +331,16 @@ vec3 scatteringRay(vec2 azimuthComponents,float impact,out float jacobian){
   vec3 d=-sqrt(max(0.0,1.0-s*s))*u_scatteringAxis+s*transverse;
   d.z*=u_atmospherePolarRatio;jacobian=length(d);return d/jacobian;
 }
+// Algebraically the same atlas node, formed entirely at body-scale distances.
+// The actual uploaded camera then determines one shared S/W observer segment.
+vec3 scatteringSurfacePoint(vec2 azimuthComponents,float radius,float mu){
+  float impact=radius*sqrt(max(0.0,1.0-mu*mu));
+  float s=impact/u_scatteringCameraRadius,c=sqrt(max(0.0,1.0-s*s));
+  vec3 transverse=normalize(azimuthComponents.x*u_scatteringU+azimuthComponents.y*u_scatteringV);
+  vec3 closest=impact*(s*u_scatteringAxis+c*transverse);
+  vec3 point=closest+(radius*mu)*(-c*u_scatteringAxis+s*transverse);
+  point.z*=u_atmospherePolarRatio;return point;
+}
 float scatteringAzimuth(vec3 d,bool surface){
   vec2 p=vec2(dot(d,u_scatteringU),dot(d,u_scatteringV));
   if(dot(p,p)<1e-16)return 0.0;
@@ -360,20 +368,19 @@ uniform int u_scatteringPass;
 void main(){
   // Decode packed atlas rows as integers: reciprocal-based float division can
   // put an exact layer boundary in the preceding layer on native GPUs.
-  ivec2 cell=ivec2(gl_FragCoord.xy);vec2 azimuth;float jacobian;vec3 direction;float maximum;
+  ivec2 cell=ivec2(gl_FragCoord.xy);vec2 azimuth;float jacobian;vec3 origin=u_atmosphereCameraKm,direction;float maximum;
   if(u_scatteringPass==0){
     float y=float(cell.y%u_scatteringSurfaceSize.y),z=float(cell.y/u_scatteringSurfaceSize.y);
     float mu=scatteringMu(y),r=u_atmosphereRadiusKm+scatteringHeight(z,mu),impact=r*sqrt(max(0.0,1.0-mu*mu));
     azimuth=scatteringAzimuthComponentsAt(float(cell.x)/float(u_scatteringSurfaceSize.x),true);
-    direction=scatteringRay(azimuth,impact,jacobian);
-    maximum=(sqrt(max(0.0,u_scatteringCameraRadius*u_scatteringCameraRadius-impact*impact))+r*mu)*jacobian;
+    atmosphereSurfaceSegment(u_atmosphereCameraKm,scatteringSurfacePoint(azimuth,r,mu),origin,direction,maximum);
   }else{
     float v=float(cell.y)/float(u_scatteringLimbSize.y-1),impact=u_atmosphereRadiusKm+u_atmosphereTopKm*v*v*(u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y?v:1.0);
     azimuth=scatteringAzimuthComponentsAt(float(cell.x)/float(u_scatteringLimbSize.x),false);
     direction=scatteringRay(azimuth,impact,jacobian);maximum=1e20;
   }
-  AtmosphereResult result=integrateAtmosphere(u_atmosphereCameraKm,direction,maximum);
-  vec3 weight=scatteringReferenceWeight(u_atmosphereCameraKm,direction,maximum);
+  AtmosphereResult result=integrateAtmosphere(origin,direction,maximum);
+  vec3 weight=scatteringReferenceWeight(origin,direction,maximum);
   vec3 residual=vec3(weight.x>0.0?result.scattering.x/weight.x:0.0,
     weight.y>0.0?result.scattering.y/weight.y:0.0,weight.z>0.0?result.scattering.z/weight.z:0.0);
   bool valid=all(greaterThanEqual(weight,vec3(0)))&&!any(isnan(residual))&&!any(isinf(residual))&&all(greaterThanEqual(residual,vec3(0)));
@@ -382,16 +389,15 @@ void main(){
 
 const SAMPLE_GLSL=`
 uniform highp sampler2D u_scatteringSurface,u_scatteringLimb;
-bool atmosphereScatteringIsZero(vec3 direction,float maximum){
+bool atmosphereScatteringIsZero(vec3 origin,vec3 direction,float maximum){
   // Preserve the original integrator's exact vacuum and fully shadowed branches.
   // Interpolation may not introduce light into a ray whose whole bounded segment
   // is analytically absent or occulted by the reference body's own shadow.
-  vec3 ray=normalize(direction);
-  vec2 outer=atmosphereRayInterval(u_atmosphereCameraKm,ray,u_atmosphereRadiusKm+u_atmosphereTopKm);
-  float begin=max(0.0,outer.x),end=min(maximum,outer.y);
-  if(end<=begin)return true;
-  vec2 shadow=atmosphereShadowInterval(u_atmosphereCameraKm+ray*begin,ray);
-  return shadow.y>shadow.x&&shadow.x<=0.0&&shadow.y>=end-begin;
+  vec3 entry,ray;float distance;
+  atmosphereObserverSegment(origin,direction,maximum,entry,ray,distance);
+  if(distance<=0.0)return true;
+  vec2 shadow=atmosphereShadowInterval(entry,ray);
+  return shadow.y>shadow.x&&shadow.x<=0.0&&shadow.y>=distance;
 }
 vec4 scatteringSurfaceTexel(ivec3 p){
   p.x=((p.x%u_scatteringSurfaceSize.x)+u_scatteringSurfaceSize.x)%u_scatteringSurfaceSize.x;
@@ -451,10 +457,10 @@ vec4 scatteringResidual(vec3 p){
   if(lo.z>=u_scatteringSurfaceSize.z-2)planes[3]=2.0*planes[2]-planes[1];
   return vec4(exp(scatteringCubic(planes[0],planes[1],planes[2],planes[3],f.z)),1);
 }
-vec4 atmosphereSurfaceScattering(vec3 surfaceBodyKm,float physicalHeightKm){
+vec4 atmosphereSurfaceScatteringSegment(vec3 surfaceBodyKm,float physicalHeightKm,vec3 entry,vec3 ray,float distance){
   if(u_scatteringReady!=1)return vec4(0);
   vec3 delta=surfaceBodyKm-u_atmosphereCameraKm;
-  if(atmosphereScatteringIsZero(delta,length(delta)))return vec4(0,0,0,1);
+  if(atmosphereScatteringIsZero(entry,ray,distance))return vec4(0,0,0,1);
   vec3 p=atmosphereUnflatten(surfaceBodyKm),d=normalize(atmosphereUnflatten(surfaceBodyKm-u_atmosphereCameraKm));
   float r=length(p),height=physicalHeightKm,mu=dot(p,d)/r;
   // Three binary32 ULPs at the reference radius cover coordinate roundoff only;
@@ -477,7 +483,12 @@ vec4 atmosphereSurfaceScattering(vec3 surfaceBodyKm,float physicalHeightKm){
   }
   vec2 xy=vec2(scatteringAzimuth(d,true)*float(u_scatteringSurfaceSize.x),y);
   vec4 residual=scatteringResidual(vec3(xy,z));
-  return vec4(residual.rgb*scatteringReferenceWeight(u_atmosphereCameraKm,delta,length(delta)),residual.a);
+  return vec4(residual.rgb*scatteringReferenceWeight(entry,ray,distance),residual.a);
+}
+vec4 atmosphereSurfaceScattering(vec3 surfaceBodyKm,float physicalHeightKm){
+  vec3 entry,ray;float distance;
+  atmosphereSurfaceSegment(u_atmosphereCameraKm,surfaceBodyKm,entry,ray,distance);
+  return atmosphereSurfaceScatteringSegment(surfaceBodyKm,physicalHeightKm,entry,ray,distance);
 }
 vec4 atmosphereSurfaceScattering(vec3 surfaceBodyKm){
   return atmosphereSurfaceScattering(surfaceBodyKm,length(atmosphereUnflatten(surfaceBodyKm))-u_atmosphereRadiusKm);
@@ -505,7 +516,7 @@ vec4 scatteringLimbResidual(vec2 p){
 }
 vec4 atmosphereLimbScattering(vec3 direction){
   if(u_scatteringReady!=1)return vec4(0);
-  if(atmosphereScatteringIsZero(direction,1e20))return vec4(0,0,0,1);
+  if(atmosphereScatteringIsZero(u_atmosphereCameraKm,direction,1e20))return vec4(0,0,0,1);
   // Use exactly the actual ray metric used by atmosphereRayInterval. The
   // separately rounded basis/radius product is not the physical camera vector.
   vec3 physicalRay=normalize(direction),d=atmosphereUnflatten(physicalRay),c=atmosphereUnflatten(u_atmosphereCameraKm);
@@ -519,19 +530,21 @@ vec4 atmosphereLimbScattering(vec3 direction){
   return vec4(residual.rgb*scatteringReferenceWeight(u_atmosphereCameraKm,direction,1e20),residual.a);
 }
 vec3 atmosphereViewTransmission(vec3 origin,vec3 direction,float maxDistance){
-  vec3 ray=normalize(direction);vec2 outer=atmosphereRayInterval(origin,ray,u_atmosphereRadiusKm+u_atmosphereTopKm);
-  float begin=max(0.0,outer.x),end=min(maxDistance,outer.y);
-  return end<=begin?vec3(1):exp(-atmosphereOpticalDepth(origin+ray*begin,ray,end-begin));
+  vec3 entry,ray;float distance;
+  atmosphereObserverSegment(origin,direction,maxDistance,entry,ray,distance);
+  return distance<=0.0?vec3(1):exp(-atmosphereOpticalDepth(entry,ray,distance));
 }
 vec3 atmosphereSurfaceColor(vec3 linearSurfaceColor,vec3 surfaceBodyKm,float physicalHeightKm){
   // The raster material already knows its interpolated radial scale and physical
   // datum. Use that height instead of recovering it through normalized direction,
   // oblate scaling/unflattening and a large-radius length subtraction.
-  vec3 delta=surfaceBodyKm-u_atmosphereCameraKm;vec4 s=atmosphereSurfaceScattering(surfaceBodyKm,physicalHeightKm);
+  vec3 entry,ray;float distance;
+  atmosphereSurfaceSegment(u_atmosphereCameraKm,surfaceBodyKm,entry,ray,distance);
+  vec4 s=atmosphereSurfaceScatteringSegment(surfaceBodyKm,physicalHeightKm,entry,ray,distance);
   // Defensive shader failure preserves an opaque pre-transfer material. It is
   // not qualified optical transport; full-domain validity is an admission gate.
   if(s.a<0.999999)return linearSurfaceColor;
-  return linearSurfaceColor*atmosphereViewTransmission(u_atmosphereCameraKm,delta,length(delta))+s.rgb;
+  return linearSurfaceColor*atmosphereViewTransmission(entry,ray,distance)+s.rgb;
 }
 vec3 atmosphereSurfaceColor(vec3 linearSurfaceColor,vec3 surfaceBodyKm){
   return atmosphereSurfaceColor(linearSurfaceColor,surfaceBodyKm,length(atmosphereUnflatten(surfaceBodyKm))-u_atmosphereRadiusKm);
