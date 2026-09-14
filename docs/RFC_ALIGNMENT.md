@@ -1,6 +1,6 @@
 # RFC alignment matrix
 
-Updated: 2026-09-13
+Updated: 2026-09-14
 
 The original web and solar-system design documents remain useful implementation history.
 Where they conflict with the current system, `SPEC.md`, accepted ADRs and repository RFCs,
@@ -22,6 +22,13 @@ and the traced requirements are authoritative.
 | Validation documented as language-specific commands | One traced governance → unit → contract → integration → browser/visual → determinism → release plan | RFC 0001, `docs/VALIDATION_PLAN.md` |
 
 ## Acceptance-status interpretation
+
+[RFC 0006](rfcs/0006-rendering-qualification-and-color.md) is Draft. It records the
+requested sequence for atmospheric qualification, per-material color contracts,
+measured texture processing and separate advanced-rendering slices. The associated
+reference extensions, tests and profiling tools do not enable new renderer effects
+or qualify the unresolved bounded-scattering implementation. The existing accepted
+RFCs and unchanged scientific/performance gates continue to govern runtime behavior.
 
 RFC 0005 is Accepted for source-backed terrain and hybrid light rendering. Local
 implementation admits two numerical terrain products, reference atmospheric transfer,

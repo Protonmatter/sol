@@ -78,8 +78,22 @@ def trace_single_scattering(origin: Sequence[float], direction: Sequence[float],
                             aerosol_ssa: Sequence[float], g: float, polar_ratio: float = 1,
                             view_steps: int = 256, solar_steps: int = 256,
                             solar_distance_au: float = 1, exposure: float = 1,
-                            max_distance_km: float | None = None) -> dict:
-    """Reference single scattering with planet self-shadowing, ground clipping and view/solar extinction."""
+                            max_distance_km: float | None = None,
+                            terrain_endpoint: bool = False) -> dict:
+    """Reference single scattering with explicit ground/terrain semantics.
+
+    Default behavior still clips the view at the reference ellipsoid. The opt-in
+    terrain endpoint preserves a supplied finite physical distance, including
+    signed relief below that datum. Density there follows the renderer's existing
+    constant-below-datum convention; it is not measured underground atmosphere.
+    Midpoint quadrature remains independent of the GPU Gaussian integration.
+    """
+    if not isinstance(terrain_endpoint, bool):
+        raise ValueError("terrain_endpoint must be a boolean")
+    if terrain_endpoint:
+        if max_distance_km is None or isinstance(max_distance_km, bool):
+            raise ValueError("terrain_endpoint requires an explicit surface distance")
+        _positive(max_distance_km, "surface endpoint distance", True)
     o, d, sun = _vec(origin), _unit(direction), _unit(sun_direction)
     br, be, ssa = _vec(beta_rayleigh), _vec(beta_extinction), _vec(aerosol_ssa)
     for v in (*br, *be):
@@ -101,7 +115,9 @@ def trace_single_scattering(origin: Sequence[float], direction: Sequence[float],
         _positive(max_distance_km, "surface endpoint distance", True)
         end = min(end, max_distance_km)
     ground = ray_sphere_interval(o, d, radius_km, polar_ratio)
-    if ground is not None and start - 1e-6 <= ground[0] <= end:
+    if terrain_endpoint:
+        result["ground_hit"] = ground is not None and ground[1] >= start and ground[0] <= end
+    elif ground is not None and start - 1e-6 <= ground[0] <= end:
         end, result["ground_hit"] = min(end, max(start, ground[0])), True
     if end <= start:
         return result
@@ -122,7 +138,17 @@ def trace_single_scattering(origin: Sequence[float], direction: Sequence[float],
         distance = (i + .5) * step
         p = _point(o, d, distance)
         blocked = ray_sphere_interval(p, sun, radius_km, polar_ratio)
-        if blocked is not None and blocked[0] > 1e-6:
+        if terrain_endpoint:
+            # Retain the defined renderer boundary convention in physical km.
+            # A terrain endpoint may be inside the reference ellipsoid, so an
+            # outward sunward ray must not be clipped at its negative entry root.
+            if blocked is not None and blocked[1] > .001 and blocked[0] > .001:
+                continue
+            metric_height = math.sqrt(p[0]**2 + p[1]**2 + (p[2]/polar_ratio)**2) - radius_km
+            light_dot = p[0]*sun[0] + p[1]*sun[1] + p[2]*sun[2]/polar_ratio**2
+            if metric_height < .002 and light_dot < 0:
+                continue
+        elif blocked is not None and blocked[0] > 1e-6:
             continue
         sunlight = ray_sphere_interval(p, sun, radius_km + top_km, polar_ratio)
         if sunlight is None:

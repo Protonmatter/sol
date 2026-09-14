@@ -9,11 +9,15 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import puppeteer from 'puppeteer-core';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
+import {terrainEndpointFixtures,withTerrainGroundCuts,withIntegrationNodeCounter,TERRAIN_CANDIDATE_VERSION,TERRAIN_CANDIDATE_MAX_NODES} from './atmosphere_terrain_candidate.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function argument(name,fallback){const flag=process.argv.find(value=>value.startsWith(`--${name}=`));return flag?flag.slice(name.length+3):fallback;}
 const webRoot=path.resolve(argument('web-root',path.join(ROOT,'apps/web')));
 const out=path.resolve(argument('out',path.join(ROOT,'coverage/atmosphere')));
+const includeTerrain=process.argv.includes('--terrain-endpoints');
+const groundCandidate=process.argv.includes('--ground-crossing-candidate');
+assert.ok(!groundCandidate||includeTerrain,'Ground candidate requires --terrain-endpoints qualification');
 const chrome=argument('browser',process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':'/usr/bin/google-chrome'));
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const releaseFile=path.join(webRoot,'web-release-manifest.json');
@@ -31,10 +35,19 @@ async function moduleFile(relative){
  return import(pathToFileURL(file).href);
 }
 const {ATMOSPHERE_VS,ATMOSPHERE_GLSL:REFERENCE_ATMOSPHERE_GLSL}=await moduleFile('js/atmosphereShaders.js');
-const {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS}=await moduleFile('js/atmosphereColumnField.js');
+let {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS}=await moduleFile('js/atmosphereColumnField.js');
 const {ATMOSPHERE_COLUMN_FIELDS}=await moduleFile('js/atmosphereColumnManifest.js');
 const {getAtmosphereProfile,atmosphereUniformValues}=await moduleFile('js/atmosphereOptics.js');
-const {SPHERE_VS,SPHERE_FS}=await moduleFile('js/orreryShaders.js');
+let {SPHERE_VS,SPHERE_FS}=await moduleFile('js/orreryShaders.js');
+if(groundCandidate){
+ ATMOSPHERE_GLSL=withTerrainGroundCuts(ATMOSPHERE_GLSL);
+ ATMOSPHERE_FS=withTerrainGroundCuts(ATMOSPHERE_FS);
+ SPHERE_FS=withTerrainGroundCuts(SPHERE_FS);
+}
+hashes.terrain_candidate=digest(fs.readFileSync(path.join(ROOT,'tools/atmosphere_terrain_candidate.mjs')));
+hashes.evaluated_transfer=digest(ATMOSPHERE_GLSL);
+hashes.evaluated_surface=digest(SPHERE_FS);
+hashes.evaluated_shell=digest(ATMOSPHERE_FS);
 const sunStart=REFERENCE_ATMOSPHERE_GLSL.indexOf('vec3 atmosphereSunTransmission('),sunEnd=REFERENCE_ATMOSPHERE_GLSL.indexOf('// Intersection with the planet');
 assert.ok(sunStart>=0&&sunEnd>sunStart,'Original Sun reference boundary changed');
 const genericSunSource=REFERENCE_ATMOSPHERE_GLSL.slice(sunStart,sunEnd).replace('vec3 atmosphereSunTransmission(','vec3 atmosphereGenericSunTransmission(');
@@ -86,13 +99,14 @@ fixture('Mars limb','Mars',[3406.19,0,5000],[0,0,-1],[1,0,0]);
 fixture('Earth elevated surface','Earth',[0,0,8000],[0,0,-1],[0,0,1],1,1,false,10);
 const obliqueDirection=[-8000,0,6378.137-8000];
 fixture('Earth oblique surface','Earth',[8000,0,8000],obliqueDirection.map(v=>v/Math.hypot(...obliqueDirection)),[0,0,1]);
+if(includeTerrain)cases.push(...terrainEndpointFixtures(getAtmosphereProfile,atmosphereUniformValues));
 const script=`import json,sys
 sys.path.insert(0,'tools')
 from atmosphere_reference import trace_single_scattering
 result=[]
 for c in json.loads(sys.stdin.read()):
  p=c['profile']
- result.append(trace_single_scattering(c['origin'],c['direction'],c['sun'],radius_km=p['radiusKm'],top_km=p['topKm'],rayleigh_h_km=p['rayleighScaleHeightKm'],aerosol_h_km=p['aerosolScaleHeightKm'],beta_rayleigh=p['betaRayleighKm'],beta_extinction=p['betaAerosolExtinctionKm'],aerosol_ssa=p['aerosolSingleScatteringAlbedo'],g=p['aerosolG'],polar_ratio=c['q'],solar_distance_au=c['au'],view_steps=512,solar_steps=512,max_distance_km=c['maximum']))
+ result.append(trace_single_scattering(c['origin'],c['direction'],c['sun'],radius_km=p['radiusKm'],top_km=p['topKm'],rayleigh_h_km=p['rayleighScaleHeightKm'],aerosol_h_km=p['aerosolScaleHeightKm'],beta_rayleigh=p['betaRayleighKm'],beta_extinction=p['betaAerosolExtinctionKm'],aerosol_ssa=p['aerosolSingleScatteringAlbedo'],g=p['aerosolG'],polar_ratio=c['q'],solar_distance_au=c['au'],view_steps=c.get('viewSteps',512),solar_steps=c.get('solarSteps',512),max_distance_km=c['maximum'],terrain_endpoint=c.get('terrainEndpoint',False)))
 print(json.dumps(result))`;
 const expected=JSON.parse(execFileSync(argument('python','python'),['-c',script],{cwd:ROOT,input:JSON.stringify(cases),encoding:'utf8',timeout:90000,windowsHide:true}));
 // Independent fixed-step float64 shooting reference; actual production vertex
@@ -229,6 +243,8 @@ materialCases.push(
   expected:color.map(value=>encode(decode(value)*high[0]))},
 );
 const evidence={schema_version:'atmosphere-validation.v1',scope:'Reference-model numerical GPU comparison; not observed atmospheric qualification or frame-rate qualification',
+ terrain_endpoint_qualification:includeTerrain,ground_crossing_candidate:groundCandidate?TERRAIN_CANDIDATE_VERSION:null,
+ candidate_max_nodes:groundCandidate?TERRAIN_CANDIDATE_MAX_NODES:null,production_shader_changed:false,
  web_root:webRoot,release_namespace:release?.namespace??null,source_sha256:hashes,started_at:new Date().toISOString(),checks:[],status:'failed'};
 fs.mkdirSync(out,{recursive:true});
 let browser;
@@ -237,14 +253,14 @@ try {
  evidence.browser_version=await browser.version();
  const page=await browser.newPage(); await page.setRequestInterception(true);page.on('request',request=>request.abort());
  await page.setContent('<canvas width=1 height=1></canvas>');
- const actual=await page.evaluate(({cases,cacheCases,sunCases,genericSunSource,materials,refractionCases,fields,columns,shared,shellVs,shellFs,sphereVs,sphereFs})=>{
+ const actual=await page.evaluate(({cases,cacheCases,sunCases,genericSunSource,materials,refractionCases,fields,columns,shared,probeShared,shellVs,shellFs,sphereVs,sphereFs})=>{
   const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false});
   if(!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('float WebGL2 unavailable');
   const shader=(kind,source)=>{const s=gl.createShader(kind);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
   const program=(vs,fs,varyings)=>{const p=gl.createProgram();gl.attachShader(p,shader(gl.VERTEX_SHADER,vs));gl.attachShader(p,shader(gl.FRAGMENT_SHADER,fs));if(varyings)gl.transformFeedbackVaryings(p,varyings,gl.INTERLEAVED_ATTRIBS);gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));return p;};
   program(shellVs,shellFs);
   program(sphereVs,sphereFs);
-  const p=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}', '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform float u_probeMax;uniform int u_probeKind;'+shared+'\nvoid main(){AtmosphereResult r=integrateAtmosphere(u_probeOrigin,u_probeDir,u_probeMax);o=vec4(u_probeKind==0?r.transmittance:r.scattering,1.0);}');
+  const p=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}', '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform float u_probeMax;uniform int u_probeKind;'+probeShared+'\nvoid main(){AtmosphereResult r=integrateAtmosphere(u_probeOrigin,u_probeDir,u_probeMax);o=vec4(u_probeKind==2?vec3(qualificationNodes):u_probeKind==0?r.transmittance:r.scattering,1.0);}');
   const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,1,1);
   const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
   if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('incomplete float target');
@@ -259,7 +275,7 @@ try {
   gl.useProgram(p);
   const upload=(name,value)=>{const u=gl.getUniformLocation(p,name);if(Array.isArray(value)) {if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);} else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
   const transfer=cases.map(c=>{bindColumns(p,c.profile.body);for(const [key,value]of Object.entries(c.uniforms))upload(key,value);upload('u_probeOrigin',c.origin);upload('u_probeDir',c.direction);upload('u_probeMax',c.maximum);
-   const result={};for(const [kind,key]of [[0,'transmittance'],[1,'scattering']]){upload('u_probeKind',kind);gl.drawArrays(gl.TRIANGLES,0,3);const raw=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,raw);result[key]=Array.from(raw).slice(0,3);}if(gl.getError()!==gl.NO_ERROR)throw Error('GL readback error');return result;});
+   const result={};for(const [kind,key]of [[0,'transmittance'],[1,'scattering'],[2,'nodes']]){upload('u_probeKind',kind);gl.drawArrays(gl.TRIANGLES,0,3);const raw=new Float32Array(4);gl.readPixels(0,0,1,1,gl.RGBA,gl.FLOAT,raw);result[key]=Array.from(raw).slice(0,3);}if(gl.getError()!==gl.NO_ERROR)throw Error('GL readback error');return result;});
   const cacheProgram=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}',
     '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform float u_probeMax,u_probeDistance;uniform int u_probeKind;'+shared+
     '\nvoid main(){AtmosphereColumnRay ray=atmosphereColumnRay(u_probeOrigin,u_probeDir,u_probeMax);vec3 tau=(u_probeKind==0||u_probeKind==2)?atmosphereOpticalDepth(u_probeOrigin,u_probeDir,u_probeDistance):atmosphereCachedOpticalDepth(ray,u_probeDistance);o=vec4(u_probeKind<2?tau:exp(-tau),1.0);}');
@@ -342,7 +358,7 @@ try {
     if(gl.getError()!==gl.NO_ERROR)throw Error('combined material GL readback error');return Array.from(raw).slice(0,3);
   });
   return {transfer,cacheDepth,sunDepth,materials:materialResults,refraction:refractiveResults};
- },{cases,cacheCases,sunCases,genericSunSource,materials:materialCases,refractionCases,fields,columns,shared:ATMOSPHERE_GLSL,shellVs:ATMOSPHERE_VS,shellFs:ATMOSPHERE_FS,sphereVs:SPHERE_VS,sphereFs:SPHERE_FS});
+ },{cases,cacheCases,sunCases,genericSunSource,materials:materialCases,refractionCases,fields,columns,shared:ATMOSPHERE_GLSL,probeShared:withIntegrationNodeCounter(ATMOSPHERE_GLSL),shellVs:ATMOSPHERE_VS,shellFs:ATMOSPHERE_FS,sphereVs:SPHERE_VS,sphereFs:SPHERE_FS});
  evidence.checks=cases.flatMap((c,i)=>['transmittance','scattering'].map(key=>{
   const reference=expected[i][key], measured=actual.transfer[i][key];
   const tolerances=reference.map(value=>value===0?ZERO_TOLERANCE:ABSOLUTE_TOLERANCE+RELATIVE_TOLERANCE*Math.abs(value));
@@ -350,6 +366,10 @@ try {
    absolute_errors:measured.map((value,j)=>Math.abs(value-reference[j])),
    passed:measured.every((value,j)=>Number.isFinite(value)&&Math.abs(value-reference[j])<=tolerances[j])};
  }));
+ if(includeTerrain)evidence.checks.push(...cases.map((c,i)=>({name:`${c.name} integration work bound`,
+  actual:actual.transfer[i].nodes[0],maximum:groundCandidate?TERRAIN_CANDIDATE_MAX_NODES:36,
+  passed:Number.isInteger(actual.transfer[i].nodes[0])&&actual.transfer[i].nodes[0]>=0
+    &&actual.transfer[i].nodes[0]<=(groundCandidate?TERRAIN_CANDIDATE_MAX_NODES:36)})));
  evidence.checks.push(...materialCases.map((c,i)=>({name:c.name,expected:c.expected,actual:actual.materials[i],tolerances:[.0003,.0003,.0003],
   passed:actual.materials[i].every((value,j)=>Number.isFinite(value)&&Math.abs(value-c.expected[j])<=.0003)})));
  evidence.checks.push(...cacheCases.flatMap((c,i)=>['depth','transmittance'].map(kind=>{
