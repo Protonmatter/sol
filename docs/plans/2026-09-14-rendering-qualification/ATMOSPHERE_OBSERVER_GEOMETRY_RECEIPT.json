@@ -726,5 +726,54 @@
     "focused_node_tests": 44,
     "independent_review_analytic_cases": 22,
     "source_route_review": "No missing S/W/T endpoint route or final-integrator inclusion found; legacy limb mapping precision remains separately held for full qualification."
+  },
+  "optical_field_reproduction": {
+    "schema_version": "optical-field-reproduction.v1",
+    "source_commit": "a71a715e9d80a789890a152599a7309ea7fe0113",
+    "solver_source_sha256": "f2c85a8477d6c647a9caace9ac6316170e6e97a0d9a354439eaf37b073e9b127",
+    "commands": [
+      "node tools/prepare_atmosphere_columns.mjs",
+      "node tools/prepare_atmosphere_incident.mjs"
+    ],
+    "incident_backend": "explicit SwiftShader offline generation; actual browser version recorded by manifest",
+    "payloads": [
+      {
+        "path": "apps/web/data/optics/earth-columns-v1.f32",
+        "bytes": 2097152,
+        "before_sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "after_sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "identical": true
+      },
+      {
+        "path": "apps/web/data/optics/earth-incident-v1.f32",
+        "bytes": 1201200,
+        "before_sha256": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639",
+        "after_sha256": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639",
+        "identical": true
+      },
+      {
+        "path": "apps/web/data/optics/mars-columns-v1.f32",
+        "bytes": 2097152,
+        "before_sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+        "after_sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+        "identical": true
+      },
+      {
+        "path": "apps/web/data/optics/mars-incident-v1.f32",
+        "bytes": 1201200,
+        "before_sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+        "after_sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+        "identical": true
+      }
+    ],
+    "manifests": {
+      "apps/web/js/atmosphereColumnManifest.js": "a95b686d5c9bb15a6c8a99769141d46e2eb420d7a40fbe2f774499f22578bafc",
+      "apps/web/js/atmosphereIncidentManifest.js": "91e9f8bbbea8578a915cc383409b512a8ea8660e7ef8211fe57d469544c670d9"
+    },
+    "logs": {
+      "columns.log": "ed63f90eba654670a90064d0b041617b19689d4cd20d36187aa2d7f4e2c059e9",
+      "incident.log": "75cadf944955cf26ab2e587c55f76c3229327511f4e48b7cfb6028ef17510537"
+    },
+    "scope": "All four payloads reproduced byte-identically; source metadata refreshed. This does not establish direct solver, atlas, native compiler or application admission."
   }
 }
