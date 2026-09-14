@@ -4,6 +4,25 @@ import assert from 'node:assert/strict';
 
 export const NEAR_GROUND_VISIBILITY_VERSION='near-ground-forward-intersection.v1';
 
+/** Preserve the public point-Sun reference while giving the probe a distinct name. */
+export function genericSunReference(source){
+  assert.equal(typeof source,'string','Original Sun reference source changed');
+  // Mask comments without shifting offsets; a neighboring helper's position is
+  // not the public function's boundary. Preserve every selected source byte.
+  const code=source.replace(/\/\/[^\r\n]*|\/\*[\s\S]*?\*\//g,comment=>comment.replace(/[^\r\n]/g,' '));
+  const prefix='vec3 atmosphereSunTransmission(',declaration=prefix+'vec3 point)';
+  const start=code.indexOf(declaration),brace=code.indexOf('{',start);
+  assert.ok(start>=0&&code.split(prefix).length===2&&brace>start
+    &&code.slice(start+declaration.length,brace).trim()==='','Original Sun reference declaration changed');
+  let end=brace+1,depth=1;
+  for(;end<code.length&&depth>0;end++){
+    if(code[end]==='{')depth++;
+    else if(code[end]==='}')depth--;
+  }
+  assert.equal(depth,0,'Original Sun reference body incomplete');
+  return source.slice(start,end).replace(prefix,'vec3 atmosphereGenericSunTransmission(')+'\n';
+}
+
 /** Compare float64 truth for once-uploaded binary32 inputs with the real shader. */
 export function nearGroundVisibilityFixtures(getProfile,uniformValues){
   const f32=value=>Array.isArray(value)?value.map(f32):typeof value==='number'?Math.fround(value):value;

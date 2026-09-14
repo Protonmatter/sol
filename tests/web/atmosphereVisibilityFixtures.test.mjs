@@ -1,8 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {nearGroundVisibilityFixtures} from '../../tools/atmosphere_visibility_fixtures.mjs';
+import {createHash} from 'node:crypto';
+import {nearGroundVisibilityFixtures,genericSunReference} from '../../tools/atmosphere_visibility_fixtures.mjs';
+import {ATMOSPHERE_GLSL} from '../../apps/web/js/atmosphereShaders.js';
 import {getAtmosphereProfile,atmosphereUniformValues} from '../../apps/web/js/atmosphereOptics.js';
 import {terrainEndpointFixtures} from '../../tools/atmosphere_terrain_candidate.mjs';
+
+test('public Sun reference survives a shadow helper placed before it',()=>{
+  // Public probe bytes pinned from the original extractor at 47a761f. Moving
+  // another helper must not modify the independently qualified reference.
+  const expected='25576dc57e999ae85a7f19de25b8164181292ecf0d518f6c7823f45cab6236e2';
+  for(const source of [ATMOSPHERE_GLSL,'// Intersection with the planet\n'+ATMOSPHERE_GLSL])
+    assert.equal(createHash('sha256').update(genericSunReference(source)).digest('hex'),expected);
+});
+
+test('public Sun extraction preserves nested code and comments but excludes its private neighbor',()=>{
+  const body='vec3 atmosphereSunTransmission(vec3 point){\n// } stays a comment\nif(point.x>0.0){return vec3(1);}\n/* { ignored */ return vec3(0);\n}';
+  const suffix='\n// Private source kernel\nvec3 atmosphereLitSunTransmission(vec3 point){return vec3(1);}';
+  assert.equal(genericSunReference(body+suffix),body.replace('vec3 atmosphereSunTransmission(','vec3 atmosphereGenericSunTransmission(')+'\n');
+});
+
+test('public Sun extraction rejects missing, ambiguous and incomplete definitions',()=>{
+  const body='vec3 atmosphereSunTransmission(vec3 point){return vec3(1);}';
+  for(const source of ['',body+'\n'+body,body.slice(0,-1),'vec3 atmosphereSunTransmission(vec3 point);'])
+    assert.throws(()=>genericSunReference(source),/Original Sun reference/);
+});
 
 test('new visibility fixtures retain the existing corpus and exact uploaded inputs',()=>{
   const before=JSON.stringify(['Earth','Mars'].map(getAtmosphereProfile));
