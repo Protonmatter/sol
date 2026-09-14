@@ -148,3 +148,16 @@ test('a new qualification attempt refuses to overwrite an earlier evidence recei
   await assert.rejects(runTextureQualification({webRoot:s.root,out,inventoryOnly:true}),/exist|receipt|output/i);
   assert.deepEqual(fs.readFileSync(file),before);
 });
+
+test('diagnostic startup continuation cannot turn a failed original deadline into success', async () => {
+  const {observeTextureStartup}=await subject(),calls=[],checkpoints=[];
+  const result=await observeTextureStartup(async timeout=>{
+    calls.push(timeout);if(calls.length===1)throw Object.assign(new Error('startup timeout'),{name:'TimeoutError'});
+  },gate=>checkpoints.push(gate));
+  assert.deepEqual(calls,[30000,15000]);assert.equal(result.status,'failed');
+  assert.equal(result.timeout_ms,30000);assert.equal(checkpoints[0].status,'failed');
+  const success=await observeTextureStartup(async timeout=>assert.equal(timeout,30000));
+  assert.equal(success.status,'passed');
+  await assert.rejects(observeTextureStartup(async()=>{throw new Error('page detached');}),/detached/);
+  await assert.rejects(observeTextureStartup(async()=>{throw Object.assign(new Error('still blocked'),{name:'TimeoutError'});}),/still blocked/);
+});

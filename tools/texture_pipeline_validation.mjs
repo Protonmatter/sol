@@ -10,6 +10,7 @@ import puppeteer from 'puppeteer-core';
 import {PNG} from 'pngjs';
 import {createStagedPreviewServer} from './staged_preview_server.mjs';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
+import {captureDeviceMemory, classifyTextureBackend} from './texture_device_telemetry.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -134,8 +135,26 @@ export function summarizeTextureSamples(samples) {
     const valid = group.filter(s => !s.error && s.completion?.status === 'signaled');
     return {id:group[0].id,phase:group[0].phase,successful_samples:valid.length,failed_samples:group.length-valid.length,
       decode_api_ms:stats(valid.map(s => s.decode_api_ms)),upload_api_ms:stats(valid.map(s => s.upload_api_ms)),
-      mipmap_api_ms:stats(valid.map(s => s.mipmap_api_ms)),completion_wait_wall_ms:stats(valid.map(s => s.completion.wait_wall_ms))};
+      mipmap_api_ms:stats(valid.map(s => s.mipmap_api_ms)),completion_wait_wall_ms:stats(valid.map(s => s.completion.wait_wall_ms)),
+      first_readback_completion_wall_ms:stats(valid.map(s=>s.first_sample?.readback_completion_wall_ms).filter(v=>Number.isFinite(v)&&v>=0)),
+      driver_make_texture_ms:stats(valid.filter(s=>s.gpu_elapsed?.status==='available').map(s=>s.gpu_elapsed.nanoseconds/1e6).filter(v=>Number.isFinite(v)&&v>=0)),
+      observed_http_cache_samples:valid.filter(s=>s.resource_timing?.transfer_size===0&&s.resource_timing?.encoded_body_size>0).length};
   });
+}
+
+export async function observeTextureStartup(waitForReady, checkpoint=()=>{}) {
+  const started=Date.now();
+  try {
+    await waitForReady(30000);
+    return {status:'passed',timeout_ms:30000,observed_wall_ms:Date.now()-started};
+  }catch(error){
+    if(error.name!=='TimeoutError')throw error;
+    const gate={status:'failed',timeout_ms:30000,observed_wall_ms:Date.now()-started,error:error.message,
+      continuation:'Separate 15-second diagnostic continuation; startup gate remains failed'};
+    checkpoint(gate);
+    await waitForReady(15000);
+    return gate;
+  }
 }
 
 // Self-contained because Puppeteer serializes this function into a local page.
@@ -201,7 +220,8 @@ async function initializeReplay(upload) {
   window.textureReplay=async ({asset,url,phase,iteration=0,uv,lod=0,recover=false,deviceLimit=null})=>{
     const result={id:asset.id,phase,iteration,error:null,decode_api_ms:0,upload_api_ms:0,mipmap_api_ms:0,
       resize_api_ms:0,resize_calls:[],get_error_api_ms:0,source_dimensions:null,uploaded_dimensions:null,
-      simulated_max_texture_size:deviceLimit,completion:null,gpu_elapsed:null};
+      simulated_max_texture_size:deviceLimit,completion:null,gpu_elapsed:null,
+      started_epoch_ms:performance.timeOrigin+performance.now()};
     let objectUrl,image,texture,query;
     try {
       const fetchStart=performance.now();
@@ -264,15 +284,24 @@ async function initializeReplay(upload) {
         encoded_body_size:entry.encodedBodySize,decoded_body_size:entry.decodedBodySize}))[0]??null;
     }catch(error){result.error=error.message;}
     finally{if(query)gl.deleteQuery(query);if(texture)gl.deleteTexture(texture);if(image)image.src='';if(objectUrl)URL.revokeObjectURL(objectUrl);}
+    result.completed_epoch_ms=performance.timeOrigin+performance.now();
     return result;
   };
   return capabilities;
 }
 
 function observeApplicationTextures() {
-  const ledger={textures:[],images:[],resizes:[],observed_gl_errors:[],peak_live_mapped_handles:0};
+  const ledger={textures:[],images:[],resizes:[],shader_calls:[],observed_gl_errors:[],peak_live_mapped_handles:0};
   const ids=new WeakMap(),imageIds=new WeakMap(),canvasSource=new WeakMap();
   const raw=WebGL2RenderingContext.prototype;
+  for(const name of ['compileShader','getShaderParameter','linkProgram','getProgramParameter']){
+    const method=raw[name];raw[name]=function(...args){
+      const started=performance.now();try{return method.apply(this,args);}finally{
+        ledger.shader_calls.push({method:name,parameter:typeof args[1]==='number'?args[1]:null,
+          started_epoch_ms:performance.timeOrigin+started,wall_ms:performance.now()-started});
+      }
+    };
+  }
   const sourceOf=source=>source instanceof HTMLImageElement?source.currentSrc||source.src:canvasSource.get(source)||null;
   const src=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,'src');
   Object.defineProperty(HTMLImageElement.prototype,'src',{...src,set(value){
@@ -318,8 +347,9 @@ function observeApplicationTextures() {
   window.__textureLedger=ledger;
 }
 
-async function applicationLifecycle(browser, origin, stage, checkpoint) {
+async function applicationLifecycle(browser, origin, stage, checkpoint, memoryCheckpoint) {
   const page=await browser.newPage(),snapshots=[],errors=[];
+  let startupGate={status:'not-observed',timeout_ms:30000};
   let phase='navigation';
   try {
     // Match browser_validation.mjs: page-scoped Fetch interception can strand
@@ -329,14 +359,17 @@ async function applicationLifecycle(browser, origin, stage, checkpoint) {
     await page.evaluateOnNewDocument(observeApplicationTextures);
     page.on('pageerror',error=>errors.push(error.message));
     await page.goto(origin+stage.manifest.base_path,{waitUntil:'networkidle0',timeout:45000});
-    phase='enter-system';
-    await page.click('[data-mode="orrery"]');
-    await page.waitForFunction(async()=>{
-      const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
-      const {store}=await import('./js/store.js'+q);return store.orrery.bodies.length===9||!!store.orrery.engineError;
-    },{timeout:30000,polling:100});
     await page.evaluate(()=>{for(const id of ['orreryAnimate','orreryOptics','orreryTerrain']){const node=document.getElementById(id);
       if(node){node.checked=false;node.dispatchEvent(new Event('change'));}}});
+    phase='enter-system';
+    await page.click('[data-mode="orrery"]');
+    const sceneReady=async()=>{
+      const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
+      const {store}=await import('./js/store.js'+q);return store.orrery.bodies.length===9||!!store.orrery.engineError;
+    };
+    startupGate=await observeTextureStartup(timeout=>page.waitForFunction(sceneReady,{timeout,polling:100}),gate=>{
+      startupGate=gate;checkpoint({status:'running',phase:'diagnostic-startup-continuation',startup_gate:gate,snapshots});
+    });
     const settle=()=>page.waitForFunction(async()=>{
       const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
       const {store}=await import('./js/store.js'+q),s=store.orrery;
@@ -358,11 +391,13 @@ async function applicationLifecycle(browser, origin, stage, checkpoint) {
       const mapped=sample.ledger.textures.filter(t=>t.source?.includes('/textures/reference/'));
       const live=mapped.filter(t=>!t.deleted);
       const payload=live.reduce((total,t)=>{const size=t.uploads.at(-1).dimensions;return total+texturePayloadEstimate(...size,!!t.mipmapped).total_bytes;},0);
-      snapshots.push({label,anchor:sample.anchor,active:sample.active,appearance_status:sample.appearance_status,
+      snapshots.push({label,observed_at:new Date().toISOString(),anchor:sample.anchor,active:sample.active,appearance_status:sample.appearance_status,
         observed_mapped_uploads:uploads,observed_live_mapped_handles:live.length,observed_deleted_mapped_handles:mapped.length-live.length,
         estimated_live_rgba8_bytes:payload,estimate_basis:'Submitted dimensions plus mip chain; not observed VRAM',
         mapped_images_pending:sample.ledger.images.filter(i=>i.status==='pending'&&i.url.includes('/textures/reference/')).length});
-      checkpoint({status:'running',phase,snapshots});
+      checkpoint({status:'running',phase,startup_gate:startupGate,snapshots});
+      if(['earth-first-demand','left-system-ready-cache','earth-warm-reentry','tour-complete'].includes(label))
+        await memoryCheckpoint(label,page);
       return sample;
     };
     phase='earth-first-demand';await page.select('#orreryAnchor','Earth');await snapshot('earth-demand-requested');await settle();await snapshot('earth-first-demand');
@@ -383,7 +418,7 @@ async function applicationLifecycle(browser, origin, stage, checkpoint) {
     return {scope:'Real staged mapped-image demand, warm reentry and eviction; terrain/optics/animation controls disabled during tour',
       cache_precondition:'New application page/context resources; browser HTTP image entries are warm from the preceding replay',
       image_timing_meaning:'Image src to load event includes fetch, decoder scheduling and decode; no pure decode or GPU timing claim',
-      snapshots,ledger:final.ledger,errors};
+      startup_gate:startupGate,snapshots,ledger:final.ledger,errors};
   }catch(error){
     let diagnostic;
     try{diagnostic=await page.evaluate(async()=>{
@@ -393,7 +428,7 @@ async function applicationLifecycle(browser, origin, stage, checkpoint) {
       return {url:location.href,anchor:s.anchor,active:s.active,animate:s.animate,body_count:s.bodies?.length,
         engine_error:s.engineError,appearance_status:{...s.appearanceStatus},ledger:window.__textureLedger};
     });}catch(readError){diagnostic={read_error:readError.message};}
-    checkpoint({status:'failed',phase,snapshots,errors:[...errors,error.message],diagnostic});throw error;
+    checkpoint({status:'failed',phase,startup_gate:startupGate,snapshots,errors:[...errors,error.message],diagnostic});throw error;
   }finally{await page.close();}
 }
 
@@ -413,12 +448,14 @@ async function localOnly(page, origin, intercept=true) {
 
 export async function runTextureQualification({webRoot=path.join(ROOT,'build/site-review'),out=path.join(ROOT,'coverage/texture-pipeline'),
   browserPath=process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':'/usr/bin/google-chrome'),
-  gpu='software',iterations=1,inventoryOnly=false}={}) {
+  gpu='software',iterations=1,inventoryOnly=false,memory=false}={}) {
   assert.ok(['software','native'].includes(gpu),'GPU must be software or native');
   assert.ok(Number.isInteger(iterations)&&iterations>=1&&iterations<=5,'Iterations must be in [1,5]');
   const stage=readTextureStage(webRoot),fixtures=createTextureFixtures();
   const evidence={schema_version:'texture-pipeline-validation.v1',started_at:new Date().toISOString(),
     harness_sha256:digest(fs.readFileSync(fileURLToPath(import.meta.url))),
+    telemetry_module_sha256:digest(fs.readFileSync(new URL('./texture_device_telemetry.mjs',import.meta.url))),
+    windows_collector_sha256:digest(fs.readFileSync(new URL('./texture_device_memory.ps1',import.meta.url))),
     execution_context:{node_version:process.version,platform:process.platform,architecture:process.arch,host_idle_verified:false,
       competing_cpu_work:'Not measured by this tool; execution notes must describe concurrent host activity'},
     web_root:stage.root,release_namespace:stage.manifest.namespace,release_manifest_sha256:stage.release_manifest_sha256,
@@ -433,7 +470,9 @@ export async function runTextureQualification({webRoot=path.join(ROOT,'build/sit
       'WebGL API wall time may include internal synchronization; a fence wait is completion observation, not execution time.',
       'First sample includes a trivial draw plus readPixels completion; shader compilation is completed separately.',
       'Software results do not qualify native GPU speed or memory; instrumentation perturbs CPU timings.'],
-    requested_gpu:gpu,iterations,assets:stage.assets,fixtures:fixtures.map(({bytes,...f})=>({...f,sha256:digest(bytes)})),
+    requested_gpu:gpu,iterations,memory_requested:memory,memory_checkpoints:[],
+    repetition_scope:'Sequential cold/warm pairs for each source in one browser process; min/median/max are bounded diagnostic spread, not tail-latency qualification',
+    assets:stage.assets,fixtures:fixtures.map(({bytes,...f})=>({...f,sha256:digest(bytes)})),
     samples:[],filter_checks:[],errors:[],status:inventoryOnly?'inventory-only':'running'};
   fs.mkdirSync(out,{recursive:true});
   const evidencePath=path.join(out,'evidence.json');
@@ -444,6 +483,10 @@ export async function runTextureQualification({webRoot=path.join(ROOT,'build/sit
   save();if(inventoryOnly)return evidence;
   let browser,server,timer,expired=false,launchPromise;
   const controller=new AbortController();
+  const memoryCheckpoint=async(label,page)=>{
+    if(!memory)return;
+    evidence.memory_checkpoints.push(await captureDeviceMemory(browser,{label,page,includeDevices:evidence.memory_checkpoints.length===0}));save();
+  };
   async function run() {
     server=createStagedPreviewServer(stage.root,stage.manifest.base_path);
     const serve=server.listeners('request')[0];server.removeAllListeners('request');
@@ -459,6 +502,8 @@ export async function runTextureQualification({webRoot=path.join(ROOT,'build/sit
     const origin=`http://127.0.0.1:${server.address().port}`;
     const args=['--disable-dev-shm-usage','--disable-background-networking','--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'];
     if(gpu==='software')args.push('--use-angle=swiftshader','--enable-unsafe-swiftshader');
+    else if(process.platform==='win32')args.push('--use-angle=d3d11');
+    evidence.browser_launch_args=args;
     launchPromise=puppeteer.launch({executablePath:browserPath,headless:true,timeout:20000,protocolTimeout:60000,signal:controller.signal,args}).then(async owned=>{
       browser=owned;if(expired){await closeOwnedBrowser(owned,{timeoutMs:8000});throw new Error('Texture browser launched after deadline');}return owned;
     });
@@ -466,6 +511,9 @@ export async function runTextureQualification({webRoot=path.join(ROOT,'build/sit
     const page=await browser.newPage(),cdp=await localOnly(page,origin);
     await page.goto(origin+'/__texture/replay.html',{waitUntil:'domcontentloaded',timeout:15000});
     evidence.capabilities=await page.evaluate(initializeReplay,stage.upload);
+    evidence.observed_backend=classifyTextureBackend(evidence.capabilities.renderer);save();
+    assert.equal(evidence.observed_backend.kind,gpu==='native'?'native-device':'software','Observed renderer does not establish the requested backend');
+    await memoryCheckpoint('replay-context-ready',page);
     const max=evidence.capabilities.max_texture_size;
     for(const asset of evidence.assets){
       try{const dimensions=projectUploadDimensions(asset.dimensions,max,asset.nearest);asset.projected_payload=texturePayloadEstimate(...dimensions,!asset.nearest);}
@@ -511,13 +559,16 @@ export async function runTextureQualification({webRoot=path.join(ROOT,'build/sit
     const gray=fixtures.find(f=>f.id==='gray-checker');
     const resized=await replay({asset:{id:gray.id,sha256:digest(gray.bytes)},url:origin+'/__texture/gray-checker.png',phase:'synthetic-resize',deviceLimit:1});
     evidence.filter_checks.push({name:'Actual upload function exercises bounded Canvas resize',passed:!resized.error&&resized.uploaded_dimensions?.[0]===1&&resized.resize_calls.length===1,result:resized});
+    await memoryCheckpoint('replay-complete',page);
     await page.close();
     evidence.sample_summary=summarizeTextureSamples(evidence.samples);
     save();
-    evidence.application=await applicationLifecycle(browser,origin,stage,partial=>{evidence.application=partial;save();});
+    evidence.application=await applicationLifecycle(browser,origin,stage,partial=>{evidence.application=partial;save();},memoryCheckpoint);
+    await memoryCheckpoint('application-page-closed');
     assert.ok(evidence.samples.every(s=>!s.error&&s.completion?.status==='signaled'),'One or more source samples failed');
     assert.ok(evidence.filter_checks.every(c=>c.passed),'One or more filtering fixtures failed');
-    evidence.status='passed';save();
+    assert.equal(evidence.application.startup_gate.status,'passed','Application startup gate failed; later cache observations are diagnostic only');
+    evidence.status='passed';evidence.completed_at=new Date().toISOString();save();
   }
   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;controller.abort();reject(new Error('Texture qualification exceeded 240 seconds'));},240000);});
   try{await Promise.race([run(),deadline]);return evidence;}
@@ -533,13 +584,14 @@ if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.m
   const options=Object.fromEntries(process.argv.slice(2).map(value=>{
     const match=value.match(/^--([a-z-]+)(?:=(.*))?$/);assert.ok(match,`Invalid argument: ${value}`);return [match[1],match[2]??true];
   }));
-  const allowed=new Set(['web-root','out','browser','gpu','iterations','inventory-only']);
+  const allowed=new Set(['web-root','out','browser','gpu','iterations','inventory-only','memory']);
   for(const key of Object.keys(options))assert.ok(allowed.has(key),`Unknown option: ${key}`);
   if(Object.hasOwn(options,'inventory-only'))assert.equal(options['inventory-only'],true,'--inventory-only takes no value');
+  if(Object.hasOwn(options,'memory'))assert.equal(options.memory,true,'--memory takes no value');
   for(const key of ['web-root','out','browser','gpu','iterations'])if(Object.hasOwn(options,key))
     assert.ok(typeof options[key]==='string'&&options[key].length>0,`--${key} requires a value`);
   runTextureQualification({webRoot:options['web-root'],out:options.out,browserPath:options.browser,gpu:options.gpu,
-    iterations:options.iterations===undefined?1:Number(options.iterations),inventoryOnly:options['inventory-only']===true})
+    iterations:options.iterations===undefined?1:Number(options.iterations),inventoryOnly:options['inventory-only']===true,memory:options.memory===true})
     .then(evidence=>console.log(JSON.stringify({status:evidence.status,assets:evidence.assets.length,samples:evidence.samples.length})))
     .catch(error=>{console.error(error.message);process.exitCode=1;});
 }

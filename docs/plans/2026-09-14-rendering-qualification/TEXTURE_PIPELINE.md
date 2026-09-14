@@ -3,6 +3,12 @@
 Status: local qualification tooling; derived-format migration remains held.
 Date: 2026-09-14.
 
+The subsequent [native-device qualification](NATIVE_TEXTURE_QUALIFICATION.md)
+records matched five-repeat native/SwiftShader source measurements, actual owned
+browser/GPU-process memory, and a retained native startup failure traced to
+synchronous shader linking. Its successful cache continuation does not pass that
+startup gate. The original software baseline below remains historical evidence.
+
 This work measures the retained texture path before choosing a different encoding,
 decode mechanism, upload layout, or mip recipe. It does not change source imagery,
 the renderer, display transfer, source grids, cache policy, or release activation.
@@ -80,9 +86,13 @@ node tools/texture_pipeline_validation.mjs --web-root=build/pr107-review-p2-fina
 For a separately scheduled native-device run, add `--gpu=native` and use a new
 output directory. The default `--gpu=software` requests SwiftShader. The reported
 renderer determines what actually ran; requesting native rendering does not prove
-a hardware backend. `--iterations=1` is the bounded default; values 1 through 5
+a hardware backend. On Windows, native mode explicitly selects ANGLE D3D11; the
+observed renderer must identify a native device. `--iterations=1` is the bounded default; values 1 through 5
 retain every sample and support repetitions after a useful baseline exists.
 Do not run rendering profiles concurrently when using their timings for comparison.
+Optional `--memory` captures separately timestamped owned-process and Windows GPU
+memory checkpoints outside the individual source timers. Missing counters remain
+unavailable. The native-device document defines their process-level attribution.
 
 The tool validates the size and SHA-256 of every staged release file before browser
 launch, then separately binds the visual inventory, renderer, extracted upload
