@@ -427,5 +427,48 @@
       "scope": "Fixture struct-valued ternary compile failure; fixed with explicit branches, production source unchanged.",
       "sha256": "7b60a0952d7c5709e5ce92c6e24771371039426d48bbe632c019552bcd2e8dcb"
     }
-  ]
+  ],
+  "optical_field_reproduction": {
+    "source_commit": "896dfd38e39a0fedcc36bfcb8d1c0cc00fa56775",
+    "solver_sha256": "693d856dd0d9ae58c8c0ade448a2c5e7a96b01654af7af784d1ea084e6d497f7",
+    "commands": [
+      "node tools/prepare_atmosphere_columns.mjs",
+      "node tools/prepare_atmosphere_incident.mjs"
+    ],
+    "payloads": [
+      {
+        "path": "apps/web/data/optics/earth-columns-v1.f32",
+        "bytes": 2097152,
+        "sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "byte_identical_to_prior": true
+      },
+      {
+        "path": "apps/web/data/optics/earth-incident-v1.f32",
+        "bytes": 1201200,
+        "sha256": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639",
+        "byte_identical_to_prior": true
+      },
+      {
+        "path": "apps/web/data/optics/mars-columns-v1.f32",
+        "bytes": 2097152,
+        "sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+        "byte_identical_to_prior": true
+      },
+      {
+        "path": "apps/web/data/optics/mars-incident-v1.f32",
+        "bytes": 1201200,
+        "sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+        "byte_identical_to_prior": true
+      }
+    ],
+    "manifests": {
+      "apps/web/js/atmosphereColumnManifest.js": "a1d7dcc1c79f955dad9454ab932f742bc7f97f2a4872e024009240c7d02bd23d",
+      "apps/web/js/atmosphereIncidentManifest.js": "2434d334fd0caefdda8a9ba7772a83a7f8ff5a0cfd7ab3e39b787546f13ef56e"
+    },
+    "logs": {
+      "columns-repro.log": "ed63f90eba654670a90064d0b041617b19689d4cd20d36187aa2d7f4e2c059e9",
+      "incident-repro.log": "75cadf944955cf26ab2e587c55f76c3229327511f4e48b7cfb6028ef17510537"
+    },
+    "scope": "Both field generators executed. All four payloads byte-identical; source and emitted-fragment metadata regenerated. No full numerical or application admission claim."
+  }
 }
