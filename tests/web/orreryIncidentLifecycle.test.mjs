@@ -5,6 +5,27 @@ import {orreryHarness} from './helpers/orreryHarness.mjs';
 const field=()=>({values:new Float32Array(4*257*195),width:257,height:195,
   domain:{minHeightKm:0,maxHeightKm:16,quadratic:true}});
 
+for(const anchor of ['Earth','Mars'])test(`non-atmospheric selection preserves ${anchor} optical demand while pending and ready`,async t=>{
+  const pending=[];
+  const h=await orreryHarness(t,{controls:true,catalogues:'ready',
+    incidentField:(body,{signal})=>new Promise(resolve=>pending.push({body,signal,resolve}))});
+  await h.enterOrrery();await h.settleCatalogues();h.setAnimate(false);h.input('orreryAnchor',anchor,'change');
+  assert.equal(pending.length,1);const request=pending[0];assert.equal(request.body,anchor);
+  const epoch=h.state.renderUnix,bodies=JSON.stringify(h.state.bodies);
+  const select=name=>{h.input('orrerySearch',name);h.nodes.orreryPositions.children[0].click();assert.equal(h.state.selected,name);};
+  select('Moon');
+  assert.equal(h.state.anchor,anchor);assert.equal(request.signal.aborted,false,'Selecting a moon must not cancel the anchored reference profile');
+  assert.equal(pending.length,1);
+  request.resolve(field());await h.settle();assert.equal(h.state.opticsStatus[anchor],'ready');
+  const before=h.gpuDraws.length;select('Mercury');await h.settle();
+  assert.equal(pending.length,1);assert.equal(request.signal.aborted,false);
+  assert.equal(h.state.opticsStatus[anchor],'ready');assert.equal(h.state.scatteringStatus[anchor].state,'submitted');
+  assert.ok(h.gpuDraws.slice(before).some(draw=>draw.uniforms.u_atmosphereEnabled===1&&draw.uniforms.u_incidentFieldReady===1),
+    'The anchored physical sphere still draws after selecting a body without a reference atmosphere');
+  assert.equal(h.state.renderUnix,epoch);assert.equal(JSON.stringify(h.state.bodies),bodies);
+  h.leaveOrrery();
+});
+
 test('base sphere programs cover pending, disabled, moon and transparent draws across physical readiness and restoration',async t=>{
   const pending=[];
   const h=await orreryHarness(t,{controls:true,catalogues:'ready',incidentField:()=>new Promise(resolve=>pending.push(resolve))});

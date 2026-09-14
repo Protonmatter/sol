@@ -292,8 +292,9 @@ function initIncidentResources(){
 }
 
 function incidentBodyDemand(){
-  const body=state.active&&state.opticsEnabled&&!state.galaxy&&!state.selectedStar&&!document.hidden?(state.selected||state.anchor):'';
-  return getAtmosphereProfile(body)?body:'';
+  if(!state.active||!state.opticsEnabled||state.galaxy||state.selectedStar||document.hidden)return '';
+  if(getAtmosphereProfile(state.selected))return state.selected;
+  return getAtmosphereProfile(state.anchor)?state.anchor:'';
 }
 
 function syncIncidentDemand(){
