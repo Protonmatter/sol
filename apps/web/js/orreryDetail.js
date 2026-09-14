@@ -266,8 +266,25 @@ function appendVisualSources(card, name, appearanceState = {}) {
     img.style.objectFit = "contain";
     img.src = preview.path;
     const caption = document.createElement("figcaption");
-    caption.textContent = `${preview.credits}. Original browse image; not a current or globally registered view.`;
-    img.onerror = () => { img.hidden = true; caption.textContent = `Preview unavailable. ${preview.credits}`; };
+    const loadedCaption = `${preview.credits}. Original browse image; not a current or globally registered view.`;
+    caption.textContent = loadedCaption;
+    let previewFailed = false;
+    img.onerror = () => {
+      previewFailed = true;
+      img.hidden = true;
+      img.removeAttribute("src");
+      caption.textContent = `Preview unavailable. Close and reopen image sources to retry. ${preview.credits}`;
+    };
+    img.onload = () => { previewFailed = false; img.hidden = false; caption.textContent = loadedCaption; };
+    // The selected body's card is retained. Reopening is an explicit retry;
+    // ordinary presentation updates and toggles during a load do not reissue it.
+    disclosure.ontoggle = () => {
+      if (!disclosure.open || !previewFailed) return;
+      previewFailed = false;
+      img.hidden = false;
+      caption.textContent = `Loading preview. ${preview.credits}`;
+      img.src = preview.path;
+    };
     const source = document.createElement("a");
     source.textContent = "Official source image";
     source.href = preview.sourceUrl;

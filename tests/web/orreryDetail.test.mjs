@@ -21,6 +21,16 @@ function stubDocument() {
       append(...kids) { el.children.push(...kids); },
       appendChild(kid) { el.children.push(kid); return kid; },
     };
+    if (tag === "img") {
+      let source;
+      el.sourceAssignments = [];
+      Object.defineProperty(el, "src", {
+        get: () => source,
+        set: value => { source = String(value); el.sourceAssignments.push(source); },
+      });
+      el.getAttribute = name => name === "src" ? source ?? null : el[name] ?? null;
+      el.removeAttribute = name => { if (name === "src") source = undefined; else delete el[name]; };
+    }
     made.push(el);
     return el;
   };
@@ -52,6 +62,50 @@ test("verified moon browse preserves aspect ratio and source attribution", () =>
   assert.ok(dom.made.some(el => el.tagName === "a" && el.href.startsWith("https://astrogeology.usgs.gov/")));
   assert.ok(dom.textOf().some(t => /Official source bytes verified/.test(t)));
   assert.ok(dom.textOf().every(t => !/No global mosaic.*published|surface is a real USGS global mosaic/.test(t)));
+});
+
+test("a failed lazy preview retries once when its retained source disclosure reopens", () => {
+  const dom = stubDocument();
+  renderMoonDetail(PRE_MERGE.find(m => m.n === "Callisto"), 1767225600);
+  const disclosure = dom.made.find(el => el.tagName === "details");
+  const img = dom.made.find(el => el.tagName === "img");
+  const figure = dom.made.find(el => el.tagName === "figure");
+  const caption = dom.made.find(el => el.tagName === "figcaption");
+  const source = figure.children.find(el => el.tagName === "a");
+  const originalCaption = caption.text.at(-1);
+  const imageIdentity = { alt: img.alt, loading: img.loading, decoding: img.decoding, ...img.style };
+  const sourceIdentity = { href: source.href, target: source.target, rel: source.rel };
+  const card = dom.host.children[0];
+  const toggle = open => { disclosure.open = open; disclosure.ontoggle?.(); };
+
+  toggle(true);
+  img.onerror(); // The initial lazy request fails while offline.
+  assert.equal(img.hidden, true);
+  assert.match(caption.text.at(-1), /Preview unavailable/);
+  toggle(false);
+  assert.equal(img.sourceAssignments.length, 1, "closing does not request an image");
+  toggle(true); // The same card/disclosure is reused after connectivity returns.
+  assert.deepEqual(img.sourceAssignments, ["textures/callisto.jpg", "textures/callisto.jpg"],
+    "reopening explicitly requests the same verified preview again");
+  assert.equal(img.hidden, false);
+  toggle(true);
+  toggle(false);
+  toggle(true);
+  assert.equal(img.sourceAssignments.length, 2, "an in-flight retry is not restarted by toggles");
+
+  img.onerror();
+  assert.equal(img.getAttribute("src"), null, "failed request state is cleared");
+  toggle(false); toggle(true);
+  assert.equal(img.sourceAssignments.length, 3, "a later explicit reopen can retry another failure");
+  img.onload();
+  assert.equal(img.hidden, false);
+  assert.equal(caption.text.at(-1), originalCaption, "success restores the original provenance caption");
+  toggle(false); toggle(true);
+  assert.equal(img.sourceAssignments.length, 3, "a loaded preview is not reloaded");
+  assert.equal(dom.host.children[0], card);
+  assert.deepEqual(figure.children, [img, caption, source], "retry preserves semantic nodes and source link");
+  assert.deepEqual({ alt: img.alt, loading: img.loading, decoding: img.decoding, ...img.style }, imageIdentity);
+  assert.deepEqual({ href: source.href, target: source.target, rel: source.rel }, sourceIdentity);
 });
 
 test("unqualified moon detail has no fabricated preview", () => {
