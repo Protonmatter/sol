@@ -1,0 +1,505 @@
+{
+  "schema_version": "scattering-admission-summary.v1",
+  "scope": "Interpolation qualification only; native and final application gates remain separate.",
+  "runs": [
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-scattering-residual-20260914\\build\\normalized-domain-l-ground-aligned\\evidence.json",
+      "sha256": "50688997e76994a895e3deb52c93b29ce18b9e601ede40b86b50dda8f954c02b",
+      "passed": true,
+      "total": 5592,
+      "failed": 0,
+      "limits": {
+        "scatteringAbsolute": 0.0002,
+        "scatteringRelative": 0.01,
+        "zeroLeak": 1e-07,
+        "transmissionAbsolute": 0.0001,
+        "transmissionRelative": 0.002,
+        "displayAbsolute": 0.00784313725490196
+      },
+      "source_hashes": {
+        "js/atmosphereScattering.js": "f384c6bf4b191c58de799d74f4c9fb9a305f6dcb4d47186afe0c61bb0e2ae757",
+        "js/atmosphereColumnField.js": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
+        "js/atmosphereShaders.js": "768fa21d93760afc78e284e9e5593698e54dbaa5ab68781d73ec72874ed368af",
+        "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+        "js/atmosphereColumnManifest.js": "f344e92208d43b2134648ff4b6d4f65a4ba6d7097f4fdd5a9f29425b2dae0fdd",
+        "js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+        "js/atmosphereIncidentManifest.js": "fe515253fb21b8e8504dda9802ac011575a977c357b419c9d25fc4d0e04d3180",
+        "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+        "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895"
+      },
+      "tool_sha256": "321195048eedd88981b5c41f1aaaac68da2886fc2fc9745392834c4bf6cd4e16",
+      "fixtures_sha256": "0048544cc785009070e7eeb39946c65b28366c271c40e669980de439373e1271",
+      "cases": [
+        {
+          "name": "Earth-day",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 6.522238254547119e-05,
+          "max_inside_display_error": 7.096240467940884e-05
+        },
+        {
+          "name": "Earth-night",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0,
+          "max_inside_display_error": 4.3796896081554904e-05
+        },
+        {
+          "name": "Earth-terminator-pole",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00010204222053289413,
+          "max_inside_display_error": 0.000132189960083684
+        },
+        {
+          "name": "Earth-forward-oblique",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 7.148832082748413e-06,
+          "max_inside_display_error": 9.591785300383515e-05
+        },
+        {
+          "name": "Earth-near-top",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0009778141975402832,
+          "max_inside_display_error": 0.0006865149539329041
+        },
+        {
+          "name": "Earth-elevated-10km",
+          "total": 408,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00029772892594337463,
+          "max_inside_display_error": 0.0003784144089540864
+        },
+        {
+          "name": "Earth-distant-diagnostic",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00034734606742858887,
+          "max_inside_display_error": 0.001025704265957772
+        },
+        {
+          "name": "Mars-day-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 2.6911497116088867e-05,
+          "max_inside_display_error": 5.607190294071307e-05
+        },
+        {
+          "name": "Mars-night-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 2.927263267338276e-07,
+          "max_inside_display_error": 5.3427040728193376e-06
+        },
+        {
+          "name": "Mars-terminator-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00019280984997749329,
+          "max_inside_display_error": 0.00038007100073728095
+        },
+        {
+          "name": "Mars-forward-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0017816722393035889,
+          "max_inside_display_error": 0.0011162867389900022
+        },
+        {
+          "name": "Mars-near-top-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0009351968765258789,
+          "max_inside_display_error": 0.0003487888825076668
+        },
+        {
+          "name": "Mars-spherical",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 6.756559014320374e-05,
+          "max_inside_display_error": 8.072765807143334e-05
+        }
+      ]
+    },
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-scattering-residual-20260914\\build\\normalized-domain-l-corrected-visibility\\evidence.json",
+      "sha256": "5fecc116ed1cd3ac1d8dc47a0d51386ef405fafcf047610a82d6bf96ec9f69c2",
+      "passed": true,
+      "total": 5592,
+      "failed": 0,
+      "limits": {
+        "scatteringAbsolute": 0.0002,
+        "scatteringRelative": 0.01,
+        "zeroLeak": 1e-07,
+        "transmissionAbsolute": 0.0001,
+        "transmissionRelative": 0.002,
+        "displayAbsolute": 0.00784313725490196
+      },
+      "source_hashes": {
+        "js/atmosphereScattering.js": "f384c6bf4b191c58de799d74f4c9fb9a305f6dcb4d47186afe0c61bb0e2ae757",
+        "js/atmosphereColumnField.js": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
+        "js/atmosphereShaders.js": "d38b28d0da7168af2f529b45e7d764f6da3477600960f049b253b062bee7cbc0",
+        "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+        "js/atmosphereColumnManifest.js": "174995e7dccb32a3663c0a761f8172480c068d3d840a46f7e0a410efd498920e",
+        "js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+        "js/atmosphereIncidentManifest.js": "fe515253fb21b8e8504dda9802ac011575a977c357b419c9d25fc4d0e04d3180",
+        "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+        "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895"
+      },
+      "tool_sha256": "321195048eedd88981b5c41f1aaaac68da2886fc2fc9745392834c4bf6cd4e16",
+      "fixtures_sha256": "0048544cc785009070e7eeb39946c65b28366c271c40e669980de439373e1271",
+      "cases": [
+        {
+          "name": "Earth-day",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 6.522238254547119e-05,
+          "max_inside_display_error": 7.096240467940884e-05
+        },
+        {
+          "name": "Earth-night",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0,
+          "max_inside_display_error": 4.3796896081554904e-05
+        },
+        {
+          "name": "Earth-terminator-pole",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00010204222053289413,
+          "max_inside_display_error": 0.000132189960083684
+        },
+        {
+          "name": "Earth-forward-oblique",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 7.148832082748413e-06,
+          "max_inside_display_error": 9.591785300383515e-05
+        },
+        {
+          "name": "Earth-near-top",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0009778141975402832,
+          "max_inside_display_error": 0.0006865149539329041
+        },
+        {
+          "name": "Earth-elevated-10km",
+          "total": 408,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00029772892594337463,
+          "max_inside_display_error": 0.0003784144089540864
+        },
+        {
+          "name": "Earth-distant-diagnostic",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00034734606742858887,
+          "max_inside_display_error": 0.001025704265957772
+        },
+        {
+          "name": "Mars-day-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 2.6911497116088867e-05,
+          "max_inside_display_error": 5.607190294071307e-05
+        },
+        {
+          "name": "Mars-night-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 2.927263267338276e-07,
+          "max_inside_display_error": 5.3427040728193376e-06
+        },
+        {
+          "name": "Mars-terminator-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00017563998699188232,
+          "max_inside_display_error": 0.0003461959758868094
+        },
+        {
+          "name": "Mars-forward-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0017816722393035889,
+          "max_inside_display_error": 0.0011162867389900022
+        },
+        {
+          "name": "Mars-near-top-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0009351968765258789,
+          "max_inside_display_error": 0.0003487888825076668
+        },
+        {
+          "name": "Mars-spherical",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 6.756559014320374e-05,
+          "max_inside_display_error": 8.072765807143334e-05
+        }
+      ]
+    },
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\pr107-production-20260914\\scattering-l-runtime-module\\evidence.json",
+      "sha256": "794cfc5312e99c7a17470ebc78e456127bfc14b98c3c8bf5f02f6764d1f0ceeb",
+      "passed": true,
+      "total": 5592,
+      "failed": 0,
+      "limits": {
+        "scatteringAbsolute": 0.0002,
+        "scatteringRelative": 0.01,
+        "zeroLeak": 1e-07,
+        "transmissionAbsolute": 0.0001,
+        "transmissionRelative": 0.002,
+        "displayAbsolute": 0.00784313725490196
+      },
+      "source_hashes": {
+        "js/atmosphereScattering.js": "b9b104ebfaab1cc03407e7cb3593c2876137569f8e8fd4b78dcbb1a869cb2df5",
+        "js/atmosphereColumnField.js": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
+        "js/atmosphereShaders.js": "d38b28d0da7168af2f529b45e7d764f6da3477600960f049b253b062bee7cbc0",
+        "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+        "js/atmosphereColumnManifest.js": "174995e7dccb32a3663c0a761f8172480c068d3d840a46f7e0a410efd498920e",
+        "js/atmosphereIncident.js": "ac69fdfe7afb1b831c2ca91e9286aed1da381e75cb5f683b6e8bf31837720dbe",
+        "js/atmosphereIncidentManifest.js": "692d5c7e6f54875dda56c3646231ff7d73f13a2c220247b5441e254d4ec5d7c6",
+        "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+        "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895"
+      },
+      "tool_sha256": "bfa89ddc5417990d7ffc41f1106a9a5fc3399e748092399e0b5079e6f467c1a5",
+      "fixtures_sha256": "0048544cc785009070e7eeb39946c65b28366c271c40e669980de439373e1271",
+      "cases": [
+        {
+          "name": "Earth-day",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 6.522238254547119e-05,
+          "max_inside_display_error": 7.096240467940884e-05
+        },
+        {
+          "name": "Earth-night",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0,
+          "max_inside_display_error": 4.3796896081554904e-05
+        },
+        {
+          "name": "Earth-terminator-pole",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00010204222053289413,
+          "max_inside_display_error": 0.000132189960083684
+        },
+        {
+          "name": "Earth-forward-oblique",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 7.148832082748413e-06,
+          "max_inside_display_error": 9.591785300383515e-05
+        },
+        {
+          "name": "Earth-near-top",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0009778141975402832,
+          "max_inside_display_error": 0.0006865149539329041
+        },
+        {
+          "name": "Earth-elevated-10km",
+          "total": 408,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00029772892594337463,
+          "max_inside_display_error": 0.0003784144089540864
+        },
+        {
+          "name": "Earth-distant-diagnostic",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00034734606742858887,
+          "max_inside_display_error": 0.001025704265957772
+        },
+        {
+          "name": "Mars-day-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 2.6911497116088867e-05,
+          "max_inside_display_error": 5.607190294071307e-05
+        },
+        {
+          "name": "Mars-night-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 2.927263267338276e-07,
+          "max_inside_display_error": 5.3427040728193376e-06
+        },
+        {
+          "name": "Mars-terminator-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00017563998699188232,
+          "max_inside_display_error": 0.0003461959758868094
+        },
+        {
+          "name": "Mars-forward-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0017816722393035889,
+          "max_inside_display_error": 0.0011162867389900022
+        },
+        {
+          "name": "Mars-near-top-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0009351968765258789,
+          "max_inside_display_error": 0.0003487888825076668
+        },
+        {
+          "name": "Mars-spherical",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 6.756559014320374e-05,
+          "max_inside_display_error": 8.072765807143334e-05
+        }
+      ]
+    },
+    {
+      "path": "build\\pr107-production-20260914\\scattering-l-native\\evidence.json",
+      "sha256": "5fa6d9a616b32436bc5d943508b0aa9afc2bd453d38562df9ed92f080b1101ae",
+      "passed": false,
+      "total": 5592,
+      "failed": 2,
+      "limits": {
+        "scatteringAbsolute": 0.0002,
+        "scatteringRelative": 0.01,
+        "zeroLeak": 1e-07,
+        "transmissionAbsolute": 0.0001,
+        "transmissionRelative": 0.002,
+        "displayAbsolute": 0.00784313725490196
+      },
+      "source_hashes": {
+        "js/atmosphereScattering.js": "b9b104ebfaab1cc03407e7cb3593c2876137569f8e8fd4b78dcbb1a869cb2df5",
+        "js/atmosphereColumnField.js": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
+        "js/atmosphereShaders.js": "d38b28d0da7168af2f529b45e7d764f6da3477600960f049b253b062bee7cbc0",
+        "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+        "js/atmosphereColumnManifest.js": "174995e7dccb32a3663c0a761f8172480c068d3d840a46f7e0a410efd498920e",
+        "js/atmosphereIncident.js": "ac69fdfe7afb1b831c2ca91e9286aed1da381e75cb5f683b6e8bf31837720dbe",
+        "js/atmosphereIncidentManifest.js": "692d5c7e6f54875dda56c3646231ff7d73f13a2c220247b5441e254d4ec5d7c6",
+        "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+        "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895"
+      },
+      "tool_sha256": "64f6c5ba696f2f0a6dfa3bad5549b94c70b52a1fca7359edc7b38ed184f20238",
+      "fixtures_sha256": "0048544cc785009070e7eeb39946c65b28366c271c40e669980de439373e1271",
+      "gpu": {
+        "vendor": "WebKit",
+        "renderer": "WebKit WebGL",
+        "unmasked_renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "max_texture_size": 16384,
+        "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+      },
+      "observed_backend": {
+        "kind": "native-device",
+        "basis": "Observed WebGL renderer string; requested launch mode alone does not attest hardware execution"
+      },
+      "cases": [
+        {
+          "name": "Earth-day",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 7.066130638122559e-05,
+          "max_inside_display_error": 7.687938015443763e-05
+        },
+        {
+          "name": "Earth-night",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0,
+          "max_inside_display_error": 0
+        },
+        {
+          "name": "Earth-terminator-pole",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 9.838026016950607e-05,
+          "max_inside_display_error": 0.00013085262509138218
+        },
+        {
+          "name": "Earth-forward-oblique",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 6.294809281826019e-06,
+          "max_inside_display_error": 2.5824450426592538e-05
+        },
+        {
+          "name": "Earth-near-top",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0010823607444763184,
+          "max_inside_display_error": 0.0006917628821571098
+        },
+        {
+          "name": "Earth-elevated-10km",
+          "total": 408,
+          "failed": 1,
+          "max_inside_scattering_error": 0.00030331406742334366,
+          "max_inside_display_error": 0.00038745176272730886
+        },
+        {
+          "name": "Earth-distant-diagnostic",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 0.00041259080171585083,
+          "max_inside_display_error": 0.0006965316737146399
+        },
+        {
+          "name": "Mars-day-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 2.8505921363830566e-05,
+          "max_inside_display_error": 5.896263333171614e-05
+        },
+        {
+          "name": "Mars-night-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 2.714295987971127e-07,
+          "max_inside_display_error": 6.041476182383487e-07
+        },
+        {
+          "name": "Mars-terminator-terrain",
+          "total": 768,
+          "failed": 1,
+          "max_inside_scattering_error": 0.0008285045623779297,
+          "max_inside_display_error": 0.00163713117237968
+        },
+        {
+          "name": "Mars-forward-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0017374753952026367,
+          "max_inside_display_error": 0.0011142015211549339
+        },
+        {
+          "name": "Mars-near-top-terrain",
+          "total": 768,
+          "failed": 0,
+          "max_inside_scattering_error": 0.0010423660278320312,
+          "max_inside_display_error": 0.00037794178580274895
+        },
+        {
+          "name": "Mars-spherical",
+          "total": 192,
+          "failed": 0,
+          "max_inside_scattering_error": 6.817840039730072e-05,
+          "max_inside_display_error": 8.145771423706538e-05
+        }
+      ]
+    }
+  ]
+}

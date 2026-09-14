@@ -10,13 +10,13 @@ state remain controlling. Failed experiments and their receipts are retained.
 
 | Slice | Implementation / qualification | Remaining admission |
 | --- | --- | --- |
-| Ground boundaries | Production Earth/Mars integrator now uses the qualified ground/closest-point segmentation. Fresh production-source float64/GPU gate passed 1,232/1,232; 30 focused unit tests passed. The analytic bound remains 60 nodes (observed maximum 36); no node or tolerance reduction. | Integrated renderer checks and final-head publication. |
-| Bounded scattering | New isolated experiment interpolates a normalized attenuation residual and evaluates actual endpoint, lit support, phase and columns at the consumer. First full run rejects 144/5,592 queries; the previous experiment rejected 368. Neither is admitted. | Correct the remaining interpolation error, then entire retained domain, source-bound production integration, animation, terrain, context restoration and original performance gates. |
-| Color | Separate actual shader qualification covers per-material linear composition and explicitly scoped opaque-map decoding before filtering. Masked, moon and scientific-display recipes retain their declared filtering semantics. | Integrate the independently reviewed change and qualify full frame composition and fallback. |
-| HDR | Fixed-exposure linear target, bounded allocation and observed final presentation are being implemented separately. | Full application/native qualification; an offscreen Earth draw alone cannot satisfy the final-frame performance probe. |
+| Ground boundaries | Production Earth/Mars integrator now uses the qualified ground/closest-point segmentation. The expanded source-bound float64/GPU gate passed 1,280/1,280, including actual near-ground solar intersections; all four numerical field payloads reproduced unchanged. The analytic bound remains 60 nodes (observed maximum 36); no node or tolerance reduction. | Integrated renderer checks and final-head publication. |
+| Bounded scattering | New isolated experiment interpolates a normalized attenuation residual and evaluates actual endpoint, lit support, phase and columns at the consumer. Candidate L passed all 5,592 software-GPU queries after the ground-visibility correction and pure-math extraction. Native Adreno rejected two queries; its accuracy admission remains open. All failed experiments, including the prior 368-failure candidate, remain retained. Ground/closest geometry and normalization are qualified independently of interpolation. | Resolve native interpolation differences, then retain the complete original domain plus additive v2 terrain/explicit-height coverage; qualify runtime composition, animation, context restoration and original performance gates. |
+| Color | Runtime migration is integrated with scoped opaque-map decoding before filtering; masked, moon and scientific-display recipes retain their declared semantics. Actual appearance GPU checks passed 110/110 and expanded physical HDR composition passed 66/66 in isolated qualification. | Repeat full combined-stage/native composition and fallback gates after all runtime changes. |
+| HDR | Fixed-exposure bounded linear target is integrated as an opt-in candidate. The immutable combined software stage passed four actual physical Earth draws with matching HDR presentations within 1.247 seconds, including exact linked programs, static fields and current optical geometry. | Native physical compilation still fails the unchanged 30-second limit. A dynamic scattering field additionally requires current producer/consumer proof; an offscreen Earth draw alone cannot satisfy final-frame performance. Default enablement remains held. |
 | Texture/device | Matched native Adreno and SwiftShader runs completed five cold/warm pairs for each of 24 sources. Native process memory was observed through Windows counters. | Repeat final-renderer startup and application gates. Five observations support sample medians/ranges, not stable tail distributions. |
-| Finer terrain | Independently sourced whole-globe LOLA/MOLA numeric radius derivatives and matching complete shadow fields are in an isolated implementation. Original assets remain retained. | Source/derivative identity, actual terrain/shadow/context tests, full application and native resource/performance checks. This slice does not claim tiled terrain. |
-| Reflection / rings / moons | Independent reflectance, coverage transport and disk-photometry definitions are being qualified separately. | Each runtime path requires its own source semantics and acceptance evidence; synthetic oracle agreement cannot establish measured planetary calibration. |
+| Finer terrain | Source-derived LOLA/MOLA v2 whole-globe radius data and matching shadow fields are integrated. All 8,294,400 output cells reproduced independently, and isolated real Moon/Mars level-4 draws used 131,841 vertices and 783,360 indices. Original assets remain retained. | Combined Mars source-bound physical terrain/optics/animation passed 22 checks, including five final HDR presentations within 1.841 seconds. Native physical performance remains open. This slice does not claim tiled terrain or camera-visible detail beyond source resolution. |
+| Reflection / rings / moons | Reference helpers and independent synthetic oracles are integrated, with explicit acquisition receipts and held inputs. Existing runtime display recipes remain active. | D2 needs admitted masks/roughness/index data; D4 needs visible-band coverage/depth/phase data; D5 needs disk/phase/geometry/exposure calibration and holdouts. Synthetic oracle agreement cannot establish measured planetary calibration. |
 | Temporal reconstruction | Deferred by the accepted specification. | Not a dependency for these slices; no history-based rendering is admitted. |
 
 ## Measured native bottleneck and format decision
@@ -85,3 +85,46 @@ The incident payload hashes remain `4762cc9e49c98c292b412555c75867fce235aaa5f8f8
 (Earth) and `bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311`
 (Mars); the column hashes remain `85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893`
 and `12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895`.
+
+## Nonblocking shader startup
+
+The bounded context-owned program manager is integrated. It defers the physical
+sphere/shell pair until optical demand and uses `KHR_parallel_shader_compile`
+without premature compile/link status queries. The combined-source native replay
+passed the unchanged 30,000 ms startup gate in 5,083 ms; the matched software
+replay passed in 459 ms. Both completed 240 samples, nine controls and seven
+memory checkpoints. The texture tour intentionally disables optical transport;
+this is base-program readiness evidence, not native physical-frame performance.
+Both runs and all failed predecessors remain preserved. See
+[program lifecycle](SHADER_PROGRAM_LIFECYCLE.md) and
+[native texture qualification](NATIVE_TEXTURE_QUALIFICATION.md).
+
+At combined revision `833a40f`, all 1,061 web tests passed. The earlier combined
+source passed 385 Python tests and 107-file type checking. These local checks are
+not hosted CI, deployed qualification, or evidence for later untested changes.
+
+## Native physical admission remains open
+
+The combined native HDR run identified a separate physical-program readiness
+failure: the optional physical sphere exceeded its unchanged 30,000 ms completion
+deadline while all six base programs and the atmosphere shell were ready. The
+additional physical spin gate rejected every fallback draw. A bounded readiness
+preparation phase, anchored to the original System-entry deadline, reproduced
+the timeout rather than extending either deadline. A separate filtered replay rejected 45,212 unrelated draws without issuing any
+physical-candidate current-program queries and reproduced the same timeout.
+That failed native receipt remains controlling; both preparation and the
+subsequent three-in-five-second gate retained their original deadlines. Successful base startup and software
+physical-frame evidence do not override this native failure.
+
+The visible-ring source search acquired exact, visible-sensitive HST/FOS
+observation metadata and a bounded science-file prefix. It does not establish
+radial geometry, normalized transmission or independent coverage/material-depth
+parameters. See [the source candidate assessment](VISIBLE_RING_SOURCE_CANDIDATE.md).
+
+The pure scattering math and dedicated target lifecycle are integrated as candidate
+components. They do not yet replace the production material in this revision.
+See [interpolation qualification](SCATTERING_INTERPOLATION.md) and
+[additive terrain cases](SCATTERING_SUPPLEMENT_CONTRACT.md). At this checkpoint,
+1,123 web tests passed before the five new supplemental fixture groups (which
+also passed), and all 110 runtime JS files typechecked. Native accuracy and
+final application admission remain open.
