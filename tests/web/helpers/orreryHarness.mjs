@@ -32,6 +32,8 @@ export async function orreryHarness(t, options = {}) {
   let frameId = 0, draws = 0, contexts = 0, workerFailure = false, monotonicNow = 100;
   let wallUnix = 1800000000, snapshotsHeld = false, engineLoad = Promise.resolve();
   let graphicsFailure = options.graphicsFailure || "", resizeCallback;
+  const shaderQueries=[],programs=[],deletedPrograms=[],deletedShaders=[],completedPrograms=new Set();
+  const parallelComplete=program=>completedPrograms.has(program);
   let optionalMode = options.catalogues || "pending";
   // Distinct WebGL enum values make sampler-unit and scientific-filter regressions
   // observable; a generic constant value would make LINEAR and NEAREST identical.
@@ -44,21 +46,39 @@ export async function orreryHarness(t, options = {}) {
     REPEAT: 10497, CLAMP_TO_EDGE: 33071,
     UNPACK_FLIP_Y_WEBGL: 37440, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 37441,
     ZERO:0,ONE:1,SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,TRIANGLES:4,LINES:1,LINE_STRIP:3,POINTS:0,
+    COMPILE_STATUS:35713,LINK_STATUS:35714,VERTEX_SHADER:35633,FRAGMENT_SHADER:35632,
   };
   const gl = new Proxy({
     ...graphicsConstants,
     isContextLost: () => false,
-    getExtension: () => options.renderer ? { UNMASKED_RENDERER_WEBGL: 37446 } : null,
+    getExtension: name => name==='KHR_parallel_shader_compile' ? options.parallelPrograms ? {COMPLETION_STATUS_KHR:37297} : null
+      : name==='WEBGL_debug_renderer_info'&&options.renderer ? { UNMASKED_RENDERER_WEBGL: 37446 } : null,
     getParameter: name => name === graphicsConstants.MAX_TEXTURE_SIZE ? options.maxTextureSize ?? 16384 : options.renderer,
     getError: () => { const error = pendingTextureError; pendingTextureError = 0; return error; },
-    getShaderParameter: () => graphicsFailure !== "shader",
-    getProgramParameter: () => graphicsFailure !== "link",
+    getShaderParameter: (shader,parameter) => {
+      shaderQueries.push({method:'getShaderParameter',shader,parameter});
+      assert.ok(!options.parallelPrograms||parallelComplete(shader.program),'COMPILE_STATUS queried before KHR completion');
+      return graphicsFailure !== "shader";
+    },
+    getProgramParameter: (program,parameter) => {
+      shaderQueries.push({method:'getProgramParameter',program,parameter});
+      if(parameter===37297)return parallelComplete(program);
+      assert.ok(!options.parallelPrograms||parallelComplete(program),'LINK_STATUS queried before KHR completion');
+      return graphicsFailure !== "link";
+    },
     getShaderInfoLog: () => "test GPU shader compile failure",
     getProgramInfoLog: () => "test GPU program link failure",
     getAttribLocation: () => 0,
     shaderSource: (shader,source) => { shader.source=source; },
-    attachShader: (program,shader) => { (program.sources??=[]).push(shader.source); },
-    getUniformLocation: (program, name) => ({ program, name }),
+    createProgram:()=>{const program={sources:[]};programs.push(program);return program;},
+    deleteProgram:program=>deletedPrograms.push(program),
+    deleteShader:shader=>deletedShaders.push(shader),
+    attachShader: (program,shader) => { (program.sources??=[]).push(shader.source);shader.program=program; },
+    getUniformLocation: (program, name) => {
+      shaderQueries.push({method:'getUniformLocation',program,name});
+      assert.ok(!options.parallelPrograms||parallelComplete(program),'Uniform queried before KHR completion');
+      return { program, name };
+    },
     useProgram: program => { currentProgram = program; },
     uniform1i: recordUniform,
     uniform1f: recordUniform,
@@ -273,7 +293,9 @@ export async function orreryHarness(t, options = {}) {
     },
   });
   const settle = () => new Promise(resolve => setImmediate(resolve));
-  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, bufferUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations, state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
+  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, bufferUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations,shaderQueries,programs,deletedPrograms,deletedShaders,
+    completePrograms: (predicate=()=>true)=>{for(const program of programs)if(predicate(program))completedPrograms.add(program);},
+    state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
     ...lifecycle, settle,
     event(id, type, properties = {}) { return nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties }); },
     input(id, value, type = "input") { nodes[id].value = value; return this.event(id, type); },

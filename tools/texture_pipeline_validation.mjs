@@ -347,6 +347,13 @@ function observeApplicationTextures() {
   window.__textureLedger=ledger;
 }
 
+// The tool installs this live state reference after importing the staged store.
+// Asynchronous program preparation must not make nine ephemeris rows a graphics pass.
+export function textureSceneReady(state=globalThis.__textureApplicationState){
+  return !!state?.engineError||(state?.bodies?.length===9
+    &&(state.programStatus?state.programStatus.base==='ready':!!state.backend));
+}
+
 async function applicationLifecycle(browser, origin, stage, checkpoint, memoryCheckpoint) {
   const page=await browser.newPage(),snapshots=[],errors=[];
   let startupGate={status:'not-observed',timeout_ms:30000};
@@ -359,27 +366,29 @@ async function applicationLifecycle(browser, origin, stage, checkpoint, memoryCh
     await page.evaluateOnNewDocument(observeApplicationTextures);
     page.on('pageerror',error=>errors.push(error.message));
     await page.goto(origin+stage.manifest.base_path,{waitUntil:'networkidle0',timeout:45000});
-    await page.evaluate(()=>{for(const id of ['orreryAnimate','orreryOptics','orreryTerrain']){const node=document.getElementById(id);
-      if(node){node.checked=false;node.dispatchEvent(new Event('change'));}}});
+    await page.evaluate(async()=>{
+      for(const id of ['orreryAnimate','orreryOptics','orreryTerrain']){const node=document.getElementById(id);
+        if(node){node.checked=false;node.dispatchEvent(new Event('change'));}}
+      const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
+      const {store}=await import('./js/store.js'+q);window.__textureApplicationState=store.orrery;
+    });
     phase='enter-system';
     await page.click('[data-mode="orrery"]');
-    const sceneReady=async()=>{
-      const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
-      const {store}=await import('./js/store.js'+q);return store.orrery.bodies.length===9||!!store.orrery.engineError;
-    };
-    startupGate=await observeTextureStartup(timeout=>page.waitForFunction(sceneReady,{timeout,polling:100}),gate=>{
+    startupGate=await observeTextureStartup(timeout=>page.waitForFunction(textureSceneReady,{timeout,polling:100}),gate=>{
       startupGate=gate;checkpoint({status:'running',phase:'diagnostic-startup-continuation',startup_gate:gate,snapshots});
     });
     const settle=()=>page.waitForFunction(async()=>{
       const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
       const {store}=await import('./js/store.js'+q),s=store.orrery;
-      return !!s.engineError||(s.bodies?.length===9&&Object.values(s.appearanceStatus).every(value=>value!=='loading'&&value!=='queued'));
+      return !!s.engineError||(s.bodies?.length===9&&(s.programStatus?s.programStatus.base==='ready':!!s.backend)
+        &&Object.values(s.appearanceStatus).every(value=>value!=='loading'&&value!=='queued'));
     },{timeout:40000,polling:100});
     const snapshot=async label=>{
       const sample=await page.evaluate(async()=>{
         const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
         const {store}=await import('./js/store.js'+q),s=store.orrery;
         return {anchor:s.anchor,active:s.active,appearance_status:{...s.appearanceStatus},engine_error:s.engineError,
+          program_status:s.programStatus?{...s.programStatus}:null,program_diagnostics:s.programDiagnostics?structuredClone(s.programDiagnostics):null,
           ledger:structuredClone(window.__textureLedger)};
       });
       assert.equal(sample.engine_error,'','Application ephemeris error');
@@ -392,6 +401,7 @@ async function applicationLifecycle(browser, origin, stage, checkpoint, memoryCh
       const live=mapped.filter(t=>!t.deleted);
       const payload=live.reduce((total,t)=>{const size=t.uploads.at(-1).dimensions;return total+texturePayloadEstimate(...size,!!t.mipmapped).total_bytes;},0);
       snapshots.push({label,observed_at:new Date().toISOString(),anchor:sample.anchor,active:sample.active,appearance_status:sample.appearance_status,
+        program_status:sample.program_status,program_diagnostics:sample.program_diagnostics,
         observed_mapped_uploads:uploads,observed_live_mapped_handles:live.length,observed_deleted_mapped_handles:mapped.length-live.length,
         estimated_live_rgba8_bytes:payload,estimate_basis:'Submitted dimensions plus mip chain; not observed VRAM',
         mapped_images_pending:sample.ledger.images.filter(i=>i.status==='pending'&&i.url.includes('/textures/reference/')).length});

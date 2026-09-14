@@ -14,6 +14,7 @@
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
 import { store } from "./store.js?v=dcca6290db";
+import { createShaderPrograms } from "./shaderPrograms.js";
 import { linearFilterReference } from './materialColor.js';
 import { createHdrPresentation } from './hdrPresentation.js';
 import { srgbToLinear } from './surfaceMapping.js';
@@ -148,6 +149,7 @@ const state = (store.orrery = {
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite',
   appearanceStatus: {},
   terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{},
+  programStatus:{base:'deferred',physical:'deferred'},programDiagnostics:{},
   // Qualification candidate only; default enablement requires integrated/native gates.
   hdrEnabled:false, hdrStatus:{state:'deferred',reason:'HDR candidate disabled.'}, hdrFrame:null,
   solarMode:'reconstructed-euv', solarStatus:'deferred', solarInspection:false, solarPlayback:{seconds:0,duration:20,playing:false},
@@ -180,6 +182,7 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 
 // ---------------------------------------------------------------- WebGL2 renderer
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
+let shaderPrograms=null,programContextGeneration=0;
 let hdrPresentation=null,contextGeneration=0,sceneSerial=0,linearFrame=false;
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
 let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, texturesStarted = false;
@@ -276,7 +279,7 @@ function initIncidentResources(){
     finally{context.activeTexture(context.TEXTURE0);}
   },release:value=>{if(value){context.deleteTexture(value.texture);context.deleteTexture(value.columnTexture);}},onChange:body=>{
     queueMicrotask(()=>{if(incidentFields!==cache||gl!==context)return;
-      state.opticsStatus[body]=cache.status(body);updatePhysicalAppearance();if(state.active&&!document.hidden&&!state.animate)paint();});
+      state.opticsStatus[body]=opticalReadiness(body);updatePhysicalAppearance();if(state.active&&!document.hidden&&!state.animate)paint();});
   }});
   incidentFields=cache;
 }
@@ -288,7 +291,7 @@ function incidentBodyDemand(){
 
 function syncIncidentDemand(){
   const demand=incidentBodyDemand();
-  if(demand!==incidentDemand){incidentFields?.abortPending();incidentDemand=demand;}
+  if(demand!==incidentDemand){incidentFields?.abortPending();incidentDemand=demand;if(!demand&&state.programStatus.base==='ready')cancelPendingPrograms();}
 }
 
 function bindIncidentField(body,profile,locations=P.sphereU){
@@ -361,7 +364,7 @@ function updatePhysicalAppearance() {
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
-  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?`Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[body]==='loading'?'Reference optical fields loading; illustrative limb shown until ready.':state.opticsStatus[body]==='unavailable'?'Reference optical fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
+  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?`Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[body]==='loading'?'Reference optical programs and fields loading; illustrative limb shown until ready.':state.opticsStatus[body]==='unavailable'?'Reference optical programs or fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
   if(body==='Sun')notes.push(state.solarMode==='reconstructed-euv'?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
@@ -706,17 +709,6 @@ function loadMoonCatalogue() {
   return moonElementsPromise;
 }
 
-function compile(type, src) {
-  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-  return s;
-}
-function program(vs, fs) {
-  const p = gl.createProgram();
-  gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
-  gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
-  return p;
-}
 function uloc(p, names) { const m = {}; for (const n of names) m[n] = gl.getUniformLocation(p, n); return m; }
 
 function initGL(canvas) {
@@ -725,22 +717,46 @@ function initGL(canvas) {
   gl = canvas.getContext("webgl2", { antialias: true, depth: true, alpha: false, premultipliedAlpha: false });
   if (!gl) return null;
   contextGeneration++;sceneSerial=0;
-  try {
-    P.sphere = program(BASE_SPHERE_VS, BASE_SPHERE_FS);
-    P.physicalSphere = program(SPHERE_VS, SPHERE_FS);
-    P.line = program(LINE_VS, LINE_FS);
-    P.ring = program(RING_VS, RING_FS);
-    P.pt = program(PT_VS, PT_FS);
-    P.glow = program(GLOW_VS, GLOW_FS);
-    P.atmosphere=program(ATMOSPHERE_VS,ATMOSPHERE_FS);
-    P.solar=program(SOLAR_VS,SOLAR_FS);
-  } catch (e) {
-    console.error("orrery shader error:", e.message);
-    // Leave no half-initialised context behind: a truthy `gl` with an empty program set
-    // made the next enterOrrery skip init and crash in paint() with the wrong fallback text.
-    gl = null; P = {};
-    return null;
-  }
+  shaderPrograms?.dispose();P={};state.programStatus={base:'loading',physical:'deferred'};state.programDiagnostics={};
+  const context=gl;
+  const manager=createShaderPrograms(context,{generation:++programContextGeneration,
+    now:()=>performance.now(),schedule:callback=>requestAnimationFrame(callback),cancel:handle=>cancelAnimationFrame(handle),
+    onChange:(key,status)=>{
+      if(shaderPrograms!==manager||gl!==context)return;
+      state.programDiagnostics[key]=manager.diagnostic(key);
+      // Synchronous fallback admission happens at the call site. Only parallel
+      // terminal transitions need a repaint, after the polling stack unwinds.
+      if(!manager.parallel||status==='loading')return;
+      queueMicrotask(()=>{
+        if(shaderPrograms!==manager||gl!==context)return;
+        if(key==='physicalSphere'||key==='atmosphere'){
+          // Read current state: an explicit retry may precede this notification.
+          if(manager.status(key)==='unavailable')manager.cancelPending();
+          admitPhysicalPrograms();updatePhysicalAppearance();
+          if(state.active&&!document.hidden&&P.sphereU)paint();
+        }else if(manager.status(key)==='unavailable')manager.cancelPending();
+      });
+    }});
+  shaderPrograms=manager;
+  const definitions=[['sphere',BASE_SPHERE_VS,BASE_SPHERE_FS],['line',LINE_VS,LINE_FS],['ring',RING_VS,RING_FS],
+    ['pt',PT_VS,PT_FS],['glow',GLOW_VS,GLOW_FS],['solar',SOLAR_VS,SOLAR_FS]];
+  const requests=definitions.map(([key,vertex,fragment])=>manager.request(key,vertex,fragment));
+  const finish=()=>{
+    if(shaderPrograms!==manager||gl!==context||!state.active||context.isContextLost())return null;
+    if(definitions.some(([key])=>manager.status(key)!=='ready')){
+      const failure=definitions.map(([key])=>manager.diagnostic(key)).find(record=>record.status==='unavailable');
+      state.programStatus.base='unavailable';console.error('orrery shader error:',failure?.error||'Shader preparation cancelled');
+      manager.dispose();shaderPrograms=null;gl=null;P={};return null;
+    }
+    for(const [key] of definitions)P[key]=manager.get(key);
+    return finishGL();
+  };
+  // SwiftShader/no-KHR keeps the supported synchronous completion path. Native
+  // KHR polling yields the main thread while mandatory base programs complete.
+  return manager.parallel?Promise.all(requests.map(request=>request.done)).then(finish):finish();
+}
+
+function finishGL(){
   // Array uniforms are queried at element 0 — the location uniform4fv() needs to upload the
   // whole array in one call. GLSL ES 3.00 accepts the bare name for that too, but "[0]" is the
   // form the WebGL spec guarantees, and a silently null location would just skip the upload.
@@ -750,11 +766,9 @@ function initGL(canvas) {
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
   Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
-  P.physicalSphereU=uloc(P.physicalSphere,Object.keys(P.sphereU));
-  P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,'u_atmosphereColumnField']);
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
-  for(const name of ['sphere','physicalSphere']) Object.assign(P[`${name}U`],uloc(P[name],['u_textureLinear']));
-  for(const name of ['sphere','physicalSphere','line','ring','pt','glow','atmosphere','solar'])
+  Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear']));
+  for(const name of ['sphere','line','ring','pt','glow','solar'])
     Object.assign(P[`${name}U`],uloc(P[name],['u_linearOutput']));
 
   const s = buildSphere(48, 96);
@@ -785,7 +799,41 @@ function initGL(canvas) {
   let label = "WebGL2";
   const dbg = gl.getExtension("WEBGL_debug_renderer_info");
   if (dbg) { const r = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL); if (r) label += " · " + r; }
+  state.programStatus.base='ready';
   return { label };
+}
+
+function admitPhysicalPrograms(){
+  if(!shaderPrograms||!P.sphereU)return;
+  const states=['physicalSphere','atmosphere'].map(key=>shaderPrograms.status(key));
+  if(states.every(status=>status==='ready')){
+    if(!P.physicalSphere){
+      P.physicalSphere=shaderPrograms.get('physicalSphere');P.physicalSphereU=uloc(P.physicalSphere,Object.keys(P.sphereU));
+      P.atmosphere=shaderPrograms.get('atmosphere');
+      P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,'u_atmosphereColumnField','u_linearOutput']);
+    }
+    state.programStatus.physical='ready';
+  }else state.programStatus.physical=states.includes('unavailable')?'unavailable':states.includes('loading')?'loading':'deferred';
+}
+
+function requestPhysicalPrograms(){
+  if(!shaderPrograms||state.programStatus.base!=='ready')return;
+  if(['physicalSphere','atmosphere'].some(key=>shaderPrograms.status(key)==='unavailable'))return;
+  shaderPrograms.request('physicalSphere',SPHERE_VS,SPHERE_FS);
+  shaderPrograms.request('atmosphere',ATMOSPHERE_VS,ATMOSPHERE_FS);
+  admitPhysicalPrograms();
+}
+
+function cancelPendingPrograms(){
+  if(!shaderPrograms)return;
+  if(state.programStatus.base==='loading'){
+    shaderPrograms.dispose();shaderPrograms=null;gl=null;P={};state.programStatus={base:'deferred',physical:'deferred'};
+  }else{shaderPrograms.cancelPending();admitPhysicalPrograms();}
+}
+
+function opticalReadiness(body){
+  const fields=incidentFields?.status(body)||'unavailable',program=state.programStatus.physical;
+  return fields==='unavailable'||program==='unavailable'?'unavailable':fields==='ready'&&program==='ready'?'ready':'loading';
 }
 
 function buildCelestialBuffers() {
@@ -1324,6 +1372,7 @@ function beginSceneFrame(width,height){
   }
   if(!linearFrame)gl.bindFramebuffer(gl.FRAMEBUFFER,null);
   for(const name of ['sphere','physicalSphere','line','ring','pt','glow','atmosphere','solar']){
+    if(!P[name]||!P[`${name}U`])continue;
     gl.useProgram(P[name]);gl.uniform1i(P[`${name}U`].u_linearOutput,linearFrame?1:0);
   }
 }
@@ -1343,7 +1392,7 @@ function finishSceneFrame(){
 // ---------------------------------------------------------------- draw
 function paint() {
   syncIncidentDemand();
-  if (!state.active || !gl || gl.isContextLost()) return;
+  if (!state.active || !gl || !P.sphereU || gl.isContextLost()) return;
   const canvas = document.getElementById("orreryCanvas");
   if (!canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0) {
     hdrPresentation?.dispose();hdrPresentation=null;state.hdrFrame=null;linearFrame=false;
@@ -1718,11 +1767,12 @@ function drawBody(b, vp, eye) {
   const light = b.name === "Sun" ? [0, 0, 1] : norm([-b.x_au, -b.y_au, -b.z_au]);
   const lightObj=[dot(rot.slice(0,3),light),dot(rot.slice(4,7),light),dot(rot.slice(8,11),light)];
   const requestedProfile=state.opticsEnabled&&pixelDiameter>=64?getAtmosphereProfile(b.name):null;
+  if(requestedProfile&&b.name===incidentDemand)requestPhysicalPrograms();
   if(requestedProfile&&b.name===incidentDemand)incidentFields?.request(b.name);
-  state.opticsStatus[b.name]=requestedProfile?(incidentFields?.status(b.name)||'unavailable'):'deferred';
+  state.opticsStatus[b.name]=requestedProfile?opticalReadiness(b.name):'deferred';
   // Nested quadrature is never a frame-time fallback. Both immutable numerical
   // fields must pass admission before reference optical transfer becomes active.
-  const profile=requestedProfile&&incidentFields?.get(b.name)?.columnTexture?requestedProfile:null;
+  const profile=requestedProfile&&state.programStatus.physical==='ready'&&incidentFields?.get(b.name)?.columnTexture?requestedProfile:null;
   const distanceAu=b.name==='Sun'?1:Math.hypot(b.x_au,b.y_au,b.z_au);
   const opticalOptions={cameraBodyKm:physicalCameraPosition(eye,pos,rot,rEq,phys.radiusKm),sunDirectionBody:lightObj,
     polarRatio:phys.polarKm/phys.radiusKm,solarDistanceAu:distanceAu,exposure:linearFrame?1:distanceAu*distanceAu};
@@ -1734,6 +1784,7 @@ function drawBody(b, vp, eye) {
 
   const sphereUniforms=profile?P.physicalSphereU:P.sphereU;
   gl.useProgram(profile?P.physicalSphere:P.sphere);
+  gl.uniform1i(sphereUniforms.u_linearOutput,linearFrame?1:0);
   setAtmosphereUniforms(gl,sphereUniforms,profile,opticalOptions);
   bindAtmosphereColumns(b.name,sphereUniforms);
   bindIncidentField(b.name,profile,sphereUniforms);
@@ -1840,7 +1891,7 @@ function drawBody(b, vp, eye) {
     const extent=1+profile.topKm/profile.radiusKm;
     const shell=mul(translate(pos),mul(rot,scaleM([rEq*extent,rEq*extent,rPol*extent])));
     queueTransparent(pos,eye,()=>{
-      gl.useProgram(P.atmosphere);setAtmosphereUniforms(gl,P.atmosphereU,profile,opticalOptions);
+      gl.useProgram(P.atmosphere);gl.uniform1i(P.atmosphereU.u_linearOutput,linearFrame?1:0);setAtmosphereUniforms(gl,P.atmosphereU,profile,opticalOptions);
       bindAtmosphereColumns(b.name,P.atmosphereU);
       gl.uniformMatrix4fv(P.atmosphereU.u_mvp,false,new Float32Array(mul(vp,shell)));
       bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.depthMask(false);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
@@ -2614,7 +2665,8 @@ async function enterOrreryInner() {
     if(!state.active||generation!==systemGeneration)return;
     state.bodies=snapshot.bodies.map(body=>({...body}));state.renderUnix=unix;state.metadataUnix=unix;state.engineError="";lastFullSnapshot=performance.now();
     if (!gl) {
-      const res = initGL(canvas);
+      const res = await initGL(canvas);
+      if(!state.active||generation!==systemGeneration)return;
       if (!res) { showFallback("WebGL2 is unavailable — try a recent Chrome, Edge, Firefox, or Safari."); return; }
       state.backend = "WebGL2/ANGLE" + res.label.replace("WebGL2", "");
       const node = document.getElementById("orreryBackend");
@@ -2654,6 +2706,7 @@ async function enterOrreryInner() {
 }
 export function leaveOrrery() {
   state.active = false;
+  cancelPendingPrograms();
   hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
   state.hdrStatus={state:'deferred',reason:'View inactive.'};
   cancelPendingReferenceTextures();
@@ -2702,8 +2755,8 @@ async function showFallback(msg) {
   document.addEventListener("visibilitychange",()=>{
     syncIncidentDemand();
     state.keys.clear(); state.lastTick=0;
-    if (document.hidden) { if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelSystemWork(); }
-    else if (state.active) {if(!state.bodies.length)void enterOrrery();else startLoop();}
+    if (document.hidden) { if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelPendingPrograms();cancelSystemWork(); }
+    else if (state.active) {if(!gl||!state.bodies.length)void enterOrrery();else startLoop();}
   });
   document.getElementById("orrerySearch")?.addEventListener("input",event=>{
     state.objectQuery=/** @type {HTMLInputElement} */ (event.target).value; updateOrreryPositions();
@@ -2915,6 +2968,8 @@ async function showFallback(msg) {
   });
   bind('orreryOptics','change',e=>{
     state.opticsEnabled=inputTarget(e).checked;incidentFields?.dispose();incidentFields=null;incidentDemand='';
+    if(state.opticsEnabled){for(const key of ['physicalSphere','atmosphere'])shaderPrograms?.retry(key);}
+    else cancelPendingPrograms();
     if(state.opticsEnabled&&gl)initIncidentResources();updatePhysicalAppearance();paint();
   });
   bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;syncSolarPlaybackControls();paint();window.dispatchEvent(new Event('sol:presentation'));});
@@ -3004,6 +3059,7 @@ async function showFallback(msg) {
     terrainDetails?.dispose();terrainDetails=null;terrainDemand={};state.terrainStatus={};
     incidentFields?.dispose();incidentFields=null;incidentDemand='';state.opticsStatus={};
     solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
+    shaderPrograms?.dispose();shaderPrograms=null;state.programStatus={base:'deferred',physical:'deferred'};
     hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
     state.hdrStatus={state:'deferred',reason:'Graphics context lost.'};
     gl = null; P = {};
@@ -3021,18 +3077,31 @@ async function showFallback(msg) {
     if (!state.active) return;
     state.engineError="";metadataFailed=false;
     const c = document.getElementById("orreryCanvas");
-    if (!initGL(c)) return;
-    initParticles();
-    loadTextures();
-    buildGeneratedMaps();
-    // A graphics reset does not change the rendered epoch or its valid physical
-    // snapshot. Recomputing positions here also launched a fresh metadata worker
-    // while synchronous shader/first-frame work could block its reply deadline.
-    // Rebuild only the GPU geometry from the retained coordinates and elements.
-    buildSceneLines();
-    buildDropLines();
-    paint();
-    startLoop(); // the tick loop may have stopped while gl was null; re-arm it
+    const generation=systemGeneration,result=initGL(c),manager=shaderPrograms,programGeneration=programContextGeneration;
+    const restored=ready=>{
+      if(!state.active||generation!==systemGeneration||programGeneration!==programContextGeneration)return;
+      if(!ready){
+        if(state.programStatus.base==='unavailable'){
+          state.engineError='3-D graphics programs unavailable after context restoration. Retry explicitly.';updateOrreryAccuracy();
+        }
+        return;
+      }
+      if(shaderPrograms!==manager)return;
+      initParticles();
+      loadTextures();
+      buildGeneratedMaps();
+      // A graphics reset does not change the rendered epoch or its valid physical
+      // snapshot. Recomputing positions here also launched a fresh metadata worker
+      // while synchronous shader/first-frame work could block its reply deadline.
+      // Rebuild only the GPU geometry from the retained coordinates and elements.
+      buildSceneLines();
+      buildDropLines();
+      paint();
+      startLoop(); // the tick loop may have stopped while gl was null; re-arm it
+    };
+    if(result instanceof Promise)void result.then(restored).catch(error=>{
+      if(state.active&&generation===systemGeneration){state.engineError=`3-D graphics restoration failed: ${error.message}`;updateOrreryAccuracy();}
+    });else restored(result);
   });
   // Repaint on any size change (DPI / window / layout) so ensureSized rebuilds the backing store at
   // full resolution — fires even when rAF is throttled (background tab), unlike the animation loop.

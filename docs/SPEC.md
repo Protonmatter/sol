@@ -74,6 +74,17 @@ generate a field at runtime. Source textures, terrain LOD and numerical acceptan
 tolerances remain unchanged. Both incident and column fields must pass admission;
 failed or pending fields retain the explicitly illustrative limb. Companion loads
 share cancellation, and upload failure releases both numerical textures.
+Graphics programs use a context-owned, bounded completion lifecycle. Where
+`KHR_parallel_shader_compile` is available, compile/link status and uniform
+locations are queried only after its completion signal. Six base programs enable
+the scene; the physical sphere and atmosphere programs load on qualified close
+view demand. Both programs and both numerical fields must be ready before physical
+transfer is reported or drawn. Pending/failed programs retain the disclosed
+illustrative route, with explicit retry after failure. The supported no-extension
+path completes synchronously. Context loss disposes all programs; leave, hide and
+obsolete demand cancel pending work. The 30-second qualification startup gate is
+unchanged. The [program lifecycle record](plans/2026-09-14-rendering-qualification/SHADER_PROGRAM_LIFECYCLE.md)
+separates CPU lifecycle proof from pending native performance qualification.
 The two incident and two density-column binaries are optional in the immutable release
 inventory: installation does not fetch them, and demand-time loading verifies their
 bytes before caching or upload. Their absence does not block core installation.

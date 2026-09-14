@@ -161,3 +161,14 @@ test('diagnostic startup continuation cannot turn a failed original deadline int
   await assert.rejects(observeTextureStartup(async()=>{throw new Error('page detached');}),/detached/);
   await assert.rejects(observeTextureStartup(async()=>{throw Object.assign(new Error('still blocked'),{name:'TimeoutError'});}),/still blocked/);
 });
+
+test('application startup requires ready base graphics and cannot pass on ephemeris bodies alone',async()=>{
+  const {textureSceneReady}=await subject(),bodies=Array(9).fill({});
+  assert.equal(textureSceneReady({bodies,backend:'',engineError:''}),false);
+  assert.equal(textureSceneReady({bodies,backend:'WebGL2',programStatus:{base:'loading'}}),false);
+  assert.equal(textureSceneReady({bodies,backend:'WebGL2',programStatus:{base:'unavailable'}}),false);
+  assert.equal(textureSceneReady({bodies,backend:'WebGL2',programStatus:{base:'ready'}}),true);
+  assert.equal(textureSceneReady({bodies,backend:'WebGL2'}),true,'immutable legacy stages use their actual backend admission');
+  assert.equal(textureSceneReady({bodies:[],backend:'WebGL2',programStatus:{base:'ready'}}),false);
+  assert.equal(textureSceneReady({engineError:'graphics failed'}),true,'failure stops waiting and is rejected by application snapshot validation');
+});
