@@ -11,6 +11,7 @@ import {PNG} from 'pngjs';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
 import {createStagedPreviewServer} from './staged_preview_server.mjs';
 import {requestContextRestoration} from './context_restore.mjs';
+import {assertReplacementContextDraw,assertRestoredFrame} from './restored_frame_admission.mjs';
 import {installPhysicalTextureEvidence} from './physical_texture_probe.mjs';
 import {installScatteringProducerEvidence} from './scattering_producer_probe.mjs';
 import {installProgramSourceEvidence,preparePhysicalSpinEvidence} from './physical_spin_probe.mjs';
@@ -169,6 +170,7 @@ async function run(){
     globalThis.Date=class extends Native{constructor(...args){super(...(args.length?args:[t]));}static now(){return t;}};
     window.__physicalShaderErrors=[];window.__physicalGlErrors=[];window.__physicalExpectedLossErrors=[];
     window.__physicalTerrainMeshes=[];window.__physicalTerrainDraws=[];
+    window.__physicalBodyDraws=[];window.__physicalBodyDrawWindow=false;
     const NativeWorker=window.Worker;
     window.Worker=class extends NativeWorker {
       constructor(url,options){super(url,options);this.addEventListener('message',event=>{
@@ -186,6 +188,12 @@ async function run(){
         const program=this.getParameter(this.CURRENT_PROGRAM),location=this.getUniformLocation(program,'u_terrainShadowEnabled');
         if(location&&this.getUniform(program,location)===1)window.__physicalTerrainDraws.push({mode,count,type,
           indexBufferBytes:this.getBufferParameter(this.ELEMENT_ARRAY_BUFFER,this.BUFFER_SIZE)});
+      }
+      // Restoration evidence only: open between observed loss and the restored capture,
+      // so ordinary frames pay no extra synchronous GL queries.
+      if(window.__physicalBodyDrawWindow&&window.__physicalBodyDraws.length<512){
+        const program=this.getParameter(this.CURRENT_PROGRAM),location=program&&this.getUniformLocation(program,'u_terrainShadowEnabled');
+        if(location)window.__physicalBodyDraws.push({count,terrainShadow:this.getUniform(program,location),contextLost:this.isContextLost()});
       }
       return result;
     };
@@ -270,6 +278,7 @@ async function run(){
     const workersBefore=evidence.worker_urls.filter(x=>x.includes('terrain.worker.js')).length;
     await page.evaluate(()=>{const c=document.getElementById('orreryCanvas'),gl=c.getContext('webgl2'),ext=gl.getExtension('WEBGL_lose_context');if(!ext)throw new Error('WEBGL_lose_context unavailable');window.__physicalExpectedContextLoss=true;window.__physicalLoss={canvas:c,context:gl,extension:ext,observed:false,lossMs:null};c.addEventListener('webglcontextlost',()=>{window.__physicalLoss.observed=true;window.__physicalLoss.lossMs=performance.now();},{once:true});ext.loseContext();});
     await page.waitForFunction(()=>window.__physicalLoss.observed,{timeout:5000,polling:100});
+    await page.evaluate(()=>{window.__physicalBodyDraws=[];window.__physicalBodyDrawWindow=true;});
     // Observe the native event before the app callback rebuilds resources. CDP
     // polling can miss its deadline while the already-restored context is busy.
     // Both the native 10s limit and total 40s ready limit use request time.
@@ -284,6 +293,11 @@ async function run(){
     assert.ok(evidence.context_restore.event_ms-evidence.context_restore.request_ms<=10000,'Native restoration exceeded 10000ms');
     assert.ok(evidence.context_restore.ready_ms-evidence.context_restore.request_ms<=40000,'Actual terrain/optics readiness exceeded 40000ms from request');
     await capture('mars-context-restored');
+    // Readiness statuses alone admitted a blank restored frame. Require a body draw the
+    // replacement context actually submitted, and decode the restored capture itself.
+    const replacementDraws=await page.evaluate(()=>{window.__physicalBodyDrawWindow=false;return window.__physicalBodyDraws;});
+    evidence.context_restore.replacement_draws=assertReplacementContextDraw(replacementDraws);
+    evidence.context_restore.restored_frame=assertRestoredFrame(fs.readFileSync(path.join(out,'mars-context-restored-canvas.png')));save();
     assert.ok(evidence.worker_urls.filter(x=>x.includes('terrain.worker.js')).length>workersBefore,'Terrain Worker was not recreated after context restoration');
     check('Context restoration recreates actual terrain resources and preserves engine state');
   }
