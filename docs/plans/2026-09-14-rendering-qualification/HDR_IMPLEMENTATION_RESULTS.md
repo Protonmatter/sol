@@ -214,7 +214,7 @@ node tools/browser_validation.mjs --web-root=build/qualified-candidate --output-
 The new backend option and capability collection passed 49 focused CPU tests,
 including the existing physical/final-presentation collector checks. That result
 does not establish an actual native browser pass; combined geometry and native
-replays remain pending until separately recorded.
+results require the separately recorded backend replays below.
 
 The first combined native run identified Adreno X1-85/D3D11 but rejected all 266
 Earth draws in the additional physical window: they still used the illustrative
@@ -236,21 +236,78 @@ from System entry, program diagnostics, field status, rejection counts and the
 accepted draw evidence. Only then does the additional, unchanged three-in-five-
 seconds collector measure physical rendering and final presentation. The original
 Earth collector and frozen/held controls still run independently before this step.
-Focused readiness/backend/collector CPU tests pass 53/53; revised native browser
-qualification remains pending until its own immutable receipt is recorded.
+Focused readiness/backend/collector CPU tests passed 53/53 before the
+reduced-overhead follow-up and its separate immutable browser replay.
 
 The first preparation replay retained a native `physicalSphere` completion failure
 at the existing 30-second limit, while the atmosphere and six base programs were
-ready. Its initial observer made 44,472 per-draw current-program queries before
-that failure. This is retained as an instrumented observation, not a clean native
+ready. Its initial observer saw 44,472 submitted draws and rejected 44,399 after
+per-draw current-program queries. This is retained as an instrumented observation, not a clean native
 compile-performance attribution. The observer now filters draws using CPU-observed
 program binding and current linked-source history before querying GL. A matching
 hint still requires independent actual `CURRENT_PROGRAM` identity and every prior
 uniform/source/field/geometry check. The receipt records filtered draws, candidate
 draws, actual program queries and GPU/hint mismatches. Wrong hints, stale source
 history and conflicting GPU programs are rejected by the 55 passing focused tests.
-No System, compile or frame deadline changed. Native qualification still requires
-a replay of this reduced-overhead observer.
+No System, compile or frame deadline changed.
+
+### Combined immutable backend replay
+
+The reduced-overhead observer at `ab67ec8` was replayed with Chrome
+`151.0.7922.174` against the combined immutable runtime
+`11508ce228464a2489f512e9e8e093b37f584a49`, release `hdr-combined-11508ce`, whose
+manifest SHA-256 is
+`d0df1a00e840b303da30b4280fdf205e2f1055545042f4101263924b4639b916`.
+The validator used a separate frozen source snapshot with matching application
+bytes and six recorded tool hashes. Before/after checks matched every tool hash
+and the unchanged runtime manifest on both backends. Browsers ran serially and
+owned processes closed after each run.
+
+| Actual application backend | Full application result | Physical readiness observation | Separate physical final-frame gate |
+| --- | --- | --- | --- |
+| SwiftShader Vulkan | Pass, exit 0 | First observed valid physical draw at System +43,614.6 ms, within the original 75,000 ms budget | Four physical Earth draws matched current HDR final presentation by 1,246.3 ms; collector completed at 1,248.2 ms |
+| Adreno X1-85, ANGLE D3D11 | Fail, exit 1 | `physicalSphere` reported `Shader completion exceeded 30000 ms`; no valid physical draw was observed | Not entered because preparation failed |
+
+The SwiftShader physical draws retained exact linked shader identities, admitted
+Earth profile and static incident/column upload identities, actual current
+sampler bindings, `u_atmosphereEnabled == 1`, and camera/Sun consistency with the
+actual GPU model and camera. The final pass matched producer texture, serial,
+context generation and epoch. All four positive physical samples had zero source,
+GPU or presentation mismatches and zero late readbacks. Readiness made one actual
+current-program query for one physical candidate. Its reported readiness latency
+is the first valid draw observed by the preparation step, which starts after the
+original controls; it is not an isolated shader compilation duration.
+
+The original SwiftShader Earth rotation gate independently accepted four draws
+by 925.6 ms. The frozen-rotation control was rejected, and the held-presentation
+control observed 12 offscreen Earth draws with zero accepted final frames.
+Unchanged Sun, Earth color, orbit and moon-shadow assertions passed. Browser-only
+coverage was 86.31% lines, 75.73% branches and 81.78% functions; this is not a
+claim that merged coverage thresholds or hosted gates passed.
+
+The native preparation filtered all 45,212 observed unrelated draws, made zero
+candidate GPU current-program queries and performed zero physical captures.
+The six base programs and atmosphere shell were ready, but physicalSphere became
+unavailable. The failure was observed at System +55,770.8 ms, before the original
+75-second deadline. Thus the earlier preparation observer's per-draw GPU queries
+do not explain this repeat failure. Original collector and coverage
+instrumentation still remain in this full-application run; this is not an
+uninstrumented compiler benchmark. Native physical readiness and final-frame
+performance remain unqualified, and HDR remains opt-in.
+
+Current receipts are under
+`coverage/hdr-combined-11508ce-swiftshader-filtered` and
+`coverage/hdr-combined-11508ce-native-filtered`. Each contains
+`browser-evidence.json`, `visual/earth-physical-readiness.json` and an independent
+`integrity-audit.json`; the successful backend also contains
+`visual/earth-physical-spin.json`. Earlier receipts remain intact: the first
+native fallback failure, the heavily instrumented native preparation failure,
+and the separate SwiftShader preparation attempt that failed the original mobile
+offline-update wait before reaching System. The preliminary software run whose
+tool paths changed while active is explicitly excluded in
+`coverage/hdr-combined-11508ce-swiftshader/qualification-excluded.json`; its later
+frozen `swiftshader-qualified` replacement and the current `swiftshader-filtered`
+run are distinct retained receipts.
 
 Use the repository's existing output/coverage options for the second command and
 the same original runtime budgets. A passing material swatch or advancing offscreen
