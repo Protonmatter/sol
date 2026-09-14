@@ -121,10 +121,29 @@ observation metadata and a bounded science-file prefix. It does not establish
 radial geometry, normalized transmission or independent coverage/material-depth
 parameters. See [the source candidate assessment](VISIBLE_RING_SOURCE_CANDIDATE.md).
 
-The pure scattering math and dedicated target lifecycle are integrated as candidate
-components. They do not yet replace the production material in this revision.
-See [interpolation qualification](SCATTERING_INTERPOLATION.md) and
-[additive terrain cases](SCATTERING_SUPPLEMENT_CONTRACT.md). At this checkpoint,
-1,123 web tests passed before the five new supplemental fixture groups (which
-also passed), and all 110 runtime JS files typechecked. Native accuracy and
-final application admission remain open.
+The pure scattering math and dedicated target lifecycle are now wired into the
+current-frame physical material. See [runtime integration](SCATTERING_RUNTIME_INTEGRATION.md),
+[interpolation qualification](SCATTERING_INTERPOLATION.md) and
+[additive terrain cases](SCATTERING_SUPPLEMENT_CONTRACT.md). The integration at
+`191818a` passed all 1,139 web tests. The later producer-observation changes at
+`2ba2911` passed 110-file type checking; its final combined test suite remains a
+separate requirement.
+
+An immutable software-GPU application replay at `2ba2911` used manifest
+`4459d0979ae4059e2bbb494ef195d82b1ac29577b848cc782bdaf7d449925bd7`.
+The original Earth spin gate observed four current final draws in 926.1 ms, with
+the frozen-transform and held-presentation negative controls retained. All nine
+runtime programs were ready. The additional physical gate failed: its observer
+required `u_scatteringLimbSize` from a surface-only consumer where that uniform
+was optimized out. All 91 physical candidates were rejected, so this run does
+not qualify physical performance. The failed receipt is retained at
+`build/pr107-production-20260914/runtime-2ba2911-swiftshader/visual/earth-physical-readiness.json`.
+Correcting the observer must preserve actual producer/frame/source checks and
+rerun the complete gate; the earlier original spin pass does not substitute.
+
+Native accuracy and final application admission remain open. The published
+`6083b5c` checks completed with 17 successes and three failures: the two browser
+coverage jobs rejected zero Earth draws and the dependent release gate failed.
+Those results belong to that earlier direct-integrator runtime, not the new
+unpublished consumer integration. Required hosted checks must complete on the
+actual final published head.
