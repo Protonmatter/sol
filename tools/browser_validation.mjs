@@ -842,6 +842,16 @@ async function moonShadowAssertions(page, visualDirectory) {
 
 async function visualAssertions(page, visualDirectory) {
   fs.mkdirSync(visualDirectory, { recursive: true });
+  if(argument('hdr-candidate','false')==='true'){
+    const hdr=await page.evaluate(async()=>{
+      const entry=document.querySelector('script[type="module"][src^="app.js"]');
+      const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+      store.orrery.hdrEnabled=true;
+      document.getElementById('orrerySize').dispatchEvent(new Event('input',{bubbles:true}));
+      return store.orrery.hdrStatus;
+    });
+    if(hdr.state!=='ready')throw new Error(`HDR candidate unavailable: ${hdr.reason}`);
+  }
   await focusBody(page, "Sun");
   // The visible-light contract is separate from the new explicitly assigned EUV colors.
   await page.select('#orrerySolarMode','visible');
@@ -970,7 +980,13 @@ async function visualAssertions(page, visualDirectory) {
   try { assertSubmittedSpin(spinSamples.map(sample => ({ ...sample, normal: spinSamples[0].normal, model: spinSamples[0].model }))); }
   catch (error) { frozenRejected = /frozen|outside cap/.test(error.message); }
   if (!frozenRejected) throw new Error("spin gate accepted the original frozen-transform regression");
-  fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify({ ...spinProbe, ...rotationStats, frozenRejected }, null, 2));
+  let heldPresentationProbe=null;
+  if(spinSamples.some(sample=>sample.presentation)){
+    heldPresentationProbe=await page.evaluate(collectSubmittedEarthSpin,{holdPresentation:true});
+    if(heldPresentationProbe.samples.length||!heldPresentationProbe.drawCounts.heldPresentations)
+      throw new Error('spin gate accepted a held HDR presentation or did not observe its negative control');
+  }
+  fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify({ ...spinProbe, ...rotationStats, frozenRejected,heldPresentationProbe }, null, 2));
   const spinDisclosure = await page.$eval("#orreryAccuracy", (node) => node.textContent);
   if (!spinDisclosure.includes("Rotation display rate-limited")) {
     throw new Error(`high-speed rotation disclosure is missing: ${JSON.stringify(spinDisclosure)}`);

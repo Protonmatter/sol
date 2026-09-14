@@ -25,12 +25,14 @@ function transform(angle = 0, center = [.1, .2, .3]) {
     normal: new Float32Array([c, s, 0, -s, c, 0, 0, 0, 1]) };
 }
 
-async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualified', setup, allowNativeErrors = false } = {}) {
+async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualified', setup, allowNativeErrors = false, probeOptions = {} } = {}) {
   let now = 0, nextId = 0, outcome, currentProgram = null;
   const tasks = new Map(), frames = new Map(), nativeCalls = [], uncaught = [], imports = [];
   const state = { active: true, animate: true, anchor: 'Earth', selected: 'Earth', engineError: '', lastTick: 12,
     renderUnix: 100, yearsPerSec: 7 / 365.25, bodies: [{ name: 'Earth', x_au: .1, y_au: .2, z_au: .3 }] };
   const program = { name: 'sphere' }, otherProgram = { name: 'other' }, uniforms = new Map();
+  const presentationProgram={name:'presentation'},sceneTexture={name:'scene'},sceneFramebuffer={name:'scene-fbo'};
+  let framebuffer=null,boundTexture=sceneTexture,activeUnit=100;
   const queryCounts = { parameter: 0, uniform: 0, location: 0 };
   let rejection = null, readbackError = null, readbackDelay = () => 0, drawDelay = 0;
   function native(api, self, args, effect, result) {
@@ -45,6 +47,8 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
   }
   const values = p => { if (!uniforms.has(p)) uniforms.set(p, new Map()); return uniforms.get(p); };
   const gl = { CURRENT_PROGRAM: 1, isContextLost: () => false,
+    DRAW_FRAMEBUFFER_BINDING:2,DRAW_FRAMEBUFFER:3,COLOR_ATTACHMENT0:4,FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:5,
+    ACTIVE_TEXTURE:6,TEXTURE_BINDING_2D:7,TEXTURE0:100,
     useProgram(...args) { return native('useProgram', this, args, () => { currentProgram = args[0]; }); },
     uniform1i(...args) { return native('uniform1i', this, args, () => {
       if (args[0]?.program === currentProgram) values(currentProgram).set(args[0].name, args[1]);
@@ -56,7 +60,8 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
     }); },
     drawElements(...args) { return native('drawElements', this, args, null, 41); },
     drawArrays(...args) { return native('drawArrays', this, args, null, 42); },
-    getParameter() { queryCounts.parameter++; return currentProgram; },
+    getParameter(name) { queryCounts.parameter++;return name===2?framebuffer:name===6?activeUnit:name===7?boundTexture:currentProgram; },
+    getFramebufferAttachmentParameter(){return sceneTexture;},activeTexture(unit){activeUnit=unit;},
     // Deliberately fresh identities: production cached locations cannot be
     // matched against separately queried WebGLUniformLocation objects.
     getUniformLocation(p, name) { queryCounts.location++; return { program: p, name }; },
@@ -65,6 +70,14 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
   const original = Object.fromEntries(['useProgram', 'uniform1i', 'uniformMatrix4fv', 'drawElements', 'drawArrays'].map(name => [name, gl[name]]));
   const appLocation = (name, p = program) => ({ program: p, name });
   const env = { gl, state, program, otherProgram, values, queryCounts, nativeCalls, appLocation,
+    hdr(index){state.hdrFrame={generation:1,epoch:state.renderUnix,serial:index};framebuffer=sceneFramebuffer;values(program).set('u_linearOutput',1);},
+    present(changes={}){
+      framebuffer=null;boundTexture=changes.texture??sceneTexture;gl.useProgram(presentationProgram);
+      const frame={...state.hdrFrame,...changes},u=values(presentationProgram);
+      u.set('u_scene',0);u.set('u_frameSerial',frame.serial);u.set('u_frameGeneration',frame.generation);
+      u.set('u_frameEpochHigh',Math.fround(frame.epoch));u.set('u_frameEpochLow',frame.epoch-Math.fround(frame.epoch));
+      gl.drawArrays(4,0,3);
+    },
     reject: (api, type = 'throw') => { rejection = { api, type }; },
     failReadback: message => { readbackError = message; },
     delayReadback: callback => { readbackDelay = callback; },
@@ -103,7 +116,7 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
     context, importModuleDynamically: specifier => { imports.push(specifier); return storeModule; },
   });
   await module.link(() => {}); await module.evaluate();
-  module.namespace.default().then(value => { outcome = { value }; }, error => { outcome = { error }; });
+  module.namespace.default(probeOptions).then(value => { outcome = { value }; }, error => { outcome = { error }; });
   await new Promise(resolve => setImmediate(resolve));
   for (const [at, action] of actions) schedule(() => action(env), at);
   let nextFrame = 16;
@@ -132,6 +145,32 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
 const advancingDraws = (customize = () => {}) => [1, 2, 3, 4].map(index => [index * 100, env => {
   env.advance(index); env.upload(index * .01 * 2 * Math.PI / 5); customize(env, index); env.draw();
 }]);
+
+test('offscreen Earth producers require the matching color-writing presentation',async()=>{
+  const actions=advancingDraws((env,i)=>env.hdr(i));
+  const held=await spin({actions});assert.equal(held.result.samples.length,0);
+  const visible=await spin({actions:[1,2,3,4].map(i=>[i*100,env=>{
+    env.advance(i);env.upload(i*.01*2*Math.PI/5);env.hdr(i);env.draw();env.present();
+  }])});
+  assert.equal(visible.result.samples.length,4);assertSubmittedSpin(visible.result.samples);
+  assert.ok(visible.result.samples.every(s=>s.presentation.serial>0));
+});
+
+test('stale texture, frame serial, epoch and context generation cannot present a current Earth producer',async()=>{
+  for(const changes of [{texture:{}},{serial:99},{epoch:0},{generation:2}]){
+    const {result}=await spin({actions:[1,2,3,4].map(i=>[i*100,env=>{
+      env.advance(i);env.upload(i*.01*2*Math.PI/5);env.hdr(i);env.draw();env.present(changes);
+    }])});
+    assert.equal(result.samples.length,0,JSON.stringify(changes));
+  }
+});
+
+test('held final draw negative control rejects advancing HDR producers without weakening five seconds',async()=>{
+  const {result,now}=await spin({probeOptions:{holdPresentation:true},actions:[1,2,3,4].map(i=>[i*100,env=>{
+    env.advance(i);env.upload(i*.01*2*Math.PI/5);env.hdr(i);env.draw();env.present();
+  }])});
+  assert.equal(result.samples.length,0);assert.equal(now,5000);
+});
 
 test('zero draws retain the five-second window and initial/final state evidence', async () => {
   const { result, now } = await spin({ importToken: null });

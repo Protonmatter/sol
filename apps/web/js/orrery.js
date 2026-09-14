@@ -15,6 +15,8 @@
 
 import { store } from "./store.js?v=dcca6290db";
 import { linearFilterReference } from './materialColor.js';
+import { createHdrPresentation } from './hdrPresentation.js';
+import { srgbToLinear } from './surfaceMapping.js';
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole } from "./planetAppearance.js";
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
 import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.js';
@@ -145,6 +147,8 @@ const state = (store.orrery = {
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite',
   appearanceStatus: {},
   terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{},
+  // Qualification candidate only; default enablement requires integrated/native gates.
+  hdrEnabled:false, hdrStatus:{state:'deferred',reason:'HDR candidate disabled.'}, hdrFrame:null,
   solarMode:'reconstructed-euv', solarStatus:'deferred', solarInspection:false, solarPlayback:{seconds:0,duration:20,playing:false},
   showSmall: false, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   moonGuideMode: "context", // advanced callers may explicitly choose all or off
@@ -175,6 +179,7 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 
 // ---------------------------------------------------------------- WebGL2 renderer
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
+let hdrPresentation=null,contextGeneration=0,sceneSerial=0,linearFrame=false;
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
 let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, texturesStarted = false;
 let referenceTextures = {}, textureGeneration = 0;
@@ -364,12 +369,13 @@ function updatePhysicalAppearance() {
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
-  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?'Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, adaptive display exposure. Not current weather.':state.opticsStatus[body]==='loading'?'Reference optical fields loading; illustrative limb shown until ready.':state.opticsStatus[body]==='unavailable'?'Reference optical fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
+  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?`Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[body]==='loading'?'Reference optical fields loading; illustrative limb shown until ready.':state.opticsStatus[body]==='unavailable'?'Reference optical fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
+  if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references.':`${state.hdrStatus.reason} Existing SDR display retained.`);
   if(body==='Sun')notes.push(state.solarMode==='reconstructed-euv'?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
-  if(node){const text=notes.join(' ');if(node.textContent!==text)node.textContent=text;node.hidden=!text||state.galaxy||!state.active;}
+  if(node){const text=notes.join(' ');if(node.textContent!==text)node.textContent=text;node.hidden=!text||(state.galaxy&&!state.hdrEnabled)||!state.active;}
   syncSolarPlaybackControls();
 }
 
@@ -726,6 +732,7 @@ function initGL(canvas) {
   // a full-framebuffer copy per composite on many GPUs.
   gl = canvas.getContext("webgl2", { antialias: true, depth: true, alpha: false, premultipliedAlpha: false });
   if (!gl) return null;
+  contextGeneration++;sceneSerial=0;
   try {
     P.sphere = program(BASE_SPHERE_VS, BASE_SPHERE_FS);
     P.physicalSphere = program(SPHERE_VS, SPHERE_FS);
@@ -755,6 +762,8 @@ function initGL(canvas) {
   P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,'u_atmosphereColumnField']);
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
   for(const name of ['sphere','physicalSphere']) Object.assign(P[`${name}U`],uloc(P[name],['u_textureLinear']));
+  for(const name of ['sphere','physicalSphere','line','ring','pt','glow','atmosphere','solar'])
+    Object.assign(P[`${name}U`],uloc(P[name],['u_linearOutput']));
 
   const s = buildSphere(48, 96);
   sphere = { pos: gl.createBuffer(), idx: gl.createBuffer(), count: s.idx.length };
@@ -1307,23 +1316,59 @@ function queueTransparent(pos,eye,draw) {
   transparentPasses.push({distance:Math.hypot(...sub(pos,eye)),draw});
 }
 
+function beginSceneFrame(width,height){
+  linearFrame=false;state.hdrFrame=null;
+  if(!state.hdrEnabled||state.earthIce){
+    hdrPresentation?.dispose();hdrPresentation=null;
+    state.hdrStatus={state:'deferred',reason:state.earthIce?'Scientific palette selected; SDR composition preserved.':'HDR candidate disabled.'};
+  }else{
+    hdrPresentation??=createHdrPresentation(gl,{generation:contextGeneration});
+    state.hdrStatus=hdrPresentation.resize(width,height);
+    if(state.hdrStatus.state==='ready'){
+      const frameIdentity={generation:contextGeneration,epoch:state.renderUnix,serial:++sceneSerial};
+      linearFrame=hdrPresentation.beginFrame(frameIdentity);
+      if(linearFrame)state.hdrFrame=frameIdentity;
+    }
+  }
+  if(!linearFrame)gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  for(const name of ['sphere','physicalSphere','line','ring','pt','glow','atmosphere','solar']){
+    gl.useProgram(P[name]);gl.uniform1i(P[`${name}U`].u_linearOutput,linearFrame?1:0);
+  }
+}
+function sceneClearColor(r,g,b){
+  gl.clearColor(.../** @type {[number,number,number]} */(linearFrame?[r,g,b].map(srgbToLinear):[r,g,b]),1);
+}
+function finishSceneFrame(){
+  if(!linearFrame)return;
+  if(!hdrPresentation.present({exposure:1,frameIdentity:state.hdrFrame})){
+    // A rejected producer never leaves an offscreen-only frame visible. Release
+    // this owner and render the existing SDR route once; no per-paint retry loop.
+    hdrPresentation.dispose();linearFrame=false;state.hdrFrame=null;paint();return;
+  }
+  state.hdrStatus=hdrPresentation.status();
+}
+
 // ---------------------------------------------------------------- draw
 function paint() {
   syncIncidentDemand();
   if (!state.active || !gl || gl.isContextLost()) return;
   const canvas = document.getElementById("orreryCanvas");
-  if (!canvas || canvas.clientWidth === 0) return;
+  if (!canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0) {
+    hdrPresentation?.dispose();hdrPresentation=null;state.hdrFrame=null;linearFrame=false;
+    state.hdrStatus={state:'deferred',reason:'No visible frame.'};return;
+  }
   const [w, h] = ensureSized(canvas);
+  beginSceneFrame(w,h);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const { eye, vp, skyVp } = cameraMatrices(w, h);
   updatePhysicalAppearance();
   referenceVisible = new Map();
   state.terrainRendered={};state.opticsStatus={};
   referenceViewport = {width:canvas.clientWidth,height:canvas.clientHeight};
-  if (state.galaxy) { syncReferenceDemand(); paintGalaxy(w, h, dpr, vp, eye); return; }
+  if (state.galaxy) { syncReferenceDemand(); paintGalaxy(w, h, dpr, vp, eye); finishSceneFrame();return; }
 
   gl.viewport(0, 0, w, h);
-  gl.clearColor(0.004, 0.006, 0.016, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  sceneClearColor(0.004, 0.006, 0.016); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   // ---- sky backdrop (no depth) ----
   if (state.showSky) {
@@ -1390,6 +1435,7 @@ function paint() {
 
   updateLabels(canvas, vp, skyVp);
   gl.disable(gl.BLEND);
+  finishSceneFrame();
   syncReferenceDemand();
   updatePhysicalAppearance();
 }
@@ -1687,7 +1733,7 @@ function drawBody(b, vp, eye) {
   const profile=requestedProfile&&incidentFields?.get(b.name)?.columnTexture?requestedProfile:null;
   const distanceAu=b.name==='Sun'?1:Math.hypot(b.x_au,b.y_au,b.z_au);
   const opticalOptions={cameraBodyKm:physicalCameraPosition(eye,pos,rot,rEq,phys.radiusKm),sunDirectionBody:lightObj,
-    polarRatio:phys.polarKm/phys.radiusKm,solarDistanceAu:distanceAu,exposure:distanceAu*distanceAu};
+    polarRatio:phys.polarKm/phys.radiusKm,solarDistanceAu:distanceAu,exposure:linearFrame?1:distanceAu*distanceAu};
   const atmo = atmoColor(b.name), atmoStr = atmoStrength(b.name);
   // Solve the moon positions ONCE per planet per frame: the transit shadows need them before
   // this sphere is drawn, drawMoons needs them after.
@@ -2083,7 +2129,7 @@ function drawGalaxyTrail(vp) {
 function paintGalaxy(w, h, dpr, vp, eye) {
   if (state.localView) { paintNeighbourhood(w, h, dpr, vp, eye); return; }
   gl.viewport(0, 0, w, h);
-  gl.clearColor(0.003, 0.004, 0.011, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  sceneClearColor(0.003, 0.004, 0.011); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND);
   // galactocentric reference rings (Sun's orbit highlighted)
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -2118,7 +2164,7 @@ function paintGalaxy(w, h, dpr, vp, eye) {
 // No differential-rotation shear here — at this scale the neighbourhood co-moves.
 function paintNeighbourhood(w, h, dpr, vp, eye) {
   gl.viewport(0, 0, w, h);
-  gl.clearColor(0.003, 0.004, 0.011, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  sceneClearColor(0.003, 0.004, 0.011); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.useProgram(P.line); gl.uniformMatrix4fv(P.lineU.u_vp, false, new Float32Array(vp)); gl.uniform1f(P.lineU.u_alpha, 0.45);
@@ -2616,6 +2662,8 @@ async function enterOrreryInner() {
 }
 export function leaveOrrery() {
   state.active = false;
+  hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
+  state.hdrStatus={state:'deferred',reason:'View inactive.'};
   cancelPendingReferenceTextures();
   incidentFields?.dispose();incidentFields=null;incidentDemand='';
   state.solarPlayback.playing=false;
@@ -2964,6 +3012,8 @@ async function showFallback(msg) {
     terrainDetails?.dispose();terrainDetails=null;terrainDemand={};state.terrainStatus={};
     incidentFields?.dispose();incidentFields=null;incidentDemand='';state.opticsStatus={};
     solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
+    hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
+    state.hdrStatus={state:'deferred',reason:'Graphics context lost.'};
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
     cancelPendingReferenceTextures();

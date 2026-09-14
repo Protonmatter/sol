@@ -1,7 +1,7 @@
 /** Collect actual submitted Earth transforms in the unchanged five-second window.
  * Self-contained: Puppeteer serializes this function into the existing app page.
  */
-export async function collectSubmittedEarthSpin() {
+export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
   const entry = document.querySelector('script[type="module"][src^="app.js"]');
   const { store } = await import(`./js/store.js${entry ? new URL(entry.src).search : ""}`);
   const canvas = document.getElementById("orreryCanvas"), gl = canvas.getContext("webgl2");
@@ -9,9 +9,10 @@ export async function collectSubmittedEarthSpin() {
   const originalUseProgram = gl.useProgram, originalUniform1i = gl.uniform1i;
   const originalUniformMatrix4fv = gl.uniformMatrix4fv;
   const samples = [], locations = new Map();
+  const presentationLocations=new Map();let pendingEarth=null;
   const draws = { attempted: 0, submitted: 0, arrayAttempted: 0, arraySubmitted: 0,
     surface: 0, earth: 0, duplicateEpoch: 0, candidates: 0, unknown: 0, gpuMismatch: 0,
-    expiredDraws: 0, lateReadbacks: 0 };
+    expiredDraws: 0, lateReadbacks: 0, offscreenEarth:0, presentedEarth:0, presentationMismatch:0, heldPresentations:0 };
   const nativeCalls = Object.fromEntries(["useProgram", "uniform1i", "uniformMatrix4fv"].map(
     name => [name, { attempted: 0, completed: 0 }]));
   let hintedProgram = null, zeroInteger = false, earthMatrix = false;
@@ -23,6 +24,7 @@ export async function collectSubmittedEarthSpin() {
     return { sampledMs: performance.now(), active: store.orrery.active, animate: store.orrery.animate,
       hidden: document.hidden, visibility: document.visibilityState, contextLost: gl.isContextLost(),
       anchor: store.orrery.anchor, selected: store.orrery.selected, engineError: store.orrery.engineError,
+      hdrEnabled:!!store.orrery.hdrEnabled,hdrStatus:store.orrery.hdrStatus??null,
       lastTick: store.orrery.lastTick, renderUnix: store.orrery.renderUnix,
       canvas: { clientWidth: canvas.clientWidth, clientHeight: canvas.clientHeight,
         width: canvas.width, height: canvas.height, x: rect.x, y: rect.y, widthCss: rect.width, heightCss: rect.height } };
@@ -78,8 +80,36 @@ export async function collectSubmittedEarthSpin() {
   gl.drawArrays = function (...args) {
     draws.arrayAttempted++;
     try {
+      let presentation=null;
+      if(pendingEarth&&performance.now()<=deadlineMs){
+        const program=gl.getParameter(gl.CURRENT_PROGRAM);
+        if(program&&!presentationLocations.has(program))presentationLocations.set(program,Object.fromEntries(
+          ['u_scene','u_frameSerial','u_frameGeneration','u_frameEpochHigh','u_frameEpochLow'].map(name=>[name,gl.getUniformLocation(program,name)])));
+        const loc=presentationLocations.get(program);
+        if(loc?.u_scene){
+          const read=name=>gl.getUniform(program,loc[name]);
+          const sampler=read('u_scene'),serial=read('u_frameSerial'),generation=read('u_frameGeneration');
+          const high=read('u_frameEpochHigh'),low=read('u_frameEpochLow');
+          const active=gl.getParameter(gl.ACTIVE_TEXTURE);
+          gl.activeTexture(gl.TEXTURE0+sampler);const texture=gl.getParameter(gl.TEXTURE_BINDING_2D);gl.activeTexture(active);
+          const wanted=pendingEarth.identity;
+          if(gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING)===null&&texture===pendingEarth.texture
+            &&serial===wanted.serial&&generation===wanted.generation
+            &&high===Math.fround(wanted.epoch)&&low===Math.fround(wanted.epoch-Math.fround(wanted.epoch)))
+            presentation={serial,generation,epoch:wanted.epoch};
+          else draws.presentationMismatch++;
+          if(holdPresentation&&presentation){draws.heldPresentations++;pendingEarth=null;return;}
+        }
+      }
       const result = originalArrays.apply(this, args);
       draws.arraySubmitted++;
+      if(presentation&&pendingEarth){
+        const sampledMs=performance.now();
+        if(sampledMs<=deadlineMs){
+          samples.push({...pendingEarth.sample,sampledMs,elapsedMs:sampledMs-timing.startedMs,presentation});draws.presentedEarth++;
+        }else draws.lateReadbacks++;
+        pendingEarth=null;
+      }
       return result;
     } finally { clearHints(); }
   };
@@ -119,9 +149,18 @@ export async function collectSubmittedEarthSpin() {
       // late third draw cannot turn a five-second failure into a pass.
       const sampledMs = performance.now();
       if (sampledMs > deadlineMs) { draws.lateReadbacks++; return result; }
-      samples.push({ sampledMs, elapsedMs: sampledMs - timing.startedMs,
+      const sample={ sampledMs, elapsedMs: sampledMs - timing.startedMs,
         epoch, rate: store.orrery.yearsPerSec * 365.25 * 86400,
-        normal, model });
+        normal, model };
+      if(store.orrery.hdrFrame){
+        // A real current Earth draw is only a producer until the matching texture
+        // reaches the default framebuffer's actual presentation shader.
+        const framebuffer=gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
+        const output=gl.getUniformLocation(program,'u_linearOutput');
+        if(!framebuffer||!output||gl.getUniform(program,output)!==1){draws.presentationMismatch++;return result;}
+        const texture=gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
+        if(texture){pendingEarth={sample,texture,identity:{...store.orrery.hdrFrame}};draws.offscreenEarth++;}
+      }else samples.push(sample);
     } catch (error) { sampleError = String(error); }
     return result;
   };

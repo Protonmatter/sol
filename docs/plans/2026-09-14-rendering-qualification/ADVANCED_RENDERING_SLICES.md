@@ -8,6 +8,10 @@ runtime, acquire assets, admit new scientific products, change RFC status, or au
 release. RFC 0004 and RFC 0005 retain their existing Accepted status and individual
 qualification requirements.
 
+The [D1 local implementation record](HDR_IMPLEMENTATION_RESULTS.md) documents the
+opt-in HDR candidate and remaining enablement gates. Other slices below retain
+their individual source and implementation holds.
+
 ## Shared integration and admission contract
 
 The current implementation uses native ES modules, WebGL2, bounded workers, immutable
