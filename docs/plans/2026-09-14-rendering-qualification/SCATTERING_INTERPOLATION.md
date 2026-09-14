@@ -1,11 +1,14 @@
 # Bounded scattering interpolation qualification
 
-Status: the prepared-path candidate at `256e935` passes 7,192/7,192 software
-queries and 7,191/7,192 native Adreno queries. The remaining native failure is
-`Mars-forward-terrain/surface/500`. Both independent supplemental physical-source
-comparisons pass 1,600/1,600; these do not qualify every generated atlas node or
-override the interpolation failure. Earlier Q2 and `adb4560` attempts remain
-retained with their own source identities and limitations.
+Status: runtime `daa1fbec5f6f13333731b0b279fd085926a483ff` passes 7,192/7,192
+queries on both native Adreno and SwiftShader, including the original 5,592-query
+domain and 1,600 terrain/ground/shadow cases. Independent supplemental
+physical-source comparisons pass 1,600/1,600 on each backend; the original
+1,280-case atmosphere gate also passes on SwiftShader. The
+[current numerical receipt](ATMOSPHERE_SHADOW_CONDITIONING_QUALIFICATION.json)
+binds these results to coherent shadow support and stable column coordinates.
+Earlier Q2, `adb4560` and `256e935` failures remain retained with their own
+source identities; they do not describe the current candidate.
 See [the current combined-source ledger](PRODUCTION_EXECUTION.md) and
 [all retained interpolation attempts](SCATTERING_INTERPOLATION_RECEIPT.json).
 
@@ -49,12 +52,16 @@ inverse coordinates there need not be unique. No physical query is excluded.
 The atlas stores scattering divided by a positive conditioning weight. That
 weight uses analytically delimited lit intervals and view-attenuated column mass.
 The Mars weight additionally uses its common source/extinction ratio and Sun
-transmission at density centroids in at most four fixed pieces bounded by ground
+transmission at approximate density centroids in at most four fixed pieces bounded by ground
 entry, closest approach and ground exit. Each piece combines its complete lit
 support before choosing one centroid, preserving continuity when a shadow gap
 opens or closes. It is a normalization, not a substitute
 physical transport approximation: the separately evaluated residual restores the
-reference result at field nodes. Earth includes a conservative source term for
+reference result at field nodes. The centroid combines an analytic radial moment
+with an interpolated column estimate and is bounded to its fixed piece; it is
+not an independently calibrated or exact density centroid. This conditioning
+approximation still has to pass the complete interpolation and independent
+physical-source comparisons. Earth includes a conservative source term for
 density above the column table's 12-scale-height cutoff. The final consumer
 evaluates the weight at its actual endpoint and interpolates the logarithmic
 residual with a monotone cubic rule. Undefined zero-source knots use the declared
@@ -103,17 +110,19 @@ queries; three shader-compilation mistakes were also retained. None was admitted
 by relaxing a limit. The older 368-failure experiment remains untouched in its
 separate worktree. No failed receipt was overwritten or removed.
 
-Interpolation agreement is not an independent physical reference. A separate
-join of the actual GPU direct-source values to the converged supplemental corpus
-passes all 1,600 native scattering comparisons but currently rejects one native
+Interpolation agreement is not an independent physical reference. The historical
+Q2 join of actual GPU direct-source values to the converged supplemental corpus
+passed all 1,600 native scattering comparisons but rejected one native
 transmission channel: Earth-forward-oblique-explicit-height/surface/13. Its red
 transmission is 0.1191005334 against 0.1194608801, exceeding the unchanged
-`1e-4 + .002 * abs(reference)` bound. The same value predates Q2. Physical
-admission remains open until the cause is corrected and both backends replayed.
-The software comparison also flags this transmission query and a near-tangent
-Mars outer-boundary source query. Their exact uploaded geometry and physical
-reference semantics require independent review; interpolation agreement alone
-does not settle either discrepancy.
+`1e-4 + .002 * abs(reference)` bound. The same value predates Q2. The historical
+software comparison also flagged this transmission query and a near-tangent
+Mars outer-boundary source query. Prepared observer geometry, coherent shadow
+support and stable column coordinates correct those discrepancies; the current
+complete comparisons pass on both backends at the unchanged limits. The
+[independent source joins](ATMOSPHERE_SHADOW_CONDITIONING.md) preserve the input
+records and failed attempts. Their success does not replace separate application,
+composition, native-device or hosted gates.
 
 ## Separate runtime acceptance
 

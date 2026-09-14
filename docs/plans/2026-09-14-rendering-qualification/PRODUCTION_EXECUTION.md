@@ -8,6 +8,67 @@ state remain controlling. Failed experiments and their receipts are retained.
 
 ## Current combined source
 
+Runtime `daa1fbec5f6f13333731b0b279fd085926a483ff` combines coherent prepared
+shadow support, cancellation-safe column-tail height and the shared segment
+callsite with the material, HDR, terrain and memory-readiness changes. Its
+immutable stage is `scattering-runtime-shadow-daa1fbe`, manifest SHA-256
+`66bed0d35d930ba834017b6f948aada05c70b47767ab394130d310f54928adf4`.
+The frozen capture source contains 836 tracked files; all 218 production files
+match their committed raw bytes, with 205 staged assets and 185 source bindings.
+The later numerical receipt changes documentation only. Final Mars captures use
+the committed validator fixes through `7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01`:
+the 840-file snapshot overlays seven validator/test/document files and has no
+production-file differences. Startup and restoration waits now respect the
+actual asynchronous owners before freezing state or admitting resources; exact
+invariants and the existing 40-second recovery and 240-second total limits remain.
+
+| Gate | Current evidence |
+| --- | --- |
+| Original 5,592 queries plus 1,600 terrain/ground/shadow cases | 7,192/7,192 pass on native Adreno and SwiftShader, all 21 datasets and 42 valid atlases per backend. |
+| Independent supplemental physical-source comparison | 1,600/1,600 pass per backend; all original CPU input records and tolerances retained. |
+| Original physical atmosphere gate | 1,280/1,280 pass on SwiftShader. No native aggregate pass is inferred from the earlier timeout. |
+| Native three-program readiness | Sphere 8,708.0 ms, shell 4,040.7 ms and generator 11,656.9 ms, within the unchanged 30,000 ms owner deadline. One observation does not establish a latency distribution. |
+| Four numerical field products | Regenerated payloads are byte-identical; source-identity metadata updated. |
+| Combined local code checks | 1,234 web tests, 395 Python tests, 110-file typechecking, static/UX/SDLC/asset checks pass. Node coverage: 98.10% lines, 91.12% branches and 95.45% functions, above every 90% floor. |
+| Final application and composition | All eight gates pass: native/software Earth, native/software Mars (22 checks each), native/software material (266 each), appearance (110) and HDR (66). They include actual current physical producer/consumer/final-presentation joins, fine terrain, animation and context restoration. |
+| Full-workload native memory | Earth and Mars each pass all five checkpoints after their original application gates. Active/restored shared GPU-process usage is 471,040,000/411,668,480 bytes for Earth and 486,653,952/324,415,488 bytes for Mars. These are owned-process/WDDM observations, not per-texture VRAM or continuous residency. |
+| Final published-head hosted CI | Pending publication and fresh hosted results. The earlier `6083b5c` failures remain retained. |
+
+The [numerical qualification](ATMOSPHERE_SHADOW_CONDITIONING.md) and
+[source-bound receipt](ATMOSPHERE_SHADOW_CONDITIONING_QUALIFICATION.json)
+record the complete matrix and independent reference joins. The
+[proposal receipt](ATMOSPHERE_SHADOW_CONDITIONING_RECEIPT.json) preserves the
+intermediate compiler failures, exact native diagnostics, independent reviews
+and unchanged work/resource limits. The public point-Sun reference function is
+byte-identical; its validator now extracts the function body independently of
+where the shadow helper is declared.
+
+The full-workload memory guard now waits for the exact selected registered
+imagery and preserves that identity across sampling and context restoration.
+The guard establishes source readiness, not measured VRAM by itself. Final local
+application gates pass. Published-head CI remains required before closing the
+performance P1 or claiming merge readiness; merge and deployment are separate.
+
+The [final application record](RUNTIME_FINAL_QUALIFICATION.md) and
+[machine-readable receipt](RUNTIME_FINAL_QUALIFICATION.json) retain all eight
+capture results, exact executed sources, failed attempts and native memory
+observations. Separate unedited Earth/Sun workspace screenshots retain their own
+source and browser identity; they use the normal SDR UI, not the opt-in HDR test
+configuration. Local receipt completion does not certify final published-head CI.
+
+| Current physical final draws | Native Adreno | SwiftShader |
+| --- | --- | --- |
+| Earth with HDR presentation | 5 in 135.5 ms; first physical readiness 22,072.8 ms from System entry | 5 in 1,623.4 ms; first physical readiness 46,151.9 ms |
+| Mars with level-4 terrain and HDR | 5 in 131.8 ms; restored terrain/optics ready 387.7 ms from request | 5 in 1,577.8 ms; restored terrain/optics ready 13,630.9 ms |
+
+These finite captures satisfy the original draw and readiness deadlines; they do
+not establish a stable frame-rate or texture-latency distribution. Held producers
+and presentations remain rejected. Initial Windows browser discovery, premature
+startup-invariant capture and premature context-restoration admission failures
+remain preserved separately from the corrected passing runs.
+
+## Earlier prepared-path source
+
 Candidate `256e935950f2820dcd695f55c6aeaba79a90f679` carries one prepared physical
 path through source integration, conditioning, lookup and transmission. Its stage
 is `scattering-runtime-prepared-full`, manifest SHA-256
@@ -152,7 +213,7 @@ head until a new push and completed checks are recorded below.
 | Reflection / rings / moons | Reference helpers and independent synthetic oracles are integrated, with explicit acquisition receipts and held inputs. Existing runtime display recipes remain active. | D2 needs admitted masks/roughness/index data; D4 needs visible-band coverage/depth/phase data; D5 needs disk/phase/geometry/exposure calibration and holdouts. Synthetic oracle agreement cannot establish measured planetary calibration. |
 | Temporal reconstruction | Deferred by the accepted specification. | Not a dependency for these slices; no history-based rendering is admitted. |
 
-## Measured native bottleneck and format decision
+## Historical native bottleneck and retained format decision
 
 Ground-boundary production receipt:
 `build/pr107-production-20260914/atmosphere-ground-runtime-a/evidence.json`,
@@ -165,13 +226,14 @@ node tools/atmosphere_validation.mjs --web-root=apps/web --terrain-endpoints --o
 node --test tests/web/atmosphere*.test.mjs
 ```
 
-The current native run uses ANGLE/D3D11 on the Qualcomm Adreno X1-85. Its original
+The historical `34937f1` native run used ANGLE/D3D11 on the Qualcomm Adreno X1-85. Its original
 30-second startup gate failed. A separately labelled diagnostic continuation
 completed the texture/cache tour without GL or page errors. Timed shader links
 include approximately 4.65 seconds for the base sphere and 26.34 seconds for the
 physical sphere. `KHR_parallel_shader_compile` is available on this device.
-This establishes a shader initialization problem to address; it does not turn
-the failed startup into a pass.
+This established the shader initialization problem addressed by the later
+bounded program owner and qualified runtime above. The original failed startup
+remains failed; later source-bound passes are separate evidence.
 
 Seven native checkpoints include process-level shared, dedicated and committed
 GPU memory observations. These are not per-texture VRAM measurements. The matched
@@ -195,7 +257,8 @@ override that failure. Re-run hosted checks on the actual published runtime head
 
 PR review thread `PRRT_kwDOTIyRyM6h9g-H` concerns the ground-crossing P2. The two
 performance P1 threads remain open until bounded accuracy and unchanged
-application gates pass. RFC 0006 remains Draft while required admission is open.
+application gates pass. RFC 0006 is Accepted for its design and work sequence;
+source-specific application and published-head hosted admission remain separate.
 
 ## Combined-source optical reproduction
 

@@ -23,12 +23,15 @@ and the traced requirements are authoritative.
 
 ## Acceptance-status interpretation
 
-[RFC 0006](rfcs/0006-rendering-qualification-and-color.md) is Draft. It records the
-requested sequence for atmospheric qualification, per-material color contracts,
-measured texture processing and separate advanced-rendering slices. The associated
-reference extensions, tests and profiling tools do not enable new renderer effects
-or qualify the unresolved bounded-scattering implementation. The existing accepted
-RFCs and unchanged scientific/performance gates continue to govern runtime behavior.
+[RFC 0006](rfcs/0006-rendering-qualification-and-color.md) is Accepted for the design
+and implementation sequence. [ADR 0009](adr/0009-bounded-scientific-rendering.md)
+records bounded current-frame scattering, per-material color and resource ownership.
+The [production ledger](plans/2026-09-14-rendering-qualification/PRODUCTION_EXECUTION.md)
+separately records source-bound numerical, application, GPU, memory and hosted gates
+for Earth/Mars optics, scoped color, opt-in HDR and source-derived Moon/Mars terrain.
+Reflection, revised ring transport and calibrated moon photometry remain held by
+their source requirements; temporal reconstruction is deferred. Accepted status,
+reference helpers and profiling tools do not waive scientific or performance gates.
 
 RFC 0005 is Accepted for source-backed terrain and hybrid light rendering. Local
 implementation admits two numerical terrain products, reference atmospheric transfer,

@@ -1,7 +1,11 @@
 # B2 material color migration
 
-Status: implemented local material routes; integrated runtime, native-device and
-hosted qualification remain separate. Source lineage is `34937f1` on the isolated
+Status: implemented scoped material routes. Current runtime `daa1fbe` passes
+266 material cases on native Adreno with a fixed-domain reference and 266 on
+SwiftShader with the uniform reference, plus 110 appearance and 66 HDR cases.
+The [production ledger](PRODUCTION_EXECUTION.md) separates these final GPU
+captures from whole-application, memory and published-head hosted qualification.
+The historical slice evidence below has source lineage `34937f1` on the isolated
 `codex/sol-color-hdr-20260914` branch. Original image bytes, map registration, data
 palettes, physical geometry, ephemerides and atmospheric numerical tolerances are
 unchanged.

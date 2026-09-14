@@ -1,8 +1,10 @@
 # Rendering color contracts and migration gates
 
 Status: preserved pre-migration characterization and accepted qualification plan.
-The local B2 implementation and its precise mixed-filter/output contract are recorded
-in [color migration results](COLOR_MIGRATION_RESULTS.md); integrated promotion remains held.
+Current B2 implementation and its precise mixed-filter/output contract are recorded
+in [color migration results](COLOR_MIGRATION_RESULTS.md). The
+[production ledger](PRODUCTION_EXECUTION.md) records current admission; the baseline
+route matrix below remains historical characterization.
 
 Baseline lineage: `bd7f5b45798a754c409e4b265e15703dad018f84` on
 `codex/sol-observation-workspace`. Concurrent atmospheric work may change that working

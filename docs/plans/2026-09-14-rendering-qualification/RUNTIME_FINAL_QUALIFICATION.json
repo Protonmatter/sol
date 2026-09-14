@@ -1,0 +1,1893 @@
+{
+  "schema": "runtime-final-qualification.v1",
+  "created_at": "2026-09-14T10:15:54.387246+00:00",
+  "status": "passed",
+  "gate_count": 8,
+  "runtime_revision": "daa1fbec5f6f13333731b0b279fd085926a483ff",
+  "release_id": "pr107-shadow-20260914",
+  "stage": "C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+  "manifest_sha256": "66bed0d35d930ba834017b6f948aada05c70b47767ab394130d310f54928adf4",
+  "production_identity": {
+    "source_identity": {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\final-daa1fbe-capture-windows.json",
+      "sha256": "0049c618efcddd2be36aedec4b8f1ac1ba3391d6f51acee70a0c16b39a7a8c9d",
+      "bytes": 275218
+    },
+    "raw_snapshot": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+    "tracked_files": 836,
+    "production_committed_files": 218,
+    "stage_assets": 205,
+    "source_bindings": 185,
+    "production_committed_sha256": {
+      "apps/web/app.js": "dfbf7c74bec4b5a957ac697e9d2c4ff7ca9f3e9843c6e2fb869d7c161fe10858",
+      "apps/web/data/accuracy-evidence.json": "29be07df3596bc9704d5c84b11586fe201809e9987d4b9fedb41760824974ed2",
+      "apps/web/data/bundles/research-fixture-20260911/feed-status.json": "4b9e5d1acbf8a0338d8eeaf8f44580249392fe59f329333c26e6148c85e77a61",
+      "apps/web/data/bundles/research-fixture-20260911/manifest.json": "41fcd0ab3c56d0928226621763c78af2c90d1b20d936fc33449d732268ca88f7",
+      "apps/web/data/bundles/research-fixture-20260911/observations.json": "3a67b66314753f0d85dc1879b4f085bfdac04f7bfd4ea1adf684f0b176a190a7",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-00.json": "0828d285024f872a62f9166363206978c777bf1015b4c6d7395ea46d4b74438e",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-01.json": "8c94ba657e4591f8fdf5ac83de0c26fc0489d2da134cb89515eb349ac571e9ea",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-02.json": "c8bca9b25faea0572fc7774f78e7efff68741a306910084d2c4102687c017688",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-03.json": "f108419e4c47f12cc97e13c7e97b167b3560689941c9dc2d07bc4ec3b84a1810",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-04.json": "623f073ff9eec05c74aa95f3b9d8c4295446a1ecadcff61185144ad65b34a40e",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-05.json": "772edca8b30876d31dc7c38b675082c9e2c7b589f3fc5b470f8f8b1c67785373",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-06.json": "7a442131d813c21f938c8e6b4484a286f7cb27838516abe7bcfcd73475945a3a",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-07.json": "6e8e9da29388fa622c9ea058076ea81426956e90e666ea19d76eca54c240f040",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-08.json": "0989f7083c23549dc5736967955d2e497a996c87101322ba725bd39fe3e205fd",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-09.json": "67c31bad7a08cdb85cfebb1ea0236e6d21d9bb287c4b7f41e86a93d8c2e492b4",
+      "apps/web/data/bundles/research-fixture-20260911/series/frame-10.json": "35fd19e771b45ec093496f81b6b585b85518d95b2746265df47dcef2303344bb",
+      "apps/web/data/bundles/research-fixture-20260911/series/manifest.json": "ab031168bf7d9d491418095e45fe00f32e44fd3c89b1f615fd1366a57f86ce45",
+      "apps/web/data/bundles/research-fixture-20260911/snapshot.json": "4f419e378aa0faff19201c53286aa8c0962462e7728a05965cbb01156e553637",
+      "apps/web/data/bundles/research-fixture-20260911/source-manifest.json": "8bd2d9ca157574440193ab50da72e38711d5fbf98e752643638e8b60113b7ec4",
+      "apps/web/data/current.json": "255768539e6ffa43381028fc9462119561c62d6cb89e7b1cd72daca3c039f930",
+      "apps/web/data/feed-status.json": "42b3dfa9783abe425624521f7bee4acf10f9e678208ee5fdaf8d869c4e9636c7",
+      "apps/web/data/latest-observations.json": "c9e6b027ad70f9999db53d962b50f155d136c3cbfaab75f15f09a95ff0d2bace",
+      "apps/web/data/latest-state.json": "743808e119bb94400e52c59d15e5fd9871db804886e8939e3823c4eef88ffbfa",
+      "apps/web/data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+      "apps/web/data/optics/earth-incident-v1.f32": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639",
+      "apps/web/data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+      "apps/web/data/optics/mars-incident-v1.f32": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+      "apps/web/data/series/frame-00.json": "0828d285024f872a62f9166363206978c777bf1015b4c6d7395ea46d4b74438e",
+      "apps/web/data/series/frame-01.json": "8c94ba657e4591f8fdf5ac83de0c26fc0489d2da134cb89515eb349ac571e9ea",
+      "apps/web/data/series/frame-02.json": "c8bca9b25faea0572fc7774f78e7efff68741a306910084d2c4102687c017688",
+      "apps/web/data/series/frame-03.json": "f108419e4c47f12cc97e13c7e97b167b3560689941c9dc2d07bc4ec3b84a1810",
+      "apps/web/data/series/frame-04.json": "623f073ff9eec05c74aa95f3b9d8c4295446a1ecadcff61185144ad65b34a40e",
+      "apps/web/data/series/frame-05.json": "772edca8b30876d31dc7c38b675082c9e2c7b589f3fc5b470f8f8b1c67785373",
+      "apps/web/data/series/frame-06.json": "7a442131d813c21f938c8e6b4484a286f7cb27838516abe7bcfcd73475945a3a",
+      "apps/web/data/series/frame-07.json": "6e8e9da29388fa622c9ea058076ea81426956e90e666ea19d76eca54c240f040",
+      "apps/web/data/series/frame-08.json": "0989f7083c23549dc5736967955d2e497a996c87101322ba725bd39fe3e205fd",
+      "apps/web/data/series/frame-09.json": "67c31bad7a08cdb85cfebb1ea0236e6d21d9bb287c4b7f41e86a93d8c2e492b4",
+      "apps/web/data/series/frame-10.json": "35fd19e771b45ec093496f81b6b585b85518d95b2746265df47dcef2303344bb",
+      "apps/web/data/series/manifest.json": "f37b6adca06bd740eaa7206963047ac11a3c473408d619cf9f8e13752c898b32",
+      "apps/web/engine.js": "ae57fda35357ba051bf18e0636c6c2f308d6b7aed1ea3316264d10e824addd0a",
+      "apps/web/favicon.svg": "51bf5b475d44fba85490fbe5f8e59bf7b8531355c8da5a71f4c0114dbe6689d0",
+      "apps/web/images/earth-sea-ice-legend.png": "460e8ae290340176ebd4f2c0608a1710b0b79e2537b69ef48ebd83da19a771f4",
+      "apps/web/index.html": "a12c8aeff031c9e20b01a13208f7962675f43a951695799f844063ed5edff874",
+      "apps/web/js/accuracy.js": "53ec28c6188568fb0a1b184db16e55569d81664ddcc043ad14596a2c67462eaa",
+      "apps/web/js/atmosphereColumnField.js": "84177099c937c7c9b4fa859994e2be381bd5b20034298c6c370fa96e13eeb5da",
+      "apps/web/js/atmosphereColumnManifest.js": "405e36a34a9fa0dc93286676710bd3dca49d685e12ad99eead973825b9875c31",
+      "apps/web/js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+      "apps/web/js/atmosphereIncidentManifest.js": "d57276f5c10f37bf1571554cdd0ff901b7ee5a15a69ac9dd573ccb935dcc6276",
+      "apps/web/js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+      "apps/web/js/atmosphereScattering.js": "4c43aaa434b7388e9f7b9185f845e3c508ce5a4db4d1e3d38ac0cf7bc293af6b",
+      "apps/web/js/atmosphereShaders.js": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
+      "apps/web/js/aurora.js": "c2658b3c05e5874ddff6117b79dcb6ad7b0bf486664c62bded79735bb6f20c06",
+      "apps/web/js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+      "apps/web/js/celestial.js": "65925bc14171aaf9c6ad438598dd8b2ecc041207bd14a4c6f6503c888049b4f7",
+      "apps/web/js/config.js": "d0c700c95c9d66b5ea03b4de72bda9e6398f86760099011eb86bd3d4b13ea80f",
+      "apps/web/js/constellations.js": "dd7469201730fcffc033153be1683074e5b1553ce9b10767ba7dbee55ad5bd6f",
+      "apps/web/js/data.js": "9375aa9554629c1551593469279f55f9d4989471e0c7eea15903ac1555f4471f",
+      "apps/web/js/dataBundle.js": "d621bd2f7f6d0874f418cec532f620a10135edc2ba17ab105cbdfb137c011c39",
+      "apps/web/js/destinationCards.js": "61b20339b9d19651dbbe1c6ad6d225313046d296f2eb869e43e25f5959145d71",
+      "apps/web/js/destinationOverview.js": "fef42bc8be31249d4e1c98930cce4d812d795196d4a6b23891cd188ad254d2f4",
+      "apps/web/js/displayGeometry.js": "838a36a81c80202b80d6b966689827697591011c87777bb9ad0d77d567abd203",
+      "apps/web/js/dom.js": "8b75ab9937a902cd4f028e2139423a879785e7f6484501b478144c5f3a724996",
+      "apps/web/js/engineLimits.js": "16ed87b3b97292c7645799862226b226222b2ebadb9a0470a28ab5a565a7eb1e",
+      "apps/web/js/ephemerisContract.js": "e9ecc238a54e189e58250394be879597aece3ac8fda38d7094d74399267a9088",
+      "apps/web/js/ephemerisContractV2.js": "7e76358a742c1ce2cd75e7b0501a652cd571a2651c920124835f7d7485e2ade6",
+      "apps/web/js/ephemerisSchema.js": "def932eed15775ae59b7b4728200234f47b5396383c3396f8f94e07f8452fbe2",
+      "apps/web/js/explorer.js": "4797e02b01cbe5b9507e184f19d6af9ba6c8c32506a7814545013b3c05145f12",
+      "apps/web/js/format.js": "6af5a353e5aedc648212bc0868a45fbe32aed9485b6c128f3ffacb86185c85fe",
+      "apps/web/js/galacticobjects.js": "92907a5f7576dfd5c0f15a4771baf5bb88d9428134e1d7ba3b66bbd0e0495e3a",
+      "apps/web/js/geography.js": "65671e37a1fc778061fd5e1b1a323f16e80bf09990271167230f98d9c1de19ba",
+      "apps/web/js/hdrPresentation.js": "7a8a2807142488ab57a9b29bbbe843da8dc27a5d6a07c9812a7e2ea22e5bb26b",
+      "apps/web/js/hdrPresentationShaders.js": "ea139ec9c46a111fa1910f95567364f8d90507a229cc2dc5084fe1973e21e8a4",
+      "apps/web/js/labelLayout.js": "241f4d3cb7284a4f10f9e1075c928934a937debe622c67beefbd8f67848d4d50",
+      "apps/web/js/labelOcclusion.js": "8b58e15d3b921e5845ff7d19707936d81157a809e8af1e1ee1827ca3f8e69d60",
+      "apps/web/js/materialColor.js": "905f1a9091805caa5240997420bed331183ddf41884ab33c4b661313c8a6470c",
+      "apps/web/js/moonAppearance.js": "a0bc35f320afbcc34c923302c25b221d28d500db6b42f20b0c42816f1fe3d712",
+      "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f",
+      "apps/web/js/moonorbits.js": "795a062a0b54eed8c95b44050f1330868bac2c15916a55e0c64ee2d0e83c4ef3",
+      "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+      "apps/web/js/moonshadows.js": "8b9185f259107065076db54afa856a5fe5249dd8f1f6692ef5c33152ca2eceaf",
+      "apps/web/js/objectBrowser.js": "fa642ae1f691b1967077a10007a7145070c61791a6b31636cf6685fa5b90f3c1",
+      "apps/web/js/orbitCamera.js": "d1dd506931d1475994929da25d63dcb1f0b662c46bdc19be08ff6424c5d5017e",
+      "apps/web/js/orrery.js": "dadd2748258159479c8853f4a7d9891fa7d1e9a008c1e677214413e8518024ac",
+      "apps/web/js/orreryDetail.js": "3c88af9b8e9c8292b7f93732935b5511a5d32692abb6d584b392d06b79344d2c",
+      "apps/web/js/orreryGalaxy.js": "892fe0af0350e200eaf33c79d9016f1be8cfae97969a570a94ffd081d17c8574",
+      "apps/web/js/orreryMath.js": "dc5bb800ee78a375a55ac4a00c6553c6112690a342248bf252cb4dd58a4d03ec",
+      "apps/web/js/orreryShaders.js": "7158492c19143154a91b3d2a99eb2af01c6c73ad172a887d6385b3348c4b6d8a",
+      "apps/web/js/orreryTime.js": "0f5a0970d480905ec3e638a8603cc7078ced2a50f46e2fa4b2742e4524c462fd",
+      "apps/web/js/panels.js": "f4f17cfb4063a94ff93ef047bdb5b017b92a25d7061ebc87e1779dec040ab186",
+      "apps/web/js/physicalRendering.js": "63406a2c1f4233425410f37aa83f2528aed7b1df769aa2399b64207921db6878",
+      "apps/web/js/planetAppearance.js": "24592487a8681e252ed0489e602c55bed5b548435d73be1b08fc36deb74064ea",
+      "apps/web/js/planetPhenomena.js": "b59576b1100b861eb58839e35ae7cb7c62d9b8ab2baa6afa6520af9abb6e5d93",
+      "apps/web/js/planetPhenomenaManifest.js": "7f9d0d0c2ded9af21b3ea0edb562fa0a6533cadaf0288c9b8a3ae040bd393656",
+      "apps/web/js/presentationState.js": "87ff4ca1957fd01677adbf301744209ec28a56c976bfff211ed3e6389cb3234d",
+      "apps/web/js/referenceDemand.js": "edb268fc2b5652e85d69b3d669ed405599e52c4fc439f82b6ec53364fa24adf5",
+      "apps/web/js/releaseClient.js": "90b93aa30cc40fd2f2192cb1d57c567d849d0d80db295cfadbefb8314e31dd38",
+      "apps/web/js/render.js": "62d4230f27ed0a9a9e0995e08dde8f66278cb02987e5067af4f81a5af45da987",
+      "apps/web/js/ringTransport.js": "b05d288dea069d4e36421b9ca1c59c5846d1db0bab8711d815dd490347cea696",
+      "apps/web/js/ringTransportShaders.js": "64edd79a237321f54da71227e82d1f3fcdf8891bcd09ea00cf6290b16f9e19f7",
+      "apps/web/js/scatteringTargets.js": "10fee1c07a5886abf9c41b72781b457f7b0a761ce43a69376582c84e86cd1036",
+      "apps/web/js/selectors.js": "2fb39cc3facaca2019d5f5173485e183b5ba5b84ca776f1cda6a3794d9c69b6f",
+      "apps/web/js/seriesModel.js": "ae26b1442c4660f831d064e4a2b12925fbce423c365b8e2df451edb6f411e1f6",
+      "apps/web/js/shaderPrograms.js": "3febea96c90cc448a615a4158ed7ef76f23c2f584c4aba95bbd010b8fe5077b8",
+      "apps/web/js/sky.js": "fbf2180ce7058497702d73b31de1d4f3090d8a289ee1c2bc3bcca29fbd154323",
+      "apps/web/js/skyEngine.js": "9f977f0d69457188ead0a9ccfcd110ad263cdf12b6276111a5e17cd5f049e80b",
+      "apps/web/js/skyLimits.js": "d7bc78eda56e7a7d4cb17835471697fcf3b3f42b3d368334a9760c70b5a1445a",
+      "apps/web/js/skyPresentation.js": "0a06416f1df645a27df8a0afd781888388f8044d9c2e852bbd859075f4799b17",
+      "apps/web/js/skyPrivacy.js": "b5363984bb9dff6de62a4791d7731554a2259b4ae9df4341846fdc792a61ecff",
+      "apps/web/js/skyWorker.js": "6400ee1e04c4bac5f65e1ab761661d17db91ba85894ef2682206579c1228ccc5",
+      "apps/web/js/skyWorkerClient.js": "af4403d4610c35e6a582bf2c196c7c62b20bfe5787c884a39cd28119739676e7",
+      "apps/web/js/smallbodies.js": "f11dc39fd50b1633790482bc0eee6bfc2381dd10215424297b6f13993fc964f6",
+      "apps/web/js/solarAppearance.js": "106ea93991173f2f11cf434115656e68785330a80fa552b3883823a0b82424d6",
+      "apps/web/js/solarAppearanceManifest.js": "c4cf837f7e68bb5c5ded622c3dc5dd29edeed97a0abae07a974b438966251450",
+      "apps/web/js/solarAssetLoader.js": "d997e214c063d9a1915abfde40c13cd7b9e58ac1b1ad24a0e78844859b6518db",
+      "apps/web/js/solarContract.js": "cc00a72a7c46a50d4fa92324abeb93193cd9fb5da5682ef4105216e44883fbae",
+      "apps/web/js/solarObservation.js": "26d051cfdeadcde83b2daa9f0d8d647329c2743ba961aad87010911a58074c92",
+      "apps/web/js/solarProjection.js": "67b2e135bc3bb288874cada7101e4f4d4c9076f2b018f9e8a0fc99200c161766",
+      "apps/web/js/solarRegionFacts.js": "6d2ca9bf2421f45f11af3b15e2d6e225d3cea90dfe9d954a7fe4d2489797fca0",
+      "apps/web/js/solarSchema.js": "3423c00a42f7458020223afe680fec3b0385f65bb65f6c1bbee8a003e98a298f",
+      "apps/web/js/solarVolumeShaders.js": "67f7b88ed7cd280c3530cddbeee7337981f9fa8f563f81334e459a282f60cb80",
+      "apps/web/js/solarWorker.js": "bbef98b594c14a4b3db1355333b510716a4d1fb74f76ac3e87e3593677c6c353",
+      "apps/web/js/solarWorkerClient.js": "f2d33eac826f85759e13a409ad04b040a72849af0e15729d621fe8bfa507869a",
+      "apps/web/js/sourceAttribution.js": "2d0ac06bd7351d94fe5fea4cba1455d0141e22fd194fe9e6f6733bf82b4be5a4",
+      "apps/web/js/starDetail.js": "0163f9a4a045bca05c073946dac3321ef58831aa3c99f307dcfb2ce682b7d538",
+      "apps/web/js/starcatalog.js": "8a98d8da6d00c947ee81fd094c6732321bbcc2632dabdd55d2bc8c66c91e9a25",
+      "apps/web/js/starphysics.js": "e0ef4cc99fc61808165f2a3417999a6a14ebe55f9d816da2bfbd955d44625eb6",
+      "apps/web/js/store.js": "ea502faf428b180fbf69f0975b5c128cf2297940344fbc573e516274c46d80c7",
+      "apps/web/js/sunlayers.js": "fe0d4746f2b4acb6d8bd9a040cfd76937551c7e8f2c2f5eae2b203f221f56a9f",
+      "apps/web/js/surfaceMapping.js": "ee1a789cc17e022286fc17526bc2fc612a8363d62c16645a759aecec6de261e5",
+      "apps/web/js/surfaceReflection.js": "b7128a8654d2de872ddc6a3c0ad9da8d7e5307ee8d84f15e28113173e50014ab",
+      "apps/web/js/surfaceReflectionShaders.js": "b199bf0ac8797646e84172ed2f6878f5c20ff5cd7b364291df37c0c870df5f9d",
+      "apps/web/js/surfacemap.js": "98b6c92ff83aceef78f373579947c4f354d7576965bb74fc288bf3da17d86e6a",
+      "apps/web/js/systemContract.js": "e8abfaf2a7cae75b2f99a018b6457795163f0c2fa69cdfd55978ca53e589c8a4",
+      "apps/web/js/systemWorker.js": "264b0c9ee7f22b10332495253868197e084055d5023c17c716adf1e85eeb6cc5",
+      "apps/web/js/systemWorkerClient.js": "b96d98598cdf8952d20befa8e56548f494588d7b52289bcc863812dbdd061413",
+      "apps/web/js/terrain.worker.js": "e1b488bc1e68f9118cd193b144db0ed3c879790dfba24feac505acff1c53a1b6",
+      "apps/web/js/terrainAssets.js": "b6cd8dd2c8bb73b98da58b9200a9ec634c697b2bf22651ddfd3f380f6a1516b8",
+      "apps/web/js/terrainGeometry.js": "1ae3c76d97f699cc1553d29e2626c946bc46bb270e38ea11720b6e7b4801a04a",
+      "apps/web/js/terrainResources.js": "eb2b97de920712767b10bac8f7df7d4f4c54ba355717628350c59d15d5a54607",
+      "apps/web/js/terrainShadowShaders.js": "325c98cdff69da07b9a69db6462796681bcb5927bcc9e395f92eea32302b451d",
+      "apps/web/js/terrainWorkerClient.js": "ab0b52218b4581cdd4cce598c2f1d87b36dadf91dd0da379a559037f3c520a37",
+      "apps/web/js/timeline.js": "35c36cd49ce2535c14cc19ffbfed176b2e410480f8b6c90b3c12588a2f12d4a1",
+      "apps/web/js/tooltip.js": "e703d27bee78256345ee6cdd8b663cfafe15c0910a7e3cd9c3a782b97d9d742e",
+      "apps/web/js/tour.js": "69e191cf52cf812166ae15f00d20b9ddd6123c0f80e5534b44d71ac5d006f5c7",
+      "apps/web/js/view.js": "da78842a904760db0715a62678de2f0888128e395fdf5bee4ad683881fd24d03",
+      "apps/web/js/viewEvidence.js": "bf610027dd205742a5a661391e96d2b21d12e2831b0ef481884ea932a1de3803",
+      "apps/web/js/visualAssetManifest.js": "80aff50052089f9df1538635e7fbad2dffa20adbc9101310edfd7a2673723f8b",
+      "apps/web/js/visualAssets.js": "229068ed3bbbee3008325ae1295e1bf7f0e68529f37f643f5eaf18866413e0cb",
+      "apps/web/js/wavelength.js": "c96362660308312274c9121aa7ea06579659a4d95ecf63ffb532452467d66c5d",
+      "apps/web/js/workerClient.js": "b2454e8a9aa4f80540ee8c40545588b4bfbdd0ca1c00f3ed027dc66d45308d87",
+      "apps/web/js/workspace.js": "7e35359e27a041ad51f5c9896a99b7be134074ce013d4214d26a8bf8b8ebd5b8",
+      "apps/web/manifest.webmanifest": "74132ac1f795053df3099d69432dc8a99a215dfbdd03c92b77431a1f0b23ecb4",
+      "apps/web/package.json": "60f771cdb03b2e506e84d5f1796a55185d83b0f5d63605818f0b8be3709a37d9",
+      "apps/web/planet-phenomena.css": "c1f4f2fe4c411bc435b4be45f995f1de60ec5e927b86919635394f4c906c6b55",
+      "apps/web/planet-phenomena.v1.json": "ffc184e0ac350c67e5f95fca5dde05f97c5ebc4986e9bb93e29c04d9566946d0",
+      "apps/web/solar-appearance.v1.json": "1b29cbbe4485f90f69dc9f78a8d9fb5c65ab5d3ce3a04c4ed7021a0955337545",
+      "apps/web/styles.css": "b3bac2d45dcebbecdfb9e73029e303bab74a2e2f5df9303ffcc8509725745d14",
+      "apps/web/sw.js": "94c2d0a8b3efb2970aa4902dcb3464626aed8c134f6a24d7e24ec733d96263fe",
+      "apps/web/terrain-assets.v1.json": "1c8b2e5f7d38b2b45464bbbb9da4f0d992c7748b6b4f3d0d2ce70d7665b97b93",
+      "apps/web/textures/ATTRIBUTION.txt": "8f354fda47065efd99bceecc1370b0c63f4cc44158ddd374b03508d26709a872",
+      "apps/web/textures/callisto.jpg": "6d9adc939fb5a2039ab7d04ab483b095b9fff511026e68781965a8b1b5eb52e3",
+      "apps/web/textures/dione.jpg": "3d4fadf8ae8e522f73fffcc706a9486fc13760dab4e3191f9ddccd4c2e7ce358",
+      "apps/web/textures/earth.jpg": "5b54cc586c6cbf2b28762ef4d4011f6cf4227a8b93a637b818a0c54090ce6c2c",
+      "apps/web/textures/enceladus.jpg": "b6fb97de67f902ae7ca4738607f5693068e8c5fa72ed151eb215656eca7b4a78",
+      "apps/web/textures/europa.jpg": "96453723e4dd7d7b709cbc097282b9292360908139c72a617b0d26d9ae9ce5f9",
+      "apps/web/textures/ganymede.jpg": "e6e556175ebf2fd18592aa4a1ff3283f2690a84ce59e295608614587a26a8c25",
+      "apps/web/textures/iapetus.jpg": "c8fae974a837a641769ca0e34efd9f5cf442804806b5e12f09f2080ce524cfd3",
+      "apps/web/textures/io.jpg": "f772f466aa89291a99e0593048c16b23dfc082aefb19d03fe0125d6e349b31ba",
+      "apps/web/textures/jupiter.jpg": "b0f04d005350252636b0e3396fc592548cbd9e9126b269d32d5c6abd4b0e4f2b",
+      "apps/web/textures/mars.jpg": "2d187f3e77a98eaa8cea5f4cc722f633c122ef170b9e94ace6b5fb6cbc3f8e01",
+      "apps/web/textures/mercury.jpg": "5a5c80607f643496bac9a631e71957def35ed788895f18b678ac849c2b38e48a",
+      "apps/web/textures/moon.jpg": "2764ba6535ea0481a062846ee033cc7a909dae05b31a8fd13f3e98f3a7fd92bd",
+      "apps/web/textures/neptune.jpg": "cb42ea82709741d28b0af44d8b283cbc6dbd0c521a7f0e1e1e010ade00977df6",
+      "apps/web/textures/phenomena/jupiter-aurora.png": "80655afbc9ba71014239a654557c3b85a0dd86a5278412a8ea70d6f31f4c66be",
+      "apps/web/textures/phenomena/jupiter-storm.jpg": "e370fb506da20f7b837f3a6791a235af0036a13d45be61abdd3d35d0ceb57fcf",
+      "apps/web/textures/phenomena/neptune-aurora.png": "35f9142843b84daf7e45391e90e52ff8c8e3681e083c72d0e52eb014a27aa12b",
+      "apps/web/textures/phenomena/saturn-decagon.jpg": "8ffd2db3fc57418e02e08856c0f3c94988cb5026014f230a165e579f94295e0f",
+      "apps/web/textures/phenomena/saturn-hexagon.jpg": "29b65d1370390fda5ff32ad0e73bfc774cd0c4755a237005031663a46facb452",
+      "apps/web/textures/phobos.jpg": "d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4",
+      "apps/web/textures/reference/callisto-voyager-galileo-reference-2k.png": "fb8cd280cd2fbd82f55b33f8a7710087cc590f128e72adac95fc1e21dc88a909",
+      "apps/web/textures/reference/dione-cassini-reference-2k.png": "e95437fecb7d447179b65427afcb80c1eaa948f1073470995d1c21a25ba8467d",
+      "apps/web/textures/reference/earth-blue-marble-2002-clouds.jpg": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
+      "apps/web/textures/reference/earth-land-2004.jpg": "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5",
+      "apps/web/textures/reference/earth-lights-2016.jpg": "4d2158f59123dadf0696a1cf8909c45018a1de8d0daab40da04122a5aa7f27c6",
+      "apps/web/textures/reference/earth-sea-ice-20260907.png": "89264243ea3c39795b549f68dbafaf86669bc2900f6de9ff8a79dd4b5dcf2e21",
+      "apps/web/textures/reference/earth-weather-20260912.png": "4b26e448151fe0ce83cbf34d865c8804a500aa4ff95190fc625585ea4fd70918",
+      "apps/web/textures/reference/enceladus-cassini-reference-2k.png": "ec869b20d7aa570b55ecd0bbda42ba42797d84e1eeaf4bfc5a5f52ca312e1c9c",
+      "apps/web/textures/reference/europa-voyager-galileo-reference-2k.png": "87ad2488589f01e72a4bbc3656c22555728b21e38b4d0df2a6c2aeb9fc894a07",
+      "apps/web/textures/reference/ganymede-voyager-galileo-reference-2k.png": "900af8e39acb7137e2c6d1745279ebdac1152702818711336f149972a055b050",
+      "apps/web/textures/reference/iapetus-cassini-reference-2k.png": "519dd1c1781d2a183666ed4b3fc5541cbaa351e604214a0a774e298db49bd6a0",
+      "apps/web/textures/reference/io-galileo-color-reference-2k.png": "f83b274d56021fa11eac9c0c3755bd6ffc1397d93cc9fadb6207faca77366ed8",
+      "apps/web/textures/reference/jupiter-reference.png": "b134fbf614aa21dda6e951f616067b2d32ed825950e48d35d35d09f6a5c80637",
+      "apps/web/textures/reference/mars-reference.png": "f62de76a876702a3959dc5b2873c34f5cdeedda4c54eb7bddb6f78f62dbcfc74",
+      "apps/web/textures/reference/mercury-reference.png": "1dc83dbbf0b59633673dd325b6f3e0f453c4a33c09a54c008bef71c2a0cd5ead",
+      "apps/web/textures/reference/mimas-cassini-reference-2k.png": "fbb571b298642fe64899c548ff6948daf0634e15b8ce6ba3abe963abd7d40196",
+      "apps/web/textures/reference/moon-reference.jpg": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170",
+      "apps/web/textures/reference/neptune-reference.png": "c9dee0f329268f801ae5e4c736da72c329539f862a651f536e0c3d4846682adf",
+      "apps/web/textures/reference/phobos-viking-reference-1k.png": "57b0b9bb3d69e2735cfe19b68d6d64d05a6cd7cf33ae0a3bd87501f70e90b5fe",
+      "apps/web/textures/reference/rhea-cassini-reference-2k.png": "759e9732ad7804221bc85da61c459d6846342d4aa1fe06d67b566d4b9b889779",
+      "apps/web/textures/reference/saturn-reference.png": "c88eb864e3c6a2c4a23f7b8cfa32a510e4dc46431da8b0697b7121f45e307fee",
+      "apps/web/textures/reference/tethys-cassini-reference-2k.png": "ecc49fcac05091c42d456d23266fd378d6e7728c90024bf65728637767fe77af",
+      "apps/web/textures/reference/uranus-reference.png": "d59ba81033bba3faf30950c2d8893319a8f3e94f968a648c03b16b5d0fd8c8a5",
+      "apps/web/textures/reference/venus-reference.png": "fc043e4ebabe8d50eba42c80378dbb82284f2e3ff7e59f1a0870f17e52c03bd7",
+      "apps/web/textures/rhea.jpg": "1f1401668e26a42f33aa88ab337981dd621382b137fd04847286dc5f780a9f0b",
+      "apps/web/textures/saturn.jpg": "54a900ca9bf7ab62e70f862852759abdf342e6d6436a95a2fe9ebdb6bcd3bbac",
+      "apps/web/textures/saturn_ring.png": "4b0644b2f3ef259fd0bfaedd9dc52f9e7d9738f65f50363e8c4dd19f650d7334",
+      "apps/web/textures/solar-observation-171.jpg": "7429a6b0cebf8b61d4a35783937836ebc5218dd194de9508a6c3da848aa55c99",
+      "apps/web/textures/solar/aia171-20240510-reference-atlas.png": "f05f77184be4c1ed7f7630ba0ca49d8899f13a1bcdaabd4bd3c7d3bd65f97f8b",
+      "apps/web/textures/sun.jpg": "eb299e3eae0a93bf1b53c4531e7d3e0edd258bd4ee539b2de5630f8f398b268c",
+      "apps/web/textures/sun.jpg.json": "b584dc596c9688e3d81ce451cd112e4208c5e6ddf03fd8d4f6a5b995c38c007b",
+      "apps/web/textures/terrain/mars-radial-height-v2.u16.bin": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba",
+      "apps/web/textures/terrain/mars-radial-height.u16.bin": "821cbd539517b18b29da201d15d6ca01491ce1890b505dbf06892df76d8a3717",
+      "apps/web/textures/terrain/moon-radial-height-v2.u16.bin": "231712404e21d22427b2bb5da32f23b7a5db29cf5bb7e5cd49f7fae6753a8126",
+      "apps/web/textures/terrain/moon-radial-height.u16.bin": "f6ade389b0b3e716b95e2db16e72ba780224f6089ed9e04c11616ecb65a2bd13",
+      "apps/web/textures/tethys.jpg": "3bb0cc869a81bce4cfbb1fb6b65de323df07214a9655b5f2839a03d1cea83b7b",
+      "apps/web/textures/uranus.jpg": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d",
+      "apps/web/textures/venus.jpg": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac",
+      "apps/web/visual-assets.v1.json": "14c9e0ebc8d00ee6ff29e757f5fd9a429bc5a594f734237e2a0e7481fa7121b6"
+    },
+    "committed_doc_override": {
+      "path": "docs/plans/2026-09-14-rendering-qualification/SCATTERING_INTERPOLATION.md",
+      "revision": "daa1fbec5f6f13333731b0b279fd085926a483ff",
+      "raw_main_sha256": "6980a80c491f1f87257fe8b3201a9b7dd9fe6641a6881d416203c83697206727",
+      "snapshot_sha256": "2e83d5cafda528dcfad36a8a8c7fbddf4cc3c8087bbdfbe7a31a86fd62320cbf",
+      "authorization": "Root explicitly authorized committed blob for this one pending documentation edit; preserve main edit"
+    }
+  },
+  "validator_correction_identity": {
+    "source_identity": {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\final-daa1fbe-mars7b588-source.json",
+      "sha256": "23805fa00a74b4d4c4664b0f063cc08b58c25cace9a23f0e4ed7cfdd1414af7e",
+      "bytes": 273534
+    },
+    "validator_revision": "7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01",
+    "snapshot": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-mars7b588-capture",
+    "tracked_files": 840,
+    "lineage": {
+      "parent_identity": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\final-daa1fbe-capture-windows.json",
+      "parent_identity_sha256": "0049c618efcddd2be36aedec4b8f1ac1ba3391d6f51acee70a0c16b39a7a8c9d",
+      "production_diff_from_daa": "empty",
+      "supersedes_failed_validator_revision": "268b5bd52eb7819a47e8ea9c5ea089c68b821ac8",
+      "files": [
+        {
+          "path": "docs/plans/2026-09-14-rendering-qualification/ADVANCED_MATERIALS_EVIDENCE.md",
+          "source": "exact committed blob",
+          "commit": "7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01",
+          "committed_sha256": "baba595df110034e79d182e8404aa7bdb41186826fcbca6af51c191033ad07c3",
+          "raw_main_sha256_at_copy": "baba595df110034e79d182e8404aa7bdb41186826fcbca6af51c191033ad07c3",
+          "prior_snapshot_sha256": "232b29724cb86d8d7d18f5fcf96d0b4174fc49e5e6d8ed2c8ffd0ca77fba10f1"
+        },
+        {
+          "path": "docs/plans/2026-09-14-rendering-qualification/ATMOSPHERE_SHADOW_CONDITIONING.md",
+          "source": "exact committed blob",
+          "commit": "7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01",
+          "committed_sha256": "cc4be9e6353095c6b7d053335e824701808d031e340a292a454d75af56dde4cf",
+          "raw_main_sha256_at_copy": "cc4be9e6353095c6b7d053335e824701808d031e340a292a454d75af56dde4cf",
+          "prior_snapshot_sha256": null
+        },
+        {
+          "path": "docs/plans/2026-09-14-rendering-qualification/ATMOSPHERE_SHADOW_CONDITIONING_QUALIFICATION.json",
+          "source": "exact committed blob",
+          "commit": "7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01",
+          "committed_sha256": "7dade371c18a6b3b14d2bd166d7a99cfdaa7470b417a04116fa9fc7c9c74923a",
+          "raw_main_sha256_at_copy": "7dade371c18a6b3b14d2bd166d7a99cfdaa7470b417a04116fa9fc7c9c74923a",
+          "prior_snapshot_sha256": null
+        },
+        {
+          "path": "tests/web/helpers/orreryHarness.mjs",
+          "source": "exact committed blob",
+          "commit": "7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01",
+          "committed_sha256": "83081f8b7d93ce0634970941b8b9cb0c4169de2237847d93425b7d3164c194c3",
+          "raw_main_sha256_at_copy": "703810eebba65d04d7440f701b07ef5b124506256b751d5da01be48d7d448c21",
+          "prior_snapshot_sha256": "2104b82be2eeabb2a5b99b688c4a3c78c3887705dbd08c1a8262b66d90cd2036"
+        },
+        {
+          "path": "tests/web/physicalValidationRestoration.test.mjs",
+          "source": "exact committed blob",
+          "commit": "7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01",
+          "committed_sha256": "4f1b07774bf1932542ead3f48f695ac1c73ac195c8490ce0808da54f25df4ec8",
+          "raw_main_sha256_at_copy": "3345ae4223a9854e2c23d2799ed0d8d30a316408f1ea8fdfd0631aa887960b8a",
+          "prior_snapshot_sha256": null
+        },
+        {
+          "path": "tests/web/physicalValidationStartup.test.mjs",
+          "source": "exact committed blob",
+          "commit": "7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01",
+          "committed_sha256": "7ab76c742ac249a46aeeb4ba3a808e15330deff73d0187638077d97a3ed7e444",
+          "raw_main_sha256_at_copy": "da575dfa01c653f41e6f620b083456b346b5a5c8b87b7c3693acb1f80c34233b",
+          "prior_snapshot_sha256": null
+        },
+        {
+          "path": "tools/physical_rendering_validation.mjs",
+          "source": "exact committed blob",
+          "commit": "7b588c18bdf4a7118e9c9a9c57fcefad2b25ff01",
+          "committed_sha256": "1098304713a17829411209e047b8229cc90cd749a13658e26bd24a1f2588aa68",
+          "raw_main_sha256_at_copy": "bc0cea03ed2c32970ce92ef4321fb846e471e5da40a4fb185a5a9a896797ce8c",
+          "prior_snapshot_sha256": "1c948baec89e97be3c893e326bc298df3e986f940d3ac1da9dd3b292dd763982"
+        }
+      ],
+      "scope": "Only these seven committed validator/test/document files replace the original raw daa snapshot; production and all other execution dependencies remain byte-identical."
+    }
+  },
+  "executables": {
+    "node": {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\pr107-review-34eea27\\node22.exe",
+      "sha256": "0d0f5e39f9f3d9587bc19f73eab3c2c9c4903fd02d6dbf9c853dd81b3d95fad4"
+    },
+    "chrome": {
+      "path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "sha256": "93f3cd836f52984983b20aecc4359852ceff167cbde2b69c6d99019d58505eaf"
+    }
+  },
+  "preserved_limits": {
+    "original_earth_minimum_final_draws": 3,
+    "earth_collection_ms": 5000,
+    "additional_physical_collection_ms": 5000,
+    "earth_physical_ready_from_system_ms": 75000,
+    "shader_owner_ms": 30000,
+    "shader_owner_capacity": 9,
+    "mars_startup_ms": 40000,
+    "mars_context_native_event_ms": 10000,
+    "mars_context_ready_from_request_ms": 40000,
+    "mars_absolute_original_run_ms": 240000,
+    "terrain_level": 4,
+    "terrain_grid": [
+      256,
+      512
+    ],
+    "terrain_vertices": 131841,
+    "terrain_indices": 783360
+  },
+  "gates": [
+    {
+      "gate": "earth-native",
+      "status": "passed",
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-native-memory\\browser-evidence.json",
+      "evidence_sha256": "2388ab7e23de2668c7c0646025b94a597a2589b792645404eb4e75e5c05d0def",
+      "execution_receipt": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-native-memory.identity.json",
+      "execution_sha256": "2915b2249faab9be889c4c011c747fee0f26a930d54e95513074b1d9d4015429",
+      "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "original_spin": {
+        "timing": {
+          "startedMs": 17506.100000023842,
+          "endedMs": 17592.100000023842,
+          "elapsedMs": 86
+        },
+        "counts": {
+          "attempted": 148,
+          "submitted": 148,
+          "arrayAttempted": 76,
+          "arraySubmitted": 76,
+          "surface": 4,
+          "earth": 4,
+          "duplicateEpoch": 0,
+          "candidates": 8,
+          "unknown": 140,
+          "gpuMismatch": 4,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 4,
+          "presentedEarth": 4,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 0,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "radians": 0.08381778717365798,
+        "frozen_rejected": true
+      },
+      "physical_spin": {
+        "timing": {
+          "startedMs": 29898,
+          "endedMs": 30033.5,
+          "elapsedMs": 135.5
+        },
+        "counts": {
+          "attempted": 185,
+          "submitted": 185,
+          "arrayAttempted": 105,
+          "arraySubmitted": 105,
+          "surface": 5,
+          "earth": 5,
+          "duplicateEpoch": 0,
+          "candidates": 5,
+          "unknown": 180,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 5,
+          "presentedEarth": 5,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 5,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "first_ready_from_system_ms": 22072.799999952316,
+        "readiness_counts": {
+          "submitted": 11063,
+          "physicalRejected": 0,
+          "lateDraws": 0,
+          "sourceFilteredDraws": 11029,
+          "candidateDraws": 1,
+          "gpuProgramQueries": 1,
+          "gpuProgramMismatch": 0
+        },
+        "physical_source": {
+          "body": "Earth",
+          "terrain": false,
+          "scattering_height_range_km": [
+            0.0030000000006111804,
+            0.0030000000006111804
+          ],
+          "scattering_sizes": {
+            "surface": [
+              128,
+              193,
+              1
+            ],
+            "limb": [
+              128,
+              64
+            ]
+          },
+          "generator_shader_sha256": {
+            "vertex": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f",
+            "fragment": "c71e2b2b4a4f3632b7ac00ebee9bb36f155d5a508c7586148629034f9b000d39"
+          },
+          "shader_sha256": {
+            "vertex": "90b513dc98bd645f5d4119c4461612dea975e044c99c0e61a1b51f492db8be8c",
+            "fragment": "20ba613d199d642f429e8fdf14a099ea620116162bd886771efd151296e28f09"
+          },
+          "profile_sha256": "0a3fe3c7688556331ebfc2725d533472751eeb498479dcc7d1f3a34390675e9d",
+          "fields": {
+            "incident": {
+              "sha256": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639",
+              "dimensions": [
+                385,
+                65,
+                3
+              ]
+            },
+            "columns": {
+              "sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+              "dimensions": [
+                512,
+                512,
+                2
+              ]
+            }
+          }
+        }
+      },
+      "held_producer": {
+        "control": {
+          "restored": true,
+          "sourceFiltered": 223,
+          "candidateQueries": 446,
+          "currentProgramMismatch": 0,
+          "held": 446
+        },
+        "counts": {
+          "attempted": 8103,
+          "submitted": 8103,
+          "arrayAttempted": 4599,
+          "arraySubmitted": 4599,
+          "surface": 217,
+          "earth": 217,
+          "duplicateEpoch": 0,
+          "candidates": 217,
+          "unknown": 7812,
+          "gpuMismatch": 0,
+          "expiredDraws": 74,
+          "lateReadbacks": 0,
+          "offscreenEarth": 0,
+          "presentedEarth": 0,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 217,
+          "physicalAccepted": 0,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "recovery_timing": {
+          "startedMs": 35368.40000003576,
+          "endedMs": 35500.60000002384,
+          "elapsedMs": 132.19999998807907
+        },
+        "recovery_counts": {
+          "attempted": 185,
+          "submitted": 185,
+          "arrayAttempted": 105,
+          "arraySubmitted": 105,
+          "surface": 5,
+          "earth": 5,
+          "duplicateEpoch": 0,
+          "candidates": 5,
+          "unknown": 180,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 5,
+          "presentedEarth": 5,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 5,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        }
+      },
+      "memory": {
+        "status": "passed",
+        "original_gates": {
+          "passed": true,
+          "completed_at": "2026-09-14T09:34:20.562Z",
+          "completed_monotonic_ms": 43388.7229
+        },
+        "basis": "OS process and WDDM observations from owned browser PIDs; not attributable texture VRAM or physical residency.",
+        "limitations": [
+          "Missing counters remain unavailable, never zero. Working-set sums may share pages.",
+          "Actual draw proof precedes sampling; feature states bracket sampling. This does not prove every frame in the sampling interval.",
+          "Registered imagery readiness is a source/cache workload check, not proof of imagery texture bindings at a GPU draw.",
+          "Memory sampling is excluded from the original performance gates and adds measurement overhead."
+        ],
+        "checkpoints": [
+          {
+            "label": "original-gates-complete",
+            "started_monotonic_ms": 43389.9901,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 1070710784,
+              "owned_process_working_set_sum_bytes": 1560190976,
+              "gpu_process_private_bytes": 513748992,
+              "gpu_process_counters": {
+                "shared usage": 308273152,
+                "dedicated usage": 0,
+                "total committed": 326152192
+              }
+            }
+          },
+          {
+            "label": "full-features-active",
+            "started_monotonic_ms": 47078.6726,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 1420058624,
+              "owned_process_working_set_sum_bytes": 1900314624,
+              "gpu_process_private_bytes": 700080128,
+              "gpu_process_counters": {
+                "shared usage": 471040000,
+                "dedicated usage": 0,
+                "total committed": 488919040
+              }
+            },
+            "appearance": {
+              "body": "Earth",
+              "earth_layers": {
+                "night": true,
+                "weather": true,
+                "ice": false,
+                "cloud_source": "composite"
+              },
+              "sources": [
+                {
+                  "id": "earth-bmng-200401-day",
+                  "body": "Earth",
+                  "role": "surface",
+                  "path": "textures/reference/earth-land-2004.jpg",
+                  "sha256": "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5",
+                  "dimensions": [
+                    5400,
+                    2700
+                  ]
+                },
+                {
+                  "id": "earth-black-marble-2016-night-gray",
+                  "body": "Earth",
+                  "role": "night-lights",
+                  "path": "textures/reference/earth-lights-2016.jpg",
+                  "sha256": "4d2158f59123dadf0696a1cf8909c45018a1de8d0daab40da04122a5aa7f27c6",
+                  "dimensions": [
+                    3600,
+                    1800
+                  ]
+                },
+                {
+                  "id": "earth-blue-marble-2002-cloud-composite",
+                  "body": "Earth",
+                  "role": "cloud-composite",
+                  "path": "textures/reference/earth-blue-marble-2002-clouds.jpg",
+                  "sha256": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
+                  "dimensions": [
+                    2048,
+                    1024
+                  ]
+                }
+              ]
+            },
+            "probe_timing": {
+              "startedMs": 44808.90000003576,
+              "endedMs": 44959.40000003576,
+              "elapsedMs": 150.5
+            },
+            "probe_counts": {
+              "attempted": 147,
+              "submitted": 147,
+              "arrayAttempted": 84,
+              "arraySubmitted": 84,
+              "surface": 4,
+              "earth": 4,
+              "duplicateEpoch": 0,
+              "candidates": 4,
+              "unknown": 143,
+              "gpuMismatch": 0,
+              "expiredDraws": 0,
+              "lateReadbacks": 0,
+              "offscreenEarth": 4,
+              "presentedEarth": 4,
+              "presentationMismatch": 0,
+              "heldPresentations": 0,
+              "physicalRejected": 0,
+              "physicalAccepted": 4,
+              "terrainRejected": 0,
+              "terrainAccepted": 0
+            },
+            "restoration": null
+          },
+          {
+            "label": "full-features-context-restored",
+            "started_monotonic_ms": 50390.8775,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 1406754816,
+              "owned_process_working_set_sum_bytes": 1927335936,
+              "gpu_process_private_bytes": 682795008,
+              "gpu_process_counters": {
+                "shared usage": 411668480,
+                "dedicated usage": 0,
+                "total committed": 413548544
+              }
+            },
+            "appearance": {
+              "body": "Earth",
+              "earth_layers": {
+                "night": true,
+                "weather": true,
+                "ice": false,
+                "cloud_source": "composite"
+              },
+              "sources": [
+                {
+                  "id": "earth-bmng-200401-day",
+                  "body": "Earth",
+                  "role": "surface",
+                  "path": "textures/reference/earth-land-2004.jpg",
+                  "sha256": "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5",
+                  "dimensions": [
+                    5400,
+                    2700
+                  ]
+                },
+                {
+                  "id": "earth-black-marble-2016-night-gray",
+                  "body": "Earth",
+                  "role": "night-lights",
+                  "path": "textures/reference/earth-lights-2016.jpg",
+                  "sha256": "4d2158f59123dadf0696a1cf8909c45018a1de8d0daab40da04122a5aa7f27c6",
+                  "dimensions": [
+                    3600,
+                    1800
+                  ]
+                },
+                {
+                  "id": "earth-blue-marble-2002-cloud-composite",
+                  "body": "Earth",
+                  "role": "cloud-composite",
+                  "path": "textures/reference/earth-blue-marble-2002-clouds.jpg",
+                  "sha256": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
+                  "dimensions": [
+                    2048,
+                    1024
+                  ]
+                }
+              ]
+            },
+            "probe_timing": {
+              "startedMs": 48074.60000002384,
+              "endedMs": 48228,
+              "elapsedMs": 153.39999997615814
+            },
+            "probe_counts": {
+              "attempted": 185,
+              "submitted": 185,
+              "arrayAttempted": 105,
+              "arraySubmitted": 105,
+              "surface": 5,
+              "earth": 5,
+              "duplicateEpoch": 0,
+              "candidates": 5,
+              "unknown": 180,
+              "gpuMismatch": 0,
+              "expiredDraws": 0,
+              "lateReadbacks": 0,
+              "offscreenEarth": 5,
+              "presentedEarth": 5,
+              "presentationMismatch": 0,
+              "heldPresentations": 0,
+              "physicalRejected": 0,
+              "physicalAccepted": 5,
+              "terrainRejected": 0,
+              "terrainAccepted": 0
+            },
+            "restoration": {
+              "loss_ms": 47592.90000003576,
+              "request_ms": 47606.30000001192,
+              "event_ms": 47615.5,
+              "callback_completed_ms": null,
+              "ready_ms": null
+            }
+          },
+          {
+            "label": "system-exited",
+            "started_monotonic_ms": 53328.6761,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 1259065344,
+              "owned_process_working_set_sum_bytes": 1780285440,
+              "gpu_process_private_bytes": 615075840,
+              "gpu_process_counters": {
+                "shared usage": 450514944,
+                "dedicated usage": 0,
+                "total committed": 452395008
+              }
+            }
+          },
+          {
+            "label": "application-page-closed",
+            "started_monotonic_ms": 55408.5766,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 773955584,
+              "owned_process_working_set_sum_bytes": 1040015360,
+              "gpu_process_private_bytes": 609632256,
+              "gpu_process_counters": {
+                "shared usage": 126550016,
+                "dedicated usage": 0,
+                "total committed": 127123456
+              }
+            }
+          }
+        ]
+      },
+      "log": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-native-memory.log",
+        "sha256": "475b454038429f1d6246b344f04d997d4f6506061d6d0657b284911d69e1bb50",
+        "bytes": 1500
+      },
+      "command": {
+        "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+        "argv": [
+          "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+          "tools/browser_validation.mjs",
+          "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+          "--backend=native",
+          "--hdr-candidate=true",
+          "--physical-spin=true",
+          "--memory",
+          "--output-dir=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-native-memory"
+        ],
+        "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-native-memory",
+        "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-native-memory.log",
+        "environment": {
+          "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      },
+      "validation_source_sha256": {
+        "browser_validation.mjs": "dbf716d81f44c894133b8688fd43d80b08e0d36e42f06f2bdcd13c44ea70db18",
+        "browser_backend.mjs": "5f114bae6914e3046bb266309e082f5df1999c344dc7eaf69330582b4612d072",
+        "texture_device_telemetry.mjs": "ca29e2d2bf89e6f3883ab1d214132f9daaa1dc2c1ed4b37c1b1e52819528d690",
+        "earth_spin_probe.mjs": "12e45031d7cc41ff6f14f6515045a4024143ad1b6a1c5ca6aea104c338db6ccd",
+        "physical_spin_probe.mjs": "971697d40af1ac2e585a5a78c208d48f37efab3472b1770794ad38f24f69dc7c",
+        "physical_texture_probe.mjs": "45d6fe804de2b867acfb0401c7ac73bd166863dada25ae2bb5905b9ecb409135",
+        "scattering_producer_probe.mjs": "28cb49636b4fdb859760e36721d3cd48c9901089497c08090e8c75def106d2f8",
+        "full_feature_memory.mjs": "1a83c63723e2e41034946d44be27c21fc610d5844330f94ae2c959088556e8a6",
+        "texture_device_memory.ps1": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+        "context_restore.mjs": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+        "mars_terrain_probe.mjs": "56c9b84d35bc8254a42ae029e6463a96ecbefb308984a03db857f3957906bc5f",
+        "mars_spin_assertions.mjs": "b09b5e86e30ac8fd155bb9e9c41d048341d0dfc05cfad31590e97f227684a8e8"
+      }
+    },
+    {
+      "gate": "earth-swiftshader",
+      "status": "passed",
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader\\browser-evidence.json",
+      "evidence_sha256": "3b3a5789185466883e1e75ffff40fe32f68d4fc64604304536da9661c8c05c21",
+      "execution_receipt": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader.identity.json",
+      "execution_sha256": "322d3ab0afe49d1a34ef43b60a2d4db59313a4d8004a6b926581dca337b11012",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "original_spin": {
+        "timing": {
+          "startedMs": 46715,
+          "endedMs": 47696.09999996424,
+          "elapsedMs": 981.0999999642372
+        },
+        "counts": {
+          "attempted": 144,
+          "submitted": 144,
+          "arrayAttempted": 84,
+          "arraySubmitted": 84,
+          "surface": 4,
+          "earth": 4,
+          "duplicateEpoch": 0,
+          "candidates": 4,
+          "unknown": 140,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 4,
+          "presentedEarth": 4,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 0,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "radians": 0.1884957571404453,
+        "frozen_rejected": true
+      },
+      "physical_spin": {
+        "timing": {
+          "startedMs": 64783.5,
+          "endedMs": 66406.89999997616,
+          "elapsedMs": 1623.3999999761581
+        },
+        "counts": {
+          "attempted": 180,
+          "submitted": 180,
+          "arrayAttempted": 105,
+          "arraySubmitted": 105,
+          "surface": 5,
+          "earth": 5,
+          "duplicateEpoch": 0,
+          "candidates": 5,
+          "unknown": 175,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 5,
+          "presentedEarth": 5,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 5,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "first_ready_from_system_ms": 46151.89999997616,
+        "readiness_counts": {
+          "submitted": 36,
+          "physicalRejected": 0,
+          "lateDraws": 0,
+          "sourceFilteredDraws": 3,
+          "candidateDraws": 1,
+          "gpuProgramQueries": 1,
+          "gpuProgramMismatch": 0
+        },
+        "physical_source": {
+          "body": "Earth",
+          "terrain": false,
+          "scattering_height_range_km": [
+            0.0030000000006111804,
+            0.0030000000006111804
+          ],
+          "scattering_sizes": {
+            "surface": [
+              128,
+              193,
+              1
+            ],
+            "limb": [
+              128,
+              64
+            ]
+          },
+          "generator_shader_sha256": {
+            "vertex": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f",
+            "fragment": "c71e2b2b4a4f3632b7ac00ebee9bb36f155d5a508c7586148629034f9b000d39"
+          },
+          "shader_sha256": {
+            "vertex": "90b513dc98bd645f5d4119c4461612dea975e044c99c0e61a1b51f492db8be8c",
+            "fragment": "20ba613d199d642f429e8fdf14a099ea620116162bd886771efd151296e28f09"
+          },
+          "profile_sha256": "0a3fe3c7688556331ebfc2725d533472751eeb498479dcc7d1f3a34390675e9d",
+          "fields": {
+            "incident": {
+              "sha256": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639",
+              "dimensions": [
+                385,
+                65,
+                3
+              ]
+            },
+            "columns": {
+              "sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+              "dimensions": [
+                512,
+                512,
+                2
+              ]
+            }
+          }
+        }
+      },
+      "held_producer": {
+        "control": {
+          "restored": true,
+          "sourceFiltered": 40,
+          "candidateQueries": 80,
+          "currentProgramMismatch": 0,
+          "held": 80
+        },
+        "counts": {
+          "attempted": 1296,
+          "submitted": 1296,
+          "arrayAttempted": 756,
+          "arraySubmitted": 756,
+          "surface": 34,
+          "earth": 34,
+          "duplicateEpoch": 0,
+          "candidates": 34,
+          "unknown": 1193,
+          "gpuMismatch": 0,
+          "expiredDraws": 69,
+          "lateReadbacks": 0,
+          "offscreenEarth": 0,
+          "presentedEarth": 0,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 34,
+          "physicalAccepted": 0,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "recovery_timing": {
+          "startedMs": 75025.09999996424,
+          "endedMs": 76189,
+          "elapsedMs": 1163.9000000357628
+        },
+        "recovery_counts": {
+          "attempted": 144,
+          "submitted": 144,
+          "arrayAttempted": 84,
+          "arraySubmitted": 84,
+          "surface": 4,
+          "earth": 4,
+          "duplicateEpoch": 0,
+          "candidates": 4,
+          "unknown": 140,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 4,
+          "presentedEarth": 4,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 4,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        }
+      },
+      "log": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader.log",
+        "sha256": "99aeffbdb7bf96cf049f5ead3ec20a105333fdbb1d62779e5d7ab4b75d5dc471",
+        "bytes": 1542
+      },
+      "command": {
+        "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+        "argv": [
+          "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+          "tools/browser_validation.mjs",
+          "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+          "--backend=swiftshader",
+          "--hdr-candidate=true",
+          "--physical-spin=true",
+          "--output-dir=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader"
+        ],
+        "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader",
+        "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader.log",
+        "environment": {
+          "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      },
+      "validation_source_sha256": {
+        "browser_validation.mjs": "dbf716d81f44c894133b8688fd43d80b08e0d36e42f06f2bdcd13c44ea70db18",
+        "browser_backend.mjs": "5f114bae6914e3046bb266309e082f5df1999c344dc7eaf69330582b4612d072",
+        "texture_device_telemetry.mjs": "ca29e2d2bf89e6f3883ab1d214132f9daaa1dc2c1ed4b37c1b1e52819528d690",
+        "earth_spin_probe.mjs": "12e45031d7cc41ff6f14f6515045a4024143ad1b6a1c5ca6aea104c338db6ccd",
+        "physical_spin_probe.mjs": "971697d40af1ac2e585a5a78c208d48f37efab3472b1770794ad38f24f69dc7c",
+        "physical_texture_probe.mjs": "45d6fe804de2b867acfb0401c7ac73bd166863dada25ae2bb5905b9ecb409135",
+        "scattering_producer_probe.mjs": "28cb49636b4fdb859760e36721d3cd48c9901089497c08090e8c75def106d2f8",
+        "full_feature_memory.mjs": "1a83c63723e2e41034946d44be27c21fc610d5844330f94ae2c959088556e8a6",
+        "texture_device_memory.ps1": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+        "context_restore.mjs": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+        "mars_terrain_probe.mjs": "56c9b84d35bc8254a42ae029e6463a96ecbefb308984a03db857f3957906bc5f",
+        "mars_spin_assertions.mjs": "b09b5e86e30ac8fd155bb9e9c41d048341d0dfc05cfad31590e97f227684a8e8"
+      }
+    },
+    {
+      "gate": "material-native",
+      "status": "passed",
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-native-fixed-domain\\evidence.json",
+      "evidence_sha256": "7b163d383ea9c93549c6e40e3d30a01b93a0768c931037c88932e9030738c151",
+      "execution_receipt": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-native-fixed-domain.identity.json",
+      "execution_sha256": "3ae8404cfb365d0dbc992e44d6e9af37174ab68a73313b9ac5efb3dcffb8f2f0",
+      "checks": {
+        "passed": 266,
+        "total": 266
+      },
+      "reference_mode": "fixed-domain",
+      "case_count": 160,
+      "negative_controls": [
+        "reject mode 1 style -1",
+        "reject mode 2 style -1",
+        "reject mode -1 style -1",
+        "reject mode 3 style -1",
+        "reject mode 0 style -2",
+        "reject mode 0 style 0",
+        "reject mode 0 style 1",
+        "reject mode 0 style 2",
+        "reject mode 0 style 3",
+        "reject mode 0 style 4",
+        "reject mode 0 style 5",
+        "reject mode 0 style 6",
+        "reject mode 0 style 7",
+        "reject mode 0 style 8",
+        "reject mode 0 style 9",
+        "reject mode 0 style 10",
+        "reject mode 0 style 11",
+        "reject mode 0 style 12",
+        "reject mode 0 style 13",
+        "active u_earthNight",
+        "active u_earthWeather",
+        "active u_earthIce",
+        "active u_moonShadowCount",
+        "held draw is rejected",
+        "incorrect material encoding is rejected",
+        "held physical presentation is rejected"
+      ],
+      "runtime_source_sha256": {
+        "/js/orreryShaders.js": "7158492c19143154a91b3d2a99eb2af01c6c73ad172a887d6385b3348c4b6d8a",
+        "/js/atmosphereColumnField.js": "84177099c937c7c9b4fa859994e2be381bd5b20034298c6c370fa96e13eeb5da",
+        "/js/atmosphereScattering.js": "4c43aaa434b7388e9f7b9185f845e3c508ce5a4db4d1e3d38ac0cf7bc293af6b",
+        "/js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+        "/js/terrainShadowShaders.js": "325c98cdff69da07b9a69db6462796681bcb5927bcc9e395f92eea32302b451d",
+        "/js/materialColor.js": "905f1a9091805caa5240997420bed331183ddf41884ab33c4b661313c8a6470c",
+        "/js/ringTransportShaders.js": "64edd79a237321f54da71227e82d1f3fcdf8891bcd09ea00cf6290b16f9e19f7",
+        "/js/atmosphereShaders.js": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
+        "/js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+        "/js/atmosphereColumnManifest.js": "405e36a34a9fa0dc93286676710bd3dca49d685e12ad99eead973825b9875c31",
+        "/js/atmosphereIncidentManifest.js": "d57276f5c10f37bf1571554cdd0ff901b7ee5a15a69ac9dd573ccb935dcc6276",
+        "/js/planetAppearance.js": "24592487a8681e252ed0489e602c55bed5b548435d73be1b08fc36deb74064ea",
+        "/js/visualAssetManifest.js": "80aff50052089f9df1538635e7fbad2dffa20adbc9101310edfd7a2673723f8b",
+        "/js/shaderPrograms.js": "3febea96c90cc448a615a4158ed7ef76f23c2f584c4aba95bbd010b8fe5077b8",
+        "/js/hdrPresentation.js": "7a8a2807142488ab57a9b29bbbe843da8dc27a5d6a07c9812a7e2ea22e5bb26b",
+        "/js/hdrPresentationShaders.js": "ea139ec9c46a111fa1910f95567364f8d90507a229cc2dc5084fe1973e21e8a4",
+        "/data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "/data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895"
+      },
+      "log": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-native-fixed-domain.log",
+        "sha256": "ae04f1d810463404be4554cb7fa0e812c63457390123a52b0623fa7260adacaf",
+        "bytes": 145
+      },
+      "command": {
+        "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+        "argv": [
+          "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+          "tools/physical_material_validation.mjs",
+          "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+          "--backend=native",
+          "--reference-mode=fixed-domain",
+          "--out=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-native-fixed-domain"
+        ],
+        "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-native-fixed-domain",
+        "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-native-fixed-domain.log",
+        "environment": {
+          "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      }
+    },
+    {
+      "gate": "material-swiftshader",
+      "status": "passed",
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-swiftshader\\evidence.json",
+      "evidence_sha256": "fe1f7816aeb852d2f534527e82429755dd5943a7a0487906632522a72288fa45",
+      "execution_receipt": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-swiftshader.identity.json",
+      "execution_sha256": "f5c8819815989f31f41e162df8f333989c725b939c83787f302c9b9576d15f64",
+      "checks": {
+        "passed": 266,
+        "total": 266
+      },
+      "reference_mode": "uniform",
+      "case_count": 160,
+      "negative_controls": [
+        "reject mode 1 style -1",
+        "reject mode 2 style -1",
+        "reject mode -1 style -1",
+        "reject mode 3 style -1",
+        "reject mode 0 style -2",
+        "reject mode 0 style 0",
+        "reject mode 0 style 1",
+        "reject mode 0 style 2",
+        "reject mode 0 style 3",
+        "reject mode 0 style 4",
+        "reject mode 0 style 5",
+        "reject mode 0 style 6",
+        "reject mode 0 style 7",
+        "reject mode 0 style 8",
+        "reject mode 0 style 9",
+        "reject mode 0 style 10",
+        "reject mode 0 style 11",
+        "reject mode 0 style 12",
+        "reject mode 0 style 13",
+        "active u_earthNight",
+        "active u_earthWeather",
+        "active u_earthIce",
+        "active u_moonShadowCount",
+        "held draw is rejected",
+        "incorrect material encoding is rejected",
+        "held physical presentation is rejected"
+      ],
+      "runtime_source_sha256": {
+        "/js/orreryShaders.js": "7158492c19143154a91b3d2a99eb2af01c6c73ad172a887d6385b3348c4b6d8a",
+        "/js/atmosphereColumnField.js": "84177099c937c7c9b4fa859994e2be381bd5b20034298c6c370fa96e13eeb5da",
+        "/js/atmosphereScattering.js": "4c43aaa434b7388e9f7b9185f845e3c508ce5a4db4d1e3d38ac0cf7bc293af6b",
+        "/js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+        "/js/terrainShadowShaders.js": "325c98cdff69da07b9a69db6462796681bcb5927bcc9e395f92eea32302b451d",
+        "/js/materialColor.js": "905f1a9091805caa5240997420bed331183ddf41884ab33c4b661313c8a6470c",
+        "/js/ringTransportShaders.js": "64edd79a237321f54da71227e82d1f3fcdf8891bcd09ea00cf6290b16f9e19f7",
+        "/js/atmosphereShaders.js": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
+        "/js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+        "/js/atmosphereColumnManifest.js": "405e36a34a9fa0dc93286676710bd3dca49d685e12ad99eead973825b9875c31",
+        "/js/atmosphereIncidentManifest.js": "d57276f5c10f37bf1571554cdd0ff901b7ee5a15a69ac9dd573ccb935dcc6276",
+        "/js/planetAppearance.js": "24592487a8681e252ed0489e602c55bed5b548435d73be1b08fc36deb74064ea",
+        "/js/visualAssetManifest.js": "80aff50052089f9df1538635e7fbad2dffa20adbc9101310edfd7a2673723f8b",
+        "/js/shaderPrograms.js": "3febea96c90cc448a615a4158ed7ef76f23c2f584c4aba95bbd010b8fe5077b8",
+        "/js/hdrPresentation.js": "7a8a2807142488ab57a9b29bbbe843da8dc27a5d6a07c9812a7e2ea22e5bb26b",
+        "/js/hdrPresentationShaders.js": "ea139ec9c46a111fa1910f95567364f8d90507a229cc2dc5084fe1973e21e8a4",
+        "/data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "/data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895"
+      },
+      "log": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-swiftshader.log",
+        "sha256": "2fdb17a9e99b89f899d0eca8c264a3a9b606c1ba6af447d4a591d9fdafed8b01",
+        "bytes": 137
+      },
+      "command": {
+        "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+        "argv": [
+          "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+          "tools/physical_material_validation.mjs",
+          "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+          "--backend=swiftshader",
+          "--reference-mode=uniform",
+          "--out=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-swiftshader"
+        ],
+        "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-swiftshader",
+        "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\material-swiftshader.log",
+        "environment": {
+          "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      }
+    },
+    {
+      "gate": "appearance",
+      "status": "passed",
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\appearance\\evidence.json",
+      "evidence_sha256": "e342a77f6ff172375dfb63989b21c86d213e4aa2249ac75c5a695c2c69701405",
+      "execution_receipt": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\appearance.identity.json",
+      "execution_sha256": "3f3740e6d8773f80c5911ee6d08a2905ca0b538c233ef15a799a80b133585546",
+      "checks": {
+        "passed": 110,
+        "total": 110
+      },
+      "log": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\appearance.log",
+        "sha256": "8654cd1bbc638cb0d0e55b9e9f08b7d31dd8462bc4aae45fab5e341e8e8f97f8",
+        "bytes": 176
+      },
+      "command": {
+        "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+        "argv": [
+          "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+          "tools/planet_appearance_validation.mjs",
+          "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+          "--out=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\appearance"
+        ],
+        "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\appearance",
+        "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\appearance.log",
+        "environment": {
+          "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      }
+    },
+    {
+      "gate": "hdr",
+      "status": "passed",
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\hdr\\evidence.json",
+      "evidence_sha256": "6dc032892e0759980b08ab5fe6895e96947843318f8c546c9f5ca4ec92d6be2a",
+      "execution_receipt": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\hdr.identity.json",
+      "execution_sha256": "8f48492df6cd3753a5ec97fb6707b558d3bd1d71d381ea2ca7d1f07c1117fc87",
+      "checks": {
+        "passed": 66,
+        "total": 66
+      },
+      "log": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\hdr.log",
+        "sha256": "4720aeb83b12a3673e83a74abd4aa15a9ecdf0a3feda395585c0125d8772e763",
+        "bytes": 146
+      },
+      "command": {
+        "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+        "argv": [
+          "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+          "tools/hdr_presentation_validation.mjs",
+          "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+          "--out=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\hdr"
+        ],
+        "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\hdr",
+        "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\hdr.log",
+        "environment": {
+          "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      }
+    },
+    {
+      "gate": "mars-native",
+      "status": "passed",
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-native-memory\\evidence.json",
+      "evidence_sha256": "26c4228a8b447a8e758b0ee90cddbc2b2ba7131e84b95cea4664cfab46a64ad1",
+      "execution_receipt": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-native-memory.identity.json",
+      "execution_sha256": "6f3649abdde1bb0e898fe6dd24cb85825fdb7376247e09f109838b6a09f7ccc9",
+      "checks": {
+        "passed": 22,
+        "total": 22
+      },
+      "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "original_gates": {
+        "passed": true,
+        "deadline_ms": 240000,
+        "completed_at": "2026-09-14T10:08:35.690Z"
+      },
+      "context_restore": {
+        "loss_ms": 27554.69999998808,
+        "request_ms": 27556.799999952316,
+        "event_ms": 27586.399999976158,
+        "callback_completed_ms": 27588.099999964237,
+        "ready_ms": 27944.5,
+        "context_lost": false
+      },
+      "physical_spin": {
+        "timing": {
+          "startedMs": 32166.69999998808,
+          "endedMs": 32298.5,
+          "elapsedMs": 131.80000001192093
+        },
+        "counts": {
+          "attempted": 185,
+          "submitted": 185,
+          "arrayAttempted": 110,
+          "arraySubmitted": 110,
+          "surface": 5,
+          "earth": 5,
+          "duplicateEpoch": 0,
+          "candidates": 5,
+          "unknown": 180,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 5,
+          "presentedEarth": 5,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 5,
+          "terrainRejected": 0,
+          "terrainAccepted": 5
+        },
+        "physical_source": {
+          "body": "Mars",
+          "terrain": true,
+          "scattering_height_range_km": [
+            -23.24900000000025,
+            41.32530312185281
+          ],
+          "scattering_sizes": {
+            "surface": [
+              80,
+              41,
+              17
+            ],
+            "limb": [
+              128,
+              64
+            ]
+          },
+          "generator_shader_sha256": {
+            "vertex": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f",
+            "fragment": "c71e2b2b4a4f3632b7ac00ebee9bb36f155d5a508c7586148629034f9b000d39"
+          },
+          "shader_sha256": {
+            "vertex": "90b513dc98bd645f5d4119c4461612dea975e044c99c0e61a1b51f492db8be8c",
+            "fragment": "20ba613d199d642f429e8fdf14a099ea620116162bd886771efd151296e28f09"
+          },
+          "profile_sha256": "133be6dfe9ff85c742be6518ab81b3ea1f4d272863ff5e1a8ac7435423e36e48",
+          "fields": {
+            "incident": {
+              "sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+              "dimensions": [
+                385,
+                65,
+                3
+              ]
+            },
+            "columns": {
+              "sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+              "dimensions": [
+                512,
+                512,
+                2
+              ]
+            }
+          }
+        },
+        "terrain_source": {
+          "sourceId": "mars-radial-height-v2",
+          "sourceSha256": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba",
+          "level": 4,
+          "latSegments": 256,
+          "lonSegments": 512,
+          "vertexCount": 131841,
+          "count": 783360,
+          "positionBytes": 3164184,
+          "indexBytes": 3133440,
+          "positionHash": "6d0bd31d8dd351c2e3b3527f568516e00d6924be3ffb54d5f8364db089f58abb",
+          "indexHash": "d3282270d141cf7923277642eee9adadbb745f050b4f08d0324d5b92604fe2dc",
+          "heightHash": "3f3f93bbe120fa44a28af7876c2cb09c36c2ad8b666f4ad368d050f40acc6d2f",
+          "width": 2880,
+          "height": 1440,
+          "shape": [
+            3396,
+            3372.94091796875,
+            3417.27197265625,
+            0
+          ],
+          "poles": [
+            -19.774662017822266,
+            -13.714715957641602
+          ],
+          "bodyRadiusKm": 3396.199951171875,
+          "incidentHeightDomain": {
+            "minHeightKm": -7.069048495233801,
+            "maxHeightKm": 22.78632573321738,
+            "outsideHeightDomain": 0,
+            "vertexCount": 131841,
+            "admitted": {
+              "minHeightKm": -24,
+              "maxHeightKm": 24,
+              "quadratic": false
+            }
+          },
+          "actualPositionHash": "6d0bd31d8dd351c2e3b3527f568516e00d6924be3ffb54d5f8364db089f58abb",
+          "actualIndexHash": "d3282270d141cf7923277642eee9adadbb745f050b4f08d0324d5b92604fe2dc"
+        }
+      },
+      "validation_source_sha256": {
+        "physical_rendering_validation.mjs": "1098304713a17829411209e047b8229cc90cd749a13658e26bd24a1f2588aa68",
+        "browser_backend.mjs": "5f114bae6914e3046bb266309e082f5df1999c344dc7eaf69330582b4612d072",
+        "full_feature_memory.mjs": "1a83c63723e2e41034946d44be27c21fc610d5844330f94ae2c959088556e8a6",
+        "texture_device_telemetry.mjs": "ca29e2d2bf89e6f3883ab1d214132f9daaa1dc2c1ed4b37c1b1e52819528d690",
+        "texture_device_memory.ps1": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+        "context_restore.mjs": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+        "earth_spin_probe.mjs": "12e45031d7cc41ff6f14f6515045a4024143ad1b6a1c5ca6aea104c338db6ccd",
+        "physical_spin_probe.mjs": "971697d40af1ac2e585a5a78c208d48f37efab3472b1770794ad38f24f69dc7c",
+        "physical_texture_probe.mjs": "45d6fe804de2b867acfb0401c7ac73bd166863dada25ae2bb5905b9ecb409135",
+        "scattering_producer_probe.mjs": "28cb49636b4fdb859760e36721d3cd48c9901089497c08090e8c75def106d2f8",
+        "mars_terrain_probe.mjs": "56c9b84d35bc8254a42ae029e6463a96ecbefb308984a03db857f3957906bc5f",
+        "mars_spin_assertions.mjs": "b09b5e86e30ac8fd155bb9e9c41d048341d0dfc05cfad31590e97f227684a8e8"
+      },
+      "memory": {
+        "status": "passed",
+        "original_gates": {
+          "passed": true,
+          "deadline_ms": 240000,
+          "completed_at": "2026-09-14T10:08:35.690Z",
+          "completed_monotonic_ms": 33928.5943
+        },
+        "basis": "OS process and WDDM observations from owned browser PIDs; not attributable texture VRAM or physical residency.",
+        "limitations": [
+          "Missing counters remain unavailable, never zero. Working-set sums may share pages.",
+          "Actual draw proof precedes sampling; feature states bracket sampling. This does not prove every frame in the sampling interval.",
+          "Registered imagery readiness is a source/cache workload check, not proof of imagery texture bindings at a GPU draw.",
+          "Memory sampling is excluded from the original performance gates and adds measurement overhead."
+        ],
+        "checkpoints": [
+          {
+            "label": "original-gates-complete",
+            "started_monotonic_ms": 33931.7433,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 1276567552,
+              "owned_process_working_set_sum_bytes": 1810583552,
+              "gpu_process_private_bytes": 755920896,
+              "gpu_process_counters": {
+                "shared usage": 563318784,
+                "dedicated usage": 0,
+                "total committed": 565215232
+              }
+            }
+          },
+          {
+            "label": "full-features-active",
+            "started_monotonic_ms": 36766.9936,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 1339117568,
+              "owned_process_working_set_sum_bytes": 1874096128,
+              "gpu_process_private_bytes": 751128576,
+              "gpu_process_counters": {
+                "shared usage": 486653952,
+                "dedicated usage": 0,
+                "total committed": 488550400
+              }
+            },
+            "appearance": {
+              "body": "Mars",
+              "earth_layers": null,
+              "sources": [
+                {
+                  "id": "mars-mission-reference",
+                  "body": "Mars",
+                  "role": "surface",
+                  "path": "textures/reference/mars-reference.png",
+                  "sha256": "f62de76a876702a3959dc5b2873c34f5cdeedda4c54eb7bddb6f78f62dbcfc74",
+                  "dimensions": [
+                    2048,
+                    1024
+                  ]
+                }
+              ]
+            },
+            "probe_timing": {
+              "startedMs": 35519.59999996424,
+              "endedMs": 35602.19999998808,
+              "elapsedMs": 82.60000002384186
+            },
+            "probe_counts": {
+              "attempted": 148,
+              "submitted": 148,
+              "arrayAttempted": 88,
+              "arraySubmitted": 88,
+              "surface": 4,
+              "earth": 4,
+              "duplicateEpoch": 0,
+              "candidates": 4,
+              "unknown": 144,
+              "gpuMismatch": 0,
+              "expiredDraws": 0,
+              "lateReadbacks": 0,
+              "offscreenEarth": 4,
+              "presentedEarth": 4,
+              "presentationMismatch": 0,
+              "heldPresentations": 0,
+              "physicalRejected": 0,
+              "physicalAccepted": 4,
+              "terrainRejected": 0,
+              "terrainAccepted": 4
+            },
+            "restoration": null
+          },
+          {
+            "label": "full-features-context-restored",
+            "started_monotonic_ms": 40490.192,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 1320394752,
+              "owned_process_working_set_sum_bytes": 1659310080,
+              "gpu_process_private_bytes": 641503232,
+              "gpu_process_counters": {
+                "shared usage": 324415488,
+                "dedicated usage": 0,
+                "total committed": 326295552
+              }
+            },
+            "appearance": {
+              "body": "Mars",
+              "earth_layers": null,
+              "sources": [
+                {
+                  "id": "mars-mission-reference",
+                  "body": "Mars",
+                  "role": "surface",
+                  "path": "textures/reference/mars-reference.png",
+                  "sha256": "f62de76a876702a3959dc5b2873c34f5cdeedda4c54eb7bddb6f78f62dbcfc74",
+                  "dimensions": [
+                    2048,
+                    1024
+                  ]
+                }
+              ]
+            },
+            "probe_timing": {
+              "startedMs": 39225.09999996424,
+              "endedMs": 39307.5,
+              "elapsedMs": 82.40000003576279
+            },
+            "probe_counts": {
+              "attempted": 148,
+              "submitted": 148,
+              "arrayAttempted": 88,
+              "arraySubmitted": 88,
+              "surface": 4,
+              "earth": 4,
+              "duplicateEpoch": 0,
+              "candidates": 4,
+              "unknown": 144,
+              "gpuMismatch": 0,
+              "expiredDraws": 0,
+              "lateReadbacks": 0,
+              "offscreenEarth": 4,
+              "presentedEarth": 4,
+              "presentationMismatch": 0,
+              "heldPresentations": 0,
+              "physicalRejected": 0,
+              "physicalAccepted": 4,
+              "terrainRejected": 0,
+              "terrainAccepted": 4
+            },
+            "restoration": {
+              "loss_ms": 38101.5,
+              "request_ms": 38113.5,
+              "event_ms": 38120.19999998808,
+              "callback_completed_ms": null,
+              "ready_ms": null
+            }
+          },
+          {
+            "label": "system-exited",
+            "started_monotonic_ms": 43314.3589,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 1121521664,
+              "owned_process_working_set_sum_bytes": 1468223488,
+              "gpu_process_private_bytes": 553652224,
+              "gpu_process_counters": {
+                "shared usage": 331939840,
+                "dedicated usage": 0,
+                "total committed": 333819904
+              }
+            }
+          },
+          {
+            "label": "application-page-closed",
+            "started_monotonic_ms": 45408.7955,
+            "status": "available",
+            "gpu_counters_status": "available",
+            "summary": {
+              "basis": "OS process and WDDM counter observations; not attributable texture VRAM. Working sets may share pages; committed bytes are not physical residency.",
+              "owned_process_private_bytes": 926867456,
+              "owned_process_working_set_sum_bytes": 1265852416,
+              "gpu_process_private_bytes": 416305152,
+              "gpu_process_counters": {
+                "shared usage": 152899584,
+                "dedicated usage": 0,
+                "total committed": 153473024
+              }
+            }
+          }
+        ]
+      },
+      "log": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-native-memory.log",
+        "sha256": "3da3dfd031ae17f82963778719a4cbe4d90e4d58814ccdaacaaf7826285cc100",
+        "bytes": 9611
+      },
+      "command": {
+        "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-mars7b588-capture",
+        "argv": [
+          "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+          "tools/physical_rendering_validation.mjs",
+          "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+          "--backend=native",
+          "--terrain-close-detail",
+          "--context-loss",
+          "--mars-optical-animation",
+          "--memory",
+          "--out=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-native-memory"
+        ],
+        "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-native-memory",
+        "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-native-memory.log",
+        "environment": {
+          "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      }
+    },
+    {
+      "gate": "mars-swiftshader",
+      "status": "passed",
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-swiftshader\\evidence.json",
+      "evidence_sha256": "df68e6ed9178b039601194800299d97c2cd4baef9f869b5407e57145370fbeb4",
+      "execution_receipt": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-swiftshader.identity.json",
+      "execution_sha256": "5d1683a77a49c1f8f3f93638e1e0ed5e9ba27d55bed2931c0171f4026dbb34ff",
+      "checks": {
+        "passed": 22,
+        "total": 22
+      },
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "original_gates": {
+        "passed": true,
+        "deadline_ms": 240000,
+        "completed_at": "2026-09-14T10:11:08.695Z"
+      },
+      "context_restore": {
+        "loss_ms": 40241.60000002384,
+        "request_ms": 40248.10000002384,
+        "event_ms": 40320.60000002384,
+        "callback_completed_ms": 40508.200000047684,
+        "ready_ms": 53879,
+        "context_lost": false
+      },
+      "physical_spin": {
+        "timing": {
+          "startedMs": 78322.60000002384,
+          "endedMs": 79900.40000003576,
+          "elapsedMs": 1577.800000011921
+        },
+        "counts": {
+          "attempted": 182,
+          "submitted": 182,
+          "arrayAttempted": 110,
+          "arraySubmitted": 110,
+          "surface": 5,
+          "earth": 5,
+          "duplicateEpoch": 0,
+          "candidates": 5,
+          "unknown": 177,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 5,
+          "presentedEarth": 5,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 5,
+          "terrainRejected": 0,
+          "terrainAccepted": 5
+        },
+        "physical_source": {
+          "body": "Mars",
+          "terrain": true,
+          "scattering_height_range_km": [
+            -23.24900000000025,
+            41.32530312185281
+          ],
+          "scattering_sizes": {
+            "surface": [
+              80,
+              41,
+              17
+            ],
+            "limb": [
+              128,
+              64
+            ]
+          },
+          "generator_shader_sha256": {
+            "vertex": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f",
+            "fragment": "c71e2b2b4a4f3632b7ac00ebee9bb36f155d5a508c7586148629034f9b000d39"
+          },
+          "shader_sha256": {
+            "vertex": "90b513dc98bd645f5d4119c4461612dea975e044c99c0e61a1b51f492db8be8c",
+            "fragment": "20ba613d199d642f429e8fdf14a099ea620116162bd886771efd151296e28f09"
+          },
+          "profile_sha256": "133be6dfe9ff85c742be6518ab81b3ea1f4d272863ff5e1a8ac7435423e36e48",
+          "fields": {
+            "incident": {
+              "sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+              "dimensions": [
+                385,
+                65,
+                3
+              ]
+            },
+            "columns": {
+              "sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+              "dimensions": [
+                512,
+                512,
+                2
+              ]
+            }
+          }
+        },
+        "terrain_source": {
+          "sourceId": "mars-radial-height-v2",
+          "sourceSha256": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba",
+          "level": 4,
+          "latSegments": 256,
+          "lonSegments": 512,
+          "vertexCount": 131841,
+          "count": 783360,
+          "positionBytes": 3164184,
+          "indexBytes": 3133440,
+          "positionHash": "6d0bd31d8dd351c2e3b3527f568516e00d6924be3ffb54d5f8364db089f58abb",
+          "indexHash": "d3282270d141cf7923277642eee9adadbb745f050b4f08d0324d5b92604fe2dc",
+          "heightHash": "3f3f93bbe120fa44a28af7876c2cb09c36c2ad8b666f4ad368d050f40acc6d2f",
+          "width": 2880,
+          "height": 1440,
+          "shape": [
+            3396,
+            3372.94091796875,
+            3417.27197265625,
+            0
+          ],
+          "poles": [
+            -19.774662017822266,
+            -13.714715957641602
+          ],
+          "bodyRadiusKm": 3396.199951171875,
+          "incidentHeightDomain": {
+            "minHeightKm": -7.069048495233801,
+            "maxHeightKm": 22.78632573321738,
+            "outsideHeightDomain": 0,
+            "vertexCount": 131841,
+            "admitted": {
+              "minHeightKm": -24,
+              "maxHeightKm": 24,
+              "quadratic": false
+            }
+          },
+          "actualPositionHash": "6d0bd31d8dd351c2e3b3527f568516e00d6924be3ffb54d5f8364db089f58abb",
+          "actualIndexHash": "d3282270d141cf7923277642eee9adadbb745f050b4f08d0324d5b92604fe2dc"
+        }
+      },
+      "validation_source_sha256": {
+        "physical_rendering_validation.mjs": "1098304713a17829411209e047b8229cc90cd749a13658e26bd24a1f2588aa68",
+        "browser_backend.mjs": "5f114bae6914e3046bb266309e082f5df1999c344dc7eaf69330582b4612d072",
+        "full_feature_memory.mjs": "1a83c63723e2e41034946d44be27c21fc610d5844330f94ae2c959088556e8a6",
+        "texture_device_telemetry.mjs": "ca29e2d2bf89e6f3883ab1d214132f9daaa1dc2c1ed4b37c1b1e52819528d690",
+        "texture_device_memory.ps1": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+        "context_restore.mjs": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+        "earth_spin_probe.mjs": "12e45031d7cc41ff6f14f6515045a4024143ad1b6a1c5ca6aea104c338db6ccd",
+        "physical_spin_probe.mjs": "971697d40af1ac2e585a5a78c208d48f37efab3472b1770794ad38f24f69dc7c",
+        "physical_texture_probe.mjs": "45d6fe804de2b867acfb0401c7ac73bd166863dada25ae2bb5905b9ecb409135",
+        "scattering_producer_probe.mjs": "28cb49636b4fdb859760e36721d3cd48c9901089497c08090e8c75def106d2f8",
+        "mars_terrain_probe.mjs": "56c9b84d35bc8254a42ae029e6463a96ecbefb308984a03db857f3957906bc5f",
+        "mars_spin_assertions.mjs": "b09b5e86e30ac8fd155bb9e9c41d048341d0dfc05cfad31590e97f227684a8e8"
+      },
+      "log": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-swiftshader.log",
+        "sha256": "3a258109e521a7be993c97ad75b0b7039236c32ee2836a6604bc099336dee545",
+        "bytes": 9572
+      },
+      "command": {
+        "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-mars7b588-capture",
+        "argv": [
+          "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+          "tools/physical_rendering_validation.mjs",
+          "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+          "--backend=swiftshader",
+          "--terrain-close-detail",
+          "--context-loss",
+          "--mars-optical-animation",
+          "--out=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-swiftshader"
+        ],
+        "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-swiftshader",
+        "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars7b588-final\\mars-swiftshader.log",
+        "environment": {
+          "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      }
+    }
+  ],
+  "retained_six_pass_receipt": {
+    "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\final-daa1fbe-six-pass-receipt.json",
+    "sha256": "8ddbdea575b952aa019978168336ffb6a2d1301eee1af46646df7c3c08743f6b",
+    "bytes": 29598
+  },
+  "retained_failures": [
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-final\\earth-native-memory\\browser-evidence.json",
+      "sha256": "0e2114cd3ebea33a440e31dfd068e5dbc3f8f3547fcf9f2320d789114249a197",
+      "bytes": 2391,
+      "classification": "Browser discovery failed before launch; corrected by a separate explicit CHROME_BIN execution identity."
+    },
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\mars-native-memory\\evidence.json",
+      "sha256": "b09e448a8564e8820a417352c1c4ef33200d8fae0878092b354ed0cf53997800",
+      "bytes": 22256,
+      "classification": "Exact invariant caught same-epoch bootstrap rounded coordinates promoting to live coordinates before completed System entry."
+    },
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-mars268-final\\mars-native-memory\\evidence.json",
+      "sha256": "15992cfecb358d754eaa57759541ebebaf45a8c9be0a9104c46ba0c9be7c1799",
+      "bytes": 75196,
+      "classification": "After 13 passing checks, temporary loss-unavailable source statuses were inspected before async base restoration completed."
+    }
+  ],
+  "workspace_illustrations": {
+    "receipt": {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-workspace\\evidence.json",
+      "sha256": "78d0b1920e69554a98188211a09915ebfa5d5b53aa89927e06072e86d6f39053",
+      "bytes": 13011
+    },
+    "scope": "Normal application UI screenshots on a pinned local release; separate from numerical, performance and imagery binding qualification.",
+    "default_hdr_enabled": [
+      false,
+      false
+    ],
+    "captures": [
+      {
+        "name": "earth-normal-globe-workspace",
+        "full": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-workspace\\earth-normal-globe-workspace.png",
+        "full_sha256": "2039ba4ea8b30ee06dac108d867dd76799d0275b119c658c771d1bf50325ef6a",
+        "canvas": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-workspace\\earth-normal-globe-workspace-canvas.png",
+        "canvas_sha256": "381266374b0e1d8cd5ebc749b43ce1ca1219a009ddfd9156d3aedbb0d058739d"
+      },
+      {
+        "name": "sun-source-reconstruction-workspace",
+        "full": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-workspace\\sun-source-reconstruction-workspace.png",
+        "full_sha256": "a0157410349d693773d044408354ca364a2fa51525d2cbea2392f3ff91b76066",
+        "canvas": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-workspace\\sun-source-reconstruction-workspace-canvas.png",
+        "canvas_sha256": "ec5e3b4c4dc940565f2d9208772ba71507ba6fa22ac56adb95ae6b8c1c463e6d"
+      }
+    ]
+  },
+  "limits_of_claim": [
+    "These are finite local current-host captures and source-bound program/field/draw observations; they do not establish published-head hosted CI or release deployment.",
+    "Original Earth timing and additional physical timing are distinct; physical readiness has its own existing absolute System-entry bound.",
+    "Native material reference fixes admitted mode/style constants; the separate SwiftShader run compares the uniform unspecialized bounded reference.",
+    "Memory observations include the instrumented validation workload. OS process/WDDM counters are not attributable per-texture VRAM or physical residency; working sets may share pages and committed bytes are not residency.",
+    "Registered imagery readiness brackets memory sampling; it is a source/cache workload assertion, separate from actual numeric field, producer and final-draw evidence.",
+    "Single observed timings do not establish stable latency distributions or performance tails. Numerical tolerances, source/detail contracts and deadlines were not weakened.",
+    "HDR remains an opt-in linear display composition candidate with fixed exposure and SDR output; no calibrated imagery, absolute radiometry or HDR-display calibration claim.",
+    "Normal workspace screenshots use default HDR-disabled UI and source disclosures, separately from the opted-in HDR qualification runs."
+  ]
+}

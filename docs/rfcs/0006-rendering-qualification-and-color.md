@@ -1,6 +1,6 @@
 # RFC 0006: Rendering qualification, color and derived resources
 
-- Status: Draft
+- Status: Accepted
 - Authors: Codex with Min Kang
 - Created: 2026-09-14
 - Target: independently qualified rendering follow-ups
@@ -11,12 +11,13 @@
 Qualify atmospheric terrain endpoints and bounded rendering work before admitting
 new lighting optimizations. Specify every material's color pipeline, measure real
 texture processing, and separate HDR, reflection, terrain and photometry into
-reviewable changes. This draft captures the accepted work sequence; it does not
-mark its proposed rendering techniques or new datasets as accepted or implemented.
+reviewable changes. The design and work sequence are accepted for implementation.
+Runtime admission remains per slice and per source-bound qualification record;
+this status does not mark all proposed techniques or datasets implemented.
 
 ## Context
 
-At `bd7f5b45798a754c409e4b265e15703dad018f84`, Earth/Mars physical scattering still
+At the historical baseline `bd7f5b45798a754c409e4b265e15703dad018f84`, Earth/Mars physical scattering still
 runs its quadrature per surface/shell fragment. Fresh hosted tests missed the
 unchanged Earth animation deadline. The earlier bounded-field prototype failed
 368 of 5,592 broader interpolation queries and remains unpublished.
@@ -55,14 +56,22 @@ The [engineering plan](../plans/2026-09-14-rendering-qualification/ENGINEERING_P
 defines scope, ownership, data flow, resource states, sequencing and test matrix.
 Its detailed color, texture and advanced-rendering companion specifications define
 the individual implementation boundaries.
+[ADR 0009](../adr/0009-bounded-scientific-rendering.md) records the accepted
+resource, producer/consumer and per-material architecture decisions.
 
 The first atmospheric reference extension is explicitly opt-in: ground-clipped
 reference behavior stays the default; terrain-endpoint mode preserves a finite
 physical endpoint through the existing constant-below-datum density convention.
 That is a mathematical reference convention, not an underground-atmosphere claim.
-The candidate segmentation is qualification tooling until admitted separately.
+The bounded Earth/Mars runtime, scoped material migration, opt-in HDR and
+source-derived Moon/Mars terrain now have separate implementation records in the
+[production ledger](../plans/2026-09-14-rendering-qualification/PRODUCTION_EXECUTION.md).
+That ledger distinguishes numerical, material, application, device and hosted
+qualification. Reflection, revised ring transport and calibrated moon photometry
+remain held by their individual source requirements; temporal reconstruction is
+deferred. No runtime admission is inferred from a reference helper or a specification.
 
-Future bounded scattering must align interpolation with qualified geometric
+Bounded scattering must align interpolation with qualified geometric
 boundaries and satisfy the retained complete domain, material and actual-raster
 gates. A fast prepass, stale field or illustrative fallback cannot count as a
 current final physical Earth submission.
@@ -142,7 +151,7 @@ has a named qualification gate before promotion; failures remain retained eviden
 Use existing Node/Python tests, web typecheck, docs, SDLC and UX validators. Add
 explicit terrain-endpoint Python tests, material route tests and texture profiler
 tests. Run the original atmosphere GPU gate and its opt-in terrain extension;
-qualification-only candidate output is identified separately from shipped shaders.
+qualification-only experiments are identified separately from integrated runtime shaders.
 Full runtime changes additionally run staged browser and physical-rendering tests,
 unchanged coverage floors and native-device qualification as specified per slice.
 

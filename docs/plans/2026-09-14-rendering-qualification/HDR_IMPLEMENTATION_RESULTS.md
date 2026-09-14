@@ -1,8 +1,11 @@
 # D1 linear scene target and SDR presentation candidate
 
-Status: implemented and qualified on the isolated immutable candidate below,
-opt-in only. Combined atmosphere-domain, native-device, merged runtime coverage
-and hosted enablement gates remain pending.
+Status: implemented, opt-in only. Current runtime `daa1fbe` passes 66 final HDR
+fixtures, 266 material cases per native/software backend, 110 appearance cases
+and the complete 7,192-case Earth/Mars numerical corpus. The
+[production ledger](PRODUCTION_EXECUTION.md) records current whole-application,
+memory and published-head hosted gates separately. The isolated candidate
+receipts below are retained historical evidence, not qualification of later code.
 This adds no image/terrain assets, dependencies, network providers or telemetry.
 It does not claim HDR-monitor output, absolute radiometry or calibrated imagery.
 

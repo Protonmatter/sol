@@ -2,10 +2,11 @@
 
 The bounded runtime and its current-frame producer observer are implemented.
 Numerical source admission, interpolation, material composition and complete
-application performance have separate gates. The complete Q2 interpolation
-matrix passed on native Adreno and SwiftShader; independent source comparisons
-and final combined application admission remain open in the
-[production ledger](PRODUCTION_EXECUTION.md). Earlier immutable application
+application performance have separate gates. Runtime `daa1fbe` passes all 7,192
+interpolation queries and all 1,600 independent supplemental source comparisons
+on native Adreno and SwiftShader; the original 1,280-case atmosphere gate passes
+on SwiftShader. The [production ledger](PRODUCTION_EXECUTION.md) records separate
+final application, material, memory and published-head hosted admission. Earlier immutable application
 passes are retained in [their receipt record](SCATTERING_APPLICATION_RECEIPTS.md)
 and do not qualify subsequent source changes. HDR remains opt-in.
 
@@ -17,7 +18,7 @@ unchanged. No optional uniform locations are queried before all three programs
 are ready. The existing reference sphere sources remain available for independent
 fixtures. Runtime physical draws use guarded consumer specializations with no
 scattering quadrature in final fragments. The generator retains the numerical
-module's exact original integrator.
+module's current source-qualified direct integrator.
 
 Every visible scene has a distinct context generation, monotonic scene serial
 and exact epoch, including paused repaints and SDR scenes. The HDR producer and

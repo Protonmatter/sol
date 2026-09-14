@@ -5,7 +5,8 @@ inspection is pinned to `bd7f5b45798a754c409e4b265e15703dad018f84`; primary sour
 were checked on 2026-09-13. Subsequent implementation records below supersede that
 baseline only for their named slices. This document does not authorize release.
 RFC 0004 and RFC 0005 retain their existing Accepted status and individual
-qualification requirements; RFC 0006 remains Draft.
+qualification requirements; RFC 0006 is Accepted for its design and work sequence.
+Its status does not admit an unfinished slice or replace source-specific gates.
 
 The [D1 implementation record](HDR_IMPLEMENTATION_RESULTS.md) documents the opt-in
 HDR runtime, GPU composition evidence and remaining application/native gates.
