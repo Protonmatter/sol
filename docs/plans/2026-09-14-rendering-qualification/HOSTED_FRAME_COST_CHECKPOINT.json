@@ -1,0 +1,992 @@
+{
+  "schema": "sol.hosted-frame-cost-checkpoint.v1",
+  "head_sha": "02cd6c63e0cc842eaca7bc518992156cd380c7e3",
+  "checks": {
+    "passed": 17,
+    "failed": 3,
+    "pending": 0
+  },
+  "runs": [
+    {
+      "job": "coverage",
+      "head_sha": "02cd6c63e0cc842eaca7bc518992156cd380c7e3",
+      "run_url": "https://github.com/Protonmatter/sol/actions/runs/34836083732",
+      "artifact_id": 10343897775,
+      "api_artifact_zip_sha256": "d28fc0745e5e4d3dd39e344d5bd9f3d4934f950d81ff82585e17a522788cfdad",
+      "raw_directory": "C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\pr107-production-20260914\\hosted-02cd6c6-coverage-failure\\browser",
+      "raw_file_sha256": {
+        "failure.json": "7b1df7816d1b079fa6d05b864c60e774bc3fd09d7bd551f7b941646360b717c1",
+        "browser-evidence.json": "89550f85e0928d22b3b6498548f61fa265f88979f42dd072c13ea2b0692330a3",
+        "frame-cost-after-failure.json": "39eb0ea71f25d82a8138b20fd500f5cc63fa4bcc34ff74693aa93af594dba15f",
+        "visual/earth-submitted-spin.json": "d1f40b1432b4452aa3d3f296bb714aff4428d5547202b536f7f6a5fca4b80183"
+      },
+      "artifact": {
+        "release_id": "coverage-2b0d945e0df78f5ac066aa7e23557853ecc51353-34836083732-1",
+        "source_sha": "2b0d945e0df78f5ac066aa7e23557853ecc51353",
+        "manifest_sha256": "02ea59c2d83367279c359e1c09800a4d07096e841001fbcd83c10f8f28d13510"
+      },
+      "browser_version": "Chrome/152.0.7977.82",
+      "backend": {
+        "kind": "software",
+        "basis": "Observed WebGL renderer string; requested launch mode alone does not attest hardware execution"
+      },
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "canvas": {
+        "width": 796,
+        "height": 612
+      },
+      "validation_source_sha256": {
+        "browser_validation.mjs": "798fb5be36edb0690cf451b9fb85de34cefbdb3be6372f19629a69eb625fb0a4",
+        "browser_backend.mjs": "63aa1e2ce88c9fc4bbba732fa50578665367b0bccfff222a57dbf2cc3314a532",
+        "texture_device_telemetry.mjs": "bd5873ad316fa415505db4ef48d9335952fd80ef8b0629c37e22fd2bc326193f",
+        "earth_spin_probe.mjs": "9ff76ff48272b43777bd8df5315afcdf4673091edb28a29231945513b700a767",
+        "physical_spin_probe.mjs": "0680f085aa8d9f278ee43acf72d9f9aa89429fc9a16a34a2520e392f4bd82f2d",
+        "physical_texture_probe.mjs": "7ef5351c8aff31ab0b7d9f495b28beb3bc90bcfd6b0e808018aa8db168754f9c",
+        "scattering_producer_probe.mjs": "5d5140fc8bd618a0604b984121cfa1f0005d832fd276a432d86fffef2f42b593",
+        "frame_cost_diagnostic.mjs": "f5258e74e76e22dfd402eee42a644cc34e0de4b1cf9539d73af5a5936e141d5c",
+        "full_feature_memory.mjs": "d08f3b880172880ac769f8fa4ad56669599f5c6d8193a0428378e1fffcc28760",
+        "texture_device_memory.ps1": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+        "context_restore.mjs": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+        "mars_terrain_probe.mjs": "85bf707353b7f5179c43d3784bcfc889bb7b26e5e2b966874a8aab0eb836b65a",
+        "mars_spin_assertions.mjs": "cb961eb7816a48838890b994889fe1ccf15dfa39d27e42507fa7e9d45ff2fe15"
+      },
+      "failure": {
+        "phase": "System/WebGL",
+        "error": "insufficient Earth sphere draws: 2"
+      },
+      "original_gate": {
+        "minimum_draws": 3,
+        "deadline_ms": 5000,
+        "samples": 2,
+        "drawCounts": {
+          "attempted": 144,
+          "submitted": 144,
+          "arrayAttempted": 80,
+          "arraySubmitted": 80,
+          "surface": 2,
+          "earth": 2,
+          "duplicateEpoch": 0,
+          "candidates": 2,
+          "unknown": 73,
+          "gpuMismatch": 0,
+          "expiredDraws": 69,
+          "lateReadbacks": 0,
+          "offscreenEarth": 0,
+          "presentedEarth": 0,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 0,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "timing": {
+          "startedMs": 146789.1,
+          "endedMs": 156154.69999999998,
+          "elapsedMs": 9365.599999999977
+        },
+        "rafHeartbeat": {
+          "count": 4,
+          "samples": [
+            {
+              "timestamp": 146787,
+              "sampledMs": 149129.9,
+              "elapsedMs": 2340.7999999999884
+            },
+            {
+              "timestamp": 149120.3,
+              "sampledMs": 151480.69999999998,
+              "elapsedMs": 4691.599999999977
+            },
+            {
+              "timestamp": 151470.1,
+              "sampledMs": 153822.30000000002,
+              "elapsedMs": 7033.200000000012
+            },
+            {
+              "timestamp": 153820.1,
+              "sampledMs": 156152.1,
+              "elapsedMs": 9363
+            }
+          ]
+        }
+      },
+      "diagnostic": {
+        "schema": "post-failure-frame-cost.v1",
+        "original_failure": {
+          "phase": "System/WebGL",
+          "error": "insufficient Earth sphere draws: 2"
+        },
+        "original_status": "failed",
+        "outer_budget_ms": 25000,
+        "tool_sha256": "f5258e74e76e22dfd402eee42a644cc34e0de4b1cf9539d73af5a5936e141d5c",
+        "observation": {
+          "status": "captured",
+          "limits": {
+            "frames": 2,
+            "samplingMs": 15000,
+            "drainMs": 3000,
+            "draws": 160,
+            "programs": 20
+          },
+          "timer": {
+            "status": "available",
+            "disjoint": false,
+            "completed": 112,
+            "pending": 0
+          },
+          "errors": [],
+          "elapsedMs": 9407.300000000047,
+          "stopReason": "frame-limit",
+          "diagnosticQueriesMs": 14.699999999953434,
+          "api": {
+            "bufferData": {
+              "calls": 10,
+              "inclusiveMs": 0.6000000000349246,
+              "exclusiveMs": 0.6000000000349246,
+              "maxMs": 0.20000000001164153,
+              "thrown": 0
+            },
+            "bindFramebuffer": {
+              "calls": 8,
+              "inclusiveMs": 0.19999999995343387,
+              "exclusiveMs": 0.19999999995343387,
+              "maxMs": 0.19999999995343387,
+              "thrown": 0
+            },
+            "useProgram": {
+              "calls": 114,
+              "inclusiveMs": 0.09999999997671694,
+              "exclusiveMs": 0.09999999997671694,
+              "maxMs": 0.09999999997671694,
+              "thrown": 0
+            },
+            "clear": {
+              "calls": 2,
+              "inclusiveMs": 0,
+              "exclusiveMs": 0,
+              "maxMs": 0,
+              "thrown": 0
+            },
+            "drawArrays": {
+              "calls": 40,
+              "inclusiveMs": 0.09999999997671694,
+              "exclusiveMs": 0.09999999997671694,
+              "maxMs": 0.09999999997671694,
+              "thrown": 0
+            },
+            "drawElements": {
+              "calls": 72,
+              "inclusiveMs": 0.6999999999534339,
+              "exclusiveMs": 0.6999999999534339,
+              "maxMs": 0.5999999999767169,
+              "thrown": 0
+            },
+            "getParameter": {
+              "calls": 48,
+              "inclusiveMs": 4604.799999999988,
+              "exclusiveMs": 4604.799999999988,
+              "maxMs": 2303.7999999999884,
+              "thrown": 0
+            },
+            "isEnabled": {
+              "calls": 18,
+              "inclusiveMs": 0,
+              "exclusiveMs": 0,
+              "maxMs": 0,
+              "thrown": 0
+            },
+            "getError": {
+              "calls": 20,
+              "inclusiveMs": 8.500000000116415,
+              "exclusiveMs": 8.500000000116415,
+              "maxMs": 2.599999999976717,
+              "thrown": 0
+            },
+            "framebufferTexture2D": {
+              "calls": 4,
+              "inclusiveMs": 0.09999999997671694,
+              "exclusiveMs": 0.09999999997671694,
+              "maxMs": 0.09999999997671694,
+              "thrown": 0
+            },
+            "clearBufferfv": {
+              "calls": 4,
+              "inclusiveMs": 0.20000000001164153,
+              "exclusiveMs": 0.20000000001164153,
+              "maxMs": 0.20000000001164153,
+              "thrown": 0
+            }
+          }
+        },
+        "draw_groups": [
+          {
+            "role": "other",
+            "pass": null,
+            "draws": 104,
+            "completed_queries": 104,
+            "gpu_ms_sum": 216.918293,
+            "gpu_ms_mean": 2.0857528173076925,
+            "gpu_ms_values": null
+          },
+          {
+            "role": "generator",
+            "pass": 0,
+            "draws": 2,
+            "completed_queries": 2,
+            "gpu_ms_sum": 155.970327,
+            "gpu_ms_mean": 77.9851635,
+            "gpu_ms_values": [
+              79.54008,
+              76.430247
+            ]
+          },
+          {
+            "role": "generator",
+            "pass": 1,
+            "draws": 2,
+            "completed_queries": 2,
+            "gpu_ms_sum": 39.249700000000004,
+            "gpu_ms_mean": 19.624850000000002,
+            "gpu_ms_values": [
+              19.696095,
+              19.553605
+            ]
+          },
+          {
+            "role": "physical-surface",
+            "pass": null,
+            "draws": 2,
+            "completed_queries": 2,
+            "gpu_ms_sum": 3802.580247,
+            "gpu_ms_mean": 1901.2901235,
+            "gpu_ms_values": [
+              1905.016771,
+              1897.563476
+            ]
+          },
+          {
+            "role": "physical-shell",
+            "pass": null,
+            "draws": 2,
+            "completed_queries": 2,
+            "gpu_ms_sum": 457.600709,
+            "gpu_ms_mean": 228.8003545,
+            "gpu_ms_values": [
+              235.284033,
+              222.316676
+            ]
+          }
+        ],
+        "physical_draws": [
+          {
+            "index": 7,
+            "frame": 0,
+            "method": "drawArrays",
+            "count": 3,
+            "program": "program-3",
+            "role": "generator",
+            "pass": 0,
+            "hintMatched": true,
+            "framebuffer": "fbo-1",
+            "viewport": [
+              0,
+              0,
+              128,
+              193
+            ],
+            "uniforms": {
+              "u_scatteringPass": 0,
+              "u_scatteringSurfaceSize": [
+                128,
+                193,
+                1
+              ],
+              "u_scatteringLimbSize": [
+                128,
+                64
+              ],
+              "u_scatteringHeightRange": [
+                0.003000000026077032,
+                0.003000000026077032
+              ],
+              "u_atmosphereEnabled": 1,
+              "u_atmosphereCameraKm": [
+                -6875.0791015625,
+                1329.878662109375,
+                4490.67578125
+              ],
+              "u_atmosphereSunDirection": [
+                -0.8254090547561646,
+                0.45578745007514954,
+                0.33310309052467346
+              ],
+              "u_atmosphereRadiusKm": 6378.13720703125,
+              "u_atmosphereTopKm": 100,
+              "u_atmospherePolarRatio": 0.9966463446617126,
+              "u_atmosphereSolarScale": 0.9694783687591553,
+              "u_atmosphereExposure": 1.0314825773239136
+            },
+            "state": {
+              "active": true,
+              "animate": true,
+              "epoch": 1785029702.4,
+              "frame": {
+                "contextGeneration": 1,
+                "sceneSerial": 127,
+                "epoch": 1785029702.4
+              },
+              "scattering": {},
+              "optics": {
+                "Sun": "deferred",
+                "Mercury": "deferred",
+                "Venus": "deferred",
+                "Earth": "loading"
+              },
+              "programs": {
+                "base": "ready",
+                "physical": "ready"
+              },
+              "terrain": {
+                "Sun": false,
+                "Mercury": false,
+                "Venus": false,
+                "Earth": false
+              },
+              "hdrEnabled": false,
+              "hdr": {
+                "state": "deferred",
+                "reason": "HDR candidate disabled."
+              },
+              "canvas": [
+                732,
+                612
+              ]
+            },
+            "startedMs": 224148.6,
+            "apiElapsedMs": 0,
+            "gpuElapsedNs": 79540080
+          },
+          {
+            "index": 8,
+            "frame": 0,
+            "method": "drawArrays",
+            "count": 3,
+            "program": "program-3",
+            "role": "generator",
+            "pass": 1,
+            "hintMatched": true,
+            "framebuffer": "fbo-1",
+            "viewport": [
+              0,
+              0,
+              128,
+              64
+            ],
+            "uniforms": {
+              "u_scatteringPass": 1,
+              "u_scatteringSurfaceSize": [
+                128,
+                193,
+                1
+              ],
+              "u_scatteringLimbSize": [
+                128,
+                64
+              ],
+              "u_scatteringHeightRange": [
+                0.003000000026077032,
+                0.003000000026077032
+              ],
+              "u_atmosphereEnabled": 1,
+              "u_atmosphereCameraKm": [
+                -6875.0791015625,
+                1329.878662109375,
+                4490.67578125
+              ],
+              "u_atmosphereSunDirection": [
+                -0.8254090547561646,
+                0.45578745007514954,
+                0.33310309052467346
+              ],
+              "u_atmosphereRadiusKm": 6378.13720703125,
+              "u_atmosphereTopKm": 100,
+              "u_atmospherePolarRatio": 0.9966463446617126,
+              "u_atmosphereSolarScale": 0.9694783687591553,
+              "u_atmosphereExposure": 1.0314825773239136
+            },
+            "state": {
+              "active": true,
+              "animate": true,
+              "epoch": 1785029702.4,
+              "frame": {
+                "contextGeneration": 1,
+                "sceneSerial": 127,
+                "epoch": 1785029702.4
+              },
+              "scattering": {},
+              "optics": {
+                "Sun": "deferred",
+                "Mercury": "deferred",
+                "Venus": "deferred",
+                "Earth": "loading"
+              },
+              "programs": {
+                "base": "ready",
+                "physical": "ready"
+              },
+              "terrain": {
+                "Sun": false,
+                "Mercury": false,
+                "Venus": false,
+                "Earth": false
+              },
+              "hdrEnabled": false,
+              "hdr": {
+                "state": "deferred",
+                "reason": "HDR candidate disabled."
+              },
+              "canvas": [
+                732,
+                612
+              ]
+            },
+            "startedMs": 224150.6,
+            "apiElapsedMs": 0,
+            "gpuElapsedNs": 19696095
+          },
+          {
+            "index": 9,
+            "frame": 0,
+            "method": "drawElements",
+            "count": 27648,
+            "program": "program-4",
+            "role": "physical-surface",
+            "pass": null,
+            "hintMatched": true,
+            "framebuffer": "default",
+            "viewport": [
+              0,
+              0,
+              732,
+              612
+            ],
+            "uniforms": {
+              "u_scatteringReady": 1,
+              "u_scatteringSurfaceSize": [
+                128,
+                193,
+                1
+              ],
+              "u_scatteringHeightRange": [
+                0.003000000026077032,
+                0.003000000026077032
+              ],
+              "u_atmosphereEnabled": 1,
+              "u_atmosphereCameraKm": [
+                -6875.0791015625,
+                1329.878662109375,
+                4490.67578125
+              ],
+              "u_atmosphereSunDirection": [
+                -0.8254090547561646,
+                0.45578745007514954,
+                0.33310309052467346
+              ],
+              "u_atmosphereRadiusKm": 6378.13720703125,
+              "u_atmosphereTopKm": 100,
+              "u_atmospherePolarRatio": 0.9966463446617126,
+              "u_atmosphereSolarScale": 0.9694783687591553,
+              "u_atmosphereExposure": 1.0314825773239136
+            },
+            "state": null,
+            "startedMs": 224153.30000000002,
+            "apiElapsedMs": 0,
+            "gpuElapsedNs": 1905016771
+          },
+          {
+            "index": 47,
+            "frame": 0,
+            "method": "drawElements",
+            "count": 27648,
+            "program": "program-7",
+            "role": "physical-shell",
+            "pass": null,
+            "hintMatched": true,
+            "framebuffer": "default",
+            "viewport": [
+              0,
+              0,
+              732,
+              612
+            ],
+            "uniforms": {
+              "u_scatteringReady": 1,
+              "u_scatteringLimbSize": [
+                128,
+                64
+              ],
+              "u_atmosphereEnabled": 1,
+              "u_atmosphereCameraKm": [
+                -6875.0791015625,
+                1329.878662109375,
+                4490.67578125
+              ],
+              "u_atmosphereSunDirection": [
+                -0.8254090547561646,
+                0.45578745007514954,
+                0.33310309052467346
+              ],
+              "u_atmosphereRadiusKm": 6378.13720703125,
+              "u_atmosphereTopKm": 100,
+              "u_atmospherePolarRatio": 0.9966463446617126,
+              "u_atmosphereSolarScale": 0.9694783687591553,
+              "u_atmosphereExposure": 1.0314825773239136
+            },
+            "state": null,
+            "startedMs": 224173.1,
+            "apiElapsedMs": 0,
+            "gpuElapsedNs": 235284033
+          },
+          {
+            "index": 63,
+            "frame": 1,
+            "method": "drawArrays",
+            "count": 3,
+            "program": "program-3",
+            "role": "generator",
+            "pass": 0,
+            "hintMatched": true,
+            "framebuffer": "fbo-1",
+            "viewport": [
+              0,
+              0,
+              128,
+              193
+            ],
+            "uniforms": {
+              "u_scatteringPass": 0,
+              "u_scatteringSurfaceSize": [
+                128,
+                193,
+                1
+              ],
+              "u_scatteringLimbSize": [
+                128,
+                64
+              ],
+              "u_scatteringHeightRange": [
+                0.003000000026077032,
+                0.003000000026077032
+              ],
+              "u_atmosphereEnabled": 1,
+              "u_atmosphereCameraKm": [
+                -6778.0087890625,
+                1758.9447021484375,
+                4490.67578125
+              ],
+              "u_atmosphereSunDirection": [
+                -0.7985763549804688,
+                0.5021601915359497,
+                0.33182963728904724
+              ],
+              "u_atmosphereRadiusKm": 6378.13720703125,
+              "u_atmosphereTopKm": 100,
+              "u_atmospherePolarRatio": 0.9966463446617126,
+              "u_atmosphereSolarScale": 0.9695460796356201,
+              "u_atmosphereExposure": 1.0314104557037354
+            },
+            "state": {
+              "active": true,
+              "animate": true,
+              "epoch": 1785059942.4,
+              "frame": {
+                "contextGeneration": 1,
+                "sceneSerial": 128,
+                "epoch": 1785059942.4
+              },
+              "scattering": {},
+              "optics": {
+                "Sun": "deferred",
+                "Mercury": "deferred",
+                "Venus": "deferred",
+                "Earth": "loading"
+              },
+              "programs": {
+                "base": "ready",
+                "physical": "ready"
+              },
+              "terrain": {
+                "Sun": false,
+                "Mercury": false,
+                "Venus": false,
+                "Earth": false
+              },
+              "hdrEnabled": false,
+              "hdr": {
+                "state": "deferred",
+                "reason": "HDR candidate disabled."
+              },
+              "canvas": [
+                732,
+                612
+              ]
+            },
+            "startedMs": 226517.99999999997,
+            "apiElapsedMs": 0,
+            "gpuElapsedNs": 76430247
+          },
+          {
+            "index": 64,
+            "frame": 1,
+            "method": "drawArrays",
+            "count": 3,
+            "program": "program-3",
+            "role": "generator",
+            "pass": 1,
+            "hintMatched": true,
+            "framebuffer": "fbo-1",
+            "viewport": [
+              0,
+              0,
+              128,
+              64
+            ],
+            "uniforms": {
+              "u_scatteringPass": 1,
+              "u_scatteringSurfaceSize": [
+                128,
+                193,
+                1
+              ],
+              "u_scatteringLimbSize": [
+                128,
+                64
+              ],
+              "u_scatteringHeightRange": [
+                0.003000000026077032,
+                0.003000000026077032
+              ],
+              "u_atmosphereEnabled": 1,
+              "u_atmosphereCameraKm": [
+                -6778.0087890625,
+                1758.9447021484375,
+                4490.67578125
+              ],
+              "u_atmosphereSunDirection": [
+                -0.7985763549804688,
+                0.5021601915359497,
+                0.33182963728904724
+              ],
+              "u_atmosphereRadiusKm": 6378.13720703125,
+              "u_atmosphereTopKm": 100,
+              "u_atmospherePolarRatio": 0.9966463446617126,
+              "u_atmosphereSolarScale": 0.9695460796356201,
+              "u_atmosphereExposure": 1.0314104557037354
+            },
+            "state": {
+              "active": true,
+              "animate": true,
+              "epoch": 1785059942.4,
+              "frame": {
+                "contextGeneration": 1,
+                "sceneSerial": 128,
+                "epoch": 1785059942.4
+              },
+              "scattering": {},
+              "optics": {
+                "Sun": "deferred",
+                "Mercury": "deferred",
+                "Venus": "deferred",
+                "Earth": "loading"
+              },
+              "programs": {
+                "base": "ready",
+                "physical": "ready"
+              },
+              "terrain": {
+                "Sun": false,
+                "Mercury": false,
+                "Venus": false,
+                "Earth": false
+              },
+              "hdrEnabled": false,
+              "hdr": {
+                "state": "deferred",
+                "reason": "HDR candidate disabled."
+              },
+              "canvas": [
+                732,
+                612
+              ]
+            },
+            "startedMs": 226519.4,
+            "apiElapsedMs": 0.09999999997671694,
+            "gpuElapsedNs": 19553605
+          },
+          {
+            "index": 65,
+            "frame": 1,
+            "method": "drawElements",
+            "count": 27648,
+            "program": "program-4",
+            "role": "physical-surface",
+            "pass": null,
+            "hintMatched": true,
+            "framebuffer": "default",
+            "viewport": [
+              0,
+              0,
+              732,
+              612
+            ],
+            "uniforms": {
+              "u_scatteringReady": 1,
+              "u_scatteringSurfaceSize": [
+                128,
+                193,
+                1
+              ],
+              "u_scatteringHeightRange": [
+                0.003000000026077032,
+                0.003000000026077032
+              ],
+              "u_atmosphereEnabled": 1,
+              "u_atmosphereCameraKm": [
+                -6778.0087890625,
+                1758.9447021484375,
+                4490.67578125
+              ],
+              "u_atmosphereSunDirection": [
+                -0.7985763549804688,
+                0.5021601915359497,
+                0.33182963728904724
+              ],
+              "u_atmosphereRadiusKm": 6378.13720703125,
+              "u_atmosphereTopKm": 100,
+              "u_atmospherePolarRatio": 0.9966463446617126,
+              "u_atmosphereSolarScale": 0.9695460796356201,
+              "u_atmosphereExposure": 1.0314104557037354
+            },
+            "state": null,
+            "startedMs": 226525.1,
+            "apiElapsedMs": 0,
+            "gpuElapsedNs": 1897563476
+          },
+          {
+            "index": 103,
+            "frame": 1,
+            "method": "drawElements",
+            "count": 27648,
+            "program": "program-7",
+            "role": "physical-shell",
+            "pass": null,
+            "hintMatched": true,
+            "framebuffer": "default",
+            "viewport": [
+              0,
+              0,
+              732,
+              612
+            ],
+            "uniforms": {
+              "u_scatteringReady": 1,
+              "u_scatteringLimbSize": [
+                128,
+                64
+              ],
+              "u_atmosphereEnabled": 1,
+              "u_atmosphereCameraKm": [
+                -6778.0087890625,
+                1758.9447021484375,
+                4490.67578125
+              ],
+              "u_atmosphereSunDirection": [
+                -0.7985763549804688,
+                0.5021601915359497,
+                0.33182963728904724
+              ],
+              "u_atmosphereRadiusKm": 6378.13720703125,
+              "u_atmosphereTopKm": 100,
+              "u_atmospherePolarRatio": 0.9966463446617126,
+              "u_atmosphereSolarScale": 0.9695460796356201,
+              "u_atmosphereExposure": 1.0314104557037354
+            },
+            "state": null,
+            "startedMs": 226555.4,
+            "apiElapsedMs": 0,
+            "gpuElapsedNs": 222316676
+          }
+        ],
+        "physical_programs": [
+          {
+            "id": "program-3",
+            "role": "generator",
+            "sequence": 9,
+            "sourceIdentity": "observed-link-source",
+            "sources": [
+              {
+                "type": 35633,
+                "sha256": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f"
+              },
+              {
+                "type": 35632,
+                "sha256": "c71e2b2b4a4f3632b7ac00ebee9bb36f155d5a508c7586148629034f9b000d39"
+              }
+            ]
+          },
+          {
+            "id": "program-4",
+            "role": "physical-surface",
+            "sequence": 7,
+            "sourceIdentity": "observed-link-source",
+            "sources": [
+              {
+                "type": 35633,
+                "sha256": "90b513dc98bd645f5d4119c4461612dea975e044c99c0e61a1b51f492db8be8c"
+              },
+              {
+                "type": 35632,
+                "sha256": "20ba613d199d642f429e8fdf14a099ea620116162bd886771efd151296e28f09"
+              }
+            ]
+          },
+          {
+            "id": "program-7",
+            "role": "physical-shell",
+            "sequence": 8,
+            "sourceIdentity": "observed-link-source",
+            "sources": [
+              {
+                "type": 35633,
+                "sha256": "0e0412f7bbf3812cb480764913796e1c098abf8fdfdd65435440e499b1b40296"
+              },
+              {
+                "type": 35632,
+                "sha256": "e603782c4aa0b90bc83f69c945b08d55263ad0bc96f50c1a8dbc4814b6a6761a"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "job": "ci",
+      "head_sha": "02cd6c63e0cc842eaca7bc518992156cd380c7e3",
+      "run_url": "https://github.com/Protonmatter/sol/actions/runs/34836083381",
+      "artifact_id": 10344557155,
+      "api_artifact_zip_sha256": "0ecd5d7a5f2dc90ba33b808fed9cdd525c0a20830b6b8b2b28c0dc52077cdb28",
+      "raw_directory": "C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\pr107-production-20260914\\hosted-02cd6c6-ci-failure\\browser",
+      "raw_file_sha256": {
+        "failure.json": "ec683ccf13713ff78a417f65f7e1c8bdc9f9f1a6fc093dbf2e0205c78c9f0608",
+        "browser-evidence.json": "3383a885ce448d6ee6e223552ab66aa1883fbc5720d7fc19aff66f6295962b4c",
+        "frame-cost-after-failure.json": "b39a1529cf6eeed4df63c56b5a7b181d9b6e83b723990121b175e8d034938c34",
+        "visual/earth-submitted-spin.json": "193f99d83fb254b7ffe82975a89acd5666c94a7773b6a1dfbd72221d08a1ff21"
+      },
+      "artifact": {
+        "release_id": "ci-2b0d945e0df78f5ac066aa7e23557853ecc51353-34836083381-1",
+        "source_sha": "2b0d945e0df78f5ac066aa7e23557853ecc51353",
+        "manifest_sha256": "e10249fee530a9682e90d4da5ef0076b0673896bb94b2792bdd20ea5b8ada9a4"
+      },
+      "browser_version": "Chrome/152.0.7977.82",
+      "backend": {
+        "kind": "software",
+        "basis": "Observed WebGL renderer string; requested launch mode alone does not attest hardware execution"
+      },
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "canvas": {
+        "width": 732,
+        "height": 612
+      },
+      "validation_source_sha256": {
+        "browser_validation.mjs": "798fb5be36edb0690cf451b9fb85de34cefbdb3be6372f19629a69eb625fb0a4",
+        "browser_backend.mjs": "63aa1e2ce88c9fc4bbba732fa50578665367b0bccfff222a57dbf2cc3314a532",
+        "texture_device_telemetry.mjs": "bd5873ad316fa415505db4ef48d9335952fd80ef8b0629c37e22fd2bc326193f",
+        "earth_spin_probe.mjs": "9ff76ff48272b43777bd8df5315afcdf4673091edb28a29231945513b700a767",
+        "physical_spin_probe.mjs": "0680f085aa8d9f278ee43acf72d9f9aa89429fc9a16a34a2520e392f4bd82f2d",
+        "physical_texture_probe.mjs": "7ef5351c8aff31ab0b7d9f495b28beb3bc90bcfd6b0e808018aa8db168754f9c",
+        "scattering_producer_probe.mjs": "5d5140fc8bd618a0604b984121cfa1f0005d832fd276a432d86fffef2f42b593",
+        "frame_cost_diagnostic.mjs": "f5258e74e76e22dfd402eee42a644cc34e0de4b1cf9539d73af5a5936e141d5c",
+        "full_feature_memory.mjs": "d08f3b880172880ac769f8fa4ad56669599f5c6d8193a0428378e1fffcc28760",
+        "texture_device_memory.ps1": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+        "context_restore.mjs": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+        "mars_terrain_probe.mjs": "85bf707353b7f5179c43d3784bcfc889bb7b26e5e2b966874a8aab0eb836b65a",
+        "mars_spin_assertions.mjs": "cb961eb7816a48838890b994889fe1ccf15dfa39d27e42507fa7e9d45ff2fe15"
+      },
+      "failure": {
+        "phase": "System/WebGL",
+        "error": "insufficient Earth sphere draws: 1"
+      },
+      "original_gate": {
+        "minimum_draws": 3,
+        "deadline_ms": 5000,
+        "samples": 1,
+        "drawCounts": {
+          "attempted": 108,
+          "submitted": 108,
+          "arrayAttempted": 60,
+          "arraySubmitted": 60,
+          "surface": 1,
+          "earth": 1,
+          "duplicateEpoch": 0,
+          "candidates": 1,
+          "unknown": 38,
+          "gpuMismatch": 0,
+          "expiredDraws": 69,
+          "lateReadbacks": 0,
+          "offscreenEarth": 0,
+          "presentedEarth": 0,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 0,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "timing": {
+          "startedMs": 186036.1,
+          "endedMs": 196092.69999999998,
+          "elapsedMs": 10056.599999999977
+        },
+        "rafHeartbeat": {
+          "count": 3,
+          "samples": [
+            {
+              "timestamp": 186023.2,
+              "sampledMs": 189345.50000000003,
+              "elapsedMs": 3309.4000000000233
+            },
+            {
+              "timestamp": 189339.8,
+              "sampledMs": 192713.80000000002,
+              "elapsedMs": 6677.700000000012
+            },
+            {
+              "timestamp": 192706.3,
+              "sampledMs": 196089.1,
+              "elapsedMs": 10053
+            }
+          ]
+        }
+      },
+      "diagnostic": {
+        "schema": "post-failure-frame-cost.v1",
+        "original_failure": {
+          "phase": "System/WebGL",
+          "error": "insufficient Earth sphere draws: 1"
+        },
+        "original_status": "failed",
+        "outer_budget_ms": 25000,
+        "tool_sha256": "f5258e74e76e22dfd402eee42a644cc34e0de4b1cf9539d73af5a5936e141d5c",
+        "error": "Separate frame-cost diagnostic deadline"
+      }
+    }
+  ],
+  "limits": [
+    "Original failures remain authoritative; diagnostic work begins afterward.",
+    "Software-renderer timer observations are not native hardware measurements.",
+    "Two diagnostic frames do not establish latency distributions.",
+    "CPU synchronization waits must not be added to GPU timer durations.",
+    "API ZIP digests are GitHub-reported; raw extracted files were hashed locally."
+  ]
+}

@@ -58,8 +58,79 @@ the published copy is canonical UTF-8 JSON, SHA-256
 with identical parsed values. No local
 attempt was overwritten or promoted from failed to passed.
 
-Next diagnosis separates producer work, surface/shell rendering, composition and
-synchronous API costs on the actual failing backend. Any failure-only replay is
-separate from acceptance: preserve the original exception, exit status, numerical
-references, texture/terrain detail and all existing deadlines. No per-pass cost
-attribution or renderer correction is claimed until measured.
+## Completed diagnostic checkpoint
+
+Head `02cd6c63e0cc842eaca7bc518992156cd380c7e3` completed with 17 checks passing
+and three failing: both Chromium coverage jobs and the dependent Release gate.
+Its tested merge is `2b0d945e0df78f5ac066aa7e23557853ecc51353`. The production
+tree, validator, Earth probe, diagnostic helper, builder and coverage workflow
+match that head exactly. The original application failures remain authoritative.
+
+The [Coverage run](https://github.com/Protonmatter/sol/actions/runs/34836083732)
+accepted two Earth draws, at 2,322.7 and 4,673.6 ms, against the unchanged
+three-draw, five-second gate. Its later diagnostic captured two frames with all
+112 timer queries completed, none pending, no disjoint event and no errors.
+The observed Chrome 152/Subzero backend retained enabled physical optics,
+128 by 193 by 1 surface fields, 128 by 64 limb fields and a 732 by 612 default
+SDR framebuffer. The linked physical fragment hashes match the prior capture.
+
+| Measured pass | First frame, ms | Second frame, ms | Mean, ms |
+| --- | ---: | ---: | ---: |
+| Surface field generator | 79.540 | 76.430 | 77.985 |
+| Limb field generator | 19.696 | 19.554 | 19.625 |
+| Physical surface consumer | 1,905.017 | 1,897.563 | 1,901.290 |
+| Physical atmosphere shell | 235.284 | 222.317 | 228.800 |
+
+These software-renderer timer observations identify the surface consumer as the
+largest measured pass. They cover two diagnostic frames, not a stable latency
+distribution or the exact earlier gate samples. CPU `getParameter` elapsed time
+was 4,604.8 ms across 48 calls; synchronization can overlap timed rendering, so
+those waits must not be added to GPU timer durations.
+
+The [CI coverage run](https://github.com/Protonmatter/sol/actions/runs/34836083381)
+accepted one original Earth draw. Its separate diagnostic exhausted the bounded
+25-second outer budget and produced no pass timings. That timeout is retained;
+the successful diagnostic from the other job does not replace it.
+
+The [compact checkpoint](HOSTED_FRAME_COST_CHECKPOINT.json) records both failures,
+raw file hashes, GitHub artifact identities, exact limits and measured draw groups.
+No tolerance, timeout, source image, terrain detail or resource gate was weakened.
+
+## Isolated next candidate
+
+Commit `64cbce58a7bbf02ca3a56847dc8da64de923514f` remains only in the local
+`codex/sol-single-layer-candidate-20260914` branch. It is not admitted into PR 107.
+For the depth-one surface field, the candidate reuses the first interpolated
+height plane rather than fetching four identical clamped planes. The proposed
+change reduces 64 reads to 16 in that case while retaining the final interpolation
+arithmetic, alpha/nonpositive fallback and original multi-height paths.
+
+Seven focused source-execution tests pass, and independent source review found
+no blocker. Those checks do not prove GPU compiler equivalence or measured speed.
+No candidate GPU run was started during the final checkpoint.
+
+Before admission, qualify the complete 7,192-query corpus on both native and
+software backends, including the independent 1,600-query physical-source joins.
+Then run the original application, material/composition and held-field controls,
+terrain/animation/HDR configurations, actual native observations and exact-head
+hosted checks. Retain the 30-second program owner, 75-second System readiness,
+three-draw/five-second Earth and 240-second Mars application limits. The current
+60-node integration bound remains unchanged. Temporal reconstruction and the
+separate reflection, ring and moon-photometry source holds remain in effect.
+
+## Review fixes at round close
+
+The final application checkpoint adds three independently reviewed lifecycle
+corrections: [explicit failed-preview recovery](DETAIL_PREVIEW_RECOVERY.md),
+[preserved anchor atmosphere demand](OPTICAL_SELECTION_RECOVERY.md), and
+[retained HDR presentation failure status](HDR_PRESENTATION_FAILURE_STATUS.md).
+They do not alter the integrator, interpolation shader, imagery or engine state.
+The prior exact-source GPU records remain scoped to their recorded builds; they
+are not new final-checkpoint GPU runs.
+
+Combined local validation passes 1,246 Node tests with 98.12% line, 91.16% branch
+and 95.47% function coverage, preserving every original 90% floor. The 110-file
+typecheck, UX contract, 23-requirement SDLC check, 138 Markdown files and diff
+checks pass. No full GPU qualification was rerun for these final lifecycle fixes.
+The completed 17-pass/three-failure hosted results above belong to `02cd6c6`;
+publication of later fixes requires separately identified hosted results.
