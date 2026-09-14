@@ -268,3 +268,55 @@ shader or terrain bytes, but later combined application validation must still bi
 the final integrated source. The failed first full-suite output is retained in
 `build/advanced-full-node-tests.txt`; the passing run is
 `build/advanced-full-node-tests-02.txt`.
+
+## Additive Mars optical terrain animation admission
+
+`tools/physical_rendering_validation.mjs --mars-optical-animation` adds a final
+Mars phase after every existing paused-engine, gallery, restoration and mobile
+predicate. It leaves the 240-second whole-application deadline and original
+three-Earth-final-draws-in-five-seconds gate unchanged. The extra Mars phase uses
+the existing seven-days-per-second UI preset and requires at least three distinct
+actual Mars draws and their matching final HDR presentations within five seconds.
+All hashing and full geometry readbacks finish before that window.
+
+The shared physical probe identifies the actually linked sphere shader sources,
+the source-bound optical profile and actual incident/column texture uploads, and
+the current optical camera/Sun geometry. The terrain probe separately reads both
+GPU buffers through `COPY_READ_BUFFER`, compares their complete SHA-256 identities
+with a mesh rebuilt from the staged MOLA source, and invalidates that proof after
+buffer modification, copying, deletion or transform-feedback use. Timed draws
+must bind those same buffers with the complete 783,360-index unsigned-32 range,
+131,841 vertices, exact interleaved position/normal layout, source-derived terrain
+shape/pole uniforms and the decoded source R32F shadow texture. Readiness metadata
+or a matching buffer size cannot satisfy these predicates.
+
+The texture observer records exact numerical upload bytes and unpack state before
+startup and hashes immutable copies outside the timed window. Later modification
+or framebuffer attachment invalidates static-source admission. It therefore does
+not claim to qualify a dynamic scattering field: such a field needs separate
+producer generation and camera/Sun/profile evidence. The existing direct optical
+reference renderer remains the baseline for this application-consumption gate.
+
+The actual source-derived Mars level-4 mesh has optical unflattened heights from
+-7.06905 to 22.78633 km. All 131,841 vertices fit the incident field's existing
+[-24,24] km height domain. This correlated vertex result is separate from the
+conservative independent radius/polar envelope needed by atmospheric domain
+qualification. The original atmospheric corpus must remain intact, with the v2
+terrain envelope added as supplemental cases before a new scattering field is
+admitted for these assets.
+
+CPU regressions cover equal-sized corrupted geometry, rejected readbacks, changed
+layouts and source textures, partial draws, post-readback mutations, stale/frozen
+transforms and late or mismatched HDR presentation. No browser result is claimed
+for this new phase until an immutable staged receipt is recorded below.
+
+Example, using an existing pinned stage and Node 22:
+
+```text
+node tools/physical_rendering_validation.mjs --web-root=build/<immutable-stage> --out=coverage/<new-receipt> --terrain-close-detail --context-loss --mars-optical-animation
+```
+
+Exit 0 means every enabled predicate passed on the recorded local backend. A
+nonzero result retains failure state and the receipt. Removing the optional flag
+returns to the established application tour; no product runtime hook is installed
+outside this validation process.

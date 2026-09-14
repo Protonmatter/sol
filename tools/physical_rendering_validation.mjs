@@ -11,12 +11,18 @@ import {PNG} from 'pngjs';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
 import {createStagedPreviewServer} from './staged_preview_server.mjs';
 import {requestContextRestoration} from './context_restore.mjs';
+import {installPhysicalTextureEvidence} from './physical_texture_probe.mjs';
+import {installProgramSourceEvidence,preparePhysicalSpinEvidence} from './physical_spin_probe.mjs';
+import {collectSubmittedEarthSpin} from './earth_spin_probe.mjs';
+import {prepareMarsTerrainEvidence} from './mars_terrain_probe.mjs';
+import {assertMarsOpticalTerrainSpin} from './mars_spin_assertions.mjs';
 
 const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const option=(name,fallback)=>process.argv.find(x=>x.startsWith(`--${name}=`))?.slice(name.length+3)||fallback;
 const webRoot=path.resolve(option('web-root',path.join(repo,'build/physical-preview-01')));
 const out=path.resolve(option('out',path.join(repo,'coverage/physical-rendering')));
 const chrome=option('browser',process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':'/usr/bin/google-chrome'));
+const marsOpticalAnimation=process.argv.includes('--mars-optical-animation');
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const manifestBytes=fs.readFileSync(path.join(webRoot,'web-release-manifest.json'));
 const manifest=JSON.parse(manifestBytes);
@@ -135,6 +141,10 @@ async function run(){
   page.on('response',r=>{if(/terrain|solar|radial-height|\/optics\//.test(r.url()))evidence.responses.push({url:r.url(),status:r.status()});});
   await page.setViewport({width:1440,height:1000});
   await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
+  if(marsOpticalAnimation){
+    await page.evaluateOnNewDocument(installPhysicalTextureEvidence);
+    await page.evaluateOnNewDocument(installProgramSourceEvidence);
+  }
   await page.evaluateOnNewDocument(()=>{
     const Native=Date,t=Native.parse('2026-09-12T15:00:00Z');
     globalThis.Date=class extends Native{constructor(...args){super(...(args.length?args:[t]));}static now(){return t;}};
@@ -268,6 +278,52 @@ async function run(){
   check('390 pixel viewport has no horizontal overflow and preserves engine state');
   assert.deepEqual(evidence.errors,[],'Page errors');assert.deepEqual(evidence.console_errors,[],'Console errors');
   check('No page, console, shader compilation, or WebGL errors');
+  if(marsOpticalAnimation){
+    // All existing paused-engine/gallery/mobile predicates above remain intact.
+    // This separate final pass intentionally advances the real engine via its UI.
+    await page.setViewport({width:1440,height:1000});await page.select('#orreryAnchor','Mars');
+    await paintAction('checkbox',{id:'orreryTerrain',checked:true});
+    await paintAction('checkbox',{id:'orreryOptics',checked:true});
+    await waitReady('Mars',{terrain:true});await paintAction('close-terrain');
+    // A cached level-4 mesh need not emit another Worker message. The actual
+    // indexed draw is only readiness; full source/buffer proof follows below.
+    await page.waitForFunction(()=>window.__physicalTerrainDraws.some(x=>x.count===783360),{timeout:40000,polling:100});
+    await page.evaluate(async()=>{
+      const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
+      const {store}=await import('./js/store.js'+q);store.orrery.hdrEnabled=true;
+      document.getElementById('orrerySize').dispatchEvent(new Event('input'));
+    });
+    await page.waitForFunction(async()=>{
+      const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
+      const {store}=await import('./js/store.js'+q);return store.orrery.hdrStatus?.state==='ready'&&store.orrery.hdrStatus.presented;
+    },{timeout:20000,polling:100});
+    const beforePreparation=await state();assert.equal(beforePreparation.invariant,invariant);
+    evidence.mars_physical_preparation=await page.evaluate(preparePhysicalSpinEvidence,{body:'Mars'});
+    evidence.mars_terrain_preparation=await page.evaluate(prepareMarsTerrainEvidence);save();
+    assert.equal((await state()).invariant,invariant,'Terrain evidence preparation advanced the engine');
+    await page.$eval('#orrerySpeedPresets button[data-dps="7"]',button=>button.click());
+    await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'no-preference'}]);
+    await paintAction('checkbox',{id:'orreryAnimate',checked:true});
+    let probe;
+    try {
+      probe=await page.evaluate(collectSubmittedEarthSpin,{body:'Mars',physicalEvidence:true,requireTerrainEvidence:true});
+      probe.validation_source_sha256=Object.fromEntries(['earth_spin_probe.mjs','physical_spin_probe.mjs',
+        'physical_texture_probe.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,digest(fs.readFileSync(path.join(repo,'tools',name)))]));
+      evidence.mars_optical_animation=probe;save();
+      const rotation=assertMarsOpticalTerrainSpin(probe);
+      assert.throws(()=>assertMarsOpticalTerrainSpin({...probe,samples:probe.samples.map(sample=>({...sample,
+        model:probe.samples[0].model,normal:probe.samples[0].normal}))}),/frozen|cap/);
+      await page.screenshot({path:path.join(out,'mars-level4-physical-animation.png'),fullPage:true});
+      const final=await state();assert.equal(final.glError,0);assert.equal(final.glLost,false);
+      assert.deepEqual(final.shaderErrors,[]);assert.deepEqual(final.observedGlErrors,[]);
+      assert.deepEqual(evidence.errors,[]);assert.deepEqual(evidence.console_errors,[]);
+      check('Mars level-4 source geometry, physical optical fields, animation and matching HDR final draws',{...rotation,
+        sourceId:probe.terrain.sourceId,sourceSha256:probe.terrain.sourceSha256,finalEpoch:final.epoch});
+    } finally {
+      await paintAction('checkbox',{id:'orreryAnimate',checked:false});
+      await page.evaluate(()=>globalThis.__solMarsTerrainEvidence?.dispose());
+    }
+  }
 }
 try{
   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{expired=true;controller.abort();reject(new Error('Full application validation exceeded 240 seconds'));},240000);});
