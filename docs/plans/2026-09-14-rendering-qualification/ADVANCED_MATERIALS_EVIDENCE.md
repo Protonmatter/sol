@@ -275,6 +275,16 @@ the final integrated source. The failed first full-suite output is retained in
 
 ## Additive Mars optical terrain animation admission
 
+Before freezing its exact paused-engine invariant, the physical validator waits
+for active System entry to finish successfully (`entering === false`, nine bodies,
+and no engine error). Entry publishes rounded Worker snapshot coordinates before
+asynchronous graphics startup and promotes them to the raw-f64 engine positions
+before its owning promise completes. The existing 40-second startup wait remains
+inside the original 240-second absolute deadline; coordinate comparisons retain
+exact equality. CPU regressions exercise this same-epoch promotion through the
+actual entry lifecycle and reject retained bodies from failed entry. They do not
+replace the complete application replay.
+
 `tools/physical_rendering_validation.mjs --mars-optical-animation` adds a final
 Mars phase after every existing paused-engine, gallery, restoration and mobile
 predicate. It leaves the 240-second whole-application deadline and original

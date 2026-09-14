@@ -239,6 +239,7 @@ export async function orreryHarness(t, options = {}) {
     SYSTEM_POSITIONS_ORDER: SYSTEM_ORDER,
     systemPositions(unix) {
       positionEpochs.push(unix);
+      if(options.systemPositions)return options.systemPositions(unix);
       return Float64Array.from({ length: 27 }, (_, i) => i % 3 === 0 ? 1 + i / 3 : 0);
     },
     cancelSystemSnapshot: () => client.cancel(),

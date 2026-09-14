@@ -190,7 +190,11 @@ async function run(){
   await page.click('[data-mode="orrery"]');
   await page.waitForFunction(async()=>{
     const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
-    const {store}=await import('./js/store.js'+q);return store.orrery?.bodies?.length===9;
+    const {store}=await import('./js/store.js'+q),s=store.orrery;
+    // Entry publishes rounded Worker bodies before async GL startup, then
+    // rebuilds raw-f64 positions. Freeze the exact invariant after that owner
+    // finishes, within this existing wait and the original total deadline.
+    return s?.active===true&&s.entering===false&&s.bodies?.length===9&&s.engineError==='';
   },{timeout:40000});
   await paintAction('checkbox',{id:'orreryAnimate',checked:false});
   evidence.capabilities=await page.evaluate(captureBrowserCapabilities);
