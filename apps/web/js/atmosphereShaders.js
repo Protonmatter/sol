@@ -30,7 +30,7 @@ vec2 atmosphereRayInterval(vec3 origin,vec3 direction,float radius){
 }
 // Observer-only compensated products retain cancellation residuals. The
 // homogeneous metric avoids rounding a distant origin through z/polarRatio.
-// Inputs to observer roots are physical km and finite normalized directions;
+// Inputs to observer roots are physical km and finite nonzero raw directions;
 // near-body solar/column roots keep their independently qualified implementation.
 
 vec2 atmosphereExactProduct(float a,float b){
@@ -52,11 +52,15 @@ vec2 atmospherePairDiv(vec2 a,vec2 b){
   vec2 r=atmospherePairAdd(a,-atmospherePairMul(vec2(q,0),b));
   return atmospherePairAdd(vec2(q,0),vec2((r.x+r.y)/b.x,0));
 }
-vec2 atmosphereObserverInterval(vec3 origin,vec3 direction,float radius){
+// Homogeneous A, C and closest parameter describe the original raw ray. They
+// are shared by both intersection radii and the rationalized limb coordinate.
+struct AtmosphereObserverMetric { vec2 a; vec2 c; vec2 center; };
+AtmosphereObserverMetric atmosphereObserverMetric(vec3 origin,vec3 direction){
   vec2 q2=atmosphereExactProduct(u_atmospherePolarRatio,u_atmospherePolarRatio);
   vec2 a=atmospherePairAdd(atmospherePairMul(q2,atmospherePairAdd(
     atmosphereExactProduct(direction.x,direction.x),atmosphereExactProduct(direction.y,direction.y))),
     atmosphereExactProduct(direction.z,direction.z));
+  if(a.x+a.y<=0.0)return AtmosphereObserverMetric(a,vec2(0),vec2(0));
   vec2 pd=atmospherePairAdd(atmospherePairMul(q2,atmospherePairAdd(
     atmosphereExactProduct(origin.x,direction.x),atmosphereExactProduct(origin.y,direction.y))),
     atmosphereExactProduct(origin.z,direction.z));
@@ -65,37 +69,81 @@ vec2 atmosphereObserverInterval(vec3 origin,vec3 direction,float radius){
   vec2 cz=atmospherePairAdd(atmosphereExactProduct(origin.x,direction.y),-atmosphereExactProduct(origin.y,direction.x));
   vec2 crossSquared=atmospherePairAdd(atmospherePairAdd(atmospherePairMul(cx,cx),atmospherePairMul(cy,cy)),
     atmospherePairMul(q2,atmospherePairMul(cz,cz)));
-  vec2 discriminant=atmospherePairAdd(atmospherePairMul(atmosphereExactProduct(radius,radius),a),-crossSquared);
+  return AtmosphereObserverMetric(a,crossSquared,atmospherePairDiv(-pd,a));
+}
+vec2 atmosphereMetricInterval(AtmosphereObserverMetric metric,float radius){
+  if(metric.a.x+metric.a.y<=0.0)return vec2(1,-1);
+  vec2 q2=atmosphereExactProduct(u_atmospherePolarRatio,u_atmospherePolarRatio);
+  vec2 discriminant=atmospherePairAdd(atmospherePairMul(atmosphereExactProduct(radius,radius),metric.a),-metric.c);
   if(discriminant.x+discriminant.y<0.0)return vec2(1,-1);
-  vec2 centerPair=atmospherePairDiv(-pd,a);
-  vec2 widthPair=atmospherePairDiv(atmospherePairMul(q2,discriminant),atmospherePairMul(a,a));
-  float center=centerPair.x+centerPair.y,halfWidth=sqrt(max(0.0,widthPair.x+widthPair.y));
+  vec2 width=atmospherePairDiv(atmospherePairMul(q2,discriminant),atmospherePairMul(metric.a,metric.a));
+  float center=metric.center.x+metric.center.y,halfWidth=sqrt(max(0.0,width.x+width.y));
   return vec2(center-halfWidth,center+halfWidth);
 }
-
-// One clipped segment is shared by source, conditioning, and consumer transfer.
-void atmosphereObserverSegment(vec3 origin,vec3 direction,float maximum,out vec3 entry,out vec3 ray,out float distance){
-  entry=origin;ray=vec3(1,0,0);distance=0.0;
-  float norm=length(direction);
-  if(norm<=0.0||maximum<=0.0)return;
-  ray=normalize(direction);
-  vec2 sky=atmosphereObserverInterval(origin,ray,u_atmosphereRadiusKm+u_atmosphereTopKm);
-  float begin=max(0.0,sky.x),end=min(maximum,sky.y);
-  if(end<=begin)return;
-  entry=origin+ray*begin;distance=end-begin;
+float atmosphereMetricHeight(AtmosphereObserverMetric metric){
+  if(metric.a.x+metric.a.y<=0.0)return 0.0;
+  vec2 numerator=atmospherePairAdd(metric.c,-atmospherePairMul(atmosphereExactProduct(u_atmosphereRadiusKm,u_atmosphereRadiusKm),metric.a));
+  vec2 delta=atmospherePairDiv(numerator,metric.a),squared=atmospherePairDiv(metric.c,metric.a);
+  float impact=sqrt(max(0.0,squared.x+squared.y));
+  return (delta.x+delta.y)/(impact+u_atmosphereRadiusKm);
 }
-// Reverse clipping anchors the actual uploaded surface endpoint. For admitted
-// mesh endpoints, reconstruction spans only the near-body segment. An exterior
-// endpoint retains its suffix until the subsequent observer segment clips it.
+vec2 atmosphereObserverInterval(vec3 origin,vec3 direction,float radius){
+  return atmosphereMetricInterval(atmosphereObserverMetric(origin,direction),radius);
+}
+// entry/ray/distance are one bounded physical-km segment. Ground and outer are
+// signed physical-km intervals from the caller's original camera, not entry.
+// Neither consumers nor the prepared integrator normalize or clip this again.
+struct AtmospherePath { vec3 entry; vec3 ray; float distance; vec2 ground; vec2 outer; float height; };
+AtmospherePath atmosphereEmptyPath(vec3 origin){
+  return AtmospherePath(origin,vec3(1,0,0),0.0,vec2(1,-1),vec2(1,-1),0.0);
+}
+vec2 atmospherePhysicalInterval(vec2 interval,float norm){
+  return interval.y<interval.x?vec2(1,-1):interval*norm;
+}
+AtmospherePath atmospherePrepareObserver(vec3 origin,vec3 direction,float maximum){
+  AtmospherePath path=atmosphereEmptyPath(origin);
+  float norm=length(direction);
+  if(norm<=0.0||maximum<=0.0)return path;
+  AtmosphereObserverMetric metric=atmosphereObserverMetric(origin,direction);
+  vec2 sky=atmosphereMetricInterval(metric,u_atmosphereRadiusKm+u_atmosphereTopKm);
+  path.ground=atmospherePhysicalInterval(atmosphereMetricInterval(metric,u_atmosphereRadiusKm),norm);
+  path.outer=atmospherePhysicalInterval(sky,norm);path.height=atmosphereMetricHeight(metric);
+  path.ray=direction/norm;
+  if(sky.y<sky.x)return path;
+  float begin=max(0.0,sky.x),end=min(maximum/norm,sky.y);
+  if(end<=begin)return path;
+  path.entry=origin+direction*begin;path.distance=(end-begin)*norm;
+  return path;
+}
+vec2 atmosphereReversePhysicalInterval(vec2 interval,float norm){
+  return interval.y<interval.x?vec2(1,-1):vec2(1.0-interval.y,1.0-interval.x)*norm;
+}
+// Reverse raw endpoint geometry avoids distant-camera reconstruction. Intersect
+// [0,1] before reversing so even an exterior endpoint leaves no exterior suffix.
+// The caller keeps the actual surface endpoint separately for atlas coordinates.
+AtmospherePath atmospherePrepareSurface(vec3 origin,vec3 surface){
+  AtmospherePath path=atmosphereEmptyPath(origin);
+  vec3 reverseDelta=origin-surface;float norm=length(reverseDelta);
+  if(norm<=0.0)return path;
+  AtmosphereObserverMetric metric=atmosphereObserverMetric(surface,reverseDelta);
+  vec2 sky=atmosphereMetricInterval(metric,u_atmosphereRadiusKm+u_atmosphereTopKm);
+  path.ground=atmosphereReversePhysicalInterval(atmosphereMetricInterval(metric,u_atmosphereRadiusKm),norm);
+  path.outer=atmosphereReversePhysicalInterval(sky,norm);path.height=atmosphereMetricHeight(metric);
+  path.ray=-reverseDelta/norm;
+  if(sky.y<sky.x)return path;
+  float begin=max(0.0,sky.x),end=min(1.0,sky.y);
+  if(end<=begin)return path;
+  path.entry=end>=1.0?origin:surface+reverseDelta*end;path.distance=(end-begin)*norm;
+  return path;
+}
+// Compatibility wrappers expose the same prepared segment to source consumers.
+void atmosphereObserverSegment(vec3 origin,vec3 direction,float maximum,out vec3 entry,out vec3 ray,out float distance){
+  AtmospherePath path=atmospherePrepareObserver(origin,direction,maximum);
+  entry=path.entry;ray=path.ray;distance=path.distance;
+}
 void atmosphereSurfaceSegment(vec3 origin,vec3 surface,out vec3 entry,out vec3 ray,out float distance){
-  entry=origin;ray=vec3(1,0,0);distance=0.0;
-  vec3 reverseDelta=origin-surface;
-  float total=length(reverseDelta);
-  if(total<=0.0)return;
-  vec3 reverse=reverseDelta/total;
-  vec2 sky=atmosphereObserverInterval(surface,reverse,u_atmosphereRadiusKm+u_atmosphereTopKm);
-  if(sky.y<sky.x||sky.y<=0.0)return;
-  distance=min(total,sky.y);entry=surface+reverse*distance;ray=-reverse;
+  AtmospherePath path=atmospherePrepareSurface(origin,surface);
+  entry=path.entry;ray=path.ray;distance=path.distance;
 }
 float atmosphereHeight(vec3 point){ return max(0.0,length(atmosphereUnflatten(point))-u_atmosphereRadiusKm); }
 float atmosphereColumnSegment(vec3 origin,vec3 direction,float begin,float end,float scaleHeight){
@@ -214,11 +262,10 @@ vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval){
 }
 // maxDistance is the actual surface endpoint when used on a displaced mesh.
 // The limb caller separately rejects solid-body hits before requesting a full ray.
-AtmosphereResult integrateAtmosphere(vec3 origin,vec3 direction,float maxDistance){
+AtmosphereResult integrateAtmospherePrepared(AtmospherePath path){
   AtmosphereResult result=AtmosphereResult(vec3(1.0),vec3(0.0));
   if(u_atmosphereEnabled==0) return result;
-  vec3 entry,ray;float distance;
-  atmosphereObserverSegment(origin,direction,maxDistance,entry,ray,distance);
+  vec3 entry=path.entry,ray=path.ray;float distance=path.distance;
   if(distance<=0.0) return result;
   result.transmittance=exp(-atmosphereOpticalDepth(entry,ray,distance));
   vec2 shadow=atmosphereShadowInterval(entry,ray);
@@ -232,10 +279,11 @@ AtmosphereResult integrateAtmosphere(vec3 origin,vec3 direction,float maxDistanc
   result.scattering=scattered*ATM_PI*u_atmosphereSolarScale*u_atmosphereExposure;
   return result;
 }
+AtmosphereResult integrateAtmosphere(vec3 origin,vec3 direction,float maxDistance){
+  return integrateAtmospherePrepared(atmospherePrepareObserver(origin,direction,maxDistance));
+}
 vec3 atmosphereSurfaceColor(vec3 linearSurfaceColor,vec3 surfaceBodyKm){
-  vec3 entry,ray;float distance;
-  atmosphereSurfaceSegment(u_atmosphereCameraKm,surfaceBodyKm,entry,ray,distance);
-  AtmosphereResult optics=integrateAtmosphere(entry,ray,distance);
+  AtmosphereResult optics=integrateAtmospherePrepared(atmospherePrepareSurface(u_atmosphereCameraKm,surfaceBodyKm));
   return linearSurfaceColor*optics.transmittance+optics.scattering;
 }
 `;
@@ -323,10 +371,11 @@ ${ATMOSPHERE_GLSL}
 vec3 atmosphereEncode(vec3 c){ c=max(c,vec3(0)); return mix(c*12.92,1.055*pow(c,vec3(1.0/2.4))-.055,step(vec3(.0031308),c)); }
 void main(){
   if(u_atmosphereEnabled==0) discard;
-  vec3 direction=normalize(v_atmosphereBodyKm-u_atmosphereCameraKm);
-  vec2 ground=atmosphereObserverInterval(u_atmosphereCameraKm,direction,u_atmosphereRadiusKm);
+  vec3 direction=v_atmosphereBodyKm-u_atmosphereCameraKm;
+  AtmospherePath path=atmospherePrepareObserver(u_atmosphereCameraKm,direction,1e20);
+  vec2 ground=path.ground;
   if(ground.y>0.0&&ground.x>=0.0) discard;
-  AtmosphereResult optics=integrateAtmosphere(u_atmosphereCameraKm,direction,1e20);
+  AtmosphereResult optics=integrateAtmospherePrepared(path);
   // Premultiplied ONE, ONE_MINUS_SRC_ALPHA. Scattered light composes correctly on
   // black. Extinction of pre-existing sRGB stars is only a scalar-alpha approximation.
   float alpha=1.0-dot(optics.transmittance,vec3(.2126,.7152,.0722));

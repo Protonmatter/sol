@@ -226,10 +226,9 @@ vec3 scatteringReferencePartition(vec3 entry,vec3 ray,AtmosphereColumnRay column
   vec3 solar=exp(-atmosphereSunOpticalDepthToTop(entry+ray*centerT,normalize(u_atmosphereSunDirection)));
   return ratio*mass*solar;
 }
-vec3 scatteringReferenceWeight(vec3 origin,vec3 direction,float maximum){
+vec3 scatteringReferenceWeightPrepared(AtmospherePath path){
   if(u_atmosphereEnabled==0)return vec3(0);
-  vec3 entry,ray;float distance;
-  atmosphereObserverSegment(origin,direction,maximum,entry,ray,distance);
+  vec3 entry=path.entry,ray=path.ray;float distance=path.distance;
   if(distance<=0.0)return vec3(0);
   AtmosphereColumnRay columnRay=atmosphereColumnRay(entry,ray,distance);
   float mu=clamp(dot(ray,normalize(u_atmosphereSunDirection)),-1.0,1.0),g=u_atmosphereG;
@@ -280,6 +279,9 @@ vec3 scatteringReferenceWeight(vec3 origin,vec3 direction,float maximum){
   if(12.0*u_atmosphereDensityScaleKm.x<u_atmosphereTopKm)tail+=u_atmosphereRayleighKm*phaseR;
   if(12.0*u_atmosphereDensityScaleKm.y<u_atmosphereTopKm)tail+=u_atmosphereAerosolKm*u_atmosphereAerosolSSA*phaseA;
   return (q*mass+tail*exp(-12.0)*litLength)*ATM_PI*u_atmosphereSolarScale*u_atmosphereExposure;
+}
+vec3 scatteringReferenceWeight(vec3 origin,vec3 direction,float maximum){
+  return scatteringReferenceWeightPrepared(atmospherePrepareObserver(origin,direction,maximum));
 }
 `;
 
@@ -368,19 +370,19 @@ uniform int u_scatteringPass;
 void main(){
   // Decode packed atlas rows as integers: reciprocal-based float division can
   // put an exact layer boundary in the preceding layer on native GPUs.
-  ivec2 cell=ivec2(gl_FragCoord.xy);vec2 azimuth;float jacobian;vec3 origin=u_atmosphereCameraKm,direction;float maximum;
+  ivec2 cell=ivec2(gl_FragCoord.xy);vec2 azimuth;float jacobian;AtmospherePath path;
   if(u_scatteringPass==0){
     float y=float(cell.y%u_scatteringSurfaceSize.y),z=float(cell.y/u_scatteringSurfaceSize.y);
     float mu=scatteringMu(y),r=u_atmosphereRadiusKm+scatteringHeight(z,mu),impact=r*sqrt(max(0.0,1.0-mu*mu));
     azimuth=scatteringAzimuthComponentsAt(float(cell.x)/float(u_scatteringSurfaceSize.x),true);
-    atmosphereSurfaceSegment(u_atmosphereCameraKm,scatteringSurfacePoint(azimuth,r,mu),origin,direction,maximum);
+    path=atmospherePrepareSurface(u_atmosphereCameraKm,scatteringSurfacePoint(azimuth,r,mu));
   }else{
     float v=float(cell.y)/float(u_scatteringLimbSize.y-1),impact=u_atmosphereRadiusKm+u_atmosphereTopKm*v*v*(u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y?v:1.0);
     azimuth=scatteringAzimuthComponentsAt(float(cell.x)/float(u_scatteringLimbSize.x),false);
-    direction=scatteringRay(azimuth,impact,jacobian);maximum=1e20;
+    path=atmospherePrepareObserver(u_atmosphereCameraKm,scatteringRay(azimuth,impact,jacobian),1e20);
   }
-  AtmosphereResult result=integrateAtmosphere(origin,direction,maximum);
-  vec3 weight=scatteringReferenceWeight(origin,direction,maximum);
+  AtmosphereResult result=integrateAtmospherePrepared(path);
+  vec3 weight=scatteringReferenceWeightPrepared(path);
   vec3 residual=vec3(weight.x>0.0?result.scattering.x/weight.x:0.0,
     weight.y>0.0?result.scattering.y/weight.y:0.0,weight.z>0.0?result.scattering.z/weight.z:0.0);
   bool valid=all(greaterThanEqual(weight,vec3(0)))&&!any(isnan(residual))&&!any(isinf(residual))&&all(greaterThanEqual(residual,vec3(0)));
@@ -389,12 +391,11 @@ void main(){
 
 const SAMPLE_GLSL=`
 uniform highp sampler2D u_scatteringSurface,u_scatteringLimb;
-bool atmosphereScatteringIsZero(vec3 origin,vec3 direction,float maximum){
+bool atmosphereScatteringIsZeroPrepared(AtmospherePath path){
   // Preserve the original integrator's exact vacuum and fully shadowed branches.
   // Interpolation may not introduce light into a ray whose whole bounded segment
   // is analytically absent or occulted by the reference body's own shadow.
-  vec3 entry,ray;float distance;
-  atmosphereObserverSegment(origin,direction,maximum,entry,ray,distance);
+  vec3 entry=path.entry,ray=path.ray;float distance=path.distance;
   if(distance<=0.0)return true;
   vec2 shadow=atmosphereShadowInterval(entry,ray);
   return shadow.y>shadow.x&&shadow.x<=0.0&&shadow.y>=distance;
@@ -457,11 +458,10 @@ vec4 scatteringResidual(vec3 p){
   if(lo.z>=u_scatteringSurfaceSize.z-2)planes[3]=2.0*planes[2]-planes[1];
   return vec4(exp(scatteringCubic(planes[0],planes[1],planes[2],planes[3],f.z)),1);
 }
-vec4 atmosphereSurfaceScatteringSegment(vec3 surfaceBodyKm,float physicalHeightKm,vec3 entry,vec3 ray,float distance){
+vec4 atmosphereSurfaceScatteringPrepared(vec3 surfaceBodyKm,float physicalHeightKm,AtmospherePath path){
   if(u_scatteringReady!=1)return vec4(0);
-  vec3 delta=surfaceBodyKm-u_atmosphereCameraKm;
-  if(atmosphereScatteringIsZero(entry,ray,distance))return vec4(0,0,0,1);
-  vec3 p=atmosphereUnflatten(surfaceBodyKm),d=normalize(atmosphereUnflatten(surfaceBodyKm-u_atmosphereCameraKm));
+  if(atmosphereScatteringIsZeroPrepared(path))return vec4(0,0,0,1);
+  vec3 p=atmosphereUnflatten(surfaceBodyKm),d=normalize(atmosphereUnflatten(path.ray));
   float r=length(p),height=physicalHeightKm,mu=dot(p,d)/r;
   // Three binary32 ULPs at the reference radius cover coordinate roundoff only;
   // physical endpoints beyond that envelope are invalid, never edge-clamped.
@@ -483,12 +483,10 @@ vec4 atmosphereSurfaceScatteringSegment(vec3 surfaceBodyKm,float physicalHeightK
   }
   vec2 xy=vec2(scatteringAzimuth(d,true)*float(u_scatteringSurfaceSize.x),y);
   vec4 residual=scatteringResidual(vec3(xy,z));
-  return vec4(residual.rgb*scatteringReferenceWeight(entry,ray,distance),residual.a);
+  return vec4(residual.rgb*scatteringReferenceWeightPrepared(path),residual.a);
 }
 vec4 atmosphereSurfaceScattering(vec3 surfaceBodyKm,float physicalHeightKm){
-  vec3 entry,ray;float distance;
-  atmosphereSurfaceSegment(u_atmosphereCameraKm,surfaceBodyKm,entry,ray,distance);
-  return atmosphereSurfaceScatteringSegment(surfaceBodyKm,physicalHeightKm,entry,ray,distance);
+  return atmosphereSurfaceScatteringPrepared(surfaceBodyKm,physicalHeightKm,atmospherePrepareSurface(u_atmosphereCameraKm,surfaceBodyKm));
 }
 vec4 atmosphereSurfaceScattering(vec3 surfaceBodyKm){
   return atmosphereSurfaceScattering(surfaceBodyKm,length(atmosphereUnflatten(surfaceBodyKm))-u_atmosphereRadiusKm);
@@ -514,47 +512,50 @@ vec4 scatteringLimbResidual(vec2 p){
   if(lo.y>=u_scatteringLimbSize.y-2)rows[3]=2.0*rows[2]-rows[1];
   return vec4(exp(scatteringCubic(rows[0],rows[1],rows[2],rows[3],f.y)),1);
 }
-vec4 atmosphereLimbScattering(vec3 direction){
+vec4 atmosphereLimbScatteringPrepared(AtmospherePath path){
   if(u_scatteringReady!=1)return vec4(0);
-  if(atmosphereScatteringIsZero(u_atmosphereCameraKm,direction,1e20))return vec4(0,0,0,1);
-  // Use exactly the actual ray metric used by atmosphereRayInterval. The
-  // separately rounded basis/radius product is not the physical camera vector.
-  vec3 physicalRay=normalize(direction),d=atmosphereUnflatten(physicalRay),c=atmosphereUnflatten(u_atmosphereCameraKm);
+  if(atmosphereScatteringIsZeroPrepared(path))return vec4(0,0,0,1);
+  // Height and hit classification use the same original raw-ray metric.
+  vec3 d=atmosphereUnflatten(path.ray),c=atmosphereUnflatten(u_atmosphereCameraKm);
   if(dot(d,c)>=0.0)return vec4(0);
-  float center=-dot(c,d)/dot(d,d);
-  float impact=length(c+center*d),height=impact-u_atmosphereRadiusKm;
+  float height=path.height;
   float residue=u_atmosphereRadiusKm*3.5762786865234375e-7;
   if(height< -residue||height>u_atmosphereTopKm+residue)return vec4(0);
   vec2 p=vec2(scatteringAzimuth(d,false)*float(u_scatteringLimbSize.x),pow(clamp(height/u_atmosphereTopKm,0.0,1.0),u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y?1.0/3.0:.5)*float(u_scatteringLimbSize.y-1));
   vec4 residual=scatteringLimbResidual(p);
-  return vec4(residual.rgb*scatteringReferenceWeight(u_atmosphereCameraKm,direction,1e20),residual.a);
+  return vec4(residual.rgb*scatteringReferenceWeightPrepared(path),residual.a);
+}
+vec4 atmosphereLimbScattering(vec3 direction){
+  return atmosphereLimbScatteringPrepared(atmospherePrepareObserver(u_atmosphereCameraKm,direction,1e20));
+}
+vec3 atmosphereViewTransmissionPrepared(AtmospherePath path){
+  return path.distance<=0.0?vec3(1):exp(-atmosphereOpticalDepth(path.entry,path.ray,path.distance));
 }
 vec3 atmosphereViewTransmission(vec3 origin,vec3 direction,float maxDistance){
-  vec3 entry,ray;float distance;
-  atmosphereObserverSegment(origin,direction,maxDistance,entry,ray,distance);
-  return distance<=0.0?vec3(1):exp(-atmosphereOpticalDepth(entry,ray,distance));
+  return atmosphereViewTransmissionPrepared(atmospherePrepareObserver(origin,direction,maxDistance));
 }
-vec3 atmosphereSurfaceColor(vec3 linearSurfaceColor,vec3 surfaceBodyKm,float physicalHeightKm){
+vec3 atmosphereSurfaceColorPrepared(vec3 linearSurfaceColor,vec3 surfaceBodyKm,float physicalHeightKm,AtmospherePath path){
   // The raster material already knows its interpolated radial scale and physical
   // datum. Use that height instead of recovering it through normalized direction,
   // oblate scaling/unflattening and a large-radius length subtraction.
-  vec3 entry,ray;float distance;
-  atmosphereSurfaceSegment(u_atmosphereCameraKm,surfaceBodyKm,entry,ray,distance);
-  vec4 s=atmosphereSurfaceScatteringSegment(surfaceBodyKm,physicalHeightKm,entry,ray,distance);
+  vec4 s=atmosphereSurfaceScatteringPrepared(surfaceBodyKm,physicalHeightKm,path);
   // Defensive shader failure preserves an opaque pre-transfer material. It is
   // not qualified optical transport; full-domain validity is an admission gate.
   if(s.a<0.999999)return linearSurfaceColor;
-  return linearSurfaceColor*atmosphereViewTransmission(entry,ray,distance)+s.rgb;
+  return linearSurfaceColor*atmosphereViewTransmissionPrepared(path)+s.rgb;
+}
+vec3 atmosphereSurfaceColor(vec3 linearSurfaceColor,vec3 surfaceBodyKm,float physicalHeightKm){
+  return atmosphereSurfaceColorPrepared(linearSurfaceColor,surfaceBodyKm,physicalHeightKm,atmospherePrepareSurface(u_atmosphereCameraKm,surfaceBodyKm));
 }
 vec3 atmosphereSurfaceColor(vec3 linearSurfaceColor,vec3 surfaceBodyKm){
   return atmosphereSurfaceColor(linearSurfaceColor,surfaceBodyKm,length(atmosphereUnflatten(surfaceBodyKm))-u_atmosphereRadiusKm);
 }
 `;
 export const ATMOSPHERE_SCATTERING_GLSL=ATMOSPHERE_LIGHT_GLSL+SOURCE_WEIGHT_GLSL+COORDINATES_GLSL+SAMPLE_GLSL;
-const shellCall='AtmosphereResult optics=integrateAtmosphere(u_atmosphereCameraKm,direction,1e20);';
+const shellCall='AtmosphereResult optics=integrateAtmospherePrepared(path);';
 if(ATMOSPHERE_RENDER_FS.split(ATMOSPHERE_RENDER_GLSL).length!==2||ATMOSPHERE_RENDER_FS.split(shellCall).length!==2)throw new Error('Scattering shell binding changed');
 export const ATMOSPHERE_SCATTERING_FS=ATMOSPHERE_RENDER_FS.replace(ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_SCATTERING_GLSL)
-  .replace(shellCall,'vec4 field=atmosphereLimbScattering(direction);if(field.a<0.999999)discard;\n  AtmosphereResult optics=AtmosphereResult(atmosphereViewTransmission(u_atmosphereCameraKm,direction,1e20),field.rgb);');
+  .replace(shellCall,'vec4 field=atmosphereLimbScatteringPrepared(path);if(field.a<0.999999)discard;\n  AtmosphereResult optics=AtmosphereResult(atmosphereViewTransmissionPrepared(path),field.rgb);');
 
 /** @param {WebGL2RenderingContext} gl @param {Record<string,WebGLUniformLocation|null>} locations @param {ScatteringPlan} plan @param {number} [ready] */
 export function setScatteringUniforms(gl,locations,plan,ready=1){

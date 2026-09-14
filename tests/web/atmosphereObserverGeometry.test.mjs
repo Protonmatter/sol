@@ -33,27 +33,44 @@ test('observer precision helpers survive both direct and bounded source routes',
   assert.ok(!sun.includes('atmosphereObserverInterval('));
 });
 
-test('generator source and conditioning share a locally constructed surface segment',()=>{
-  assert.ok(SCATTERING_GENERATOR_FS.includes('vec3 scatteringSurfacePoint('));
-  assert.ok(SCATTERING_GENERATOR_FS.includes('atmosphereSurfaceSegment(u_atmosphereCameraKm,scatteringSurfacePoint('));
-  assert.ok(SCATTERING_GENERATOR_FS.includes('integrateAtmosphere(origin,direction,maximum)'));
-  assert.ok(SCATTERING_GENERATOR_FS.includes('scatteringReferenceWeight(origin,direction,maximum)'));
+test('generator source and conditioning share exactly one prepared path',()=>{
+  const main=SCATTERING_GENERATOR_FS.slice(SCATTERING_GENERATOR_FS.lastIndexOf('void main(){'));
+  assert.ok(main.includes('atmospherePrepareSurface(u_atmosphereCameraKm,scatteringSurfacePoint('));
+  assert.ok(main.includes('integrateAtmospherePrepared(path)'));
+  assert.ok(main.includes('scatteringReferenceWeightPrepared(path)'));
+  assert.equal((main.match(/integrateAtmospherePrepared\(/g)||[]).length,1);
 });
 
-test('surface consumer source and transmission use endpoint geometry without adding direct quadrature',()=>{
-  assert.ok(ATMOSPHERE_SCATTERING_GLSL.includes('atmosphereSurfaceSegment(u_atmosphereCameraKm,surfaceBodyKm,'));
-  assert.ok(ATMOSPHERE_SCATTERING_GLSL.includes('scatteringReferenceWeight(entry,ray,distance)'));
-  assert.ok(ATMOSPHERE_SCATTERING_GLSL.includes('atmosphereViewTransmission(entry,ray,distance)'));
-  assert.ok(!ATMOSPHERE_SCATTERING_GLSL.includes('AtmosphereResult integrateAtmosphere('));
+test('prepared kernels cannot renormalize or reclip the observer path',()=>{
+  const kernel=(source,name)=>{const start=source.indexOf(name+'('),brace=source.indexOf('{',start);let depth=1,end=brace+1;
+    for(;depth;end++){if(source[end]==='{')depth++;if(source[end]==='}')depth--;}
+    return source.slice(brace,end);};
+  for(const [source,name]of [[ATMOSPHERE_GLSL,'integrateAtmospherePrepared'],
+    [ATMOSPHERE_SCATTERING_GLSL,'scatteringReferenceWeightPrepared'],
+    [ATMOSPHERE_SCATTERING_GLSL,'atmosphereScatteringIsZeroPrepared'],
+    [ATMOSPHERE_SCATTERING_GLSL,'atmosphereViewTransmissionPrepared']]){
+    const body=kernel(source,name);
+    assert.doesNotMatch(body,/atmospherePrepare|atmosphereObserver(?:Segment|Interval)|normalize\((?:path\.ray|direction|ray)\)/);
+  }
+  for(const source of [ATMOSPHERE_SCATTERING_GLSL,ATMOSPHERE_SCATTERING_FS])
+    assert.doesNotMatch(source,/AtmosphereResult integrateAtmosphere|atmosphereScatteredMonotonic|ATM_X12\[i\]/);
+  assert.ok(ATMOSPHERE_SCATTERING_GLSL.includes('float height=path.height;'));
+  assert.ok(ATMOSPHERE_SCATTERING_GLSL.includes('scatteringReferenceWeightPrepared(path)'));
 });
 
-test('shell and fixture observer domain checks route through the compensated root',()=>{
-  for(const source of [ATMOSPHERE_FS,ATMOSPHERE_SCATTERING_FS])
-    assert.ok(source.includes('atmosphereObserverInterval(u_atmosphereCameraKm,direction,u_atmosphereRadiusKm)'));
+test('shell and fixture source, transfer and domain use one original camera path',()=>{
+  for(const source of [ATMOSPHERE_FS,ATMOSPHERE_SCATTERING_FS]){
+    const main=source.slice(source.lastIndexOf('void main(){'));
+    assert.equal((main.match(/atmospherePrepareObserver\(/g)||[]).length,1);
+    assert.ok(main.includes('vec2 ground=path.ground;'));
+    assert.doesNotMatch(main,/normalize\(/);
+  }
   const fixture=fs.readFileSync(new URL('../../tools/scattering_validation.mjs',import.meta.url),'utf8');
-  assert.ok(fixture.includes('atmosphereSurfaceSegment(u_atmosphereCameraKm,a.xyz,'));
-  assert.ok(fixture.includes('atmosphereObserverInterval('));
-  assert.ok(fixture.includes('integrateAtmosphere(traceOrigin,traceRay,traceDistance)'));
+  assert.ok(fixture.includes('outDomain=vec4(path.ground,path.outer)'));
+  assert.ok(fixture.includes('integrateAtmospherePrepared(path)'));
+  assert.ok(fixture.includes('atmosphereSurfaceScatteringPrepared('));
+  assert.ok(fixture.includes('atmosphereViewTransmissionPrepared(path)'));
+  assert.doesNotMatch(fixture,/vec3 ray=normalize\(delta\)/);
 });
 
 test('actual compensated helper preserves analytic roots, scaling, tangency and miss semantics',()=>{
@@ -66,7 +83,7 @@ test('actual compensated helper preserves analytic roots, scaling, tangency and 
   const hit=roots([-6,2-2**-12,0],[2,0,0]);assert.ok(hit[1]>hit[0]);
 });
 
-test('surface preparation and subsequent clipping preserve inside/outside and far-side geometry',()=>{
+test('surface preparation alone preserves complete inside/outside and far-side geometry',()=>{
   for(const q of [1,.5])for(const [camera,point,entry,distance]of [
     [[10,0,0],[2,0,0],[3,0,0],1],[[10,0,0],[-2,0,0],[3,0,0],5],
     [[1,0,0],[2,0,0],[1,0,0],1],[[-10,0,0],[10,0,0],[-3,0,0],6],
@@ -74,7 +91,7 @@ test('surface preparation and subsequent clipping preserve inside/outside and fa
   ]){
     // Rotate onto the polar axis and flatten it; this independently checks q.
     const polar=a=>[a[1],a[2],a[0]*q],g=globals(2,1,q);
-    const result=clipped(prepared(polar(camera),polar(point),g),g);
+    const result=prepared(polar(camera),polar(point),g);
     vectorClose(result.entry,polar(entry));close(result.distance,distance*q);
   }
   for(const [camera,point]of [[[10,0,0],[8,0,0]],[[1,0,0],[1,0,0]],
@@ -117,4 +134,61 @@ test('actual local generator endpoint obeys independent radius and signed ray-an
       close(Math.hypot(...metric),radius,1e-6);
       close(metric.reduce((sum,v,i)=>sum+v*delta[i],0)/(radius*Math.hypot(...delta)),mu,2e-7);
     }
+});
+
+const observerPath=(camera,direction,maximum,g=globals())=>interpreter.run('atmospherePrepareObserver',[camera,direction,maximum],g).value;
+const surfacePath=(camera,point,g=globals())=>interpreter.run('atmospherePrepareSurface',[camera,point],g).value;
+
+test('raw nonunit direction parameters convert to physical kilometres exactly once',()=>{
+  for(const scale of [.25,1,2,8]){
+    const path=observerPath([6,0,0],[-scale,0,0],3.5);
+    vectorClose(path.entry,[3,0,0]);vectorClose(path.ray,[-1,0,0]);close(path.distance,.5);
+    vectorClose(path.ground,[4,8]);vectorClose(path.outer,[3,9]);close(path.height,-2);
+  }
+  assert.equal(observerPath([6,0,0],[2,0,0],20).distance,0);
+  assert.equal(observerPath([6,0,0],[0,0,0],20).distance,0);
+});
+
+test('surface paths keep camera-relative intervals and remove exterior suffixes',()=>{
+  for(const sign of [-1,1]){
+    const path=surfacePath([6*sign,0,0],[-6*sign,0,0]);
+    vectorClose(path.entry,[3*sign,0,0]);vectorClose(path.ray,[-sign,0,0]);close(path.distance,6);
+    vectorClose(path.ground,[4,8]);vectorClose(path.outer,[3,9]);
+  }
+  const front=surfacePath([6,0,0],[2,0,0]);close(front.distance,1);vectorClose(front.entry,[3,0,0]);
+  assert.equal(surfacePath([6,0,0],[4,0,0]).distance,0);
+  const inside=surfacePath([1,0,0],[2,0,0]);vectorClose(inside.entry,[1,0,0]);close(inside.distance,1);
+  vectorClose(inside.ground,[-3,1]);
+});
+
+function independentHeight(camera,direction,q,radius){
+  const [x,y,z]=camera,[a,b,c]=direction;
+  const cross=[y*c-z*b,z*a-x*c,x*b-y*a];
+  const squared=(cross[0]**2+cross[1]**2+q*q*cross[2]**2)/(q*q*(a*a+b*b)+c*c);
+  return (squared-radius*radius)/(Math.sqrt(squared)+radius);
+}
+
+test('all ten retained grazing rays preserve raw input topology and stable limb height',()=>{
+  const fixture=JSON.parse(fs.readFileSync(new URL('./fixtures/observerGrazingRays.json',import.meta.url),'utf8'));
+  assert.equal(fixture.rays.length,10);
+  for(const item of fixture.rays){
+    const camera=item.camera.map(Math.fround),direction=item.direction.map(Math.fround),g=globals(item.radius,item.top,item.polarRatio);
+    const path=observerPath(camera,direction,Math.fround(item.maximum),g);
+    const height=independentHeight(camera,direction,g.u_atmospherePolarRatio,g.u_atmosphereRadiusKm);
+    close(path.height,height,.0001);
+    assert.equal(path.distance>0,height<g.u_atmosphereTopKm,item.name);
+    const parametric=roots(camera,direction,Math.fround(item.radius+item.top),g.u_atmospherePolarRatio);
+    const norm=Math.fround(Math.sqrt(direction.reduce((a,v)=>Math.fround(a+Math.fround(v*v)),0)));
+    assert.deepEqual(path.outer,parametric[1]<parametric[0]?[1,-1]:parametric.map(v=>Math.fround(v*norm)));
+  }
+});
+
+test('reciprocal normalization regression demonstrates why raw topology precedes normalization',()=>{
+  const item=JSON.parse(fs.readFileSync(new URL('./fixtures/observerGrazingRays.json',import.meta.url),'utf8')).rays.find(r=>r.name==='Earth-forward-oblique/limb/130');
+  const f=Math.fround,norm=v=>{const d=v.reduce((a,b)=>f(a+f(b*b)),0),inv=f(1/f(Math.sqrt(d)));return v.map(x=>f(x*inv));};
+  const camera=item.camera.map(f),once=norm(item.direction.map(f)),twice=norm(once),g=globals(item.radius,item.top,item.polarRatio);
+  assert.notDeepEqual(once,twice);
+  assert.ok(independentHeight(camera,once,g.u_atmospherePolarRatio,g.u_atmosphereRadiusKm)>item.top);
+  assert.ok(independentHeight(camera,twice,g.u_atmospherePolarRatio,g.u_atmosphereRadiusKm)<item.top);
+  assert.equal(observerPath(camera,once,f(item.maximum),g).distance,0);
 });

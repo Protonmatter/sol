@@ -129,17 +129,19 @@ try{
     }
     const prefix='#version 300 es\nprecision highp float;\nprecision highp int;\n';
     const declarations='uniform highp sampler2D u_queries;\nlayout(location=0)out vec4 outS;\nlayout(location=1)out vec4 outT;\nlayout(location=2)out vec4 outColor;\nlayout(location=3)out vec4 outDomain;\n';
-    const begin='void main(){int x=int(gl_FragCoord.x);vec4 a=texelFetch(u_queries,ivec2(x,0),0);vec4 b=texelFetch(u_queries,ivec2(x,1),0);bool limb=a.a>0.5;vec3 delta=limb?b.xyz:a.xyz-u_atmosphereCameraKm;float maximum=limb?b.a:length(delta);vec3 ray=normalize(delta),traceOrigin=u_atmosphereCameraKm,traceRay=ray;float traceDistance=maximum;if(!limb)atmosphereSurfaceSegment(u_atmosphereCameraKm,a.xyz,traceOrigin,traceRay,traceDistance);outDomain=vec4(atmosphereObserverInterval(traceOrigin,traceRay,u_atmosphereRadiusKm),atmosphereObserverInterval(traceOrigin,traceRay,u_atmosphereRadiusKm+u_atmosphereTopKm));';
-    const reference=program(prefix+legacy.ATMOSPHERE_RENDER_GLSL+declarations+begin+'AtmosphereResult r=integrateAtmosphere(traceOrigin,traceRay,traceDistance);outS=vec4(r.scattering,1);outT=vec4(r.transmittance,1);outColor=vec4(vec3(.18)*r.transmittance+r.scattering,1);}');
-    const actual=program(prefix+scattering.ATMOSPHERE_SCATTERING_GLSL+declarations+begin+'vec4 s=limb?atmosphereLimbScattering(ray):atmosphereSurfaceScattering(a.xyz);vec3 t=atmosphereViewTransmission(traceOrigin,traceRay,traceDistance);outS=s;outT=vec4(t,1);outColor=vec4(limb?vec3(.18)*t+s.rgb:atmosphereSurfaceColor(vec3(.18),a.xyz),1);}');
-    const actualExplicit=qualifyTerrain?program(prefix+scattering.ATMOSPHERE_SCATTERING_GLSL+declarations+begin+'vec4 h=texelFetch(u_queries,ivec2(x,2),0);vec4 s=limb?atmosphereLimbScattering(ray):atmosphereSurfaceScattering(a.xyz,h.x);vec3 t=atmosphereViewTransmission(traceOrigin,traceRay,traceDistance);outS=s;outT=vec4(t,1);outColor=vec4(limb?vec3(.18)*t+s.rgb:atmosphereSurfaceColor(vec3(.18),a.xyz,h.x),1);}'):null;
+    // All domain intervals are signed physical kilometres from the original
+    // camera. The same raw input prepares source, lookup and transfer once.
+    const begin='void main(){int x=int(gl_FragCoord.x);vec4 a=texelFetch(u_queries,ivec2(x,0),0);vec4 b=texelFetch(u_queries,ivec2(x,1),0);bool limb=a.a>0.5;AtmospherePath path;if(limb)path=atmospherePrepareObserver(u_atmosphereCameraKm,b.xyz,b.a);else path=atmospherePrepareSurface(u_atmosphereCameraKm,a.xyz);outDomain=vec4(path.ground,path.outer);';
+    const reference=program(prefix+legacy.ATMOSPHERE_RENDER_GLSL+declarations+begin+'AtmosphereResult r=integrateAtmospherePrepared(path);outS=vec4(r.scattering,1);outT=vec4(r.transmittance,1);outColor=vec4(vec3(.18)*r.transmittance+r.scattering,1);}');
+    const actual=program(prefix+scattering.ATMOSPHERE_SCATTERING_GLSL+declarations+begin+'vec4 s=limb?atmosphereLimbScatteringPrepared(path):atmosphereSurfaceScatteringPrepared(a.xyz,length(atmosphereUnflatten(a.xyz))-u_atmosphereRadiusKm,path);vec3 t=atmosphereViewTransmissionPrepared(path);outS=s;outT=vec4(t,1);outColor=vec4(limb?vec3(.18)*t+s.rgb:atmosphereSurfaceColorPrepared(vec3(.18),a.xyz,length(atmosphereUnflatten(a.xyz))-u_atmosphereRadiusKm,path),1);}');
+    const actualExplicit=qualifyTerrain?program(prefix+scattering.ATMOSPHERE_SCATTERING_GLSL+declarations+begin+'vec4 h=texelFetch(u_queries,ivec2(x,2),0);vec4 s=limb?atmosphereLimbScatteringPrepared(path):atmosphereSurfaceScatteringPrepared(a.xyz,h.x,path);vec3 t=atmosphereViewTransmissionPrepared(path);outS=s;outT=vec4(t,1);outColor=vec4(limb?vec3(.18)*t+s.rgb:atmosphereSurfaceColorPrepared(vec3(.18),a.xyz,h.x,path),1);}'):null;
     function shellProgram(source){
-      const declaration='in vec3 v_atmosphereBodyKm;',ray='normalize(v_atmosphereBodyKm-u_atmosphereCameraKm)';
+      const declaration='in vec3 v_atmosphereBodyKm;',ray='vec3 direction=v_atmosphereBodyKm-u_atmosphereCameraKm;';
       if(source.split(declaration).length!==2||source.split(ray).length!==2)throw Error('Actual shell ray-input binding changed');
       // The complete fragment body, including discard and output encoding, is
       // unchanged. Only the input ray comes from the same immutable query row.
       return program(source.replace(declaration,'uniform highp sampler2D u_queries;')
-        .replace(ray,'normalize(texelFetch(u_queries,ivec2(int(gl_FragCoord.x),1),0).xyz)'));
+        .replace(ray,'vec3 direction=texelFetch(u_queries,ivec2(int(gl_FragCoord.x),1),0).xyz;'));
     }
     const referenceShell=shellProgram(legacy.ATMOSPHERE_RENDER_FS),actualShell=shellProgram(scattering.ATMOSPHERE_SCATTERING_FS);
     function texture(width,height,internal=gl.RGBA32F,format=gl.RGBA,data=null){

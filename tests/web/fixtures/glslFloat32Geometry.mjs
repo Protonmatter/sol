@@ -14,13 +14,17 @@ const returned=Symbol('returned');
 
 /** Compile only function declarations; unsupported syntax fails the test. */
 export function geometryInterpreter(glsl){
-  const source=glsl.replace(/\b(?:float|vec2|vec3|void) (\w+)\(/g,'function $1(')
-    .replace(/\b(?:out\s+)?(?:float|vec2|vec3) (\w+)(?=[,)])/g,'$1')
-    .replace(/\b(?:float|vec2|vec3) (\w+)/g,'let $1').replace(/\b(0x[\da-f]+|\d+)u\b/gi,'$1');
+  const structs=new Map([...glsl.matchAll(/struct\s+(\w+)\s*\{([^}]*)\};/g)].map(match=>
+    [match[1],[...match[2].matchAll(/\b(?:float|vec2|vec3)\s+(\w+)\s*;/g)].map(field=>field[1])]));
+  const types=['float','vec2','vec3',...structs.keys()].join('|');
+  const source=glsl.replace(/struct\s+\w+\s*\{[^}]*\};/g,'')
+    .replace(new RegExp(`\\b(?:${types}|void) (\\w+)\\(`,'g'),'function $1(')
+    .replace(new RegExp(`\\b(?:out\\s+)?(?:${types}) (\\w+)(?=[,)])`,'g'),'$1')
+    .replace(new RegExp(`\\b(?:${types}) (\\w+)`,'g'),'let $1').replace(/\b(0x[\da-f]+|\d+)u\b/gi,'$1');
   const parsed=ts.createSourceFile('geometry.js',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
   if(parsed.parseDiagnostics.length)throw new Error('Geometry helper translation did not parse');
   const functions=new Map(parsed.statements.filter(ts.isFunctionDeclaration).map(node=>[node.name.text,node]));
-  const builtins={vec2:(...a)=>vector(2,a),vec3:(...a)=>vector(3,a),sqrt:x=>f(Math.sqrt(x)),
+  const builtins={...Object.fromEntries([...structs].map(([name,fields])=>[name,(...args)=>Object.fromEntries(fields.map((field,i)=>[field,args[i]]))])),vec2:(...a)=>vector(2,a),vec3:(...a)=>vector(3,a),sqrt:x=>f(Math.sqrt(x)),
     min:(a,b)=>zip(a,b,Math.min),max:(a,b)=>zip(a,b,Math.max),length:a=>f(Math.sqrt(dot(a,a))),
     normalize:a=>{const n=f(Math.sqrt(dot(a,a)));return a.map(v=>f(v/n));},
     floatBitsToUint:x=>{view.setFloat32(0,x,true);return view.getUint32(0,true);},
@@ -30,7 +34,7 @@ export function geometryInterpreter(glsl){
     const env={...globals};fn.parameters.forEach((p,i)=>{env[p.name.text]=args[i];});
     function set(node,value){
       if(ts.isIdentifier(node)){env[node.text]=value;return value;}
-      if(ts.isPropertyAccessExpression(node)){const target=evaluate(node.expression);target[slots[node.name.text]]=value;return value;}
+      if(ts.isPropertyAccessExpression(node)){const target=evaluate(node.expression);target[Array.isArray(target)?slots[node.name.text]:node.name.text]=value;return value;}
       throw new Error(`Unsupported GLSL assignment ${node.getText(parsed)}`);
     }
     function evaluate(node){
@@ -39,7 +43,7 @@ export function geometryInterpreter(glsl){
       if(node.kind===ts.SyntaxKind.TrueKeyword)return true;
       if(node.kind===ts.SyntaxKind.FalseKeyword)return false;
       if(ts.isParenthesizedExpression(node))return evaluate(node.expression);
-      if(ts.isPropertyAccessExpression(node)){const a=evaluate(node.expression),swizzle=node.name.text;return swizzle.length===1?a[slots[swizzle]]:[...swizzle].map(s=>a[slots[s]]);}
+      if(ts.isPropertyAccessExpression(node)){const a=evaluate(node.expression),swizzle=node.name.text;if(!Array.isArray(a))return a[swizzle];return swizzle.length===1?a[slots[swizzle]]:[...swizzle].map(s=>a[slots[s]]);}
       if(ts.isPrefixUnaryExpression(node)){
         const a=evaluate(node.operand);if(node.operator===ts.SyntaxKind.MinusToken)return negate(a);
         if(node.operator===ts.SyntaxKind.ExclamationToken)return !a;
