@@ -60,6 +60,41 @@ class ReleaseArtifactTests(unittest.TestCase):
             (out / manifest["namespace"] / "web-release-manifest.json").read_bytes())
         self.assertTrue(any(asset["path"] == "index.html" and asset["role"] == "critical" for asset in manifest["assets"]))
 
+    def test_rendering_dependency_changes_invalidate_science_fingerprint(self):
+        """Exercise staged digests, not only membership in the classifier's set."""
+        import release_changes
+        modules = (
+            "orrery.js", "moonAppearance.js", "materialColor.js",
+            "ringTransport.js", "ringTransportShaders.js",
+            "surfaceReflection.js", "surfaceReflectionShaders.js",
+            "terrainResources.js", "shaderPrograms.js", "referenceDemand.js",
+            "hdrPresentation.js", "hdrPresentationShaders.js",
+        )
+        actual_web = Path(__file__).resolve().parents[2] / "apps/web/js"
+        folder = self.source / "js"
+        folder.mkdir()
+        for name in modules:
+            self.assertTrue((actual_web / name).is_file(), name)
+            (folder / name).write_text("export const formula = 1;\n", encoding="utf-8")
+        stylesheet = self.source / "style.css"
+        stylesheet.write_text("body { color: white; }\n", encoding="utf-8")
+        before = validator.validate_manifest(self.build("fingerprint-base") / "web-release-manifest.json")
+        for index, name in enumerate(modules):
+            with self.subTest(module=name):
+                source = folder / name
+                original = source.read_bytes()
+                source.write_text("export const formula = 2;\n", encoding="utf-8")
+                after = validator.validate_manifest(self.build(f"fingerprint-{index}") / "web-release-manifest.json")
+                source.write_bytes(original)
+                self.assertNotEqual(before["components"]["science"], after["components"]["science"], name)
+                self.assertEqual(release_changes.category("apps/web/js/" + name), "scientific", name)
+                self.assertEqual(before["wasm_sha256"], after["wasm_sha256"])
+                self.assertEqual(before["data_bundle_id"], after["data_bundle_id"])
+        stylesheet.write_text("body { color: black; }\n", encoding="utf-8")
+        cosmetic = validator.validate_manifest(self.build("fingerprint-ui") / "web-release-manifest.json")
+        self.assertEqual(before["components"]["science"], cosmetic["components"]["science"])
+        self.assertNotEqual(before["components"]["ui"], cosmetic["components"]["ui"])
+
     def install_observation_fixture(self):
         """Retain actual reviewed bytes, with two local paths to test default selection."""
         from validate_visual_assets import browser_module

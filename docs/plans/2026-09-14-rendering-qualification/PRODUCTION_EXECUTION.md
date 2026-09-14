@@ -147,3 +147,22 @@ coverage jobs rejected zero Earth draws and the dependent release gate failed.
 Those results belong to that earlier direct-integrator runtime, not the new
 unpublished consumer integration. Required hosted checks must complete on the
 actual final published head.
+
+## Rendering changes invalidate scientific qualification
+
+PR review thread `PRRT_kwDOTIyRyM6h_pAi` identified missing rendering dependencies
+in the shared science inventory. The inventory now covers the renderer entry,
+moon/material color, reflection/ring formulas, HDR presentation, shader ownership,
+reference demand and terrain resource preparation. Both `release_changes.category`
+and the staged `components.science` digest use that same inventory. A change to
+these modules must not reuse qualification for different rendering inputs.
+
+The regression changes twelve module fixtures individually and builds a real
+immutable artifact after each change. It failed for all twelve before the fix;
+afterward every mutation changes the science digest and is classified scientific,
+while unchanged WASM/data retain their identities. A stylesheet-only control
+changes the UI digest without changing science. The 26-test artifact suite and
+30-test focused classifier/policy run pass, including that mutation regression.
+An independent review checked the changed-module inventory and direct rendering
+dependencies. This release-control correction does not qualify the renderer's
+numerical or device behavior.
