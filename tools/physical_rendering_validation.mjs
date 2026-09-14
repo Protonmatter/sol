@@ -70,6 +70,7 @@ async function state(){
     return {contextRestoration:window.__physicalRestoreEvidence,anchor:s.anchor,selected:s.selected,radius:s.radius,az:s.az,el:s.el,engineError:s.engineError,animate:s.animate,solarInspection:s.solarInspection,
       epoch:s.renderUnix,invariant:JSON.stringify([s.renderUnix,s.bodies]),terrainStatus:{...s.terrainStatus},
       terrainRendered:s.terrainRendered?{...s.terrainRendered}:null,opticsEnabled:s.opticsEnabled,opticsStatus:{...s.opticsStatus},
+      programStatus:{...s.programStatus},programDiagnostics:{...s.programDiagnostics},
       solarStatus:s.solarStatus,solarMode:s.solarMode,solarPlayback:{...s.solarPlayback},appearanceStatus:{...s.appearanceStatus},
       physicalStatus:document.getElementById('orreryPhysicalStatus')?.textContent,
       appearance:document.getElementById('destinationAppearanceText')?.textContent,
@@ -98,6 +99,10 @@ async function waitReady(body,{terrain=false,solar=false,timeoutMs=40000}={}){
     const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
     const [{store},{appearanceReference,earthCloudRole}]=await Promise.all([import('./js/store.js'+q),import('./js/planetAppearance.js'+q)]);
     const s=store.orrery,roles=['surface'];
+    // Native restoration returns from its event before async base compilation.
+    // Loss-unavailable source statuses remain stale until its ready continuation.
+    if(s.programStatus?.base!=='ready')return s.programStatus?.base==='unavailable'||Boolean(s.engineError);
+    await Promise.resolve(); // let the base-ready continuation restart source loads
     if(body==='Earth'){if(s.earthNight!==false)roles.push('night-lights');if(s.earthWeather!==false)roles.push(earthCloudRole(s));}
     const statuses=roles.map(role=>appearanceReference(body,role)).filter(Boolean).map(a=>s.appearanceStatus[a.id]);
     if(terrain){statuses.push(s.terrainStatus[body]);if(s.terrainRendered)statuses.push(s.terrainRendered[body]?'ready':'pending');}if(solar)statuses.push(s.solarStatus);
@@ -108,6 +113,8 @@ async function waitReady(body,{terrain=false,solar=false,timeoutMs=40000}={}){
   },{timeout:timeoutMs,polling:100},body,terrain,solar);
   const s=await state();
   assert.deepEqual(s.shaderErrors,[],'Application shader compile/link failure');
+  assert.equal(s.engineError,'',`Application graphics resources unavailable: ${s.engineError}`);
+  assert.equal(s.programStatus?.base,'ready','Application base programs unavailable');
   if(terrain)assert.equal(s.terrainStatus[body],'ready',`${body} actual terrain unavailable`);
   if(terrain&&s.terrainRendered)assert.equal(s.terrainRendered[body],true,`${body} height mesh is loaded but not rendered`);
   if(solar)assert.equal(s.solarStatus,'ready','Solar source atlas unavailable');

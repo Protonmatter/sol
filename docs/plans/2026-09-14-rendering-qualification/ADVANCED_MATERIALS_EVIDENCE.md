@@ -285,6 +285,14 @@ exact equality. CPU regressions exercise this same-epoch promotion through the
 actual entry lifecycle and reject retained bodies from failed entry. They do not
 replace the complete application replay.
 
+Context restoration likewise waits for the base program owner before interpreting
+source statuses retained from context loss. A single microtask yield lets the
+queued base-ready continuation restart source loading; failed base restoration
+and fresh source failures remain terminal. Receipts include program status and
+diagnostics. CPU tests execute the actual restore lifecycle and this promise
+boundary, while preserving the remaining 40-second budget measured from the
+restore request and the original 240-second absolute deadline.
+
 `tools/physical_rendering_validation.mjs --mars-optical-animation` adds a final
 Mars phase after every existing paused-engine, gallery, restoration and mobile
 predicate. It leaves the 240-second whole-application deadline and original
