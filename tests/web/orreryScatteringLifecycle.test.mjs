@@ -150,3 +150,32 @@ test('caller-state failure stays unavailable with its cause until explicit optic
   assert.equal(h.state.opticsStatus.Earth,'ready');
   assert.ok(consumers(h.gpuSubmissions.slice(before)).length>0);
 });
+
+test('inspecting a second atmospheric body cannot strand the anchored body on the illustrative limb',async t=>{
+  const h=await boot(t);
+  assert.equal(h.state.opticsStatus.Earth,'ready');
+  // Selecting Mars moves optical demand without moving the anchor, so the cancel-all
+  // that accompanies a demand switch must not leave the drawn anchor cancelled.
+  h.input('orrerySearch','Mars');h.nodes.orreryPositions.children[0].click();
+  assert.equal(h.state.selected,'Mars');
+  await h.settle();
+  const before=h.gpuSubmissions.length;h.resize(812,604);
+  const draws=h.gpuSubmissions.slice(before);
+  assert.notEqual(h.state.scatteringStatus.Earth?.state,'cancelled',
+    'the anchored body must not stay cancelled while it is still drawn');
+  assert.ok(generatorDraws(draws).length>0,'the anchored body regenerates its scattering');
+  assert.equal(h.state.opticsStatus.Earth,'ready');
+  assert.deepEqual(h.errors,[]);
+});
+
+test('an atmosphere note shown on another body card names the body it describes',async t=>{
+  const h=await boot(t);
+  assert.equal(h.state.opticsStatus.Earth,'ready');
+  // Inspecting the Moon keeps Earth's atmosphere resident, and its note stays visible.
+  h.input('orrerySearch','Moon');h.nodes.orreryPositions.children[0].click();
+  assert.equal(h.state.selected,'Moon');await h.settle();h.resize(812,604);
+  const text=h.nodes.orreryPhysicalStatus.textContent;
+  assert.match(text,/Reference atmosphere/);
+  assert.match(text,/Earth/,'an atmosphere note on the Moon card must say it describes Earth');
+  assert.deepEqual(h.errors,[]);
+});

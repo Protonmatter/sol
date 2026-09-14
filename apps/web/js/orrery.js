@@ -188,7 +188,7 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 // ---------------------------------------------------------------- WebGL2 renderer
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
 let shaderPrograms=null,programContextGeneration=0;
-let hdrPresentation=null,hdrFailure=null,contextGeneration=0,sceneSerial=0,linearFrame=false;
+let hdrPresentation=null,hdrFailure=null,contextGeneration=0,sceneSerial=0,linearFrame=false,graphicsLifecycle=0;
 let scatteringTargets=null,scatteringFrame=null;
 const PHYSICAL_PROGRAMS=['physicalSphere','atmosphere','scatteringGenerator'];
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
@@ -291,10 +291,18 @@ function initIncidentResources(){
   incidentFields=cache;
 }
 
-function incidentBodyDemand(){
-  if(!state.active||!state.opticsEnabled||state.galaxy||state.selectedStar||document.hidden)return '';
+// The body whose optical transfer the renderer owns. Inspecting a moon of an
+// atmospheric planet keeps the anchor's atmosphere resident, so the status panel
+// must describe the same body the renderer is actually preparing.
+function opticalSubject(){
+  if(!state.active||state.galaxy||state.selectedStar)return '';
   if(getAtmosphereProfile(state.selected))return state.selected;
   return getAtmosphereProfile(state.anchor)?state.anchor:'';
+}
+
+function incidentBodyDemand(){
+  if(!state.opticsEnabled||document.hidden)return '';
+  return opticalSubject();
 }
 
 function syncIncidentDemand(){
@@ -372,11 +380,11 @@ function bindBodyMesh(mesh=sphere) {
 
 function updatePhysicalAppearance() {
   const body=state.active&&!state.galaxy&&!state.selectedStar?(state.selected||state.anchor):'',notes=[];
-  const galleryBody=body;
+  const galleryBody=body,opticalBody=opticalSubject();
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
-  if(getAtmosphereProfile(body))notes.push(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[body]==='ready'?`Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[body]==='loading'?'Reference optical programs and fields loading; illustrative limb shown until ready.':state.opticsStatus[body]==='unavailable'?'Reference optical programs or fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.');
+  if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; illustrative limb shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
   if(body==='Sun')notes.push(state.solarMode==='reconstructed-euv'?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
@@ -849,6 +857,8 @@ function cancelPendingPrograms(){
   scatteringTargets?.cancel();scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
   if(!shaderPrograms)return;
   if(state.programStatus.base==='loading'){
+    // Discarding an in-flight base compile supersedes the entry awaiting it.
+    graphicsLifecycle++;
     shaderPrograms.dispose();shaderPrograms=null;gl=null;P={};state.programStatus={base:'deferred',physical:'deferred'};
   }else{shaderPrograms.cancelPending();admitPhysicalPrograms();}
 }
@@ -1442,6 +1452,11 @@ function generateBodyScattering(body,profile,opticalOptions,physicalRadius,mesh)
   }
   const columnTexture=incidentFields?.get(body)?.columnTexture;
   const args={frame:scatteringFrame,plan,profile,opticalOptions:options,columnTexture,columnIdentity:ATMOSPHERE_COLUMN_FIELDS[body].sha256};
+  // Cancellation records withdrawn demand, not a failed target. A demand switch
+  // cancels every entry but retries only the newly demanded body, so a body that
+  // is still drawn with a resident field would otherwise stay cancelled for the
+  // life of the context and silently fall back to the illustrative limb.
+  if(scatteringTargets.status(body).state==='cancelled')scatteringTargets.retry(body);
   let generated=false;
   try{generated=scatteringTargets.beginFrame(scatteringFrame)&&scatteringTargets.generate(body,args,scatteringCallerState());}
   catch(error){
@@ -2766,8 +2781,15 @@ async function enterOrreryInner() {
     if(!state.active||generation!==systemGeneration)return;
     state.bodies=snapshot.bodies.map(body=>({...body}));state.renderUnix=unix;state.metadataUnix=unix;state.engineError="";lastFullSnapshot=performance.now();
     if (!gl) {
+      const lifecycle=graphicsLifecycle;
       const res = await initGL(canvas);
-      if(!state.active||generation!==systemGeneration)return;
+      // Graphics completion belongs to the graphics lifecycle, not to the scientific-time
+      // request. A time slider or Now action advances only the metadata generation, so it
+      // must not skip particles, textures, geometry, the first paint and the frame loop.
+      // Leaving, hiding or losing the context discards the pending compile and advances
+      // graphicsLifecycle; that superseded entry must return before treating its null
+      // result as missing WebGL2 and hiding the canvas a renewed entry draws into.
+      if(!state.active||lifecycle!==graphicsLifecycle)return;
       if (!res) { showFallback("WebGL2 is unavailable — try a recent Chrome, Edge, Firefox, or Safari."); return; }
       state.backend = "WebGL2/ANGLE" + res.label.replace("WebGL2", "");
       const node = document.getElementById("orreryBackend");
@@ -2858,7 +2880,15 @@ async function showFallback(msg) {
     syncIncidentDemand();
     state.keys.clear(); state.lastTick=0;
     if (document.hidden) { if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelPendingPrograms();cancelSystemWork(); }
-    else if (state.active) {if(!gl||!state.bodies.length)void enterOrrery();else startLoop();}
+    else if (state.active) {
+      // requestAnimationFrame never ran while the tab was hidden, so any compile still
+      // pending has been charged wall-clock time no poll could observe. Renew its
+      // deadline now that polling resumes; otherwise the first visible poll expires
+      // every mandatory program and reports WebGL2 as unavailable on a browser that
+      // supports it. A tab that loads hidden reaches here before its first frame.
+      shaderPrograms?.renewDeadlines();
+      if(!gl||!state.bodies.length)void enterOrrery();else startLoop();
+    }
   });
   document.getElementById("orrerySearch")?.addEventListener("input",event=>{
     state.objectQuery=/** @type {HTMLInputElement} */ (event.target).value; updateOrreryPositions();
@@ -3153,7 +3183,7 @@ async function showFallback(msg) {
 
   canvas.addEventListener("webglcontextlost", (e) => {
     e.preventDefault();
-    if(rafId)cancelAnimationFrame(rafId);rafId=0;cancelSystemWork();state.keys.clear();state.lastTick=0;
+    if(rafId)cancelAnimationFrame(rafId);rafId=0;graphicsLifecycle++;cancelSystemWork();state.keys.clear();state.lastTick=0;
     state.engineError="3-D graphics context lost; the text alternative and prior coordinates remain available.";updateOrreryAccuracy();
     // Everything GPU-side belongs to the dead context. The texture/ring caches MUST be
     // invalidated too: their `ready` flags used to survive the loss, so after a restore
@@ -3181,9 +3211,12 @@ async function showFallback(msg) {
     if (!state.active) return;
     state.engineError="";metadataFailed=false;
     const c = document.getElementById("orreryCanvas");
-    const generation=systemGeneration,result=initGL(c),manager=shaderPrograms,programGeneration=programContextGeneration;
+    const result=initGL(c),manager=shaderPrograms,programGeneration=programContextGeneration;
     const restored=ready=>{
-      if(!state.active||generation!==systemGeneration||programGeneration!==programContextGeneration)return;
+      // Restoration belongs to the graphics lifecycle: programGeneration and the manager
+      // identity reject a replaced context, while a time change during a parallel
+      // compile only advances the metadata generation and must not skip setup.
+      if(!state.active||programGeneration!==programContextGeneration)return;
       if(!ready){
         if(state.programStatus.base==='unavailable'){
           state.engineError='3-D graphics programs unavailable after context restoration. Retry explicitly.';updateOrreryAccuracy();
@@ -3200,11 +3233,16 @@ async function showFallback(msg) {
       // Rebuild only the GPU geometry from the retained coordinates and elements.
       buildSceneLines();
       buildDropLines();
+      // The marker buffer is recreated empty by finishGL while smallMarkCount still
+      // holds its pre-loss value, so the retained count must be re-backed by real
+      // storage before the first restored draw. A paused or reduced-motion scene
+      // never reaches the tick that would otherwise repair it.
+      rebuildSmallBodies();
       paint();
       startLoop(); // the tick loop may have stopped while gl was null; re-arm it
     };
     if(result instanceof Promise)void result.then(restored).catch(error=>{
-      if(state.active&&generation===systemGeneration){state.engineError=`3-D graphics restoration failed: ${error.message}`;updateOrreryAccuracy();}
+      if(state.active&&programGeneration===programContextGeneration){state.engineError=`3-D graphics restoration failed: ${error.message}`;updateOrreryAccuracy();}
     });else restored(result);
   });
   // Repaint on any size change (DPI / window / layout) so ensureSized rebuilds the backing store at

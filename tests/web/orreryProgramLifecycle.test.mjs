@@ -91,6 +91,53 @@ test('a queued failed-program notification cannot cancel a newer explicit retry 
   assert.equal(h.state.opticsStatus.Earth,'ready');h.leaveOrrery();
 });
 
+test('a tab that spends the deadline hidden keeps its base compile instead of reporting no WebGL2',async t=>{
+  const h=await orreryHarness(t,{controls:true,parallelPrograms:true}),entering=h.enterOrrery();await h.settle();
+  assert.equal(h.state.programStatus.base,'loading');
+  // A hidden tab delivers no frame, so completion is never polled while the monotonic
+  // clock runs past the mandatory deadline. Becoming visible must not expire it.
+  h.advanceMonotonicTime(45000);
+  h.setHidden(false);await h.settle();
+  assert.equal(h.state.programStatus.base,'loading');
+  assert.equal(h.contexts,1,'no context was rebuilt');
+  h.completePrograms();h.frame(100);await entering;await h.settle();
+  assert.equal(h.state.programStatus.base,'ready');
+  assert.equal(h.state.programDiagnostics.sphere.error,'');
+  h.leaveOrrery();
+});
+
+test('a time change during a parallel base compile cannot strand a ready context that never draws',async t=>{
+  const h=await orreryHarness(t,{controls:true,parallelPrograms:true}),entering=h.enterOrrery();await h.settle();
+  assert.equal(h.state.programStatus.base,'loading');
+  // The Now action advances the metadata generation without replacing the graphics owner.
+  h.now();await h.settle();
+  h.completePrograms();h.frame(100);await entering;await h.settle();
+  assert.equal(h.state.programStatus.base,'ready');
+  assert.ok(h.draws>0,'the ready context must draw');
+  assert.ok(h.frames.size>0,'the frame loop must be armed');
+  assert.ok(h.images.length>0,'reference textures must be requested');
+  assert.equal(h.state.engineError,'');
+  h.leaveOrrery();
+});
+
+test('leaving and re-entering during a pending parallel compile cannot hide the renewed canvas',async t=>{
+  const h=await orreryHarness(t,{controls:true,parallelPrograms:true});
+  void h.enterOrrery();await h.settle();
+  assert.equal(h.state.programStatus.base,'loading');
+  // The superseded entry's compile resolves null once its manager is disposed. Its
+  // continuation must not treat that as WebGL2 being unavailable and hide the canvas
+  // the renewed entry is about to draw into.
+  h.leaveOrrery();
+  const renewed=h.enterOrrery();await h.settle();
+  for(let i=0;i<6&&h.state.programStatus.base!=='ready';i++){h.completePrograms();if(h.frames.size)h.frame(100);await h.settle();}
+  await renewed;await h.settle();
+  assert.equal(h.state.programStatus.base,'ready');
+  assert.notEqual(h.nodes.orreryCanvas.style.display,'none','the renewed canvas must stay visible');
+  assert.ok(h.draws>0,'the renewed context draws');
+  assert.equal(h.state.engineError,'');
+  h.leaveOrrery();
+});
+
 test('mandatory startup timeout preserves the 30 second deadline and discloses failure without drawing placeholders',async t=>{
   const h=await orreryHarness(t,{controls:true,parallelPrograms:true}),entering=h.enterOrrery();await h.settle();
   h.advanceMonotonicTime(30099);h.frame(100);assert.equal(h.state.programStatus.base,'loading');assert.equal(h.draws,0);

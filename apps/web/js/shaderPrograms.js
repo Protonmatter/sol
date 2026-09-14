@@ -100,6 +100,15 @@ export function createShaderPrograms(gl, {
   }
   return {
     parallel:!!parallel,generation,request,cancelPending,dispose,
+    // Completion is polled from requestAnimationFrame, which does not run while the
+    // document is hidden. The owner renews the deadline when polling can resume so a
+    // suspended period is not charged against a compile that was never observed.
+    renewDeadlines(){
+      if(disposed)return 0;
+      const stamp=now();let renewed=0;
+      for(const entry of entries.values())if(entry.status==='loading'){entry.started=stamp;renewed++;}
+      return renewed;
+    },
     status:key=>disposed?'cancelled':entries.get(key)?.status||'deferred',
     get:key=>!disposed&&entries.get(key)?.status==='ready'?entries.get(key).program:null,
     diagnostic:key=>entries.has(key)?snapshot(entries.get(key)):{key,generation,status:disposed?'cancelled':'deferred',error:'',notificationError:'',parallel:!!parallel},
