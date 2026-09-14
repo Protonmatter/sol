@@ -6,6 +6,7 @@ import { ATMOSPHERE_RENDER_GLSL as ATMOSPHERE_GLSL } from './atmosphereColumnFie
 import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
+import { RING_TRANSPORT_GLSL } from './ringTransportShaders.js';
 
 const NOISE = `
 float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -82,8 +83,8 @@ uniform vec3 u_sunA;
 // equatorial radius ((0,0) = the body has no rings), the polar/equatorial ratio (the ray must
 // start from the OBLATE surface, not the unit sphere), and the 1-D radial opacity profile
 // baked from the same model that colours the drawn ring (ringOpacityProfile) — so each band's
-// shadow is exactly as dark as the band is optically thick, and the Cassini Division lets
-// sunlight through for free.
+// shadow follows the preserved display-opacity recipe and the Cassini Division gap.
+// These display constants do not specify measured normal optical depth.
 uniform vec3 u_lightObj; uniform vec2 u_ringRad; uniform float u_oblate; uniform sampler2D u_ringTex;
 // Physical catalogue radius converts the displaced mesh point to body-frame km.
 uniform float u_bodyRadiusKm;
@@ -103,6 +104,7 @@ const int MOON_SHADOWS=4;
 uniform int u_moonShadowCount; uniform vec4 u_moonShadowPos[MOON_SHADOWS]; uniform vec4 u_moonShadowAxis[MOON_SHADOWS];
 ${ATMOSPHERE_GLSL}
 ${TERRAIN_SHADOW_GLSL}
+${RING_TRANSPORT_GLSL}
 ${NOISE}
 vec2 referenceUV(vec3 p){
   float z=p.z;
@@ -406,7 +408,7 @@ void main(){
           // whole envelope erased narrow outer rings (Epsilon/Adams) from their shadows.
           float edge=0.5/float(textureSize(u_ringTex,0).x);
           float m=smoothstep(0.0,edge,f)*(1.0-smoothstep(1.0-edge,1.0,f));
-          col*=1.0-0.72*m*texture(u_ringTex,vec2(f,0.5)).r;
+          col*=displayRingShadowTransmission(texture(u_ringTex,vec2(f,0.5)).r,m);
         }
       }
     }

@@ -101,3 +101,27 @@ Sources: [NASA numerical displacement product](https://svs.gsfc.nasa.gov/4720/),
 [PDS MOLA product description](https://pds-geosciences.wustl.edu/missions/mgs/megdr.html),
 [exact MOLA PDS3 label](https://pds-geosciences.wustl.edu/mgs/urn-nasa-pds-mgs_mola_topography_derived/meg016/megr90n000eb.lbl),
 [exact MOLA PDS4 label](https://pds-geosciences.wustl.edu/mgs/urn-nasa-pds-mgs_mola_topography_derived/meg016/megr90n000eb.xml).
+
+## D4: ring coverage and transmission
+
+`ringTransport.js` discriminates preserved `display-opacity` from a bounded
+`resolved-mixture` of explicit empty, opaque and homogeneous-depth subregions.
+The latter averages transmission after angular transport, then applies separate
+geometric coverage. It never derives optical depth from the old opacity texture.
+The mandatory half-opaque/half-empty fixture transmits 0.5 at both normal and
+half-cosine incidence; the incorrect averaged slab gives 0.25 and is rejected.
+Negative weights/depth, non-unit total area, unsupported material records and
+grazing values outside 0.02 <= abs(cosine) <= 1 fail closed.
+
+The live ring-shadow shader calls the explicit display-transmission helper with
+its unchanged 0.72 contrast factor and unchanged geometric edge coverage. Band
+geometry, source photo alpha, narrow rings, gaps and the ray-plane guard remain
+unchanged. Homogeneous and mixed-coverage GLSL helpers are available to a separate
+qualified material route; no measured optical-depth source is currently admitted.
+
+The concrete missing product is a selected band-specific occultation or angular-
+transmission profile with radius registration, spatial support, illumination/view
+geometry, noise/saturation limits, uncertainty and independent holdout samples.
+The available Cassini RSS archive is radio-band evidence and cannot directly
+calibrate visible RGB transmission. Reflected ring brightness/phase scattering is
+also distinct from transmission. Existing display assets retain their declared role.
