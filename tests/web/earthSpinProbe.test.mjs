@@ -427,11 +427,14 @@ test('a native draw completing after the deadline is forwarded but incurs no GPU
 for (const diagnosticFails of [false, true]) test(`early failures preserve page and console errors with DOM failure=${diagnosticFails}`, async () => {
   const writes = [], timers = new Set(), original = Error('spin failed');
   const context = { error: original, diagnosticPage: { evaluate: () => diagnosticFails ? Promise.reject(Error('page unavailable')) : Promise.resolve({ surface: 'orrery' }) },
+    evidence:{status:'running'},
     phase: 'System/WebGL', outputDirectory: 'evidence', failures: ['pageerror: native draw failed', 'console: unexpected'], workerCoverage: { errors: [] },
     fs: { writeFileSync: (name, text) => writes.push({ name, value: JSON.parse(text) }) }, path: { join: (...parts) => parts.join('/') },
     console: { error() {} }, setTimeout: () => { timers.add(1); return 1; }, clearTimeout: id => timers.delete(id) };
   await assert.rejects(vm.runInNewContext(`(async()=>${failureCatch})()`, context), error => error === original);
   assert.equal(writes.length, 1); assert.deepEqual(writes[0].value.runtimeErrors, context.failures); assert.equal(timers.size, 0);
+  assert.equal(context.evidence.status,'failed');assert.equal(context.evidence.failure.phase,'System/WebGL');
+  assert.equal(context.evidence.failure.error,'spin failed');
   if (diagnosticFails) assert.equal(writes[0].value.diagnosticError, 'page unavailable');
   else assert.deepEqual(writes[0].value.diagnostic, { surface: 'orrery' });
 });

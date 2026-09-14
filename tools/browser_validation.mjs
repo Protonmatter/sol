@@ -13,6 +13,8 @@ import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
 import { installProgramSourceEvidence, preparePhysicalSpinEvidence } from './physical_spin_probe.mjs';
 import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
+import { browserBackendFromArgs, browserBackendArgs, assertBrowserBackend, captureBrowserCapabilities } from './browser_backend.mjs';
+import { classifyTextureBackend } from './texture_device_telemetry.mjs';
 import { assertCaptionLayouts } from "./caption_layout.mjs";
 import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
 import { waitForReferenceReadiness } from "./reference_readiness.mjs";
@@ -843,7 +845,7 @@ async function moonShadowAssertions(page, visualDirectory) {
   return { transit: transitStats, control: controlStats, eclipse: eclipseStats };
 }
 
-async function visualAssertions(page, visualDirectory) {
+async function visualAssertions(page, visualDirectory, observeContext) {
   fs.mkdirSync(visualDirectory, { recursive: true });
   if(argument('hdr-candidate','false')==='true'){
     const hdr=await page.evaluate(async()=>{
@@ -994,7 +996,9 @@ async function visualAssertions(page, visualDirectory) {
     // This additional gate never substitutes for the original Earth rotation
     // acceptance above. Source preparation/hashing precedes its unchanged 5s window.
     await page.evaluate(preparePhysicalSpinEvidence,{body:'Earth'});
+    const physicalBackend=await observeContext('physical-spin');
     const physicalSpin=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});
+    physicalSpin.backend=physicalBackend;
     physicalSpin.validation_source_sha256=Object.fromEntries(['earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs']
       .map(name=>[name,createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')]));
     fs.writeFileSync(path.join(visualDirectory,'earth-physical-spin.json'),JSON.stringify(physicalSpin,null,2));
@@ -1031,7 +1035,7 @@ async function visualAssertions(page, visualDirectory) {
   );
 }
 
-async function exerciseOrrery(page, visualDirectory) {
+async function exerciseOrrery(page, visualDirectory, observeContext) {
   await clickMode(page, "orrery");
   // V8 block-coverage collection instruments the large lazy star/moon catalogues and can
   // more than double their cold-start time on shared CI runners. Keep the assertion exact,
@@ -1052,6 +1056,7 @@ async function exerciseOrrery(page, visualDirectory) {
     }));
     throw new Error(`3-D readiness timed out: ${JSON.stringify(state)}`, { cause: error });
   }
+  await observeContext('initial');
   await setChecked(page, "#orreryAnimate", false);
   // Settle the current visible demand; distant and disabled maps remain deferred.
   const appearance = await waitForReferenceReadiness(page);
@@ -1064,7 +1069,7 @@ async function exerciseOrrery(page, visualDirectory) {
   await page.evaluate(async()=>{await document.fonts.ready;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
   const captionLayouts = await assertCaptionLayouts(page);
   fs.writeFileSync(path.join(visualDirectory, 'caption-layout.json'), `${JSON.stringify(captionLayouts, null, 2)}\n`);
-  await visualAssertions(page, visualDirectory);
+  await visualAssertions(page, visualDirectory, observeContext);
 
   for (const id of [
     "orreryTrueScale",
@@ -1250,6 +1255,7 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
 
 async function main() {
   let phase="setup";
+  const backend=browserBackendFromArgs(process.argv.slice(2));
   const webRoot = path.resolve(argument("web-root", WEB));
   const outputDirectory = path.resolve(argument("output-dir", path.join(ROOT, "coverage", "browser")));
   fs.mkdirSync(outputDirectory, { recursive: true });
@@ -1270,19 +1276,25 @@ async function main() {
     }
   }
 
-  const server = await staticServer(webRoot, mapping?.manifest.base_path || "/");
   let browser;
   let workerCoverage;
   let diagnosticPage;
   const failures = [];
+  const evidence={schema_version:'browser-validation.v1',status:'running',started_at:new Date().toISOString(),
+    requested_backend:backend,scope:'Complete existing application gates; native execution requires actual application-context renderer identity.',
+    artifact:mapping?{release_id:mapping.manifest.release_id,source_sha:mapping.manifest.source_sha,
+      manifest_sha256:createHash('sha256').update(fs.readFileSync(path.join(webRoot,'web-release-manifest.json'))).digest('hex')}:null,
+    validation_source_sha256:Object.fromEntries(['browser_validation.mjs','browser_backend.mjs','texture_device_telemetry.mjs',
+      'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs'].map(name=>[name,
+      createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')])),
+  };
+  const saveEvidence=()=>fs.writeFileSync(path.join(outputDirectory,'browser-evidence.json'),JSON.stringify(evidence,null,2)+'\n');
+  const server = await staticServer(webRoot, mapping?.manifest.base_path || "/");
   const started = Date.now();
   const progress = setInterval(() => console.log(`Browser validation: ${phase} still running (${Math.round((Date.now()-started)/1000)}s elapsed)`), 30_000);
   progress.unref();
   try {
-  browser = await puppeteer.launch({
-    executablePath: browserBinary(),
-    headless: true,
-    args: [
+  const launchArgs=[
       "--no-sandbox",
       "--disable-dev-shm-usage",
       "--disable-background-networking",
@@ -1291,12 +1303,12 @@ async function main() {
       "--disable-extensions",
       "--disable-features=Translate,OptimizationHints",
       "--disable-sync",
-      "--enable-unsafe-swiftshader",
-      "--use-angle=swiftshader",
-      "--use-gl=angle",
+      ...browserBackendArgs(backend),
       "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
-    ],
-  });
+    ];
+  evidence.browser_launch_args=launchArgs;saveEvidence();
+  browser = await puppeteer.launch({executablePath:browserBinary(),headless:true,args:launchArgs});
+  evidence.browser_version=await browser.version();saveEvidence();
 
     console.log("Browser validation: Chromium launched");
     const page = await browser.newPage();
@@ -1376,7 +1388,14 @@ async function main() {
     await exerciseSky(page);
     await workerCoverage.collect();
     phase="System/WebGL";console.log(`Browser validation: ${phase}`);
-    await exerciseOrrery(page, path.join(outputDirectory, "visual"));
+    await exerciseOrrery(page, path.join(outputDirectory, "visual"),async label=>{
+      evidence.capabilities=await page.evaluate(captureBrowserCapabilities);
+      evidence.observed_backend=classifyTextureBackend(evidence.capabilities.renderer);
+      const observation={label,requested_backend:backend,capabilities:evidence.capabilities,observed_backend:evidence.observed_backend};
+      (evidence.application_contexts??=[]).push(observation);saveEvidence();
+      assertBrowserBackend(backend,evidence.capabilities);
+      return observation;
+    });
     // Mapping holds intentionally prevent these archived vectors becoming a globe
     // texture. Exercise their module contract separately, without enabling that
     // unqualified rendering path or adding a first-paint runtime download.
@@ -1396,7 +1415,9 @@ async function main() {
     }
     phase="coverage mapping";console.log(`Browser validation: ${phase}`);
     await writeBrowserCoverage(entries, webRoot, outputDirectory);
+    evidence.status='passed';
   } catch(error) {
+    evidence.status='failed';evidence.failure={phase,error:error.message};
     let timer, diagnostic, diagnosticError;
     try {
       diagnostic=await Promise.race([diagnosticPage?.evaluate(()=>({
@@ -1419,9 +1440,14 @@ async function main() {
     clearInterval(progress);
     console.log(`Browser validation: cleanup after ${phase}`);
     try {
-      if (workerCoverage) await workerCoverage.dispose();
-      if (browser) await closeOwnedBrowser(browser);
-    } finally { await server.close(); }
+      try{if (workerCoverage) await workerCoverage.dispose();}
+      finally{if (browser) await closeOwnedBrowser(browser);}
+    } catch(error){evidence.status='failed';evidence.cleanup_error=error.message;throw error;}
+    finally {
+      try{await server.close();}
+      catch(error){evidence.status='failed';evidence.server_cleanup_error=error.message;throw error;}
+      finally{evidence.completed_at=new Date().toISOString();saveEvidence();}
+    }
   }
   console.log("OK: Chromium runtime coverage and WebGL visual assertions passed");
 }

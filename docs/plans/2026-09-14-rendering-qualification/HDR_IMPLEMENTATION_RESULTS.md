@@ -188,6 +188,34 @@ node tools/hdr_presentation_validation.mjs --web-root=build/qualified-candidate 
 node tools/browser_validation.mjs --web-root=build/qualified-candidate --hdr-candidate=true
 ```
 
+`tools/browser_validation.mjs` also accepts `--backend=native` (or
+`--backend native`). The default remains `swiftshader` with the original GPU
+launch flags. Native mode selects ANGLE D3D11 on Windows and the platform ANGLE
+backend elsewhere, then requires a recognized hardware renderer from the actual
+application context. A software fallback or unknown renderer fails this requested
+native gate. The observed renderer string is an execution qualification signal,
+not device attestation or a claim about total GPU memory.
+
+`browser-evidence.json` records the requested backend, exact launch flags,
+browser version, immutable release/source/manifest identity, validation-tool
+hashes and actual-context capabilities. It observes that same canvas after
+startup and immediately before the separate physical spin window; the latter
+observation is also attached to `earth-physical-spin.json`. Failed runs retain
+their status and context evidence. Existing page/console diagnostics remain in
+`failure.json`; owned-browser cleanup also runs if worker coverage cleanup fails.
+No deadline, viewport, material detail, numerical threshold or negative control
+changes with backend selection. Use separate fresh output directories:
+
+```powershell
+node tools/browser_validation.mjs --web-root=build/qualified-candidate --output-dir=coverage/hdr-swiftshader --hdr-candidate=true --backend=swiftshader
+node tools/browser_validation.mjs --web-root=build/qualified-candidate --output-dir=coverage/hdr-native --hdr-candidate=true --backend=native
+```
+
+The new backend option and capability collection passed 49 focused CPU tests,
+including the existing physical/final-presentation collector checks. That result
+does not establish an actual native browser pass; combined geometry and native
+replays remain pending until separately recorded.
+
 Use the repository's existing output/coverage options for the second command and
 the same original runtime budgets. A passing material swatch or advancing offscreen
 producer does not satisfy final-presentation qualification. Source maps still carry
