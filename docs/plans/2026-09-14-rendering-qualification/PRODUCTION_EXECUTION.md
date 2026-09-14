@@ -34,6 +34,11 @@ invariants and the existing 40-second recovery and 240-second total limits remai
 | Full-workload native memory | Earth and Mars each pass all five checkpoints after their original application gates. Active/restored shared GPU-process usage is 471,040,000/411,668,480 bytes for Earth and 486,653,952/324,415,488 bytes for Mars. These are owned-process/WDDM observations, not per-texture VRAM or continuous residency. |
 | Final published-head hosted CI | This local record closes before publication. Current published-head results and review disposition are recorded in [PR 107](https://github.com/Protonmatter/sol/pull/107). The earlier `6083b5c` failures remain retained. |
 
+The first publication at `89e1e28b226fa7346eaa53ecfa0d404dcbc37124` subsequently
+failed both hosted Chromium coverage jobs at the unchanged Earth draw deadline.
+The [hosted follow-up](HOSTED_PERFORMANCE_FOLLOWUP.md) preserves those failures
+and the current diagnostic boundary. Local passes do not override that open P1.
+
 The [numerical qualification](ATMOSPHERE_SHADOW_CONDITIONING.md) and
 [source-bound receipt](ATMOSPHERE_SHADOW_CONDITIONING_QUALIFICATION.json)
 record the complete matrix and independent reference joins. The
