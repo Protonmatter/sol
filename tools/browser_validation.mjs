@@ -1451,6 +1451,11 @@ async function main() {
       await runFullFeatureMemoryCheckpoints({browser,page,body:'Earth',backend,originalReceipt:evidence.original_gates,
         save:observation=>{evidence.memory=observation;saveEvidence();}});
     }
+    // Keep original acceptance separate; a later memory/restoration error still
+    // fails this complete run through the unchanged page/console listeners.
+    if (failures.length) {
+      throw new Error(`browser runtime errors after original acceptance:\n${failures.map((item) => `  - ${item}`).join("\n")}`);
+    }
     evidence.status='passed';
   } catch(error) {
     evidence.status='failed';evidence.failure={phase,error:error.message};

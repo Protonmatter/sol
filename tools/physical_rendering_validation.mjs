@@ -348,6 +348,9 @@ try{
   evidence.original_gates={passed:true,deadline_ms:240000,completed_at:new Date().toISOString()};save();
   if(memory)await runFullFeatureMemoryCheckpoints({browser,page,body:'Mars',backend,originalReceipt:evidence.original_gates,
     save:observation=>{evidence.memory=observation;save();}});
+  // Optional restoration/sampling must not hide errors after original acceptance.
+  assert.deepEqual(evidence.errors,[],'Page errors after original acceptance');
+  assert.deepEqual(evidence.console_errors,[],'Console errors after original acceptance');
   evidence.passed=true;
 }catch(error){
   evidence.passed=false;evidence.failure=String(error?.stack||error);
