@@ -90,3 +90,23 @@ test('resize, empty view and context loss invalidate pending producers and relea
   p.resize(10,10);h.options.lost=true;
   assert.equal(p.beginFrame(identity(5)),false);p.dispose();assert.equal(h.live.size,0);
 });
+
+test('resizing between visible sizes reuses the compiled presentation program',()=>{
+  const h=graphics();let programs=0,shaders=0;
+  const createProgram=h.gl.createProgram,createShader=h.gl.createShader;
+  h.gl.createProgram=()=>{programs++;return createProgram();};
+  h.gl.createShader=type=>{shaders++;return createShader(type);};
+  const p=createHdrPresentation(h.gl,{generation:7});
+  assert.equal(p.resize(20,10).state,'ready');
+  assert.equal(p.resize(10,20).state,'ready');
+  assert.equal(p.resize(640,480).state,'ready');
+  assert.equal(programs,1,'an unchanged program is not recompiled on resize');
+  assert.equal(shaders,2);
+  // The reused program still presents the current producer after a resize.
+  assert.equal(p.beginFrame(identity(1)),true);
+  assert.equal(p.present({exposure:1,frameIdentity:identity(1)}),true);
+  // An empty view still releases every allocation, and the next visible size recompiles.
+  assert.equal(p.resize(0,0).state,'deferred');assert.equal(h.live.size,0);
+  assert.equal(p.resize(20,10).state,'ready');assert.equal(programs,2);
+  p.dispose();assert.equal(h.live.size,0);
+});

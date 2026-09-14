@@ -19,6 +19,19 @@ export function createHdrPresentation(gl,{generation,maxBytes=DEFAULT_MAX_BYTES}
     ||!Number.isSafeInteger(maxBytes)||maxBytes<=0)throw new RangeError('Invalid HDR resource budget or context generation.');
   let group=null,pending=null,lastSerial=0,attempt='',disposed=false;
   let report={state:'deferred',reason:'No visible frame.',generation,width:0,height:0,estimatedBytes:0,presented:null};
+  // Attachments depend on the canvas size; the compiled presentation program does not.
+  // A resize releases only the attachments so an unchanged program is not recompiled
+  // and relinked on every size change. Failure, an empty view and dispose release all.
+  const releaseTargets=()=>{
+    pending=null;
+    if(group){
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+      if(group.color)gl.deleteTexture(group.color);
+      if(group.depth)gl.deleteRenderbuffer(group.depth);
+      if(group.framebuffer)gl.deleteFramebuffer(group.framebuffer);
+      group.color=null;group.depth=null;group.framebuffer=null;
+    }
+  };
   const release=()=>{
     pending=null;
     if(group){
@@ -44,9 +57,9 @@ export function createHdrPresentation(gl,{generation,maxBytes=DEFAULT_MAX_BYTES}
     const key=`${width}x${height}`;
     if(disposed)return status();
     if(attempt===key)return status(); // failed allocations require a new size or explicit new owner
-    attempt=key;release();
+    attempt=key;releaseTargets();
     report={...report,width,height,estimatedBytes:0,presented:null};
-    if(width===0||height===0){report={...report,state:'deferred',reason:'No visible frame.'};return status();}
+    if(width===0||height===0){release();report={...report,state:'deferred',reason:'No visible frame.'};return status();}
     if(!Number.isInteger(width)||!Number.isInteger(height)||width<0||height<0||width>MAX_EDGE||height>MAX_EDGE
       ||width*height*12>maxBytes)return unavailable('Full-resolution HDR target exceeds its allocation budget.');
     if(gl.isContextLost())return unavailable('Graphics context lost.');
@@ -54,7 +67,9 @@ export function createHdrPresentation(gl,{generation,maxBytes=DEFAULT_MAX_BYTES}
     if(width>gl.getParameter(gl.MAX_TEXTURE_SIZE)||height>gl.getParameter(gl.MAX_TEXTURE_SIZE)
       ||width>gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)||height>gl.getParameter(gl.MAX_RENDERBUFFER_SIZE))
       return unavailable('Full-resolution HDR target exceeds device dimensions.');
-    group={color:null,depth:null,framebuffer:null,program:null,vao:null,shaders:[],uniforms:{}};
+    const retained=group;
+    group={color:null,depth:null,framebuffer:null,program:retained?.program??null,vao:retained?.vao??null,
+      shaders:retained?.shaders??[],uniforms:retained?.uniforms??{}};
     try{
       group.color=requireResource(gl.createTexture(),'color');
       gl.bindTexture(gl.TEXTURE_2D,group.color);
@@ -76,18 +91,20 @@ export function createHdrPresentation(gl,{generation,maxBytes=DEFAULT_MAX_BYTES}
           throw new Error('HDR write/read qualification failed.');
       }
       gl.disable(gl.SCISSOR_TEST);
-      for(const [type,source] of [[gl.VERTEX_SHADER,HDR_PRESENT_VS],[gl.FRAGMENT_SHADER,HDR_PRESENT_FS]]){
-        const shader=requireResource(gl.createShader(type),'shader');group.shaders.push(shader);
-        gl.shaderSource(shader,source);gl.compileShader(shader);
-        if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error('HDR presentation shader unavailable.');
+      if(!group.program){
+        for(const [type,source] of [[gl.VERTEX_SHADER,HDR_PRESENT_VS],[gl.FRAGMENT_SHADER,HDR_PRESENT_FS]]){
+          const shader=requireResource(gl.createShader(type),'shader');group.shaders.push(shader);
+          gl.shaderSource(shader,source);gl.compileShader(shader);
+          if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error('HDR presentation shader unavailable.');
+        }
+        group.program=requireResource(gl.createProgram(),'program');
+        for(const shader of group.shaders)gl.attachShader(group.program,shader);
+        gl.linkProgram(group.program);
+        if(!gl.getProgramParameter(group.program,gl.LINK_STATUS))throw new Error('HDR presentation link failed.');
+        for(const name of ['u_scene','u_exposure','u_frameSerial','u_frameGeneration','u_frameEpochHigh','u_frameEpochLow'])
+          group.uniforms[name]=gl.getUniformLocation(group.program,name);
+        group.vao=requireResource(gl.createVertexArray(),'vertex array');
       }
-      group.program=requireResource(gl.createProgram(),'program');
-      for(const shader of group.shaders)gl.attachShader(group.program,shader);
-      gl.linkProgram(group.program);
-      if(!gl.getProgramParameter(group.program,gl.LINK_STATUS))throw new Error('HDR presentation link failed.');
-      for(const name of ['u_scene','u_exposure','u_frameSerial','u_frameGeneration','u_frameEpochHigh','u_frameEpochLow'])
-        group.uniforms[name]=gl.getUniformLocation(group.program,name);
-      group.vao=requireResource(gl.createVertexArray(),'vertex array');
       if(gl.getError()!==gl.NO_ERROR)throw new Error('GPU rejected HDR resources.');
       gl.bindFramebuffer(gl.FRAMEBUFFER,null);
       report={...report,state:'ready',reason:'Linear display composition; fixed exposure; SDR output.',estimatedBytes:width*height*12};
