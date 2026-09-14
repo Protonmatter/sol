@@ -1,10 +1,16 @@
 /** Collect actual submitted Earth transforms in the unchanged five-second window.
+ * The separate Mars terrain gate may select body:'Mars'; defaults remain Earth.
  * Self-contained: Puppeteer serializes this function into the existing app page.
  */
-export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
+export async function collectSubmittedEarthSpin({holdPresentation=false,physicalEvidence=false,body='Earth',requireTerrainEvidence=false}={}) {
+  if(!['Earth','Mars'].includes(body))throw new Error('Unsupported physical spin body');
   const entry = document.querySelector('script[type="module"][src^="app.js"]');
   const { store } = await import(`./js/store.js${entry ? new URL(entry.src).search : ""}`);
   const canvas = document.getElementById("orreryCanvas"), gl = canvas.getContext("webgl2");
+  const physical=physicalEvidence?globalThis.__solPhysicalSpinEvidence:null;
+  if(physicalEvidence&&physical?.body!==body)throw new Error(`${body} physical spin evidence must be prepared before collection`);
+  const terrain=requireTerrainEvidence?globalThis.__solMarsTerrainEvidence:null;
+  if(requireTerrainEvidence&&(body!=='Mars'||terrain?.body!==body))throw new Error('Mars terrain spin evidence must be prepared before collection');
   const original = gl.drawElements, originalArrays = gl.drawArrays;
   const originalUseProgram = gl.useProgram, originalUniform1i = gl.uniform1i;
   const originalUniformMatrix4fv = gl.uniformMatrix4fv;
@@ -12,12 +18,14 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
   const presentationLocations=new Map();let pendingEarth=null;
   const draws = { attempted: 0, submitted: 0, arrayAttempted: 0, arraySubmitted: 0,
     surface: 0, earth: 0, duplicateEpoch: 0, candidates: 0, unknown: 0, gpuMismatch: 0,
-    expiredDraws: 0, lateReadbacks: 0, offscreenEarth:0, presentedEarth:0, presentationMismatch:0, heldPresentations:0 };
+    expiredDraws: 0, lateReadbacks: 0, offscreenEarth:0, presentedEarth:0, presentationMismatch:0, heldPresentations:0,
+    physicalRejected:0,physicalAccepted:0,terrainRejected:0,terrainAccepted:0 };
+  const physicalRejections=[],terrainRejections=[];
   const nativeCalls = Object.fromEntries(["useProgram", "uniform1i", "uniformMatrix4fv"].map(
     name => [name, { attempted: 0, completed: 0 }]));
   let hintedProgram = null, zeroInteger = false, earthMatrix = false;
   const clearHints = () => { zeroInteger = false; earthMatrix = false; };
-  const centeredOnEarth = (model, earth) => earth && model.length === 16 && model.every(Number.isFinite)
+  const centeredOnBody = (model, earth) => earth && model.length === 16 && model.every(Number.isFinite)
     && Math.hypot(model[12] - earth.x_au, model[13] - earth.y_au, model[14] - earth.z_au) <= 1e-5;
   const readState = () => {
     const rect = canvas.getBoundingClientRect();
@@ -25,6 +33,7 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
       hidden: document.hidden, visibility: document.visibilityState, contextLost: gl.isContextLost(),
       anchor: store.orrery.anchor, selected: store.orrery.selected, engineError: store.orrery.engineError,
       hdrEnabled:!!store.orrery.hdrEnabled,hdrStatus:store.orrery.hdrStatus??null,
+      opticsEnabled:!!store.orrery.opticsEnabled,opticsStatus:store.orrery.opticsStatus??null,
       lastTick: store.orrery.lastTick, renderUnix: store.orrery.renderUnix,
       canvas: { clientWidth: canvas.clientWidth, clientHeight: canvas.clientHeight,
         width: canvas.width, height: canvas.height, x: rect.x, y: rect.y, widthCss: rect.width, heightCss: rect.height } };
@@ -68,11 +77,11 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
       if (hintedProgram && location && transpose === false && Number.isInteger(offset) && offset >= 0
           && count === 16 && offset + count <= data?.length) {
         const model = Array.from(data).slice(offset, offset + count);
-        const earth = store.orrery.bodies.find(body => body.name === "Earth");
+        const earth = store.orrery.bodies.find(item => item.name === body);
         // A perspective MVP cannot be a model hint. Later unrelated uniforms
         // must not erase a valid candidate from the same production draw.
         if (model[3] === 0 && model[7] === 0 && model[11] === 0 && model[15] === 1
-            && centeredOnEarth(model, earth)) earthMatrix = true;
+            && centeredOnBody(model, earth)) earthMatrix = true;
       }
     } catch (error) { sampleError = String(error); }
     return result;
@@ -150,10 +159,10 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
       if (performance.now() > deadlineMs) { draws.lateReadbacks++; return result; }
       if (mode !== 0) { draws.gpuMismatch++; return result; }
       draws.surface++;
-      const earth = store.orrery.bodies.find(body => body.name === "Earth");
+      const earth = store.orrery.bodies.find(item => item.name === body);
       const model = Array.from(gl.getUniform(program, loc.u_model));
       if (performance.now() > deadlineMs) { draws.lateReadbacks++; return result; }
-      if (!centeredOnEarth(model, earth)) { draws.gpuMismatch++; return result; }
+      if (!centeredOnBody(model, earth)) { draws.gpuMismatch++; return result; }
       draws.earth++;
       const normal = Array.from(gl.getUniform(program, loc.u_nmat));
       // A synchronous GPU read can postpone timer delivery. Admission uses its
@@ -164,6 +173,18 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
       const sample={ sampledMs, elapsedMs: sampledMs - timing.startedMs,
         epoch, rate: store.orrery.yearsPerSec * 365.25 * 86400,
         normal, model };
+      if(physical){
+        const evidence=physical.capture(gl,program);
+        if(!evidence.passed){draws.physicalRejected++;if(physicalRejections.length<16)physicalRejections.push(evidence);return result;}
+        const confirmedMs=performance.now();if(confirmedMs>deadlineMs){draws.lateReadbacks++;return result;}
+        sample.physical={...evidence,confirmedMs};draws.physicalAccepted++;
+      }
+      if(terrain){
+        const evidence=terrain.capture(gl,program,{mode:args[0],count:args[1],type:args[2],offset:args[3]});
+        if(!evidence.passed){draws.terrainRejected++;if(terrainRejections.length<16)terrainRejections.push(evidence);return result;}
+        const confirmedMs=performance.now();if(confirmedMs>deadlineMs){draws.lateReadbacks++;return result;}
+        sample.terrain={...evidence,confirmedMs};draws.terrainAccepted++;
+      }
       if(store.orrery.hdrFrame){
         // A real current Earth draw is only a producer until the matching texture
         // reaches the default framebuffer's actual presentation shader.
@@ -194,5 +215,6 @@ export async function collectSubmittedEarthSpin({holdPresentation=false}={}) {
     cancelAnimationFrame(heartbeatId);
     timing.endedMs = performance.now(); timing.elapsedMs = timing.endedMs - timing.startedMs;
   }
-  return { samples, sampleError, drawCounts: draws, nativeCalls, timing, rafHeartbeat, initialState, state: readState() };
+  return { samples, sampleError, drawCounts: draws, nativeCalls, timing, rafHeartbeat, initialState, state: readState(),
+    subjectBody:body,physical:physical?.summary??null,physicalRejections,terrain:terrain?.summary??null,terrainRejections };
 }

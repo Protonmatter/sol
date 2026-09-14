@@ -25,7 +25,7 @@ function transform(angle = 0, center = [.1, .2, .3]) {
     normal: new Float32Array([c, s, 0, -s, c, 0, 0, 0, 1]) };
 }
 
-async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualified', setup, allowNativeErrors = false, probeOptions = {} } = {}) {
+async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualified', setup, allowNativeErrors = false, probeOptions = {}, physicalCapture,terrainCapture } = {}) {
   let now = 0, nextId = 0, outcome, currentProgram = null;
   const tasks = new Map(), frames = new Map(), nativeCalls = [], uncaught = [], imports = [];
   const state = { active: true, animate: true, anchor: 'Earth', selected: 'Earth', engineError: '', lastTick: 12,
@@ -112,6 +112,8 @@ async function spin({ actions = [], deliverRaf = false, importToken = '?v=qualif
   const context = vm.createContext({ document: { hidden: false, visibilityState: 'visible',
     querySelector: () => importToken === null ? null : { src: `https://sol.invalid/sol/app.js${importToken}` }, getElementById: () => canvas },
     performance: { now: () => now }, URL,queueMicrotask,
+    __solPhysicalSpinEvidence:physicalCapture?{body:probeOptions.body??'Earth',summary:{body:probeOptions.body??'Earth'},capture:()=>physicalCapture(env)}:undefined,
+    __solMarsTerrainEvidence:terrainCapture?{body:'Mars',summary:{body:'Mars'},capture:(_gl,_program,args)=>terrainCapture(env,args)}:undefined,
     setTimeout: (fn, delay) => schedule(fn, delay), clearTimeout: id => tasks.delete(id),
     setInterval: (fn, delay) => schedule(fn, delay, delay), clearInterval: id => tasks.delete(id),
     requestAnimationFrame: fn => { const id = ++nextId; frames.set(id, fn); return id; }, cancelAnimationFrame: id => frames.delete(id),
@@ -201,6 +203,30 @@ test('presentation completion after five seconds cannot accept an earlier HDR pr
     env.advance(1);env.upload();env.hdr(1);env.draw();env.present({completionDelay:2});
   }]]});
   assert.equal(result.samples.length,0);assert.equal(result.drawCounts.lateReadbacks,1);
+});
+
+test('separate physical spin cannot admit fallback draws or bypass final presentation',async()=>{
+  const actions=[1,2,3,4].map(i=>[i*100,env=>{env.advance(i);env.upload(i*.01*2*Math.PI/5);env.hdr(i);env.draw();env.present();}]);
+  const rejected=await spin({actions,probeOptions:{physicalEvidence:true},physicalCapture:()=>({passed:false,reason:'fallback program'})});
+  assert.equal(rejected.result.samples.length,0);assert.equal(rejected.result.drawCounts.physicalRejected,4);
+  const accepted=await spin({actions,probeOptions:{physicalEvidence:true},physicalCapture:()=>({passed:true,programSequence:1})});
+  assert.equal(accepted.result.samples.length,4);assertSubmittedSpin(accepted.result.samples);
+  assert.ok(accepted.result.samples.every(sample=>sample.physical.passed&&sample.presentation));
+  const held=await spin({actions,probeOptions:{physicalEvidence:true,holdPresentation:true},physicalCapture:()=>({passed:true})});
+  assert.equal(held.result.samples.length,0);assert.equal(held.result.drawCounts.physicalAccepted,4);
+});
+
+test('Mars terrain and physical evidence join the same actual draw without changing the Earth default',async()=>{
+  const actions=[1,2,3,4].map(i=>[i*100,env=>{env.advance(i);env.upload(i*.01*2*Math.PI/5);env.hdr(i);env.draw();env.present();}]);
+  const setup=env=>{env.state.bodies[0].name='Mars';env.state.selected='Mars';};
+  for(const passed of [true,false]){
+    const observed=[];
+    const {result}=await spin({actions,setup,probeOptions:{body:'Mars',physicalEvidence:true,requireTerrainEvidence:true},
+      physicalCapture:()=>({passed:true}),terrainCapture:(_env,args)=>{observed.push(args);return {passed};}});
+    assert.equal(result.subjectBody,'Mars');assert.equal(result.samples.length,passed?4:0);
+    assert.equal(observed.length,4);assert.ok(observed.every(args=>args.mode===4&&args.count===36&&args.type===5123&&args.offset===0));
+    if(passed)assert.ok(result.samples.every(sample=>sample.physical.passed&&sample.terrain.passed&&sample.presentation));
+  }
 });
 
 test('zero draws retain the five-second window and initial/final state evidence', async () => {

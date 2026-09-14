@@ -4,12 +4,15 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash } from 'node:crypto';
 import coverageModule from "istanbul-lib-coverage";
 import puppeteer from "puppeteer-core";
 import v8ToIstanbul from "v8-to-istanbul";
 import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
 import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
+import { installProgramSourceEvidence, preparePhysicalSpinEvidence } from './physical_spin_probe.mjs';
+import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
 import { assertCaptionLayouts } from "./caption_layout.mjs";
 import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
 import { waitForReferenceReadiness } from "./reference_readiness.mjs";
@@ -987,6 +990,18 @@ async function visualAssertions(page, visualDirectory) {
       throw new Error('spin gate accepted a held HDR presentation or did not observe its negative control');
   }
   fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify({ ...spinProbe, ...rotationStats, frozenRejected,heldPresentationProbe }, null, 2));
+  if(argument('hdr-candidate','false')==='true'||argument('physical-spin','false')==='true'){
+    // This additional gate never substitutes for the original Earth rotation
+    // acceptance above. Source preparation/hashing precedes its unchanged 5s window.
+    await page.evaluate(preparePhysicalSpinEvidence,{body:'Earth'});
+    const physicalSpin=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});
+    physicalSpin.validation_source_sha256=Object.fromEntries(['earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs']
+      .map(name=>[name,createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')]));
+    fs.writeFileSync(path.join(visualDirectory,'earth-physical-spin.json'),JSON.stringify(physicalSpin,null,2));
+    if(physicalSpin.sampleError)throw new Error(`Physical Earth draw inspection failed: ${physicalSpin.sampleError}`);
+    assertSubmittedSpin(physicalSpin.samples);
+    if(physicalSpin.samples.some(sample=>!sample.physical?.passed))throw new Error('Physical Earth spin admitted fallback evidence');
+  }
   const spinDisclosure = await page.$eval("#orreryAccuracy", (node) => node.textContent);
   if (!spinDisclosure.includes("Rotation display rate-limited")) {
     throw new Error(`high-speed rotation disclosure is missing: ${JSON.stringify(spinDisclosure)}`);
@@ -1285,6 +1300,8 @@ async function main() {
 
     console.log("Browser validation: Chromium launched");
     const page = await browser.newPage();
+    await page.evaluateOnNewDocument(installProgramSourceEvidence);
+    await page.evaluateOnNewDocument(installPhysicalTextureEvidence);
     diagnosticPage=page;
     await page.setBypassServiceWorker(true);
     workerCoverage=await startWorkerCoverage(page);

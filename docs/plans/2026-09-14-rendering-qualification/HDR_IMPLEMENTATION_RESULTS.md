@@ -78,6 +78,32 @@ gate runs the held-presentation negative control when HDR samples are present.
 The original frozen-transform control and minimum three accepted draws in five
 seconds remain unchanged.
 
+The additional physical Earth gate runs after that original acceptance. Before
+application startup, `installProgramSourceEvidence` observes shader sources and
+completed native link calls, retaining immutable source strings after the renderer
+detaches its shader companions. `installPhysicalTextureEvidence` separately records
+and hashes tightly packed numerical uploads before the timed window. Preparation
+compares the expected profile with both immutable field manifests. At each actual
+Earth draw, the physical probe requires the exact production sphere sources,
+atmosphere/refraction/incident-ready GPU uniforms, profile/catalogue parameters,
+current solar-flux and exposure values, and the currently bound incident/column
+texture objects matching those observed upload bytes. Readiness state by itself
+cannot pass. The original independent model/normal readback and final HDR texture,
+linear-output, serial, generation and epoch join still apply to every sample.
+The strengthened helper also derives optical camera/Sun geometry from actual
+`u_model` and `u_cam` readbacks. It propagates their binary32 rounding intervals
+through column normalization, inverse rotation and physical-radius conversion,
+then checks the separately rounded optical vectors against those intervals.
+This rejects stale geometry without adding an arbitrary optical tolerance.
+
+This records native upload inputs and current bindings; it does not substitute for
+the independent numerical pixel fixtures or claim a full GPU texture readback.
+Framebuffer-generated scattering fields require their own generating-pass and
+current camera/Sun/profile identity evidence. A static allocation or upload hash
+cannot establish that dynamic field contract. The collector also supports a
+separate `body:'Mars'` gate with an actual-draw terrain evidence callback; that
+extension does not change the default Earth acceptance or qualify terrain here.
+
 ## Local verification and remaining gates
 
 `tools/hdr_presentation_validation.mjs` executes the real target manager and real
@@ -109,6 +135,9 @@ of colored stars. Synthetic Mars emission tests admit no Mars night-light source
 | `coverage/hdr-followup-final-node-50.log` | 50/50 focused manager, lifecycle, color and Earth probe tests. Deliberate stale producer, suppressed draw and rejected completion controls were red before their respective guards. |
 | `coverage/hdr-physical-b0c5438-staged/evidence.json` | 66/66 against immutable release `hdr-candidate-b0c5438`, including actual physical material and shell output. |
 | `coverage/hdr-browser-b0c5438.log` and `coverage/hdr-browser-b0c5438/visual/earth-submitted-spin.json` | Full staged HDR browser gate passed, including original Sun/Earth/orbit/moon criteria, frozen rotation and held final-presentation controls. |
+| `coverage/physical-spin-final-cpu.log` | 55/55 focused manager, lifecycle, color, Earth/Mars collector and physical-source tests. Relinking a previously accepted program to a fallback was red before source-cache invalidation. Wrong physical flags, profile/flux/exposure, source hashes, formats, dimensions and invalidated uploads are rejected. |
+| `coverage/physical-spin-geometry-red.log` and `coverage/physical-spin-geometry-final-cpu.log` | Stale optical camera/Sun/model controls reproduced a false pass, then all 57 focused tests passed with the GPU geometry consistency join. Independently rounded geometry at enlarged and physical display scales remains accepted. |
+| `coverage/hdr-physical-browser-b0c5438.log` and `coverage/hdr-physical-browser-b0c5438/visual/earth-physical-spin.json` | Full original staged HDR browser gate and additional actual physical Earth acceptance passed. Four physical draws reached matching final presentations by 1184.0 ms, with no physical rejection, GPU mismatch, presentation mismatch or late readback. |
 
 The final isolated runtime commit is
 `b0c5438b6788c947a55b8b4c16aef1c47c2e1b4e`; its immutable release digest is
@@ -129,6 +158,25 @@ passed locally. Receipts remain ignored local evidence. These results are not
 qualification of the subsequent integrated atmosphere/terrain/startup tree,
 the native device, cross-device performance, or hosted CI. The selected physical
 surface/shell matrix does not replace the full atmosphere-domain gate.
+
+The additional physical replay used the same immutable runtime release. Each of
+its four accepted draws read `u_atmosphereEnabled=1`,
+`u_atmosphereRefractionEnabled=1`, `u_incidentFieldReady=1` and exposure one from
+the actual current program. The observed fragment source hash was
+`b36592b126f393613cb5020d692751ed0f39ad28dcea1459600144b3e90174c0`.
+Its bound incident upload matched
+`4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639`
+and its bound RG32F columns matched
+`85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893`.
+The receipt retains every actual profile/geometry uniform, source-upload sequence,
+unpack state, model/normal matrix, final presentation identity and exact validation
+helper source hash. Hashing and source preparation preceded the five-second window;
+all draw readbacks and final-completion confirmation occurred inside it. This
+separate replay establishes the physical path for these frames; the earlier
+1193.8 ms receipt alone did not record enough evidence to make that claim.
+The geometry-consistency join was added after this replay. Its actual-browser
+replay is still pending; the saved receipt records finite optical geometry but
+does not independently establish that additional current-model consistency check.
 
 Required integrating commands include the existing atmosphere, planet, ring,
 solar/physical rendering, context-loss and browser tools against one immutable
