@@ -1383,7 +1383,10 @@ function queueTransparent(pos,eye,draw) {
 function beginSceneFrame(width,height){
   linearFrame=false;state.hdrFrame=null;
   scatteringFrame={contextGeneration,sceneSerial:++sceneSerial,epoch:state.renderUnix};
-  state.scatteringFrame={...scatteringFrame};state.scatteringStatus={};
+  state.scatteringFrame={...scatteringFrame};
+  // Failed state capture has no owner diagnostic to retain. Keep its terminal
+  // cause until explicit demand/optics retry, without retrying on every repaint.
+  state.scatteringStatus=Object.fromEntries(Object.entries(state.scatteringStatus).filter(([,status])=>status.preparationFailed===true));
   scatteringTargets?.beginFrame(scatteringFrame);
   if(!state.hdrEnabled||state.earthIce){
     hdrPresentation?.dispose();hdrPresentation=null;
@@ -1425,7 +1428,7 @@ function scatteringCallerState(){
 }
 
 function generateBodyScattering(body,profile,opticalOptions,physicalRadius,mesh){
-  if(!scatteringTargets||!scatteringFrame)return null;
+  if(!scatteringTargets||!scatteringFrame||state.scatteringStatus[body]?.preparationFailed)return null;
   const reference=mesh.heightTex?terrainReference(body):null;
   if(mesh.heightTex&&(!reference||mesh.sourceId!==reference.id||mesh.sourceSha256!==reference.sha256)){
     state.scatteringStatus[body]={state:'unavailable',reason:'Terrain source does not match the scattering envelope.',submission:null};return null;
@@ -1442,7 +1445,7 @@ function generateBodyScattering(body,profile,opticalOptions,physicalRadius,mesh)
   try{generated=scatteringTargets.beginFrame(scatteringFrame)&&scatteringTargets.generate(body,args,scatteringCallerState());}
   catch(error){
     scatteringTargets.cancel(body);
-    state.scatteringStatus[body]={state:'unavailable',reason:`Scattering preparation failed: ${String(error?.message??error).slice(0,300)}`,submission:null};
+    state.scatteringStatus[body]={state:'unavailable',preparationFailed:true,reason:`Scattering preparation failed: ${String(error?.message??error).slice(0,300)}`,submission:null};
     return null;
   }
   state.scatteringStatus[body]=scatteringTargets.status(body);

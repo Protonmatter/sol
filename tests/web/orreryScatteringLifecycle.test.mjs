@@ -99,3 +99,19 @@ test('a failed caller-state capture keeps the drawable fallback and clears prior
   assert.equal(consumers(h.gpuSubmissions.slice(first)).length,0);
   assert.ok(h.gpuSubmissions.length>first);assert.deepEqual(h.errors,[]);
 });
+
+test('caller-state failure stays unavailable with its cause until explicit optical retry',async t=>{
+  const h=await boot(t),getParameter=h.gl.getParameter;
+  h.gl.getParameter=name=>{if(name===h.gl.VIEWPORT)throw Error('persistent caller-state cause');return getParameter(name);};
+  h.resize(806,602);h.gl.getParameter=getParameter;
+  const before=h.gpuSubmissions.length,allocations=h.textureUploads.length;
+  h.resize(807,603);h.resize(808,604);
+  assert.equal(h.state.opticsStatus.Earth,'unavailable');
+  assert.match(h.state.scatteringStatus.Earth.reason,/persistent caller-state cause/);
+  assert.equal(consumers(h.gpuSubmissions.slice(before)).length,0);
+  assert.equal(generatorDraws(h.gpuSubmissions.slice(before)).length,0);
+  assert.equal(h.textureUploads.length,allocations);
+  h.check('orreryOptics',false);h.check('orreryOptics',true);await h.settle();
+  assert.equal(h.state.opticsStatus.Earth,'ready');
+  assert.ok(consumers(h.gpuSubmissions.slice(before)).length>0);
+});

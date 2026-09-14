@@ -45,7 +45,9 @@ to that scene's offscreen framebuffer before the surface and shell compose.
 Missing capabilities, invalid plans, source mismatches, incomplete targets or
 rejected bindings retain the existing illustrative material/limb and unavailable
 status. Static field or program readiness alone cannot claim a submitted current
-frame. Allocation failures do not retry on repaint. Explicit optical retry,
+frame. Allocation failures do not retry on repaint. A caller-state capture exception
+retains its unavailable status and original cause across subsequent repaints;
+recovering the driver alone does not start a hidden retry loop. Explicit optical retry,
 selection demand, context loss, hidden/left views and zero-size canvases preserve
 bounded cancellation and disposal. Numeric assets, ephemerides, geometry detail,
 terrain shadows, material interpretations and presentation thresholds are unchanged.
@@ -66,6 +68,9 @@ passed 1,098 tests including the terrain-identity guard and its negative control
 and a targeted state-read failure test verifies drawable fallback and removal
 of prior admission. The final focused lifecycle/consumer subset passed 39 tests.
 All 110 JavaScript files typechecked with the existing TypeScript 5.9.3 tool.
+An independent review then reproduced a caller-state failure becoming a permanent
+loading status on the next repaint. Its regression was red (6/7) before the
+terminal-cause fix and green (7/7) afterward, including explicit optical retry.
 
 The real dynamic producer observer is a separate follow-up. It must observe
 actual generator draws, program source, both attached output textures, current
