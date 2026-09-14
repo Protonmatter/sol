@@ -87,21 +87,44 @@ vec2 atmosphereShadowInterval(vec3 origin,vec3 direction){
   else interval.x=max(interval.x,-axialP/axialD);
   return interval;
 }
+// Exact exponential optical-coordinate substitution on complete datum-bounded
+// segments. These stable elementary evaluations avoid cancellation in binary32.
+float atmosphereOneMinusExp(float x){
+  if(x<0.125) return x*(1.0-x*(0.5-x*(1.0/6.0-x*(1.0/24.0-x*(1.0/120.0-x/720.0)))));
+  return 1.0-exp(-x);
+}
+float atmosphereNegativeLogOneMinus(float x,float remainder){
+  if(x<0.125) return x*(1.0+x*(0.5+x*(1.0/3.0+x*(0.25+x*(0.2+x*(1.0/6.0+x*(1.0/7.0+x*0.125)))))));
+  return -log(remainder);
+}
+vec2 atmosphereOpticalCoordinate(float u,float opticalWidth){
+  if(opticalWidth<=0.0) return vec2(u,1.0);
+  float span=atmosphereOneMinusExp(opticalWidth);
+  float remainder=(1.0-u)+u*exp(-opticalWidth);
+  return vec2(atmosphereNegativeLogOneMinus(u*span,remainder)/opticalWidth,
+    span/(opticalWidth*remainder));
+}
 vec3 atmosphereScatteredMonotonic(vec3 origin,vec3 direction,vec2 interval){
   if(interval.y<=interval.x) return vec3(0.0);
   float mu=clamp(dot(direction,normalize(u_atmosphereSunDirection)),-1.0,1.0);
   float phaseR=3.0*(1.0+mu*mu)/(16.0*ATM_PI), g=u_atmosphereG;
   float phaseA=(1.0-g*g)/(4.0*ATM_PI*pow(1.0+g*g-2.0*g*mu,1.5));
   float halfWidth=(interval.y-interval.x)*.5, middle=(interval.y+interval.x)*.5;
+  vec2 ground=atmosphereRayInterval(origin,direction,u_atmosphereRadiusKm);
+  bool belowDatum=ground.y>ground.x&&interval.x>=ground.x&&interval.y<=ground.y;
+  vec3 extinction=u_atmosphereRayleighKm+u_atmosphereAerosolKm;
+  float opticalWidth=belowDatum?(interval.y-interval.x)*min(extinction.x,min(extinction.y,extinction.z)):0.0;
   vec3 sum=vec3(0.0);
   for(int i=0;i<12;i++){
     float distance=middle+halfWidth*ATM_X12[i];
+    vec2 coordinate=atmosphereOpticalCoordinate((ATM_X12[i]+1.0)*.5,opticalWidth);
+    if(opticalWidth>0.0) distance=interval.x+(interval.y-interval.x)*coordinate.x;
     vec3 p=origin+direction*distance;
     vec2 density=exp(-atmosphereHeight(p)/u_atmosphereDensityScaleKm);
     vec3 source=u_atmosphereRayleighKm*density.x*phaseR
       +u_atmosphereAerosolKm*u_atmosphereAerosolSSA*density.y*phaseA;
     vec3 transmission=exp(-atmosphereOpticalDepth(origin,direction,distance))*atmosphereSunTransmission(p);
-    sum+=ATM_W12[i]*transmission*source;
+    sum+=ATM_W12[i]*coordinate.y*transmission*source;
   }
   return sum*halfWidth;
 }

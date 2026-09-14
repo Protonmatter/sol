@@ -1,5 +1,8 @@
 # Near-ground solar visibility correction
 
+The later [constant-datum optical-coordinate qualification](ATMOSPHERE_OPTICAL_COORDINATE.md)
+preserves this visibility correction while resolving long lit-segment quadrature.
+
 The direct atmospheric solver incorrectly declared some clear solar rays blocked
 within two metres of the reference ellipsoid. A negative dot product with the
 local normal means the ray initially moves inward; above a curved surface it does
