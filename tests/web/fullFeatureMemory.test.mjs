@@ -166,6 +166,54 @@ test('restored imagery preparation polls fresh state under one absolute deadline
   }
 });
 
+test('restored memory preparation awaits asynchronous base readiness before classifying imagery availability',async()=>{
+  const source=fs.readFileSync(new URL('../../tools/full_feature_memory.mjs',import.meta.url),'utf8');
+  async function run(terminalUnavailable){
+    let clock=1000,baseReady=false,afterBaseReads=0;const observed=[];
+    const context=vm.createContext({setTimeout:resolve=>{clock+=100;resolve();},clearTimeout:()=>{}});
+    const dependencies={
+      'node:assert/strict':{default:assert},
+      './texture_device_telemetry.mjs':{captureDeviceMemory:()=>{throw new Error('OS sampling belongs after preparation');}},
+      './browser_backend.mjs':{assertBrowserBackend:()=>{},captureBrowserCapabilities:()=>{}},
+      './physical_spin_probe.mjs':{preparePhysicalSpinEvidence:function preparePhysicalSpinEvidence(){},waitForPhysicalSpinReadiness:function waitForPhysicalSpinReadiness(){}},
+      './earth_spin_probe.mjs':{collectSubmittedEarthSpin:function collectSubmittedEarthSpin(){}},
+      './mars_terrain_probe.mjs':{prepareMarsTerrainEvidence:()=>{}},
+      './mars_spin_assertions.mjs':{assertMarsOpticalTerrainSpin:()=>{}},
+      './context_restore.mjs':{requestContextRestoration:()=>{}},
+    };
+    const module=new vm.SourceTextModule(source+'\nexport {prepareMemoryProof};',{context});
+    await module.link(name=>new vm.SyntheticModule(Object.keys(dependencies[name]),function(){
+      for(const [key,value] of Object.entries(dependencies[name]))this.setExport(key,value);
+    },{context}));await module.evaluate();
+    const page={setViewport:async()=>{},emulateMediaFeatures:async()=>{},$eval:async()=>{},
+      waitForFunction:async(_fn,options,body)=>{
+        assert.equal(body,'Earth');assert.equal(options.timeout,75000);baseReady=true;clock+=20;
+        observed.push('base-ready');
+      },evaluate:async(fn,arg)=>{
+        if(fn.name==='readMemoryFeatureState'){
+          const state=features();state.sampled_ms=clock;
+          const status=!baseReady?'unavailable':terminalUnavailable?'unavailable':['deferred','loading','ready'][Math.min(afterBaseReads++,2)];
+          state.appearance_status['earth-reference']=status;observed.push(status);return state;
+        }
+        if(fn.name==='preparePhysicalSpinEvidence'){observed.push('physical-proof');return {};}
+        if(fn.name==='waitForPhysicalSpinReadiness'){assert.equal(arg.deadlineMs,76000);return {passed:true};}
+        if(fn.name==='collectSubmittedEarthSpin')return proof();
+        if(fn.toString().includes('const systemStartedMs=performance.now()'))return {systemStartedMs:1000,deadlineMs:76000};
+        if(fn.toString().includes('deadline-performance.now()'))return arg-clock;
+        return undefined;
+      }};
+    if(terminalUnavailable){
+      await assert.rejects(module.namespace.prepareMemoryProof(page,'Earth',{restored:true}),/source unavailable/);
+      assert.deepEqual(observed,['unavailable','base-ready','unavailable']);
+    }else{
+      const result=await module.namespace.prepareMemoryProof(page,'Earth',{restored:true});
+      assert.deepEqual(observed,['unavailable','base-ready','deferred','loading','ready','physical-proof']);
+      assert.equal(result.budget.deadlineMs,76000);assert.deepEqual(JSON.parse(JSON.stringify(result.appearance)),required());
+    }
+  }
+  await run(false);await run(true);
+});
+
 test('OS sampling is blocked before missing imagery and rejected immediately if imagery becomes unready during capture',async()=>{
   let captures=0;const state=features(),expectation=required();
   const recorder=createMemoryCheckpointRecorder({browser:{},capture:async()=>{captures++;state.appearance_status['earth-composite']='loading';return {status:'available'};}});

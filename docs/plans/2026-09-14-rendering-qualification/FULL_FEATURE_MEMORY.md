@@ -94,7 +94,12 @@ graphics context generation. They also require registered imagery readiness:
   queued, loading, or deferred required sources keep preparation pending;
   unavailable sources or changed identities/selectors fail the checkpoint.
 - Context restoration repeats the requirement derivation and waits for fresh
-  readiness. Before sampling, the same required sources must be ready. The
+  readiness. The restored event precedes asynchronous base-program completion;
+  the existing optics/HDR/terrain readiness wait must complete before imagery
+  availability is classified. The temporary context-loss `unavailable` status
+  cannot fail that pending restoration. A source still unavailable afterward
+  does fail. Both waits share the same original absolute deadline.
+  Before sampling, the same required sources must be ready. The
   post-sample check is immediate: waiting for a failed or unloaded source to
   recover would describe a later workload and does not rescue the sample.
 

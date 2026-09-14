@@ -164,7 +164,6 @@ async function prepareMemoryProof(page,body,{restored=false}={}){
     document.getElementById('orrerySize').dispatchEvent(new Event('input'));
   },{body,restored});
   const appearance=createMemoryAppearanceRequirement(await page.evaluate(readMemoryFeatureState),body);
-  await waitForMemoryAppearance(page,appearance,budget.deadlineMs);
   // Source/status wait is preparation only; actual current GPU proof below is mandatory.
   const remaining=await page.evaluate(deadline=>deadline-performance.now(),budget.deadlineMs);
   assert.ok(remaining>0,'Memory source preparation exceeded 75 seconds');
@@ -173,6 +172,9 @@ async function prepareMemoryProof(page,body,{restored=false}={}){
     const {store}=await import('./js/store.js'+q),s=store.orrery;
     return s.opticsStatus?.[body]==='ready'&&s.hdrStatus?.state==='ready'&&(body!=='Mars'||s.terrainStatus?.Mars==='ready'&&s.terrainRendered?.Mars);
   },{timeout:Math.floor(remaining),polling:100},body);
+  // The restored event precedes async base readiness and loadTextures(). Until
+  // that callback runs, imagery still has the context-loss unavailable status.
+  await waitForMemoryAppearance(page,appearance,budget.deadlineMs);
   const preparation=await page.evaluate(preparePhysicalSpinEvidence,{body,terrain:body==='Mars'});
   const terrain=body==='Mars'?await page.evaluate(prepareMarsTerrainEvidence):null;
   await page.$eval('#orrerySpeedPresets button[data-dps="7"]',button=>button.click());
