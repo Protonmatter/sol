@@ -226,6 +226,7 @@ void main(){
 export const ATMOSPHERE_FS = `#version 300 es
 precision highp float;
 in vec3 v_atmosphereBodyKm; out vec4 o;
+uniform int u_linearOutput;
 ${ATMOSPHERE_GLSL}
 vec3 atmosphereEncode(vec3 c){ c=max(c,vec3(0)); return mix(c*12.92,1.055*pow(c,vec3(1.0/2.4))-.055,step(vec3(.0031308),c)); }
 void main(){
@@ -237,5 +238,5 @@ void main(){
   // Premultiplied ONE, ONE_MINUS_SRC_ALPHA. Scattered light composes correctly on
   // black. Extinction of pre-existing sRGB stars is only a scalar-alpha approximation.
   float alpha=1.0-dot(optics.transmittance,vec3(.2126,.7152,.0722));
-  o=vec4(atmosphereEncode(optics.scattering),clamp(alpha,0.0,1.0));
+  o=vec4(u_linearOutput==1 ? optics.scattering : atmosphereEncode(optics.scattering),clamp(alpha,0.0,1.0));
 }`;

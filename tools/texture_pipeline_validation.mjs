@@ -90,7 +90,7 @@ export function readTextureStage(webRoot) {
     return bytes;
   }
   const renderer = read('js/orrery.js'), demand = read('js/referenceDemand.js');
-  const upload = renderer.toString('utf8').match(/function makeTexture\(img, repeatS, nearest = false, premultiplyAlpha = false\) \{[\s\S]*?\n\}/)?.[0];
+  const upload = renderer.toString('utf8').match(/function makeTexture\(img, repeatS, nearest = false, premultiplyAlpha = false(?:, linearFilter = false)?\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(upload,'Pinned makeTexture function signature unavailable; review the harness before replay');
   const visualBytes = read('visual-assets.v1.json'), visual = JSON.parse(visualBytes);
   assert.equal(visual.schema_version,'visual-assets.v1');

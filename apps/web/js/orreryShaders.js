@@ -5,6 +5,7 @@
 import { ATMOSPHERE_RENDER_GLSL as ATMOSPHERE_GLSL } from './atmosphereColumnField.js';
 import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
+import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 
 const NOISE = `
 float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -66,6 +67,8 @@ uniform int u_useTex; uniform int u_texMode; uniform sampler2D u_tex;
 uniform vec4 u_map; uniform vec4 u_mapLat; uniform vec4 u_mapWindow; uniform int u_mapNoData;
 uniform int u_earthNight; uniform int u_earthWeather; uniform int u_earthIce;
 uniform sampler2D u_nightTex; uniform sampler2D u_weatherTex; uniform sampler2D u_iceTex;
+uniform int u_textureLinear;
+${DISPLAY_COMPOSITION_GLSL}
 vec3 decodeSRGB(vec3 c){ return mix(c/12.92,pow((c+0.055)/1.055,vec3(2.4)),step(vec3(0.04045),c)); }
 vec3 encodeSRGB(vec3 c){ c=max(c,vec3(0)); return mix(c*12.92,1.055*pow(c,vec3(1.0/2.4))-0.055,step(vec3(0.0031308),c)); }
 // Masked photographic inputs are premultiplied at upload. Normalize the filtered
@@ -138,9 +141,9 @@ void main(){
     // scattered through the limb, so it has to die on the night side: an unmasked shell drew a
     // bright full-circumference ring that made every planet look like an annular eclipse.
     float day=smoothstep(-0.32,0.22,dot(N,normalize(u_light)));
-    o=vec4(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4*(0.04+0.96*day), 1.0); return; }
+    o=vec4(displayOutput(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4*(0.04+0.96*day)), 1.0); return; }
   if(u_mode==1){
-    if(u_style<0){ float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); o=vec4(u_base*(0.72+0.28*limb),1.0); return; } // Sun
+    if(u_style<0){ float limb=pow(clamp(dot(N,V),0.0,1.0),0.45); o=vec4(displayOutput(u_base*(0.72+0.28*limb)),1.0); return; } // Sun
     // procedural granulation + sunspots + limb darkening — the whole sphere when no SDO frame
     // is available, and always the far side (the SDO image only covers one hemisphere).
     float g=fbm(p*9.0+vec3(u_time*0.06)); float fac=fbm(p*22.0+vec3(u_time*0.1));
@@ -180,7 +183,7 @@ void main(){
       // a dark ring around the SDO hemisphere) under the brighter procedural surface.
       c=mix(c, sc, smoothstep(0.05,0.45,vis));
     }
-    o=vec4(c,1.0); return; }
+    o=vec4(displayOutput(c),1.0); return; }
   // Equirectangular lookup: centre column = prime meridian (the body frame's +x), top row =
   // north pole. Matches surfacemap.js's lonToX/latToY exactly.
   float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862;
@@ -195,7 +198,7 @@ void main(){
   if(reference){
     vec4 mapped=referenceSample(u_tex,p);
     vec3 sourceRGB=u_mapNoData==2 ? coveredRGB(mapped) : mapped.rgb;
-    col=mix(decodeSRGB(u_base),decodeSRGB(sourceRGB),referenceCoverage(p,mapped));
+    col=mix(decodeSRGB(u_base),u_textureLinear==1 ? sourceRGB : decodeSRGB(sourceRGB),referenceCoverage(p,mapped));
     // Earth auxiliaries share the documented WGS84 pixel-area grid, 180W..180E.
     // Weather is the provider's dated clouds-and-surface image, never inferred clouds.
     if(u_earthWeather==1){
@@ -417,8 +420,16 @@ void main(){
   // Emission is attenuated on the observer path only, after direct illumination.
   // Surface rays end at the actual displaced position, preserving signed relief.
   if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor(col,surfaceBodyKm);
-  if(reference||u_atmosphereEnabled==1) col=encodeSRGB(col);
-  if(u_atmosphereEnabled==0) col+=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert);
+  vec3 displayLimb=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert);
+  if(u_linearOutput==1){
+    // Reference/transport terms are already linear. The historical moon and
+    // fallback lighting recipe stays a display reference and is decoded once.
+    if(!reference&&u_atmosphereEnabled==0)col=displayToLinear(col+displayLimb);
+    else if(u_atmosphereEnabled==0)col+=displayToLinear(displayLimb);
+  }else{
+    if(reference||u_atmosphereEnabled==1) col=encodeSRGB(col);
+    if(u_atmosphereEnabled==0) col+=displayLimb;
+  }
   // The scientific palette is not a material: solar lighting must not change its
   // concentration colours. Composite it after lighting, paired with the source legend.
   if(reference&&u_earthIce==1){ vec4 ice=referenceSample(u_iceTex,p); col=mix(col,ice.rgb,ice.a); }
@@ -441,7 +452,8 @@ layout(location=0) in vec3 a_pos; layout(location=1) in vec3 a_col;
 uniform mat4 u_vp; out vec3 v_col; void main(){ v_col=a_col; gl_Position=u_vp*vec4(a_pos,1.0); }`;
 export const LINE_FS = `#version 300 es
 precision highp float; in vec3 v_col; out vec4 o; uniform float u_alpha;
-void main(){ o=vec4(v_col,u_alpha); }`;
+${DISPLAY_COMPOSITION_GLSL}
+void main(){ o=vec4(displayOutput(v_col),u_alpha); }`;
 
 export const RING_VS = `#version 300 es
 layout(location=0) in vec3 a_pos; layout(location=1) in vec4 a_col; layout(location=2) in float a_frac;
@@ -450,6 +462,7 @@ void main(){ v_col=a_col; v_frac=a_frac; v_world=(u_model*vec4(a_pos,1.0)).xyz; 
 export const RING_FS = `#version 300 es
 precision highp float; in vec4 v_col; in float v_frac; in vec3 v_world; in vec3 v_normal; out vec4 o;
 uniform int u_useTex; uniform sampler2D u_tex;
+${DISPLAY_COMPOSITION_GLSL}
 // u_center/u_light/u_prad: the planet's world position, the unit direction from it toward the
 // Sun, and its display radius — for the planet's shadow across the rings.
 uniform vec3 u_center; uniform vec3 u_light; uniform float u_prad;
@@ -468,7 +481,8 @@ void main(){ vec4 c=v_col; if(u_useTex==1){ vec4 t=texture(u_tex, vec2(v_frac,0.
   // Bounded two-sided diffuse display model, not calibrated ring scattering. Opacity
   // remains the shared profile; illumination only changes RGB in linear light.
   float incidence=abs(dot(normalize(v_normal),light));
-  c.rgb=ringEncode(ringDecode(c.rgb)*(0.08+0.92*incidence*sunVisibility));
+  c.rgb=ringDecode(c.rgb)*(0.08+0.92*incidence*sunVisibility);
+  if(u_linearOutput==0)c.rgb=ringEncode(c.rgb);
   o=c; }`;
 
 export const PT_VS = `#version 300 es
@@ -492,8 +506,9 @@ void main(){
 }`;
 export const PT_FS = `#version 300 es
 precision highp float; in vec4 v_col; out vec4 o; uniform float u_soft;
+${DISPLAY_COMPOSITION_GLSL}
 void main(){ float d=length(gl_PointCoord-vec2(0.5))*2.0; if(d>1.0) discard;
-  float a=mix(step(d,1.0), 1.0-smoothstep(0.0,1.0,d), u_soft); o=vec4(v_col.rgb, v_col.a*a); }`;
+  float a=mix(step(d,1.0), 1.0-smoothstep(0.0,1.0,d), u_soft); o=vec4(displayOutput(v_col.rgb), v_col.a*a); }`;
 
 export const GLOW_VS = `#version 300 es
 layout(location=0) in vec2 a_corner;
@@ -502,4 +517,5 @@ out vec2 v_uv; void main(){ v_uv=a_corner; vec3 w=u_center+(a_corner.x*u_right+a
   gl_Position=u_vp*vec4(w,1.0); }`;
 export const GLOW_FS = `#version 300 es
 precision highp float; in vec2 v_uv; out vec4 o; uniform vec3 u_color; uniform float u_pow;
-void main(){ float r=length(v_uv); if(r>1.0) discard; float a=pow(1.0-r,u_pow); o=vec4(u_color*a,a); }`;
+${DISPLAY_COMPOSITION_GLSL}
+void main(){ float r=length(v_uv); if(r>1.0) discard; float a=pow(1.0-r,u_pow); o=vec4(displayOutput(u_color*a),a); }`;

@@ -77,7 +77,11 @@ test('every admitted surface reaches its color recipe and retains its own fallba
     assert.equal(filters.get(h.gl.TEXTURE_MAG_FILTER), h.gl.LINEAR);
     assert.ok(h.mipmapTextures.includes(upload.texture));
     assert.equal(upload.args.length, 6, 'image upload uses the DOM-source overload');
-    assert.equal(upload.args[2], h.gl.RGBA, 'display imagery still uses RGBA storage, without automatic sRGB texture decode');
+    const linearFilter = body === 'Earth' || body === 'Moon';
+    assert.equal(upload.args[2], linearFilter ? h.gl.SRGB8_ALPHA8 : h.gl.RGBA,
+      'opaque primary maps decode before filtering; coverage and moon display recipes retain their reference filters');
+    assert.equal(draw.uniforms.u_textureLinear, linearFilter ? 1 : 0,
+      'a hardware-decoded source is never decoded again in the material');
     assert.equal(upload.args[3], h.gl.RGBA);
     assert.equal(upload.args[4], h.gl.UNSIGNED_BYTE);
     h.check('orreryTextures', false);

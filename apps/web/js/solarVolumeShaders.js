@@ -1,6 +1,7 @@
 // A source-facing reference sphere plus an explicitly modeled optically thin arcade volume.
 // All coordinates are in the fixed frame-0 observer basis, with distances in solar radii.
 // 32 midpoint samples × 12 bounded arches. No noise, fictitious spots, or far-side imagery.
+import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 export const SOLAR_VS = `#version 300 es
 layout(location=0) in vec3 a_pos;
 uniform mat4 u_mvp;
@@ -12,6 +13,7 @@ export const SOLAR_FS = `#version 300 es
 precision highp float;
 in vec3 v_obj;
 out vec4 o;
+${DISPLAY_COMPOSITION_GLSL}
 uniform mat4 u_mvp;
 uniform vec3 u_camObj;
 // 0 is the standalone combined reference; production draws 1 (opaque) then 2 (emission).
@@ -110,10 +112,10 @@ void main(){
   // The modeled corona is optically thin emission, not an opaque outer bounding sphere.
   // Production pass 2 uses ONE, ONE with depth writes off, preserving the background.
   // Its submission precedes nearer transparent rings/atmospheres so those can attenuate it.
-  if(u_pass==2)o=vec4(color,0.0);
+  if(u_pass==2)o=vec4(displayOutput(color),0.0);
   else {
     if(!surfaceHit)color/=max(opacity,1e-8);
-    o=vec4(clamp(color,0.0,1.0),opacity);
+    o=vec4(displayOutput(clamp(color,0.0,1.0)),opacity);
   }
   float depthTime=surfaceHit?inner.x:start;
   vec4 clip=u_mvp*vec4(u_camObj+direction*depthTime,1.0);

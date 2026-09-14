@@ -14,6 +14,7 @@
 // Orbits are drawn at their true inclinations against the ecliptic reference plane.
 
 import { store } from "./store.js?v=dcca6290db";
+import { linearFilterReference } from './materialColor.js';
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole } from "./planetAppearance.js";
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
 import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.js';
@@ -210,7 +211,8 @@ let moonMarkers = [];
 let moonGuideQueue = [];
 let moonPathBuf = null; // GL buffer for the moon orbit polylines (rebuilt per frame; they move)
 
-function makeTexture(img, repeatS, nearest = false, premultiplyAlpha = false) {
+function makeTexture(img, repeatS, nearest = false, premultiplyAlpha = false, linearFilter = false) {
+  if (linearFilter && (nearest || premultiplyAlpha)) throw new Error('Linear filtering requires an opaque display reference.');
   const maxSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   let pixels = img;
   if (Number.isFinite(maxSize) && (img.width > maxSize || img.height > maxSize)) {
@@ -232,7 +234,7 @@ function makeTexture(img, repeatS, nearest = false, premultiplyAlpha = false) {
   // Filter covered source colors independently of transparent no-data RGB.
   // Set this for every upload so a masked map cannot affect the next material.
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, premultiplyAlpha);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  gl.texImage2D(gl.TEXTURE_2D, 0, linearFilter ? gl.SRGB8_ALPHA8 : gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, nearest ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, nearest ? gl.NEAREST : gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, repeatS ? gl.REPEAT : gl.CLAMP_TO_EDGE);
@@ -512,7 +514,8 @@ function requestReferenceTextures() {
           gl.deleteTexture(victim[1].tex); delete referenceTextures[victim[0]];
           state.appearanceStatus[victim[0]] = 'deferred';
         }
-        referenceTextures[asset.id] = {tex: makeTexture(img, true, asset.role === 'sea-ice', asset.nodata === 'alpha' && asset.role !== 'sea-ice'), ready: true, loading:false, used:++referenceUseSerial};
+        const linearFilter=linearFilterReference(asset);
+        referenceTextures[asset.id] = {tex: makeTexture(img, true, asset.role === 'sea-ice', asset.nodata === 'alpha' && asset.role !== 'sea-ice',linearFilter), linearFilter, ready: true, loading:false, used:++referenceUseSerial};
         state.appearanceStatus[asset.id] = 'ready';
         updateReferenceNotice();
         updateEarthLayerStatus(); updateOrreryAccuracy(); repaint();
@@ -751,6 +754,7 @@ function initGL(canvas) {
   P.physicalSphereU=uloc(P.physicalSphere,Object.keys(P.sphereU));
   P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,'u_atmosphereColumnField']);
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
+  for(const name of ['sphere','physicalSphere']) Object.assign(P[`${name}U`],uloc(P[name],['u_textureLinear']));
 
   const s = buildSphere(48, 96);
   sphere = { pos: gl.createBuffer(), idx: gl.createBuffer(), count: s.idx.length };
@@ -1734,6 +1738,7 @@ function drawBody(b, vp, eye) {
   gl.uniform1i(sphereUniforms.u_tex, 0);
   gl.uniform1i(sphereUniforms.u_useTex, useTex ? 1 : 0);
   gl.uniform1i(sphereUniforms.u_texMode, referenceTex ? 3 : gen ? gen.texMode : 0);
+  gl.uniform1i(sphereUniforms.u_textureLinear, referenceTex?.linearFilter ? 1 : 0);
   if (referenceTex) {
     const uniforms = appearanceUniforms(reference);
     gl.uniform4fv(sphereUniforms.u_map, new Float32Array(uniforms.map));
@@ -1944,6 +1949,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, moonTex ? moonTex.tex : whiteTex);
     gl.uniform1i(P.sphereU.u_tex, 0);
     gl.uniform1i(P.sphereU.u_useTex, moonTex ? 1 : 0);
+    gl.uniform1i(P.sphereU.u_textureLinear, 0);
     // Registered modes retain source axes and gaps; mode 5 also retains the
     // admitted mission RGB ratios. Both keep the neutral albedo/eclipse gain.
     gl.uniform1i(P.sphereU.u_texMode, registered ? (reference.moon_color_mode === 'source-rgb' ? 5 : 4) : legacy ? 2 : 0);

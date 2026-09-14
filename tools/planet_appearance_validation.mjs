@@ -38,7 +38,7 @@ function moduleFile(relative) {
 const shadersFile = moduleFile("js/orreryShaders.js"), mappingFile = moduleFile("js/surfaceMapping.js"), rendererFile = moduleFile("js/orrery.js");
 const { SPHERE_VS, SPHERE_FS, BASE_SPHERE_VS, BASE_SPHERE_FS } = await import(pathToFileURL(shadersFile.file).href);
 const { surfaceUv, srgbToLinear, linearToSrgb, nightLightWeight } = await import(pathToFileURL(mappingFile.file).href);
-const upload = rendererFile.bytes.toString("utf8").match(/function makeTexture\(img, repeatS, nearest = false(?:, premultiplyAlpha = false)?\) \{[\s\S]*?\n\}/)?.[0];
+const upload = rendererFile.bytes.toString("utf8").match(/function makeTexture\(img, repeatS, nearest = false(?:, premultiplyAlpha = false)?(?:, linearFilter = false)?\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(upload, "actual image upload function could not be isolated");
 
 const fixture = (width, height, pixel) => {
@@ -67,6 +67,8 @@ const fixtures = new Map([
   ["/color-alpha-edge.png", fixture(16, 8, x => x < 8 ? [64,128,224,255] : [0,0,0,0])],
   ["/ice.png", fixture(64, 32, (x, y) => colors[(y >= 16 ? 2 : 0) + (x >= 32 ? 1 : 0)])],
   ["/half-ice.png", fixture(4, 2, () => [200,80,120,128])],
+  ["/opaque-edge.png", fixture(16, 8, x => x < 8 ? [0,0,0,255] : [255,255,255,255])],
+  ["/saturated-edge.png", fixture(16, 8, x => x < 8 ? [255,0,0,255] : [0,255,0,255])],
 ]);
 const evidence = {schema_version: "planet-appearance-validation.v1", web_root: webRoot,
   release_namespace: release?.namespace ?? null, started_at: new Date().toISOString(),
@@ -128,6 +130,16 @@ async function run() {
       return result;
     };
     const programs = {physical:link(vertex, fragment), base:link(baseVertex, baseFragment)};
+    if (!gl.getExtension('EXT_color_buffer_float')) throw new Error('Linear material gate requires float readback');
+    const linearTarget=gl.createFramebuffer(), linearTexture=gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D,linearTexture);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,1,1,0,gl.RGBA,gl.HALF_FLOAT,null);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,linearTarget);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,linearTexture,0);
+    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw new Error('Float material framebuffer incomplete');
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     let program = programs.physical;
     gl.useProgram(program); gl.disable(gl.DITHER); gl.disable(gl.BLEND); gl.viewport(0, 0, 1, 1);
     const textureFactory = new Function("gl", `${upload}; return makeTexture;`)(gl);
@@ -141,6 +153,10 @@ async function run() {
       textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/spatial-seam.png", "/color-deposits.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
       uploadPremultiplyStates.push({name, expected:maskedPhoto, actual:gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)});
       if (name === "/quadrants.png") textures.flipped = flippedFactory(image, true, false);
+      if (['/opaque-edge.png','/saturated-edge.png'].includes(name)) {
+        textures[name] = textureFactory(image,true,false,false);
+        textures[`${name}:linear`] = textureFactory(image,true,false,false,true);
+      }
     }
     const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
     const buffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -157,6 +173,9 @@ async function run() {
       program = programs[options.shaderVariant || 'physical'];
       if (!program) throw new Error('Unknown disabled-material shader variant');
       gl.useProgram(program); i('u_atmosphereEnabled', 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,options.linearOutput ? linearTarget : null);
+      i('u_linearOutput',options.linearOutput ? 1 : 0);
+      i('u_textureLinear',options.textureLinear ? 1 : 0);
       const p = options.position || [0, 1, 1], e = .0001;
       const vertices = [[-1,-1], [1,-1], [-1,1], [-1,1], [1,-1], [1,1]];
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices.flatMap(([x,y]) => [p[0]+e*x,p[1]+e*y,p[2]])), gl.STATIC_DRAW);
@@ -185,7 +204,8 @@ async function run() {
       bind(3, "u_weatherTex", options.weatherTexture || "/transparent.png"); bind(4, "u_iceTex", options.iceTexture || "/ice.png");
       i("u_earthNight", options.night ? 1 : 0); i("u_earthWeather", options.weather ? 1 : 0); i("u_earthIce", options.ice ? 1 : 0);
       gl.clearColor(1,0,1,1); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES, 0, 6);
-      const pixel = new Uint8Array(4); gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+      const pixel = options.linearOutput ? new Float32Array(4) : new Uint8Array(4);
+      gl.readPixels(0,0,1,1,gl.RGBA,options.linearOutput ? gl.FLOAT : gl.UNSIGNED_BYTE,pixel);
       const error = gl.getError(); if (error !== gl.NO_ERROR) throw new Error(`GPU fixture GL error ${error}`);
       return Array.from(pixel);
     };
@@ -228,6 +248,32 @@ async function run() {
   };
   const probe = options => pairedProbe('probe', options);
   const rgba = rgb => [...rgb, 255];
+  // Independent float readback catches double decode/encode before presentation.
+  // The frozen display recipes are compared against D(display result), not refit.
+  const linearCases = [
+    {name:'registered',options:{texture:'/quadrants.png'}},
+    {name:'valid black',options:{texture:'/black.png'}},
+    {name:'coverage edge',options:{texture:'/alpha-edge.png',nodata:2,position:[1,0,0],base:[0,0,0]}},
+    {name:'night emission',options:{texture:'/black.png',night:true,light:[0,0,-1]}},
+    {name:'moon contrast',options:{texture:'/color-deposits.png',texMode:4,base:[.2734461278,.2734461278,.2734461278]}},
+    {name:'Io RGB',options:{texture:'/color-deposits.png',texMode:5,base:[.6,.6,.6]}},
+    {name:'fallback',options:{useTexture:false,base:[.4,.25,.1],light:[0,0,-1]}},
+    {name:'Titan',options:{useTexture:false,base:[.72,.48,.24],atmosphereColor:[.2,.5,1],atmosphereStrength:.5}},
+    {name:'Sun',options:{mode:1,useTexture:false,base:[1,.98,.94],position:[0,0,1]}},
+    {name:'illustrative shell',options:{mode:2,normal:[1,0,0],atmosphereColor:[.2,.5,1],atmosphereStrength:.5}},
+  ];
+  for(const {name,options} of linearCases){
+    const display=await probe(options),linear=await probe({...options,linearOutput:true});
+    check(`linear composition preserves ${name} recipe`,linear,
+      [...display.slice(0,3).map(value=>srgbToLinear(value/255)),1],.0045);
+  }
+  for(const [name,expected] of [['/opaque-edge.png',[.5,.5,.5,1]],['/saturated-edge.png',[.5,.5,0,1]]]){
+    const options={texture:`${name}:linear`,textureLinear:true,linearOutput:true,position:[1,0,0]};
+    check(`decode before filtering ${name}`,await probe(options),expected,.003);
+    const encoded=await probe({...options,texture:name,textureLinear:false});
+    const separation=Math.max(...encoded.slice(0,3).map((value,i)=>Math.abs(value-expected[i])));
+    evidence.checks.push({name:`negative control encoded filtering ${name}`,separation,passed:separation>.2,negative_control:true});
+  }
   const fallback = [51, 77, 102, 255];
   check("each image upload sets its own alpha interpretation", evidence.gpu.uploadPremultiplyStates.map(state => Number(state.actual)),
     evidence.gpu.uploadPremultiplyStates.map(state => Number(state.expected)), 0);
