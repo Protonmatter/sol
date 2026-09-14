@@ -4,6 +4,11 @@ Status: implemented candidate; CPU lifecycle validation is distinct from native
 startup and frame-performance qualification. This slice does not replace the
 retained native FAILED startup receipt or increase its 30,000 ms gate.
 
+Follow-up: the [combined native/software replay](NATIVE_PARALLEL_REPLAY.md) now
+passes the unchanged base-startup and complete texture/cache/memory tour on an
+immutable combined stage. The CPU implementation record below remains separate
+from that result; physical program focus/animation qualification is still separate.
+
 ## Trigger and scope
 
 The [native texture qualification](NATIVE_TEXTURE_QUALIFICATION.md) retained an

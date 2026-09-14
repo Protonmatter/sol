@@ -4,6 +4,12 @@ Status: native source replay and diagnostic cache/memory observations completed;
 native application startup gate **failed**. SwiftShader comparison passed.
 Recorded 2026-09-14 UTC in an isolated checkout based on `34937f1`.
 
+This is the retained historical baseline. The later
+[combined-source parallel-program replay](NATIVE_PARALLEL_REPLAY.md) passed the
+unchanged native/software base-startup and texture/cache/memory gates on its own
+immutable stage. It does not replace this failed receipt or qualify physical
+focus/animation performance.
+
 ## Result and scope
 
 The actual Windows device is a Qualcomm Adreno X1-85 using driver `31.0.152.1`.
