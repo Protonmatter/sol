@@ -188,7 +188,7 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 // ---------------------------------------------------------------- WebGL2 renderer
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
 let shaderPrograms=null,programContextGeneration=0;
-let hdrPresentation=null,contextGeneration=0,sceneSerial=0,linearFrame=false;
+let hdrPresentation=null,hdrFailure=null,contextGeneration=0,sceneSerial=0,linearFrame=false;
 let scatteringTargets=null,scatteringFrame=null;
 const PHYSICAL_PROGRAMS=['physicalSphere','atmosphere','scatteringGenerator'];
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
@@ -1393,8 +1393,8 @@ function beginSceneFrame(width,height){
     hdrPresentation?.dispose();hdrPresentation=null;
     state.hdrStatus={state:'deferred',reason:state.earthIce?'Scientific palette selected; SDR composition preserved.':'HDR candidate disabled.'};
   }else{
-    hdrPresentation??=createHdrPresentation(gl,{generation:contextGeneration});
-    state.hdrStatus=hdrPresentation.resize(width,height);
+    if(!hdrPresentation){hdrPresentation=createHdrPresentation(gl,{generation:contextGeneration});hdrFailure=null;}
+    state.hdrStatus=hdrFailure??hdrPresentation.resize(width,height);
     if(state.hdrStatus.state==='ready'){
       const frameIdentity={generation:contextGeneration,epoch:state.renderUnix,serial:sceneSerial};
       linearFrame=hdrPresentation.beginFrame(frameIdentity);
@@ -1469,6 +1469,10 @@ function finishSceneFrame(){
   if(!hdrPresentation.present({exposure:1,frameIdentity:state.hdrFrame})){
     // A rejected producer never leaves an offscreen-only frame visible. Release
     // this owner and render the existing SDR route once; no per-paint retry loop.
+    // Keep its failure until owner replacement; dispose reports only cleanup.
+    const report=hdrPresentation.status();
+    hdrFailure={...report,state:'unavailable',reason:report.state==='unavailable'?report.reason:'HDR presentation rejected.',estimatedBytes:0,presented:null};
+    state.hdrStatus=hdrFailure;
     hdrPresentation.dispose();linearFrame=false;state.hdrFrame=null;paint();return;
   }
   state.hdrStatus=hdrPresentation.status();

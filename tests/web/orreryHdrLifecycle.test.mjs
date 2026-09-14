@@ -44,6 +44,43 @@ test('missing float capability preserves usable scene and explicit unavailable s
   assert.equal(h.errors.length,0);
 });
 
+for(const failure of ['gpu-error','frame-identity'])test(`HDR ${failure} preserves rejection status while repainting SDR until owner replacement`,async t=>{
+  const h=await orreryHarness(t,{controls:true,reducedMotion:true});
+  await h.enterOrrery();t.after(()=>h.leaveOrrery());h.setAnimate(false);allowFloatTarget(h.gl);
+  const getError=h.gl.getError.bind(h.gl);let errorPending=false,inject=true,attempts=0;
+  h.gl.getError=()=>{if(errorPending){errorPending=false;return h.gl.INVALID_VALUE;}return getError();};
+  for(const method of ['drawArrays','drawElements']){
+    const draw=h.gl[method].bind(h.gl);
+    h.gl[method]=(...args)=>{
+      draw(...args);const uniforms=h.gpuSubmissions.at(-1).uniforms;
+      if(uniforms.u_frameSerial){attempts++;if(inject&&failure==='gpu-error'){inject=false;errorPending=true;}}
+      else if(inject&&failure==='frame-identity'&&uniforms.u_linearOutput===1){inject=false;h.state.hdrFrame.serial=0;}
+    };
+  }
+  const before=h.gpuSubmissions.length,released=h.deletedTextures.length;
+  h.state.hdrEnabled=true;h.check('orreryTextures',true);
+  assert.equal(inject,false,'The actual HDR route reached the injected failure');
+  assert.equal(h.state.hdrStatus.state,'unavailable');
+  assert.match(h.state.hdrStatus.reason,failure==='gpu-error'?/GPU rejected HDR presentation/:/HDR presentation rejected/);
+  assert.equal(h.state.hdrStatus.estimatedBytes,0);assert.equal(h.state.hdrStatus.presented,null);
+  assert.equal(h.state.hdrFrame,null);assert.ok(h.deletedTextures.length>released);
+  const reason=h.state.hdrStatus.reason;
+  const draws=h.gpuSubmissions.slice(before);
+  const fallback=draws.slice(draws.findLastIndex(draw=>draw.uniforms.u_linearOutput===1||draw.uniforms.u_frameSerial)+1);
+  assert.ok(fallback.length>5);assert.ok(fallback.every(draw=>draw.uniforms.u_linearOutput===0&&draw.framebuffer===null),
+    'The SDR fallback submits all its draws to the default framebuffer');
+  assert.match(h.nodes.orreryPhysicalStatus.textContent,new RegExp(reason.replaceAll('.','\\.')));
+  const allocations=h.textureRecords.length,presented=attempts;
+  h.resize(810,610);h.check('orreryShowOrbits',true);
+  assert.equal(h.state.hdrStatus.state,'unavailable');assert.equal(h.state.hdrStatus.reason,reason);
+  assert.equal(attempts,presented);assert.equal(h.textureRecords.length,allocations,'Repaints do not retry the disposed owner');
+  h.state.hdrEnabled=false;h.check('orreryTextures',true);
+  assert.equal(h.state.hdrStatus.state,'deferred');assert.match(h.state.hdrStatus.reason,/disabled/);
+  h.state.hdrEnabled=true;h.check('orreryTextures',true);
+  assert.equal(h.state.hdrStatus.state,'ready');assert.equal(attempts,presented+1);
+  assert.equal(h.state.hdrStatus.presented.epoch,h.state.renderUnix);assert.deepEqual(h.errors,[]);
+});
+
 test('scattering generation restores the active HDR target before physical surface and shell composition',async t=>{
   const h=await orreryHarness(t,{controls:true,reducedMotion:true,incidentField:async()=>({
     values:new Float32Array(4*257*195),width:257,height:195,domain:{minHeightKm:0,maxHeightKm:16,quadratic:true}})});
