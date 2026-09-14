@@ -548,7 +548,13 @@ The example staged directory must already contain an immutable build; create uni
 evidence directories for each run. The proposed new tests/tools above are planned
 files, not commands claimed to exist or pass. Run repository browser coverage and
 hosted checks under their existing budgets as required by the integrating change.
-No full scientific, GPU, native-device or release qualification is claimed by this
-document. The present deliverable is the independently bounded specification; actual
-source acquisition, calibrated reflection/photometry, finer terrain, HDR enablement
-and temporal reconstruction remain explicitly unadmitted.
+This specification does not establish full scientific, native-device or release
+qualification. The [D3 implementation record](ADVANCED_MATERIALS_EVIDENCE.md)
+documents the live source-derived whole-globe v2 Moon/Mars terrain; regional tiles
+and finer photographic maps remain unimplemented. The
+[D1 implementation record](HDR_IMPLEMENTATION_RESULTS.md) documents the opt-in HDR
+runtime, separately from its current combined-source application admission in the
+[production ledger](PRODUCTION_EXECUTION.md). Calibrated reflection, revised
+angular ring transport and per-body calibrated moon photometry remain held for
+their independent source and accuracy requirements. Temporal reconstruction is
+deferred.

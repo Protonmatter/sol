@@ -8,7 +8,45 @@ state remain controlling. Failed experiments and their receipts are retained.
 
 ## Current combined source
 
-The current bounded-scattering implementation at `649ab1ca56402765fed601c4d1424e2bae1c82f6`
+Candidate `adb456062e849d754247a658bd287aad7ad57bc4` combines the guarded physical
+material consumer with compensated observer roots and endpoint-preserving surface
+preparation. Its immutable stage is `scattering-runtime-adb4560-full`, manifest
+SHA-256 `5aee4b4cc33159c7e7adb67dc72e2d317b82a73cab737d060b4af37f4833890c`.
+All four optical payloads reproduced unchanged; only their solver/generator
+identity metadata changed. This candidate remains unqualified.
+
+The original software reference gate passed 1,280/1,280. The complete software
+interpolation run passed 7,182/7,192 with all 42 atlases finite and valid. Its ten
+failures concern grazing limb domain or lookup consistency. A separate comparison
+of all 1,600 supplemental direct GPU results against the converged physical CPU
+reference passed. That physical-source result does not override interpolation
+failures. The original 5,592 queries and all supplemental inputs, tolerances and
+allocation budgets remain unchanged. Both attempts and their exact sources are
+retained in [the interpolation receipt](SCATTERING_INTERPOLATION_RECEIPT.json).
+
+Native numerical attempts did not complete: the aggregate 1,280-case browser
+call exceeded its 30-second protocol limit before returning results; the
+7,192-query run exceeded its 120-second numerical call limit in the first
+dataset. No completed numerical cases are inferred from either failure.
+The separate actual production-program diagnostic then attributed a compiler
+hold: the physical sphere and shell completed in 10,166.0 and 3,781.7 ms, while
+the generator exceeded its unchanged 30,000 ms deadline. Its receipt is
+`sol-color-hdr-20260914/build/compile-regression-649ab1c/compile-observer_adb4560.json`.
+Diagnostic process success means evidence was captured, not that all programs
+passed. Complete application and memory runs have not started for this stage.
+
+Independent binary32 replay identifies two limb defects: repeated normalization
+can change an uploaded grazing ray enough to reverse its hit classification,
+and the prior closest-point altitude calculation can reject a real hit through
+metre-scale cancellation error. The next correction must carry one prepared ray
+and precise impact geometry through source, conditioning, zero tests, transmission
+and lookup. It must preserve original physical inputs and pass the complete
+numerical, material and application gates; a consistent but changed test oracle
+cannot establish that result.
+
+## Earlier Q2 combined source
+
+The earlier bounded-scattering implementation at `649ab1ca56402765fed601c4d1424e2bae1c82f6`
 passes the complete 7,192-query interpolation matrix on native Adreno and
 SwiftShader. The original 5,592 queries, all numerical thresholds and the 65,536
 integration ceiling remain unchanged. The additive domain includes the admitted

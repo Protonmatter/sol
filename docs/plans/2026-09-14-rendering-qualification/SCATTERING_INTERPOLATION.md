@@ -1,8 +1,12 @@
 # Bounded scattering interpolation qualification
 
-Status: Q2 passes the complete interpolation matrix on native Adreno and
-SwiftShader. Independent physical-reference and final application admission
-remain separate; supplemental direct-source geometry discrepancies are under review.
+Status: the earlier Q2 source passes the complete interpolation matrix on native
+Adreno and SwiftShader. The subsequent observer-geometry candidate at `adb4560`
+passes 7,182/7,192 software queries and fails ten grazing limb consistency cases;
+its native matrix did not complete. The separate software physical-source join
+passes all 1,600 supplemental cases. These results are not interchangeable.
+See [the current combined-source ledger](PRODUCTION_EXECUTION.md) and
+[all retained interpolation attempts](SCATTERING_INTERPOLATION_RECEIPT.json).
 
 This continues A3 under [RFC 0006](../../rfcs/0006-rendering-qualification-and-color.md).
 The direct Earth/Mars reference integrator, optical profiles, physical endpoints,
