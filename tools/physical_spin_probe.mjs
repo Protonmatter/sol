@@ -146,3 +146,55 @@ export async function preparePhysicalSpinEvidence({body='Earth'}={}) {
   Object.defineProperty(globalThis,'__solPhysicalSpinEvidence',{configurable:true,value:Object.freeze({body,summary,capture})});
   return summary;
 }
+
+/** Additional physical preparation, inside the original absolute System budget.
+ * A ready status cannot pass: require an actual current physical draw and all
+ * prepared shader/profile/field/geometry checks before the separate 3-in-5 gate.
+ */
+export async function waitForPhysicalSpinReadiness({body='Earth',systemStartedMs,deadlineMs}={}){
+  if(!Number.isFinite(systemStartedMs)||deadlineMs!==systemStartedMs+75000)
+    throw new Error('Physical preparation requires the original absolute 75s System budget');
+  const physical=globalThis.__solPhysicalSpinEvidence;
+  if(physical?.body!==body)throw new Error('Physical evidence must be prepared before readiness observation');
+  const entry=document.querySelector('script[type="module"][src^="app.js"]');
+  const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+  const gl=document.getElementById('orreryCanvas').getContext('webgl2'),native=gl.drawElements;
+  const startedMs=performance.now(),counts={submitted:0,physicalRejected:0,lateDraws:0},rejections={};
+  const diagnostics=()=>JSON.parse(JSON.stringify({programStatus:store.orrery.programStatus??null,programDiagnostics:store.orrery.programDiagnostics??null,
+    opticsStatus:store.orrery.opticsStatus??null,engineError:store.orrery.engineError??''}));
+  let settled=false,timer,poll,finish;
+  const pending=new Promise(resolve=>{finish=(passed,reason,draw)=>{
+    if(settled)return;settled=true;const endedMs=performance.now();
+    if(passed&&endedMs>deadlineMs){passed=false;reason='Physical readiness completed after the original System deadline';counts.lateDraws++;draw=undefined;}
+    resolve({passed,reason,systemStartedMs,deadlineMs,startedMs,endedMs,elapsedMs:endedMs-startedMs,
+      firstPhysicalReadyElapsedMs:passed?endedMs-systemStartedMs:null,counts,rejections,diagnostics:diagnostics(),draw});
+  };});
+  const check=()=>{
+    if(performance.now()>deadlineMs)return finish(false,'Physical preparation exceeded the original System deadline');
+    const state=store.orrery;
+    if(gl.isContextLost()||state.engineError||state.programStatus?.physical==='unavailable'||state.opticsStatus?.[body]==='unavailable')
+      finish(false,'Physical source/program preparation became unavailable');
+  };
+  gl.drawElements=function(...args){
+    const result=native.apply(this,args);counts.submitted++;
+    if(this!==gl||settled||args[0]!==gl.TRIANGLES||!Number.isInteger(args[1])||args[1]<=0)return result;
+    if(performance.now()>deadlineMs){counts.lateDraws++;check();return result;}
+    try{
+      const program=gl.getParameter(gl.CURRENT_PROGRAM),draw=physical.capture(gl,program);
+      if(!draw.passed){counts.physicalRejected++;rejections[draw.reason]=(rejections[draw.reason]??0)+1;check();return result;}
+      const mode=gl.getUniform(program,gl.getUniformLocation(program,'u_mode'));
+      const position=store.orrery.bodies.find(item=>item.name===body),model=draw.uniforms.u_model;
+      if(mode!==0||!position||Math.hypot(model[12]-position.x_au,model[13]-position.y_au,model[14]-position.z_au)>1e-5)
+        return result;
+      if(performance.now()>deadlineMs){counts.lateDraws++;check();return result;}
+      finish(true,'Observed current physical draw before the original System deadline',draw);
+    }catch(error){finish(false,`Physical readiness inspection failed: ${error.message}`);}
+    return result;
+  };
+  try{
+    check();
+    if(!settled){timer=setTimeout(()=>finish(false,'Physical preparation exceeded the original System deadline'),Math.max(0,deadlineMs-performance.now()));
+      poll=setInterval(check,100);}
+    return await pending;
+  }finally{gl.drawElements=native;clearTimeout(timer);clearInterval(poll);}
+}

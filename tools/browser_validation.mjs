@@ -11,7 +11,7 @@ import v8ToIstanbul from "v8-to-istanbul";
 import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
 import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
-import { installProgramSourceEvidence, preparePhysicalSpinEvidence } from './physical_spin_probe.mjs';
+import { installProgramSourceEvidence, preparePhysicalSpinEvidence, waitForPhysicalSpinReadiness } from './physical_spin_probe.mjs';
 import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
 import { browserBackendFromArgs, browserBackendArgs, assertBrowserBackend, captureBrowserCapabilities } from './browser_backend.mjs';
 import { classifyTextureBackend } from './texture_device_telemetry.mjs';
@@ -845,7 +845,7 @@ async function moonShadowAssertions(page, visualDirectory) {
   return { transit: transitStats, control: controlStats, eclipse: eclipseStats };
 }
 
-async function visualAssertions(page, visualDirectory, observeContext) {
+async function visualAssertions(page, visualDirectory, observeContext, systemBudget) {
   fs.mkdirSync(visualDirectory, { recursive: true });
   if(argument('hdr-candidate','false')==='true'){
     const hdr=await page.evaluate(async()=>{
@@ -996,9 +996,13 @@ async function visualAssertions(page, visualDirectory, observeContext) {
     // This additional gate never substitutes for the original Earth rotation
     // acceptance above. Source preparation/hashing precedes its unchanged 5s window.
     await page.evaluate(preparePhysicalSpinEvidence,{body:'Earth'});
+    const readiness=await page.evaluate(waitForPhysicalSpinReadiness,{body:'Earth',...systemBudget});
+    fs.writeFileSync(path.join(visualDirectory,'earth-physical-readiness.json'),JSON.stringify(readiness,null,2));
+    if(!readiness.passed)throw new Error(`Physical Earth preparation failed: ${readiness.reason}`);
     const physicalBackend=await observeContext('physical-spin');
     const physicalSpin=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});
     physicalSpin.backend=physicalBackend;
+    physicalSpin.readiness=readiness;
     physicalSpin.validation_source_sha256=Object.fromEntries(['earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs']
       .map(name=>[name,createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')]));
     fs.writeFileSync(path.join(visualDirectory,'earth-physical-spin.json'),JSON.stringify(physicalSpin,null,2));
@@ -1036,16 +1040,19 @@ async function visualAssertions(page, visualDirectory, observeContext) {
 }
 
 async function exerciseOrrery(page, visualDirectory, observeContext) {
+  const systemBudget=await page.evaluate(()=>{const systemStartedMs=performance.now();return {systemStartedMs,deadlineMs:systemStartedMs+75000};});
   await clickMode(page, "orrery");
   // V8 block-coverage collection instruments the large lazy star/moon catalogues and can
   // more than double their cold-start time on shared CI runners. Keep the assertion exact,
   // but allow the instrumented initialization the same bounded headroom as the standalone
   // browser smoke's retry budget.
   try {
+    const remaining=await page.evaluate(deadlineMs=>deadlineMs-performance.now(),systemBudget.deadlineMs);
+    if(!(remaining>0))throw new Error('Original System entry deadline elapsed');
     await page.waitForFunction(
       () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2")
         && document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21,
-      { timeout: 75_000 }
+      { timeout: remaining }
     );
   } catch (error) {
     const state = await page.evaluate(() => ({
@@ -1069,7 +1076,7 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   await page.evaluate(async()=>{await document.fonts.ready;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
   const captionLayouts = await assertCaptionLayouts(page);
   fs.writeFileSync(path.join(visualDirectory, 'caption-layout.json'), `${JSON.stringify(captionLayouts, null, 2)}\n`);
-  await visualAssertions(page, visualDirectory, observeContext);
+  await visualAssertions(page, visualDirectory, observeContext, systemBudget);
 
   for (const id of [
     "orreryTrueScale",

@@ -216,6 +216,29 @@ including the existing physical/final-presentation collector checks. That result
 does not establish an actual native browser pass; combined geometry and native
 replays remain pending until separately recorded.
 
+The first combined native run identified Adreno X1-85/D3D11 but rejected all 266
+Earth draws in the additional physical window: they still used the illustrative
+fallback while optical preparation was loading. This failed receipt is retained
+at `coverage/hdr-combined-11508ce-native-qualified/visual/earth-physical-spin.json`.
+The original rotation acceptance had passed; that does not establish physical
+readiness or native physical rendering performance.
+
+The additional physical performance gate now has a separately recorded preparation
+step inside the **existing absolute 75-second System budget**, anchored immediately
+before System entry. Earlier setup, original rotation tests and negative controls
+consume that same budget; it is never restarted for physical preparation. A ready
+status alone cannot pass. The preparation observer must see a submitted physical
+draw whose actual sources, profile, bound fields, camera and Sun pass the existing
+capture. Unavailable fields/programs or deadline expiry fail preparation. The
+renderer retains its existing 30-second per-request program compilation timeout.
+`earth-physical-readiness.json` records first observed physical readiness elapsed
+from System entry, program diagnostics, field status, rejection counts and the
+accepted draw evidence. Only then does the additional, unchanged three-in-five-
+seconds collector measure physical rendering and final presentation. The original
+Earth collector and frozen/held controls still run independently before this step.
+Focused readiness/backend/collector CPU tests pass 53/53; revised native browser
+qualification remains pending until its own immutable receipt is recorded.
+
 Use the repository's existing output/coverage options for the second command and
 the same original runtime budgets. A passing material swatch or advancing offscreen
 producer does not satisfy final-presentation qualification. Source maps still carry

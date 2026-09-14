@@ -34,6 +34,7 @@ export async function collectSubmittedEarthSpin({holdPresentation=false,physical
       anchor: store.orrery.anchor, selected: store.orrery.selected, engineError: store.orrery.engineError,
       hdrEnabled:!!store.orrery.hdrEnabled,hdrStatus:store.orrery.hdrStatus??null,
       opticsEnabled:!!store.orrery.opticsEnabled,opticsStatus:store.orrery.opticsStatus??null,
+      programStatus:store.orrery.programStatus??null,programDiagnostics:store.orrery.programDiagnostics??null,
       lastTick: store.orrery.lastTick, renderUnix: store.orrery.renderUnix,
       canvas: { clientWidth: canvas.clientWidth, clientHeight: canvas.clientHeight,
         width: canvas.width, height: canvas.height, x: rect.x, y: rect.y, widthCss: rect.width, heightCss: rect.height } };
