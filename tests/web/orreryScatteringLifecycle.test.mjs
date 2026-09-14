@@ -15,6 +15,41 @@ async function boot(t,options={}){
   t.after(()=>h.leaveOrrery());return h;
 }
 
+// Intervals of binary64 values which round to the uploaded binary32 component.
+// This compares independently submitted transforms without an optical tolerance.
+function float32RoundingBin(value){
+  if(value===0)return [-(2**-150),2**-150];
+  const view=new DataView(new ArrayBuffer(4));view.setFloat32(0,value);
+  const bits=view.getUint32(0);
+  view.setUint32(0,value>0?bits-1:bits+1);const previous=view.getFloat32(0);
+  view.setUint32(0,value>0?bits+1:bits-1);const next=view.getFloat32(0);
+  return [(value+previous)/2,(value+next)/2];
+}
+
+for(const body of ['Earth','Mars'])test(`${body} shell raster and optical endpoints use the same physical radius`,async t=>{
+  const h=await boot(t);h.input('orreryAnchor',body,'change');await h.settle();
+  const before=h.gpuSubmissions.length;h.resize(812,604);
+  const used=consumers(h.gpuSubmissions.slice(before));
+  const surface=used.find(draw=>draw.uniforms.u_bodyRadiusKm===BODY[body].radiusKm);
+  const shell=used.find(draw=>draw.uniforms.u_bodyRadiusKm===undefined);
+  assert.ok(surface);assert.ok(shell);
+  const profile=getAtmosphereProfile(body);
+  const opticalOuterRadius=profile.radiusKm+profile.topKm;
+  const ratio=opticalOuterRadius/BODY[body].radiusKm;
+  let compared=0;
+  // A common projection, rotation and catalogue oblate ratio cancel. Each shell
+  // basis column must scale the surface column to the optical outer radius.
+  for(let i=0;i<12;i++){
+    const a=float32RoundingBin(surface.uniforms.u_mvp[i]).map(value=>value*ratio);
+    const b=float32RoundingBin(shell.uniforms.u_mvp[i]);
+    assert.ok(a[0]<=b[1]&&b[0]<=a[1],`${body} shell MVP component ${i} disagrees with its optical endpoint`);
+    if(surface.uniforms.u_mvp[i]!==0)compared++;
+  }
+  assert.ok(compared>=4);
+  assert.deepEqual(shell.uniforms.u_mvp.slice(12),surface.uniforms.u_mvp.slice(12),'same body centre');
+  assert.deepEqual(h.errors,[]);
+});
+
 test('every physical scene generates two passes before surface and shell consumers, including paused repaints',async t=>{
   const h=await boot(t),before=h.gpuSubmissions.length,serial=h.state.scatteringFrame.sceneSerial;
   h.resize(812,604);const draws=h.gpuSubmissions.slice(before),generated=generatorDraws(draws),used=consumers(draws);

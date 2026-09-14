@@ -1981,7 +1981,9 @@ function drawBody(b, vp, eye) {
   }
 
   if(profile){
-    const extent=1+profile.topKm/profile.radiusKm;
+    // The display scale uses the catalogue radius; the optical outer endpoint
+    // uses the profile datum. Their small radius difference must not move the ray.
+    const extent=(profile.radiusKm+profile.topKm)/phys.radiusKm;
     const shell=mul(translate(pos),mul(rot,scaleM([rEq*extent,rEq*extent,rPol*extent])));
     queueTransparent(pos,eye,()=>{
       gl.useProgram(P.atmosphere);gl.uniform1i(P.atmosphereU.u_linearOutput,linearFrame?1:0);setAtmosphereUniforms(gl,P.atmosphereU,profile,opticalOptions);

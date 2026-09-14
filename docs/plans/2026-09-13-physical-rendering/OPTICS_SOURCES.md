@@ -66,6 +66,12 @@ explicit approximation if the renderer does not provide a linear scene-color tar
 The on-disk path must not be replaced with an additive halo or scalar-alpha attenuation.
 The density profile and optical transfer themselves have no dependence on displayed
 body inflation. Ray steps and bounding intersections are fixed and deterministic.
+The shell's raster transform and optical endpoint both use the profile outer radius
+`profile.radiusKm + profile.topKm`. Its display scale divides by the catalogue body
+radius, which differs from the optical datum by 3 m for Earth and 10 m for Mars.
+Using the profile radius as that denominator displaced the raster shell by about
+3.047 m and 10.294 m respectively. Production lifecycle tests compare the submitted
+surface and shell transforms through their binary32 rounding intervals.
 The offline reference uses eight Gauss-Legendre nodes for each density component,
 clipped at its own 12-scale-height support (or profile top). Production uses the
 qualified immutable column fields described below for those nested integrals.
