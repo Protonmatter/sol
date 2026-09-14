@@ -234,7 +234,7 @@ vec3 scatteringReferenceWeightPrepared(AtmospherePath path){
   float mu=clamp(dot(ray,normalize(u_atmosphereSunDirection)),-1.0,1.0),g=u_atmosphereG;
   float phaseR=3.0*(1.0+mu*mu)/(16.0*ATM_PI);
   float phaseA=(1.0-g*g)/(4.0*ATM_PI*pow(1.0+g*g-2.0*g*mu,1.5));
-  vec2 shadow=atmosphereShadowInterval(entry,ray);
+  vec2 shadow=path.shadow;
   // Use fixed density pieces: ground entry, metric closest, and ground exit.
   // Each aggregates its lit support before one opacity evaluation. At ground
   // tangency the two interior pieces shrink to zero, preserving continuity.
@@ -370,17 +370,18 @@ uniform int u_scatteringPass;
 void main(){
   // Decode packed atlas rows as integers: reciprocal-based float division can
   // put an exact layer boundary in the preceding layer on native GPUs.
-  ivec2 cell=ivec2(gl_FragCoord.xy);vec2 azimuth;float jacobian;AtmospherePath path;
+  ivec2 cell=ivec2(gl_FragCoord.xy);vec2 azimuth;float jacobian;AtmospherePath path;bool complete;
   if(u_scatteringPass==0){
     float y=float(cell.y%u_scatteringSurfaceSize.y),z=float(cell.y/u_scatteringSurfaceSize.y);
     float mu=scatteringMu(y),r=u_atmosphereRadiusKm+scatteringHeight(z,mu),impact=r*sqrt(max(0.0,1.0-mu*mu));
     azimuth=scatteringAzimuthComponentsAt(float(cell.x)/float(u_scatteringSurfaceSize.x),true);
-    path=atmospherePrepareSurface(u_atmosphereCameraKm,scatteringSurfacePoint(azimuth,r,mu));
+    path=atmosphereSurfaceGeometry(u_atmosphereCameraKm,scatteringSurfacePoint(azimuth,r,mu),complete);
   }else{
     float v=float(cell.y)/float(u_scatteringLimbSize.y-1),impact=u_atmosphereRadiusKm+u_atmosphereTopKm*v*v*(u_atmosphereDensityScaleKm.x==u_atmosphereDensityScaleKm.y?v:1.0);
     azimuth=scatteringAzimuthComponentsAt(float(cell.x)/float(u_scatteringLimbSize.x),false);
-    path=atmospherePrepareObserver(u_atmosphereCameraKm,scatteringRay(azimuth,impact,jacobian),1e20);
+    path=atmosphereObserverGeometry(u_atmosphereCameraKm,scatteringRay(azimuth,impact,jacobian),1e20,complete);
   }
+  path=atmosphereCompletePath(path,complete);
   AtmosphereResult result=integrateAtmospherePrepared(path);
   vec3 weight=scatteringReferenceWeightPrepared(path);
   vec3 residual=vec3(weight.x>0.0?result.scattering.x/weight.x:0.0,
@@ -397,7 +398,7 @@ bool atmosphereScatteringIsZeroPrepared(AtmospherePath path){
   // is analytically absent or occulted by the reference body's own shadow.
   vec3 entry=path.entry,ray=path.ray;float distance=path.distance;
   if(distance<=0.0)return true;
-  vec2 shadow=atmosphereShadowInterval(entry,ray);
+  vec2 shadow=path.shadow;
   return shadow.y>shadow.x&&shadow.x<=0.0&&shadow.y>=distance;
 }
 vec4 scatteringSurfaceTexel(ivec3 p){

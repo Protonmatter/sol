@@ -1,0 +1,1751 @@
+{
+  "schema_version": "atmosphere-shadow-conditioning-proposal.v1",
+  "scope": "Source proposal supported by bounded native compiler and two-backend18-query checks. Full7192, strict1600source joins, original1280 and final application admission remain separate and pending at this proposal freeze.",
+  "source_sha256": {
+    "apps/web/js/atmosphereShaders.js": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
+    "apps/web/js/atmosphereColumnField.js": "84177099c937c7c9b4fa859994e2be381bd5b20034298c6c370fa96e13eeb5da",
+    "apps/web/js/atmosphereScattering.js": "4c43aaa434b7388e9f7b9185f845e3c508ce5a4db4d1e3d38ac0cf7bc293af6b",
+    "apps/web/js/atmosphereColumnManifest.js": "405e36a34a9fa0dc93286676710bd3dca49d685e12ad99eead973825b9875c31",
+    "apps/web/js/atmosphereIncidentManifest.js": "d57276f5c10f37bf1571554cdd0ff901b7ee5a15a69ac9dd573ccb935dcc6276",
+    "apps/web/js/orreryShaders.js": "7158492c19143154a91b3d2a99eb2af01c6c73ad172a887d6385b3348c4b6d8a",
+    "apps/web/js/shaderPrograms.js": "3febea96c90cc448a615a4158ed7ef76f23c2f584c4aba95bbd010b8fe5077b8",
+    "tools/scattering_validation.mjs": "3d27c68e7bdb4744e6fc1de652b153de6c33f3dbaf836a2d82eb46108ffea2c2",
+    "tools/browser_backend.mjs": "5f114bae6914e3046bb266309e082f5df1999c344dc7eaf69330582b4612d072",
+    "tests/web/atmosphereShadowGeometry.test.mjs": "97d7375e8901993cd48542e68bbfe14f78d597bd4be564f88941cb1d738d5f1e",
+    "tests/web/atmosphereColumnHeight.test.mjs": "f5bec8b0c506601e4d26dea1520bfa6e3c23db2aeb614b4fc1bf39c02ca629cb",
+    "tests/web/atmosphereObserverGeometry.test.mjs": "4600e0ae0824d0cfaa6f503acaa0634fba7974c9adf52ca2c470f03f93bdf91a",
+    "tests/web/atmosphereColumns.test.mjs": "f9b835daca546f7f6473c5d2dc39b3a28ca09c7da1d4343b423678782e97eb87",
+    "tests/web/fixtures/glslFloat32Geometry.mjs": "43a603e27ea6d61d8ba2bbbf3407a89c68da094397ec9731fb6565fb33c96de4",
+    "tests/web/fixtures/shadowCompletePaths.json": "00f2538afad8ca2f029b4a9627a9316807307a146c211dc51151a80f69bba001"
+  },
+  "changes": [
+    "Compensated homogeneous cylinder and antisolar-plane shadow interval on the actual prepared physical ray; original parallel and tangent semantics retained.",
+    "One entry-relative path.shadow feeds direct source, conditioning and exact-zero support. Public complete-path wrappers retain early-return behavior through an explicit completion flag.",
+    "Private source attenuation operates only on the analytically lit intervals; public local solar visibility is unchanged. Cached public/private optical-depth routes are separately guarded.",
+    "Column-tail altitude uses the exact rationalized radius difference before binary32 lookup; no local threshold, residual clamp, moment or centroid change.",
+    "One textual source-segment call selects the same one/two intervals, preserving the first assignment and second addition order. Original12 nodes per nonempty segment and60-node bound remain unchanged."
+  ],
+  "native_compile": {
+    "path": "build/shadow-segment-factor/compile-shadow_segment_factor.json",
+    "sha256": "d40ba7b11b8b8906150bc3ab8310101da1d9e1f6311468ba6cf50a501af80d74",
+    "tool_sha256": "7fe872ab7ca440d55d9484c7bebaf9ce31576406b913cf5843b347cc664bc2bb",
+    "owner_sha256": "3febea96c90cc448a615a4158ed7ef76f23c2f584c4aba95bbd010b8fe5077b8",
+    "source_manifest": {
+      "source": {
+        "atmosphereColumnField.js": "84177099c937c7c9b4fa859994e2be381bd5b20034298c6c370fa96e13eeb5da",
+        "atmosphereShaders.js": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
+        "atmosphereScattering.js": "4c43aaa434b7388e9f7b9185f845e3c508ce5a4db4d1e3d38ac0cf7bc293af6b",
+        "orreryShaders.js": "7158492c19143154a91b3d2a99eb2af01c6c73ad172a887d6385b3348c4b6d8a",
+        "shaderPrograms.js": "3febea96c90cc448a615a4158ed7ef76f23c2f584c4aba95bbd010b8fe5077b8"
+      },
+      "expanded": {
+        "physicalSphere.vertex.glsl": "47a4818c2c142df7bda6fc7ce05305610be4a61638e1e2053a9738b1927f5082",
+        "physicalSphere.fragment.glsl": "20ba613d199d642f429e8fdf14a099ea620116162bd886771efd151296e28f09",
+        "atmosphere.vertex.glsl": "0e0412f7bbf3812cb480764913796e1c098abf8fdfdd65435440e499b1b40296",
+        "atmosphere.fragment.glsl": "e603782c4aa0b90bc83f69c945b08d55263ad0bc96f50c1a8dbc4814b6a6761a",
+        "scatteringGenerator.vertex.glsl": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f",
+        "scatteringGenerator.fragment.glsl": "c71e2b2b4a4f3632b7ac00ebee9bb36f155d5a508c7586148629034f9b000d39"
+      }
+    },
+    "limit_ms": 30000,
+    "capacity": 9,
+    "browser_version": "Chrome/151.0.7922.174",
+    "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "parallel": true,
+    "events": [
+      {
+        "key": "physicalSphere",
+        "status": "loading",
+        "at_ms": 1,
+        "request_elapsed_ms": 0.800000011920929
+      },
+      {
+        "key": "atmosphere",
+        "status": "loading",
+        "at_ms": 1.199999988079071,
+        "request_elapsed_ms": 0.19999998807907104
+      },
+      {
+        "key": "scatteringGenerator",
+        "status": "loading",
+        "at_ms": 1.199999988079071,
+        "request_elapsed_ms": 0
+      },
+      {
+        "key": "atmosphere",
+        "status": "ready",
+        "at_ms": 4041.699999988079,
+        "request_elapsed_ms": 4040.699999988079
+      },
+      {
+        "key": "physicalSphere",
+        "status": "ready",
+        "at_ms": 8708.199999988079,
+        "request_elapsed_ms": 8708
+      },
+      {
+        "key": "scatteringGenerator",
+        "status": "ready",
+        "at_ms": 11658.100000023842,
+        "request_elapsed_ms": 11656.900000035763
+      }
+    ],
+    "browser_closed": true,
+    "limitation": "One bounded isolated-context measurement. It does not establish stable/tail latency or final application readiness."
+  },
+  "narrow_replays": [
+    {
+      "path": "build/shadow-segment-factor/narrow-native/evidence.json",
+      "sha256": "a82a6a646c974a30b7df89d9cedbf5908d6b199293d5701e5eb5218e138661ef",
+      "backend": {
+        "kind": "native-device",
+        "basis": "Observed WebGL renderer string; requested launch mode alone does not attest hardware execution"
+      },
+      "passed": true,
+      "cases": [
+        {
+          "name": "Earth-forward-oblique",
+          "body": "Earth",
+          "plan": {
+            "status": "ready",
+            "singleScale": false,
+            "body": "Earth",
+            "radiusKm": 6378.137,
+            "topKm": 100,
+            "polarRatio": 0.9966,
+            "cameraBodyKm": [
+              73135.37016191706,
+              0,
+              67967.9565638286
+            ],
+            "cameraRadius": 100000.00000000001,
+            "axis": [
+              0.7313537016191705,
+              0,
+              0.6819983600624985
+            ],
+            "u": [
+              0,
+              1,
+              0
+            ],
+            "v": [
+              -0.6819983600624985,
+              0,
+              0.7313537016191705
+            ],
+            "heightRange": [
+              0.0030000000006111804,
+              0.0030000000006111804
+            ],
+            "surfaceSize": [
+              128,
+              193,
+              1
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 32896,
+            "bytes": 526336
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 128,
+              "height": 193,
+              "texels": 24704,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.056245800107717514,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.20085205137729645,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "visible-limb": 3,
+            "no-atmosphere-intersection": 1
+          },
+          "nonzero_visible_shells": 3,
+          "domain_coverage_passed": true,
+          "total": 4,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 9.324867278337479e-08,
+          "max_inside_display_error": 9.778941900406846e-07,
+          "max_scattering_error": 9.324867278337479e-08,
+          "max_display_error": 9.778941900406846e-07
+        },
+        {
+          "name": "Earth-distant-diagnostic",
+          "body": "Earth",
+          "plan": {
+            "status": "ready",
+            "singleScale": false,
+            "body": "Earth",
+            "radiusKm": 6378.137,
+            "topKm": 100,
+            "polarRatio": 0.9966,
+            "cameraBodyKm": [
+              309218.21768491116,
+              0,
+              555947.7604363825
+            ],
+            "cameraRadius": 637813.7,
+            "axis": [
+              0.4848096202463371,
+              0,
+              0.8746197071393957
+            ],
+            "u": [
+              0,
+              1,
+              0
+            ],
+            "v": [
+              -0.8746197071393957,
+              0,
+              0.4848096202463371
+            ],
+            "heightRange": [
+              0.0030000000006111804,
+              0.0030000000006111804
+            ],
+            "surfaceSize": [
+              128,
+              193,
+              1
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 32896,
+            "bytes": 526336
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 128,
+              "height": 193,
+              "texels": 24704,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.9345654845237732,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.9979957938194275,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "visible-limb": 5
+          },
+          "nonzero_visible_shells": 5,
+          "domain_coverage_passed": true,
+          "total": 5,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 2.2571953195438255e-09,
+          "max_inside_display_error": 0,
+          "max_scattering_error": 2.2571953195438255e-09,
+          "max_display_error": 0
+        },
+        {
+          "name": "Mars-forward-terrain",
+          "body": "Mars",
+          "plan": {
+            "status": "ready",
+            "singleScale": true,
+            "body": "Mars",
+            "radiusKm": 3396.19,
+            "topKm": 100,
+            "polarRatio": 0.9941,
+            "cameraBodyKm": [
+              54246.35865735031,
+              0,
+              -40636.3856462846
+            ],
+            "cameraRadius": 67923.8,
+            "axis": [
+              0.7986355100472928,
+              0,
+              -0.6018150231520483
+            ],
+            "u": [
+              0,
+              1,
+              -4.9040350679691265e-15
+            ],
+            "v": [
+              0.6018150231520483,
+              3.916536547797334e-15,
+              0.7986355100472928
+            ],
+            "heightRange": [
+              -23.121000000000095,
+              41.33238205411908
+            ],
+            "surfaceSize": [
+              80,
+              41,
+              17
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 63952,
+            "bytes": 1023232
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 80,
+              "height": 697,
+              "texels": 55760,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 1.0228759050369263,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 105.16897583007812,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "surface": 1,
+            "visible-limb": 1
+          },
+          "nonzero_visible_shells": 1,
+          "domain_coverage_passed": true,
+          "total": 2,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 6.50966539978981e-05,
+          "max_inside_display_error": 0.000177984331863279,
+          "max_scattering_error": 6.50966539978981e-05,
+          "max_display_error": 0.000177984331863279
+        },
+        {
+          "name": "Earth-forward-oblique-explicit-height",
+          "body": "Earth",
+          "plan": {
+            "status": "ready",
+            "singleScale": false,
+            "body": "Earth",
+            "radiusKm": 6378.137,
+            "topKm": 100,
+            "polarRatio": 0.9966,
+            "cameraBodyKm": [
+              73135.37016191706,
+              0,
+              67967.9565638286
+            ],
+            "cameraRadius": 100000.00000000001,
+            "axis": [
+              0.7313537016191705,
+              0,
+              0.6819983600624985
+            ],
+            "u": [
+              0,
+              1,
+              0
+            ],
+            "v": [
+              -0.6819983600624985,
+              0,
+              0.7313537016191705
+            ],
+            "heightRange": [
+              0.0030000000006111804,
+              0.0030000000006111804
+            ],
+            "surfaceSize": [
+              128,
+              193,
+              1
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 32896,
+            "bytes": 526336
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 128,
+              "height": 193,
+              "texels": 24704,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.056245800107717514,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.20085205137729645,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "surface": 1,
+            "visible-limb": 3
+          },
+          "nonzero_visible_shells": 3,
+          "domain_coverage_passed": true,
+          "total": 4,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 2.468470484018326e-06,
+          "max_inside_display_error": 1.8301921284047395e-05,
+          "max_scattering_error": 2.468470484018326e-06,
+          "max_display_error": 1.8301921284047395e-05
+        },
+        {
+          "name": "Mars-forward-terrain-v2-explicit-height",
+          "body": "Mars",
+          "plan": {
+            "status": "ready",
+            "singleScale": true,
+            "body": "Mars",
+            "radiusKm": 3396.19,
+            "topKm": 100,
+            "polarRatio": 0.9941110653082857,
+            "cameraBodyKm": [
+              54246.35865735031,
+              0,
+              -40636.83796912415
+            ],
+            "cameraRadius": 67923.8,
+            "axis": [
+              0.7986355100472928,
+              0,
+              -0.6018150231520483
+            ],
+            "u": [
+              0,
+              1,
+              4.904015456735378e-15
+            ],
+            "v": [
+              0.6018150231520483,
+              -3.916520885569666e-15,
+              0.7986355100472928
+            ],
+            "heightRange": [
+              -23.24900000000025,
+              41.32530312185281
+            ],
+            "surfaceSize": [
+              80,
+              41,
+              17
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 63952,
+            "bytes": 1023232
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 80,
+              "height": 697,
+              "texels": 55760,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 1.0233228206634521,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 71.14904022216797,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "visible-limb": 2,
+            "no-atmosphere-intersection": 1
+          },
+          "nonzero_visible_shells": 2,
+          "domain_coverage_passed": true,
+          "total": 3,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 3.3092539126755582e-06,
+          "max_inside_display_error": 3.95399550590092e-06,
+          "max_scattering_error": 3.3092539126755582e-06,
+          "max_display_error": 3.95399550590092e-06
+        }
+      ],
+      "complete_matrix": false,
+      "selection": {
+        "schema_version": "shadow-support-narrow-selection.v1",
+        "scope": "All previous sixteen unchanged regression/coverage queries plus Mars-forward surface500 and its unchanged visible-shell control648. Full matrix is separate.",
+        "names": [
+          "Earth-distant-diagnostic/limb/129",
+          "Earth-distant-diagnostic/limb/130",
+          "Earth-distant-diagnostic/limb/138",
+          "Earth-distant-diagnostic/limb/139",
+          "Earth-distant-diagnostic/limb/79",
+          "Earth-forward-oblique-explicit-height/limb/20",
+          "Earth-forward-oblique-explicit-height/limb/27",
+          "Earth-forward-oblique-explicit-height/limb/30",
+          "Earth-forward-oblique-explicit-height/surface/13",
+          "Earth-forward-oblique/limb/130",
+          "Earth-forward-oblique/limb/139",
+          "Earth-forward-oblique/limb/140",
+          "Earth-forward-oblique/limb/76",
+          "Mars-forward-terrain-v2-explicit-height/limb/288",
+          "Mars-forward-terrain-v2-explicit-height/limb/296",
+          "Mars-forward-terrain-v2-explicit-height/limb/298",
+          "Mars-forward-terrain/surface/500",
+          "Mars-forward-terrain/limb/648"
+        ]
+      },
+      "tool_sha256": "06bdfe336d1783a584ae376904e79510a7303b6c619fe2241377406b14118f69",
+      "original_dataset_sha256": "20cef31efdf06deb16196fcb73dabf638600e6edc52a79bdf92ad2d1019c3e4f",
+      "limits": {
+        "scatteringAbsolute": 0.0002,
+        "scatteringRelative": 0.01,
+        "zeroLeak": 1e-07,
+        "transmissionAbsolute": 0.0001,
+        "transmissionRelative": 0.002,
+        "displayAbsolute": 0.00784313725490196
+      }
+    },
+    {
+      "path": "build/shadow-segment-factor/narrow-swiftshader/evidence.json",
+      "sha256": "af818a4134078c7d9e8ab25908f13b674fbc672800c559f844d80c5c0da2f923",
+      "backend": {
+        "kind": "software",
+        "basis": "Observed WebGL renderer string; requested launch mode alone does not attest hardware execution"
+      },
+      "passed": true,
+      "cases": [
+        {
+          "name": "Earth-forward-oblique",
+          "body": "Earth",
+          "plan": {
+            "status": "ready",
+            "singleScale": false,
+            "body": "Earth",
+            "radiusKm": 6378.137,
+            "topKm": 100,
+            "polarRatio": 0.9966,
+            "cameraBodyKm": [
+              73135.37016191706,
+              0,
+              67967.9565638286
+            ],
+            "cameraRadius": 100000.00000000001,
+            "axis": [
+              0.7313537016191705,
+              0,
+              0.6819983600624985
+            ],
+            "u": [
+              0,
+              1,
+              0
+            ],
+            "v": [
+              -0.6819983600624985,
+              0,
+              0.7313537016191705
+            ],
+            "heightRange": [
+              0.0030000000006111804,
+              0.0030000000006111804
+            ],
+            "surfaceSize": [
+              128,
+              193,
+              1
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 32896,
+            "bytes": 526336
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 128,
+              "height": 193,
+              "texels": 24704,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.055071406066417694,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.20084838569164276,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "visible-limb": 4
+          },
+          "nonzero_visible_shells": 4,
+          "domain_coverage_passed": true,
+          "total": 4,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 6.383052095770836e-07,
+          "max_inside_display_error": 6.680787414822809e-06,
+          "max_scattering_error": 6.383052095770836e-07,
+          "max_display_error": 6.680787414822809e-06
+        },
+        {
+          "name": "Earth-distant-diagnostic",
+          "body": "Earth",
+          "plan": {
+            "status": "ready",
+            "singleScale": false,
+            "body": "Earth",
+            "radiusKm": 6378.137,
+            "topKm": 100,
+            "polarRatio": 0.9966,
+            "cameraBodyKm": [
+              309218.21768491116,
+              0,
+              555947.7604363825
+            ],
+            "cameraRadius": 637813.7,
+            "axis": [
+              0.4848096202463371,
+              0,
+              0.8746197071393957
+            ],
+            "u": [
+              0,
+              1,
+              0
+            ],
+            "v": [
+              -0.8746197071393957,
+              0,
+              0.4848096202463371
+            ],
+            "heightRange": [
+              0.0030000000006111804,
+              0.0030000000006111804
+            ],
+            "surfaceSize": [
+              128,
+              193,
+              1
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 32896,
+            "bytes": 526336
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 128,
+              "height": 193,
+              "texels": 24704,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.9345542788505554,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.997996985912323,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "visible-limb": 5
+          },
+          "nonzero_visible_shells": 5,
+          "domain_coverage_passed": true,
+          "total": 5,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 3.914692570106126e-09,
+          "max_inside_display_error": 0,
+          "max_scattering_error": 3.914692570106126e-09,
+          "max_display_error": 0
+        },
+        {
+          "name": "Mars-forward-terrain",
+          "body": "Mars",
+          "plan": {
+            "status": "ready",
+            "singleScale": true,
+            "body": "Mars",
+            "radiusKm": 3396.19,
+            "topKm": 100,
+            "polarRatio": 0.9941,
+            "cameraBodyKm": [
+              54246.35865735031,
+              0,
+              -40636.3856462846
+            ],
+            "cameraRadius": 67923.8,
+            "axis": [
+              0.7986355100472928,
+              0,
+              -0.6018150231520483
+            ],
+            "u": [
+              0,
+              1,
+              -4.9040350679691265e-15
+            ],
+            "v": [
+              0.6018150231520483,
+              3.916536547797334e-15,
+              0.7986355100472928
+            ],
+            "heightRange": [
+              -23.121000000000095,
+              41.33238205411908
+            ],
+            "surfaceSize": [
+              80,
+              41,
+              17
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 63952,
+            "bytes": 1023232
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 80,
+              "height": 697,
+              "texels": 55760,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 1.0228697061538696,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 59.6126708984375,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "surface": 1,
+            "visible-limb": 1
+          },
+          "nonzero_visible_shells": 1,
+          "domain_coverage_passed": true,
+          "total": 2,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 0.00017618294805288315,
+          "max_inside_display_error": 0.0004705842878425792,
+          "max_scattering_error": 0.00017618294805288315,
+          "max_display_error": 0.0004705842878425792
+        },
+        {
+          "name": "Earth-forward-oblique-explicit-height",
+          "body": "Earth",
+          "plan": {
+            "status": "ready",
+            "singleScale": false,
+            "body": "Earth",
+            "radiusKm": 6378.137,
+            "topKm": 100,
+            "polarRatio": 0.9966,
+            "cameraBodyKm": [
+              73135.37016191706,
+              0,
+              67967.9565638286
+            ],
+            "cameraRadius": 100000.00000000001,
+            "axis": [
+              0.7313537016191705,
+              0,
+              0.6819983600624985
+            ],
+            "u": [
+              0,
+              1,
+              0
+            ],
+            "v": [
+              -0.6819983600624985,
+              0,
+              0.7313537016191705
+            ],
+            "heightRange": [
+              0.0030000000006111804,
+              0.0030000000006111804
+            ],
+            "surfaceSize": [
+              128,
+              193,
+              1
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 32896,
+            "bytes": 526336
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 128,
+              "height": 193,
+              "texels": 24704,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.055071406066417694,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 0.20084838569164276,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "surface": 1,
+            "visible-limb": 3
+          },
+          "nonzero_visible_shells": 3,
+          "domain_coverage_passed": true,
+          "total": 4,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 2.5974586606025696e-06,
+          "max_inside_display_error": 1.924625962287929e-05,
+          "max_scattering_error": 2.5974586606025696e-06,
+          "max_display_error": 1.924625962287929e-05
+        },
+        {
+          "name": "Mars-forward-terrain-v2-explicit-height",
+          "body": "Mars",
+          "plan": {
+            "status": "ready",
+            "singleScale": true,
+            "body": "Mars",
+            "radiusKm": 3396.19,
+            "topKm": 100,
+            "polarRatio": 0.9941110653082857,
+            "cameraBodyKm": [
+              54246.35865735031,
+              0,
+              -40636.83796912415
+            ],
+            "cameraRadius": 67923.8,
+            "axis": [
+              0.7986355100472928,
+              0,
+              -0.6018150231520483
+            ],
+            "u": [
+              0,
+              1,
+              4.904015456735378e-15
+            ],
+            "v": [
+              0.6018150231520483,
+              -3.916520885569666e-15,
+              0.7986355100472928
+            ],
+            "heightRange": [
+              -23.24900000000025,
+              41.32530312185281
+            ],
+            "surfaceSize": [
+              80,
+              41,
+              17
+            ],
+            "limbSize": [
+              128,
+              64
+            ],
+            "evaluations": 63952,
+            "bytes": 1023232
+          },
+          "error": null,
+          "atlas": [
+            {
+              "name": "surface",
+              "width": 80,
+              "height": 697,
+              "texels": 55760,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 1.0228921175003052,
+              "invalidExamples": []
+            },
+            {
+              "name": "limb",
+              "width": 128,
+              "height": 64,
+              "texels": 8192,
+              "invalidAlpha": 0,
+              "nonFinite": 0,
+              "negative": 0,
+              "minAlpha": 1,
+              "maxAlpha": 1,
+              "maxValue": 96.5849380493164,
+              "invalidExamples": []
+            }
+          ],
+          "atlas_passed": true,
+          "domain_counts": {
+            "visible-limb": 2,
+            "no-atmosphere-intersection": 1
+          },
+          "nonzero_visible_shells": 2,
+          "domain_coverage_passed": true,
+          "total": 3,
+          "failed": 0,
+          "raw_failed": 0,
+          "passed": true,
+          "max_inside_scattering_error": 2.8049196316715097e-06,
+          "max_inside_display_error": 3.3484079297041447e-06,
+          "max_scattering_error": 2.8049196316715097e-06,
+          "max_display_error": 3.3484079297041447e-06
+        }
+      ],
+      "complete_matrix": false,
+      "selection": {
+        "schema_version": "shadow-support-narrow-selection.v1",
+        "scope": "All previous sixteen unchanged regression/coverage queries plus Mars-forward surface500 and its unchanged visible-shell control648. Full matrix is separate.",
+        "names": [
+          "Earth-distant-diagnostic/limb/129",
+          "Earth-distant-diagnostic/limb/130",
+          "Earth-distant-diagnostic/limb/138",
+          "Earth-distant-diagnostic/limb/139",
+          "Earth-distant-diagnostic/limb/79",
+          "Earth-forward-oblique-explicit-height/limb/20",
+          "Earth-forward-oblique-explicit-height/limb/27",
+          "Earth-forward-oblique-explicit-height/limb/30",
+          "Earth-forward-oblique-explicit-height/surface/13",
+          "Earth-forward-oblique/limb/130",
+          "Earth-forward-oblique/limb/139",
+          "Earth-forward-oblique/limb/140",
+          "Earth-forward-oblique/limb/76",
+          "Mars-forward-terrain-v2-explicit-height/limb/288",
+          "Mars-forward-terrain-v2-explicit-height/limb/296",
+          "Mars-forward-terrain-v2-explicit-height/limb/298",
+          "Mars-forward-terrain/surface/500",
+          "Mars-forward-terrain/limb/648"
+        ]
+      },
+      "tool_sha256": "06bdfe336d1783a584ae376904e79510a7303b6c619fe2241377406b14118f69",
+      "original_dataset_sha256": "20cef31efdf06deb16196fcb73dabf638600e6edc52a79bdf92ad2d1019c3e4f",
+      "limits": {
+        "scatteringAbsolute": 0.0002,
+        "scatteringRelative": 0.01,
+        "zeroLeak": 1e-07,
+        "transmissionAbsolute": 0.0001,
+        "transmissionRelative": 0.002,
+        "displayAbsolute": 0.00784313725490196
+      }
+    }
+  ],
+  "original_physical_regressions": {
+    "schema_version": "prepared-path-two-physical-regressions.v1",
+    "scope": "Two unchanged actual GPU source queries against retained converged binary64 physical values on once-uploaded inputs; full source and atlas matrices remain separate.",
+    "cpu_reference_sha256": "6311b766bb668f7e30c90d89f490d7e482a5667dbb6b0fe918945c630a32b5bb",
+    "runs": [
+      {
+        "run": "narrow-native",
+        "gpu_evidence_sha256": "a82a6a646c974a30b7df89d9cedbf5908d6b199293d5701e5eb5218e138661ef",
+        "gpu": {
+          "vendor": "WebKit",
+          "renderer": "WebKit WebGL",
+          "unmasked_renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+          "max_texture_size": 16384,
+          "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+        },
+        "queries": [
+          {
+            "name": "Earth-forward-oblique-explicit-height/surface/13",
+            "input_file_sha256": "263aec19e91ab193795e1e2b1b579047f331ccce4c60aecbfa43720692c8a718",
+            "scattering": {
+              "reference": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "actual": [
+                0,
+                0,
+                0
+              ],
+              "limit": [
+                1e-07,
+                1e-07,
+                1e-07
+              ],
+              "error": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "passed": true
+            },
+            "transmission": {
+              "reference": [
+                0.11946088010554468,
+                0.013343667146601195,
+                5.3276389468438134e-05
+              ],
+              "actual": [
+                0.11946422606706619,
+                0.01334408763796091,
+                5.327846884028986e-05
+              ],
+              "limit": [
+                0.00033892176021108934,
+                0.0001266873342932024,
+                0.00010010655277893688
+              ],
+              "error": [
+                3.3459615215170047e-06,
+                4.204913597160437e-07,
+                2.0793718517265396e-09
+              ],
+              "passed": true
+            },
+            "passed": true
+          },
+          {
+            "name": "Mars-forward-terrain-v2-explicit-height/limb/298",
+            "input_file_sha256": "d2a0f732b106830da175743d15ed39a5fde47665b47c4840410bab9b3a0f5a03",
+            "scattering": {
+              "reference": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "actual": [
+                0,
+                0,
+                0
+              ],
+              "limit": [
+                1e-07,
+                1e-07,
+                1e-07
+              ],
+              "error": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "passed": true
+            },
+            "transmission": {
+              "reference": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "actual": [
+                1,
+                1,
+                1
+              ],
+              "limit": [
+                0.0021,
+                0.0021,
+                0.0021
+              ],
+              "error": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "passed": true
+            },
+            "passed": true
+          }
+        ],
+        "passed": true
+      },
+      {
+        "run": "narrow-swiftshader",
+        "gpu_evidence_sha256": "af818a4134078c7d9e8ab25908f13b674fbc672800c559f844d80c5c0da2f923",
+        "gpu": {
+          "vendor": "WebKit",
+          "renderer": "WebKit WebGL",
+          "unmasked_renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+          "max_texture_size": 8192,
+          "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+        },
+        "queries": [
+          {
+            "name": "Earth-forward-oblique-explicit-height/surface/13",
+            "input_file_sha256": "263aec19e91ab193795e1e2b1b579047f331ccce4c60aecbfa43720692c8a718",
+            "scattering": {
+              "reference": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "actual": [
+                0,
+                0,
+                0
+              ],
+              "limit": [
+                1e-07,
+                1e-07,
+                1e-07
+              ],
+              "error": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "passed": true
+            },
+            "transmission": {
+              "reference": [
+                0.11946088010554468,
+                0.013343667146601195,
+                5.3276389468438134e-05
+              ],
+              "actual": [
+                0.11943019181489944,
+                0.013338545337319374,
+                5.323900404619053e-05
+              ],
+              "limit": [
+                0.00033892176021108934,
+                0.0001266873342932024,
+                0.00010010655277893688
+              ],
+              "error": [
+                3.068829064523104e-05,
+                5.121809281820669e-06,
+                3.738542224760436e-08
+              ],
+              "passed": true
+            },
+            "passed": true
+          },
+          {
+            "name": "Mars-forward-terrain-v2-explicit-height/limb/298",
+            "input_file_sha256": "d2a0f732b106830da175743d15ed39a5fde47665b47c4840410bab9b3a0f5a03",
+            "scattering": {
+              "reference": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "actual": [
+                0,
+                0,
+                0
+              ],
+              "limit": [
+                1e-07,
+                1e-07,
+                1e-07
+              ],
+              "error": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "passed": true
+            },
+            "transmission": {
+              "reference": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "actual": [
+                1,
+                1,
+                1
+              ],
+              "limit": [
+                0.0021,
+                0.0021,
+                0.0021
+              ],
+              "error": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "passed": true
+            },
+            "passed": true
+          }
+        ],
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "field_reproduction": {
+    "commands": [
+      "node tools/prepare_atmosphere_columns.mjs",
+      "node tools/prepare_atmosphere_incident.mjs"
+    ],
+    "payloads": {
+      "apps/web/data/optics/earth-columns-v1.f32": {
+        "bytes": 2097152,
+        "sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893"
+      },
+      "apps/web/data/optics/earth-incident-v1.f32": {
+        "bytes": 1201200,
+        "sha256": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639"
+      },
+      "apps/web/data/optics/mars-columns-v1.f32": {
+        "bytes": 2097152,
+        "sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895"
+      },
+      "apps/web/data/optics/mars-incident-v1.f32": {
+        "bytes": 1201200,
+        "sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311"
+      }
+    },
+    "all_four_byte_identical_to_prior": true,
+    "logs": [
+      {
+        "path": "build/shadow-segment-factor/columns-repro.log",
+        "sha256": "ed63f90eba654670a90064d0b041617b19689d4cd20d36187aa2d7f4e2c059e9"
+      },
+      {
+        "path": "build/shadow-segment-factor/incident-repro.log",
+        "sha256": "75cadf944955cf26ab2e587c55f76c3229327511f4e48b7cfb6028ef17510537"
+      }
+    ],
+    "scope": "Offline reproduction binds current source metadata. It does not imply the final numerical or application gates passed."
+  },
+  "diagnosis": {
+    "case": "Mars-forward-terrain/surface/500",
+    "node": [
+      31,
+      23,
+      12
+    ],
+    "actual_native_path": {
+      "entry": [
+        1622.60693359375,
+        -3057.303955078125,
+        490.42803955078125
+      ],
+      "ray": [
+        -0.78709477186203,
+        -0.0457281693816185,
+        0.6151347756385803
+      ],
+      "distance_km": 948.149658203125
+    },
+    "shadow_exit_km": {
+      "old_native": 948.1290283203125,
+      "independent_float64_actual_native_path": 948.133856813353,
+      "compensated_native": 948.1338500976562
+    },
+    "column_mass_km": {
+      "converged_actual_native_path": 0.013056918926594031,
+      "old_actual_gpu": 0.01507568359375,
+      "stable_height_actual_gpu": 0.0130615234375
+    },
+    "scope": "The old native boundary was4.828m early; the first four actual native Gauss points were truly shadowed and the fifth was a false local tangent. The stable boundary is within6.716mm of binary64 on that exact recorded ray. Rounded large radii separately enlarged the short suffix column mass by15.46%. The private lit kernel is used only after correcting the continuous-ray support.",
+    "moment_scope": "The analytic/interpolated conditioning centroid remains approximate; no centroid or radial-moment change is part of this proposal.",
+    "retained_stages": [
+      {
+        "path": "build/observer-prepared-path/node-native/evidence.json",
+        "sha256": "69a61fd95435c9d8a98256d587c514740efa7f6f92c3abda385b8f8bfefe96ae",
+        "description": "Original failing node; instrumented residual matched original exactly.",
+        "source_hashes": {
+          "js/atmosphereScattering.js": "7dd447d550ff743c1a04a93bb9c6a855c2d63f038be41d74d88121ffb018a1aa",
+          "js/atmosphereColumnField.js": "946107d8877ab16f2ba8d3bccfd495c8e451f6f80a2ca0ac2081a79944968de6",
+          "js/atmosphereShaders.js": "693d856dd0d9ae58c8c0ade448a2c5e7a96b01654af7af784d1ea084e6d497f7",
+          "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+          "js/atmosphereColumnManifest.js": "a1d7dcc1c79f955dad9454ab932f742bc7f97f2a4872e024009240c7d02bd23d",
+          "js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+          "js/atmosphereIncidentManifest.js": "2434d334fd0caefdda8a9ba7772a83a7f8ff5a0cfd7ab3e39b787546f13ef56e",
+          "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+          "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+          "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+          "terrain-assets.v1.json": "1c8b2e5f7d38b2b45464bbbb9da4f0d992c7748b6b4f3d0d2ce70d7665b97b93",
+          "js/terrainAssets.js": "b6cd8dd2c8bb73b98da58b9200a9ec634c697b2bf22651ddfd3f380f6a1516b8",
+          "js/terrainGeometry.js": "1ae3c76d97f699cc1553d29e2626c946bc46bb270e38ea11720b6e7b4801a04a",
+          "textures/terrain/mars-radial-height-v2.u16.bin": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba"
+        },
+        "max_instrumentation_residual_delta": 0,
+        "original_residual": [
+          0.6237673163414001,
+          0.6244094967842102,
+          0.6244906187057495,
+          1
+        ],
+        "completed": true
+      },
+      {
+        "path": "build/shadow-support/node-native/evidence.json",
+        "sha256": "c34b9780e79474d082acbf86f1e54b4bbf06d22ae95f0a9d7b36b86fcadef141",
+        "description": "Corrected shared shadow and lit kernel, before stable-height correction; original/instrumented residual parity.",
+        "source_hashes": {
+          "js/atmosphereScattering.js": "3340264b34951cf1ffa3f22f890dc5ff96d24a881805e63891e6f2b856646691",
+          "js/atmosphereColumnField.js": "9d0623aa09e67dc50fe16a981dd17a7b454790b9c9672234fed2957327720746",
+          "js/atmosphereShaders.js": "8c94a8fda4d3efcdd063b550a5c2d73bfc63f10f9a67b990a8b2e9dda7e9c7a0",
+          "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+          "js/atmosphereColumnManifest.js": "a1d7dcc1c79f955dad9454ab932f742bc7f97f2a4872e024009240c7d02bd23d",
+          "js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+          "js/atmosphereIncidentManifest.js": "2434d334fd0caefdda8a9ba7772a83a7f8ff5a0cfd7ab3e39b787546f13ef56e",
+          "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+          "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+          "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+          "terrain-assets.v1.json": "1c8b2e5f7d38b2b45464bbbb9da4f0d992c7748b6b4f3d0d2ce70d7665b97b93",
+          "js/terrainAssets.js": "b6cd8dd2c8bb73b98da58b9200a9ec634c697b2bf22651ddfd3f380f6a1516b8",
+          "js/terrainGeometry.js": "1ae3c76d97f699cc1553d29e2626c946bc46bb270e38ea11720b6e7b4801a04a",
+          "textures/terrain/mars-radial-height-v2.u16.bin": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba"
+        },
+        "max_instrumentation_residual_delta": 0,
+        "original_residual": [
+          0.8650332689285278,
+          0.8656476140022278,
+          0.8659371137619019,
+          1
+        ],
+        "completed": true
+      },
+      {
+        "path": "build/shadow-height/node-native/evidence.json",
+        "sha256": "e6d5bc3037f99c18e6553d090b215c8d8a3dff9e8c41b7ad13d57d19a471e3fc",
+        "description": "Stable-height-only follow-up before final callsite factor; native original/instrumented residual parity.",
+        "source_hashes": {
+          "js/atmosphereScattering.js": "4c43aaa434b7388e9f7b9185f845e3c508ce5a4db4d1e3d38ac0cf7bc293af6b",
+          "js/atmosphereColumnField.js": "e254eaf6b1a9eb90c1c89ba4771ac53e98330b6e2522a3c7e8ec75fb856297d4",
+          "js/atmosphereShaders.js": "ae6147b0f124425350f30e025322d83731a2d6ec5be9707c82e2041d45e4b5b7",
+          "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+          "js/atmosphereColumnManifest.js": "a1d7dcc1c79f955dad9454ab932f742bc7f97f2a4872e024009240c7d02bd23d",
+          "js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+          "js/atmosphereIncidentManifest.js": "2434d334fd0caefdda8a9ba7772a83a7f8ff5a0cfd7ab3e39b787546f13ef56e",
+          "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+          "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+          "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+          "terrain-assets.v1.json": "1c8b2e5f7d38b2b45464bbbb9da4f0d992c7748b6b4f3d0d2ce70d7665b97b93",
+          "js/terrainAssets.js": "b6cd8dd2c8bb73b98da58b9200a9ec634c697b2bf22651ddfd3f380f6a1516b8",
+          "js/terrainGeometry.js": "1ae3c76d97f699cc1553d29e2626c946bc46bb270e38ea11720b6e7b4801a04a",
+          "textures/terrain/mars-radial-height-v2.u16.bin": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba"
+        },
+        "max_instrumentation_residual_delta": 0,
+        "original_residual": [
+          1.0006102323532104,
+          1.000734567642212,
+          0.9991429448127747,
+          1
+        ],
+        "completed": true
+      },
+      {
+        "path": "build/shadow-height/node-swiftshader/evidence.json",
+        "sha256": "69c0a75b85160e43802fe67283c18a095143e23620d03bc43efe714b0b736538",
+        "description": "Stable-height follow-up, fully shadowed SW node; original/instrumented residual parity.",
+        "source_hashes": {
+          "js/atmosphereScattering.js": "4c43aaa434b7388e9f7b9185f845e3c508ce5a4db4d1e3d38ac0cf7bc293af6b",
+          "js/atmosphereColumnField.js": "e254eaf6b1a9eb90c1c89ba4771ac53e98330b6e2522a3c7e8ec75fb856297d4",
+          "js/atmosphereShaders.js": "ae6147b0f124425350f30e025322d83731a2d6ec5be9707c82e2041d45e4b5b7",
+          "js/atmosphereOptics.js": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c",
+          "js/atmosphereColumnManifest.js": "a1d7dcc1c79f955dad9454ab932f742bc7f97f2a4872e024009240c7d02bd23d",
+          "js/atmosphereIncident.js": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+          "js/atmosphereIncidentManifest.js": "2434d334fd0caefdda8a9ba7772a83a7f8ff5a0cfd7ab3e39b787546f13ef56e",
+          "js/bodyData.js": "38b8e23f51d3d9a8c5c055a1cc18449c1083deeea13849433088f73fa90c820b",
+          "data/optics/earth-columns-v1.f32": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+          "data/optics/mars-columns-v1.f32": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+          "terrain-assets.v1.json": "1c8b2e5f7d38b2b45464bbbb9da4f0d992c7748b6b4f3d0d2ce70d7665b97b93",
+          "js/terrainAssets.js": "b6cd8dd2c8bb73b98da58b9200a9ec634c697b2bf22651ddfd3f380f6a1516b8",
+          "js/terrainGeometry.js": "1ae3c76d97f699cc1553d29e2626c946bc46bb270e38ea11720b6e7b4801a04a",
+          "textures/terrain/mars-radial-height-v2.u16.bin": "eeee507f80b9d093b5b9327571e1256a74e9380f839233e545f54fa6a3e33dba"
+        },
+        "max_instrumentation_residual_delta": 0,
+        "original_residual": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "completed": true
+      }
+    ]
+  },
+  "independent_reviews": [
+    {
+      "path": "sol-advanced-materials-20260914/build/conditioning-review-20260914/REVIEW.md",
+      "sha256": "f0f92977d7c4fb00a81c9e988502e7d4dc4e760f752ca3c5786ae95aa8ad5259"
+    },
+    {
+      "path": "sol-advanced-materials-20260914/build/conditioning-review-20260914/evidence.json",
+      "sha256": "947a0120ac9ecee207a09cd57a38938c4755c828312e594fbb7e10300c593e56"
+    },
+    {
+      "path": "sol-advanced-materials-20260914/build/conditioning-review-20260914/reproduce.mjs",
+      "sha256": "95e5a0165071cfe01afd12f2d619ea2aac9747b48192af949683b5d9cd1c7423"
+    },
+    {
+      "path": "sol-advanced-materials-20260914/build/conditioning-review-20260914/height-focused.tap",
+      "sha256": "394a98bc529dd735e23095d2ae95d9c349d2881f2047fc70477fe4a8e39a478e"
+    }
+  ],
+  "control_equivalence": {
+    "scope": "Actual integrator control and kernel-argument recording; not numerical-kernel or GPU proof.",
+    "checks": 6000,
+    "negative_controls_rejected": {
+      "adds_zero_to_first": true,
+      "drops_second": true,
+      "reverses_intervals": true
+    },
+    "patch_sha256": "16888442cffb868f395ce07dc1ef627589ec6321a3cbb15352b6756126867ecb",
+    "proof_sha256": "89e1e3a2c67b21a8d6784d951cae44a4b382af8ae5b1449e597966014352c64b",
+    "source_application_proof": {
+      "path": "build/shadow-height/segment-factor-source-proof.json",
+      "sha256": "a69803f8a09106f873ab98826e14cfe790a7848099c59c10eed04a50bce5259e"
+    }
+  },
+  "unchanged_contracts": [
+    "All7192 fixture inputs and existing tolerances",
+    "Independent once-uploaded physical reference values",
+    "Original public solar visibility",
+    "Original atlas node/resource limits",
+    "12nodes/segment and60analytic maximum",
+    "Native program30s, application startup/System/spin deadlines"
+  ],
+  "pending": [
+    "Full7192 native and SwiftShader",
+    "Strict1600source physical joins on both backends",
+    "Original1280 SwiftShader physical gate",
+    "Final combined application and memory replay"
+  ],
+  "retained_failed_compile_attempts": [
+    {
+      "path": "build/shadow-support/compile-shadow_support.json",
+      "sha256": "ab0b725906ce6cf6a3355802ba33296d1bb08dbff71018e5e93f9ab4d3ce2dae",
+      "source_sha256": {
+        "physicalSphere": {
+          "vertex": "4a1cc47dd219f390916839950df3eae3ce6086b2bc48ff07a86e4bf370cac99e",
+          "fragment": "37618d869bd0e5868bd1c96a6e9890b55cc1eda1fc9dcf7013bd12fae4ad05cd"
+        },
+        "atmosphere": {
+          "vertex": "0e0412f7bbf3812cb480764913796e1c098abf8fdfdd65435440e499b1b40296",
+          "fragment": "49c4faba1bf89b26121d69563885df88d616345754fa841f96cfc14f1296cfa8"
+        },
+        "scatteringGenerator": {
+          "vertex": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f",
+          "fragment": "c5f75fa09bc2114c53e5c933cc27d8e1eada5185624fe4965b7fb0c0fca1b839"
+        }
+      },
+      "limit_ms": 30000,
+      "completion": [
+        {
+          "key": "physicalSphere",
+          "generation": 1,
+          "status": "ready",
+          "error": "",
+          "notificationError": "",
+          "parallel": true
+        },
+        {
+          "key": "atmosphere",
+          "generation": 1,
+          "status": "ready",
+          "error": "",
+          "notificationError": "",
+          "parallel": true
+        },
+        {
+          "key": "scatteringGenerator",
+          "generation": 1,
+          "status": "unavailable",
+          "error": "Shader completion exceeded 30000 ms",
+          "notificationError": "",
+          "parallel": true
+        }
+      ],
+      "events": [
+        {
+          "key": "physicalSphere",
+          "status": "loading",
+          "at_ms": 1,
+          "request_elapsed_ms": 0.7999999523162842
+        },
+        {
+          "key": "atmosphere",
+          "status": "loading",
+          "at_ms": 1.2000000476837158,
+          "request_elapsed_ms": 0.20000004768371582
+        },
+        {
+          "key": "scatteringGenerator",
+          "status": "loading",
+          "at_ms": 1.4000000357627869,
+          "request_elapsed_ms": 0.19999998807907104
+        },
+        {
+          "key": "atmosphere",
+          "status": "ready",
+          "at_ms": 4909.300000011921,
+          "request_elapsed_ms": 4908.300000011921
+        },
+        {
+          "key": "physicalSphere",
+          "status": "ready",
+          "at_ms": 9292.5,
+          "request_elapsed_ms": 9292.299999952316
+        },
+        {
+          "key": "scatteringGenerator",
+          "status": "unavailable",
+          "at_ms": 30008.600000023842,
+          "request_elapsed_ms": 30007.399999976158
+        }
+      ],
+      "browser_closed": true
+    },
+    {
+      "path": "build/shadow-factored/compile-shadow_factored.json",
+      "sha256": "dd787fbb22f1bcda5b4ca4df27c1cf1c47274d2395d76c81948af55d67ebcce5",
+      "source_sha256": {
+        "physicalSphere": {
+          "vertex": "23d781ec303df73e084b2f8e039e69b3ce1b17711b0265f27c91ed2726ad69fa",
+          "fragment": "edf528c726ae249c608801e5517c21511684257d045baf102a8bf8771aedc3f4"
+        },
+        "atmosphere": {
+          "vertex": "0e0412f7bbf3812cb480764913796e1c098abf8fdfdd65435440e499b1b40296",
+          "fragment": "a31a35354a276fe814ead941a8d530f4b638c504f3008f6c7f75437f753933ec"
+        },
+        "scatteringGenerator": {
+          "vertex": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f",
+          "fragment": "34a1bd8ecac46076a2ca701deadde90060d0872ecc7a49ca24f39c843fa61d06"
+        }
+      },
+      "limit_ms": 30000,
+      "completion": [
+        {
+          "key": "physicalSphere",
+          "generation": 1,
+          "status": "ready",
+          "error": "",
+          "notificationError": "",
+          "parallel": true
+        },
+        {
+          "key": "atmosphere",
+          "generation": 1,
+          "status": "ready",
+          "error": "",
+          "notificationError": "",
+          "parallel": true
+        },
+        {
+          "key": "scatteringGenerator",
+          "generation": 1,
+          "status": "unavailable",
+          "error": "Shader completion exceeded 30000 ms",
+          "notificationError": "",
+          "parallel": true
+        }
+      ],
+      "events": [
+        {
+          "key": "physicalSphere",
+          "status": "loading",
+          "at_ms": 0.8999999761581421,
+          "request_elapsed_ms": 0.699999988079071
+        },
+        {
+          "key": "atmosphere",
+          "status": "loading",
+          "at_ms": 1.100000023841858,
+          "request_elapsed_ms": 0.19999998807907104
+        },
+        {
+          "key": "scatteringGenerator",
+          "status": "loading",
+          "at_ms": 1.300000011920929,
+          "request_elapsed_ms": 0.10000002384185791
+        },
+        {
+          "key": "atmosphere",
+          "status": "ready",
+          "at_ms": 5608.100000023842,
+          "request_elapsed_ms": 5607.100000023842
+        },
+        {
+          "key": "physicalSphere",
+          "status": "ready",
+          "at_ms": 9207.800000011921,
+          "request_elapsed_ms": 9207.600000023842
+        },
+        {
+          "key": "scatteringGenerator",
+          "status": "unavailable",
+          "at_ms": 30007.5,
+          "request_elapsed_ms": 30006.30000001192
+        }
+      ],
+      "browser_closed": true
+    }
+  ]
+}

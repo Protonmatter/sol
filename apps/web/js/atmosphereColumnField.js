@@ -76,7 +76,10 @@ vec2 atmosphereOutwardColumns(float height,float mu){
     mix(texelFetch(u_atmosphereColumnField,ivec2(lo.x,hi.y),0).rg,texelFetch(u_atmosphereColumnField,hi,0).rg,f.x),f.y);
 }
 vec2 atmosphereColumnTail(float impact,float x){
-  float radius=length(vec2(impact,x)),height=radius-u_atmosphereRadiusKm;
+  // Rationalize altitude before lookup: subtracting a rounded body-sized radius
+  // quantizes a short interval's height increment and corrupts its column mass.
+  // This is the same geometric height, with no support cutoff or fitted scale.
+  float radius=length(vec2(impact,x)),height=((impact-u_atmosphereRadiusKm)*(impact+u_atmosphereRadiusKm)+x*x)/(radius+u_atmosphereRadiusKm);
   if(height<0.0){
     float ground=sqrt(max(0.0,u_atmosphereRadiusKm*u_atmosphereRadiusKm-impact*impact));
     return atmosphereOutwardColumns(0.0,ground/u_atmosphereRadiusKm)+vec2(max(0.0,ground-x));
@@ -114,7 +117,8 @@ vec3 atmosphereCachedOpticalDepth(AtmosphereColumnRay ray,float distance){
   columns=max(vec2(0),columns/ray.scale);
   return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y;
 }
-// Called only after the original Sun blocking and positive outer-exit checks.
+// Called after public Sun visibility or prepared lit support, and a positive
+// outer-exit check (conditioning may intentionally evaluate a dark centroid).
 // At that exit the outward column is zero: retain the initial tail and, for
 // an inward unblocked ray, the two outward halves through closest approach.
 vec3 atmosphereSunOpticalDepthToTop(vec3 origin,vec3 direction){
@@ -135,8 +139,8 @@ export function cacheAtmosphereViewRay(source){
   const edits=[
     ['vec3 atmosphereScatteredMonotonic(vec3 origin,vec3 direction,vec2 interval){',
      'vec3 atmosphereScatteredMonotonic(vec3 origin,vec3 direction,vec2 interval,AtmosphereColumnRay columnRay){'],
-    ['exp(-atmosphereOpticalDepth(origin,direction,distance))*atmosphereSunTransmission(p)',
-     'exp(-atmosphereCachedOpticalDepth(columnRay,distance))*atmosphereSunTransmission(p)'],
+    ['exp(-atmosphereOpticalDepth(origin,direction,distance))*atmosphereLitSunTransmission(p)',
+     'exp(-atmosphereCachedOpticalDepth(columnRay,distance))*atmosphereLitSunTransmission(p)'],
     ['vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval){',
      'vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval,AtmosphereColumnRay columnRay){'],
     ...['vec2(cuts[i],cuts[i+1])'].map(interval=>[
@@ -144,9 +148,8 @@ export function cacheAtmosphereViewRay(source){
       `atmosphereScatteredMonotonic(origin,direction,${interval},columnRay)`]),
     ['  result.transmittance=exp(-atmosphereOpticalDepth(entry,ray,distance));',
      '  AtmosphereColumnRay columnRay=atmosphereColumnRay(entry,ray,distance);\n  result.transmittance=exp(-atmosphereCachedOpticalDepth(columnRay,distance));'],
-    ...['vec2(0.0,distance)','vec2(0.0,max(0.0,shadow.x))','vec2(min(distance,shadow.y),distance)'].map(interval=>[
-      `atmosphereScatteredSegment(entry,ray,${interval})`,
-      `atmosphereScatteredSegment(entry,ray,${interval},columnRay)`]),
+    ['atmosphereScatteredSegment(entry,ray,interval)',
+     'atmosphereScatteredSegment(entry,ray,interval,columnRay)'],
   ];
   for(const [before,after]of edits){
     if(source.split(before).length!==2)throw new Error('Atmospheric view-ray cache binding changed');
@@ -155,12 +158,16 @@ export function cacheAtmosphereViewRay(source){
   return source;
 }
 
-/** Keep every Sun visibility/outer-interval check; replace its one depth call.
+/** Keep public visibility and private lit support separate; replace only their
+ * separately guarded depth calls, retaining each positive outer-exit check.
  * @param {string} source */
 export function specializeAtmosphereSunDepth(source){
-  const before='exp(-atmosphereOpticalDepth(point,light,sky.y))';
-  if(source.split(before).length!==2)throw new Error('Atmospheric Sun-to-top binding changed');
-  return source.replace(before,'exp(-atmosphereSunOpticalDepthToTop(point,light))');
+  for(const point of ['point','samplePoint']){
+    const before=`exp(-atmosphereOpticalDepth(${point},light,sky.y))`;
+    if(source.split(before).length!==2)throw new Error('Atmospheric Sun-to-top binding changed');
+    source=source.replace(before,`exp(-atmosphereSunOpticalDepthToTop(${point},light))`);
+  }
+  return source;
 }
 
 // Fail closed if the reference decomposition changes. All remaining expressions

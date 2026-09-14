@@ -90,17 +90,77 @@ float atmosphereMetricHeight(AtmosphereObserverMetric metric){
 vec2 atmosphereObserverInterval(vec3 origin,vec3 direction,float radius){
   return atmosphereMetricInterval(atmosphereObserverMetric(origin,direction),radius);
 }
+// Intersection with the planet's anti-solar infinite shadow cylinder. Use raw
+// physical inputs: cross products eliminate the separately rounded projection
+// onto a normalized/unflattened solar axis. Compensated coefficients and stable
+// quadratic roots retain short lit intervals beside the shadow boundary.
+struct AtmospherePairVector { vec2 x; vec2 y; vec2 z; };
+AtmospherePairVector atmospherePairCross(vec3 a,vec3 b){
+  return AtmospherePairVector(
+    atmospherePairAdd(atmosphereExactProduct(a.y,b.z),-atmosphereExactProduct(a.z,b.y)),
+    atmospherePairAdd(atmosphereExactProduct(a.z,b.x),-atmosphereExactProduct(a.x,b.z)),
+    atmospherePairAdd(atmosphereExactProduct(a.x,b.y),-atmosphereExactProduct(a.y,b.x)));
+}
+vec2 atmosphereCrossMetric(AtmospherePairVector a,AtmospherePairVector b,vec2 q2){
+  return atmospherePairAdd(atmospherePairAdd(atmospherePairMul(a.x,b.x),atmospherePairMul(a.y,b.y)),
+    atmospherePairMul(q2,atmospherePairMul(a.z,b.z)));
+}
+vec2 atmosphereAxialMetric(vec3 a,vec3 b,vec2 q2){
+  return atmospherePairAdd(atmospherePairMul(q2,atmospherePairAdd(
+    atmosphereExactProduct(a.x,b.x),atmosphereExactProduct(a.y,b.y))),atmosphereExactProduct(a.z,b.z));
+}
+vec2 atmosphereShadowInterval(vec3 origin,vec3 direction){
+  vec3 light=u_atmosphereSunDirection;
+  vec2 q2=atmosphereExactProduct(u_atmospherePolarRatio,u_atmospherePolarRatio);
+  vec2 lightMetric=atmosphereAxialMetric(light,light,q2);
+  float lightSquared=lightMetric.x+lightMetric.y;
+  if(lightSquared<=0.0)return vec2(1,-1);
+  AtmospherePairVector p=atmospherePairCross(origin,light),d=atmospherePairCross(direction,light);
+  vec2 a=atmosphereCrossMetric(d,d,q2),b=atmosphereCrossMetric(p,d,q2);
+  vec2 c=atmospherePairAdd(atmosphereCrossMetric(p,p,q2),
+    -atmospherePairMul(atmosphereExactProduct(u_atmosphereRadiusKm,u_atmosphereRadiusKm),lightMetric));
+  vec2 interval;
+  // The old normalized metric tests are transformed without changing their
+  // thresholds: a_old=a/lightMetric; axialD_old=D/(q*sqrt(lightMetric)).
+  if(a.x+a.y<1e-12*lightSquared){
+    if(c.x+c.y>0.0)return vec2(1,-1);interval=vec2(-1e20,1e20);
+  }else{
+    vec2 disc=atmospherePairAdd(atmospherePairMul(b,b),-atmospherePairMul(a,c));
+    float discriminant=disc.x+disc.y;
+    if(discriminant<0.0)return vec2(1,-1);
+    if(discriminant<=0.0){vec2 root=atmospherePairDiv(-b,a);interval=vec2(root.x+root.y);}
+    else{
+      float s=sqrt(discriminant);
+      vec2 remainder=atmospherePairAdd(disc,-atmosphereExactProduct(s,s));
+      vec2 radical=atmospherePairAdd(vec2(s,0),vec2((remainder.x+remainder.y)/(2.0*s),0));
+      vec2 stable=atmospherePairAdd(-b,b.x+b.y>=0.0?-radical:radical);
+      vec2 first=atmospherePairDiv(stable,a),second=atmospherePairDiv(c,stable);
+      float x=first.x+first.y,y=second.x+second.y;interval=vec2(min(x,y),max(x,y));
+    }
+  }
+  vec2 axialP=atmosphereAxialMetric(origin,light,q2),axialD=atmosphereAxialMetric(direction,light,q2);
+  float planeDirection=axialD.x+axialD.y;
+  if(abs(planeDirection)<1e-10*u_atmospherePolarRatio*sqrt(lightSquared)){
+    if(axialP.x+axialP.y>=0.0)return vec2(1,-1);
+  }else{
+    vec2 quotient=atmospherePairDiv(-axialP,axialD);float plane=quotient.x+quotient.y;
+    if(planeDirection>0.0)interval.y=min(interval.y,plane);else interval.x=max(interval.x,plane);
+  }
+  return interval;
+}
 // entry/ray/distance are one bounded physical-km segment. Ground and outer are
 // signed physical-km intervals from the caller's original camera, not entry.
+// Shadow is relative to this entry and is shared by source/weight/zero support.
 // Neither consumers nor the prepared integrator normalize or clip this again.
-struct AtmospherePath { vec3 entry; vec3 ray; float distance; vec2 ground; vec2 outer; float height; };
+struct AtmospherePath { vec3 entry; vec3 ray; float distance; vec2 ground; vec2 outer; float height; vec2 shadow; };
 AtmospherePath atmosphereEmptyPath(vec3 origin){
-  return AtmospherePath(origin,vec3(1,0,0),0.0,vec2(1,-1),vec2(1,-1),0.0);
+  return AtmospherePath(origin,vec3(1,0,0),0.0,vec2(1,-1),vec2(1,-1),0.0,vec2(1,-1));
 }
 vec2 atmospherePhysicalInterval(vec2 interval,float norm){
   return interval.y<interval.x?vec2(1,-1):interval*norm;
 }
-AtmospherePath atmospherePrepareObserver(vec3 origin,vec3 direction,float maximum){
+AtmospherePath atmosphereObserverGeometry(vec3 origin,vec3 direction,float maximum,out bool complete){
+  complete=false;
   AtmospherePath path=atmosphereEmptyPath(origin);
   float norm=length(direction);
   if(norm<=0.0||maximum<=0.0)return path;
@@ -113,6 +173,7 @@ AtmospherePath atmospherePrepareObserver(vec3 origin,vec3 direction,float maximu
   float begin=max(0.0,sky.x),end=min(maximum/norm,sky.y);
   if(end<=begin)return path;
   path.entry=origin+direction*begin;path.distance=(end-begin)*norm;
+  complete=true;
   return path;
 }
 vec2 atmosphereReversePhysicalInterval(vec2 interval,float norm){
@@ -121,7 +182,8 @@ vec2 atmosphereReversePhysicalInterval(vec2 interval,float norm){
 // Reverse raw endpoint geometry avoids distant-camera reconstruction. Intersect
 // [0,1] before reversing so even an exterior endpoint leaves no exterior suffix.
 // The caller keeps the actual surface endpoint separately for atlas coordinates.
-AtmospherePath atmospherePrepareSurface(vec3 origin,vec3 surface){
+AtmospherePath atmosphereSurfaceGeometry(vec3 origin,vec3 surface,out bool complete){
+  complete=false;
   AtmospherePath path=atmosphereEmptyPath(origin);
   vec3 reverseDelta=origin-surface;float norm=length(reverseDelta);
   if(norm<=0.0)return path;
@@ -134,7 +196,23 @@ AtmospherePath atmospherePrepareSurface(vec3 origin,vec3 surface){
   float begin=max(0.0,sky.x),end=min(1.0,sky.y);
   if(end<=begin)return path;
   path.entry=end>=1.0?origin:surface+reverseDelta*end;path.distance=(end-begin)*norm;
+  complete=true;
   return path;
+}
+// Generator branches select geometry before this single shared shadow call.
+// The private completion flag retains the exact original early-return branches,
+// including empty paths, rather than reinterpreting the computed distance.
+AtmospherePath atmosphereCompletePath(AtmospherePath path,bool complete){
+  if(complete)path.shadow=atmosphereShadowInterval(path.entry,path.ray);
+  return path;
+}
+AtmospherePath atmospherePrepareObserver(vec3 origin,vec3 direction,float maximum){
+  bool complete;AtmospherePath path=atmosphereObserverGeometry(origin,direction,maximum,complete);
+  return atmosphereCompletePath(path,complete);
+}
+AtmospherePath atmospherePrepareSurface(vec3 origin,vec3 surface){
+  bool complete;AtmospherePath path=atmosphereSurfaceGeometry(origin,surface,complete);
+  return atmosphereCompletePath(path,complete);
 }
 // Compatibility wrappers expose the same prepared segment to source consumers.
 void atmosphereObserverSegment(vec3 origin,vec3 direction,float maximum,out vec3 entry,out vec3 ray,out float distance){
@@ -187,22 +265,14 @@ vec3 atmosphereSunTransmission(vec3 point){
   vec2 sky=atmosphereRayInterval(point,light,u_atmosphereRadiusKm+u_atmosphereTopKm);
   return sky.y>0.0 ? exp(-atmosphereOpticalDepth(point,light,sky.y)) : vec3(1.0);
 }
-// Intersection with the planet's anti-solar infinite shadow cylinder. Splitting
-// at its analytical boundaries avoids 12-node quadrature producing twilight bands.
-vec2 atmosphereShadowInterval(vec3 origin,vec3 direction){
-  vec3 p=atmosphereUnflatten(origin), d=atmosphereUnflatten(direction);
-  vec3 axis=normalize(atmosphereUnflatten(u_atmosphereSunDirection));
-  float axialP=dot(p,axis), axialD=dot(d,axis);
-  vec3 pp=p-axis*axialP, dd=d-axis*axialD;
-  float a=dot(dd,dd), b=dot(pp,dd), c=dot(pp,pp)-u_atmosphereRadiusKm*u_atmosphereRadiusKm;
-  vec2 interval;
-  if(a<1e-12){ if(c>0.0) return vec2(1.0,-1.0); interval=vec2(-1e20,1e20); }
-  else { float disc=b*b-a*c; if(disc<0.0) return vec2(1.0,-1.0);
-    float halfWidth=sqrt(max(disc,0.0)); interval=vec2((-b-halfWidth)/a,(-b+halfWidth)/a); }
-  if(abs(axialD)<1e-10){ if(axialP>=0.0) return vec2(1.0,-1.0); }
-  else if(axialD>0.0) interval.y=min(interval.y,-axialP/axialD);
-  else interval.x=max(interval.x,-axialP/axialD);
-  return interval;
+// Private source kernel, called only on the complement of path.shadow. That
+// support classifies the continuous observer ray once; classifying independently
+// rounded Gauss positions again can spuriously remove finite quadrature weight
+// at tangency. Keep the public local solar visibility function above unchanged.
+vec3 atmosphereLitSunTransmission(vec3 samplePoint){
+  vec3 light=normalize(u_atmosphereSunDirection);
+  vec2 sky=atmosphereRayInterval(samplePoint,light,u_atmosphereRadiusKm+u_atmosphereTopKm);
+  return sky.y>0.0?exp(-atmosphereOpticalDepth(samplePoint,light,sky.y)):vec3(1.0);
 }
 // Exact exponential optical-coordinate substitution on complete datum-bounded
 // segments. These stable elementary evaluations avoid cancellation in binary32.
@@ -240,7 +310,7 @@ vec3 atmosphereScatteredMonotonic(vec3 origin,vec3 direction,vec2 interval){
     vec2 density=exp(-atmosphereHeight(p)/u_atmosphereDensityScaleKm);
     vec3 source=u_atmosphereRayleighKm*density.x*phaseR
       +u_atmosphereAerosolKm*u_atmosphereAerosolSSA*density.y*phaseA;
-    vec3 transmission=exp(-atmosphereOpticalDepth(origin,direction,distance))*atmosphereSunTransmission(p);
+    vec3 transmission=exp(-atmosphereOpticalDepth(origin,direction,distance))*atmosphereLitSunTransmission(p);
     sum+=ATM_W12[i]*coordinate.y*transmission*source;
   }
   return sum*halfWidth;
@@ -268,13 +338,19 @@ AtmosphereResult integrateAtmospherePrepared(AtmospherePath path){
   vec3 entry=path.entry,ray=path.ray;float distance=path.distance;
   if(distance<=0.0) return result;
   result.transmittance=exp(-atmosphereOpticalDepth(entry,ray,distance));
-  vec2 shadow=atmosphereShadowInterval(entry,ray);
-  vec3 scattered;
-  if(shadow.y<=shadow.x||shadow.y<=0.0||shadow.x>=distance){
-    scattered=atmosphereScatteredSegment(entry,ray,vec2(0.0,distance));
-  } else {
-    scattered=atmosphereScatteredSegment(entry,ray,vec2(0.0,max(0.0,shadow.x)))
-      +atmosphereScatteredSegment(entry,ray,vec2(min(distance,shadow.y),distance));
+  vec2 shadow=path.shadow;
+  vec2 first=vec2(0.0,distance),last=vec2(0.0);
+  int segmentCount=1;
+  if(!(shadow.y<=shadow.x||shadow.y<=0.0||shadow.x>=distance)){
+    first=vec2(0.0,max(0.0,shadow.x));
+    last=vec2(min(distance,shadow.y),distance);segmentCount=2;
+  }
+  vec3 scattered=vec3(0.0);
+  for(int segment=0;segment<segmentCount;segment++){
+    vec2 interval=segment==0?first:last;
+    vec3 part=atmosphereScatteredSegment(entry,ray,interval);
+    if(segment==0)scattered=part;
+    else scattered=scattered+part;
   }
   result.scattering=scattered*ATM_PI*u_atmosphereSolarScale*u_atmosphereExposure;
   return result;

@@ -47,7 +47,7 @@ test('production transfer preserves scattering expressions but contains no neste
 
 test('view cache routing binds each original call once and preserves the generic depth evaluator',()=>{
   assert.match(ATMOSPHERE_RENDER_GLSL,/AtmosphereColumnRay columnRay=atmosphereColumnRay\(entry,ray,distance\);/);
-  assert.match(ATMOSPHERE_RENDER_GLSL,/exp\(-atmosphereCachedOpticalDepth\(columnRay,distance\)\)\*atmosphereSunTransmission\(p\)/);
+  assert.match(ATMOSPHERE_RENDER_GLSL,/exp\(-atmosphereCachedOpticalDepth\(columnRay,distance\)\)\*atmosphereLitSunTransmission\(p\)/);
   assert.match(ATMOSPHERE_RENDER_GLSL,/vec3 atmosphereOpticalDepth\(vec3 origin,vec3 direction,float distance\)/);
   assert.throws(()=>cacheAtmosphereViewRay(ATMOSPHERE_RENDER_GLSL),/view-ray cache binding/,'already rewritten or changed references fail closed');
   assert.throws(()=>cacheAtmosphereViewRay(ATMOSPHERE_GLSL.replace('vec3 atmosphereScatteredMonotonic(','vec3 renamedMonotonic(')),/view-ray cache binding/);
@@ -55,11 +55,16 @@ test('view cache routing binds each original call once and preserves the generic
 });
 
 test('Sun-to-top specialization changes only the depth call after the original blocking and interval checks',()=>{
-  const body=source=>source.slice(source.indexOf('vec3 atmosphereSunTransmission('),source.indexOf('// Intersection with the planet'));
+  const body=source=>source.slice(source.indexOf('vec3 atmosphereSunTransmission('),source.indexOf('// Private source kernel'));
   assert.equal(body(ATMOSPHERE_RENDER_GLSL).replace('atmosphereSunOpticalDepthToTop(point,light)','atmosphereOpticalDepth(point,light,sky.y)'),body(ATMOSPHERE_GLSL));
   assert.throws(()=>specializeAtmosphereSunDepth(ATMOSPHERE_RENDER_GLSL),/Sun-to-top binding/);
   assert.throws(()=>specializeAtmosphereSunDepth(ATMOSPHERE_GLSL.replace('point,light,sky.y','point,light,sky.x')),/Sun-to-top binding/);
   assert.throws(()=>specializeAtmosphereSunDepth(ATMOSPHERE_GLSL+'\nexp(-atmosphereOpticalDepth(point,light,sky.y))'),/Sun-to-top binding/);
+  assert.throws(()=>specializeAtmosphereSunDepth(ATMOSPHERE_GLSL.replace('samplePoint,light,sky.y','samplePoint,light,sky.x')),/Sun-to-top binding/);
+  assert.throws(()=>specializeAtmosphereSunDepth(ATMOSPHERE_GLSL+'\nexp(-atmosphereOpticalDepth(samplePoint,light,sky.y))'),/Sun-to-top binding/);
+  const lit=source=>source.slice(source.indexOf('vec3 atmosphereLitSunTransmission('),source.indexOf('// Exact exponential optical-coordinate'));
+  assert.equal(lit(ATMOSPHERE_RENDER_GLSL).replace('atmosphereSunOpticalDepthToTop(samplePoint,light)','atmosphereOpticalDepth(samplePoint,light,sky.y)'),lit(ATMOSPHERE_GLSL));
+  assert.doesNotMatch(lit(ATMOSPHERE_RENDER_GLSL),/ground|atmosphereSunTransmission/);
 });
 
 test('off-grid columns retain the near-ground aerosol layer and grazing molecular density',()=>{

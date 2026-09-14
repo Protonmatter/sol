@@ -16,7 +16,9 @@ const returned=Symbol('returned');
 export function geometryInterpreter(glsl){
   const structs=new Map([...glsl.matchAll(/struct\s+(\w+)\s*\{([^}]*)\};/g)].map(match=>
     [match[1],[...match[2].matchAll(/\b(?:float|vec2|vec3)\s+(\w+)\s*;/g)].map(field=>field[1])]));
-  const types=['float','vec2','vec3',...structs.keys()].join('|');
+  const types=['bool','float','vec2','vec3',...structs.keys()].join('|');
+  const outputs=new Map([...glsl.matchAll(new RegExp(`\\b(?:${types}|void)\\s+(\\w+)\\(([^)]*)\\)`,'g'))].map(match=>
+    [match[1],match[2].split(',').flatMap((parameter,i)=>/\bout\b/.test(parameter)?[i]:[])]));
   const source=glsl.replace(/struct\s+\w+\s*\{[^}]*\};/g,'')
     .replace(new RegExp(`\\b(?:${types}|void) (\\w+)\\(`,'g'),'function $1(')
     .replace(new RegExp(`\\b(?:out\\s+)?(?:${types}) (\\w+)(?=[,)])`,'g'),'$1')
@@ -26,6 +28,7 @@ export function geometryInterpreter(glsl){
   const functions=new Map(parsed.statements.filter(ts.isFunctionDeclaration).map(node=>[node.name.text,node]));
   const builtins={...Object.fromEntries([...structs].map(([name,fields])=>[name,(...args)=>Object.fromEntries(fields.map((field,i)=>[field,args[i]]))])),vec2:(...a)=>vector(2,a),vec3:(...a)=>vector(3,a),sqrt:x=>f(Math.sqrt(x)),
     min:(a,b)=>zip(a,b,Math.min),max:(a,b)=>zip(a,b,Math.max),length:a=>f(Math.sqrt(dot(a,a))),
+    dot,abs:Math.abs,
     normalize:a=>{const n=f(Math.sqrt(dot(a,a)));return a.map(v=>f(v/n));},
     floatBitsToUint:x=>{view.setFloat32(0,x,true);return view.getUint32(0,true);},
     uintBitsToFloat:x=>{view.setUint32(0,x>>>0,true);return view.getFloat32(0,true);}};
@@ -50,7 +53,10 @@ export function geometryInterpreter(glsl){
       }
       if(ts.isCallExpression(node)){
         const name=node.expression.getText(parsed),args=node.arguments.map(evaluate);
-        return builtins[name]?builtins[name](...args):run(name,args,globals).value;
+        if(builtins[name])return builtins[name](...args);
+        const result=run(name,args,globals),parameters=functions.get(name).parameters;
+        for(const i of outputs.get(name)||[])set(node.arguments[i],result.locals[parameters[i].name.text]);
+        return result.value;
       }
       if(ts.isConditionalExpression(node))return evaluate(evaluate(node.condition)?node.whenTrue:node.whenFalse);
       if(ts.isBinaryExpression(node)){

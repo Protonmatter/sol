@@ -11,7 +11,7 @@ const helpers=ATMOSPHERE_GLSL.slice(ATMOSPHERE_GLSL.indexOf('vec2 atmosphereExac
   ATMOSPHERE_GLSL.indexOf('float atmosphereHeight('));
 const interpreter=geometryInterpreter(helpers);
 const globals=(radius=2,top=1,q=1)=>({u_atmosphereRadiusKm:Math.fround(radius),
-  u_atmosphereTopKm:Math.fround(top),u_atmospherePolarRatio:Math.fround(q)});
+  u_atmosphereTopKm:Math.fround(top),u_atmospherePolarRatio:Math.fround(q),u_atmosphereSunDirection:[1,0,0]});
 const roots=(origin,direction,radius=2,q=1)=>interpreter.run('atmosphereObserverInterval',
   [origin,direction,radius],globals(radius,1,q)).value;
 const prepared=(camera,point,g=globals())=>interpreter.run('atmosphereSurfaceSegment',
@@ -28,14 +28,15 @@ test('observer precision helpers survive both direct and bounded source routes',
     assert.ok(source.includes('void atmosphereSurfaceSegment('));
   }
   const sun=ATMOSPHERE_GLSL.slice(ATMOSPHERE_GLSL.indexOf('vec3 atmosphereSunTransmission('),
-    ATMOSPHERE_GLSL.indexOf('vec2 atmosphereShadowInterval('));
+    ATMOSPHERE_GLSL.indexOf('// Exact exponential optical-coordinate'));
   assert.ok(sun.includes('atmosphereRayInterval(point,light,'));
   assert.ok(!sun.includes('atmosphereObserverInterval('));
 });
 
 test('generator source and conditioning share exactly one prepared path',()=>{
   const main=SCATTERING_GENERATOR_FS.slice(SCATTERING_GENERATOR_FS.lastIndexOf('void main(){'));
-  assert.ok(main.includes('atmospherePrepareSurface(u_atmosphereCameraKm,scatteringSurfacePoint('));
+  assert.ok(main.includes('atmosphereSurfaceGeometry(u_atmosphereCameraKm,scatteringSurfacePoint('));
+  assert.equal((main.match(/atmosphereCompletePath\(/g)||[]).length,1);
   assert.ok(main.includes('integrateAtmospherePrepared(path)'));
   assert.ok(main.includes('scatteringReferenceWeightPrepared(path)'));
   assert.equal((main.match(/integrateAtmospherePrepared\(/g)||[]).length,1);
