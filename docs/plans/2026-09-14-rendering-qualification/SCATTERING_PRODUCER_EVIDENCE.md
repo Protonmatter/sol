@@ -65,9 +65,11 @@ rounded oblate cameras pass for both the projected-Sun and fallback basis cases.
 The combined Node suite passes 1,110 tests; 110 production JavaScript files
 typecheck with the existing TypeScript 5.9.3 tool.
 
-An actual immutable application replay must still demonstrate these joins on
-SwiftShader and the native backend after numerical admission. Numerical and
-pixel tests must separately qualify the exact generator/consumer source pair.
+The [immutable application receipts](SCATTERING_APPLICATION_RECEIPTS.md) record
+these joins for the earlier `2ba2911` runtime on SwiftShader and native Adreno.
+They do not qualify a subsequently changed generator/consumer source pair.
+Numerical and pixel tests separately qualify that exact source pair, followed by
+the unchanged full application gates.
 Submission evidence is not a full-texture readback and cannot establish that
 every interpolated sample is valid. No earlier reference-shader receipt transfers
 automatically to the new scattering consumer. HDR remains opt-in.
@@ -82,7 +84,7 @@ required the optimized-out surface-side limb-size uniform. That failed receipt
 is preserved. The corrected active schema passes 18 focused CPU groups, including
 absent required uniforms, a wrong unused-side producer grid and shell-specific
 requirements. This is a probe correction, not a numerical or deadline change;
-a corrected immutable browser replay remains required.
+the subsequent corrected immutable replay is retained in the application record.
 
 The browser gate also contains an explicit held-generator control. After the
 positive physical gate, it holds only full triangles whose observed immutable
@@ -93,5 +95,8 @@ restoration must then admit at least three fresh current producer/physical/HDR
 finals. Both control and recovery must fit the original absolute 75-second System
 budget. This does not extend the 30-second shader completion timeout. The held
 source/query/mismatch counters and recovery receipt are retained independently.
-The focused control, producer, profile and original spin suite passes 61 tests;
-a real held-generator browser result is still required.
+The focused control, producer, profile and original spin suite passes 61 tests.
+The earlier immutable SwiftShader replay rejected 70 held generator draws,
+accepted zero physical finals while held, and accepted five fresh final
+presentations after recovery within the original System budget. The final
+combined source must repeat this control; the historical result is not a waiver.

@@ -1,9 +1,13 @@
 # Current-frame scattering runtime integration
 
-This is CPU-validated candidate wiring. It does not establish native interpolation
-accuracy, native physical readiness, final-frame performance or release approval.
-The source-qualified numerical module and the context-owned target manager have
-separate review surfaces. HDR remains opt-in.
+The bounded runtime and its current-frame producer observer are implemented.
+Numerical source admission, interpolation, material composition and complete
+application performance have separate gates. The complete Q2 interpolation
+matrix passed on native Adreno and SwiftShader; independent source comparisons
+and final combined application admission remain open in the
+[production ledger](PRODUCTION_EXECUTION.md). Earlier immutable application
+passes are retained in [their receipt record](SCATTERING_APPLICATION_RECEIPTS.md)
+and do not qualify subsequent source changes. HDR remains opt-in.
 
 The renderer retains six mandatory base programs. Qualified Earth/Mars demand
 requests three optional programs through the existing asynchronous owner: the
@@ -72,14 +76,16 @@ An independent review then reproduced a caller-state failure becoming a permanen
 loading status on the next repaint. Its regression was red (6/7) before the
 terminal-cause fix and green (7/7) afterward, including explicit optical retry.
 
-The real dynamic producer observer is a separate follow-up. It must observe
-actual generator draws, program source, both attached output textures, current
+The [dynamic producer observer](SCATTERING_PRODUCER_EVIDENCE.md) observes actual
+generator draws, program source, both attached output textures, current
 camera/Sun/profile/column bindings and matching frame identity before accepting
-a physical consumer. Static texture-allocation or upload evidence cannot prove
-generated field contents. The complete immutable application, original three
-Earth final draws in five seconds, additive physical Earth/Mars, HDR pixel and
-native backend gates must run after numerical source admission. No result from
-the prior full-integrator runtime transfers automatically to these consumers.
+a physical consumer. It includes an actual held-generator rejection control and
+fresh-generation recovery. Static texture-allocation or upload evidence cannot
+prove generated field contents. Final combined-source admission still requires
+the complete immutable application, original three Earth final draws in five
+seconds, physical Earth/Mars, HDR pixels and native backend gates after numerical
+source admission. Earlier reference or bounded runtime results do not transfer
+automatically to a changed generator/consumer source pair.
 
 Rollback reverts this runtime wiring to the separately retained reference shader
 route. It does not change scientific state, image bytes, numerical payloads or
