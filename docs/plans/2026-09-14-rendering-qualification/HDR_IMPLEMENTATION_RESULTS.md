@@ -239,6 +239,19 @@ Earth collector and frozen/held controls still run independently before this ste
 Focused readiness/backend/collector CPU tests pass 53/53; revised native browser
 qualification remains pending until its own immutable receipt is recorded.
 
+The first preparation replay retained a native `physicalSphere` completion failure
+at the existing 30-second limit, while the atmosphere and six base programs were
+ready. Its initial observer made 44,472 per-draw current-program queries before
+that failure. This is retained as an instrumented observation, not a clean native
+compile-performance attribution. The observer now filters draws using CPU-observed
+program binding and current linked-source history before querying GL. A matching
+hint still requires independent actual `CURRENT_PROGRAM` identity and every prior
+uniform/source/field/geometry check. The receipt records filtered draws, candidate
+draws, actual program queries and GPU/hint mismatches. Wrong hints, stale source
+history and conflicting GPU programs are rejected by the 55 passing focused tests.
+No System, compile or frame deadline changed. Native qualification still requires
+a replay of this reduced-overhead observer.
+
 Use the repository's existing output/coverage options for the second command and
 the same original runtime budgets. A passing material swatch or advancing offscreen
 producer does not satisfy final-presentation qualification. Source maps still carry

@@ -66,7 +66,9 @@ test('physical draw requires observed production sources after shader companions
 });
 
 test('relinking a previously accepted physical program invalidates old source evidence',async()=>{
-  const f=await fixture();assert.equal(f.capture().passed,true);f.link('fallback fragment');
+  const f=await fixture();assert.equal(f.capture().passed,true);
+  assert.equal(f.context.__solPhysicalSpinEvidence.matchesProgram(f.gl,f.program),true);f.link('fallback fragment');
+  assert.equal(f.context.__solPhysicalSpinEvidence.matchesProgram(f.gl,f.program),false);
   assert.equal(f.capture().passed,false);
 });
 

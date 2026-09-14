@@ -52,6 +52,10 @@ export async function preparePhysicalSpinEvidence({body='Earth'}={}) {
   const summary={body,shader_sha256:{vertex:vertexHash,fragment:fragmentHash},profile_sha256:profileHash,
     fields:{incident:{sha256:incident.sha256,dimensions:incident.dimensions},columns:{sha256:columns.sha256,dimensions:columns.dimensions}}};
   const knownPrograms=new WeakMap(),locations=new WeakMap();
+  const matchesSources=(gl,observed)=>observed?.sources.length===2
+    &&observed.sources.some(s=>s?.type===gl.VERTEX_SHADER&&s.source===SPHERE_VS)
+    &&observed.sources.some(s=>s?.type===gl.FRAGMENT_SHADER&&s.source===SPHERE_FS);
+  const matchesProgram=(gl,program)=>!!program&&matchesSources(gl,globalThis.__solProgramSourceEvidence.snapshot(gl,program));
   const scalar={u_atmosphereEnabled:1,u_atmosphereRefractionEnabled:1,u_incidentFieldReady:1,
     u_atmosphereRadiusKm:profile.radiusKm,u_bodyRadiusKm:catalogue.radiusKm,u_atmosphereTopKm:profile.topKm,
     u_atmospherePolarRatio:catalogue.polarKm/catalogue.radiusKm,u_atmosphereG:profile.aerosolG,u_atmosphereRefractivity:profile.surfaceRefractivity};
@@ -99,8 +103,7 @@ export async function preparePhysicalSpinEvidence({body='Earth'}={}) {
     const observed=globalThis.__solProgramSourceEvidence.snapshot(gl,program);
     if(!observed)return rejected('Actual linked program was not observed in this context');
     if(knownPrograms.get(program)?.sequence!==observed.sequence){
-      if(!observed||observed.sources.length!==2||!observed.sources.some(s=>s?.type===gl.VERTEX_SHADER&&s.source===SPHERE_VS)
-        ||!observed.sources.some(s=>s?.type===gl.FRAGMENT_SHADER&&s.source===SPHERE_FS))return rejected('Actual linked program differs from the immutable physical sphere');
+      if(!matchesSources(gl,observed))return rejected('Actual linked program differs from the immutable physical sphere');
       knownPrograms.set(program,observed);
       locations.delete(program); // Uniform locations belong to one completed link.
     }
@@ -143,7 +146,7 @@ export async function preparePhysicalSpinEvidence({body='Earth'}={}) {
     }finally{gl.activeTexture(originalUnit);}
     return {passed:true,...summary,programSequence:observed.sequence,uniforms,fields,geometry};
   };
-  Object.defineProperty(globalThis,'__solPhysicalSpinEvidence',{configurable:true,value:Object.freeze({body,summary,capture})});
+  Object.defineProperty(globalThis,'__solPhysicalSpinEvidence',{configurable:true,value:Object.freeze({body,summary,capture,matchesProgram})});
   return summary;
 }
 
@@ -155,11 +158,13 @@ export async function waitForPhysicalSpinReadiness({body='Earth',systemStartedMs
   if(!Number.isFinite(systemStartedMs)||deadlineMs!==systemStartedMs+75000)
     throw new Error('Physical preparation requires the original absolute 75s System budget');
   const physical=globalThis.__solPhysicalSpinEvidence;
-  if(physical?.body!==body)throw new Error('Physical evidence must be prepared before readiness observation');
+  if(physical?.body!==body||typeof physical.matchesProgram!=='function')throw new Error('Physical evidence must be prepared before readiness observation');
   const entry=document.querySelector('script[type="module"][src^="app.js"]');
   const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
-  const gl=document.getElementById('orreryCanvas').getContext('webgl2'),native=gl.drawElements;
-  const startedMs=performance.now(),counts={submitted:0,physicalRejected:0,lateDraws:0},rejections={};
+  const gl=document.getElementById('orreryCanvas').getContext('webgl2'),native=gl.drawElements,nativeUseProgram=gl.useProgram;
+  let hintedProgram=null;
+  const startedMs=performance.now(),counts={submitted:0,physicalRejected:0,lateDraws:0,sourceFilteredDraws:0,
+    candidateDraws:0,gpuProgramQueries:0,gpuProgramMismatch:0},rejections={};
   const diagnostics=()=>JSON.parse(JSON.stringify({programStatus:store.orrery.programStatus??null,programDiagnostics:store.orrery.programDiagnostics??null,
     opticsStatus:store.orrery.opticsStatus??null,engineError:store.orrery.engineError??''}));
   let settled=false,timer,poll,finish;
@@ -175,12 +180,19 @@ export async function waitForPhysicalSpinReadiness({body='Earth',systemStartedMs
     if(gl.isContextLost()||state.engineError||state.programStatus?.physical==='unavailable'||state.opticsStatus?.[body]==='unavailable')
       finish(false,'Physical source/program preparation became unavailable');
   };
+  gl.useProgram=function(...args){const result=nativeUseProgram.apply(this,args);if(this===gl)hintedProgram=args[0];return result;};
   gl.drawElements=function(...args){
     const result=native.apply(this,args);counts.submitted++;
     if(this!==gl||settled||args[0]!==gl.TRIANGLES||!Number.isInteger(args[1])||args[1]<=0)return result;
     if(performance.now()>deadlineMs){counts.lateDraws++;check();return result;}
     try{
-      const program=gl.getParameter(gl.CURRENT_PROGRAM),draw=physical.capture(gl,program);
+      // CPU-observed source identity is only a filter. Every eligible draw still
+      // reads the actual GPU program and all physical uniforms/bindings below.
+      if(!physical.matchesProgram(gl,hintedProgram)){counts.sourceFilteredDraws++;return result;}
+      counts.candidateDraws++;counts.gpuProgramQueries++;
+      const program=gl.getParameter(gl.CURRENT_PROGRAM);
+      if(program!==hintedProgram){counts.gpuProgramMismatch++;return result;}
+      const draw=physical.capture(gl,program);
       if(!draw.passed){counts.physicalRejected++;rejections[draw.reason]=(rejections[draw.reason]??0)+1;check();return result;}
       const mode=gl.getUniform(program,gl.getUniformLocation(program,'u_mode'));
       const position=store.orrery.bodies.find(item=>item.name===body),model=draw.uniforms.u_model;
@@ -196,5 +208,5 @@ export async function waitForPhysicalSpinReadiness({body='Earth',systemStartedMs
     if(!settled){timer=setTimeout(()=>finish(false,'Physical preparation exceeded the original System deadline'),Math.max(0,deadlineMs-performance.now()));
       poll=setInterval(check,100);}
     return await pending;
-  }finally{gl.drawElements=native;clearTimeout(timer);clearInterval(poll);}
+  }finally{gl.drawElements=native;gl.useProgram=nativeUseProgram;clearTimeout(timer);clearInterval(poll);}
 }
