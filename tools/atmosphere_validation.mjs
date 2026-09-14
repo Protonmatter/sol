@@ -9,7 +9,7 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import puppeteer from 'puppeteer-core';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
-import {terrainEndpointFixtures,withTerrainGroundCuts,withIntegrationNodeCounter,TERRAIN_CANDIDATE_VERSION,TERRAIN_CANDIDATE_MAX_NODES} from './atmosphere_terrain_candidate.mjs';
+import {terrainEndpointFixtures,withTerrainGroundCuts,withIntegrationNodeCounter,TERRAIN_CANDIDATE_VERSION,TERRAIN_CANDIDATE_MAX_NODES,SEGMENTED} from './atmosphere_terrain_candidate.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function argument(name,fallback){const flag=process.argv.find(value=>value.startsWith(`--${name}=`));return flag?flag.slice(name.length+3):fallback;}
@@ -48,6 +48,8 @@ hashes.terrain_candidate=digest(fs.readFileSync(path.join(ROOT,'tools/atmosphere
 hashes.evaluated_transfer=digest(ATMOSPHERE_GLSL);
 hashes.evaluated_surface=digest(SPHERE_FS);
 hashes.evaluated_shell=digest(ATMOSPHERE_FS);
+const segmentedIntegration=ATMOSPHERE_GLSL.includes(SEGMENTED);
+const maximumIntegrationNodes=segmentedIntegration?TERRAIN_CANDIDATE_MAX_NODES:36;
 const sunStart=REFERENCE_ATMOSPHERE_GLSL.indexOf('vec3 atmosphereSunTransmission('),sunEnd=REFERENCE_ATMOSPHERE_GLSL.indexOf('// Intersection with the planet');
 assert.ok(sunStart>=0&&sunEnd>sunStart,'Original Sun reference boundary changed');
 const genericSunSource=REFERENCE_ATMOSPHERE_GLSL.slice(sunStart,sunEnd).replace('vec3 atmosphereSunTransmission(','vec3 atmosphereGenericSunTransmission(');
@@ -244,6 +246,7 @@ materialCases.push(
 );
 const evidence={schema_version:'atmosphere-validation.v1',scope:'Reference-model numerical GPU comparison; not observed atmospheric qualification or frame-rate qualification',
  terrain_endpoint_qualification:includeTerrain,ground_crossing_candidate:groundCandidate?TERRAIN_CANDIDATE_VERSION:null,
+ ground_crossing_integration:segmentedIntegration,maximum_integration_nodes:maximumIntegrationNodes,
  candidate_max_nodes:groundCandidate?TERRAIN_CANDIDATE_MAX_NODES:null,production_shader_changed:false,
  web_root:webRoot,release_namespace:release?.namespace??null,source_sha256:hashes,started_at:new Date().toISOString(),checks:[],status:'failed'};
 fs.mkdirSync(out,{recursive:true});
@@ -367,9 +370,9 @@ try {
    passed:measured.every((value,j)=>Number.isFinite(value)&&Math.abs(value-reference[j])<=tolerances[j])};
  }));
  if(includeTerrain)evidence.checks.push(...cases.map((c,i)=>({name:`${c.name} integration work bound`,
-  actual:actual.transfer[i].nodes[0],maximum:groundCandidate?TERRAIN_CANDIDATE_MAX_NODES:36,
+  actual:actual.transfer[i].nodes[0],maximum:maximumIntegrationNodes,
   passed:Number.isInteger(actual.transfer[i].nodes[0])&&actual.transfer[i].nodes[0]>=0
-    &&actual.transfer[i].nodes[0]<=(groundCandidate?TERRAIN_CANDIDATE_MAX_NODES:36)})));
+    &&actual.transfer[i].nodes[0]<=maximumIntegrationNodes})));
  evidence.checks.push(...materialCases.map((c,i)=>({name:c.name,expected:c.expected,actual:actual.materials[i],tolerances:[.0003,.0003,.0003],
   passed:actual.materials[i].every((value,j)=>Number.isFinite(value)&&Math.abs(value-c.expected[j])<=.0003)})));
  evidence.checks.push(...cacheCases.flatMap((c,i)=>['depth','transmittance'].map(kind=>{

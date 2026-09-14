@@ -104,12 +104,19 @@ vec3 atmosphereScatteredMonotonic(vec3 origin,vec3 direction,vec2 interval){
   return sum*halfWidth;
 }
 vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval){
+  if(interval.y<=interval.x) return vec3(0.0);
   vec3 p=atmosphereUnflatten(origin), d=atmosphereUnflatten(direction);
   float closest=-dot(p,d)/dot(d,d);
-  if(closest>interval.x&&closest<interval.y)
-    return atmosphereScatteredMonotonic(origin,direction,vec2(interval.x,closest))
-      +atmosphereScatteredMonotonic(origin,direction,vec2(closest,interval.y));
-  return atmosphereScatteredMonotonic(origin,direction,interval);
+  vec2 ground=atmosphereRayInterval(origin,direction,u_atmosphereRadiusKm);
+  if(ground.y<ground.x) ground=vec2(closest);
+  // Sorted in ray-distance order before clamping. Duplicate/tangent cuts have
+  // zero width; unchanged monotonic quadrature returns zero for those pieces.
+  float cuts[5]=float[5](interval.x,clamp(ground.x,interval.x,interval.y),
+    clamp(closest,interval.x,interval.y),clamp(ground.y,interval.x,interval.y),interval.y);
+  vec3 result=vec3(0.0);
+  for(int i=0;i<4;i++)
+    result+=atmosphereScatteredMonotonic(origin,direction,vec2(cuts[i],cuts[i+1]));
+  return result;
 }
 // maxDistance is the actual surface endpoint when used on a displaced mesh.
 // The limb caller separately rejects solid-body hits before requesting a full ray.

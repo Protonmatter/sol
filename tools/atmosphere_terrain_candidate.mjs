@@ -1,7 +1,7 @@
 // Qualification-only candidate. No production module imports this file.
 import assert from 'node:assert/strict';
 
-const ORIGINAL_SEGMENT=`vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval,AtmosphereColumnRay columnRay){
+export const ORIGINAL_SEGMENT=`vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval,AtmosphereColumnRay columnRay){
   vec3 p=atmosphereUnflatten(origin), d=atmosphereUnflatten(direction);
   float closest=-dot(p,d)/dot(d,d);
   if(closest>interval.x&&closest<interval.y)
@@ -10,7 +10,7 @@ const ORIGINAL_SEGMENT=`vec3 atmosphereScatteredSegment(vec3 origin,vec3 directi
   return atmosphereScatteredMonotonic(origin,direction,interval,columnRay);
 }`;
 
-const SEGMENTED=`vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval,AtmosphereColumnRay columnRay){
+export const SEGMENTED=`vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval,AtmosphereColumnRay columnRay){
   if(interval.y<=interval.x) return vec3(0.0);
   vec3 p=atmosphereUnflatten(origin), d=atmosphereUnflatten(direction);
   float closest=-dot(p,d)/dot(d,d);
@@ -38,6 +38,8 @@ export function withTerrainGroundCuts(source){
 
 /** Diagnostic invocation count, never included in shipped materials. */
 export function withIntegrationNodeCounter(source){
+  assert.equal(typeof source,'string');
+  assert.ok(!source.includes('qualificationNodes'),'Integration counter source already instrumented');
   const marker='vec3 atmosphereScatteredMonotonic(vec3 origin,vec3 direction,vec2 interval,AtmosphereColumnRay columnRay){\n  if(interval.y<=interval.x) return vec3(0.0);';
   assert.equal(source.split(marker).length,2,'Integration counter source boundary changed');
   return 'float qualificationNodes=0.0;\n'+source.replace(marker,marker+'\n  qualificationNodes+=12.0;');

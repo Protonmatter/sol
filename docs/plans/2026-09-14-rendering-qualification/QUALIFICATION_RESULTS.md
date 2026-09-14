@@ -1,6 +1,9 @@
 # Rendering qualification results
 
-Status: local qualification and specifications completed; runtime promotion remains
+Historical receipt for the tooling-only `34937f1` slice. Current runtime progress
+and admission decisions are tracked in [PRODUCTION_EXECUTION.md](PRODUCTION_EXECUTION.md).
+
+Status at that slice: local qualification and specifications completed; runtime promotion remains
 open. Recorded 2026-09-14 UTC against starting revision
 `bd7f5b45798a754c409e4b265e15703dad018f84` on
 `codex/sol-observation-workspace`, PR 107.

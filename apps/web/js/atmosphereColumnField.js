@@ -139,7 +139,7 @@ export function cacheAtmosphereViewRay(source){
      'exp(-atmosphereCachedOpticalDepth(columnRay,distance))*atmosphereSunTransmission(p)'],
     ['vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval){',
      'vec3 atmosphereScatteredSegment(vec3 origin,vec3 direction,vec2 interval,AtmosphereColumnRay columnRay){'],
-    ...['vec2(interval.x,closest)','vec2(closest,interval.y)','interval'].map(interval=>[
+    ...['vec2(cuts[i],cuts[i+1])'].map(interval=>[
       `atmosphereScatteredMonotonic(origin,direction,${interval})`,
       `atmosphereScatteredMonotonic(origin,direction,${interval},columnRay)`]),
     ['  result.transmittance=exp(-atmosphereOpticalDepth(entry,ray,distance));',
