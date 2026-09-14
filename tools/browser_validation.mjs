@@ -11,6 +11,7 @@ import v8ToIstanbul from "v8-to-istanbul";
 import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
 import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
+import { collectFrameCostDiagnostic } from './frame_cost_diagnostic.mjs';
 import { installProgramSourceEvidence, preparePhysicalSpinEvidence, waitForPhysicalSpinReadiness } from './physical_spin_probe.mjs';
 import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
 import { installScatteringProducerEvidence, beginScatteringProducerHold, endScatteringProducerHold } from './scattering_producer_probe.mjs';
@@ -1312,7 +1313,7 @@ async function main() {
     artifact:mapping?{release_id:mapping.manifest.release_id,source_sha:mapping.manifest.source_sha,
       manifest_sha256:createHash('sha256').update(fs.readFileSync(path.join(webRoot,'web-release-manifest.json'))).digest('hex')}:null,
     validation_source_sha256:Object.fromEntries(['browser_validation.mjs','browser_backend.mjs','texture_device_telemetry.mjs',
-      'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs',
+      'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs','frame_cost_diagnostic.mjs',
       'full_feature_memory.mjs','texture_device_memory.ps1','context_restore.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,
       createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')])),
   };
@@ -1459,6 +1460,27 @@ async function main() {
     evidence.status='passed';
   } catch(error) {
     evidence.status='failed';evidence.failure={phase,error:error.message};
+    // Preserve the original failed gate before any separate instrumented replay.
+    try{saveEvidence();}catch(failure){console.error('Could not persist original failure:',failure);}
+    if(phase==='System/WebGL'&&/^(insufficient Earth sphere draws:|Physical Earth preparation failed:)/.test(error.message)){
+      try{
+      const frameCostPath=path.join(outputDirectory,'frame-cost-after-failure.json');
+      let frameCostTimer;
+      const frameCost={schema:'post-failure-frame-cost.v1',original_failure:{...evidence.failure},
+        original_status:'failed',outer_budget_ms:25000,
+        tool_sha256:createHash('sha256').update(fs.readFileSync(new URL('./frame_cost_diagnostic.mjs',import.meta.url))).digest('hex')};
+      try{
+        frameCost.observation=await Promise.race([diagnosticPage.evaluate(collectFrameCostDiagnostic),
+          new Promise((_,reject)=>{frameCostTimer=setTimeout(()=>reject(new Error('Separate frame-cost diagnostic deadline')),25000);})]);
+      }catch(failure){frameCost.error=failure instanceof Error?failure.message:String(failure);}
+      finally{clearTimeout(frameCostTimer);}
+      fs.writeFileSync(frameCostPath,JSON.stringify(frameCost,null,2)+'\n');
+      evidence.frame_cost_diagnostic={path:frameCostPath,status:frameCost.observation?.status||'unavailable'};saveEvidence();
+      }catch(failure){
+        evidence.frame_cost_diagnostic={status:'unavailable',error:failure instanceof Error?failure.message:String(failure)};
+        console.error('Frame-cost diagnostic could not be recorded:',failure);
+      }
+    }
     let timer, diagnostic, diagnosticError;
     try {
       diagnostic=await Promise.race([diagnosticPage?.evaluate(()=>({
