@@ -63,3 +63,25 @@ override that failure. Re-run hosted checks on the actual published runtime head
 PR review thread `PRRT_kwDOTIyRyM6h9g-H` concerns the ground-crossing P2. The two
 performance P1 threads remain open until bounded accuracy and unchanged
 application gates pass. RFC 0006 remains Draft while required admission is open.
+
+## Combined-source optical reproduction
+
+After combining the ground-boundary and color changes, both offline generators
+were rerun explicitly. The incident generator evaluated 75,075 rays per body;
+all four numerical field files reproduced their prior bytes exactly. Only source
+and expanded-generator identity metadata changed. The physical asset validator
+passed for two terrains, one solar reference, two incident fields and two column
+fields. This reproduction does not substitute for final-frame performance tests.
+
+```powershell
+node tools/prepare_atmosphere_incident.mjs
+node tools/prepare_atmosphere_columns.mjs
+python tools/validate_physical_assets.py
+```
+
+The before/after comparison is retained at
+`build/pr107-production-20260914/optical-reproduction/comparison.json`.
+The incident payload hashes remain `4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639`
+(Earth) and `bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311`
+(Mars); the column hashes remain `85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893`
+and `12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895`.
