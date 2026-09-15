@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {orreryHarness} from './helpers/orreryHarness.mjs';
+import {isMoonDraw} from './helpers/moonDraws.mjs';
 
 const field=()=>({values:new Float32Array(4*257*195),width:257,height:195,
   domain:{minHeightKm:0,maxHeightKm:16,quadratic:true}});
@@ -58,7 +59,7 @@ test('base sphere programs cover pending, disabled, moon and transparent draws a
   assert.ok(sphereDraws().some(d=>d.uniforms.u_atmosphereEnabled===1&&d.uniforms.u_bodyRadiusKm<4000),'Mars also selects physical optics');
   h.input('orreryAnchor','Jupiter','change');h.state.radius=.1;const start=h.gpuDraws.length;
   h.check('orreryTrueScale',true);
-  const moons=h.gpuDraws.slice(start).filter(d=>d.uniforms.u_mode===0&&d.uniforms.u_nmat?.every((v,i)=>v===Number(i%4===0)));
+  const moons=h.gpuDraws.slice(start).filter(d=>isMoonDraw(h,'Jupiter',d.uniforms));
   assert.ok(moons.length>=4,'Real Galilean moon draws exercise routing after physical Mars');
   for(const moon of moons)assert.ok(moon.program.sources.every(source=>source.includes('const int u_atmosphereEnabled = 0;')));
   checkRouting();

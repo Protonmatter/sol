@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { orreryHarness } from "./helpers/orreryHarness.mjs";
+import { isMoonDraw } from "./helpers/moonDraws.mjs";
 import { appearanceReference, appearanceReferences } from "../../apps/web/js/planetAppearance.js";
 import { BODY } from "../../apps/web/js/bodyData.js";
 import { MOONS } from "../../apps/web/js/moons.js";
@@ -256,7 +257,7 @@ test("Earth dispatches registered land, night lights, weather and ice only to it
   h.input("orreryAnchor", "Jupiter", "change");
   h.state.radius = 0.1;
   const close = paint(h, () => h.check("orreryTrueScale", true));
-  const moonDraws = close.filter(({ uniforms: u }) => u.u_mode === 0 && u.u_nmat?.every((v, i) => v === Number(i % 4 === 0)));
+  const moonDraws = close.filter(({ uniforms: u }) => isMoonDraw(h, "Jupiter", u));
   assert.ok(moonDraws.length >= 4, "real loaded Galilean moon draws exercise shared-program cleanup");
   for (const moon of moonDraws) assertFlags(moon, []);
   assert.equal(h.state.renderUnix, epoch);

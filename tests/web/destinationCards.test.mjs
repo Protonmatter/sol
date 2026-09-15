@@ -4,6 +4,7 @@ import {skyCard, systemCard} from '../../apps/web/js/destinationCards.js';
 import {BODY} from '../../apps/web/js/bodyData.js?v=dcca6290db';
 import {visualBrowsePreview} from '../../apps/web/js/visualAssets.js';
 import {MOONS} from '../../apps/web/js/moons.js';
+import {SYNCHRONOUS_MOONS} from '../../apps/web/js/moonorbits.js';
 
 const snapshot={bodies:[{name:'Moon',alt_deg:12.3456,alt_refracted_deg:88,az_deg:123.4567}]};
 const presentation={observerLabel:'New York example location',aboveCount:64,actualProvider:'local',requestedProvider:'server',availability:'ready'};
@@ -101,7 +102,11 @@ test('Every catalogued moon has a useful inspector with reference facts and an h
     assert.equal(card.focusBody,moon.n);
     assert.equal(fact(card,'Orbits'),moon.p);
     assert.match(fact(card,'Reference mean radius'),/km$/);
-    assert.match(card.note,/reference orientation/i);
+    if(SYNCHRONOUS_MOONS.has(moon.n)){
+      assert.match(card.note,/tidally locked/i);
+      assert.ok(card.note.includes(`faces ${moon.p}`),`${moon.n}: the card names the planet it faces`);
+      assert.match(card.note,/libration are not modelled/);
+    }else assert.match(card.note,/not tidally locked: maps use a fixed reference orientation/i);
     assert.match(card.note,/spherical approximation/i);
     assert.doesNotMatch(card.note,/true feature longitude|live imagery/);
   }

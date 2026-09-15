@@ -66,7 +66,7 @@ import { renderStarDetail } from "./starDetail.js?v=dcca6290db";
 import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dcca6290db";
 import { resolveDisplayRadii, moonGuideVisible } from "./displayGeometry.js?v=dcca6290db";
 import { textureEligible, missingDetailColor } from "./visualAssets.js?v=dcca6290db";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock } from "./moonorbits.js?v=dcca6290db";
+import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock, synchronousMoonRotation } from "./moonorbits.js?v=dcca6290db";
 import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=dcca6290db";
 import * as moonCatalogue from "./moons.js?v=dcca6290db";
 import { MOON_TEXTURE_FILES, moonBaseColor, moonAtmosphereColor } from "./moonAppearance.js?v=dcca6290db";
@@ -2087,6 +2087,8 @@ function moonValidityLabel() {
 
 // Draw the moons of one planet from the set drawnMoonsFor() already resolved (see there for
 // every reason this can be empty). Returns quietly when there is nothing to draw.
+const IDENTITY_ROTATION = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+
 function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
   if (!drawn) return;
   // Counted even when the clock has aliased away every moon of this planet — that is exactly
@@ -2118,7 +2120,10 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     const pos = [parentPos[0] + off[0] * scale, parentPos[1] + off[1] * scale, parentPos[2] + off[2] * scale];
     const r = moonDisplayRadius(m, phys.radiusKm, parentDisplayAU);
     referenceVisible.set(m.n, referencePixelDiameter(pos, r, vp, referenceViewport));
-    const model = mul(translate(pos), scaleM([r, r, r]));
+    // Tidally locked moons keep their prime meridian toward the planet along the mean orbit,
+    // pole on the orbit normal (moonorbits.js). Nereid spins freely and keeps the renderer frame.
+    const spin = synchronousMoonRotation(m, state.renderUnix, poleVector(phys, state.renderUnix)) || IDENTITY_ROTATION;
+    const model = mul(translate(pos), mul(spin, scaleM([r, r, r])));
     // Draw with the inflated offset, but light from the physical position. Using `pos` here
     // moved an outer moon several rendered AU from its parent and rotated its terminator by
     // tens of degrees even though its real planetocentric offset is tiny on the solar scale.
@@ -2130,7 +2135,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     bindTerrainShadow(sphere,m.r);
     gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, model)));
     gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(model));
-    gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]));
+    gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array(normalMat3(spin)));
     // Surface qualification controls detail; the existing published albedo scale
     // remains meaningful when no photographic texture is eligible.
     gl.uniform1i(P.sphereU.u_style, -1); // no invented craters, clouds, or ice patterns
@@ -2157,8 +2162,8 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
     gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(moonAtmosphereColor(m.n)));
     gl.uniform1f(P.sphereU.u_atmoStr, m.n === "Titan" ? 0.5 : 0);
-    // Only reviewed grids may wrap onto a moon. Its reference orientation is fixed;
-    // this catalogue supplies orbits, not a scientifically qualified spin model.
+    // Only reviewed grids may wrap onto a moon. The spin frame above places a locked moon's
+    // map longitudes; it is derived from the orbit, not from an independent spin model.
     const reference = appearanceReference(m.n);
     const registered = state.useTextures && reference && referenceTextures[reference.id]?.ready ? referenceTextures[reference.id] : null;
     const legacy = textureEligible(m.n) && state.useTextures && textures[m.n]?.ready ? textures[m.n] : null;

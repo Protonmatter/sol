@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { orreryHarness as harness } from "./helpers/orreryHarness.mjs";
+import { matchesMoonNormal } from "./helpers/moonDraws.mjs";
 import { MOON_ALBEDO, MOON_ALBEDO_REFERENCE } from "../../apps/web/js/moonAppearance.js";
 import { moonOffsetAU } from "../../apps/web/js/moonorbits.js";
 import { sunlightOnMoon } from "../../apps/web/js/moonshadows.js";
@@ -47,7 +48,7 @@ test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse att
     const offset = moonOffsetAU(moon, h.state.renderUnix);
     const position = offset.map((value, i) => value + parent[i]);
     const matches = h.uniformDraws.slice(first).filter(draw => draw.u_style === -1 && draw.u_mode === 0
-      && draw.u_nmat?.every((value, i) => value === (i % 4 === 0 ? 1 : 0))
+      && matchesMoonNormal(h, moon, draw.u_nmat)
       && draw.u_model?.slice(12, 15).every((value, i) => Math.abs(value - position[i]) < 1e-6));
     assert.equal(matches.length, 1, `${moon.n}: one actual moon sphere upload at its physical position`);
     const draw = matches[0], [red, green, blue] = draw.u_base;

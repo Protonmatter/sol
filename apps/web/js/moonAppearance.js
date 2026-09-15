@@ -124,12 +124,12 @@ export function moonAtmosphereColor(name) {
  * never a procedural replacement. Historical fetcher omissions are not a claim that
  * NASA has no newer or better product for a body.
  *
- * ORIENTATION IS NOT A CLAIM. drawMoons draws these spheres with no rotation model at all
- * (the catalogue carries orbits, not spin axes or prime meridians), so a map's features land
- * at the renderer's own frame, not at their true planetographic longitudes. What these
- * qualified textures buy is archived surface structure, not the current position of any
- * one feature. The panel text and this
- * comment are the only places that can say so, so they do.
+ * ORIENTATION. drawMoons turns every synchronously rotating moon (SYNCHRONOUS_MOONS in
+ * moonorbits.js) so its prime meridian faces the planet along the mean orbit and its pole lies
+ * on the orbit normal, on the planet's IAU north side. A map's features therefore land near
+ * their planetographic longitudes; the residual is the omitted Cassini-state obliquity,
+ * physical libration and any fixed offset of an IAU prime meridian. Nereid is not tidally
+ * locked and keeps the renderer's frame, and its card says so.
  *
  * @type {Record<string, string>}
  */

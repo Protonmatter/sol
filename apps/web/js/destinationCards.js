@@ -1,6 +1,7 @@
 // Concise orientation from admitted scene state and reference facts. No calculation or I/O.
 import { BODY } from './bodyData.js?v=dcca6290db';
 import { MOONS } from './moons.js?v=dcca6290db';
+import { SYNCHRONOUS_MOONS } from './moonorbits.js?v=dcca6290db';
 import { visualBrowsePreview, textureEligible } from './visualAssets.js';
 import { appearanceReference, appearanceDescription, appearanceSummary } from './planetAppearance.js';
 
@@ -60,7 +61,9 @@ export function systemCard(state = {}) {
     description: `A moon of ${moon.p}. Explore its reference imagery and modelled orbit.`,
     facts: [fact('Orbits', moon.p), fact('Reference mean radius', number(moon.r, ' km')),
       fact('Reference orbital period', number(moon.P, ' days'))],
-    note: `Spherical approximation. Maps use a fixed reference orientation; they do not show the current facing hemisphere.${retained} ${appearanceSummary(name, state)}`,
+    note: `Spherical approximation. ${SYNCHRONOUS_MOONS.has(name)
+      ? `Tidally locked: its prime meridian faces ${moon.p} along the mean orbit, pole on the orbit normal; axial tilt and physical libration are not modelled.`
+      : 'Not tidally locked: maps use a fixed reference orientation and do not show the current facing hemisphere.'}${retained} ${appearanceSummary(name, state)}`,
     preview: appearanceReference(name) ? null : visualBrowsePreview(name), focusBody: name};
   if (!Object.hasOwn(BODY, name)) return {...card, eyebrow: 'SELECTED OBJECT', title: name,
     description: 'Open object details for its catalogue facts, source and position limits.'};

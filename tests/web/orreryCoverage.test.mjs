@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { orreryHarness } from "./helpers/orreryHarness.mjs";
+import { matchesMoonNormal } from "./helpers/moonDraws.mjs";
 import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
 import { BODY } from '../../apps/web/js/bodyData.js';
 import {terrainExtentKm} from '../../apps/web/js/terrainAssets.js';
@@ -95,16 +96,22 @@ test('focused planets and moons fit desktop and portrait views without changing 
   await h.enterOrrery(); await h.settleCatalogues();
   assert.equal(h.state.radius, 26, 'initial Solar System overview is unchanged');
   const bodies = JSON.stringify(h.state.bodies);
+  const moonModels = new Set();
   const capture = action => {
     const first = h.gpuDraws.length; action();
-    return h.gpuDraws.slice(first).filter(({ uniforms: u }) => u.u_model && (u.u_mode === 0 || u.u_mode === 1))
-      .map(({ uniforms: u }) => JSON.stringify(u.u_model)).sort();
+    const draws = h.gpuDraws.slice(first).filter(({ uniforms: u }) => u.u_model && (u.u_mode === 0 || u.u_mode === 1));
+    for (const { uniforms: u } of draws) {
+      if (h.moons.some(moon => matchesMoonNormal(h, moon, u.u_nmat))) moonModels.add(JSON.stringify(u.u_model));
+    }
+    return draws.map(({ uniforms: u }) => JSON.stringify(u.u_model)).sort();
   };
   const before = capture(() => h.check('orreryTextures', h.state.useTextures));
   const models = new Map(before.map(value => [JSON.stringify(JSON.parse(value).slice(12, 15)), value]));
   // Camera distance intentionally admits previously sub-pixel moon systems.
-  // Compare every reappearing model and require every core rotating body to remain.
-  const core = before.filter(value => JSON.parse(value)[1] !== 0);
+  // Compare every reappearing model and require every core rotating body to remain. Catalogue
+  // moons carry their own spin frame and may leave the view with camera distance, so they are
+  // recognised by that frame rather than counted as core bodies.
+  const core = before.filter(value => JSON.parse(value)[1] !== 0 && !moonModels.has(value));
   assert.equal(core.length, 10);
   for (const [width, height] of [[800, 600], [320, 540]]) {
     h.resize(width, height);
