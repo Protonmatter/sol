@@ -386,7 +386,7 @@ function updatePhysicalAppearance() {
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; illustrative limb shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
-  if(body==='Sun')notes.push(state.solarMode==='reconstructed-euv'?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
+  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
@@ -403,9 +403,21 @@ function syncSolarPlaybackControls() {
   const epoch=document.getElementById('orrerySolarEpoch');if(epoch)epoch.textContent=solarPlayback(state.solarPlayback.seconds).sourceTime.replace('T',' ').replace('Z',' UTC');
 }
 
+// Reconstructed EUV is a science view of the Sun as the subject: it applies while the
+// Sun is inspected or explicitly selected. The default overview anchors on the Sun, and
+// every other scene shows it only as context, so those draw the visible photosphere and a
+// false-colour coronal image never stands in for sunlight beside ordinary planets.
+function solarSubject() {
+  return (state.selected||state.anchor)==='Sun'&&(state.solarInspection||state.selected==='Sun');
+}
+
+function solarEuvActive() {
+  return state.solarMode==='reconstructed-euv'&&solarSubject();
+}
+
 function solarPlaybackAvailable() {
-  return state.active&&!state.galaxy&&!state.selectedStar&&state.useTextures&&state.solarMode==='reconstructed-euv'
-    &&state.solarStatus==='ready'&&(state.selected||state.anchor)==='Sun';
+  return state.active&&!state.galaxy&&!state.selectedStar&&state.useTextures&&solarEuvActive()
+    &&state.solarStatus==='ready';
 }
 
 function sourceSolarRotation() {
@@ -438,7 +450,7 @@ function initSolarResources() {
 }
 
 function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
-  if(state.solarMode!=='reconstructed-euv'||!state.useTextures||!solarDetail)return false;
+  if(!solarEuvActive()||!state.useTextures||!solarDetail)return false;
   if(pixels>=12)solarDetail.request('reference');
   const detail=solarDetail.get('reference');if(!detail)return false;
   const rot=sourceSolarRotation(),model=mul(translate(pos),mul(rot,scaleM([radius,radius,radius])));
@@ -2214,7 +2226,7 @@ function drawRing(name, phys, pos, rEq, rot, vp) {
 }
 
 function drawSun(vp, eye, w, h) {
-  if(state.solarMode==='reconstructed-euv'&&state.useTextures&&solarDetail?.get('reference'))return;
+  if(solarEuvActive()&&state.useTextures&&solarDetail?.get('reference'))return;
   const rSun = displayRadiusAU("Sun");
   // corona: a camera-facing additive glow quad
   const fwd = norm(sub([0, 0, 0], eye));
