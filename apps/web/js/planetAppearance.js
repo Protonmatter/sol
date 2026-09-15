@@ -15,6 +15,12 @@ export function appearanceFallbackColor(body) {
   return color && appearanceReference(body)?.sha256 === color.sha256 ? color.rgb.map(channel => channel / 255) : null;
 }
 
+// Venus draws its visible-light cloud deck by default. Its registered Magellan radar
+// mosaic shows the ground beneath the clouds and appears only when explicitly chosen.
+export function surfaceReferenceShown(body, state = {}) {
+  return body !== 'Venus' || state.venusRadar === true;
+}
+
 export function appearanceReference(body, role = 'surface') {
   return (visualAssetManifest.mapped_references || []).find(a => a.body === body && a.role === role) || null;
 }
@@ -39,6 +45,7 @@ export function appearanceUniforms(asset) {
 }
 
 export function appearanceDescription(body, state = {}, details = false) {
+  if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);
   if (!asset) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   if (state.useTextures === false) return 'Reference imagery is switched off.';
@@ -54,6 +61,7 @@ export function appearanceDescription(body, state = {}, details = false) {
 // Keep the primary object card concise; the adjacent source disclosure carries
 // complete capture epochs, processing, coverage and interpretation limits.
 export function appearanceSummary(body, state = {}) {
+  if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);
   if (!asset || state.useTextures === false) return appearanceDescription(body, state);
   const status = state.appearanceStatus?.[asset.id];

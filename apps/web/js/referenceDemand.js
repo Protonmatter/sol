@@ -1,6 +1,6 @@
 // Display-resource policy only. Engine coordinates and source epochs are inputs,
 // never mutated by deciding whether a photographic map is useful on screen.
-import { appearanceReference, earthCloudRole } from './planetAppearance.js';
+import { appearanceReference, earthCloudRole, surfaceReferenceShown } from './planetAppearance.js';
 
 export const MAX_REFERENCE_TEXTURES = 8;
 export const MAX_REFERENCE_REQUESTS = 2;
@@ -37,7 +37,7 @@ export function planReferenceDemand(visible, state = {}) {
     .sort(([a,ad],[b,bd])=>Number(b===state.anchor)-Number(a===state.anchor)||bd-ad||(a<b?-1:a>b?1:0));
   const assets = [];
   for (const [body] of bodies) {
-    const roles = ['surface'];
+    const roles = surfaceReferenceShown(body, state) ? ['surface'] : [];
     if (body === 'Earth') {
       if (state.earthNight !== false) roles.push('night-lights');
       if (state.earthWeather !== false) roles.push(earthCloudRole(state));

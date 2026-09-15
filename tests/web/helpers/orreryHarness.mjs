@@ -205,6 +205,7 @@ export async function orreryHarness(t, options = {}) {
     }
     for (const id of ["Textures", "EarthNight", "EarthWeather"]) nodes[`orrery${id}`].checked = true;
     nodes.orreryEarthIce.checked = false;
+    nodes.orreryVenusRadar = node({ checked: false });
     nodes.orreryEarthCloudSource = node({ value: "composite" }, "select");
     nodes.orrerySpeedUnit.value = "1";
     for (const dps of ["0.041666666666666664", "1", "30", "365.25"]) {

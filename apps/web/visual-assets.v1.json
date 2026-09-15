@@ -1096,6 +1096,16 @@
     }
   ],
   "fallbacks": {
+    "Venus": {
+      "rgb": [
+        0.9,
+        0.86,
+        0.72
+      ],
+      "label": "Visible-light cloud deck: a near-featureless pale yellow-white sulfuric-acid overcast; RGB illustrative, not calibrated. No visible-light global map exists. The Magellan radar surface is an optional separate layer.",
+      "source_url": "https://www.planetary.org/articles/why-the-true-colors-of-the-planets-arent-what-you-think",
+      "credits": "The Planetary Society; NASA NSSDCA Venus fact sheet"
+    },
     "Titan": {
       "rgb": [
         0.72,

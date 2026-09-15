@@ -58,6 +58,12 @@ test('every admitted surface reaches its color recipe and retains its own fallba
   h.check('orreryEarthNight', false); h.check('orreryEarthWeather', false);
   for (const [body, mode, premultiplied] of surfaceRoutes) {
     h.input('orreryAnchor', body, 'change');
+    if (body === 'Venus') {
+      // Visible light shows the cloud deck; the Magellan radar route is qualified as an opt-in layer.
+      paint(h);
+      assert.ok(!h.images.some(image => image.src === appearanceReference(body).path), 'Venus radar is not fetched by default');
+      h.check('orreryVenusRadar', true);
+    }
     const before = paint(h);
     const { upload } = loadImage(h, body);
     const loaded = paint(h).filter(draw => draw.uniforms.u_mode === 0
@@ -89,6 +95,7 @@ test('every admitted surface reaches its color recipe and retains its own fallba
     assert.equal(disabled.uniforms.u_useTex, 0);
     assert.deepEqual(disabled.uniforms.u_base, fallback.uniforms.u_base, `${body}: toggling does not alter albedo or source-derived fallback color`);
     h.check('orreryTextures', true);
+    if (body === 'Venus') h.check('orreryVenusRadar', false);
   }
   assert.equal(h.errors.length, 0);
 });

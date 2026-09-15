@@ -18,7 +18,7 @@ import { createShaderPrograms } from "./shaderPrograms.js";
 import { linearFilterReference } from './materialColor.js';
 import { createHdrPresentation } from './hdrPresentation.js';
 import { srgbToLinear } from './surfaceMapping.js';
-import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole } from "./planetAppearance.js";
+import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
 import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.js';
 import {requestTerrainMesh} from './terrainWorkerClient.js';
@@ -151,7 +151,7 @@ const state = (store.orrery = {
   yearsPerSec: SOLAR_SPEED_DEFAULT_YPS,
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
-  earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite',
+  earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite', venusRadar: false,
   appearanceStatus: {},
   terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{}, scatteringStatus:{}, scatteringFrame:null,
   programStatus:{base:'deferred',physical:'deferred'},programDiagnostics:{},
@@ -1936,7 +1936,7 @@ function drawBody(b, vp, eye) {
   // generate from the committed vectors, which in turn beats the procedural shader. Only the
   // generated maps can ask to MODULATE rather than replace.
   const isSun = b.name === "Sun";
-  const reference = appearanceReference(b.name);
+  const reference = surfaceReferenceShown(b.name, state) ? appearanceReference(b.name) : null;
   const referenceTex = state.useTextures && reference && referenceTextures[reference.id]?.ready ? referenceTextures[reference.id] : null;
   const sunTexd = isSun && textureEligible("Sun", "observed-disk") && state.useTextures && sunTex.ready;
   const photoTexd = !isSun && textureEligible(b.name) && state.useTextures && textures[b.name] && textures[b.name].ready;
@@ -3132,6 +3132,7 @@ async function showFallback(msg) {
   for (const [id, key] of [['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
     bind(id, 'change', e => { state[key] = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
   }
+  bind('orreryVenusRadar', 'change', e => { state.venusRadar = inputTarget(e).checked; updatePhysicalAppearance(); paint(); updateOrreryAccuracy(); });
   bind('orreryEarthCloudSource', 'change', e => {
     const input = inputTarget(e);
     state.earthCloudSource = input.value === 'daily' ? 'daily' : 'composite';
