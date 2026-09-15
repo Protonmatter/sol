@@ -311,7 +311,7 @@ def validate_earth_layer_grids(references: list[dict]) -> None:
         grid = (item["projection"], mapping["primeMeridianU"] % 1, mapping["longitudeDirection"], mapping["latitudeType"])
         if grid != base_grid:
             raise ValueError("Earth auxiliary mapping grid differs from the surface reference")
-        if item["role"] != "surface" and item["nodata"] != {"night-lights": "none", "cloud-composite": "none", "weather": "alpha", "sea-ice": "alpha"}[item["role"]]:
+        if item["role"] != "surface" and item["nodata"] != {"night-lights": "none", "cloud-composite": "alpha", "weather": "alpha", "sea-ice": "alpha"}[item["role"]]:
             raise ValueError("Earth auxiliary nodata policy is incompatible with its shader role")
 
 

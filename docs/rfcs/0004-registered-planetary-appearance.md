@@ -39,9 +39,9 @@ defines bounded requests, GPU cache lifetime and explicit deferred/queued status
 - Weather MUST use the dated provider image and matching documented data/no-data mask.
   Missing swaths MUST NOT be filled with invented clouds, stretched edge pixels, or
   mirrored hemispheres. Satellite surface imagery MUST NOT be called a cloud-only mask.
-- The default Earth cloud/surface appearance MUST use the qualified complete historical
-  reference. Incomplete daily swaths MUST require explicit selection and disclose their
-  seams and gaps. A missing selected reference MUST NOT silently select another epoch.
+- The default Earth cloud appearance MUST use the qualified complete historical cloud
+  layer drawn over the land map. Incomplete daily swaths MUST require explicit selection
+  and disclose their seams and gaps. A missing selected reference MUST NOT silently select another epoch.
 - Land ice and sea ice MUST remain distinct. A sea-ice analysis palette MUST retain its
   legend and date; the renderer MUST NOT invent a white polar cap from latitude alone.
 - All appearance changes MUST leave ephemerides, state estimation, uncertainty,
@@ -96,10 +96,11 @@ the source/coverage explanation is available beside the controls. Source facts d
 follow the model clock. The color scale is paired with text and its official source.
 Controls work by keyboard and retain focus. Small-screen content follows the canvas.
 
-The native cloud imagery selector defaults to NASA's Blue Marble 2002 global composite
-(`cloud-composite`, original RGB with no alpha gaps). The optional MODIS daily source
-(`weather`) retains its original source pixels and coverage mask. Both contain surface
-and clouds, and both display their fixed historical source date. They share the admitted
+The native cloud imagery selector defaults to NASA's Blue Marble 2002 cloud layer
+(`cloud-composite`: white cloud whose alpha maps its grayscale source through an opacity
+curve fitted to NASA's 2002 composite), drawn over the land map. The optional MODIS daily source (`weather`) retains its original source pixels
+and coverage mask and contains surface as well as clouds. Both display their fixed
+historical source date. They share the admitted
 Earth grid and existing solar-lit sampler. This changes presentation only: no swath
 coordinates, source masks, model time, or physical state are modified. When a selected
 image is unavailable the layer is withheld and its status is shown; the source selector

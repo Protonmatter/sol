@@ -437,7 +437,8 @@
         "apps/web/js/surfaceMapping.js",
         "apps/web/js/orrery.js",
         "apps/web/js/orreryShaders.js",
-        "apps/web/visual-assets.v1.json"
+        "apps/web/visual-assets.v1.json",
+        "tools/prepare_earth_clouds.py"
       ],
       "verification": [
         "tests/web/surfaceMapping.test.mjs",
@@ -447,6 +448,7 @@
         "tools/texture_pipeline_validation.mjs",
         "tests/python/test_mapped_references.py",
         "tests/python/test_fetch_earth_reference.py",
+        "tests/python/test_prepare_earth_clouds.py",
         "tests/python/test_planet_reference.py",
         "tests/python/test_moon_reference.py",
         "tests/web/destinationCards.test.mjs",

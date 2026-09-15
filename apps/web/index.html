@@ -454,16 +454,16 @@
                 <div class="orrery-group-body">
                   <div class="orrery-check-grid">
                     <label class="orrery-check"><input id="orreryEarthNight" type="checkbox" checked> Night lights</label>
-                    <label class="orrery-check"><input id="orreryEarthWeather" type="checkbox" checked> Clouds &amp; surface imagery</label>
+                    <label class="orrery-check"><input id="orreryEarthWeather" type="checkbox" checked> Clouds</label>
                     <label class="orrery-check"><input id="orreryEarthIce" type="checkbox"> Sea ice concentration</label>
                   </div>
                   <label class="orrery-field">Cloud imagery
                     <select id="orreryEarthCloudSource" class="sky-input" aria-describedby="orreryEarthCloudHelp">
-                      <option value="composite" selected>Blue Marble 2002 (historical)</option>
-                      <option value="daily">MODIS 2026-09-12 (swaths)</option>
+                      <option value="composite" selected>Blue Marble 2002 cloud layer (historical)</option>
+                      <option value="daily">MODIS 2026-09-12 (swaths with surface)</option>
                     </select>
                   </label>
-                  <p id="orreryEarthCloudHelp" class="time-frame-label">The global composite gives a continuous reference view. Dated satellite swaths retain gaps and boundaries between passes. Both include the surface and clouds; neither is live weather.</p>
+                  <p id="orreryEarthCloudHelp" class="time-frame-label">The Blue Marble 2002 cloud layer lies over the land map, so clouds and continents stay visible together. Dated MODIS swaths replace the land map with their own surface and retain gaps and boundaries between passes. Neither is live weather.</p>
                   <p id="orreryEarthLayerStatus" class="time-frame-label" role="status"></p>
                   <p class="time-frame-label">Imagery keeps its source date as the model clock moves. Antarctica and Greenland appear in the land map. Sea ice is a dated scientific color overlay. The blue atmospheric rim is an illustrative scattering effect, not a measurement of current air conditions.</p>
                   <figure id="orreryIceLegend" class="earth-ice-legend" hidden>

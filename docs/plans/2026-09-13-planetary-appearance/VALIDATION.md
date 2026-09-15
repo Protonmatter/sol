@@ -5,6 +5,28 @@ Date: 2026-09-13. This implements the accepted user direction in
 It extends the observation workspace in RFC 0003. Local acceptance, hosted CI,
 manual scientific qualification and production activation remain separate evidence.
 
+## Earth cloud-only layer (2026-09-15)
+
+The default Earth cloud selection now draws NASA's Blue Marble 2002 cloud layer over the
+land map instead of the land/ocean/ice/cloud composite, so continents and ocean come from
+the land map and only clouds are layered on top. Opacity follows a curve fitted from
+NASA's composite. See [the source record](EARTH_SOURCES.md#cloud-only-layer-over-the-land-map-2026-09-15).
+
+| Cloud layer validation | Result |
+| --- | --- |
+| `python tools/prepare_earth_clouds.py --fit-opacity` | Pinned curve reproduced from both NASA originals; held-out mean error 11.48/255 over ocean, 13.69/255 over land and 17.35/255 in thin haze, against 14.64, 17.76 and 22.81 for alpha equal to grey |
+| `python tools/prepare_earth_clouds.py --out` | 1,911,552-byte PNG reproduced, SHA-256 `82005bba2cec05b41137b766985d516eaf6b66ea045191d8869d45abd05f7995` |
+| `node tools/check_node_coverage.mjs` | 1,277/1,277 tests; lines 98.13%, branches 91.30%, functions 95.51% |
+| `PYTHONPATH=tools python -m unittest discover -s tests/python -p 'test_*.py'` | 400/400 tests |
+| Visual inventory, web types/static/UX, SDLC and Markdown validators | Passed |
+| `node tools/planet_appearance_validation.mjs` | 110/110 GPU checks |
+| `node tools/browser_validation.mjs` | Passed; Earth submitted spin recorded 4 draws within 1.03 s |
+| `node tools/physical_rendering_validation.mjs --context-loss` | 19/19 checks. A run on the intermediate grey-as-alpha build hit a transient DevTools "Promise was collected" error and passed on rerun |
+
+In the Earth optics capture, open ocean west of Africa measures RGB 45, 60, 82 with the
+fitted layer, against 41, 57, 89 under the previous composite and 58, 69, 86 when alpha
+equals grey.
+
 ## Earth swath-seam correction
 
 The default Earth view now uses the original NASA Blue Marble 2002 complete

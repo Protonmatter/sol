@@ -96,7 +96,7 @@ test('the default cloud source and its caption identify a historical complete re
   assert.equal(earthCloudRole({earthCloudSource:'daily'}), 'weather');
   const asset = appearanceReference('Earth','cloud-composite');
   const state = {earthNight:false,appearanceStatus:{[asset.id]:'ready'}};
-  assert.match(earthLayerDescription(state,true), /Clouds and surface.*2002.*historical composite/);
+  assert.match(earthLayerDescription(state,true), /Clouds · .*2002.*historical cloud layer over the land map/);
   assert.doesNotMatch(earthLayerDescription(state), /loading|2026-09-12|swath/);
   assert.equal(earthLayerDescription(state),earthLayerDescription({...state,renderUnix:123}));
 });

@@ -9,7 +9,46 @@ weather independently. The release inventory remains
 
 ## Source and acquisition records
 
+### Cloud-only layer over the land map (2026-09-15)
+
+The default cloud selection now draws NASA's Blue Marble 2002 cloud layer over the
+January 2004 land map, so clouds, land, ocean and land ice are separate layers. The
+composite below painted its own 2001 land over the land map wherever clouds were absent;
+it remains the registration reference for this layer.
+
+- Original raster: [NASA Blue Marble clouds](https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg),
+  retrieved 2026-09-15: 829,367 bytes, 2048 by 1024 JPEG with identical R, G and B in
+  every pixel; SHA-256 `daddaad84d7a33bbbc86cdda3f591099f57cee8607b7bcf3b67eb7e4f7a1c793`.
+- Source interpretation: the [Blue Marble 2002 description](https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/)
+  says the cloud image combines two days of visible-light imagery with a third day of
+  thermal-infrared imagery over the poles. Exact dates and instruments are not stated
+  and are not inferred. The record 57747 page now redirects to a general landing page.
+- Registration, reviewed: after a 9-pixel high-pass, cloud brightness between about 70 degrees
+  north and south correlates with the darkest channel of the coastline-registered
+  composite at r = 0.823 at zero offset, 0.572 one pixel east or west, 0.485 one pixel
+  north or south and 0.031 half a map away. The layer therefore shares the composite's
+  north-up, eastward, Greenwich-centred, full-latitude grid.
+- Opacity: white cloud is mixed over the base in linear light, as the existing sampler
+  does. `tools/prepare_earth_clouds.py --fit-opacity` fits the opacity each grey value
+  implies over 24-pixel dark-ocean blocks with a cloud-free base in the composite, takes
+  the median per grey, interpolates and makes the curve monotone. On 490 held-out
+  blocks, the curve fitted on the other blocks gives mean error 11.48/255 over ocean,
+  13.69/255 over land and 17.35/255 in thin haze, against 14.64, 17.76 and 22.81 for
+  alpha equal to grey. Faint haze becomes more transparent and thick cloud more
+  opaque: grey 32 maps to alpha 21 and grey 160 to alpha 202.
+- Derivation: `tools/prepare_earth_clouds.py` with Pillow 12.2.0 writes white RGB with
+  alpha from the pinned curve applied to the source byte, without resampling, filling
+  or colour change. Output `textures/reference/earth-blue-marble-2002-cloud-layer.png`
+  is 1,911,552 bytes with SHA-256
+  `82005bba2cec05b41137b766985d516eaf6b66ea045191d8869d45abd05f7995`.
+- Runtime: role `cloud-composite` with `alpha` opacity, uploaded premultiplied and blended
+  in linear light before sunlight through the existing auxiliary sampler. The opacity is
+  display brightness fitted to NASA's composite, not cloud transmission or optical depth.
+
 ### Default-view correction: complete historical cloud/surface reference
+
+Superseded as the default on 2026-09-15 by the cloud-only layer above.
+
 
 The earlier default used the 2026-09-12 Terra/Aqua swath composite below. User review
 identified conspicuous slices over Africa. Independent comparison of all 2,097,152
@@ -286,11 +325,12 @@ The sea-ice palette XML has SHA-256
 
 ## Withheld reference and renderer boundaries
 
-The older NASA Blue Marble `cloud_combined_2048.jpg` was acquired for comparison
-but is not promoted. Its source description combines visible and polar infrared
-coverage and describes manually filled regions. Exact constituent dates and
-the required map-axis evidence were not established. A 2:1 image shape alone
-does not establish scientific global registration.
+NASA's Blue Marble `cloud_combined_2048.jpg` was first withheld because map-axis
+evidence and constituent dates were not established. It was promoted on 2026-09-15
+after the registration and opacity evidence in
+[the cloud-only layer record](#cloud-only-layer-over-the-land-map-2026-09-15).
+Its constituent dates remain unstated and are disclosed as such. A 2:1 image shape
+alone does not establish scientific global registration.
 
 The blue atmospheric rim remains an explicitly illustrative optical effect.
 No current atmospheric density, pressure, temperature, air quality, aurora or

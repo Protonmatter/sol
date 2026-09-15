@@ -77,8 +77,8 @@ export function earthLayerDescription(state = {}, compact = false) {
     const asset = appearanceReference('Earth', role);
     if (!asset) return `${role}: unavailable`;
     const status = state.appearanceStatus?.[asset.id];
-    const label = compact ? {'night-lights':'Night lights',weather:'Dated satellite swaths','cloud-composite':'Clouds and surface','sea-ice':'Sea ice'}[role] : asset.label;
-    const limits = role === 'weather' ? ' · swath seams and gaps retained' : role === 'cloud-composite' ? ' · historical composite' : '';
+    const label = compact ? {'night-lights':'Night lights',weather:'Dated satellite swaths','cloud-composite':'Clouds','sea-ice':'Sea ice'}[role] : asset.label;
+    const limits = role === 'weather' ? ' · swath seams and gaps retained' : role === 'cloud-composite' ? ' · historical cloud layer over the land map' : '';
     return `${label} · ${asset.observation_label}${status === 'ready' ? '' : status === 'unavailable' ? ' · unavailable'
       : status === 'deferred' || !status ? ' · loads when Earth is in view at a useful scale' : status === 'queued' ? ' · queued' : ' · loading'}${limits}`;
   }).join(' · ');

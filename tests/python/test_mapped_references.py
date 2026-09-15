@@ -61,7 +61,7 @@ class MappedReferenceTests(unittest.TestCase):
     def test_original_and_all_dated_roles_are_admitted_without_changing_legacy_holds(self):
         for role in ("surface", "night-lights", "cloud-composite", "weather", "sea-ice"):
             item = reference(); item["role"] = role
-            if role in ("weather", "sea-ice"): item["nodata"] = "alpha"
+            if role in ("cloud-composite", "weather", "sea-ice"): item["nodata"] = "alpha"
             ids, paths = self.validate(item, earth_base=role != "surface")
             self.assertIn(item["id"], ids); self.assertIn(item["path"], paths)
         data = json.loads((ROOT / "apps/web/visual-assets.v1.json").read_text(encoding="utf-8"))
@@ -240,7 +240,7 @@ class MappedReferenceTests(unittest.TestCase):
     def test_earth_auxiliaries_require_base_and_identical_full_grid_and_mask_policy(self):
         def collection():
             base = reference(); entries = [base]
-            for role, nodata in (("night-lights", "none"), ("weather", "alpha"), ("sea-ice", "alpha"), ("cloud-composite", "none")):
+            for role, nodata in (("night-lights", "none"), ("weather", "alpha"), ("sea-ice", "alpha"), ("cloud-composite", "alpha")):
                 layer = reference(); layer.update(id="synthetic-" + role, role=role, nodata=nodata,
                     path="textures/reference/" + role + ".png")
                 entries.append(layer)

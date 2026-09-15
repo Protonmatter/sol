@@ -303,8 +303,9 @@ Snell interface refraction with total internal reflection. GPU ocean glint remai
 unavailable: the repository has no qualified water/material mask or cloud transmission
 map. Archived blue pixels and negative DEM elevations are not ocean masks. A later
 glint material needs an admitted binary water mask, source epoch/ice constraints,
-explicit reference surface roughness, and either separated clouds or glint disabled
-for opaque cloud composites. No claim of observational calibration follows from
+explicit reference surface roughness, and a qualified cloud transmission map or glint
+disabled under clouds. The default Blue Marble cloud layer is separated from the surface,
+but its opacity is display brightness, not transmission. No claim of observational calibration follows from
 passing mathematical tests.
 
 - [NASA PSG radiative-transfer and refraction documentation](https://psg.gsfc.nasa.gov/images/help/handbook.pdf)

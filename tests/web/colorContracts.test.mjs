@@ -107,7 +107,7 @@ test('Earth display emission, cloud composites and scientific palette keep separ
   const day = loadImage(h, 'Earth');
   const sourceRoles = [
     ['night-lights', 'u_earthNight', 'u_nightTex', 2, false, false],
-    ['cloud-composite', 'u_earthWeather', 'u_weatherTex', 3, false, false],
+    ['cloud-composite', 'u_earthWeather', 'u_weatherTex', 3, true, false],
     ['weather', 'u_earthWeather', 'u_weatherTex', 3, true, false],
     ['sea-ice', 'u_earthIce', 'u_iceTex', 4, false, true],
   ];

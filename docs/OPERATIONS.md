@@ -49,7 +49,7 @@ historical prose about fixed output aliases.
 ## Dated Earth imagery acquisition
 
 Earth's default **Cloud imagery** selection is the complete historical **Blue Marble
-(2002)** cloud/surface reference. Choose **MODIS — dated satellite swaths** in **Earth
+(2002)** cloud layer, drawn over the land map. Choose **MODIS — dated satellite swaths** in **Earth
 layers** to inspect the pinned 2026-09-12 observations. That source deliberately retains
 gaps and boundaries between passes. The source selector changes appearance only and
 never changes model time or refreshes the observations. If the selected image fails,

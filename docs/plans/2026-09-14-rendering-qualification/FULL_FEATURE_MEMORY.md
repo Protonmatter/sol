@@ -86,7 +86,7 @@ graphics context generation. They also require registered imagery readiness:
 
 - The selected checkpoint body's registered surface source must be ready.
 - For Earth, every enabled night-lights, selected cloud source (historical
-  composite or daily weather), and sea-ice role must be ready. Disabled roles
+  cloud layer or daily weather), and sea-ice role must be ready. Disabled roles
   and deferred/unavailable sources unrelated to the checkpoint are allowed.
 - Preparation freezes the required source IDs, body/role, paths, SHA-256 digests,
   dimensions, and Earth layer selectors from the immutable page's registered

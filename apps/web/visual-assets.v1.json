@@ -1461,25 +1461,25 @@
       "reviewed_at": "2026-09-13T07:21:44.733043+00:00"
     },
     {
-      "id": "earth-blue-marble-2002-cloud-composite",
+      "id": "earth-blue-marble-2002-cloud-layer",
       "body": "Earth",
       "role": "cloud-composite",
-      "path": "textures/reference/earth-blue-marble-2002-clouds.jpg",
-      "sha256": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
-      "bytes": 593729,
+      "path": "textures/reference/earth-blue-marble-2002-cloud-layer.png",
+      "sha256": "82005bba2cec05b41137b766985d516eaf6b66ea045191d8869d45abd05f7995",
+      "bytes": 1911552,
       "dimensions": [
         2048,
         1024
       ],
-      "label": "NASA Blue Marble cloud composite",
-      "credits": "NASA Goddard / Reto Stockli and Robert Simmon; MODIS, NOAA AVHRR and USGS GTOPO30",
-      "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg",
-      "source_sha256": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
-      "source_bytes": 593729,
-      "source_retrieved_at": "2026-09-13T09:21:51.974741+00:00",
-      "observation_label": "Blue Marble 2002 composite (2001 land observations)",
-      "color_interpretation": "NASA display-color land, ocean, sea-ice and cloud composite with provider ocean-color processing and baked topographic shading; not calibrated albedo or a cloud-only mask.",
-      "limitations": "Historical visual reference published in 2002. Land and coastal observations span June-September 2001. Clouds combine two visible-imagery days and a third thermal-infrared polar day; exact cloud dates are unstated. Provider compositing and visual enhancements are retained. Complete image coverage does not imply simultaneous global observations. No current weather, cloud height, optical depth, sea-ice concentration or feature-position measurement may be inferred. JPEG has no geotags or ICC profile; registration is reviewed for display, not measurement. Night lights remain a separately dated annual reference.",
+      "label": "NASA Blue Marble cloud layer",
+      "credits": "NASA Goddard / Reto Stockli (clouds) and Robert Simmon (compositing)",
+      "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg",
+      "source_sha256": "daddaad84d7a33bbbc86cdda3f591099f57cee8607b7bcf3b67eb7e4f7a1c793",
+      "source_bytes": 829367,
+      "source_retrieved_at": "2026-09-15T04:53:38.283750+00:00",
+      "observation_label": "Blue Marble 2002 cloud composite (constituent days unstated)",
+      "color_interpretation": "NASA grayscale display cloud brightness mapped to white cloud opacity by a curve fitted to NASA's 2002 composite, blended in linear light over the separately dated land map before sunlight; not calibrated reflectance, optical depth, cloud fraction or cloud height.",
+      "limitations": "Historical visual reference published in 2002. NASA describes the clouds as two days of visible imagery and a third day of thermal-infrared imagery over the poles; exact dates and instruments are unstated, and an earlier review recorded manually filled regions. The layer contains no surface: land, ocean and land ice come from the January 2004 land map, so clouds and surface are not simultaneous observations. Opacity reproduces NASA's 2002 composite within the documented residual; it is not a physical cloud transmission. No current weather, cloud height, optical depth or feature-position measurement may be inferred. The source JPEG has no geotags or ICC profile; registration is reviewed for display, not measurement. Night lights remain a separately dated annual reference.",
       "projection": "equirectangular",
       "mapping": {
         "primeMeridianU": 0.5,
@@ -1494,15 +1494,25 @@
         -90,
         90
       ],
-      "nodata": "none",
-      "derivation": "Original NASA JPEG bytes preserved without color alteration, filling, resampling or recompression. Display registration reviewed as north-at-top, west-to-east, Greenwich u=0.5, full -180..180 longitude/-90..90 latitude: NASA identifies the source as a complete flat global composite; coastline windows were independently compared with its CRS:84 companion Blue Marble WMS map. California/Baja, Iberia and Red Sea/Arabia match at zero pixel offset; cloud-affected Western Australia differs by at most one pixel in the registration check. This is display-registration evidence, not a geotag or a scientific geolocation precision claim. RGB is treated as sRGB display imagery; lighting is a visualization convention.",
+      "nodata": "alpha",
+      "derivation": "tools/prepare_earth_clouds.py with Pillow 12.2.0: the NASA JPEG decodes to identical R, G and B in every pixel; each output pixel is white RGB with alpha from the tool's pinned 256-entry opacity curve applied to that source byte, encoded as a deterministic RGBA PNG without resampling, filling or colour change. Opacity curve: over dark-ocean 24-pixel blocks with a cloud-free base in NASA's 2002 land/ocean/ice/cloud composite (record 57735), the linear-light opacity each grey value implies is taken as a median, interpolated and made monotone; --fit-opacity reproduces it from both pinned originals. On 490 held-out blocks the curve fitted on the other blocks gives mean encoded error 11.48/255 over ocean, 13.69/255 over land and 17.35/255 in thin haze, against 14.64, 17.76 and 22.81 for alpha equal to grey. Display registration (reviewed): after a 9-pixel high-pass, source brightness between about 70 degrees north and south correlates with the darkest channel of the coastline-registered composite at r=0.823 at zero offset, 0.572 one pixel east or west, 0.485 one pixel north or south and 0.031 half a map away, so it shares that composite's north-up, eastward, Greenwich u=0.5, full-latitude grid. This is display-registration and display-opacity evidence, not a geotag or a scientific cloud retrieval.",
+      "derivation_inputs": [
+        {
+          "url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg",
+          "sha256": "daddaad84d7a33bbbc86cdda3f591099f57cee8607b7bcf3b67eb7e4f7a1c793",
+          "bytes": 829367
+        },
+        {
+          "url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg",
+          "sha256": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
+          "bytes": 593729
+        }
+      ],
       "metadata_urls": [
         "https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/",
-        "https://www.nasa.gov/people-of-nasa/goddard-people/robert-simmon-aka-mr-blue-marble/",
-        "https://svs.gsfc.nasa.gov/2915/",
-        "https://svs.gsfc.nasa.gov/vis/a000000/a002900/a002915/wms_product_description_2915_21223.html"
+        "https://www.nasa.gov/people-of-nasa/goddard-people/robert-simmon-aka-mr-blue-marble/"
       ],
-      "reviewed_at": "2026-09-13T09:24:35.765330+00:00"
+      "reviewed_at": "2026-09-15T05:17:11.558912+00:00"
     },
     {
       "id": "earth-jpl-mur-sea-ice-20260907",
