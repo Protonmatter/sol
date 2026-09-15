@@ -62,10 +62,17 @@ test('prepared kernels cannot renormalize or reclip the observer path',()=>{
 test('shell and fixture source, transfer and domain use one original camera path',()=>{
   for(const source of [ATMOSPHERE_FS,ATMOSPHERE_SCATTERING_FS]){
     const main=source.slice(source.lastIndexOf('void main(){'));
-    assert.equal((main.match(/atmospherePrepareObserver\(/g)||[]).length,1);
+    // One camera path per fragment: either prepared in one call, or built from geometry
+    // and completed once after the disc discard.
+    assert.equal((main.match(/atmospherePrepareObserver\(|atmosphereObserverGeometry\(/g)||[]).length,1);
+    assert.ok((main.match(/atmosphereCompletePath\(/g)||[]).length<=1);
     assert.ok(main.includes('vec2 ground=path.ground;'));
     assert.doesNotMatch(main,/normalize\(/);
   }
+  // The production scattering shell rejects disc fragments before the shadow interval.
+  const shellMain=ATMOSPHERE_SCATTERING_FS.slice(ATMOSPHERE_SCATTERING_FS.lastIndexOf('void main(){'));
+  assert.ok(shellMain.indexOf('discard;')<shellMain.indexOf('atmosphereCompletePath('));
+  assert.ok(shellMain.indexOf('atmosphereCompletePath(')<shellMain.indexOf('atmosphereLimbScatteringPrepared(path)'));
   const fixture=fs.readFileSync(new URL('../../tools/scattering_validation.mjs',import.meta.url),'utf8');
   assert.ok(fixture.includes('outDomain=vec4(path.ground,path.outer)'));
   assert.ok(fixture.includes('integrateAtmospherePrepared(path)'));

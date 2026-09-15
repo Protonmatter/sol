@@ -559,8 +559,15 @@ vec3 atmosphereSurfaceColor(vec3 linearSurfaceColor,vec3 surfaceBodyKm){
 `;
 export const ATMOSPHERE_SCATTERING_GLSL=ATMOSPHERE_LIGHT_GLSL+SOURCE_WEIGHT_GLSL+COORDINATES_GLSL+SAMPLE_GLSL;
 const shellCall='AtmosphereResult optics=integrateAtmospherePrepared(path);';
-if(ATMOSPHERE_RENDER_FS.split(ATMOSPHERE_RENDER_GLSL).length!==2||ATMOSPHERE_RENDER_FS.split(shellCall).length!==2)throw new Error('Scattering shell binding changed');
+// Fragments over the planet disc are discarded. The ground interval comes from the
+// geometry alone, so test it before completing the path: the shadow interval is the
+// costly part and surviving limb fragments still build the identical prepared path.
+const shellPrepare='AtmospherePath path=atmospherePrepareObserver(u_atmosphereCameraKm,direction,1e20);\n  vec2 ground=path.ground;\n  if(ground.y>0.0&&ground.x>=0.0) discard;';
+const shellEarlyDiscard='bool complete;AtmospherePath path=atmosphereObserverGeometry(u_atmosphereCameraKm,direction,1e20,complete);\n  vec2 ground=path.ground;\n  if(ground.y>0.0&&ground.x>=0.0) discard;\n  path=atmosphereCompletePath(path,complete);';
+if(ATMOSPHERE_RENDER_FS.split(ATMOSPHERE_RENDER_GLSL).length!==2||ATMOSPHERE_RENDER_FS.split(shellCall).length!==2
+  ||ATMOSPHERE_RENDER_FS.split(shellPrepare).length!==2)throw new Error('Scattering shell binding changed');
 export const ATMOSPHERE_SCATTERING_FS=ATMOSPHERE_RENDER_FS.replace(ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_SCATTERING_GLSL)
+  .replace(shellPrepare,shellEarlyDiscard)
   .replace(shellCall,'vec4 field=atmosphereLimbScatteringPrepared(path);if(field.a<0.999999)discard;\n  AtmosphereResult optics=AtmosphereResult(atmosphereViewTransmissionPrepared(path),field.rgb);');
 
 /** @param {WebGL2RenderingContext} gl @param {Record<string,WebGLUniformLocation|null>} locations @param {ScatteringPlan} plan @param {number} [ready] */
