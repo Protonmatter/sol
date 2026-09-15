@@ -439,18 +439,24 @@ vec4 scatteringResidual(vec3 p){
   // Uniform-grid monotone cubic Hermite interpolation in log residual space.
   // Harmonic slopes retain each interval's bounds. Undefined zero-source knots
   // use the original normalized linear extension, not an invented log floor.
+  // The first invalid or zero-source knot decides the result, as the early returns
+  // did. Recording it keeps the one linear fallback call outside the stencil loops,
+  // so a backend that evaluates both branch arms does not run it for every knot.
+  int stencilEvent=0;
   for(int z=0;z<4;z++){
     vec3 rows[4];
     for(int y=0;y<4;y++){
       vec3 values[4];
       for(int x=0;x<4;x++){
         vec4 sampleValue=scatteringSurfaceTexel(lo+ivec3(x-1,y-1,z-1));
-        if(sampleValue.a<0.999999)return vec4(0);
-        if(any(lessThanEqual(sampleValue.rgb,vec3(0))))return scatteringResidualLinear(p);
+        if(sampleValue.a<0.999999){stencilEvent=1;break;}
+        if(any(lessThanEqual(sampleValue.rgb,vec3(0)))){stencilEvent=2;break;}
         values[x]=log(sampleValue.rgb);
       }
+      if(stencilEvent!=0)break;
       rows[y]=scatteringCubic(values[0],values[1],values[2],values[3],f.x);
     }
+    if(stencilEvent!=0)break;
     if(lo.y==0)rows[0]=2.0*rows[1]-rows[2];
     if(lo.y>=u_scatteringSurfaceSize.y-2)rows[3]=2.0*rows[2]-rows[1];
     planes[z]=scatteringCubic(rows[0],rows[1],rows[2],rows[3],f.y);
@@ -460,6 +466,8 @@ vec4 scatteringResidual(vec3 p){
       break;
     }
   }
+  if(stencilEvent==1)return vec4(0);
+  if(stencilEvent==2)return scatteringResidualLinear(p);
   if(lo.z==0)planes[0]=2.0*planes[1]-planes[2];
   if(lo.z>=u_scatteringSurfaceSize.z-2)planes[3]=2.0*planes[2]-planes[1];
   return vec4(exp(scatteringCubic(planes[0],planes[1],planes[2],planes[3],f.z)),1);

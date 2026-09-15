@@ -107,17 +107,19 @@ ${ATMOSPHERE_GLSL}
 ${TERRAIN_SHADOW_GLSL}
 ${RING_TRANSPORT_GLSL}
 ${NOISE}
-vec2 referenceUV(vec3 p){
+// Every registered layer of a body shares one source grid. main computes this
+// once per fragment (u, v, source latitude) and passes it to each lookup, so the
+// same atan pair is not re-evaluated for every layer and coverage test.
+vec3 referenceGrid(vec3 p){
   float z=p.z;
   if(u_map.z>1.5) z/=u_oblate;
   else if(u_map.z>0.5) z*=u_oblate;
   float latitude=atan(z,length(p.xy));
   float longitude=length(p.xy)<1e-7 ? 0.0 : atan(p.y,p.x);
-  return vec2(fract(u_map.x+u_map.y*longitude*0.1591549431),
-    (u_mapLat.y-latitude)/(u_mapLat.y-u_mapLat.x));
+  return vec3(fract(u_map.x+u_map.y*longitude*0.1591549431),
+    (u_mapLat.y-latitude)/(u_mapLat.y-u_mapLat.x),latitude);
 }
-vec4 referenceSample(sampler2D source,vec3 p){
-  vec2 uv=referenceUV(p);
+vec4 referenceSample(sampler2D source,vec3 p,vec2 uv){
   // atan/fract wrap inside a fragment quad must not look like a full-map
   // footprint. Differentiate longitude on its local tangent instead, then
   // apply the admitted affine window to both UV and gradients. This retains
@@ -128,11 +130,10 @@ vec4 referenceSample(sampler2D source,vec3 p){
   vec2 dy=vec2(dot(tangent,dFdy(p.xy))*gain,dFdy(uv.y))*u_mapWindow.xy;
   return textureGrad(source,uv*u_mapWindow.xy+u_mapWindow.zw,dx,dy);
 }
-float referenceCoverage(vec3 p,vec4 sampleColor){
-  vec2 uv=referenceUV(p)*u_mapWindow.xy+u_mapWindow.zw;
+float referenceCoverage(vec3 grid,vec4 sampleColor){
+  vec2 uv=grid.xy*u_mapWindow.xy+u_mapWindow.zw;
   if(any(lessThan(uv,vec2(0)))||any(greaterThan(uv,vec2(1)))) return 0.0;
-  float z=u_map.z>1.5 ? p.z/u_oblate : u_map.z>0.5 ? p.z*u_oblate : p.z;
-  float latitude=atan(z,length(p.xy));
+  float latitude=grid.z;
   if(latitude<u_mapLat.z||latitude>u_mapLat.w) return 0.0;
   if(u_mapNoData==1&&max(sampleColor.r,max(sampleColor.g,sampleColor.b))<0.00392157) return 0.0;
   return u_mapNoData==2 ? sampleColor.a : 1.0;
@@ -199,6 +200,7 @@ void main(){
   float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862;
   vec3 col=u_base;
   bool reference=u_useTex==1&&u_texMode==3;
+  vec3 referenceGridValue=referenceGrid(p);
   // How much relief the procedural moon styles are allowed to add. u_base for a moon is its
   // catalogue HUE scaled to its published geometric albedo (moonAppearance.js), so its own
   // luminance IS the albedo scale — reusing it here means the crater field on charcoal-dark
@@ -206,13 +208,13 @@ void main(){
   // identical absolute crater contrast regardless of how much light it reflects.
   float relief=dot(u_base,vec3(0.299,0.587,0.114));
   if(reference){
-    vec4 mapped=referenceSample(u_tex,p);
+    vec4 mapped=referenceSample(u_tex,p,referenceGridValue.xy);
     vec3 sourceRGB=u_mapNoData==2 ? coveredRGB(mapped) : mapped.rgb;
-    col=mix(decodeSRGB(u_base),u_textureLinear==1 ? sourceRGB : decodeSRGB(sourceRGB),referenceCoverage(p,mapped));
+    col=mix(decodeSRGB(u_base),u_textureLinear==1 ? sourceRGB : decodeSRGB(sourceRGB),referenceCoverage(referenceGridValue,mapped));
     // Earth auxiliaries share the documented WGS84 pixel-area grid, 180W..180E.
     // Weather is the provider's dated clouds-and-surface image, never inferred clouds.
     if(u_earthWeather==1){
-      vec4 weather=referenceSample(u_weatherTex,p);
+      vec4 weather=referenceSample(u_weatherTex,p,referenceGridValue.xy);
       col=mix(col,decodeSRGB(coveredRGB(weather)),weather.a);
     }
   }
@@ -221,7 +223,7 @@ void main(){
     // structure, not absolute reflectance. Normalize by the covered mip mean;
     // u_base retains the published albedo display gain and physical eclipse.
     // Premultiplied alpha excludes missing pixels from both samples and mean.
-    vec4 mapped=referenceSample(u_tex,p);
+    vec4 mapped=referenceSample(u_tex,p,referenceGridValue.xy);
     vec4 average=textureLod(u_tex,vec2(0.5),20.0);
     vec3 sampleRGB=u_mapNoData==2 ? coveredRGB(mapped) : mapped.rgb;
     vec3 meanRGB=u_mapNoData==2 ? coveredRGB(average) : average.rgb;
@@ -237,7 +239,7 @@ void main(){
       material=sampleRGB*(contrast/max(here,0.02));
       material/=max(1.0,max(material.r,max(material.g,material.b)));
     }
-    col=u_base*mix(vec3(1.0),material,referenceCoverage(p,mapped));
+    col=u_base*mix(vec3(1.0),material,referenceCoverage(referenceGridValue,mapped));
   }
   else if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
   else if(u_useTex==1&&u_texMode==2){ // real USGS moon mosaic
@@ -425,7 +427,7 @@ void main(){
     // Published night-light composite: display emission only, no inferred lamp locations.
     // The smooth 0 to -6 degree twilight fade is a visual convention, not a switch-on model.
     float night=1.0-smoothstep(-0.1045284633,0.0,dot(N,normalize(u_light)));
-    if(u_earthNight==1) col+=decodeSRGB(referenceSample(u_nightTex,p).rgb)*night;
+    if(u_earthNight==1) col+=decodeSRGB(referenceSample(u_nightTex,p,referenceGridValue.xy).rgb)*night;
   }
   // Emission is attenuated on the observer path only, after direct illumination.
   // Surface rays end at the actual displaced position, preserving signed relief.
@@ -442,7 +444,7 @@ void main(){
   }
   // The scientific palette is not a material: solar lighting must not change its
   // concentration colours. Composite it after lighting, paired with the source legend.
-  if(reference&&u_earthIce==1){ vec4 ice=referenceSample(u_iceTex,p); col=mix(col,ice.rgb,ice.a); }
+  if(reference&&u_earthIce==1){ vec4 ice=referenceSample(u_iceTex,p,referenceGridValue.xy); col=mix(col,ice.rgb,ice.a); }
   o=vec4(col,1.0);
 }`;
 
@@ -472,7 +474,7 @@ function scatteringSphereSource(source,atmosphere) {
 function physicalMaterialSource(source) {
   const sections=[
     ['  if(u_mode==2){','  // Equirectangular lookup:',
-      '  if(u_mode!=0||u_style!=-1) discard;\n'],
+      '  if(u_mode!=0||u_style!=-1||u_atmosphereEnabled!=1) discard;\n'],
     ['  else if(u_style==1){','  // Real IAU albedo units',''],
   ];
   for(const [begin,end,replacement] of sections){
@@ -485,11 +487,35 @@ function physicalMaterialSource(source) {
   return source;
 }
 export const SCATTERING_SPHERE_VS=scatteringSphereSource(SPHERE_VS,ATMOSPHERE_LIGHT_GLSL);
+// The physical program is bound only with an admitted profile, and
+// atmosphereUniformValues then always uploads u_atmosphereEnabled=1. Fold that
+// flag so a backend that evaluates every branch arm does not also run the
+// disabled fallback-shade arm per fragment. The uniform stays declared and read
+// by the leading discard guard, so misuse stays visible. The display-limb block
+// is kept verbatim: it keeps u_cam, u_atmo and u_atmoStr live, and the physical
+// draw probes read u_cam from every admitted physical draw.
+// Refraction stays a live uniform: material qualification exercises the
+// refraction-off consumer, so its Sun-transmission arm is retained.
+export function physicalEnabledSource(source) {
+  const rewrites=[
+    ['  if(u_atmosphereEnabled==1&&!reference) col=decodeSRGB(col);','  if(!reference) col=decodeSRGB(col);'],
+    ['  bool refracted=u_atmosphereEnabled==1&&u_atmosphereRefractionEnabled==1;','  bool refracted=u_atmosphereRefractionEnabled==1;'],
+    ['  float shade=reference ? 0.001+0.999*lambert*sunVis : 0.05+0.95*lambert*sunVis;\n  if(u_atmosphereEnabled==1){\n    // Direct reflected sunlight sees the incident atmospheric column. The\n    // single-scattering mode has no invented diffuse-ambient weather term.\n    col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n      *u_atmosphereSolarScale*u_atmosphereExposure;\n  } else col*=shade;',
+      '  // Direct reflected sunlight sees the incident atmospheric column. The\n  // single-scattering mode has no invented diffuse-ambient weather term.\n  col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n    *u_atmosphereSolarScale*u_atmosphereExposure;'],
+    ['  if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor(','  col=atmosphereSurfaceColor('],
+    ['  if(u_atmosphereEnabled==0)return vec3(0);\n',''],
+  ];
+  for(const [from,to] of rewrites){
+    if(source.split(from).length!==2)throw new Error('Physical enabled-flag boundary changed');
+    source=source.replace(from,to);
+  }
+  return source;
+}
 const surfaceTransfer='atmosphereSurfaceColor(col,surfaceBodyKm)';
 if(SPHERE_FS.split(surfaceTransfer).length!==2)throw new Error('Physical surface transfer boundary changed');
-export const SCATTERING_SPHERE_FS=physicalMaterialSource(scatteringSphereSource(SPHERE_FS,ATMOSPHERE_SCATTERING_GLSL))
+export const SCATTERING_SPHERE_FS=physicalEnabledSource(physicalMaterialSource(scatteringSphereSource(SPHERE_FS,ATMOSPHERE_SCATTERING_GLSL))
   .replace('uniform float u_bodyRadiusKm;','uniform float u_bodyRadiusKm;\nuniform float u_scatteringReferenceHeightKm;')
-  .replace(surfaceTransfer,'atmosphereSurfaceColor(col,surfaceBodyKm,(v_surfaceScale-1.0)*u_bodyRadiusKm+u_scatteringReferenceHeightKm)');
+  .replace(surfaceTransfer,'atmosphereSurfaceColor(col,surfaceBodyKm,(v_surfaceScale-1.0)*u_bodyRadiusKm+u_scatteringReferenceHeightKm)'));
 
 export const LINE_VS = `#version 300 es
 layout(location=0) in vec3 a_pos; layout(location=1) in vec3 a_col;

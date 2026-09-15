@@ -26,22 +26,22 @@ test('consumer uses the unchanged displaced endpoint and a separately bound opti
 
 test('bounded physical material admits only the observable runtime mode and neutral style',()=>{
   const consumer=shaders.SCATTERING_SPHERE_FS;
-  assert.match(consumer,/if\(u_mode!=0\|\|u_style!=-1\) discard;/);
+  assert.match(consumer,/if\(u_mode!=0\|\|u_style!=-1\|\|u_atmosphereEnabled!=1\) discard;/);
   assert.doesNotMatch(consumer,/if\(u_mode==[12]\)/);
   assert.doesNotMatch(consumer,/else if\(u_style==/);
   for(const reference of [shaders.SPHERE_FS,shaders.BASE_SPHERE_FS]){
     assert.match(reference,/if\(u_mode==2\)/);
     assert.match(reference,/if\(u_mode==1\)/);
     for(let style=1;style<=12;style++)assert.ok(reference.includes(`else if(u_style==${style})`));
-    assert.doesNotMatch(reference,/if\(u_mode!=0\|\|u_style!=-1\) discard;/);
+    assert.doesNotMatch(reference,/if\(u_mode!=0\|\|u_style!=-1/);
   }
 });
 
 test('material specialization preserves every source lookup and the complete lighting tail verbatim',()=>{
-  const reference=shaders.SPHERE_FS.replace(ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_SCATTERING_GLSL)
+  const reference=shaders.physicalEnabledSource(shaders.SPHERE_FS.replace(ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_SCATTERING_GLSL)
     .replace('uniform float u_bodyRadiusKm;','uniform float u_bodyRadiusKm;\nuniform float u_scatteringReferenceHeightKm;')
     .replace('atmosphereSurfaceColor(col,surfaceBodyKm)',
-      'atmosphereSurfaceColor(col,surfaceBodyKm,(v_surfaceScale-1.0)*u_bodyRadiusKm+u_scatteringReferenceHeightKm)');
+      'atmosphereSurfaceColor(col,surfaceBodyKm,(v_surfaceScale-1.0)*u_bodyRadiusKm+u_scatteringReferenceHeightKm)'));
   const slice=(source,begin,end)=>source.slice(source.indexOf(begin),end?source.indexOf(end):undefined);
   assert.equal(slice(shaders.SCATTERING_SPHERE_FS,'  // Equirectangular lookup:','  // Real IAU albedo units'),
     slice(reference,'  // Equirectangular lookup:','  else if(u_style==1){'));
@@ -69,4 +69,25 @@ test('source specialization refuses missing, duplicated, and reversed section bo
     assert.throws(()=>specialize(shaders.SPHERE_FS+boundary),/boundary changed/);
   }
   assert.throws(()=>specialize('  // Equirectangular lookup:\n  if(u_mode==2){\n  else if(u_style==1){\n  // Real IAU albedo units'),/order changed/);
+});
+
+test('physical consumer folds only the admitted enabled flag and keeps refraction live',async()=>{
+  const {atmosphereUniformValues,getAtmosphereProfile}=await import('../../apps/web/js/atmosphereOptics.js');
+  for(const body of ['Earth','Mars']){
+    const values=atmosphereUniformValues(getAtmosphereProfile(body),{cameraBodyKm:[0,0,20000],sunDirectionBody:[1,0,0],polarRatio:.997,solarDistanceAu:1,exposure:1});
+    assert.equal(values.u_atmosphereEnabled,1);assert.equal(values.u_atmosphereRefractionEnabled,1);
+  }
+  const consumer=shaders.SCATTERING_SPHERE_FS,main=consumer.slice(consumer.indexOf('void main(){'));
+  assert.match(consumer,/uniform int u_atmosphereEnabled;/);assert.match(consumer,/uniform int u_atmosphereRefractionEnabled;/);
+  assert.match(main,/if\(u_mode!=0\|\|u_style!=-1\|\|u_atmosphereEnabled!=1\) discard;/);
+  for(const folded of ['u_atmosphereEnabled==1&&!reference','if(u_atmosphereEnabled==1){','if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor('])
+    assert.ok(!main.includes(folded),`folded enabled-flag branch removed: ${folded}`);
+  assert.equal(main.split('u_atmosphereRefractionEnabled').length,2,'refraction stays one live uniform read');
+  assert.ok(!main.slice(0,main.indexOf('discard;')).includes('u_atmosphereRefractionEnabled'),'the guard never rejects refraction-off consumers');
+  assert.ok(main.includes('bool refracted=u_atmosphereRefractionEnabled==1;'),'refraction-off consumers keep their Sun-transmission arm');
+  assert.ok(main.includes('(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))'));
+  assert.ok(!main.includes('col*=shade'),'the fallback shade arm is folded');
+  for(const live of ['u_cam','u_atmo*fres*u_atmoStr'])assert.ok(main.includes(live),`probe-read uniform stays live: ${live}`);
+  for(const reference of [shaders.SPHERE_FS,shaders.BASE_SPHERE_FS])for(const kept of ['bool refracted=','displayLimb','col*=shade'])
+    assert.ok(reference.includes(kept),`ordinary sphere programs keep ${kept}`);
 });

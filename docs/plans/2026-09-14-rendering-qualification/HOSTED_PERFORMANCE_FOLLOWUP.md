@@ -118,6 +118,57 @@ three-draw/five-second Earth and 240-second Mars application limits. The current
 60-node integration bound remains unchanged. Temporal reconstruction and the
 separate reflection, ring and moon-photometry source holds remain in effect.
 
+## Bit-identical physical surface candidate (2026-09-15)
+
+A local candidate on top of `063c354` reduces work in the physical Earth surface
+consumer without changing its output. It is not yet admitted or pushed. It keeps
+three source changes; the pinned solver sources are unchanged:
+
+1. `scatteringResidual` records the first invalid or zero-source knot and calls
+   `scatteringResidualLinear` once after the stencil loops. The first-event order
+   of the former early returns is unchanged.
+2. The physical consumer folds `u_atmosphereEnabled` in its decode, fallback-shade
+   and surface-transfer branches (`physicalEnabledSource` in `orreryShaders.js`).
+   The discard guard still reads the flag. Refraction and the display-limb block
+   stay live, so every uniform the physical draw probes read remains active.
+3. `referenceGrid(p)` computes the registered source-grid coordinate and latitude
+   once per fragment for every layer lookup and coverage test.
+
+| Local qualification | Baseline `063c354` | Candidate |
+| --- | --- | --- |
+| Scattering corpus, SwiftShader and native Adreno | 7,192 samples each | Bit-identical measured values |
+| Atmosphere gate, SwiftShader | 1,280/1,280 | Every check value identical |
+| Physical material validation, SwiftShader | 266/266 | Every check value identical |
+| Physical rendering captures | 19 checks, 20 captures | 19/19, all canvas hashes identical |
+| Terrain close detail and Mars optical animation | 22 checks | 22/22, all canvas hashes identical |
+| Browser gate with `--physical-spin=true` | Passed | Passed |
+| Planet appearance GPU gate | 110/110 | 110/110 |
+| Node suite with coverage | Passed | 1,278/1,278 |
+
+Local SwiftShader LLVM timer queries attribute the physical surface consumer at
+52.8 to 68.0 ms per frame across eight baseline runs (mean 58.7 ms) and 43.6 and
+45.1 ms across the final candidate runs (mean 44.4 ms). These are local software
+timings, not hosted Subzero timings, and they do not show that the hosted
+three-draw, five-second Earth gate now passes. Only an exact-head hosted run can.
+
+Three variants were rejected:
+
+- Folding `u_atmosphereRefractionEnabled` as well changed 127 of 266 physical
+  material checks. Material qualification deliberately runs the consumer with
+  refraction off.
+- Folding the display-limb block removed the only uses of `u_cam`, `u_atmo` and
+  `u_atmoStr`. The compiler stripped them, so the physical spin probe rejected
+  every draw and the Mars optical animation gate recorded no final draws.
+- Sharing one cached column ray between the scattering weight and the view
+  transmission changed 97 native corpus samples, with a maximum relative
+  difference of 1.5e-3 in scattering, and gave no measurable saving.
+
+Some checks could not be compared. The native atmosphere gate reached its
+protocol timeout, and native physical material validation exceeded its 30-second
+shader limit, on baseline and candidate alike, before any checks ran. The
+1,600-query physical-source comparison stops at input admission on both, and the
+candidate supplies identical corpus inputs. None of those limits was changed.
+
 ## Review fixes at round close
 
 The final application checkpoint adds three independently reviewed lifecycle
