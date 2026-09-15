@@ -22,6 +22,9 @@ export const GENERATED_MODULES = new Set([
   "js/solarSchema.js",
   // ephemerisV3.test.mjs compares this generated object to the canonical schema.
   "js/ephemerisSchema.js",
+  // Immutable numeric-field inventory: exact regeneration and asset admission
+  // are tested; atmosphereColumnField.js remains in the executable denominator.
+  "js/atmosphereColumnManifest.js",
 ]);
 
 export function relativePageModules({ includeGenerated = false } = {}) {

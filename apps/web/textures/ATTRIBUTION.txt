@@ -1,3 +1,13 @@
+QUALIFICATION NOTICE (2026-09-13)
+The authoritative machine-readable inventory is ../visual-assets.v1.json.
+Earth and ten USGS moon rasters were byte-matched to their official URLs.
+Byte identity does not establish global coverage, color calibration or orientation.
+Detailed globe use remains held unless allowed_usages explicitly permits it.
+The retained solar file is undated; its fetch timestamp is NOT its observation time.
+Unmapped bodies use neutral missing-detail display, never fabricated craters.
+
+LEGACY SOURCE LABELS (retained credits; mission and availability claims below are unverified):
+
 Planetary texture maps used by the 3-D View (apps/web/js/orrery.js).
 
 mercury: Solar System Scope (CC-BY 4.0) · NASA/MESSENGER
@@ -28,7 +38,7 @@ europa: USGS Astrogeology — Europa Voyager/Galileo SSI Global Mosaic 500 m, br
     https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/3647e7b3-425e-4dcf-951b-cc4a22fb0129/download/europa_voyager_galileossi_global_mosaic_500m_1024.jpg
 ganymede: USGS Astrogeology — Ganymede Voyager/Galileo Simple Cylindrical global mosaic, browse rendering (public domain, NASA/JPL/USGS)
     https://astrogeology.usgs.gov/ckan/dataset/b2d0bf2c-1335-424b-a952-da3d8374723b/resource/19e807a2-9eee-4f24-9965-5e25f0bcb9fc/download/full.jpg
-callisto: USGS Astrogeology — Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, browse rendering; mosaic spans ±87.6° latitude (public domain, NASA/JPL/USGS)
+callisto: USGS Astrogeology — Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, cropped browse rendering; exact latitude bounds unverified (public domain, NASA/JPL/USGS)
     https://astrogeology.usgs.gov/ckan/dataset/842a3a75-af37-40ff-bf83-78ee5c76afb2/resource/b16c6dfd-199e-449e-9875-1361c1858af3/download/full.jpg
 enceladus: USGS Astrogeology — Enceladus Cassini Global Mosaic 110 m, browse rendering (public domain, NASA/JPL/SSI/USGS)
     https://astrogeology.usgs.gov/ckan/dataset/30bff65e-56bb-4fd1-bd04-edd9bc2e77d0/resource/19ba2e14-9ceb-45e6-8cc8-e784e36ed4f0/download/full.jpg
@@ -56,3 +66,22 @@ Oberon: As Miranda — Voyager 2 southern-hemisphere coverage only, no global mo
 Deimos: Viking imaged Deimos, but USGS publishes a global mosaic for Phobos only; there is no Deimos entry in the mosaic archive.
 Proteus: Voyager 2 resolved Proteus at a few kilometres per pixel over part of one hemisphere. No map product exists.
 Nereid: Never resolved. Voyager 2's best images are a handful of pixels across.
+
+Bundled observation for the immersive Sun explorer:
+  textures/solar-observation-171.jpg — original NASA SDO/AIA 171 Angstrom browse image.
+  Capture: 2026-09-12 00:07:22 UTC (original embedded image caption).
+  Source: https://sdo.gsfc.nasa.gov/assets/img/browse/2026/09/12/20260912_000722_1024_0171.jpg
+  Courtesy of NASA/SDO and the AIA, EVE, and HMI science teams.
+  Gold is a false-color representation of extreme ultraviolet. This archival browse
+  image is for education/exploration, not raw quantitative analysis or a global map.
+  Original pixels, aspect and caption retained. No modeled regions are registered to it.
+  Byte identity and source-use evidence: observed_images in visual-assets.v1.json.
+
+Qualified Io color display reference (supersedes the grayscale registered surface):
+  textures/reference/io-galileo-color-reference-2k.png - NASA/JPL Galileo SSI / USGS Astrogeology.
+  https://astrogeology.usgs.gov/search/map/io_galileo_ssi_global_color_merge_mosaic_1km
+  Original: Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif, 196,637,696 bytes.
+  Mission-derived false color uses violet, green and 756 nm near-infrared observations.
+  Historical multi-epoch imagery; human-eye colors are more muted. No natural-color claim.
+  Original RGB channels retained through BOX reduction; NoData and interpolated polar caps withheld.
+  Registry and IO_COLOR_SOURCES.md bind original/derived hashes, registration and display limits.

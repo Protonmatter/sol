@@ -22,6 +22,7 @@
 *.jpg binary
 *.ppm binary
 *.bin binary
+*.f32 binary
 *.txt text eol=lf
 
 # Immutable research bundles bind raw payload bytes, including line endings.

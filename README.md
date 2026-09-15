@@ -18,7 +18,9 @@ unsupported versions rather than silently relabelling data.
 
 ## What the application does
 
-- **Sun:** reduced Carrington-frame transport and illustrative cycle examples. Current model
+- **Sun:** an original NASA SDO/AIA observation with archival capture time and credits opens
+  the experience. Research mode provides reduced Carrington-frame transport and illustrative
+  cycle examples. The observation and model retain separate source identities. Current model
   region anchors are distinct from immutable birth positions. Activity variance is an
   illustrative scalar proxy; magnetic uncertainty is unavailable and confidence is a
   heuristic score, not a calibrated probability.
@@ -29,6 +31,10 @@ unsupported versions rather than silently relabelling data.
   independently selectable display scales. Display inflation is not physical distance.
   Moon interpolation is withheld outside its documented window; it is not a navigation
   or mutual-event ephemeris.
+- **Explore first:** concise Sky/System cards show accepted scene facts. Search, location,
+  time and detailed tools open on intent. Camera shortcuts use the existing physical centers;
+  body selection does not open the full control panel. Verified NASA/mission archive previews
+  remain separate from the 3-D appearance; unsupported sphere textures stay disabled.
 - **Sources and limits:** persistent presentation metadata identifies the displayed
   epoch, source/provider and degraded/unavailable state. An observed image is not a
   registered model overlay: current registration assessment never permits compositing.

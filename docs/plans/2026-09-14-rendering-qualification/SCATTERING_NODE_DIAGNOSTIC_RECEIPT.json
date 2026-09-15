@@ -1,0 +1,222 @@
+{
+  "source_module_sha256": "b9b104ebfaab1cc03407e7cb3593c2876137569f8e8fd4b78dcbb1a869cb2df5",
+  "source_shader_hashes": {
+    "original": "ef5a67dca28a7ffa9f42ff8ff525d4951592275f031d8a9f23a13ca8e5196ef9",
+    "diagnostic": "bb06322a4814bfd9a32255e430ddf69f1761b8cb2ef8f87bc718ee52a7dcb2ba",
+    "vertex": "13024eda0eeeba7a5f5f9d6a7f9afb6bbe0ba866530b1140f9952df09e49675f"
+  },
+  "diagnostic_tool_sha256": "39446a9c9c653a48f86168884a4b0884f9bc2305fbb6a10d7a0216be225ab3e9",
+  "captures": {
+    "native": {
+      "evidence_sha256": "1709c3212f3cc8e28760cf2e64a84f61f25f4e4e17544ac869c34fa3fe0f990d",
+      "gpu": {
+        "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+        "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+        "maxDrawBuffers": 8
+      },
+      "instrumentation_residual_delta": 0
+    },
+    "swiftshader": {
+      "evidence_sha256": "07f4398b50945d1228dfd79f77919da4237e05351d105cd0435d80c111b56a86",
+      "gpu": {
+        "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+        "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+        "maxDrawBuffers": 6
+      },
+      "instrumentation_residual_delta": 0
+    }
+  },
+  "prior_receipt_parity": {
+    "native": {
+      "compared_nodes": 8,
+      "maximum_absolute_delta": 0.0
+    },
+    "swiftshader": {
+      "compared_nodes": 8,
+      "maximum_absolute_delta": 0.0
+    }
+  },
+  "node_count": 64,
+  "split_mismatch_count": 5,
+  "maximum_direct_s_absolute_delta": 0.00015348941087722778,
+  "maximum_residual_absolute_delta": 0.38497042655944824,
+  "conclusion": "The same source crosses a shadow-support branch near a tangent knot. The conditioning weight changes from one whole-interval centroid to two interval centroids. The large residual mismatch is dominated by this denominator change; a smaller direct-integrator difference remains separately measured.",
+  "limits": [
+    "64 selected Mars nodes; not a complete numerical qualification.",
+    "No solver, corpus, tolerance, runtime or driver change.",
+    "Original and diagnostic residuals match exactly on both backends; CPU postprocessing ratios are not a replacement GPU solver.",
+    "No claim that the direct scattering difference is zero or that any proposed repair is qualified."
+  ],
+  "schema_version": "scattering-node-diagnostic-receipt.v1",
+  "raw_comparison_sha256": "3a0cbeeb663bd42fc3e5b8bab44d00362ba97b2542adbac8f57c11e9e09f0cf4",
+  "raw_manifest_sha256": "584820b7dbb1ddf5bfb21abb5d33e09aa915d51caf19334e548ded058204238b",
+  "raw_worktree": "sol-scattering-backend-diagnostic-20260914",
+  "raw_directories": [
+    "build/mars-l-node-native-20260914",
+    "build/mars-l-node-swiftshader-20260914",
+    "build/mars-l-node-comparison-20260914"
+  ],
+  "selected_failure_node": {
+    "x": 16,
+    "y": 28,
+    "z": 12,
+    "direct_s": {
+      "native": [
+        0.033554550260305405,
+        0.034650083631277084,
+        0.037091195583343506
+      ],
+      "swiftshader": [
+        0.033606622368097305,
+        0.03470209240913391,
+        0.03714212030172348
+      ]
+    },
+    "actual_conditioning_w": {
+      "native": [
+        0.028773173689842224,
+        0.02943049557507038,
+        0.030689578503370285
+      ],
+      "swiftshader": [
+        0.023863984271883965,
+        0.024244992062449455,
+        0.024838576093316078
+      ]
+    },
+    "whole_conditioning_w": {
+      "native": [
+        0.023862866684794426,
+        0.024243788793683052,
+        0.02483716607093811
+      ],
+      "swiftshader": [
+        0.023863984271883965,
+        0.024244992062449455,
+        0.024838576093316078
+      ]
+    },
+    "native_vs_swift_direct_s_relative": [
+      -0.0015494597231923127,
+      -0.001498721669104241,
+      -0.0013710773097035966
+    ],
+    "native_vs_swift_actual_w_relative": [
+      0.20571541457736214,
+      0.21387936524228493,
+      0.23556110414995482
+    ],
+    "native_whole_vs_swift_actual_w_relative": [
+      -4.683153813738016e-05,
+      -4.9629579721200076e-05,
+      -5.676743999617851e-05
+    ],
+    "residual_max_absolute_delta": 0.2867475748062134,
+    "backend": {
+      "native": {
+        "residual": [
+          1.1661748886108398,
+          1.177353024482727,
+          1.2085925340652466
+        ],
+        "ray_and_maximum": [
+          -0.7568969130516052,
+          -2.126130205226673e-08,
+          -0.6535342931747437,
+          6253.34130859375
+        ],
+        "impact_delta_ground_roots": [
+          3396.18994140625,
+          0,
+          6105.4365234375,
+          6105.4365234375
+        ],
+        "shadow_roots_entry_distance_segment_length": [
+          827.44189453125,
+          828.758056640625,
+          5277.3359375,
+          976.00537109375
+        ],
+        "column_impact_begin_scale_split": [
+          3396.190185546875,
+          -830.2032470703125,
+          1.0025391578674316,
+          1
+        ],
+        "whole_centers_interval": [
+          753.6099243164062,
+          753.6099243164062,
+          0,
+          976.00537109375
+        ],
+        "left_centers_interval": [
+          672.8554077148438,
+          672.8554077148438,
+          0,
+          827.44189453125
+        ],
+        "right_centers_interval": [
+          898.8820190429688,
+          898.8820190429688,
+          828.758056640625,
+          976.00537109375
+        ]
+      },
+      "swiftshader": {
+        "residual": [
+          1.408257007598877,
+          1.431309700012207,
+          1.49534010887146
+        ],
+        "ray_and_maximum": [
+          -0.75689697265625,
+          -5.6478470508442904e-21,
+          -0.6535342335700989,
+          6253.32080078125
+        ],
+        "impact_delta_ground_roots": [
+          3396.1904296875,
+          -3.9797635078430176,
+          1,
+          -1
+        ],
+        "shadow_roots_entry_distance_segment_length": [
+          1,
+          -1,
+          5277.33740234375,
+          975.9833984375
+        ],
+        "column_impact_begin_scale_split": [
+          3396.1904296875,
+          -830.2013549804688,
+          1.0025391578674316,
+          0
+        ],
+        "whole_centers_interval": [
+          753.5985107421875,
+          753.5985107421875,
+          0,
+          975.9833984375
+        ],
+        "left_centers_interval": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "right_centers_interval": [
+          753.5982055664062,
+          753.5982055664062,
+          -1,
+          975.9833984375
+        ]
+      }
+    }
+  },
+  "adjacent_control_node": {
+    "x": 16,
+    "y": 28,
+    "z": 13,
+    "residual_max_absolute_delta": 4.744529724121094e-05
+  }
+}

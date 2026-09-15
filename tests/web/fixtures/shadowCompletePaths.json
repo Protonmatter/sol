@@ -1,0 +1,1445 @@
+{
+  "schema_version": "shadow-path-refactor-fixture.v1",
+  "scope": "Exact old complete-path outputs of the actual GLSL CPU non-FMA interpreter, before source-call factoring; analytic geometry is independently tested. Includes every path field and empty shadow sentinel.",
+  "source_sha256": "8c94a8fda4d3efcdd063b550a5c2d73bfc63f10f9a67b990a8b2e9dda7e9c7a0",
+  "cases": [
+    {
+      "name": "surface",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          3,
+          0,
+          0
+        ],
+        "ray": [
+          -1,
+          "-0",
+          "-0"
+        ],
+        "distance": 1,
+        "ground": [
+          4,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          3,
+          100000002004087730000
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          -6,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          3,
+          0,
+          0
+        ],
+        "ray": [
+          -1,
+          "-0",
+          "-0"
+        ],
+        "distance": 6,
+        "ground": [
+          3.999999761581421,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          3,
+          100000002004087730000
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          -6,
+          0,
+          0
+        ],
+        [
+          6,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          -3,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          "-0",
+          "-0"
+        ],
+        "distance": 6,
+        "ground": [
+          3.999999761581421,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          -100000002004087730000,
+          3
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          1,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          "-0",
+          "-0"
+        ],
+        "distance": 1,
+        "ground": [
+          -3,
+          1
+        ],
+        "outer": [
+          -4,
+          2
+        ],
+        "height": -2,
+        "shadow": [
+          -100000002004087730000,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          6,
+          0,
+          0
+        ],
+        "ray": [
+          -1,
+          "-0",
+          "-0"
+        ],
+        "distance": 0,
+        "ground": [
+          4,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          -6,
+          4,
+          0
+        ],
+        [
+          6,
+          4,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          -6,
+          4,
+          0
+        ],
+        "ray": [
+          1,
+          "-0",
+          "-0"
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          1,
+          -1
+        ],
+        "height": 2,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          1,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          1,
+          -1
+        ],
+        "height": 0,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          -6,
+          3,
+          0
+        ],
+        [
+          6,
+          3,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          -6,
+          3,
+          0
+        ],
+        "ray": [
+          1,
+          "-0",
+          "-0"
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          6,
+          6
+        ],
+        "height": 1,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          0,
+          0,
+          3
+        ],
+        [
+          0,
+          0,
+          -3
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          0,
+          0,
+          3
+        ],
+        "ray": [
+          "-0",
+          "-0",
+          -1
+        ],
+        "distance": 6,
+        "ground": [
+          0.9999997615814209,
+          5
+        ],
+        "outer": [
+          0,
+          6
+        ],
+        "height": -2,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          -2,
+          0,
+          0
+        ],
+        3.5
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          3,
+          0,
+          0
+        ],
+        "ray": [
+          -1,
+          0,
+          0
+        ],
+        "distance": 0.5,
+        "ground": [
+          4,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          3,
+          100000002004087730000
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        20
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          6,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 0,
+        "ground": [
+          -8,
+          -4
+        ],
+        "outer": [
+          -9,
+          -3
+        ],
+        "height": -2,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        20
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          0,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 3,
+        "ground": [
+          -2,
+          2
+        ],
+        "outer": [
+          -3,
+          3
+        ],
+        "height": -2,
+        "shadow": [
+          -100000002004087730000,
+          0
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        20
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          6,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          1,
+          -1
+        ],
+        "height": 0,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          -1,
+          0,
+          0
+        ],
+        0
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 1,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          6,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          1,
+          -1
+        ],
+        "height": 0,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          3,
+          0,
+          0
+        ],
+        "ray": [
+          -1,
+          "-0",
+          "-0"
+        ],
+        "distance": 1,
+        "ground": [
+          4,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          3,
+          100000002004087730000
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          -6,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          3,
+          0,
+          0
+        ],
+        "ray": [
+          -1,
+          "-0",
+          "-0"
+        ],
+        "distance": 6,
+        "ground": [
+          3.999999761581421,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          3,
+          100000002004087730000
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          -6,
+          0,
+          0
+        ],
+        [
+          6,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          -3,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          "-0",
+          "-0"
+        ],
+        "distance": 6,
+        "ground": [
+          3.999999761581421,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          -100000002004087730000,
+          3
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          1,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          "-0",
+          "-0"
+        ],
+        "distance": 1,
+        "ground": [
+          -3,
+          1
+        ],
+        "outer": [
+          -4,
+          2
+        ],
+        "height": -2,
+        "shadow": [
+          -100000002004087730000,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          4,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          6,
+          0,
+          0
+        ],
+        "ray": [
+          -1,
+          "-0",
+          "-0"
+        ],
+        "distance": 0,
+        "ground": [
+          4,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          -6,
+          4,
+          0
+        ],
+        [
+          6,
+          4,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          -6,
+          4,
+          0
+        ],
+        "ray": [
+          1,
+          "-0",
+          "-0"
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          1,
+          -1
+        ],
+        "height": 2,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          1,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          1,
+          -1
+        ],
+        "height": 0,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          -6,
+          3,
+          0
+        ],
+        [
+          6,
+          3,
+          0
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          -6,
+          3,
+          0
+        ],
+        "ray": [
+          1,
+          "-0",
+          "-0"
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          6,
+          6
+        ],
+        "height": 1,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "surface",
+      "args": [
+        [
+          0,
+          0,
+          1.5
+        ],
+        [
+          0,
+          0,
+          -1.5
+        ]
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          0,
+          0,
+          1.5
+        ],
+        "ray": [
+          "-0",
+          "-0",
+          -1
+        ],
+        "distance": 3,
+        "ground": [
+          0.49999988079071045,
+          2.5
+        ],
+        "outer": [
+          0,
+          3
+        ],
+        "height": -2,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          -2,
+          0,
+          0
+        ],
+        3.5
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          3,
+          0,
+          0
+        ],
+        "ray": [
+          -1,
+          0,
+          0
+        ],
+        "distance": 0.5,
+        "ground": [
+          4,
+          8
+        ],
+        "outer": [
+          3,
+          9
+        ],
+        "height": -2,
+        "shadow": [
+          3,
+          100000002004087730000
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        20
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          6,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 0,
+        "ground": [
+          -8,
+          -4
+        ],
+        "outer": [
+          -9,
+          -3
+        ],
+        "height": -2,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        20
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          0,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 3,
+        "ground": [
+          -2,
+          2
+        ],
+        "outer": [
+          -3,
+          3
+        ],
+        "height": -2,
+        "shadow": [
+          -100000002004087730000,
+          0
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        20
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          6,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          1,
+          -1
+        ],
+        "height": 0,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    },
+    {
+      "name": "observer",
+      "args": [
+        [
+          6,
+          0,
+          0
+        ],
+        [
+          -1,
+          0,
+          0
+        ],
+        0
+      ],
+      "uniforms": {
+        "u_atmosphereRadiusKm": 2,
+        "u_atmosphereTopKm": 1,
+        "u_atmospherePolarRatio": 0.5,
+        "u_atmosphereSunDirection": [
+          1,
+          0,
+          0
+        ]
+      },
+      "expected": {
+        "entry": [
+          6,
+          0,
+          0
+        ],
+        "ray": [
+          1,
+          0,
+          0
+        ],
+        "distance": 0,
+        "ground": [
+          1,
+          -1
+        ],
+        "outer": [
+          1,
+          -1
+        ],
+        "height": 0,
+        "shadow": [
+          1,
+          -1
+        ]
+      }
+    }
+  ]
+}

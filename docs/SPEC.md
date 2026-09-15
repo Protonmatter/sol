@@ -1,7 +1,7 @@
 # Solar Maximum Engine Specification
 
 Status: current architecture contract  
-Updated: 2026-09-11
+Updated: 2026-09-13
 
 This contract describes implemented-local behavior and required gates. RFC 0002 remains
 Accepted; manual/scientific qualification and production activation are not implied.
@@ -21,9 +21,97 @@ illustrative scalar activity variance + explicit unavailable magnetic uncertaint
 versioned snapshots -> browser views
 ```
 
-The first view teaches with the Sun, stage, and one plain-language insight. Equations, adapter health, raw provenance, accuracy limits, and caveats remain behind deliberate user intent.
+The first view teaches with an original NASA Sun observation, its capture/source context,
+and one plain-language insight. An explicit Research mode retains the model's stage,
+uncertainty, feed state and scientific controls without attaching them to the observation.
+Sky and Solar System retain this visual hierarchy through concise contextual cards and
+explicit search, location, time and details actions. Cards summarize admitted scene state;
+they never substitute pending observer/provider input or reference constants for a computed
+quantity. Selection does not automatically open all scientific controls. Camera shortcuts
+reuse the existing view transform without moving physical bodies.
 
 Scientific and source claims remain anchored to public methods and data: NOAA/SWPC products, Helioviewer quicklook imagery and metadata, IERS Earth-orientation data, JPL Horizons/DE441 validation, published analytic ephemerides, and NASA/IAU constants. Sol does not claim proprietary JPL, NOAA, or commercial forecasting algorithms.
+
+Planetary appearance follows [RFC 0004](rfcs/0004-registered-planetary-appearance.md).
+Registered, dated mission display maps are separate from calibrated or complete
+observations. Earth layers distinguish land/ice, annual night lights, dated satellite
+clouds/surface and sea-ice analysis. The default cloud view draws NASA's complete
+historical Blue Marble 2002 cloud layer over the land map. Dated MODIS swaths are an explicit
+source choice with visible seams/gaps disclosed. Their epochs do not follow model time. Source
+coverage masks preserve missing observations; no procedural geography or polar caps
+fill gaps. [RFC 0005](rfcs/0005-physical-rendering.md) adds qualified physical rendering:
+Moon LOLA and Mars MOLA radial terrain, bounded Earth/Mars reference optical transfer,
+and source-registered AIA 171 imagery with explicitly modeled elevated solar emission.
+These appearance models do not evolve the state estimator or replace physical orbits.
+Other atmospheres retain their disclosed illustrative treatment until qualified.
+
+Terrain is prepared in cancellable workers, uses physical kilometre heights, and changes
+both geometry and normals. Up to two detail entries are resident, with bounded LOD and
+directional terrain shadows. Source-cell resolution limits narrow geological features.
+Moon/Mars terrain now uses 0.125-degree derivatives of exact 0.0625-degree numerical
+source products. A close view at projected diameter >=1500 pixels selects a fourth
+256-by-512 segment mesh; the earlier three levels and immutable v1 assets remain
+available. One terrain worker runs at a time within explicit CPU/GPU byte admission.
+The [advanced material evidence](plans/2026-09-14-rendering-qualification/ADVANCED_MATERIALS_EVIDENCE.md)
+distinguishes source sampling, derivative spacing, source interpolation and pending
+runtime qualification. This complete-globe route does not claim regional tiling.
+Unsupported bodies retain their source maps and smooth reference geometry. Missing or
+invalid optional products retain a usable, disclosed fallback. Release staging verifies
+the terrain/solar manifests, numeric products, hashes and generated browser metadata.
+
+Atmosphere uses distinct incident attenuation and view-path transmission/scattering in
+linear color. Physical distance determines solar flux; adaptive display exposure is
+separate. Qualified Earth/Mars incident rays use profile-bound precomputed fields;
+their apparent solar direction and curved-path attenuation drive direct illumination.
+Ray shooting runs during explicit offline preparation, not per vertex or animation
+frame. Field loading, fallback and retry remain explicit, with bounded same-origin
+assets and independent direction/transmission admission before enablement.
+The observer/scattered-light density integrals use fixed 512-by-512 paired
+molecular/aerosol column fields. Their exact oblate coordinate reduction retains
+physical path lengths and signed terrain endpoints. Production fragments retain
+bounded scattering samples but must not run nested density-column quadrature or
+generate a field at runtime. Source textures, terrain LOD and numerical acceptance
+tolerances remain unchanged. Both incident and column fields must pass admission;
+failed or pending fields retain the explicitly illustrative limb. Companion loads
+share cancellation, and upload failure releases both numerical textures.
+Graphics programs use a context-owned, bounded completion lifecycle. Where
+`KHR_parallel_shader_compile` is available, compile/link status and uniform
+locations are queried only after its completion signal. Six base programs enable
+the scene; the physical sphere and atmosphere programs load on qualified close
+view demand. Both programs and both numerical fields must be ready before physical
+transfer is reported or drawn. Pending/failed programs retain the disclosed
+illustrative route, with explicit retry after failure. The supported no-extension
+path completes synchronously. Context loss disposes all programs; leave, hide and
+obsolete demand cancel pending work. The 30-second qualification startup gate is
+unchanged. The [program lifecycle record](plans/2026-09-14-rendering-qualification/SHADER_PROGRAM_LIFECYCLE.md)
+separates CPU lifecycle proof from pending native performance qualification.
+The two incident and two density-column binaries are optional in the immutable release
+inventory: installation does not fetch them, and demand-time loading verifies their
+bytes before caching or upload. Their absence does not block core installation.
+Field identity binds exact binary32 profile values and complete semantic metadata
+using versioned, typed canonical encoding. Values must be finite before and after
+`Math.fround`; missing or unsupported encodings and hash mismatches are rejected.
+Reference formulas, uniform uploads and numerical tolerances remain unchanged.
+Separate source/generator hashes, exact domain checks and data hashes remain required; the
+[optics source record](plans/2026-09-13-physical-rendering/OPTICS_SOURCES.md) defines
+the encoding without arbitrary decimal rounding or epsilon-based hash comparison.
+Observer and scattered-light rays remain straight. Reference profiles are not present
+weather or dense-cloud radiative transfer; there is no qualified ocean glint mask.
+The Sun's EUV source playback is finite, reproducible, and independent of orbital time;
+restarting playback retains a ready or loading atlas and retries only a failed entry.
+The source-facing coverage remains fixed to its observation frame. Gold is an assigned
+EUV color. Elevated arcs are an educational model, and the unobserved hemisphere remains
+held. The visible-light approximation and all optical limitations stay identifiable.
+The Sun inspection hides other display bodies and guides without moving any engine
+state; returning to Our system restores the scene. A source/date/band-aware observation
+gallery presents Jupiter storms/aurorae, Saturn's north hexagon and south decagon, and
+Neptune's aurora in their published views. It does not claim globally registered weather.
+Failed mission images expose an in-place native Retry image action, including galleries
+with one observation. Loading and verified images cannot be restarted by that action;
+selection changes and departure still cancel work and reject stale completion callbacks.
+Leaving the System view also cancels pending mapped-image requests while retaining
+ready textures in the existing bounded cache. Reentry issues fresh demand for cancelled
+images and may explicitly retry failed references.
 
 ## Architecture
 
@@ -261,6 +349,21 @@ invalidate prior scientific qualification even if WASM and data bytes are unchan
 
 ## UI contract
 
+RFC 0003 adds an observation-led workspace and visual provenance contract. Observe presents
+a preserved NASA image in its original plane, with archival time, false-color interpretation
+and unavailable/retry behavior. Research exposes the model with initially closed inspector
+and timeline; navigation and relevant source/time/feed/readiness remain outside them.
+Observation summary exports carry no model bundle identity. Physical-scale rendering ignores display
+exaggeration. Display clearance may constrain enlarged radii but cannot change physical
+centers, orbital evolution or real transits. Scientific textures require per-use identity,
+coverage and interpretation evidence; unverifiable global mapping uses a labeled neutral
+fallback. Official source-byte correspondence alone is not global-map qualification.
+The pinned default observation MUST be part of the current release's verified critical
+cache set so a first offline return can retain the image and its archival provenance.
+Other raster previews remain optional. Missing surface detail MUST preserve the existing
+moon albedo display scale without adding unqualified patterns. Physical-scale controls
+MUST refresh even when a hidden or zero-size canvas cannot paint.
+
 Rendered layers are labeled as exactly one of:
 
 - synthetic
@@ -316,7 +419,8 @@ From the separate Latest state, Previous MUST select the last available cycle fr
 and Next MUST select the first; unavailable slots count as skipped, and wraparound
 within the cycle retains its existing order.
 
-The initial view exposes the primary task and current source/feed/readiness state. Advanced,
+The initial view exposes the primary task and its source, capture time and availability.
+Research exposes model source/feed/readiness state. Advanced,
 rare, and research controls use clearly labelled disclosure controls and do not normally
 exceed two disclosure levels. Accuracy, privacy, degraded-state, and consent information
 must remain visible at the point a user needs it.

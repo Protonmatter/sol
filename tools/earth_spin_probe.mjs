@@ -1,0 +1,221 @@
+/** Collect actual submitted Earth transforms in the unchanged five-second window.
+ * The separate Mars terrain gate may select body:'Mars'; defaults remain Earth.
+ * Self-contained: Puppeteer serializes this function into the existing app page.
+ */
+export async function collectSubmittedEarthSpin({holdPresentation=false,physicalEvidence=false,body='Earth',requireTerrainEvidence=false}={}) {
+  if(!['Earth','Mars'].includes(body))throw new Error('Unsupported physical spin body');
+  const entry = document.querySelector('script[type="module"][src^="app.js"]');
+  const { store } = await import(`./js/store.js${entry ? new URL(entry.src).search : ""}`);
+  const canvas = document.getElementById("orreryCanvas"), gl = canvas.getContext("webgl2");
+  const physical=physicalEvidence?globalThis.__solPhysicalSpinEvidence:null;
+  if(physicalEvidence&&physical?.body!==body)throw new Error(`${body} physical spin evidence must be prepared before collection`);
+  const terrain=requireTerrainEvidence?globalThis.__solMarsTerrainEvidence:null;
+  if(requireTerrainEvidence&&(body!=='Mars'||terrain?.body!==body))throw new Error('Mars terrain spin evidence must be prepared before collection');
+  const original = gl.drawElements, originalArrays = gl.drawArrays;
+  const originalUseProgram = gl.useProgram, originalUniform1i = gl.uniform1i;
+  const originalUniformMatrix4fv = gl.uniformMatrix4fv;
+  const samples = [], locations = new Map();
+  const presentationLocations=new Map();let pendingEarth=null;
+  const draws = { attempted: 0, submitted: 0, arrayAttempted: 0, arraySubmitted: 0,
+    surface: 0, earth: 0, duplicateEpoch: 0, candidates: 0, unknown: 0, gpuMismatch: 0,
+    expiredDraws: 0, lateReadbacks: 0, offscreenEarth:0, presentedEarth:0, presentationMismatch:0, heldPresentations:0,
+    physicalRejected:0,physicalAccepted:0,terrainRejected:0,terrainAccepted:0 };
+  const physicalRejections=[],terrainRejections=[];
+  const nativeCalls = Object.fromEntries(["useProgram", "uniform1i", "uniformMatrix4fv"].map(
+    name => [name, { attempted: 0, completed: 0 }]));
+  let hintedProgram = null, zeroInteger = false, earthMatrix = false;
+  const clearHints = () => { zeroInteger = false; earthMatrix = false; };
+  const centeredOnBody = (model, earth) => earth && model.length === 16 && model.every(Number.isFinite)
+    && Math.hypot(model[12] - earth.x_au, model[13] - earth.y_au, model[14] - earth.z_au) <= 1e-5;
+  const readState = () => {
+    const rect = canvas.getBoundingClientRect();
+    return { sampledMs: performance.now(), active: store.orrery.active, animate: store.orrery.animate,
+      hidden: document.hidden, visibility: document.visibilityState, contextLost: gl.isContextLost(),
+      anchor: store.orrery.anchor, selected: store.orrery.selected, engineError: store.orrery.engineError,
+      hdrEnabled:!!store.orrery.hdrEnabled,hdrStatus:store.orrery.hdrStatus??null,
+      opticsEnabled:!!store.orrery.opticsEnabled,opticsStatus:store.orrery.opticsStatus??null,
+      programStatus:store.orrery.programStatus??null,programDiagnostics:store.orrery.programDiagnostics??null,
+      lastTick: store.orrery.lastTick, renderUnix: store.orrery.renderUnix,
+      canvas: { clientWidth: canvas.clientWidth, clientHeight: canvas.clientHeight,
+        width: canvas.width, height: canvas.height, x: rect.x, y: rect.y, widthCss: rect.width, heightCss: rect.height } };
+  };
+  const timing = { startedMs: performance.now(), endedMs: null, elapsedMs: null };
+  const deadlineMs = timing.startedMs + 5000;
+  const initialState = readState(), rafHeartbeat = { count: 0, samples: [] };
+  let heartbeatId = 0;
+  const heartbeat = timestamp => {
+    const sampledMs = performance.now();
+    rafHeartbeat.count++;
+    if (rafHeartbeat.samples.length < 120) rafHeartbeat.samples.push({ timestamp, sampledMs, elapsedMs: sampledMs - timing.startedMs });
+    heartbeatId = requestAnimationFrame(heartbeat);
+  };
+  let sampleError = "";
+  // Native uniform-location objects queried here need not equal the renderer's
+  // already-cached objects. Treat draw-local scalar/matrix uploads only as broad
+  // candidate hints; never infer a named uniform or accept uploaded values as
+  // evidence. Every accepted epoch below still reads the actual GPU uniforms.
+  gl.useProgram = function (...args) {
+    nativeCalls.useProgram.attempted++;
+    const result = originalUseProgram.apply(this, args);
+    nativeCalls.useProgram.completed++;
+    hintedProgram = args[0]; clearHints();
+    return result;
+  };
+  gl.uniform1i = function (...args) {
+    nativeCalls.uniform1i.attempted++;
+    const result = originalUniform1i.apply(this, args);
+    nativeCalls.uniform1i.completed++;
+    if (hintedProgram && args[0] && args[1] === 0) zeroInteger = true;
+    return result;
+  };
+  gl.uniformMatrix4fv = function (...args) {
+    nativeCalls.uniformMatrix4fv.attempted++;
+    const result = originalUniformMatrix4fv.apply(this, args);
+    nativeCalls.uniformMatrix4fv.completed++;
+    try {
+      const [location, transpose, data, offset = 0, length = 0] = args;
+      const count = length || (data?.length - offset);
+      if (hintedProgram && location && transpose === false && Number.isInteger(offset) && offset >= 0
+          && count === 16 && offset + count <= data?.length) {
+        const model = Array.from(data).slice(offset, offset + count);
+        const earth = store.orrery.bodies.find(item => item.name === body);
+        // A perspective MVP cannot be a model hint. Later unrelated uniforms
+        // must not erase a valid candidate from the same production draw.
+        if (model[3] === 0 && model[7] === 0 && model[11] === 0 && model[15] === 1
+            && centeredOnBody(model, earth)) earthMatrix = true;
+      }
+    } catch (error) { sampleError = String(error); }
+    return result;
+  };
+  gl.drawArrays = function (...args) {
+    draws.arrayAttempted++;
+    try {
+      let presentation=null;
+      if(pendingEarth&&performance.now()<=deadlineMs){
+        const program=gl.getParameter(gl.CURRENT_PROGRAM);
+        if(program&&!presentationLocations.has(program))presentationLocations.set(program,Object.fromEntries(
+          ['u_scene','u_frameSerial','u_frameGeneration','u_frameEpochHigh','u_frameEpochLow'].map(name=>[name,gl.getUniformLocation(program,name)])));
+        const loc=presentationLocations.get(program);
+        if(loc?.u_scene){
+          const read=name=>gl.getUniform(program,loc[name]);
+          const sampler=read('u_scene'),serial=read('u_frameSerial'),generation=read('u_frameGeneration');
+          const high=read('u_frameEpochHigh'),low=read('u_frameEpochLow');
+          const active=gl.getParameter(gl.ACTIVE_TEXTURE);
+          gl.activeTexture(gl.TEXTURE0+sampler);const texture=gl.getParameter(gl.TEXTURE_BINDING_2D);gl.activeTexture(active);
+          const wanted=pendingEarth.identity;
+          const viewport=gl.getParameter(gl.VIEWPORT),mask=gl.getParameter(gl.COLOR_WRITEMASK);
+          const writesFrame=args[0]===gl.TRIANGLES&&args[1]===0&&args[2]===3
+            &&viewport[0]===0&&viewport[1]===0&&viewport[2]===canvas.width&&viewport[3]===canvas.height
+            &&Array.from(mask).every(Boolean)
+            &&![gl.RASTERIZER_DISCARD,gl.SCISSOR_TEST,gl.DEPTH_TEST,gl.STENCIL_TEST].some(cap=>gl.isEnabled(cap));
+          if(gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING)===null&&texture===pendingEarth.texture
+            &&writesFrame
+            &&serial===wanted.serial&&generation===wanted.generation
+            &&high===Math.fround(wanted.epoch)&&low===Math.fround(wanted.epoch-Math.fround(wanted.epoch)))
+            presentation={serial,generation,epoch:wanted.epoch};
+          else draws.presentationMismatch++;
+          if(holdPresentation&&presentation){draws.heldPresentations++;pendingEarth=null;return;}
+        }
+      }
+      const result = originalArrays.apply(this, args);
+      draws.arraySubmitted++;
+      if(presentation&&pendingEarth){
+        const producer=pendingEarth;pendingEarth=null;
+        // Let the renderer consume its own GL error and publish completion. This
+        // adds confirmation to observed GPU draw evidence; state alone never
+        // creates a producer or presentation. Microtask time stays in the 5s gate.
+        queueMicrotask(()=>{
+          const sampledMs=performance.now(),status=store.orrery.hdrStatus,done=status?.presented;
+          if(sampledMs>deadlineMs){draws.lateReadbacks++;return;}
+          if(status?.state!=='ready'||done?.serial!==presentation.serial||done?.generation!==presentation.generation
+            ||done?.epoch!==presentation.epoch){draws.presentationMismatch++;return;}
+          samples.push({...producer.sample,sampledMs,elapsedMs:sampledMs-timing.startedMs,presentation});draws.presentedEarth++;
+        });
+      }
+      return result;
+    } finally { clearHints(); }
+  };
+  gl.drawElements = function (...args) {
+    draws.attempted++;
+    const candidate = hintedProgram && zeroInteger && earthMatrix, expectedProgram = hintedProgram;
+    let result;
+    try { result = original.apply(this, args); } // Always submit the unchanged production draw.
+    finally { clearHints(); }
+    draws.submitted++;
+    if (samples.length >= 120 || sampleError) return result;
+    if (performance.now() > deadlineMs) { draws.expiredDraws++; return result; }
+    if (!candidate) { draws.unknown++; return result; }
+    draws.candidates++;
+    const epoch = store.orrery.renderUnix;
+    if (samples.at(-1)?.epoch === epoch) { draws.duplicateEpoch++; return result; }
+    try {
+      const program = gl.getParameter(gl.CURRENT_PROGRAM);
+      if (performance.now() > deadlineMs) { draws.lateReadbacks++; return result; }
+      if (!program || program !== expectedProgram) { draws.gpuMismatch++; return result; }
+      if (!locations.has(program)) locations.set(program, Object.fromEntries(
+        ["u_mode", "u_model", "u_nmat"].map(name => [name, gl.getUniformLocation(program, name)])));
+      const loc = locations.get(program);
+      if (!loc.u_mode || !loc.u_model || !loc.u_nmat) { draws.gpuMismatch++; return result; }
+      const mode = gl.getUniform(program, loc.u_mode);
+      if (performance.now() > deadlineMs) { draws.lateReadbacks++; return result; }
+      if (mode !== 0) { draws.gpuMismatch++; return result; }
+      draws.surface++;
+      const earth = store.orrery.bodies.find(item => item.name === body);
+      const model = Array.from(gl.getUniform(program, loc.u_model));
+      if (performance.now() > deadlineMs) { draws.lateReadbacks++; return result; }
+      if (!centeredOnBody(model, earth)) { draws.gpuMismatch++; return result; }
+      draws.earth++;
+      const normal = Array.from(gl.getUniform(program, loc.u_nmat));
+      // A synchronous GPU read can postpone timer delivery. Admission uses its
+      // monotonic completion time, including the final normal readback, so a
+      // late third draw cannot turn a five-second failure into a pass.
+      const sampledMs = performance.now();
+      if (sampledMs > deadlineMs) { draws.lateReadbacks++; return result; }
+      const sample={ sampledMs, elapsedMs: sampledMs - timing.startedMs,
+        epoch, rate: store.orrery.yearsPerSec * 365.25 * 86400,
+        normal, model };
+      if(physical){
+        const evidence=physical.capture(gl,program);
+        if(!evidence.passed){draws.physicalRejected++;if(physicalRejections.length<16)physicalRejections.push(evidence);return result;}
+        const confirmedMs=performance.now();if(confirmedMs>deadlineMs){draws.lateReadbacks++;return result;}
+        sample.physical={...evidence,confirmedMs};draws.physicalAccepted++;
+      }
+      if(terrain){
+        const evidence=terrain.capture(gl,program,{mode:args[0],count:args[1],type:args[2],offset:args[3]});
+        if(!evidence.passed){draws.terrainRejected++;if(terrainRejections.length<16)terrainRejections.push(evidence);return result;}
+        const confirmedMs=performance.now();if(confirmedMs>deadlineMs){draws.lateReadbacks++;return result;}
+        sample.terrain={...evidence,confirmedMs};draws.terrainAccepted++;
+      }
+      if(store.orrery.hdrFrame){
+        // A real current Earth draw is only a producer until the matching texture
+        // reaches the default framebuffer's actual presentation shader.
+        const framebuffer=gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING);
+        const output=gl.getUniformLocation(program,'u_linearOutput');
+        if(!framebuffer||!output||gl.getUniform(program,output)!==1||store.orrery.hdrFrame.epoch!==epoch){draws.presentationMismatch++;return result;}
+        const texture=gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME);
+        if(texture){pendingEarth={sample,texture,identity:{...store.orrery.hdrFrame}};draws.offscreenEarth++;}
+      }else samples.push(sample);
+    } catch (error) { sampleError = String(error); }
+    return result;
+  };
+  try {
+    // Observe browser frame delivery independently; this callback never invokes
+    // the application loop, paints, or changes the scientific/render clock.
+    heartbeatId = requestAnimationFrame(heartbeat);
+    // Require actual submitted frames, not an assumed SwiftShader frame rate.
+    // Bounded waiting keeps a stopped renderer red while tolerating a busy host.
+    await new Promise(resolve => {
+      const deadline = setTimeout(done, 5000);
+      const poll = setInterval(() => { if (samples.length >= 4 || sampleError) done(); }, 50);
+      function done() { clearInterval(poll); clearTimeout(deadline); resolve(); }
+    });
+  } finally {
+    gl.drawElements = original; gl.drawArrays = originalArrays;
+    gl.useProgram = originalUseProgram; gl.uniform1i = originalUniform1i;
+    gl.uniformMatrix4fv = originalUniformMatrix4fv;
+    cancelAnimationFrame(heartbeatId);
+    timing.endedMs = performance.now(); timing.elapsedMs = timing.endedMs - timing.startedMs;
+  }
+  return { samples, sampleError, drawCounts: draws, nativeCalls, timing, rafHeartbeat, initialState, state: readState(),
+    subjectBody:body,physical:physical?.summary??null,physicalRejections,terrain:terrain?.summary??null,terrainRejections };
+}

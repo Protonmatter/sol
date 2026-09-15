@@ -1,0 +1,779 @@
+{
+  "schema_version": "atmosphere-observer-geometry-proposal.v1",
+  "scope": "Two fixed diagnostic queries support a CPU-tested production proposal; full production1280/7192 and application admission remain pending.",
+  "runtime_sources": {
+    "apps\\web\\js\\atmosphereShaders.js": "f2c85a8477d6c647a9caace9ac6316170e6e97a0d9a354439eaf37b073e9b127",
+    "apps\\web\\js\\atmosphereScattering.js": "d879a668d94cc9e28eb7b16514f2d68e63c3a154b957df9f0733f4cb6e14dea2"
+  },
+  "diagnostic_run": "build/optical-coordinate-observer-geometry-03",
+  "diagnostic_inputs_sha256": "3234d7038c6eab7affa6ce6a16ac55677f2ff81af5f47c0a1a388969ed09c5d8",
+  "independent_cpu_reference": {
+    "path": "ATMOSPHERE_OPTICAL_COORDINATE_RECEIPT.json",
+    "sha256": "6311b766bb668f7e30c90d89f490d7e482a5667dbb6b0fe918945c630a32b5bb",
+    "solver_before_sha256": "bb6257583b79107576fd824ae525ae55963790cd64a196098f8a6a6f88a79d16",
+    "precision": "binary32 uploaded inputs followed by binary64 geometry and quadrature"
+  },
+  "physical_limits": {
+    "absolute": 0.0001,
+    "relative": 0.002,
+    "mathematical_zero": 1e-07
+  },
+  "backends": {
+    "native": {
+      "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "khr_parallel_shader_compile": true,
+      "raw_result_sha256": "867a25d948b8a01c7f91613ca7226d1e054e5251b0ba1aed22c5bf2717add510",
+      "progress_sha256": "dffbc531004bb1a66686a1891e9d30f8526044e076f5e22f2db22d6fd8f5e174",
+      "shader_sha256": {
+        "original": "813b937ffebba80e5c940b34ec35437b394b70ed1d9c9bc584108f8e25f0335e",
+        "observer_roots": "d7d0b61774b804a26e61c9dca4a3753a14054f52842db65b035bf10c11b89d4b",
+        "observer_roots_endpoint": "3e7fb866fe175d04ce643c6215a39b436fcd29184da93850a49170afe4c844cc"
+      },
+      "tool_sha256": "5431ff24ee2afd4816a57b5e5ef642a73616063c7d52c1f32c0b0f27abcfccd4",
+      "ready_intervals": [
+        {
+          "phase": "ready",
+          "label": "Earth-forward-oblique-explicit-height/13/original",
+          "elapsedMs": 7020.800000011921
+        },
+        {
+          "phase": "ready",
+          "label": "Earth-forward-oblique-explicit-height/13/observer_roots",
+          "elapsedMs": 6367.900000035763
+        },
+        {
+          "phase": "ready",
+          "label": "Earth-forward-oblique-explicit-height/13/observer_roots_endpoint",
+          "elapsedMs": 6890.899999976158
+        },
+        {
+          "phase": "ready",
+          "label": "Mars-forward-terrain-v2-explicit-height/298/original",
+          "elapsedMs": 10.800000011920929
+        },
+        {
+          "phase": "ready",
+          "label": "Mars-forward-terrain-v2-explicit-height/298/observer_roots",
+          "elapsedMs": 11.699999988079071
+        },
+        {
+          "phase": "ready",
+          "label": "Mars-forward-terrain-v2-explicit-height/298/observer_roots_endpoint",
+          "elapsedMs": 10.199999988079071
+        }
+      ],
+      "cases": [
+        {
+          "name": "Earth-forward-oblique-explicit-height/surface/13",
+          "variants": {
+            "original": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  0.11910053342580795,
+                  0.01328551396727562,
+                  5.286446321406402e-05
+                ],
+                "expected": [
+                  0.11946088010554468,
+                  0.013343667146601195,
+                  5.3276389468438134e-05
+                ],
+                "absolute_errors": [
+                  0.00036034667973672274,
+                  5.8153179325575247e-05,
+                  4.119262543741175e-07
+                ],
+                "limits": [
+                  0.00033892176021108934,
+                  0.0001266873342932024,
+                  0.00010010655277893688
+                ],
+                "passed": false
+              }
+            },
+            "observer_roots": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  0.11915355175733566,
+                  0.013294435106217861,
+                  5.2930201491108164e-05
+                ],
+                "expected": [
+                  0.11946088010554468,
+                  0.013343667146601195,
+                  5.3276389468438134e-05
+                ],
+                "absolute_errors": [
+                  0.0003073283482090128,
+                  4.923204038333358e-05,
+                  3.4618797732997023e-07
+                ],
+                "limits": [
+                  0.00033892176021108934,
+                  0.0001266873342932024,
+                  0.00010010655277893688
+                ],
+                "passed": true
+              }
+            },
+            "observer_roots_endpoint": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  0.1194637194275856,
+                  0.013343977741897106,
+                  5.327762119122781e-05
+                ],
+                "expected": [
+                  0.11946088010554468,
+                  0.013343667146601195,
+                  5.3276389468438134e-05
+                ],
+                "absolute_errors": [
+                  2.8393220409261843e-06,
+                  3.105952959114172e-07,
+                  1.2317227896741704e-09
+                ],
+                "limits": [
+                  0.00033892176021108934,
+                  0.0001266873342932024,
+                  0.00010010655277893688
+                ],
+                "passed": true
+              }
+            }
+          }
+        },
+        {
+          "name": "Mars-forward-terrain-v2-explicit-height/limb/298",
+          "variants": {
+            "original": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  1,
+                  1,
+                  1
+                ],
+                "expected": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  0.0021,
+                  0.0021,
+                  0.0021
+                ],
+                "passed": true
+              }
+            },
+            "observer_roots": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  1,
+                  1,
+                  1
+                ],
+                "expected": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  0.0021,
+                  0.0021,
+                  0.0021
+                ],
+                "passed": true
+              }
+            },
+            "observer_roots_endpoint": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  1,
+                  1,
+                  1
+                ],
+                "expected": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  0.0021,
+                  0.0021,
+                  0.0021
+                ],
+                "passed": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "swiftshader": {
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "khr_parallel_shader_compile": false,
+      "raw_result_sha256": "b79a15af791f0eb9b7ebc58b1a44bf01b9d344c4e7223e9b10e8371846d5f177",
+      "progress_sha256": "1b9c547585ad5c233670f362dc1ca34af0ae0b5526ee6105037ec90fa33a66c1",
+      "shader_sha256": {
+        "original": "813b937ffebba80e5c940b34ec35437b394b70ed1d9c9bc584108f8e25f0335e",
+        "observer_roots": "d7d0b61774b804a26e61c9dca4a3753a14054f52842db65b035bf10c11b89d4b",
+        "observer_roots_endpoint": "3e7fb866fe175d04ce643c6215a39b436fcd29184da93850a49170afe4c844cc"
+      },
+      "tool_sha256": "5431ff24ee2afd4816a57b5e5ef642a73616063c7d52c1f32c0b0f27abcfccd4",
+      "ready_intervals": [
+        {
+          "phase": "ready",
+          "label": "Earth-forward-oblique-explicit-height/13/original",
+          "elapsedMs": 5.200000047683716
+        },
+        {
+          "phase": "ready",
+          "label": "Earth-forward-oblique-explicit-height/13/observer_roots",
+          "elapsedMs": 3.899999976158142
+        },
+        {
+          "phase": "ready",
+          "label": "Earth-forward-oblique-explicit-height/13/observer_roots_endpoint",
+          "elapsedMs": 4.099999964237213
+        },
+        {
+          "phase": "ready",
+          "label": "Mars-forward-terrain-v2-explicit-height/298/original",
+          "elapsedMs": 1.100000023841858
+        },
+        {
+          "phase": "ready",
+          "label": "Mars-forward-terrain-v2-explicit-height/298/observer_roots",
+          "elapsedMs": 0.699999988079071
+        },
+        {
+          "phase": "ready",
+          "label": "Mars-forward-terrain-v2-explicit-height/298/observer_roots_endpoint",
+          "elapsedMs": 0.40000003576278687
+        }
+      ],
+      "cases": [
+        {
+          "name": "Earth-forward-oblique-explicit-height/surface/13",
+          "variants": {
+            "original": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  0.11909893900156021,
+                  0.01328519731760025,
+                  5.286184750730172e-05
+                ],
+                "expected": [
+                  0.11946088010554468,
+                  0.013343667146601195,
+                  5.3276389468438134e-05
+                ],
+                "absolute_errors": [
+                  0.00036194110398446444,
+                  5.846982900094451e-05,
+                  4.1454196113641643e-07
+                ],
+                "limits": [
+                  0.00033892176021108934,
+                  0.0001266873342932024,
+                  0.00010010655277893688
+                ],
+                "passed": false
+              }
+            },
+            "observer_roots": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  0.1191042959690094,
+                  0.013286242261528969,
+                  5.2870582294417545e-05
+                ],
+                "expected": [
+                  0.11946088010554468,
+                  0.013343667146601195,
+                  5.3276389468438134e-05
+                ],
+                "absolute_errors": [
+                  0.0003565841365352762,
+                  5.742488507222594e-05,
+                  4.058071740205892e-07
+                ],
+                "limits": [
+                  0.00033892176021108934,
+                  0.0001266873342932024,
+                  0.00010010655277893688
+                ],
+                "passed": false
+              }
+            },
+            "observer_roots_endpoint": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  0.11943019181489944,
+                  0.013338545337319374,
+                  5.323900404619053e-05
+                ],
+                "expected": [
+                  0.11946088010554468,
+                  0.013343667146601195,
+                  5.3276389468438134e-05
+                ],
+                "absolute_errors": [
+                  3.068829064523104e-05,
+                  5.121809281820669e-06,
+                  3.738542224760436e-08
+                ],
+                "limits": [
+                  0.00033892176021108934,
+                  0.0001266873342932024,
+                  0.00010010655277893688
+                ],
+                "passed": true
+              }
+            }
+          }
+        },
+        {
+          "name": "Mars-forward-terrain-v2-explicit-height/limb/298",
+          "variants": {
+            "original": {
+              "S": {
+                "actual": [
+                  1.177405192720471e-05,
+                  1.1817474842246156e-05,
+                  1.1930220352951437e-05
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  1.177405192720471e-05,
+                  1.1817474842246156e-05,
+                  1.1930220352951437e-05
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": false
+              },
+              "T": {
+                "actual": [
+                  1,
+                  1,
+                  1
+                ],
+                "expected": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  0.0021,
+                  0.0021,
+                  0.0021
+                ],
+                "passed": true
+              }
+            },
+            "observer_roots": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  1,
+                  1,
+                  1
+                ],
+                "expected": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  0.0021,
+                  0.0021,
+                  0.0021
+                ],
+                "passed": true
+              }
+            },
+            "observer_roots_endpoint": {
+              "S": {
+                "actual": [
+                  0,
+                  0,
+                  0
+                ],
+                "expected": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  1e-07,
+                  1e-07,
+                  1e-07
+                ],
+                "passed": true
+              },
+              "T": {
+                "actual": [
+                  1,
+                  1,
+                  1
+                ],
+                "expected": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "absolute_errors": [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                "limits": [
+                  0.0021,
+                  0.0021,
+                  0.0021
+                ],
+                "passed": true
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "historical_failed_runs": [
+    {
+      "path": "build/optical-coordinate-robust-geometry-01",
+      "reason": "Native30s completion timeout; exact failing variant was not captured; no numerical admission."
+    },
+    {
+      "path": "build/optical-coordinate-observer-geometry-01",
+      "reason": "Endpoint wrapper fragment did not compile; original and observer-root samples retained."
+    },
+    {
+      "path": "build/optical-coordinate-observer-geometry-02",
+      "reason": "Endpoint wrapper duplicated integrator call sites and exceeded native30s; original and observer-root samples retained."
+    }
+  ],
+  "validation": {
+    "focused_node_tests": 44,
+    "independent_review_analytic_cases": 22,
+    "source_route_review": "No missing S/W/T endpoint route or final-integrator inclusion found; legacy limb mapping precision remains separately held for full qualification."
+  },
+  "optical_field_reproduction": {
+    "schema_version": "optical-field-reproduction.v1",
+    "source_commit": "a71a715e9d80a789890a152599a7309ea7fe0113",
+    "solver_source_sha256": "f2c85a8477d6c647a9caace9ac6316170e6e97a0d9a354439eaf37b073e9b127",
+    "commands": [
+      "node tools/prepare_atmosphere_columns.mjs",
+      "node tools/prepare_atmosphere_incident.mjs"
+    ],
+    "incident_backend": "explicit SwiftShader offline generation; actual browser version recorded by manifest",
+    "payloads": [
+      {
+        "path": "apps/web/data/optics/earth-columns-v1.f32",
+        "bytes": 2097152,
+        "before_sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "after_sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
+        "identical": true
+      },
+      {
+        "path": "apps/web/data/optics/earth-incident-v1.f32",
+        "bytes": 1201200,
+        "before_sha256": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639",
+        "after_sha256": "4762cc9e49c98c292b412555c75867fce235aaa5f8f8165c78fd593020f06639",
+        "identical": true
+      },
+      {
+        "path": "apps/web/data/optics/mars-columns-v1.f32",
+        "bytes": 2097152,
+        "before_sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+        "after_sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
+        "identical": true
+      },
+      {
+        "path": "apps/web/data/optics/mars-incident-v1.f32",
+        "bytes": 1201200,
+        "before_sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+        "after_sha256": "bd22c2568cac1dfcc970501e7c92af734eb089c6a9b52700cc70de46b1d31311",
+        "identical": true
+      }
+    ],
+    "manifests": {
+      "apps/web/js/atmosphereColumnManifest.js": "a95b686d5c9bb15a6c8a99769141d46e2eb420d7a40fbe2f774499f22578bafc",
+      "apps/web/js/atmosphereIncidentManifest.js": "91e9f8bbbea8578a915cc383409b512a8ea8660e7ef8211fe57d469544c670d9"
+    },
+    "logs": {
+      "columns.log": "ed63f90eba654670a90064d0b041617b19689d4cd20d36187aa2d7f4e2c059e9",
+      "incident.log": "75cadf944955cf26ab2e587c55f76c3229327511f4e48b7cfb6028ef17510537"
+    },
+    "scope": "All four payloads reproduced byte-identically; source metadata refreshed. This does not establish direct solver, atlas, native compiler or application admission."
+  }
+}

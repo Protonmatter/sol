@@ -8,8 +8,97 @@ from unittest.mock import patch
 
 import browser_smoke
 
+READY_SUN = ('<body data-experience="research"><div id="baseLabel">Base: synthetic photosphere (synthetic)</div>'
+             '<div id="regionList" data-object-id="1">solar-state-snapshot.v3</div></body>')
+
 
 class BrowserExecutableTests(unittest.TestCase):
+    def test_actual_driver_verifies_observe_before_native_research_entry(self):
+        script = r"""
+import fs from 'node:fs'; import assert from 'node:assert/strict';
+const source=fs.readFileSync(process.argv[1],'utf8').replace('import puppeteer from "puppeteer-core";','');
+const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+for(const broken of ['', 'image', 'observation-hidden', 'capture-time', 'source', 'research-entry', 'model-base', 'canvas', 'regions', 'schema']) {
+  const calls=[]; let output='';
+  const node=(text='')=>({textContent:text,hidden:false,getClientRects(){return this.hidden?[]:[{}];},getAttribute(){return 'true';}});
+  const elements={solarObservation:node(), observationImage:{...node(),complete:true,naturalWidth:1024},
+    observationSource:{...node('NASA / SDO'),href:'https://sdo.gsfc.nasa.gov/fixture.jpg'},
+    observationStatus:node('2026-09-11 12:00:00 UTC · archival'),exploreObservation:node(),exploreResearch:node(),
+    solarCanvas:node(),baseLabel:node('Base: loading'),schemaVersion:node('solar-state-snapshot.v3')};
+  const document={body:{dataset:{surface:'today',experience:'observe'}},fonts:{ready:Promise.resolve()},
+    getElementById:id=>elements[id],querySelectorAll:()=>broken==='regions'?[]:[{}]};
+  if(broken==='image')elements.observationImage.naturalWidth=0;
+  if(broken==='observation-hidden')elements.solarObservation.hidden=true;
+  if(broken==='capture-time')elements.observationStatus.textContent='Capture time unavailable · archival image';
+  if(broken==='source')elements.observationSource.href='';
+  if(broken==='canvas')elements.solarCanvas.hidden=true;
+  if(broken==='schema')elements.schemaVersion.textContent='Loading snapshot.';
+  const page={setViewport:async()=>{},setBypassServiceWorker:async()=>{},on(){},
+    createCDPSession:async()=>({send:async()=>{}}),goto:async()=>{},
+    async waitForFunction(predicate,options,...args){
+      calls.push('ready:'+document.body.dataset.experience);
+      assert.equal(options.timeout,45000,'each readiness wait remains bounded');
+      if(!predicate(...args))throw new Error('fixture readiness timed out');
+    },evaluate:async fn=>fn(),
+    async click(selector){
+      assert.equal(selector,'#exploreResearch');calls.push('native-research-click');
+      if(broken!=='research-entry')document.body.dataset.experience='research';
+      if(broken!=='model-base')elements.baseLabel.textContent='Base: synthetic photosphere (synthetic)';
+    },
+    async content(){const mode=document.body.dataset.experience;calls.push('capture:'+mode);
+      return `<body data-experience="${mode}"><img id="observationImage"><div id="baseLabel">${elements.baseLabel.textContent}</div></body>`;}
+  };
+  const browser={newPage:async()=>page,close:async()=>{calls.push('close');},disconnect(){},process(){throw new Error('unexpected kill');}};
+  const processMock={argv:['node','driver','fixture-browser','http://127.0.0.1/sol/releases/fixture/index.html'],stdout:{write(value){output+=value;}}};
+  await new AsyncFunction('puppeteer','process','document','location','getComputedStyle',source)(
+    {launch:async()=>browser},processMock,document,{pathname:'/sol/releases/fixture/index.html',hash:''},()=>({visibility:'visible'}));
+  const result=JSON.parse(output);
+  assert.ok(calls.includes('close'),'browser ownership and cleanup are retained');
+  if(!broken){
+    assert.equal(result.stderr,'');
+    assert.match(result.observationDom,/data-experience="observe"/);
+    assert.match(result.observationDom,/Base: loading/,'hidden model placeholder is allowed before native Research entry');
+    assert.match(result.dom,/data-experience="research"/);
+    assert.ok(!result.dom.includes('Base: loading'));
+    assert.ok(calls.indexOf('capture:observe')<calls.indexOf('native-research-click'),'initial observation is captured first');
+    assert.ok(calls.indexOf('native-research-click')<calls.indexOf('ready:research'),'model readiness follows actual entry');
+  } else {
+    assert.match(result.stderr,/Smoke readiness failed: fixture readiness timed out/,broken);
+    if(['image','observation-hidden','capture-time','source'].includes(broken)){
+      assert.equal(result.observationDom,'',broken+': invalid observation is never captured as ready');
+      assert.ok(!calls.includes('native-research-click'),broken+': failure cannot skip ahead to Research');
+    } else assert.ok(calls.includes('native-research-click'),broken+': model failure is checked after native entry');
+  }
+}
+"""
+        result = subprocess.run(["node", "--input-type=module", "-e", script,
+            str(browser_smoke.ROOT / "tools/browser_smoke_driver.mjs")], text=True, capture_output=True, timeout=10, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_sun_transport_requires_initial_observe_capture(self):
+        for observation in (None, '', '<body data-experience="research"><img id="observationImage"></body>'):
+            with self.subTest(observation=observation):
+                payload = {"dom": READY_SUN, "stderr": "", "observationDom": observation or ""}
+                completed = subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+                with patch.object(browser_smoke.subprocess, "run", return_value=completed):
+                    with self.assertRaisesRegex(AssertionError, "initial Observe capture"):
+                        browser_smoke.dump_dom("browser", "http://127.0.0.1/sol/releases/fixture/index.html")
+
+    def test_sun_transport_allows_hidden_model_placeholder_only_in_observe(self):
+        payload = {"dom": READY_SUN, "stderr": "", "observationDom":
+            '<body data-experience="observe"><img id="observationImage"><div>Base: loading</div><div>Loading snapshot.</div></body>'}
+        completed = subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+        with patch.object(browser_smoke.subprocess, "run", return_value=completed):
+            self.assertEqual(browser_smoke.dump_dom("browser", "http://127.0.0.1/index.html"), (READY_SUN, ""))
+        for invalid in (READY_SUN.replace('Base: synthetic photosphere (synthetic)', 'Base: loading'),
+                        READY_SUN + '<div>Loading snapshot.</div>',
+                        READY_SUN.replace('data-experience="research"', 'data-experience="observe"'),
+                        READY_SUN.replace('id="baseLabel"', 'id="missingBaseLabel"')):
+            with self.subTest(invalid=invalid), patch.object(browser_smoke, "dump_dom", return_value=(invalid, "")) as dump:
+                with self.assertRaisesRegex(AssertionError, "Sun Research"):
+                    browser_smoke.run_smoke("http://127.0.0.1", "browser")
+                self.assertEqual(dump.call_count, 1, 'a Research readiness failure cannot proceed to Sky')
+
     def test_actual_driver_deadlines_cover_stalls_and_late_launch_cleanup(self):
         # Execute the actual driver source with offline browser doubles and a
         # controlled timer queue, as in the independent review's hanging-font probe.
@@ -18,8 +107,9 @@ import fs from 'node:fs'; import assert from 'node:assert/strict';
 const source=fs.readFileSync(process.argv[1],'utf8').replace('import puppeteer from "puppeteer-core";','');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const flush=()=>new Promise(setImmediate);
-for(const stage of ['new-page','setup','cdp','goto','readiness','fonts','screenshot','content','launch','late-launch','late-after-grace','close']) {
+for(const stage of ['new-page','setup','cdp','goto','readiness','observation-readiness','observation-capture','research-activation','research-readiness','fonts','screenshot','content','launch','late-launch','late-after-grace','close']) {
   const calls=[], timers=new Map(); let nextId=0, now=0, resolveLaunch, settled=false, failure=null, output='';
+  const sunCase=stage.startsWith('observation-')||stage.startsWith('research-');let waits=0,captures=0;
   const timer=(fn,ms)=>{const id=++nextId;timers.set(id,{fn,ms,at:now+ms});return id;};
   const clear=id=>timers.delete(id);
   const fire=id=>{const t=timers.get(id);timers.delete(id);now=Math.max(now,t.at);t.fn();};
@@ -28,8 +118,9 @@ for(const stage of ['new-page','setup','cdp','goto','readiness','fonts','screens
   const child={exitCode:null,signalCode:null,kill(signal){calls.push('kill:'+signal);this.exitCode=1;return true;}};
   const page={setViewport:()=>step('setup'),setBypassServiceWorker:async()=>{},on(){},
     createCDPSession:()=>step('cdp',{send:async()=>{}}),goto:()=>step('goto'),
-    waitForFunction:()=>step('readiness'),evaluate:fn=>String(fn).includes('fonts.ready')?step('fonts'):Promise.resolve(''),
-    screenshot:()=>step('screenshot'),content:()=>step('content','<body></body>')};
+    waitForFunction:()=>step(sunCase?(++waits===1?'observation-readiness':'research-readiness'):'readiness'),
+    evaluate:fn=>String(fn).includes('fonts.ready')?step('fonts'):Promise.resolve(''),click:()=>step('research-activation'),
+    screenshot:()=>step('screenshot'),content:()=>step(sunCase&&++captures===1?'observation-capture':'content','<body></body>')};
   const browser={newPage:()=>step('new-page',page),close(){calls.push('close');return stage==='close'?wait():Promise.resolve();},
     process:()=>child,disconnect(){calls.push('disconnect');}};
   const puppeteer={launch(options){calls.push('launch');
@@ -41,7 +132,7 @@ for(const stage of ['new-page','setup','cdp','goto','readiness','fonts','screens
     if(stage.startsWith('late-'))return new Promise(resolve=>{resolveLaunch=resolve;});
     return Promise.resolve(browser);
   }};
-  const processMock={argv:['node','driver','owned-fixture-browser','http://127.0.0.1/fixture','fixture.png'],stdout:{write(value){output+=value;}}};
+  const processMock={argv:['node','driver','owned-fixture-browser','http://127.0.0.1/'+(sunCase?'index.html':'fixture'),'fixture.png'],stdout:{write(value){output+=value;}}};
   const task=new AsyncFunction('puppeteer','process','setTimeout','clearTimeout',source)(puppeteer,processMock,timer,clear);
   task.then(()=>{settled=true;},error=>{settled=true;failure=error;});
   await flush();
@@ -110,7 +201,7 @@ assert.equal(ready(input),false,'empty knots are not loaded');
                 return '<body data-smoke-ready="yes"></body>', ""
             if "#sky=" in url:
                 return '<button data-mode="sky" aria-pressed="true"></button><div id="skyList" class="sky-row">device civil timezone, not observer timezone</div>', ""
-            return '<div id="regionList" data-object-id="1">solar-state-snapshot.v3</div>', ""
+            return READY_SUN, ""
         with patch.object(browser_smoke, "dump_dom", side_effect=captured) as dump, patch.object(browser_smoke, "capture_screenshot") as screenshot:
             with self.assertRaisesRegex(AssertionError, "interaction assertions failed"):
                 browser_smoke.run_smoke("http://127.0.0.1", "browser")
@@ -129,7 +220,7 @@ assert.equal(ready(input),false,'empty knots are not loaded');
                         return "<body " + " ".join(m for m in markers if m != absent) + "></body>", ""
                     if "#sky=" in url:
                         return '<button data-mode="sky" aria-pressed="true"></button><div id="skyList" class="sky-row">device civil timezone, not observer timezone</div>', ""
-                    return '<div id="regionList" data-object-id="1">solar-state-snapshot.v3</div>', ""
+                    return READY_SUN, ""
                 with patch.object(browser_smoke, "dump_dom", side_effect=captured), patch.object(browser_smoke, "capture_screenshot") as screenshot:
                     with self.assertRaisesRegex(AssertionError, absent):
                         browser_smoke.run_smoke("http://127.0.0.1", "browser")

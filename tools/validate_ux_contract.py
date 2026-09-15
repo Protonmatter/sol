@@ -199,7 +199,7 @@ def validate(root: Path) -> list[str]:
             errors.append(f"disclosure label lacks information scent: {summary!r}")
     summary_open = {str(item["summary"]): is_open(item["attrs"]) for item in parser.details}
     for label, expected_open in {
-        "View": True,
+        "View": False,
         "Overlays": False,
         "Camera & motion": False,
     }.items():
@@ -234,8 +234,8 @@ def validate(root: Path) -> list[str]:
     if tour.get("role") != "dialog" or tour.get("aria-modal") != "true" or not tour.get("aria-labelledby"):
         errors.append("#tourCard must be a labelled modal dialog")
     panel = parser.ids.get("panelToggle", {})
-    if panel.get("aria-expanded") != "true":
-        errors.append("#panelToggle must expose its initially expanded state")
+    if panel.get("aria-expanded") != "false":
+        errors.append("#panelToggle must expose its initially collapsed state")
 
     css = css_path.read_text(encoding="utf-8")
     for token, message in (
@@ -247,7 +247,9 @@ def validate(root: Path) -> list[str]:
             errors.append(message)
 
     js = app_path.read_text(encoding="utf-8")
-    if 'setAttribute("aria-expanded"' not in js:
+    workspace_path = root / "js" / "workspace.js"
+    workspace_js = workspace_path.read_text(encoding="utf-8") if workspace_path.is_file() else ""
+    if not any(token in js + workspace_js for token in ('setAttribute("aria-expanded"', "setAttribute('aria-expanded'")):
         errors.append("panel collapse must update aria-expanded at runtime")
     module_text = "\n".join(
         path.read_text(encoding="utf-8")

@@ -30,7 +30,7 @@ export function drawSolarDisk() {
 
   const base = currentBaseImage();
   if (base) {
-    drawObservedBase(ctx, base, cx, cy, radius);
+    drawObservedBase(ctx, base, width, height);
     store.activeBaseKind = "observed";
     store.activeBaseLabel = base.cfg.label;
   } else {
@@ -46,11 +46,13 @@ export function drawSolarDisk() {
     drawModeOverlay(ctx, cx, cy, radius);
   }
 
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(247,183,51,0.82)";
-  ctx.lineWidth = Math.max(1.5, width * 0.0025);
-  ctx.stroke();
+  if (!base) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(247,183,51,0.82)";
+    ctx.lineWidth = Math.max(1.5, width * 0.0025);
+    ctx.stroke();
+  }
 
   if (!base && controls.regions.checked) {
     drawActiveRegions(ctx, cx, cy, radius);
@@ -65,28 +67,16 @@ export function drawSolarDisk() {
   updateWavelengthCaption();
 }
 
-function drawObservedBase(ctx, entry, cx, cy, radius) {
-  const { img, cfg } = entry;
-  const srcSize = img.naturalWidth;
-  const scale = radius / (srcSize * cfg.radiusFrac);
-  const srcCenter = srcSize * cfg.centerFrac;
-  const destSize = srcSize * scale;
-  const destX = cx - srcCenter * scale;
-  const destY = cy - srcCenter * scale;
-  ctx.save();
-  // HMI channels are the photospheric disk (clip to it); AIA EUV/UV show the corona arcing beyond the
-  // limb, so they are drawn unclipped (and skip the limb-darkening vignette, which assumes a hard disk).
-  const clip = entry.cfg.clip !== false;
-  if (clip) { ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.clip(); }
-  ctx.drawImage(img, destX, destY, destSize, destSize);
-  if (clip) {
-    const limb = ctx.createRadialGradient(cx, cy, radius * 0.74, cx, cy, radius);
-    limb.addColorStop(0, "rgba(0,0,0,0)");
-    limb.addColorStop(1, "rgba(0,0,0,0.4)");
-    ctx.fillStyle = limb;
-    ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
-  }
-  ctx.restore();
+function drawObservedBase(ctx, entry, width, height) {
+  const { img } = entry;
+  // A browse frame is a camera plane, not a registered photospheric disk.
+  // Preserve its complete field, caption, palette and existing limb treatment.
+  // The model radius must not crop the corona or shade HMI magnetic values.
+  const scale = Math.min(width / img.naturalWidth, height / img.naturalHeight);
+  const drawWidth = img.naturalWidth * scale, drawHeight = img.naturalHeight * scale;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
 }
 
 function drawSunBase(ctx, cx, cy, radius) {

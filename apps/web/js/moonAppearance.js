@@ -80,7 +80,7 @@ export function moonAlbedoGain(name) {
   return Math.min(GAIN_MAX, Math.max(GAIN_MIN, g));
 }
 
-/** Rec. 709 luma weights — the same ones the shader uses, so JS and GLSL agree on "brightness". */
+/** Legacy display-luma weights (BT.601 coefficients); match the shader's contrast normalization. */
 const LUMA = [0.299, 0.587, 0.114];
 
 /**
@@ -103,22 +103,33 @@ export function moonBaseColor(moon) {
 }
 
 /**
- * Real photographic surface maps for the moons, downloaded by tools/fetch_textures.py into
- * apps/web/textures/ (keys match that script's TEXTURES keys). Absent file ⇒ the moon falls
- * back to its procedural style, exactly as the planets do.
+ * Illustrative visible-light rim color, separate from the albedo-scaled main haze.
+ * Cassini's natural-color PIA06230 and PIA21625 show Titan's orange main haze with
+ * a tenuous blue high-altitude layer. This RGB is a display choice, not sampled
+ * photometry or a prediction of atmospheric structure. No surface detail is added.
+ * https://www.jpl.nasa.gov/images/pia06230-cassinis-view-of-titan-natural-color-composite/
+ * https://science.nasa.gov/photojournal/highlighting-titans-hazes/
+ * @param {string} name
+ * @returns {number[]}
+ */
+export function moonAtmosphereColor(name) {
+  return name === "Titan" ? [0.35, 0.5, 0.7] : [0, 0, 0];
+}
+
+/**
+ * Legacy photographic download identities retained for compatibility. Membership here
+ * does NOT authorize sphere mapping: textureEligible enforces independent qualification.
+ * New qualified maps live in visual-assets.v1.json mapped_references and use explicit
+ * axes, latitude limits and coverage. Absence or failure means a simplified sphere,
+ * never a procedural replacement. Historical fetcher omissions are not a claim that
+ * NASA has no newer or better product for a body.
  *
- * Every entry is a USGS Astrogeology global mosaic in SIMPLE CYLINDRICAL (equirectangular)
- * projection, which is the projection the sphere shader samples. Moons whose only published
- * global products are sinusoidal airbrush charts, printed map sheets, partial-latitude strips
- * or nothing at all are deliberately absent — see the NO_MOSAIC table in fetch_textures.py
- * for the per-moon reason.
- *
- * ORIENTATION IS NOT A CLAIM. drawMoons draws these spheres with no rotation model at all
- * (the catalogue carries orbits, not spin axes or prime meridians), so a map's features land
- * at the renderer's own frame, not at their true planetographic longitudes. What these
- * textures buy is a real SURFACE — Iapetus's two-tone hemispheres, Europa's lineae, Callisto's
- * saturation of craters — not the position of any one feature. The panel text and this
- * comment are the only places that can say so, so they do.
+ * ORIENTATION. drawMoons turns every synchronously rotating moon (SYNCHRONOUS_MOONS in
+ * moonorbits.js) so its prime meridian faces the planet along the mean orbit and its pole lies
+ * on the orbit normal, on the planet's IAU north side. A map's features therefore land near
+ * their planetographic longitudes; the residual is the omitted Cassini-state obliquity,
+ * physical libration and any fixed offset of an IAU prime meridian. Nereid is not tidally
+ * locked and keeps the renderer's frame, and its card says so.
  *
  * @type {Record<string, string>}
  */

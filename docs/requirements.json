@@ -1,6 +1,6 @@
 {
   "schema_version": "sol-requirements.v1",
-  "updated": "2026-09-11",
+  "updated": "2026-09-13",
   "requirements": [
     {
       "id": "SOL-ARCH-001",
@@ -336,6 +336,74 @@
       ]
     },
     {
+      "id": "SOL-UX-004",
+      "status": "implemented",
+      "statement": "The workspace MUST lead with a sourced observation, retain navigation and active-view source/time outside disclosures, and separate model controls and model feed state into explicit Research mode.",
+      "source": "docs/rfcs/0003-scientific-workspace-and-visual-provenance.md#requirements",
+      "implementation": [
+        "apps/web/index.html",
+        "apps/web/styles.css",
+        "apps/web/js/workspace.js",
+        "apps/web/js/explorer.js",
+        "apps/web/js/destinationCards.js",
+        "apps/web/js/destinationOverview.js"
+      ],
+      "verification": [
+        "tests/web/workspace.test.mjs",
+        "tests/web/explorer.test.mjs",
+        "tests/web/destinationCards.test.mjs",
+        "tests/web/destinationOverview.test.mjs",
+        "tools/experience_validation.mjs",
+        "tools/sky_validation.mjs"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-VIS-002",
+      "status": "implemented",
+      "statement": "Enlarged display geometry MUST preserve scientific centers, constrain artificial body penetration and share render, pick and camera transforms; physical scale MUST ignore exaggeration.",
+      "source": "docs/rfcs/0003-scientific-workspace-and-visual-provenance.md#requirements",
+      "implementation": [
+        "apps/web/js/displayGeometry.js",
+        "apps/web/js/orrery.js",
+        "apps/web/js/moonorbits.js"
+      ],
+      "verification": [
+        "tests/web/displayGeometry.test.mjs",
+        "tests/web/orreryCoverage.test.mjs"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-VIS-003",
+      "status": "implemented",
+      "statement": "Scientific visuals MUST retain source identity, use qualification and missing-detail limits; unqualified global textures MUST NOT render as observed surfaces.",
+      "source": "docs/rfcs/0003-scientific-workspace-and-visual-provenance.md#requirements",
+      "implementation": [
+        "apps/web/visual-assets.v1.json",
+        "apps/web/js/visualAssets.js",
+        "apps/web/js/solarObservation.js",
+        "apps/web/js/orreryDetail.js",
+        "tools/build_web.py"
+      ],
+      "verification": [
+        "tools/validate_visual_assets.py",
+        "tests/python/test_visual_assets.py",
+        "tests/python/test_visual_asset_build.py",
+        "tests/python/test_solar_observation.py",
+        "tests/web/visualAssets.test.mjs",
+        "tests/web/solarObservation.test.mjs"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts",
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
       "id": "SOL-REL-001",
       "status": "implemented",
       "statement": "A release MUST preserve test, coverage, deterministic snapshot, and browser visual evidence sufficient to identify the tested commit and reproduce a failure.",
@@ -357,6 +425,76 @@
       "ci_gates": [
         "CI / Governance and specification contracts",
         "CI / Engine determinism (cross-OS byte compare + schema)"
+      ]
+    },
+    {
+      "id": "SOL-VIS-004",
+      "status": "implemented",
+      "statement": "Registered planetary and moon display references MUST preserve source identity, map axes, source epoch, coverage and color limits; Earth auxiliary layers MUST remain source-based and separate from model time. All-body appearance refinement MUST preserve physical positions and disclose reference-orientation and shape approximations.",
+      "source": "docs/rfcs/0004-registered-planetary-appearance.md#requirements",
+      "implementation": [
+        "apps/web/js/planetAppearance.js",
+        "apps/web/js/surfaceMapping.js",
+        "apps/web/js/orrery.js",
+        "apps/web/js/orreryShaders.js",
+        "apps/web/visual-assets.v1.json",
+        "tools/prepare_earth_clouds.py"
+      ],
+      "verification": [
+        "tests/web/surfaceMapping.test.mjs",
+        "tests/web/planetAppearanceRuntime.test.mjs",
+        "tests/web/colorContracts.test.mjs",
+        "tests/web/texturePipelineValidation.test.mjs",
+        "tools/texture_pipeline_validation.mjs",
+        "tests/python/test_mapped_references.py",
+        "tests/python/test_fetch_earth_reference.py",
+        "tests/python/test_prepare_earth_clouds.py",
+        "tests/python/test_planet_reference.py",
+        "tests/python/test_moon_reference.py",
+        "tests/web/destinationCards.test.mjs",
+        "tests/web/rings.test.mjs",
+        "tests/python/test_visual_assets.py",
+        "tools/validate_visual_assets.py",
+        "tools/planet_appearance_validation.mjs",
+        "tools/ring_appearance_validation.mjs",
+        "tools/browser_validation.mjs"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts",
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-VIS-005",
+      "status": "implemented",
+      "statement": "Terrain MUST use registered numerical elevation or shape products with physical datum, finite extents, source hashes and bounded geometry; physical engine state remains unchanged.",
+      "source": "docs/rfcs/0005-physical-rendering.md#requirements",
+      "implementation": ["apps/web/js/terrainGeometry.js", "apps/web/js/terrainAssets.js", "apps/web/js/terrain.worker.js", "apps/web/js/terrainWorkerClient.js", "apps/web/js/terrainShadowShaders.js", "apps/web/js/orrery.js", "apps/web/terrain-assets.v1.json"],
+      "verification": ["tests/web/terrainGeometry.test.mjs", "tests/web/terrainAssets.test.mjs", "tests/web/terrainShadows.test.mjs", "tests/web/terrainWorkerClient.test.mjs", "tests/web/orreryPhysicalLifecycle.test.mjs", "tests/python/test_terrain_reference.py", "tools/validate_physical_assets.py", "tools/terrain_shadow_validation.mjs", "tools/physical_rendering_validation.mjs"],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-VIS-006",
+      "status": "implemented",
+      "statement": "Optical rendering MUST separate incident and view attenuation, scattering, reflection and emission, with dimensioned reference models and explicit qualification limits.",
+      "source": "docs/rfcs/0005-physical-rendering.md#requirements",
+      "implementation": ["apps/web/js/atmosphereOptics.js", "apps/web/js/atmosphereShaders.js", "apps/web/js/atmosphereIncident.js", "apps/web/js/atmosphereIncidentManifest.js", "apps/web/js/orreryShaders.js", "apps/web/js/orrery.js", "tools/prepare_atmosphere_incident.mjs"],
+      "verification": ["tests/web/atmosphereOptics.test.mjs", "tests/web/atmosphereIncident.test.mjs", "tests/web/atmosphereProfileIdentity.test.mjs", "tests/web/orreryIncidentLifecycle.test.mjs", "tests/web/atmosphereTerrainCandidate.test.mjs", "tests/python/test_atmosphere_reference.py", "tests/python/test_atmosphere_terrain_reference.py", "tests/python/test_physical_assets.py", "tests/python/test_incident_release_build.py", "tools/atmosphere_reference.py", "tools/atmosphere_validation.mjs", "tools/incident_budget_validation.mjs", "tools/physical_rendering_validation.mjs"],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-VIS-007",
+      "status": "implemented",
+      "statement": "Dynamic solar and planetary appearance MUST retain source band, frame, coverage, epoch, geometry provenance and bounded deterministic playback separate from orbital time.",
+      "source": "docs/rfcs/0005-physical-rendering.md#requirements",
+      "implementation": ["apps/web/js/solarAppearance.js", "apps/web/js/solarVolumeShaders.js", "apps/web/js/solarAssetLoader.js", "apps/web/js/physicalRendering.js", "apps/web/js/planetPhenomena.js", "apps/web/js/orrery.js", "apps/web/solar-appearance.v1.json"],
+      "verification": ["tests/web/solarAppearance.test.mjs", "tests/web/solarAssetLoader.test.mjs", "tests/web/physicalRendering.test.mjs", "tests/web/orreryPhysicalLifecycle.test.mjs", "tests/web/planetPhenomena.test.mjs", "tests/python/test_solar_appearance.py", "tools/validate_physical_assets.py", "tools/solar_appearance_validation.mjs", "tools/physical_rendering_validation.mjs"],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
       ]
     }
   ]

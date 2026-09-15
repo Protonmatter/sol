@@ -12,6 +12,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg?v=dcca6290db">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="styles.css?v=dcca6290db">
+    <link rel="stylesheet" href="planet-phenomena.css">
     <!-- Flatten the ES-module waterfall: without these, the ~28-module import graph
          loads serially by depth. Keep in sync with apps/web/js/ (validate_web_static checks). -->
     <link rel="modulepreload" href="engine.js?v=dcca6290db">
@@ -31,7 +32,39 @@
     <link rel="modulepreload" href="js/format.js?v=dcca6290db">
     <link rel="modulepreload" href="js/galacticobjects.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orrery.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/shaderPrograms.js">
     <link rel="modulepreload" href="js/labelLayout.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/labelOcclusion.js">
+    <link rel="modulepreload" href="js/planetAppearance.js">
+    <link rel="modulepreload" href="js/atmosphereOptics.js">
+    <link rel="modulepreload" href="js/atmosphereShaders.js">
+    <link rel="modulepreload" href="js/atmosphereIncident.js">
+    <link rel="modulepreload" href="js/atmosphereIncidentManifest.js">
+    <link rel="modulepreload" href="js/atmosphereColumnField.js">
+    <link rel="modulepreload" href="js/atmosphereColumnManifest.js">
+    <link rel="modulepreload" href="js/atmosphereScattering.js">
+    <link rel="modulepreload" href="js/scatteringTargets.js">
+    <link rel="modulepreload" href="js/physicalRendering.js">
+    <link rel="modulepreload" href="js/hdrPresentation.js">
+    <link rel="modulepreload" href="js/hdrPresentationShaders.js">
+    <link rel="modulepreload" href="js/materialColor.js">
+    <link rel="modulepreload" href="js/ringTransport.js">
+    <link rel="modulepreload" href="js/ringTransportShaders.js">
+    <link rel="modulepreload" href="js/surfaceReflection.js">
+    <link rel="modulepreload" href="js/surfaceReflectionShaders.js">
+    <link rel="modulepreload" href="js/terrainResources.js">
+    <link rel="modulepreload" href="js/planetPhenomena.js">
+    <link rel="modulepreload" href="js/planetPhenomenaManifest.js">
+    <link rel="modulepreload" href="js/solarAppearance.js">
+    <link rel="modulepreload" href="js/solarAppearanceManifest.js">
+    <link rel="modulepreload" href="js/solarAssetLoader.js">
+    <link rel="modulepreload" href="js/solarVolumeShaders.js">
+    <link rel="modulepreload" href="js/terrain.worker.js">
+    <link rel="modulepreload" href="js/terrainAssets.js">
+    <link rel="modulepreload" href="js/terrainGeometry.js">
+    <link rel="modulepreload" href="js/terrainShadowShaders.js">
+    <link rel="modulepreload" href="js/terrainWorkerClient.js">
+    <link rel="modulepreload" href="js/surfaceMapping.js">
     <link rel="modulepreload" href="js/solarRegionFacts.js?v=dcca6290db">
     <link rel="modulepreload" href="js/systemContract.js?v=dcca6290db">
     <link rel="modulepreload" href="js/systemWorkerClient.js?v=dcca6290db">
@@ -46,6 +79,7 @@
     <link rel="modulepreload" href="js/moons.js?v=dcca6290db">
     <link rel="modulepreload" href="js/moonshadows.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orreryMath.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/orbitCamera.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orreryShaders.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orreryTime.js?v=dcca6290db">
     <link rel="modulepreload" href="js/panels.js?v=dcca6290db">
@@ -73,41 +107,99 @@
     <link rel="modulepreload" href="js/tooltip.js?v=dcca6290db">
     <link rel="modulepreload" href="js/tour.js?v=dcca6290db">
     <link rel="modulepreload" href="js/view.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/workspace.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/explorer.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/destinationCards.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/destinationOverview.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/solarObservation.js">
+    <link rel="modulepreload" href="js/displayGeometry.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/visualAssetManifest.js">
+    <link rel="modulepreload" href="js/referenceDemand.js">
+    <link rel="modulepreload" href="js/visualAssets.js?v=dcca6290db">
     <link rel="modulepreload" href="js/wavelength.js?v=dcca6290db">
   </head>
-  <body>
+  <body class="panel-collapsed" data-experience="observe" data-surface="today">
     <main class="app-shell">
       <a class="skip-link" href="#viewTitle">Skip to the current view</a>
       <header class="app-header">
-        <a class="brand" href="#viewTitle" aria-label="Sol, research and learning"><span aria-hidden="true">◉</span> Sol</a>
+        <a class="brand" href="#viewTitle" aria-label="Sol, research and learning"><span class="brand-orbit" aria-hidden="true"></span><span class="brand-word">SOL</span></a>
         <nav class="mode-nav" aria-label="Destinations">
           <div class="mode-grid mode-grid-3" role="group" aria-label="Destinations">
-            <button class="mode-button active" type="button" data-mode="today" aria-pressed="true" aria-label="The Sun">The Sun</button>
-            <button class="mode-button" type="button" data-mode="sky" aria-pressed="false" aria-label="My Sky">My Sky</button>
-            <button class="mode-button" type="button" data-mode="orrery" aria-pressed="false" aria-label="Solar System">Solar System</button>
+            <button class="mode-button active" type="button" data-mode="today" aria-pressed="true" aria-label="The Sun"><span class="nav-symbol nav-sun" aria-hidden="true">☀</span><span>The Sun</span></button>
+            <button class="mode-button" type="button" data-mode="sky" aria-pressed="false" aria-label="My Sky"><span class="nav-symbol" aria-hidden="true">☾</span><span>My Sky</span></button>
+            <button class="mode-button" type="button" data-mode="orrery" aria-pressed="false" aria-label="Solar System"><span class="nav-symbol" aria-hidden="true">♄</span><span>Solar System</span></button>
           </div>
         </nav>
         <div class="header-actions">
           <a href="#sourcesAndLimits" id="sourcesLink">Sources &amp; limits</a>
-          <button id="tourStart" class="time-btn ghost" type="button">Help / tour</button>
+          <button id="tourStart" class="time-btn ghost" type="button">Learn</button>
+          <details class="offline-menu"><summary>Offline</summary>
           <button id="releaseUpdate" class="time-btn" type="button" hidden>Reload into verified update</button>
           <span id="releaseStatus" class="release-status" role="status">Local preview</span>
+          </details>
         </div>
       </header>
       <section class="view-heading" aria-label="Current view and scientific context">
         <div>
-          <p class="eyebrow">Research and learning · not operational forecasting</p>
+          <p class="eyebrow">SOLAR MAXIMUM ENGINE <span class="brand-tagline">A closer Sun. A wider universe.</span></p>
           <h1 id="viewTitle" tabindex="-1">Explore the Sun</h1>
           <p id="plainInsight" class="insight">Loading validated model and source evidence…</p>
           <p id="surfaceInsight" class="insight" hidden></p>
           <div class="view-evidence"><span id="viewSource" class="state-pill">Source: loading</span><span id="viewTime">Time: loading</span></div>
+          <p id="viewAvailability" class="workspace-availability">View: awaiting validated data · research and learning only</p>
+          <div class="state-row solar-runtime" aria-label="Solar model runtime state">
+            <span id="dataState" class="state-pill">data: loading</span>
+            <span id="ingestState" class="state-pill">feed: loading</span>
+            <span id="readinessState" class="state-pill">readiness: loading</span>
+          </div>
         </div>
-        <button id="panelToggle" class="panel-toggle" type="button" aria-label="Hide inspector" aria-controls="viewInspector" aria-expanded="true">Hide inspector</button>
+        <div class="workspace-actions" role="group" aria-label="Workspace controls">
+          <div class="experience-switch" role="group" aria-label="Sun experience">
+            <button id="exploreObservation" type="button" aria-pressed="true">Observe</button>
+            <button id="exploreResearch" type="button" aria-pressed="false">Research</button>
+          </div>
+          <button id="timelineToggle" class="time-btn ghost research-control" type="button" aria-controls="timeline" aria-expanded="false">Open timeline</button>
+          <button id="panelToggle" class="panel-toggle research-control" type="button" aria-label="Open inspector" aria-controls="viewInspector" aria-expanded="false">Open inspector</button>
+          <button id="focusToggle" class="time-btn ghost" type="button" aria-pressed="false">Focus view</button>
+        </div>
         <p id="snapshotStatus" class="snapshot-status" role="status" hidden></p>
         <button id="retrySnapshot" class="time-btn" type="button" hidden>Retry model-data update</button>
       </section>
       <section class="stage-band" aria-label="Solar maximum engine">
         <div class="viewport">
+          <section id="solarObservation" class="solar-observation" aria-label="NASA solar observation">
+            <div id="observationMedia" class="observation-image-wrap" aria-busy="true">
+              <img id="observationImage" width="1024" height="1024" alt="Saved NASA SDO solar observation" fetchpriority="high" hidden>
+              <p id="observationLoading" class="observation-loading" role="status">Loading the saved NASA observation…</p>
+              <div id="observationUnavailable" class="observation-unavailable" role="status" hidden>
+                <h2>Observation unavailable</h2><p>The saved NASA image could not be loaded.</p>
+                <button id="observationRetry" class="time-btn" type="button">Retry image</button>
+              </div>
+            </div>
+            <div class="image-channel"><span class="channel-dot" aria-hidden="true"></span>AIA 171 Å <span>Corona</span></div>
+            <aside id="explorerOverview" class="explorer-overview" aria-label="About this solar observation">
+              <p class="card-kicker">OUR STAR</p>
+              <h2>The Sun</h2>
+              <p class="card-intro">A living, dynamic star.<br>A new perspective on home.</p>
+              <div class="overview-tabs"><span>Overview</span><a href="#observationDetails">Image details <span aria-hidden="true">↗</span></a></div>
+              <div class="sun-facts">
+                <div><strong id="sunDiameter">1.391 million km</strong><span>Diameter</span></div>
+                <div><strong id="sunTemperature">5,772 K</strong><span>Effective temperature</span></div>
+                <div><strong>G2V</strong><span>Stellar classification</span></div>
+                <div><strong>Our nearest star</strong><span>At the heart of our system</span></div>
+              </div>
+              <p class="observation-story">Bright loops trace hot plasma in the Sun’s outer atmosphere. AIA sees this extreme ultraviolet light; gold makes its structure visible to us.</p>
+              <details id="observationDetails" class="observation-details">
+                <summary>About this image <span aria-hidden="true">+</span></summary>
+                <p>NASA Solar Dynamics Observatory · AIA 171 Å. False-color extreme ultraviolet, shown in its original image plane. This saved browse image is for exploration and education.</p>
+                <p>Model regions and magnetic fields are not overlaid on this observation.</p>
+                <a id="observationSource" target="_blank" rel="noopener noreferrer">NASA / SDO</a>
+              </details>
+              <button id="openResearchTools" class="research-entry" type="button">Explore the solar model <span aria-hidden="true">→</span></button>
+              <button id="openEarthContext" class="earth-context-link" type="button">How the Sun influences Earth <span aria-hidden="true">↗</span></button>
+            </aside>
+            <div class="observation-caption"><span class="archive-label">SAVED OBSERVATION</span><span id="observationStatus">Loading capture time…</span><span id="observationCredit">NASA / SDO</span></div>
+          </section>
           <div id="stageRail" class="stage-rail" role="group" aria-label="Solar cycle stage (click a stage to learn about it)">
             <span class="stage-step" data-stage="minimum" data-term="stage-minimum" role="button" tabindex="0">Minimum</span>
             <span class="stage-step" data-stage="rising" data-term="stage-rising" role="button" tabindex="0">Rising</span>
@@ -117,8 +209,16 @@
           <div id="baseLabel" class="base-label" aria-live="polite">Base: loading</div>
           <canvas id="solarCanvas" width="900" height="900" aria-label="Solar disk rendering"></canvas>
           <canvas id="skyCanvas" width="900" height="900" aria-label="Local sky: a horizon dome showing where each body is"></canvas>
-          <canvas id="orreryCanvas" aria-label="Solar System: lit textured planets, rings, and the real sky in 3-D (with a top-down view), rendered with WebGL2"></canvas>
+          <canvas id="orreryCanvas" aria-label="Solar System: modeled planets, rings and catalogue sky in 3-D, with a top-down view and explicit display scale"></canvas>
           <div id="orreryLabels" class="orrery-labels" aria-hidden="true"></div>
+          <div id="systemJumps" class="system-jumps" role="group" aria-label="Explore a planetary system" hidden>
+            <button type="button" data-camera-body="Sun" aria-pressed="true">Our system</button>
+            <button type="button" id="orreryInspectSun">The Sun</button>
+            <button type="button" data-camera-body="Earth" aria-pressed="false">Earth</button>
+            <button type="button" data-camera-body="Jupiter" aria-pressed="false">Jupiter</button>
+            <button type="button" data-camera-body="Saturn" aria-pressed="false">Saturn</button>
+          </div>
+          <div class="destination-caption"><p id="destinationCaption"></p><p id="destinationCaveat"></p><p id="orreryPhysicalStatus" hidden></p></div>
           <div class="status-strip" aria-live="polite">
             <div>
               <span class="label">Stage</span>
@@ -131,7 +231,7 @@
           </div>
         </div>
 
-      <section id="timeline" class="timeline-band" aria-label="Solar cycle timeline">
+      <section id="timeline" class="timeline-band" aria-label="Solar cycle timeline" hidden>
         <div class="timeline-inner">
           <div class="timeline-copy">
             <h2 id="journeyTitle">Solar cycle timeline</h2>
@@ -159,7 +259,44 @@
         </div>
       </section>
 
-        <aside id="viewInspector" class="control-panel" aria-label="View inspector and controls">
+        <aside id="destinationOverview" class="destination-overview" aria-label="Current view overview" hidden>
+          <p id="destinationEyebrow" class="eyebrow"></p>
+          <h2 id="destinationTitle" aria-live="polite" aria-atomic="true"></h2>
+          <p id="destinationDescription" class="destination-story"></p>
+          <dl id="destinationFacts" class="destination-facts"></dl>
+          <details id="destinationPreview" class="destination-preview" hidden>
+            <summary>NASA / mission archive reference</summary>
+            <img id="destinationImage" alt="">
+            <p id="destinationImageStatus">Archive reference · separate from the 3-D scene</p>
+            <a id="destinationImageSource" target="_blank" rel="noopener noreferrer"></a>
+          </details>
+          <p id="destinationNote" class="destination-note"></p>
+          <div id="orreryPlanetPhenomena" hidden></div>
+          <div id="orrerySolarControls" class="physical-source-controls" hidden>
+            <label for="orrerySolarMode">See the Sun in</label>
+            <select id="orrerySolarMode" class="sky-input"><option value="reconstructed-euv">AIA 171 Å + modeled corona</option><option value="visible">Visible-light approximation</option></select>
+            <p>Two NASA/SDO source frames, 10 May 2024. Intermediate imagery and elevated arcs are reconstructed. The far side is unobserved.</p>
+            <div class="physical-source-actions"><button id="orrerySolarPlay" type="button" class="time-btn" aria-pressed="false">Play source</button><button id="orrerySolarRestart" type="button" class="time-btn">Restart / retry</button></div>
+            <label for="orrerySolarTime">Source interval · independent of system time</label>
+            <input id="orrerySolarTime" type="range" min="0" max="20" step="0.05" value="0">
+            <output id="orrerySolarEpoch" for="orrerySolarTime"></output>
+          </div>
+          <details id="destinationAppearance" class="destination-preview" hidden>
+            <summary>Imagery sources &amp; coverage</summary>
+            <p id="destinationAppearanceText"></p>
+            <div id="destinationAppearanceSources"></div>
+          </details>
+          <button id="destinationEarthLayers" class="overview-cta" type="button" hidden>Earth layers <span aria-hidden="true">→</span></button>
+          <button id="destinationFocus" class="overview-cta" type="button" hidden>Focus on object</button>
+          <button id="destinationSearch" class="overview-cta" type="button">Find an object <span aria-hidden="true">→</span></button>
+          <div class="destination-actions">
+            <button id="destinationDetails" type="button">Object details</button>
+            <button id="destinationLocation" type="button">Set location</button>
+            <button id="destinationTime" type="button">Date &amp; time</button>
+          </div>
+        </aside>
+        <aside id="viewInspector" class="control-panel" aria-label="View inspector and controls" hidden inert>
+          <button id="inspectorClose" class="time-btn ghost inspector-close" type="button">Close inspector</button>
           <header>
             <p class="eyebrow">The Sun · inspector</p>
             <h2>Look closer</h2>
@@ -170,12 +307,7 @@
             <span class="label">What you are seeing</span>
             <strong id="summaryPrimary">Loading snapshot.</strong>
             <p id="summaryDetail">The web app renders the current immutable state snapshot.</p>
-            <div class="state-row" aria-label="Runtime state">
-              <span id="dataState" class="state-pill">data: loading</span>
-              <span id="ingestState" class="state-pill">feed: loading</span>
-              <span id="readinessState" class="state-pill">readiness: loading</span>
-              <a class="timeline-link" href="#timeline">Timeline</a>
-            </div>
+            <a class="timeline-link" href="#timeline">Timeline</a>
           </section>
 
           <section class="sky-panel" aria-label="My Sky">
@@ -184,8 +316,8 @@
               <h1>Where to look right now</h1>
               <p id="skyInsight" class="insight">Computed positions for an example or chosen observer. Geometric above-horizon does not guarantee visibility: daylight, weather, terrain, extinction and glare are not modelled.</p>
             </header>
-            <div class="sky-observer">
-              <span class="label">Your location</span>
+            <details id="skyLocationControls" class="destination-control-group sky-observer">
+              <summary>Location</summary>
               <div class="sky-loc-row">
                 <button id="skyGeo" class="time-btn" type="button">Use my location</button>
                 <input id="skyLat" class="sky-input" type="number" step="0.01" min="-90" max="90" placeholder="lat °" aria-label="latitude degrees">
@@ -195,9 +327,9 @@
               </div>
               <p id="skyLocLabel" class="time-frame-label" aria-live="polite">New York example location — this is not your detected location.</p>
               <p id="skyInputError" class="time-frame-label" role="status" aria-live="polite"></p>
-            </div>
-            <div class="sky-time">
-              <span class="label">Time</span>
+            </details>
+            <details id="skyTimeControls" class="destination-control-group sky-time">
+              <summary>Date &amp; time</summary>
               <div class="sky-loc-row">
                 <label>Time interpretation <select id="skyTimeMode"><option value="device">Device civil timezone</option><option value="utc">UTC</option></select></label>
                 <input id="skyTime" class="sky-input sky-input-wide" type="datetime-local" min="0001-01-01T00:00" max="9999-12-31T23:59" aria-label="observation date and time in selected timezone" aria-describedby="skyTimeLabel">
@@ -205,9 +337,9 @@
               </div>
               <p id="skyTimeLabel" class="time-frame-label" aria-live="polite">Live — updating every minute.</p>
               <p id="skyAccuracy" class="epoch-accuracy acc-good"></p>
-            </div>
-            <div class="sky-source">
-              <span class="label">Data source</span>
+            </details>
+            <details id="skySourceControls" class="destination-control-group sky-source">
+              <summary>Source &amp; sharing</summary>
               <div class="sky-loc-row">
                 <button id="skyProviderLocal" class="time-btn active" type="button">On your device</button>
                 <button id="skyProviderServer" class="time-btn ghost" type="button">NASA JPL (live)</button>
@@ -228,9 +360,9 @@
                 <button id="skyShareConfirm" class="time-btn" type="button">Confirm sharing precise values</button>
                 <button id="skyShareCancel" class="time-btn ghost" type="button">Cancel</button>
               </div>
-            </div>
+            </details>
             <div class="sky-loc-row" style="gap:.9rem; flex-wrap:wrap">
-              <label class="orrery-check"><input id="skyConst" type="checkbox" checked> Constellations</label>
+              <label class="orrery-check"><input id="skyConst" type="checkbox"> Constellations</label>
               <label class="orrery-check"><input id="skyTraj" type="checkbox" checked> Trajectories</label>
             </div>
             <p class="time-frame-label">Hover an object for its details and its path across the sky (dashed = where it's been, solid = where it's heading); click to pin. Planets/Sun/Moon below the horizon show as ticks just outside the rim.</p>
@@ -239,7 +371,7 @@
               <label>Search objects <input id="skySearch" type="search" class="sky-input sky-input-wide" placeholder="Sun, Moon, planet or star"></label>
               <label>Filter <select id="skyFilter"><option value="all">All objects</option><option value="above">Above geometric horizon</option><option value="below">At/below geometric horizon</option><option value="sunmoon">Sun and Moon</option><option value="planets">Planets</option><option value="stars">Catalogue stars</option></select></label>
               <p id="skyResultCount" class="time-frame-label" role="status"></p>
-              <section aria-label="Selected Sky object"><h2>Selected object</h2><div id="skySelectedFacts">Select an object for persistent facts.</div></section>
+              <details class="destination-control-group"><summary>Selected object details</summary><div id="skySelectedFacts" tabindex="-1">Select an object for persistent facts.</div></details>
               <div id="skyList" class="sky-list"></div>
             </div>
           </section>
@@ -251,7 +383,8 @@
               <p id="orreryInsight" class="insight" aria-live="polite">Explore modeled planetary positions in 3-D or a top-down map. Bodies are enlarged for visibility; source limits are shown with the rendered date. Select an object in the view or search below. Keyboard: focus the view, then arrow keys orbit and +/− zoom.</p>
             </header>
             <div class="sky-observer">
-              <span class="label">Date</span>
+              <details id="systemTimeControls" class="destination-control-group">
+              <summary>Date, focus &amp; motion</summary>
               <div class="sky-loc-row">
                 <button id="orreryNow" class="time-btn" type="button">Now</button>
                 <input id="orreryTime" class="sys-range" type="range" min="-5000" max="5000" step="1" value="0" aria-label="years from now (heliocentric)">
@@ -300,13 +433,16 @@
                       </select>
                     </div>
                   </div>
-              <details class="orrery-group" open>
+              </details>
+              <details class="orrery-group">
                 <summary>View</summary>
                 <div class="orrery-group-body">
                   <div class="orrery-check-grid">
                     <label class="orrery-check"><input id="orreryTopDown" type="checkbox"> Top-down map</label>
                     <label class="orrery-check"><input id="orreryAnimate" type="checkbox" checked> Play time</label>
-                    <label class="orrery-check"><input id="orreryTextures" type="checkbox" checked> Photo textures</label>
+                    <label class="orrery-check"><input id="orreryTextures" type="checkbox" checked> Source-qualified textures</label>
+                    <label class="orrery-check"><input id="orreryTerrain" type="checkbox" checked> Measured terrain relief</label>
+                    <label class="orrery-check"><input id="orreryOptics" type="checkbox" checked> Reference atmospheric scattering</label>
                     <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> Physical scale</label>
                   </div>
                   <p id="orreryScaleStatus" class="time-frame-label">Enlarged for visibility — body sizes and moon spacing are exaggerated.</p>
@@ -314,15 +450,48 @@
               </details>
 
               <details class="orrery-group">
+                <summary>Earth layers</summary>
+                <div class="orrery-group-body">
+                  <div class="orrery-check-grid">
+                    <label class="orrery-check"><input id="orreryEarthNight" type="checkbox" checked> Night lights</label>
+                    <label class="orrery-check"><input id="orreryEarthWeather" type="checkbox" checked> Clouds</label>
+                    <label class="orrery-check"><input id="orreryEarthIce" type="checkbox"> Sea ice concentration</label>
+                  </div>
+                  <label class="orrery-field">Cloud imagery
+                    <select id="orreryEarthCloudSource" class="sky-input" aria-describedby="orreryEarthCloudHelp">
+                      <option value="composite" selected>Blue Marble 2002 cloud layer (historical)</option>
+                      <option value="daily">MODIS 2026-09-12 (swaths with surface)</option>
+                    </select>
+                  </label>
+                  <p id="orreryEarthCloudHelp" class="time-frame-label">The Blue Marble 2002 cloud layer lies over the land map, so clouds and continents stay visible together. Dated MODIS swaths replace the land map with their own surface and retain gaps and boundaries between passes. Neither is live weather.</p>
+                  <p id="orreryEarthLayerStatus" class="time-frame-label" role="status"></p>
+                  <p class="time-frame-label">Imagery keeps its source date as the model clock moves. Antarctica and Greenland appear in the land map. Sea ice is a dated scientific color overlay. The blue atmospheric rim is an illustrative scattering effect, not a measurement of current air conditions.</p>
+                  <figure id="orreryIceLegend" class="earth-ice-legend" hidden>
+                    <img src="images/earth-sea-ice-legend.png" width="420" height="95" alt="NASA sea ice concentration scale from 0 percent (dark) through purple, blue, cyan, green, yellow and red to 100 percent (white)">
+                    <figcaption id="orreryIceLegendCaption">NASA/JPL MUR sea ice concentration. Transparent areas have no displayed data.</figcaption>
+                  </figure>
+                </div>
+              </details>
+
+              <details class="orrery-group">
+                <summary>Venus layers</summary>
+                <div class="orrery-group-body">
+                  <div class="orrery-check-grid">
+                    <label class="orrery-check"><input id="orreryVenusRadar" type="checkbox"> Magellan radar surface</label>
+                  </div>
+                  <p class="time-frame-label">In visible light Venus is an unbroken sulfuric-acid cloud deck. The radar map shows the ground beneath it, which no eye or camera sees.</p>
+                </div>
+              </details>
+              <details class="orrery-group">
                 <summary>Overlays</summary>
                 <div class="orrery-group-body">
                   <div class="orrery-check-grid">
                     <label class="orrery-check"><input id="orreryShowOrbits" type="checkbox" checked> Orbits</label>
                     <label class="orrery-check"><input id="orreryShowSky" type="checkbox" checked> Sky</label>
-                    <label class="orrery-check"><input id="orreryShowConst" type="checkbox" checked> Constellations</label>
+                    <label class="orrery-check"><input id="orreryShowConst" type="checkbox"> Constellations</label>
                     <label class="orrery-check"><input id="orreryShowLabels" type="checkbox" checked> Sky labels</label>
-                    <label class="orrery-check"><input id="orreryShowSunEq" type="checkbox" checked> Sun's equator</label>
-                    <label class="orrery-check"><input id="orreryShowSmall" type="checkbox" checked> Small bodies</label>
+                    <label class="orrery-check"><input id="orreryShowSunEq" type="checkbox"> Reference guides</label>
+                    <label class="orrery-check"><input id="orreryShowSmall" type="checkbox"> Small bodies</label>
                     <label class="orrery-check"><input id="orreryShowMoons" type="checkbox" checked> Moons</label>
                     <label class="orrery-check"><input id="orreryDeepSky" type="checkbox" checked> Deep sky (Milky Way)</label>
                   </div>
@@ -343,17 +512,18 @@
                 </div>
               </details>
 
-              <p class="time-frame-label">Orbits sit at their true inclinations against the ecliptic plane (grey grid); drop-lines show each planet's height above/below it.</p>
+              <p class="time-frame-label">Orbit inclinations are preserved. Enable Reference guides to see the ecliptic grid and height drop-lines.</p>
               <p id="orreryBackend" class="time-frame-label"></p>
               <p id="orreryMetadataEpoch" class="time-frame-label"></p>
               <button id="orreryRetry" class="time-btn" type="button" hidden>Retry System calculation</button>
             </div>
             <div class="sky-whatsup">
               <span class="label">Selected body</span>
-              <div id="orreryDetail" class="sky-list"><div class="sky-row">Click the Sun or a planet to inspect its size, gravity, rotation, tilt, magnetic field, atmosphere, and live distance.</div></div>
+              <div id="orreryDetail" class="sky-list" tabindex="-1"><div class="sky-row">Click the Sun or a planet to inspect its size, gravity, rotation, tilt, magnetic field, atmosphere, and live distance.</div></div>
               <p id="orrerySelectionStatus" class="sr-only" role="status"></p>
               <p id="orrerySelectedEpoch" class="time-frame-label"></p>
               <button id="orreryFocusSelected" type="button" class="time-btn">Focus selected body</button>
+
             </div>
             <div class="sky-whatsup">
               <label class="label" for="orrerySearch">Find an object</label>

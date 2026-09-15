@@ -15,6 +15,8 @@
 export const SUN_RADIUS_KM = 695700;
 export const AU_KM = 149597870.7;
 
+/** @typedef {{name:string, innerKm:number, outerKm:number, opacity:number}} RingBand */
+/** @typedef {{innerKm:number, outerKm:number, gaps?:[number,number][], bands?:RingBand[]}} RingSystem */
 /** @typedef {{
  *  radiusKm:number, polarKm:number, massKg:number, densityGcm3:number,
  *  gravity:number, escapeKms:number, rotationHours:number, tiltDeg:number,
@@ -22,7 +24,7 @@ export const AU_KM = 149597870.7;
  *  poleRaDotDegPerCty:number, poleDecDotDegPerCty:number,
  *  magDipoleEarth:number, magnetosphere:boolean, atmosphere:{pressureBar:number,composition:string},
  *  albedo:number, meanTempK:number, style:string, color:[number,number,number],
- *  rings?:{innerKm:number, outerKm:number, gaps?:[number,number][]},
+ *  rings?:RingSystem,
  *  precession?:{obliquityDeg:number,rateArcsecPerYear:number,lon0Deg:number},
  *  poleNut?:{n0Deg:number,nDotDegPerCty:number,raAmpDeg:number,decAmpDeg:number,wAmpDeg:number},
  *  tidalLock?:{orbitalPeriodDays:number,librationLonDeg:number,librationLatDeg:number,visibleFraction:number},
@@ -104,9 +106,18 @@ export const BODY = {
     magDipoleEarth: 580, magnetosphere: true,
     atmosphere: { pressureBar: NaN, composition: "96% H₂, 3% He; NH₃ haze" },
     albedo: 0.499, meanTempK: 134, style: "saturn", color: [0.91, 0.83, 0.58],
-    // Ring radii (km from Saturn's centre): C-ring inner edge to the A-ring outer edge, with the
-    // Cassini Division as a gap. (Saturn radius 60,268 km → rings span ~1.24–2.27 R.)
-    rings: { innerKm: 74500, outerKm: 136780, gaps: [[117580, 122170]] },
+    // USGS/IAU Ring Nomenclature radii, km from centre. Existing clearance envelope retained.
+    // Band opacities are illustrative, not measured optical depths. Exact source/selection
+    // limits: docs/plans/2026-09-13-system-polish/RING_SOURCES.md.
+    rings: { innerKm: 74500, outerKm: 136780,
+      bands: [
+        { name: "C", innerKm: 74500, outerKm: 91980, opacity: .18 },
+        { name: "B", innerKm: 91980, outerKm: 117500, opacity: .78 },
+        { name: "A", innerKm: 122050, outerKm: 136770, opacity: .5 },
+      ],
+      gaps: [[77750, 77850], [87365, 87635], [88690, 88720], [90200, 90220],
+        [117500, 122050], [133407.5, 133732.5], [136487.5, 136522.5]],
+    },
     blurb: "Less dense than water. The most spectacular ring system — ice and rock from 1.2 to 2.3 Saturn-radii, split by the Cassini Division. Most oblate planet (flattening 9.8%).",
   },
   Uranus: {
@@ -116,7 +127,20 @@ export const BODY = {
     magDipoleEarth: 50, magnetosphere: true,
     atmosphere: { pressureBar: NaN, composition: "83% H₂, 15% He, 2% CH₄ (methane → cyan)" },
     albedo: 0.488, meanTempK: 76, style: "uranus", color: [0.66, 0.88, 0.90],
-    rings: { innerKm: 38000, outerKm: 51150 },
+    // Circular representatives of USGS/IAU named narrow rings. Widths within published
+    // ranges; longitude-dependent eccentricity/width is not modeled. Dust/outer rings omitted.
+    rings: { innerKm: 38000, outerKm: 51150, bands: [
+      { name: "6", innerKm: 41838.5, outerKm: 41841.5, opacity: .16 },
+      { name: "5", innerKm: 42228.5, outerKm: 42231.5, opacity: .16 },
+      { name: "4", innerKm: 42578.5, outerKm: 42581.5, opacity: .16 },
+      { name: "Alpha", innerKm: 44714, outerKm: 44726, opacity: .16 },
+      { name: "Beta", innerKm: 45664, outerKm: 45676, opacity: .16 },
+      { name: "Eta", innerKm: 47189, outerKm: 47191, opacity: .16 },
+      { name: "Gamma", innerKm: 47628, outerKm: 47632, opacity: .16 },
+      { name: "Delta", innerKm: 48285.5, outerKm: 48294.5, opacity: .16 },
+      { name: "Lambda", innerKm: 50019, outerKm: 50021, opacity: .16 },
+      { name: "Epsilon", innerKm: 51130, outerKm: 51150, opacity: .16 },
+    ] },
     blurb: "Tipped 98° — it rolls along its orbit on its side. Methane absorbs red light, giving its cyan hue. A field tilted 59° from the spin axis and offset from centre.",
   },
   Neptune: {
@@ -136,8 +160,15 @@ export const BODY = {
     magDipoleEarth: 27, magnetosphere: true,
     atmosphere: { pressureBar: NaN, composition: "80% H₂, 19% He, 1.5% CH₄" },
     albedo: 0.442, meanTempK: 72, style: "neptune", color: [0.26, 0.40, 0.84],
-    rings: { innerKm: 41900, outerKm: 62930 },
-    blurb: "Deepest blue of the giants, with the strongest winds in the solar system (~2,000 km/h) and transient dark storms. A field tilted 47° and offset.",
+    // USGS/IAU radii and widths. Adams uses a representative 40 km within the <50 km bound.
+    // Envelope includes each whole band; +20 km at Adams is consumed by moon-clearance code.
+    // Lassell/Arago widths and dated arc positions are not supplied here; no invented fill.
+    rings: { innerKm: 41892.5, outerKm: 62950, bands: [
+      { name: "Galle", innerKm: 41892.5, outerKm: 41907.5, opacity: .16 },
+      { name: "Le Verrier", innerKm: 53192.5, outerKm: 53207.5, opacity: .16 },
+      { name: "Adams", innerKm: 62910, outerKm: 62950, opacity: .16 },
+    ] },
+    blurb: "An ice giant with the strongest winds in the solar system (~2,000 km/h) and changing cloud systems. Its magnetic field is tilted 47° and offset. This view uses a contrast-enhanced Hubble reference.",
   },
   Moon: {
     radiusKm: 1737.4, polarKm: 1736.0, massKg: 7.346e22, densityGcm3: 3.344,

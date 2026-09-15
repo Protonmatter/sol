@@ -1,0 +1,212 @@
+{
+  "schema_version": "planet-phenomena.v1",
+  "reviewed_at": "2026-09-13",
+  "policy": "Historical mission observations. Spectral colors, observation coverage and publication dates remain distinct. No current weather, wind field, global mapping, or calibrated material claim.",
+  "observations": [
+    {
+      "id": "jupiter-aurora",
+      "body": "Jupiter",
+      "title": "Northern aurora",
+      "hemisphere": "north",
+      "mission": "James Webb Space Telescope",
+      "instrument": "NIRCam",
+      "band": "Near infrared \u00b7 3.36 \u00b5m (F335M)",
+      "observation": {
+        "label": "25 Dec 2023",
+        "precision": "day",
+        "value": "2023-12-25"
+      },
+      "published_at": "2025-05-12",
+      "coverage": "Three close-up views of the north polar aurora; no global or far-side coverage.",
+      "color_interpretation": "Orange is assigned infrared color; this is H3+ emission, not visible cloud color.",
+      "description": "Webb resolves the bright northern auroral arc. These panels retain the published observations; the globe does not extrapolate them.",
+      "alt": "Three NASA Webb infrared views of Jupiter's northern auroral oval, shown in orange.",
+      "source_page": "https://science.nasa.gov/missions/webb/nasas-webb-reveals-new-details-mysteries-in-jupiters-aurora/",
+      "credits": "NASA, ESA, CSA, Jonathan Nichols (University of Leicester), Mahdi Zamani (ESA/Webb)",
+      "asset": {
+        "path": "textures/phenomena/jupiter-aurora.png",
+        "bytes": 270228,
+        "sha256": "80655afbc9ba71014239a654557c3b85a0dd86a5278412a8ea70d6f31f4c66be",
+        "mime": "image/png",
+        "dimensions": [
+          960,
+          323
+        ]
+      },
+      "source_url": "https://assets.science.nasa.gov/dynamicimage/assets/science/missions/webb/science/2025/05/STScI-01JT64GXNDZ6SY0AKAP77696E1.png?fit=clip&w=960",
+      "source_sha256": "80655afbc9ba71014239a654557c3b85a0dd86a5278412a8ea70d6f31f4c66be",
+      "source_retrieved_at": "2026-09-13T16:16:01.896084+00:00",
+      "source_identity": "verified-published-bytes",
+      "mapping_status": "unqualified",
+      "allowed_usages": [
+        "observation-gallery"
+      ],
+      "playback": "static-reference",
+      "derivation": "Unmodified bytes from the official page-linked image endpoint; provider display derivative where requested. No SOL color, crop, frame synthesis, or geometric mapping."
+    },
+    {
+      "id": "jupiter-storm",
+      "body": "Jupiter",
+      "title": "Swirling cloud storm",
+      "hemisphere": "regional",
+      "mission": "Juno",
+      "instrument": "JunoCam",
+      "band": "Visible light \u00b7 enhanced color and contrast",
+      "observation": {
+        "label": "27 Mar 2017",
+        "precision": "day",
+        "value": "2017-03-27"
+      },
+      "published_at": "2017-03-30",
+      "coverage": "Cropped cloud-top region south of a white oval storm; one spacecraft perspective.",
+      "color_interpretation": "Jason Major's published color and contrast enhancement; not calibrated visible reflectance.",
+      "description": "A close Juno view reveals curled cloud bands around a storm. The observed structure is preserved without invented wind advection.",
+      "alt": "JunoCam close-up of a curled brown and tan storm amid Jupiter's cloud bands.",
+      "source_page": "https://www.jpl.nasa.gov/images/pia21387-jupiters-swirling-pearl-storm/",
+      "credits": "Enhanced image by Jason Major (CC-BY), based on NASA/JPL-Caltech/SwRI/MSSS images",
+      "asset": {
+        "path": "textures/phenomena/jupiter-storm.jpg",
+        "bytes": 95806,
+        "sha256": "e370fb506da20f7b837f3a6791a235af0036a13d45be61abdd3d35d0ceb57fcf",
+        "mime": "image/jpeg",
+        "dimensions": [
+          1200,
+          936
+        ]
+      },
+      "source_url": "https://d2pn8kiwq2w21t.cloudfront.net/original_images/jpegPIA21387.jpg",
+      "source_sha256": "e370fb506da20f7b837f3a6791a235af0036a13d45be61abdd3d35d0ceb57fcf",
+      "source_retrieved_at": "2026-09-13T16:16:03.005399+00:00",
+      "source_identity": "verified-published-bytes",
+      "mapping_status": "unqualified",
+      "allowed_usages": [
+        "observation-gallery"
+      ],
+      "playback": "static-reference",
+      "derivation": "Unmodified bytes from the official page-linked image endpoint; provider display derivative where requested. No SOL color, crop, frame synthesis, or geometric mapping."
+    },
+    {
+      "id": "saturn-hexagon",
+      "body": "Saturn",
+      "title": "North polar hexagon",
+      "hemisphere": "north",
+      "mission": "Cassini",
+      "instrument": "Imaging Science Subsystem",
+      "band": "UV / visible / near infrared \u00b7 assigned color",
+      "observation": {
+        "label": "10 Dec 2012 \u00b7 10-hour source sequence",
+        "precision": "day",
+        "value": "2012-12-10"
+      },
+      "published_at": "2013-12-04",
+      "coverage": "Published polar projection: north pole to approximately 70\u00b0 N; still from the source sequence.",
+      "color_interpretation": "R: 0.750 \u00b5m; G: 0.727 \u00b5m; B: combined blue / near-UV filters. Assigned color highlights haze and clouds.",
+      "description": "A six-sided northern jet surrounds the polar vortex. JPL's source includes the observed cloud-flow sequence in a co-rotating polar view.",
+      "alt": "Cassini's assigned-color north polar view shows Saturn's six-sided jet, central vortex, and smaller cloud swirls.",
+      "source_page": "https://www.jpl.nasa.gov/images/pia17652-in-full-view-saturns-streaming-hexagon/",
+      "credits": "NASA/JPL-Caltech/SSI/Hampton University",
+      "asset": {
+        "path": "textures/phenomena/saturn-hexagon.jpg",
+        "bytes": 109646,
+        "sha256": "29b65d1370390fda5ff32ad0e73bfc774cd0c4755a237005031663a46facb452",
+        "mime": "image/jpeg",
+        "dimensions": [
+          1024,
+          1024
+        ]
+      },
+      "source_url": "https://d2pn8kiwq2w21t.cloudfront.net/original_images/jpegPIA17652.jpg",
+      "source_sha256": "29b65d1370390fda5ff32ad0e73bfc774cd0c4755a237005031663a46facb452",
+      "source_retrieved_at": "2026-09-13T16:16:02.620452+00:00",
+      "source_identity": "verified-published-bytes",
+      "mapping_status": "unqualified",
+      "allowed_usages": [
+        "observation-gallery"
+      ],
+      "playback": "static-reference",
+      "derivation": "Unmodified bytes from the official page-linked image endpoint; provider display derivative where requested. No SOL color, crop, frame synthesis, or geometric mapping."
+    },
+    {
+      "id": "saturn-decagon",
+      "body": "Saturn",
+      "title": "South polar decagon",
+      "hemisphere": "south",
+      "mission": "Hubble Space Telescope",
+      "instrument": "Hubble / OPAL imaging",
+      "band": "Near infrared \u00b7 F763M filter",
+      "observation": {
+        "label": "29 Aug 2025",
+        "precision": "day",
+        "value": "2025-08-29"
+      },
+      "published_at": "2026-09-02",
+      "coverage": "South polar projection; the central X marks missing data. The northern hexagon is a separate feature.",
+      "color_interpretation": "Published grayscale single-filter image; brightness does not encode terrain elevation.",
+      "description": "Hubble shows the ten-sided atmospheric wave around the south pole. The published missing-data marker remains visible.",
+      "alt": "Hubble grayscale south-polar view of Saturn, labeled decagon and F763M, with an X over missing central data.",
+      "source_page": "https://science.nasa.gov/missions/hubble/nasas-hubble-tracks-new-decagon-encircling-saturns-south-pole/",
+      "credits": "NASA, ESA, STScI, Agustin S\u00e1nchez-Lavega (UPV), Amy Simon (NASA-GSFC), Michael Wong (UC Berkeley); image processing: Alyssa Pagan",
+      "asset": {
+        "path": "textures/phenomena/saturn-decagon.jpg",
+        "bytes": 18597,
+        "sha256": "8ffd2db3fc57418e02e08856c0f3c94988cb5026014f230a165e579f94295e0f",
+        "mime": "image/jpeg",
+        "dimensions": [
+          640,
+          640
+        ]
+      },
+      "source_url": "https://assets.science.nasa.gov/dynamicimage/assets/science/missions/hubble/releases/2026/09/STScI-01M0TEDY8SNMB6C5E0F9T3GSJZ.tif?w=640",
+      "source_sha256": "8ffd2db3fc57418e02e08856c0f3c94988cb5026014f230a165e579f94295e0f",
+      "source_retrieved_at": "2026-09-13T16:16:02.048902+00:00",
+      "source_identity": "verified-published-bytes",
+      "mapping_status": "unqualified",
+      "allowed_usages": [
+        "observation-gallery"
+      ],
+      "playback": "static-reference",
+      "derivation": "Unmodified bytes from the official page-linked image endpoint; provider display derivative where requested. No SOL color, crop, frame synthesis, or geometric mapping."
+    },
+    {
+      "id": "neptune-aurora",
+      "body": "Neptune",
+      "title": "Mid-latitude aurora",
+      "hemisphere": "mid-latitudes",
+      "mission": "Hubble + James Webb Space Telescope",
+      "instrument": "Hubble imaging + Webb NIRSpec",
+      "band": "Visible context + near-infrared H3+ emission",
+      "observation": {
+        "label": "Jun 2023 \u00b7 Webb observation month",
+        "precision": "month",
+        "value": "2023-06"
+      },
+      "published_at": "2025-03-26",
+      "coverage": "Observed hemisphere and geographic mid-latitudes; Hubble context and Webb data are combined, not a global auroral map.",
+      "color_interpretation": "Cyan represents infrared auroral emission; white features include Webb cloud data. Hubble context is enhanced color.",
+      "description": "Webb detects auroral emission away from the geographic poles. Cyan patches trace the published IR detection in the source composite.",
+      "alt": "NASA comparison of Neptune: Hubble visible context at left and Hubble plus Webb infrared aurora in cyan at right.",
+      "source_page": "https://science.nasa.gov/missions/webb/nasas-webb-captures-neptunes-auroras-for-first-time/",
+      "credits": "NASA, ESA, CSA, STScI, Heidi Hammel (AURA), Henrik Melin (Northumbria University), Leigh Fletcher (University of Leicester), Stefanie Milam (NASA-GSFC)",
+      "asset": {
+        "path": "textures/phenomena/neptune-aurora.png",
+        "bytes": 225281,
+        "sha256": "35f9142843b84daf7e45391e90e52ff8c8e3681e083c72d0e52eb014a27aa12b",
+        "mime": "image/png",
+        "dimensions": [
+          840,
+          420
+        ]
+      },
+      "source_url": "https://assets.science.nasa.gov/dynamicimage/assets/science/missions/webb/science/2025/03/STScI-01J3G1YA6FYB10NEKTAJ0XG4KZ.png?crop=faces%2Cfocalpoint&fit=clip&h=420&w=840",
+      "source_sha256": "35f9142843b84daf7e45391e90e52ff8c8e3681e083c72d0e52eb014a27aa12b",
+      "source_retrieved_at": "2026-09-13T16:16:02.487876+00:00",
+      "source_identity": "verified-published-bytes",
+      "mapping_status": "unqualified",
+      "allowed_usages": [
+        "observation-gallery"
+      ],
+      "playback": "static-reference",
+      "derivation": "Unmodified bytes from the official page-linked image endpoint; provider display derivative where requested. No SOL color, crop, frame synthesis, or geometric mapping."
+    }
+  ]
+}

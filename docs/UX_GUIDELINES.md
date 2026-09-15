@@ -1,7 +1,7 @@
 # UI and UX engineering guidelines
 
 Status: current  
-Updated: 2026-07-28
+Updated: 2026-09-13
 
 These rules turn the product principles in `SPEC.md` into acceptance criteria. They use
 Nielsen Norman guidance and WCAG/WAI-ARIA as references; the exact standards boundary is
@@ -9,13 +9,38 @@ recorded in `STANDARDS.md`.
 
 ## Progressive-disclosure contract
 
+RFC 0003 leads with a preserved NASA observation, a compact overview and an explicit
+Observe/Research choice. The model inspector and timeline start closed in Research,
+each opened directly from its toolbar. Sun model selection opens its inspector; Sky/System
+selection updates a concise context card without opening the full tools. Focus mode preserves essential
+scientific status and an explicit exit. Layout choices are session-only and per destination.
+Selected-object image/rendering sources distinguish verified browse products from qualified
+global textures and neutral missing-detail fallbacks. A mission credit is not a live-data badge.
+
+Sky/System context cards MUST use admitted scene state, including the retained observer and
+actual provider after failure. Reference body facts MUST remain separate from epoch-dependent
+metadata. Search, location, time and object-detail actions open their containing native
+disclosures before moving focus. A selection made within an open object list preserves the
+list's focus and disclosure intent. System camera shortcuts explicitly exit free flight
+before anchoring; navigation and selection do not modify scientific positions.
+
+Constellation scaffolding starts off in My Sky. Compass and text insets may declutter the
+projection but MUST NOT change altitude/azimuth values. Display-scale, moon availability,
+under-sampling and rotation-limit notices stay visible with tools closed and in focus mode.
+The caption takes its own layout space, including at 320 pixels. Pending archive images stay
+hidden until the matching source decodes; old pixels cannot acquire a new object's credits.
+
 The initial Sun view MUST show:
 
 - the primary destination choices;
-- a visible Sun or honest fallback;
+- the original observed Sun image or an explicit unavailable state with retry;
 - one plain-language interpretation;
-- source, feed, and readiness state;
-- an obvious path to the timeline and deeper controls.
+- observation source, capture time, archival status and false-color interpretation;
+- an obvious Research entry for the model timeline, model feed/readiness and deeper controls.
+
+The observed-image overview MUST NOT use synthetic snapshot metrics as image facts.
+Image failure MUST NOT substitute a model without explicit user choice. Research keeps
+all model status, uncertainty, feed and source limitations visible at their point of use.
 
 Secondary or rare controls MUST use clearly labelled native disclosure controls or a
 similarly accessible pattern. Labels describe what users will find, not vague terms such
@@ -101,4 +126,3 @@ WASM flows, WebGL behavior, and semantic image properties.
 
 Automated checks do not replace usability research, screen-reader testing, cognitive
 walkthroughs, or a full WCAG audit.
-

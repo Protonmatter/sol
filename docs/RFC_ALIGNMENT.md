@@ -1,6 +1,6 @@
 # RFC alignment matrix
 
-Updated: 2026-09-11
+Updated: 2026-09-14
 
 The original web and solar-system design documents remain useful implementation history.
 Where they conflict with the current system, `SPEC.md`, accepted ADRs and repository RFCs,
@@ -22,6 +22,34 @@ and the traced requirements are authoritative.
 | Validation documented as language-specific commands | One traced governance → unit → contract → integration → browser/visual → determinism → release plan | RFC 0001, `docs/VALIDATION_PLAN.md` |
 
 ## Acceptance-status interpretation
+
+[RFC 0006](rfcs/0006-rendering-qualification-and-color.md) is Accepted for the design
+and implementation sequence. [ADR 0009](adr/0009-bounded-scientific-rendering.md)
+records bounded current-frame scattering, per-material color and resource ownership.
+The [production ledger](plans/2026-09-14-rendering-qualification/PRODUCTION_EXECUTION.md)
+separately records source-bound numerical, application, GPU, memory and hosted gates
+for Earth/Mars optics, scoped color, opt-in HDR and source-derived Moon/Mars terrain.
+Reflection, revised ring transport and calibrated moon photometry remain held by
+their source requirements; temporal reconstruction is deferred. Accepted status,
+reference helpers and profiling tools do not waive scientific or performance gates.
+
+RFC 0005 is Accepted for source-backed terrain and hybrid light rendering. Local
+implementation admits two numerical terrain products, reference atmospheric transfer,
+and registered solar reference imagery plus modeled emission. These are per-product
+qualification boundaries, not a claim of measured global weather, complete planetary
+topography, calibrated radiance, or observed three-dimensional magnetic structure.
+See the [execution ledger](plans/2026-09-13-physical-rendering/IMPLEMENTATION.md) and its
+source records for enabled effects, test evidence, and remaining limits.
+
+RFC 0004 is accepted for the requested planetary appearance and Earth layers. Its
+registered display-reference collection admits documented source maps and explicit
+partial coverage without weakening the legacy complete-global-observation gate.
+It does not establish current weather, calibrated radiance or production qualification.
+
+RFC 0003 is accepted for the user-authorized local workspace implementation. It adds
+closed-on-entry contextual controls, persistent navigation, display clearance and visual
+asset provenance without weakening RFC 0002 qualification. No new production or complete
+NASA/JPL appearance qualification follows from inventory validity or source-byte matches.
 
 RFC 0002 is **Accepted**, not Implemented. Local v3/worker/UI/data-transaction changes
 are not a claim of merged/released behavior or complete AC/F-matrix qualification.

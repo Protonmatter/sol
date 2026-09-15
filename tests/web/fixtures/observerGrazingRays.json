@@ -1,0 +1,188 @@
+{
+  "schema_version": "observer-grazing-regressions.v1",
+  "scope": "Original ten failing immutable fixture inputs; expected geometry is computed independently from binary32 uploads, not copied from GPU outputs.",
+  "source_run": "observer-geometry-scattering-7192-swiftshader",
+  "source_solver_sha256": "f2c85a8477d6c647a9caace9ac6316170e6e97a0d9a354439eaf37b073e9b127",
+  "rays": [
+    {
+      "name": "Earth-distant-diagnostic/limb/129",
+      "input_file_sha256": "c56b6ffdbb3cbcd21c1b4d20cb9e804f9b2dd8356e748ff8459627b0ee27569a",
+      "camera": [
+        309218.21768491116,
+        0,
+        555947.7604363825
+      ],
+      "direction": [
+        -0.492050481865994,
+        0.007512995375902715,
+        -0.8705342487208213
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Earth-distant-diagnostic/limb/130",
+      "input_file_sha256": "c56b6ffdbb3cbcd21c1b4d20cb9e804f9b2dd8356e748ff8459627b0ee27569a",
+      "camera": [
+        309218.21768491116,
+        0,
+        555947.7604363825
+      ],
+      "direction": [
+        -0.49494009323021937,
+        6.235263174183823e-19,
+        -0.868927099423917
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Earth-distant-diagnostic/limb/138",
+      "input_file_sha256": "c56b6ffdbb3cbcd21c1b4d20cb9e804f9b2dd8356e748ff8459627b0ee27569a",
+      "camera": [
+        309218.21768491116,
+        0,
+        555947.7604363825
+      ],
+      "direction": [
+        -0.492050482784754,
+        0.007512996535625647,
+        -0.8705342481915034
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Earth-distant-diagnostic/limb/139",
+      "input_file_sha256": "c56b6ffdbb3cbcd21c1b4d20cb9e804f9b2dd8356e748ff8459627b0ee27569a",
+      "camera": [
+        309218.21768491116,
+        0,
+        555947.7604363825
+      ],
+      "direction": [
+        -0.494940094595017,
+        6.235264136664026e-19,
+        -0.8689270986465295
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Earth-forward-oblique-explicit-height/limb/27",
+      "input_file_sha256": "d78d6d1e702011bc43d1591b82f44a21475e9ca68a446f6f88299b045291708c",
+      "camera": [
+        73135.37016191706,
+        0,
+        67967.9565638286
+      ],
+      "direction": [
+        -0.7750536985852907,
+        3.972123339452286e-18,
+        -0.6318953744958585
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Earth-forward-oblique-explicit-height/limb/30",
+      "input_file_sha256": "d78d6d1e702011bc43d1591b82f44a21475e9ca68a446f6f88299b045291708c",
+      "camera": [
+        73135.37016191706,
+        0,
+        67967.9565638286
+      ],
+      "direction": [
+        -0.7750537049132383,
+        3.972123952477872e-18,
+        -0.6318953667342901
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Earth-forward-oblique/limb/130",
+      "input_file_sha256": "0a61a15f4de0a74dbd48c17f7450f4151cd31c8c8c2a72290a3b866b7bad9dce",
+      "camera": [
+        73135.37016191706,
+        0,
+        67967.9565638286
+      ],
+      "direction": [
+        -0.7750536985852907,
+        3.972123339452286e-18,
+        -0.6318953744958585
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Earth-forward-oblique/limb/139",
+      "input_file_sha256": "0a61a15f4de0a74dbd48c17f7450f4151cd31c8c8c2a72290a3b866b7bad9dce",
+      "camera": [
+        73135.37016191706,
+        0,
+        67967.9565638286
+      ],
+      "direction": [
+        -0.7750537049132383,
+        3.972123952477872e-18,
+        -0.6318953667342901
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Earth-forward-oblique/limb/140",
+      "input_file_sha256": "0a61a15f4de0a74dbd48c17f7450f4151cd31c8c8c2a72290a3b866b7bad9dce",
+      "camera": [
+        73135.37016191706,
+        0,
+        67967.9565638286
+      ],
+      "direction": [
+        -0.7493703950024775,
+        -0.058955471873269424,
+        -0.6595212380431967
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 6378.137,
+      "top": 100,
+      "polarRatio": 0.9966
+    },
+    {
+      "name": "Mars-forward-terrain-v2-explicit-height/limb/296",
+      "input_file_sha256": "320a90f8314a0320adb4dd46c499627ddaa486a983848fa9c133029c300f4b1d",
+      "camera": [
+        54246.35865735031,
+        0,
+        -40636.83796912415
+      ],
+      "direction": [
+        -0.8279376269679882,
+        -0.01890668207573985,
+        0.5605014034090399
+      ],
+      "maximum": 100000000000000000000,
+      "radius": 3396.19,
+      "top": 100,
+      "polarRatio": 0.9941110653082857
+    }
+  ]
+}
