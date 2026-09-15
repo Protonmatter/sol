@@ -555,6 +555,8 @@ fn sha256(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
+    static NEXT_FIXTURE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
     fn field_mut<'a>(value: &'a mut JsonValue, key: &str) -> &'a mut JsonValue {
         let JsonValue::Object(entries) = value else {
             panic!("expected object")
@@ -588,8 +590,9 @@ mod tests {
                 .unwrap()
                 .as_nanos();
             let root = std::env::temp_dir().join(format!(
-                "sol-observation-coherence-{}-{nonce}",
-                std::process::id()
+                "sol-observation-coherence-{}-{nonce}-{}",
+                std::process::id(),
+                NEXT_FIXTURE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
             ));
             let folder = root
                 .join("bundles")
@@ -649,7 +652,11 @@ mod tests {
 
     impl Drop for DerivedFixture {
         fn drop(&mut self) {
-            fs::remove_dir_all(&self.root).unwrap();
+            let removed = fs::remove_dir_all(&self.root);
+            // Panicking again while unwinding aborts the whole test binary and hides every result.
+            if !std::thread::panicking() {
+                removed.unwrap();
+            }
         }
     }
 
@@ -1224,8 +1231,11 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let root =
-            std::env::temp_dir().join(format!("sol-source-bundle-{}-{nonce}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "sol-source-bundle-{}-{nonce}-{}",
+            std::process::id(),
+            NEXT_FIXTURE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
         let folder = root.join("bundles/source");
         fs::create_dir_all(&folder).unwrap();
         let raw = "[{\"source\":\"fixture\",\"active\":true}]";
