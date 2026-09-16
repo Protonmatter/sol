@@ -185,3 +185,43 @@ typecheck, UX contract, 23-requirement SDLC check, 138 Markdown files and diff
 checks pass. No full GPU qualification was rerun for these final lifecycle fixes.
 The completed 17-pass/three-failure hosted results above belong to `02cd6c6`;
 publication of later fixes requires separately identified hosted results.
+
+## Hosted Earth draw gate passes (2026-09-16)
+
+The hosted failure this follow-up was opened to preserve no longer reproduces. Both
+`301821cf` and `60cd859f` completed all 20 hosted checks, including both Chromium
+coverage jobs and the dependent Release gate, read back from the GitHub check-run API
+rather than from a local run. The bit-identical physical surface candidate recorded above
+is what closed it: it was published as `301821cf` after the Rust fixture fix `ad2068a5`.
+
+What that does and does not settle:
+
+- **Settled.** Three accepted Earth draws inside five seconds are now reached on the
+  hosted runner, on the CI-workflow Chromium job and the standalone Coverage job alike.
+  The earlier two-of-three and one-of-three results belong to `eea55e5c` and `063c354d`
+  and are retained above.
+- **Not settled.** The review finding itself is that scattering cost scales with
+  framebuffer pixels. The work is still evaluated per fragment; it is cheaper, not
+  bounded. A larger viewport, a higher device pixel ratio or a slower runner can put the
+  deadline back in reach. Nothing here establishes a resolution-independent bound.
+- **Not measured.** No hosted timing was captured for `301821cf`. The 58.7 ms to 44.4 ms
+  improvement above is local SwiftShader, and the earlier hosted attribution of
+  1,901.290 ms per frame to the physical surface consumer has no post-candidate
+  counterpart. The frame-cost diagnostic would have to be rerun on an exact head to give
+  one.
+
+## Integrator corrections that landed after the bounded-field experiment
+
+[The scattering assessment](../2026-09-13-physical-rendering/PR107_SCATTERING_ASSESSMENT.md)
+listed signed terrain-endpoint integration as required work before another scattering-field
+implementation could be admitted. Three commits have since addressed parts of it, each with
+its own receipt: `2dfa790` splits integration at actual ground crossings, `d53272a` resolves
+the constant-below-datum quadrature with an optical coordinate rather than more nodes, and
+`0ac2f6d` preserves observer geometry near tangent endpoints.
+
+This does not revive the bounded-field candidate. Its 368 of 5,592 domain-qualified
+interpolation failures were concentrated on Mars day, terminator, forward scattering and
+near-top-camera cases, while `d53272a` records underresolving **seven** retained terrain
+queries. The landed corrections are far narrower than the candidate's failure set, so they
+are not an explanation for it and re-running that candidate is not justified by them alone.
+
