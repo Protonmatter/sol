@@ -347,6 +347,23 @@ test("mapped planet and lunar inspectors disclose the rendered reference, epoch 
   assert.ok(descendants(h.host).some(node => node.tagName === "img" && node.src === "textures/callisto.jpg"));
 });
 
+test("a cached but deselected Venus radar layer is never reported as the ready surface", async () => {
+  // The Magellan texture stays resident after the radar control is switched off, so the
+  // readiness line has to follow what is drawn rather than what is still in the cache;
+  // otherwise it announced a ready surface reference directly above the cloud-deck text.
+  const h = await harness(), asset = appearanceReference("Venus");
+  const cached = {...readyAppearance("Venus"), venusRadar: false};
+  h.renderDetail("Venus", undefined, cached);
+  assert.equal(cached.appearanceStatus[asset.id], "ready", "the radar texture is still cached");
+  assert.doesNotMatch(h.host.textContent, /Surface reference ready/);
+  assert.match(h.host.textContent, /cloud deck/i);
+  h.updateDetailAppearance({...cached, venusRadar: true});
+  assert.match(h.host.textContent, /Surface reference ready/);
+  assert.ok(h.host.textContent.includes(asset.label), "the opt-in layer names the radar source");
+  h.updateDetailAppearance(cached);
+  assert.doesNotMatch(h.host.textContent, /Surface reference ready/);
+});
+
 test("appearance transitions update the existing disclosure without losing focus or open state", async () => {
   const h = await harness(), state = readyAppearance("Mars"), asset = appearanceReference("Mars");
   state.appearanceStatus[asset.id] = "loading";

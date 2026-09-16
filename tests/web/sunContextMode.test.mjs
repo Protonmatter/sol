@@ -39,3 +39,37 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   assert.equal(selected.visible.length, 0);
   h.leaveOrrery();
 });
+
+test('choosing a solar source mode makes the Sun the subject instead of doing nothing', async t => {
+  const h = await orreryHarness(t, {controls: true, catalogues: 'ready', reducedMotion: true, solarAtlas: true});
+  await h.enterOrrery(); await h.settleCatalogues(); h.setAnimate(false);
+
+  // The default overview: anchored on the Sun, nothing selected, no inspection. The selector
+  // used to leave the Sun as context, so switching mode changed nothing on screen.
+  assert.equal(h.state.anchor, 'Sun');
+  assert.equal(h.state.selected, null);
+  const framing = {az: h.state.az, el: h.state.el, radius: h.state.radius};
+
+  h.input('orrerySolarMode', 'visible', 'change');
+  assert.equal(h.state.selected, 'Sun', 'using the control makes the Sun the subject');
+  assert.equal(h.state.solarInspection, false, 'without the camera move Inspect performs');
+  assert.deepEqual({az: h.state.az, el: h.state.el, radius: h.state.radius}, framing);
+  assert.equal(repaint(h).visible.length, 1, 'the visible photosphere draws');
+
+  // Switching back to EUV governs the Sun again. The atlas itself only loads once the Sun
+  // is large enough on screen, so at overview distance the honest outcome is the disclosed
+  // EUV mode with the photosphere retained, not an EUV draw.
+  h.input('orrerySolarMode', 'reconstructed-euv', 'change');
+  assert.equal(h.state.selected, 'Sun');
+  assert.match(h.nodes.orreryPhysicalStatus.textContent, /AIA 171/,
+    'the status line describes the EUV reference the selector now governs');
+  h.input('orrerySolarMode', 'visible', 'change');
+  assert.match(h.nodes.orreryPhysicalStatus.textContent, /Visible-light approximation/);
+
+  // Anchored elsewhere the control is not offered at all, so it must not grab the selection.
+  h.input('orreryAnchor', 'Mars', 'change');
+  assert.equal(h.nodes.orrerySolarControls.hidden, true);
+  h.input('orrerySolarMode', 'visible', 'change');
+  assert.equal(h.state.selected, 'Mars', 'a hidden control never steals the selection');
+  h.leaveOrrery();
+});

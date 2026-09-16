@@ -3128,7 +3128,14 @@ async function showFallback(msg) {
     else cancelPendingPrograms();
     if(state.opticsEnabled&&gl)initIncidentResources();updatePhysicalAppearance();paint();
   });
-  bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;syncSolarPlaybackControls();paint();window.dispatchEvent(new Event('sol:presentation'));});
+  // The default overview anchors on the Sun without selecting it, so the Sun is only
+  // context there and draws its visible photosphere whatever this selector says.
+  // Choosing a mode is a request to see the Sun that way, so it makes the Sun the
+  // subject rather than leaving a control that appears to do nothing. The camera is
+  // left alone: this selects the body, it does not reframe the view like Inspect.
+  bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;
+    if(state.anchor==='Sun'&&!solarSubject()&&!state.galaxy&&!state.selectedStar){state.selected='Sun';showDetail('Sun');}
+    syncSolarPlaybackControls();paint();window.dispatchEvent(new Event('sol:presentation'));});
   bind('orrerySolarPlay','click',()=>{
     if(!solarPlaybackAvailable())return;
     if(state.solarPlayback.seconds>=state.solarPlayback.duration)state.solarPlayback.seconds=0;

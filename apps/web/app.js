@@ -284,7 +284,15 @@ for (const [id, skyTarget, systemTarget] of [
 document.getElementById('destinationTime')?.addEventListener('click', revealTime);
 const focusBody = body => {
   const anchor = /** @type {HTMLSelectElement|null} */ (document.getElementById('orreryAnchor'));
-  if (store.activeMode !== 'orrery' || !anchor || ![...anchor.options].some(option => option.value === body)) return;
+  if (store.activeMode !== 'orrery' || !anchor) return;
+  // #orreryAnchor lists the planets and Earth's Moon only, but the renderer anchors on any
+  // catalogue moon (anchorPos/anchorDisplayExtent both resolve one, and follow its parent
+  // outside the validated window). Its own Focus control takes the current selection, so a
+  // moon card's action goes there instead of advertising a button that does nothing.
+  if (![...anchor.options].some(option => option.value === body)) {
+    if (body && store.orrery?.selected === body) document.getElementById('orreryFocusSelected')?.click();
+    return;
+  }
   const freeFly = /** @type {HTMLInputElement|null} */ (document.getElementById('orreryFreeFly'));
   if (freeFly?.checked) { freeFly.checked = false; freeFly.dispatchEvent(new Event('change')); }
   anchor.value = body; anchor.dispatchEvent(new Event('change')); updateTaskHeader();

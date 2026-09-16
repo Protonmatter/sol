@@ -6,7 +6,7 @@ import { BODY, poleVector } from "./bodyData.js?v=dcca6290db";
 import { isRetrograde } from "./moonorbits.js?v=dcca6290db";
 import { MOON_ALBEDO } from "./moonAppearance.js?v=dcca6290db";
 import { visualProvenanceText, visualBrowsePreview } from "./visualAssets.js";
-import { appearanceReference, appearanceReferences, appearanceDescription, earthCloudRole } from "./planetAppearance.js";
+import { appearanceReference, appearanceReferences, appearanceDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
 
 // Keep mutable appearance text separate from the native disclosure and source links.
 // Presentation updates must not replace a focused link, glossary button or open card.
@@ -298,7 +298,11 @@ function appendVisualSources(card, name, appearanceState = {}) {
 
 function updateVisualSources(sources, state) {
   const { name, provenance, layers } = sources;
-  const surface = appearanceReference(name), enabled = state.useTextures !== false;
+  // A surface layer the view does not draw is not "ready": Venus keeps its Magellan
+  // texture cached after the radar control is switched off, and reporting that cache
+  // as ready contradicted the visible-light cloud fallback described in the same line.
+  const enabled = state.useTextures !== false;
+  const surface = surfaceReferenceShown(name, state) ? appearanceReference(name) : null;
   const ready = surface && state.appearanceStatus?.[surface.id] === "ready";
   const text = appearanceDescription(name, state, true);
   const description = `${enabled && ready ? "Surface reference ready. " : ""}${text}`;

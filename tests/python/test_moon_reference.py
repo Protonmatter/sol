@@ -160,7 +160,11 @@ class MoonReferenceTests(unittest.TestCase):
                 self.assertEqual(record["nodata"], "alpha" if spec.nodata_zero_channel or spec.valid_latitude_bounds != (-90, 90) else "none")
                 self.assertIn(record["mapping"]["primeMeridianU"], (0, .5))
                 self.assertEqual(record["mapping"]["longitudeDirection"], "east")
-                self.assertIn("reference orientation", record["limitations"])
+                # Every mapped moon here is tidally locked and drawMoons now orients it, so the
+                # limitation must state the frame it is drawn in and name what that frame omits
+                # rather than the fixed-orientation disclaimer that preceded the rotation model.
+                self.assertIn("prime meridian faces its planet", record["limitations"])
+                self.assertIn("libration", record["limitations"])
                 prior = [r for r in registry["assets"] if r["body"] == spec.body]
                 self.assertTrue(all(r["mapping_status"] == "hold" for r in prior))
 
