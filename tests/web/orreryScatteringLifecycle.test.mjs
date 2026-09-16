@@ -26,6 +26,33 @@ function float32RoundingBin(value){
   return [(value+previous)/2,(value+next)/2];
 }
 
+test('the scattering prepass never re-reads the target units it has just released',async t=>{
+  // Every optical frame snapshots the caller's GL state so the prepass can restore it.
+  // Units 8 and 9 hold the scattering targets, so the snapshot releases them first; asking
+  // the driver what they hold afterwards can only return the null just written, and each
+  // such query is a synchronous round trip on the hosted runner this prepass is measured
+  // against. Unit 7 carries the caller's own column field and must still be read.
+  const h=await boot(t);
+  const {TEXTURE0,TEXTURE_BINDING_2D,SAMPLER_BINDING}=h.gl;
+  const realActive=h.gl.activeTexture,realGet=h.gl.getParameter;
+  let unit=0;const released=[],read=[];
+  h.gl.activeTexture=value=>{unit=value-TEXTURE0;return realActive(value);};
+  h.gl.getParameter=name=>{
+    if(name===TEXTURE_BINDING_2D||name===SAMPLER_BINDING)read.push(unit);
+    return realGet(name);
+  };
+  const realBind=h.gl.bindTexture;
+  h.gl.bindTexture=(target,value)=>{if(value===null)released.push(unit);return realBind(target,value);};
+  try{
+    const before=h.gpuSubmissions.length;h.resize(812,604);
+    assert.ok(generatorDraws(h.gpuSubmissions.slice(before)).length>0,'the prepass must actually run in this frame');
+    assert.ok(released.includes(8)&&released.includes(9),'the snapshot still releases both target units');
+    assert.deepEqual(read.filter(value=>value===8||value===9),[],
+      'a released target unit must not be read back from the driver');
+    assert.ok(read.includes(7),'the caller-owned column unit is still read');
+  }finally{h.gl.activeTexture=realActive;h.gl.getParameter=realGet;h.gl.bindTexture=realBind;}
+});
+
 for(const body of ['Earth','Mars'])test(`${body} shell raster and optical endpoints use the same physical radius`,async t=>{
   const h=await boot(t);h.input('orreryAnchor',body,'change');await h.settle();
   const before=h.gpuSubmissions.length;h.resize(812,604);

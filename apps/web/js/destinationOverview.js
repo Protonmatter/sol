@@ -3,7 +3,15 @@ import { skyCard, systemCard } from './destinationCards.js?v=dcca6290db';
 import { elpMoonAliased } from './orreryTime.js?v=dcca6290db';
 import { appearanceReference, appearanceDescription, appearanceReferences, earthLayerDescription } from './planetAppearance.js';
 
+// The surface this card last rendered. Entering it from another one is a deliberate
+// return, which is the same signal a changed selection gives: it may retry a failed
+// archive once. The Sun surface owns none of these nodes and must not touch the DOM,
+// so the round trip through it is recorded here rather than on the image.
+let renderedSurface = '';
+
 export function renderDestinationOverview(surface, sky, system) {
+  const returned = surface !== renderedSurface;
+  renderedSurface = surface;
   if (surface === 'today') return;
   const card = surface === 'sky'
     ? skyCard({ ...sky?.overview, presentation: sky?.presentation }) : systemCard(system);
@@ -39,7 +47,7 @@ export function renderDestinationOverview(surface, sky, system) {
   if (preview) preview.hidden = !card.preview;
   const image = /** @type {HTMLImageElement|null} */ (document.getElementById('destinationImage'));
   const previewPath = card.preview?.path || '';
-  const previewChanged = image && image.dataset.previewPath !== previewPath;
+  const previewChanged = image && (returned || image.dataset.previewPath !== previewPath);
   if (image) image.dataset.previewPath = previewPath;
   // Retry a failed source on a deliberate return; ordinary scene frames must not
   // repeatedly request it. Successful and still-pending images retain their source.

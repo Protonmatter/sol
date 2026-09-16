@@ -181,6 +181,32 @@ test('Earth archive preview retains attribution and handles decoded success or f
   assert.equal(nodes.destinationPreview.open, true);
 }));
 
+test('A round trip through the Sun surface retries a failed archive, and a working one is left alone', () => withDocument(({nodes}) => {
+  const earth = {selected: 'Earth'}, image = nodes.destinationImage;
+  renderDestinationOverview('orrery', undefined, earth);
+  image.onerror();
+  assert.match(nodes.destinationImageStatus.textContent, /Archive preview unavailable/);
+  for (let frame = 0; frame < 3; frame++) renderDestinationOverview('orrery', undefined, earth);
+  assert.equal(image.sourceAssignments, 1, 'ordinary frames still must not re-request');
+
+  // The Sun surface owns none of these nodes and returns early, so the retained preview
+  // path used to survive the round trip and both retry conditions stayed false.
+  renderDestinationOverview('today', undefined, earth);
+  renderDestinationOverview('orrery', undefined, earth);
+  assert.equal(image.sourceAssignments, 2, 'returning from the Sun view must make a new request');
+  assert.equal(image.src, 'textures/earth.jpg');
+  assert.match(nodes.destinationImageStatus.textContent, /Loading this object/);
+
+  // A preview that is loading or already succeeded is not disturbed by the same trip.
+  image.onload();
+  assert.equal(image.hidden, false);
+  renderDestinationOverview('today', undefined, earth);
+  renderDestinationOverview('orrery', undefined, earth);
+  assert.equal(image.sourceAssignments, 2, 'a working preview is never re-requested');
+  assert.equal(image.hidden, false);
+  assert.match(nodes.destinationImageStatus.textContent, /Archive reference/);
+}));
+
 test('Returning to a failed archive retries once without accepting callbacks from its previous request', () => withDocument(({nodes}) => {
   const earth = {selected: 'Earth'}, image = nodes.destinationImage;
   renderDestinationOverview('orrery', undefined, earth);

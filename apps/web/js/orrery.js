@@ -1440,7 +1440,11 @@ function scatteringCallerState(){
   try{
     for(const unit of [7,8,9]){
       gl.activeTexture(gl.TEXTURE0+unit);
-      if(unit!==7){gl.bindTexture(gl.TEXTURE_2D,null);gl.bindSampler(unit,null);}
+      // Units 8 and 9 belong to the scattering targets. This releases them, so their
+      // restore binding is the null just written; reading it back was four synchronous
+      // driver queries per body per frame that could not return anything else, and each
+      // one costs a round trip on the hosted runner this prepass is measured against.
+      if(unit!==7){gl.bindTexture(gl.TEXTURE_2D,null);gl.bindSampler(unit,null);textureUnits.push({unit,texture:null,sampler:null});continue;}
       textureUnits.push({unit,texture:gl.getParameter(gl.TEXTURE_BINDING_2D),sampler:gl.getParameter(gl.SAMPLER_BINDING)});
     }
   }finally{gl.activeTexture(activeTexture);}
