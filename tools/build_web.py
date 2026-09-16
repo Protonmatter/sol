@@ -55,7 +55,13 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     "solarAppearance.js", "solarAppearanceManifest.js", "solarVolumeShaders.js", "atmosphereOptics.js", "atmosphereShaders.js", "atmosphereIncident.js", "atmosphereIncidentManifest.js",
     "atmosphereColumnField.js", "atmosphereColumnManifest.js", "atmosphereScattering.js", "scatteringTargets.js",
     "planetPhenomena.js", "planetPhenomenaManifest.js", "solarAssetLoader.js", "physicalRendering.js",
-    "illustrativeHaze.js"})
+    "illustrativeHaze.js",
+    # render.js decides how an observed solar frame reaches the canvas: drawObservedBase()
+    # chooses between a registered photospheric disk and a whole browse frame, and owns the
+    # clip and limb treatment that go with each. That is observation rendering, so its hash
+    # belongs in the science fingerprint rather than letting a later change to this path
+    # reuse a qualification recorded for different behaviour.
+    "render.js"})
 
 
 def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id: str,

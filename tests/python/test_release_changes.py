@@ -22,6 +22,19 @@ class ChangesTests(unittest.TestCase):
                 report = changes.classify("a" * 40, "b" * 40, [("M", path)])
                 self.assertEqual(report["categories"], ["scientific"])
 
+    def test_the_observed_image_renderer_is_a_scientific_change(self):
+        # drawObservedBase() in render.js chooses how an observed frame maps onto the canvas:
+        # a registered photospheric disk with its clip and limb treatment, or a whole browse
+        # frame preserved at its own aspect. A change confined to that path must not be able
+        # to reuse a scientific qualification recorded for different rendering behaviour.
+        import release_changes as changes
+        from build_web import SCIENCE_MODULES
+        self.assertIn("render.js", SCIENCE_MODULES)
+        path = "apps/web/js/render.js"
+        self.assertEqual(changes.category(path), "scientific")
+        report = changes.classify("a" * 40, "b" * 40, [("M", path)])
+        self.assertEqual(report["categories"], ["scientific"])
+
     def test_scientific_inventory_matches_real_contract_files_and_unknown_contract_requires_review(self):
         import release_changes as changes
         from build_web import SCIENCE_MODULES
