@@ -23,6 +23,11 @@ const helpers={
   __array:n=>Array(n),
   floor:a=>unary(a,Math.floor),fract:a=>unary(a,v=>f(v-Math.floor(v))),
   log:a=>unary(a,v=>f(Math.log(v))),exp:a=>unary(a,v=>f(Math.exp(v))),
+  // Scalar transcendentals the haze closed forms need. Unused by the interpolation
+  // helpers, so widening the allowlist cannot change what they translate to.
+  acos:a=>unary(a,v=>f(Math.acos(v))),degrees:a=>unary(a,v=>f(v*180/Math.PI)),
+  pow:(a,b)=>zip(a,b,(x,y)=>f(Math.pow(x,y))),sqrt:a=>unary(a,v=>f(Math.sqrt(v))),
+  min:(a,b)=>zip(a,b,Math.min),
   max:(a,b)=>zip(a,b,Math.max),clamp:(a,b,c)=>zip(zip(a,b,Math.max),c,Math.min),
   any:a=>a.some(Boolean),greaterThan:(a,b)=>zip(a,b,(x,y)=>x>y),lessThanEqual:(a,b)=>zip(a,b,(x,y)=>x<=y),
   ...Object.fromEntries([2,3,4].flatMap(n=>[[`vec${n}`,(...a)=>vector(n,a)],[`ivec${n}`,(...a)=>vector(n,a,Math.trunc)]])),

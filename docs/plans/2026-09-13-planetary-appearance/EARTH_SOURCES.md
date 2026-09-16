@@ -340,7 +340,17 @@ with published closed forms: the Rayleigh reflectance fit of Vermote and Tanre 1
 (JQSRT 47:305, doi:10.1016/0022-4073(92)90149-X) as implemented by 6S, the 6S total
 transmittance for the surface path, one Henyey-Greenstein aerosol term, and the
 Kasten and Young 1989 air mass (Appl. Opt. 28:4735, doi:10.1364/AO.28.004735) so a
-grazing path does not diverge. Not modelled: surface-atmosphere coupling, ozone,
+grazing path does not diverge. Both single-scattering terms carry the same saturating
+form, omega*P(theta)*(1-exp(-tau*(m_s+m_v)))/(4*(mu_s+mu_v)); the aerosol term first
+shipped as that form's small-tau limit omega*tau*P/(4*mu_s*mu_v), which carries no
+bound as mu_v falls and painted a clipped fringe at the silhouette. It is now the
+saturating form, and a scan of reachable geometry holds every value under the
+omega*P(theta)/4 ceiling a single-scattering layer cannot exceed. Correcting it left
+the measured values below unchanged and darkened only the outermost band: against the
+same capture it changed 2,203 of 679,960 pixels, all darker, with the peak channel
+change of 25 outside r/R = 1.00 and at most two levels anywhere inside it. Mars, whose
+admitted aerosol column is ten times Earth's, carried the visible version of that
+fringe. Not modelled: surface-atmosphere coupling, ozone,
 polarisation and any cloud interaction. It is a display approximation, not a
 measurement, and it is not fitted to any observed image; close views replace it with
 the qualified optical transfer.

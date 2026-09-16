@@ -101,6 +101,14 @@ vec3 hazeRayleigh(float tau,float mus,float muv,float cosPhi){
   vec3 azimuth=vec3(1.0,2.0*cosPhi,2.0*(2.0*cosPhi*cosPhi-1.0));
   return vec3(dot(phase*terms,azimuth));
 }
+float hazeAerosol(float tau,float albedo,float g,float mus,float muv,float cosScatter){
+  // One Henyey-Greenstein layer in the SAME saturating single-scattering form the Rayleigh
+  // term above uses: omega*P(theta)*(1-exp(-tau*(m_s+m_v)))/(4*(mus+muv)). The small-tau
+  // reflectance omega*tau*P/(4*mus*muv) is only that form's tau->0 limit and carries no
+  // bound as the view grazes the limb, so it painted a clipped white fringe there.
+  float hg=(1.0-g*g)/pow(max(1.0+g*g-2.0*g*cosScatter,1e-4),1.5);
+  return albedo*hg*(1.0-exp(-tau*(hazeAirMass(mus)+hazeAirMass(muv))))/(4.0*(mus+muv));
+}
 // Returns the haze radiance to add, and scales the surface by its transmittances.
 vec3 hazeOverSurface(inout vec3 surface,vec3 normal,vec3 view,vec3 sun,float sunVisibility){
   vec3 rayleigh=u_hazeRayleighTau;
@@ -111,12 +119,11 @@ vec3 hazeOverSurface(inout vec3 surface,vec3 normal,vec3 view,vec3 sun,float sun
   vec3 viewPlane=view-normal*muv,sunPlane=sun-normal*mus;
   float cosPhi=dot(viewPlane,sunPlane)/max(length(viewPlane)*length(sunPlane),1e-6);
   float cosScatter=clamp(-dot(view,sun),-1.0,1.0);
-  float hg=(1.0-g*g)/pow(max(1.0+g*g-2.0*g*cosScatter,1e-4),1.5);
   vec3 path=vec3(0);
   for(int c=0;c<3;c++){
     float tau=rayleigh[c]+aerosol;
     path[c]=hazeRayleigh(rayleigh[c],mus,muv,cosPhi)[c]
-      +albedo*aerosol*hg/(4.0*mus*muv);
+      +hazeAerosol(aerosol,albedo,g,mus,muv,cosScatter);
     surface[c]*=hazeTransmittance(tau,mus)*hazeTransmittance(tau,muv);
   }
   return max(path,vec3(0))*mus*sunVisibility;
