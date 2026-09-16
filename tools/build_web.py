@@ -54,7 +54,8 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     "terrainAssets.js", "terrainGeometry.js", "terrainResources.js", "terrainShadowShaders.js", "terrain.worker.js", "terrainWorkerClient.js",
     "solarAppearance.js", "solarAppearanceManifest.js", "solarVolumeShaders.js", "atmosphereOptics.js", "atmosphereShaders.js", "atmosphereIncident.js", "atmosphereIncidentManifest.js",
     "atmosphereColumnField.js", "atmosphereColumnManifest.js", "atmosphereScattering.js", "scatteringTargets.js",
-    "planetPhenomena.js", "planetPhenomenaManifest.js", "solarAssetLoader.js", "physicalRendering.js"})
+    "planetPhenomena.js", "planetPhenomenaManifest.js", "solarAssetLoader.js", "physicalRendering.js",
+    "illustrativeHaze.js"})
 
 
 def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id: str,

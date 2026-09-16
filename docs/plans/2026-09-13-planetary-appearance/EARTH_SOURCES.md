@@ -332,6 +332,37 @@ after the registration and opacity evidence in
 Its constituent dates remain unstated and are disclosed as such. A 2:1 image shape
 alone does not establish scientific global registration.
 
+Distant Earth views add an illustrative atmospheric haze over the surface and cloud
+layers, because that path runs no numerical transfer and would otherwise show none of
+the skylight that dominates Earth's appearance from space: the ocean rendered almost
+black. The haze uses the admitted Earth profile's own Rayleigh and aerosol columns
+with published closed forms: the Rayleigh reflectance fit of Vermote and Tanre 1992
+(JQSRT 47:305, doi:10.1016/0022-4073(92)90149-X) as implemented by 6S, the 6S total
+transmittance for the surface path, one Henyey-Greenstein aerosol term, and the
+Kasten and Young 1989 air mass (Appl. Opt. 28:4735, doi:10.1364/AO.28.004735) so a
+grazing path does not diverge. Not modelled: surface-atmosphere coupling, ozone,
+polarisation and any cloud interaction. It is a display approximation, not a
+measurement, and it is not fitted to any observed image; close views replace it with
+the qualified optical transfer.
+
+Measured outcome, distant Earth capture against a DSCOVR EPIC frame of the same
+hemisphere (epic_1b_20260912113409), each value relative to the brightest cloud
+in its own image:
+
+| Open ocean, relative to cloud | Before | With haze | Close view | EPIC |
+| --- | --- | --- | --- | --- |
+| Red, green, blue | 0.06, 0.07, 0.12 | 0.18, 0.26, 0.40 | 0.20, 0.28, 0.40 | 0.22, 0.28, 0.35 |
+| Blue to red ratio | 1.88 | 2.21 | 2.01 | 1.61 |
+| Outer two percent of the disc | 0.44 | 0.22 | 0.28 | 0.37 |
+
+Brightness now sits in the observed range and the distant view agrees closely
+with the qualified close view. Two limits remain and are not corrected by fitting.
+The haze is bluer than EPIC records, which is what single plus multiple Rayleigh
+scattering predicts for this geometry; the residual whiteness in the observed
+frame is not reproduced by any cited atmospheric model checked here. The limb is
+darker than both EPIC and the close view, because a plane-parallel model with a
+capped air mass carries no spherical-shell path at grazing angles.
+
 The blue atmospheric rim remains an explicitly illustrative optical effect.
 No current atmospheric density, pressure, temperature, air quality, aurora or
 weather forecast is inferred from it. Source registration does not prove

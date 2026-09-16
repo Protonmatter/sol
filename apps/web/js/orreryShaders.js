@@ -70,6 +70,57 @@ uniform vec4 u_map; uniform vec4 u_mapLat; uniform vec4 u_mapWindow; uniform int
 uniform int u_earthNight; uniform int u_earthWeather; uniform int u_earthIce;
 uniform sampler2D u_nightTex; uniform sampler2D u_weatherTex; uniform sampler2D u_iceTex;
 uniform int u_textureLinear;
+uniform vec3 u_hazeRayleighTau; uniform vec3 u_hazeAerosol;
+// Illustrative atmospheric haze for the distant, non-physical path. See
+// atmosphereOptics.js for the profile columns and the cited closed forms.
+float hazeAirMass(float mu){
+  // Kasten and Young 1989 relative air mass, capped for a grazing path.
+  float zenith=degrees(acos(clamp(mu,0.0,1.0)));
+  return 1.0/(clamp(mu,0.0,1.0)+0.50572*pow(max(96.07995-zenith,1e-3),-1.6364));
+}
+float hazeTransmittance(float tau,float mu){
+  // 6S total (direct plus diffuse) transmittance, SCATRA.f.
+  float m=hazeAirMass(mu),x=clamp(1.0/max(m,1.0),1e-3,1.0);
+  return ((2.0/3.0+x)+(2.0/3.0-x)*exp(-tau*m))/(4.0/3.0+tau);
+}
+vec3 hazeRayleigh(float tau,float mus,float muv,float cosPhi){
+  // Vermote and Tanre 1992 three-term fit, as implemented by 6S CHAND.f.
+  const float depolarization=0.0279;
+  float x=depolarization/(2.0-depolarization),k=(1.0-x)/(1.0+2.0*x);
+  float ss=sqrt(max(0.0,1.0-mus*mus)),sv=sqrt(max(0.0,1.0-muv*muv));
+  vec3 phase=vec3(1.0+(3.0*mus*mus-1.0)*(3.0*muv*muv-1.0)*k/8.0,
+    -0.75*k*mus*muv*ss*sv,0.1875*k*ss*ss*sv*sv);
+  float logTau=log(max(tau,1e-6));
+  float f0=0.33243832-0.06777104*logTau+0.16285370*(mus+muv)+0.001577425*logTau*(mus+muv)
+    -0.30924818*mus*muv-0.01240906*logTau*mus*muv-0.10324388*(mus*mus+muv*muv)
+    +0.03241678*logTau*(mus*mus+muv*muv)+0.11493334*mus*mus*muv*muv-0.03503695*logTau*mus*mus*muv*muv;
+  float f1=0.19666292-0.05439061*logTau,f2=0.14545937-0.02910845*logTau;
+  float single=(1.0-exp(-tau*(hazeAirMass(mus)+hazeAirMass(muv))))/(4.0*(mus+muv));
+  float multiple=(1.0-exp(-tau*hazeAirMass(mus)))*(1.0-exp(-tau*hazeAirMass(muv)));
+  vec3 terms=vec3(single+multiple*f0,single+multiple*f1,single+multiple*f2);
+  vec3 azimuth=vec3(1.0,2.0*cosPhi,2.0*(2.0*cosPhi*cosPhi-1.0));
+  return vec3(dot(phase*terms,azimuth));
+}
+// Returns the haze radiance to add, and scales the surface by its transmittances.
+vec3 hazeOverSurface(inout vec3 surface,vec3 normal,vec3 view,vec3 sun,float sunVisibility){
+  vec3 rayleigh=u_hazeRayleighTau;
+  float aerosol=u_hazeAerosol.x,albedo=u_hazeAerosol.y,g=u_hazeAerosol.z;
+  if(dot(rayleigh,vec3(1))<=0.0) return vec3(0);
+  float muv=dot(normal,view),mus=dot(normal,sun);
+  if(muv<=0.0||mus<=0.0) return vec3(0);
+  vec3 viewPlane=view-normal*muv,sunPlane=sun-normal*mus;
+  float cosPhi=dot(viewPlane,sunPlane)/max(length(viewPlane)*length(sunPlane),1e-6);
+  float cosScatter=clamp(-dot(view,sun),-1.0,1.0);
+  float hg=(1.0-g*g)/pow(max(1.0+g*g-2.0*g*cosScatter,1e-4),1.5);
+  vec3 path=vec3(0);
+  for(int c=0;c<3;c++){
+    float tau=rayleigh[c]+aerosol;
+    path[c]=hazeRayleigh(rayleigh[c],mus,muv,cosPhi)[c]
+      +albedo*aerosol*hg/(4.0*mus*muv);
+    surface[c]*=hazeTransmittance(tau,mus)*hazeTransmittance(tau,muv);
+  }
+  return max(path,vec3(0))*mus*sunVisibility;
+}
 ${DISPLAY_COMPOSITION_GLSL}
 vec3 decodeSRGB(vec3 c){ return mix(c/12.92,pow((c+0.055)/1.055,vec3(2.4)),step(vec3(0.04045),c)); }
 vec3 encodeSRGB(vec3 c){ c=max(c,vec3(0)); return mix(c*12.92,1.055*pow(c,vec3(1.0/2.4))-0.055,step(vec3(0.0031308),c)); }
@@ -433,6 +484,17 @@ void main(){
   // Surface rays end at the actual displaced position, preserving signed relief.
   if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor(col,surfaceBodyKm);
   vec3 displayLimb=u_atmo*fres*u_atmoStr*(0.25+0.75*lambert);
+  // An admitted profile replaces the illustrative rim with the haze above, so the
+  // two never stack. Bodies without one keep the original rim recipe untouched.
+  if(u_atmosphereEnabled==0&&dot(u_hazeRayleighTau,vec3(1))>0.0){
+    // Path radiance is linear light. A registered map is still linear here and the
+    // shared encode below handles it; a procedural display recipe is decoded and
+    // re-encoded so its own downstream handling stays exactly as it was.
+    vec3 surface=reference ? col : decodeSRGB(col);
+    vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),sunVis);
+    col=reference ? surface+path : encodeSRGB(surface+path);
+    displayLimb=vec3(0);
+  }
   if(u_linearOutput==1){
     // Reference/transport terms are already linear. The historical moon and
     // fallback lighting recipe stays a display reference and is decoded once.
@@ -504,6 +566,7 @@ export function physicalEnabledSource(source) {
       '  // Direct reflected sunlight sees the incident atmospheric column. The\n  // single-scattering mode has no invented diffuse-ambient weather term.\n  col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n    *u_atmosphereSolarScale*u_atmosphereExposure;'],
     ['  if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor(','  col=atmosphereSurfaceColor('],
     ['  if(u_atmosphereEnabled==0)return vec3(0);\n',''],
+    ['  if(u_atmosphereEnabled==0&&dot(u_hazeRayleighTau,vec3(1))>0.0){\n    // Path radiance is linear light. A registered map is still linear here and the\n    // shared encode below handles it; a procedural display recipe is decoded and\n    // re-encoded so its own downstream handling stays exactly as it was.\n    vec3 surface=reference ? col : decodeSRGB(col);\n    vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),sunVis);\n    col=reference ? surface+path : encodeSRGB(surface+path);\n    displayLimb=vec3(0);\n  }\n',''],
   ];
   for(const [from,to] of rewrites){
     if(source.split(from).length!==2)throw new Error('Physical enabled-flag boundary changed');

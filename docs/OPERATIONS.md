@@ -243,7 +243,9 @@ extends the registered planetary renderer to qualified satellite references and
 documented ring intervals. Tidally locked moons turn so their prime meridian faces
 the planet along the mean orbit, with the pole on the orbit normal; axial tilt and
 physical libration are not modelled. Nereid, which is not locked, keeps a disclosed
-fixed reference orientation. Missing coverage
+fixed reference orientation. Distant views of a body with an admitted atmosphere add
+an illustrative haze derived from its profile columns, which close views replace with
+the qualified optical transfer. Missing coverage
 remains simplified. Reference-image failure never changes the model clock or
 physical body positions, and ordinary frames do not retry failed images. Toggle
 reference imagery off/on or leave and return to the view to retry explicitly.

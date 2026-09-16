@@ -172,7 +172,11 @@ extension before admission. Surface-only maps retain their documented partial gr
 and affine windows.
 
 1. The base provides observed/source-composited continents and land ice. Provider
-   processing and interpolation must remain in the source explanation.
+   processing and interpolation must remain in the source explanation. Where a body
+   has an admitted atmosphere profile, distant views add an illustrative closed-form
+   haze over that base from the profile's own Rayleigh and aerosol columns, and drop
+   the fresnel rim so the two never stack. That haze is a display approximation: it
+   is replaced by the qualified numerical transfer whenever close views admit it.
 2. Dated satellite weather is clouds **and surface** where that is the product's
    content. Its documented validity mask controls alpha; missing data reveals the
    base. No arbitrary cloud drift, invented swaths or hemispheric mirroring is added.

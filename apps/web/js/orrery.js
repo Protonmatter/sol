@@ -25,6 +25,7 @@ import {requestTerrainMesh} from './terrainWorkerClient.js';
 import {createTerrainPreparationQueue,terrainResourceEstimate,uploadTerrainMesh} from './terrainResources.js';
 import {physicalCameraPosition,terrainDetailLevel,advanceReferencePlayback,createDetailCache} from './physicalRendering.js';
 import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms,serializeAtmosphereProfile} from './atmosphereOptics.js';
+import {setHazeUniforms} from './illustrativeHaze.js';
 import {INCIDENT_FIELD_UNIFORMS} from './atmosphereIncident.js';
 import {ATMOSPHERE_VS} from './atmosphereShaders.js';
 import {loadAtmosphereFields} from './atmosphereColumnField.js';
@@ -793,7 +794,8 @@ function finishGL(){
   // Array uniforms are queried at element 0 — the location uniform4fv() needs to upload the
   // whole array in one call. GLSL ES 3.00 accepts the bare name for that too, but "[0]" is the
   // form the WebGL spec guarantees, and a silently null location would just skip the upload.
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex"]);
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex",
+    "u_hazeRayleighTau", "u_hazeAerosol"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
@@ -1932,6 +1934,9 @@ function drawBody(b, vp, eye) {
   gl.uniform3fv(sphereUniforms.u_cam, new Float32Array(eye));
   gl.uniform3fv(sphereUniforms.u_atmo, new Float32Array(atmo));
   gl.uniform1f(sphereUniforms.u_atmoStr, atmoStr);
+  // Distant views have no numerical transfer, so an admitted profile supplies the
+  // illustrative haze columns instead. The physical program never reads them.
+  setHazeUniforms(gl, sphereUniforms, getAtmosphereProfile(b.name));
   // Surface-map priority: a real fetched photographic map (fetch_textures.py) beats the map we
   // generate from the committed vectors, which in turn beats the procedural shader. Only the
   // generated maps can ask to MODULATE rather than replace.
@@ -2162,6 +2167,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
     gl.uniform3fv(P.sphereU.u_atmo, new Float32Array(moonAtmosphereColor(m.n)));
     gl.uniform1f(P.sphereU.u_atmoStr, m.n === "Titan" ? 0.5 : 0);
+    setHazeUniforms(gl, P.sphereU, null); // no admitted moon profile carries a haze
     // Only reviewed grids may wrap onto a moon. The spin frame above places a locked moon's
     // map longitudes; it is derived from the orbit, not from an independent spin model.
     const reference = appearanceReference(m.n);
