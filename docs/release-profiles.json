@@ -1,0 +1,136 @@
+{
+  "accepted_evidence": {},
+  "approved_candidates": {
+    "9b262f1cf9b95b337de29f2a9208393780b6429f": {
+      "change_review": {
+        "base_sha": "d74f01deda75f9714f74d7297e7a73e4c71e6497",
+        "diff_sha256": "650588edc57700e558588bafde058cfbd4380137d7121c2ebdc77cb8222ac1c7"
+      },
+      "components": {
+        "science": "77605cd3e8947465bdb8e5d26392f549d83b7cdd708ce367a749e46f622b9ef9",
+        "ui": "28d3333fd6378d8c8ececc9575dd79435052b9a983a8af2731d8a1f18bb0ae8c"
+      },
+      "manifest_sha256": "88314b2d0174a26e3df3bbd7fab91e0378b87be7b6a1d0f3bfa8ade8c15e83b3",
+      "platforms": [
+        "chromium-linux-ci"
+      ],
+      "profile": "experience-milestone",
+      "required_cases": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-14",
+        "AC-15",
+        "AC-16",
+        "AC-17",
+        "AC-18",
+        "AC-19",
+        "AC-20",
+        "AC-21",
+        "AC-22",
+        "AC-23",
+        "AC-24",
+        "AC-25",
+        "AC-26",
+        "AC-27",
+        "AC-28",
+        "AC-29",
+        "AC-30",
+        "AC-31",
+        "AC-32",
+        "AC-33",
+        "AC-34",
+        "AC-35",
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15",
+        "F16",
+        "F17",
+        "F18",
+        "F19",
+        "F20",
+        "F21",
+        "F22"
+      ],
+      "required_kinds": [
+        "manual",
+        "scientific"
+      ],
+      "schemas": [
+        "solar-state-snapshot.v3",
+        "ephemeris-snapshot.v3"
+      ]
+    }
+  },
+  "policy_accepted": false,
+  "required_job_names": {
+    "artifact": [
+      "Build immutable web artifact"
+    ],
+    "candidate": [
+      "Candidate identity"
+    ],
+    "coverage": [
+      "Coverage / Rust coverage (>= 90%)",
+      "Coverage / Python coverage (>= 90%)",
+      "Coverage / JavaScript coverage (Node + Chromium, >= 90%)"
+    ],
+    "determinism": [
+      "Engine determinism (ubuntu-latest)",
+      "Engine determinism (macos-latest)",
+      "Engine determinism (windows-latest)"
+    ],
+    "determinism-compare": [
+      "Engine determinism (cross-OS byte compare + schema)"
+    ],
+    "docs": [
+      "Docs / Markdown links, badges + style"
+    ],
+    "governance": [
+      "Governance and specification contracts"
+    ],
+    "lint": [
+      "Rust lint (fmt + clippy)"
+    ],
+    "release-gate": [
+      "Release gate"
+    ],
+    "test": [
+      "Rust tests (workspace)"
+    ],
+    "wasm": [
+      "WASM build (wasm32-unknown-unknown)"
+    ],
+    "web": [
+      "Web, provider, and browser validation"
+    ]
+  },
+  "schema_version": "release-profiles.v1",
+  "settings_verified": false,
+  "supported_schemas": [
+    "solar-state-snapshot.v3",
+    "ephemeris-snapshot.v3"
+  ]
+}
