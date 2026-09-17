@@ -90,8 +90,10 @@ against the unchanged 5,592-query domain and with its own receipt: `2dfa790` spl
 integration at actual ground crossings, `d53272a` resolves the constant-below-datum
 quadrature through an optical coordinate rather than more nodes, and `0ac2f6d` preserves
 observer geometry near tangent endpoints. Item 3, one immutable candidate carried through
-the full interpolation, material, raster and application gates, has not been done for any
-scattering-field implementation.
+the full interpolation, material, raster and application gates, was also done: the runtime
+ledger records runtime `daa1fbe` passing 7,192/7,192 on native Adreno and SwiftShader and
+all eight application gates. An earlier revision of this section said item 3 "has not been
+done for any scattering-field implementation"; that was wrong.
 
 The hosted deadline that the P1 predicted would fail no longer fails: `301821cf` and
 `60cd859f` each completed all 20 hosted checks. That is recorded with its limits in the
@@ -101,5 +103,8 @@ The bounded-field candidate remains disqualified on its own evidence. The correc
 are much narrower than its failure set — `d53272a` records seven underresolved terrain
 queries against the candidate's 368 — so they do not explain those failures and do not
 justify re-running it unchanged. The P1's underlying claim, that per-fragment scattering
-cost scales with framebuffer resolution, is still true of the shipped renderer.
+cost scales with framebuffer resolution, is **not** true of the shipped renderer: a
+different bounded design was built, qualified and shipped after this assessment was
+written. See the correction in the
+[hosted follow-up](../2026-09-14-rendering-qualification/HOSTED_PERFORMANCE_FOLLOWUP.md).
 

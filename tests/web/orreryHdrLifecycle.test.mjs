@@ -86,7 +86,10 @@ test('scattering generation restores the active HDR target before physical surfa
     values:new Float32Array(4*257*195),width:257,height:195,domain:{minHeightKm:0,maxHeightKm:16,quadratic:true}})});
   await h.enterOrrery();t.after(()=>h.leaveOrrery());h.setAnimate(false);allowFloatTarget(h.gl);h.state.hdrEnabled=true;
   h.input('orreryAnchor','Earth','change');await h.settle();
-  const first=h.gpuSubmissions.length;h.resize(810,610);
+  const parameter=h.gl.getParameter,framebufferQueries=[];
+  h.gl.getParameter=name=>{if(name===h.gl.DRAW_FRAMEBUFFER_BINDING||name===h.gl.READ_FRAMEBUFFER_BINDING)framebufferQueries.push(name);return parameter(name);};
+  const first=h.gpuSubmissions.length;h.resize(810,610);h.gl.getParameter=parameter;
+  assert.deepEqual(framebufferQueries,[],'the HDR scene target is restored from its presentation owner, not read back from the driver');
   const draws=h.gpuSubmissions.slice(first),generated=draws.filter(draw=>Number.isInteger(draw.uniforms.u_scatteringPass));
   const physical=draws.filter(draw=>draw.kind==='elements'&&draw.uniforms.u_scatteringReady===1);
   const presented=draws.find(draw=>draw.uniforms.u_frameSerial);

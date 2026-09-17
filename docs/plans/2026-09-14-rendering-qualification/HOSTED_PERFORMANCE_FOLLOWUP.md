@@ -200,15 +200,80 @@ What that does and does not settle:
   hosted runner, on the CI-workflow Chromium job and the standalone Coverage job alike.
   The earlier two-of-three and one-of-three results belong to `eea55e5c` and `063c354d`
   and are retained above.
-- **Not settled.** The review finding itself is that scattering cost scales with
-  framebuffer pixels. The work is still evaluated per fragment; it is cheaper, not
-  bounded. A larger viewport, a higher device pixel ratio or a slower runner can put the
-  deadline back in reach. Nothing here establishes a resolution-independent bound.
+- **Corrected.** An earlier revision of this section said the work is "still evaluated
+  per fragment; cheaper, not bounded". That was wrong and misdescribed the shipped
+  design. Compiling the shader strings at `1b804d7` shows `SCATTERING_SPHERE_FS` and
+  `ATMOSPHERE_SCATTERING_FS` contain no 12-node loop and never call
+  `integrateAtmospherePrepared`; `atmosphereScattering.js` slices the integrator out and
+  substitutes a field lookup. The loop at `atmosphereShaders.js:305` compiles only into
+  the generator, whose targets `planAtmosphereScattering` sizes from fixed constants
+  (`[128,193,1]`, `[80,41,17]`, `[128,49,9]`, limb `[128,64]`) under the
+  `SCATTERING_MAX_EVALUATIONS = 65536` budget. Neither module reads a canvas, viewport or
+  device pixel ratio. The bounded representation the finding asked for is what ships.
+- **Residual.** What remains per fragment is bounded field interpolation: a tricubic
+  stencil that degenerates to the 16-texel single-layer path for Earth's `z = 1` plan.
+  That is ordinary shading cost, not the per-fragment integration the finding describes.
 - **Not measured.** No hosted timing was captured for `301821cf`. The 58.7 ms to 44.4 ms
   improvement above is local SwiftShader, and the earlier hosted attribution of
   1,901.290 ms per frame to the physical surface consumer has no post-candidate
   counterpart. The frame-cost diagnostic would have to be rerun on an exact head to give
   one.
+
+## Caller-state driver queries removed from the scattering prepass (2026-09-16)
+
+The 4,604.8 ms attributed above to 48 `getParameter` calls came from
+`scatteringCallerState()` in `apps/web/js/orrery.js`. Every optical frame handed
+the scattering targets a restore snapshot of the caller's GL state, and read that
+snapshot back from the driver: after `bfc45c9` still ten `getParameter` and nine
+`isEnabled` round trips per atmospheric body per frame, each synchronous on the
+hosted software renderer.
+
+The prepass runs inside the opaque body pass, whose state `paint()` fixes once per
+frame before the first body: the scene target and its full viewport, the default
+vertex array, blending and depth testing on, depth writes on, no culling, scissor,
+stencil, discard or coverage, and dither at its default. Every draw after the
+prepass sets its own program, meshes and sampler units. The renderer therefore
+writes that boundary state immediately before generation and hands the same values
+to the targets as the snapshot, with no driver query and no renderer-tracked guess.
+The snapshot is the context's state by construction; each restored handle is null
+or the HDR scene target, which `hdrPresentation.framebuffer()` now names for the
+pending frame; and the targets' own check that a restore never rebinds a
+scattering-owned handle is still evaluated against the real bindings. The
+reviewer's alternative, tracking the renderer's known state, was rejected because
+it would replace that check's input with a claim.
+
+Source evidence, both directions: three assertions were red on the prior source
+and green after the change (the prepass reading all ten state parameters, the HDR
+frame reading both framebuffer bindings, and the missing scene-target accessor).
+The new lifecycle test observes the double's own bookkeeping at generation's first
+state change and requires it to equal the asserted scene-pass state exactly. The
+two caller-state failure tests now inject a rejected state write instead of a
+rejected read and keep their drawable-fallback and explicit-retry coverage. Node
+suite 1,290/1,290; 111-file typecheck; 401 Python tests; SDLC, docs, UX contract,
+visual, physical, phenomena and web-static validators all pass.
+
+GPU gates on the staged candidate, SwiftShader: planet appearance 110/110,
+physical material 266/266, atmosphere 1,171/1,171. The physical rendering gate
+was run repeatedly on both the unchanged baseline staging and the candidate
+because it dies intermittently at the Earth night-lights step with a Puppeteer
+`Promise was collected` protocol error on this machine. Measured over eleven runs:
+the candidate passed 2 of 5, the baseline 4 of 6. Both arms fail and pass; neither
+fails systematically.
+
+Between full passes the candidate is byte-identical to two baseline passes across
+all 20 canvases, and differs from the other two baseline passes by a single pixel on
+one capture. That single-pixel jitter is pre-existing: baseline passes differ from
+each other the same way, on the same two captures (`solar-system-overview`,
+`mission-saturn-hexagon`). One candidate run produced a different `mars-terrain-on`
+capture, 4,427 pixels; every one of those pixels is HTML label glyph placement
+(`Mars`, `Phobos`, `Betelgeuse`, `Rigel`), with the globe, terrain, limb and Phobos
+identical. Removing synchronous driver stalls changes main-thread frame timing, so
+asynchronous label layout can land a frame differently in a capture; no WebGL content
+changed in any comparison.
+
+No hosted timing was captured for this change. The removed round trips are a
+main-thread cost the hosted checkpoint measured directly; whether they were the
+dominant remaining wait on the hosted runner is for an exact-head hosted run.
 
 ## Integrator corrections that landed after the bounded-field experiment
 

@@ -26,31 +26,53 @@ function float32RoundingBin(value){
   return [(value+previous)/2,(value+next)/2];
 }
 
-test('the scattering prepass never re-reads the target units it has just released',async t=>{
-  // Every optical frame snapshots the caller's GL state so the prepass can restore it.
-  // Units 8 and 9 hold the scattering targets, so the snapshot releases them first; asking
-  // the driver what they hold afterwards can only return the null just written, and each
-  // such query is a synchronous round trip on the hosted runner this prepass is measured
-  // against. Unit 7 carries the caller's own column field and must still be read.
-  const h=await boot(t);
-  const {TEXTURE0,TEXTURE_BINDING_2D,SAMPLER_BINDING}=h.gl;
-  const realActive=h.gl.activeTexture,realGet=h.gl.getParameter;
-  let unit=0;const released=[],read=[];
-  h.gl.activeTexture=value=>{unit=value-TEXTURE0;return realActive(value);};
-  h.gl.getParameter=name=>{
-    if(name===TEXTURE_BINDING_2D||name===SAMPLER_BINDING)read.push(unit);
-    return realGet(name);
+const STATE_QUERIES=['ACTIVE_TEXTURE','TEXTURE_BINDING_2D','SAMPLER_BINDING','DRAW_FRAMEBUFFER_BINDING','READ_FRAMEBUFFER_BINDING',
+  'VIEWPORT','CURRENT_PROGRAM','VERTEX_ARRAY_BINDING','COLOR_WRITEMASK','DEPTH_WRITEMASK'];
+const ENABLES=['BLEND','DEPTH_TEST','CULL_FACE','SCISSOR_TEST','STENCIL_TEST','RASTERIZER_DISCARD','SAMPLE_COVERAGE','SAMPLE_ALPHA_TO_COVERAGE','DITHER'];
+
+test('the scattering prepass asserts the scene-pass state it restores instead of querying the driver',async t=>{
+  // Every optical frame hands the targets a restore snapshot of the caller's GL state.
+  // Reading that state back was one synchronous driver round trip per value per body per
+  // frame; the hosted record attributes 4.6 s to 48 such reads. The scene pass fixes that
+  // state once per frame, so the prepass writes it and asserts it instead. The snapshot
+  // must still be the context's true state: this observes the double's own bookkeeping at
+  // generation's first state change, binding its own draw target, before it is applied.
+  const h=await boot(t),gl=h.gl;
+  const names=Object.fromEntries(STATE_QUERIES.map(name=>[gl[name],name]));
+  const realGet=gl.getParameter,realEnabled=gl.isEnabled,realBindFramebuffer=gl.bindFramebuffer;
+  const queried=[],enabledQueries=[],observed=[];let probing=false;
+  gl.getParameter=name=>{if(!probing&&name in names)queried.push(names[name]);return realGet(name);};
+  gl.isEnabled=capability=>{if(!probing)enabledQueries.push(capability);return realEnabled(capability);};
+  gl.bindFramebuffer=(target,value)=>{
+    if(target===gl.DRAW_FRAMEBUFFER&&value!==null&&observed.length===0){
+      probing=true;
+      try{
+        const active=realGet(gl.ACTIVE_TEXTURE);
+        const units=[7,8,9].map(unit=>{gl.activeTexture(gl.TEXTURE0+unit);return [realGet(gl.TEXTURE_BINDING_2D),realGet(gl.SAMPLER_BINDING)];});
+        gl.activeTexture(active);
+        observed.push({framebuffers:[realGet(gl.DRAW_FRAMEBUFFER_BINDING),realGet(gl.READ_FRAMEBUFFER_BINDING)],viewport:realGet(gl.VIEWPORT),
+          program:realGet(gl.CURRENT_PROGRAM),vertexArray:realGet(gl.VERTEX_ARRAY_BINDING),activeTexture:active,units,
+          colorMask:realGet(gl.COLOR_WRITEMASK),depthMask:realGet(gl.DEPTH_WRITEMASK),enabled:ENABLES.map(name=>realEnabled(gl[name]))});
+      }finally{probing=false;}
+    }
+    return realBindFramebuffer(target,value);
   };
-  const realBind=h.gl.bindTexture;
-  h.gl.bindTexture=(target,value)=>{if(value===null)released.push(unit);return realBind(target,value);};
   try{
     const before=h.gpuSubmissions.length;h.resize(812,604);
-    assert.ok(generatorDraws(h.gpuSubmissions.slice(before)).length>0,'the prepass must actually run in this frame');
-    assert.ok(released.includes(8)&&released.includes(9),'the snapshot still releases both target units');
-    assert.deepEqual(read.filter(value=>value===8||value===9),[],
-      'a released target unit must not be read back from the driver');
-    assert.ok(read.includes(7),'the caller-owned column unit is still read');
-  }finally{h.gl.activeTexture=realActive;h.gl.getParameter=realGet;h.gl.bindTexture=realBind;}
+    const draws=h.gpuSubmissions.slice(before);
+    assert.ok(generatorDraws(draws).length>0,'the prepass must actually run in this frame');
+    assert.deepEqual(queried,[],'no caller-state parameter may be read back from the driver');
+    assert.deepEqual(enabledQueries,[],'no enable state may be read back from the driver');
+    assert.deepEqual(observed,[{framebuffers:[null,null],viewport:[0,0,812,604],program:null,vertexArray:null,activeTexture:gl.TEXTURE0,
+      units:[[null,null],[null,null],[null,null]],colorMask:[true,true,true,true],depthMask:true,
+      enabled:[true,true,false,false,false,false,false,false,true]}],'generation starts from exactly the asserted scene-pass state');
+    const surface=consumers(draws)[0];
+    assert.ok(surface,'the physical surface still composes after the prepass');
+    assert.equal(surface.framebuffer,null);assert.deepEqual(surface.viewport,[0,0,812,604]);assert.equal(surface.vertexArray,null);
+    assert.ok(surface.depthWrites&&surface.enabled.has(gl.BLEND)&&surface.enabled.has(gl.DEPTH_TEST)&&surface.enabled.has(gl.DITHER),
+      'the surface draw keeps the scene-pass depth, blend and dither state');
+    assert.deepEqual(h.errors,[]);
+  }finally{gl.getParameter=realGet;gl.isEnabled=realEnabled;gl.bindFramebuffer=realBindFramebuffer;}
 });
 
 for(const body of ['Earth','Mars'])test(`${body} shell raster and optical endpoints use the same physical radius`,async t=>{
@@ -153,19 +175,23 @@ test('a terrain identity mismatch cannot admit scattering while its geometric fa
   assert.deepEqual(h.errors,[]);
 });
 
-test('a failed caller-state capture keeps the drawable fallback and clears prior admission',async t=>{
-  const h=await boot(t),getParameter=h.gl.getParameter;
-  h.gl.getParameter=name=>{if(name===h.gl.VIEWPORT)throw Error('state read failed');return getParameter(name);};
-  const first=h.gpuSubmissions.length;h.resize(806,602);
-  assert.equal(h.state.opticsStatus.Earth,'unavailable');assert.match(h.state.scatteringStatus.Earth.reason,/state read failed/);
-  assert.equal(consumers(h.gpuSubmissions.slice(first)).length,0);
-  assert.ok(h.gpuSubmissions.length>first);assert.deepEqual(h.errors,[]);
+test('a failed caller-state assertion keeps the drawable fallback and clears prior admission',async t=>{
+  // The prepass writes its restore state before generation; a context that rejects one
+  // of those writes must leave the drawable fallback, not a half-asserted snapshot.
+  const h=await boot(t),bindSampler=h.gl.bindSampler;
+  h.gl.bindSampler=()=>{throw Error('state write failed');};
+  try{
+    const first=h.gpuSubmissions.length;h.resize(806,602);
+    assert.equal(h.state.opticsStatus.Earth,'unavailable');assert.match(h.state.scatteringStatus.Earth.reason,/state write failed/);
+    assert.equal(consumers(h.gpuSubmissions.slice(first)).length,0);
+    assert.ok(h.gpuSubmissions.length>first);assert.deepEqual(h.errors,[]);
+  }finally{h.gl.bindSampler=bindSampler;}
 });
 
 test('caller-state failure stays unavailable with its cause until explicit optical retry',async t=>{
-  const h=await boot(t),getParameter=h.gl.getParameter;
-  h.gl.getParameter=name=>{if(name===h.gl.VIEWPORT)throw Error('persistent caller-state cause');return getParameter(name);};
-  h.resize(806,602);h.gl.getParameter=getParameter;
+  const h=await boot(t),bindSampler=h.gl.bindSampler;
+  h.gl.bindSampler=()=>{throw Error('persistent caller-state cause');};
+  h.resize(806,602);h.gl.bindSampler=bindSampler;
   const before=h.gpuSubmissions.length,allocations=h.textureUploads.length;
   h.resize(807,603);h.resize(808,604);
   assert.equal(h.state.opticsStatus.Earth,'unavailable');

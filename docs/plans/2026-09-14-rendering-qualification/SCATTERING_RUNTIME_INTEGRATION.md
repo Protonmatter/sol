@@ -39,18 +39,25 @@ catalogue-minus-optical datum computed on the CPU and uploaded separately. This
 retains Earth's 3 m datum offset without recovering it by subtracting two large
 binary32 radii. This scalar is a coordinate conversion, not new relief or data.
 
-Before generation, output units 8/9 are actually unbound; restoring a prior
+Before generation, units 7/8/9 are actually unbound; restoring a prior
 manager-owned output could otherwise retain a deleted target or create feedback.
-The caller snapshot records both draw/read framebuffers, viewport, current
+The caller snapshot names both draw/read framebuffers, viewport, current
 program, vertex array, active texture selector, units 7/8/9 and samplers, color
-and depth masks, and all nine affected enable states. The target manager restores
-these after either success or failure. Thus a prepass inside an HDR scene returns
-to that scene's offscreen framebuffer before the surface and shell compose.
+and depth masks, and all nine affected enable states. The renderer does not read
+those values back from the driver. The prepass runs inside the opaque body pass,
+whose state `paint()` fixes once per frame, so the renderer writes that boundary
+state immediately before generation and hands the same values over as the
+snapshot. The snapshot is therefore the context's state by construction; every
+restored handle is null or the scene target the HDR presentation names; and the
+manager's own check that a restore never rebinds a scattering-owned handle is
+still evaluated against the real bindings. The target manager restores the
+snapshot after either success or failure. Thus a prepass inside an HDR scene
+returns to that scene's offscreen framebuffer before the surface and shell compose.
 
 Missing capabilities, invalid plans, source mismatches, incomplete targets or
 rejected bindings retain the existing illustrative material/limb and unavailable
 status. Static field or program readiness alone cannot claim a submitted current
-frame. Allocation failures do not retry on repaint. A caller-state capture exception
+frame. Allocation failures do not retry on repaint. A caller-state assertion exception
 retains its unavailable status and original cause across subsequent repaints;
 recovering the driver alone does not start a hidden retry loop. Explicit optical retry,
 selection demand, context loss, hidden/left views and zero-size canvases preserve

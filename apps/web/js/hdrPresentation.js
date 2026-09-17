@@ -134,5 +134,9 @@ export function createHdrPresentation(gl,{generation,maxBytes=DEFAULT_MAX_BYTES}
     lastSerial=pending.serial;report={...report,presented:{...pending}};pending=null;return true;
   }
   function dispose(){release();disposed=true;report={...report,state:'deferred',reason:'Presentation released.',estimatedBytes:0,presented:null};}
-  return {resize,beginFrame,present,status,dispose};
+  // The pending frame's scene target, for a caller that runs its own offscreen
+  // passes inside the frame and must rebind this afterwards. Borrowed for that
+  // frame only: a presented, resized, released or unstarted frame names nothing.
+  const framebuffer=()=>pending&&group?group.framebuffer:null;
+  return {resize,beginFrame,present,status,dispose,framebuffer};
 }

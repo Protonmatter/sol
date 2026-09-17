@@ -191,6 +191,11 @@ let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
 let shaderPrograms=null,programContextGeneration=0;
 let hdrPresentation=null,hdrFailure=null,contextGeneration=0,sceneSerial=0,linearFrame=false,graphicsLifecycle=0;
 let scatteringTargets=null,scatteringFrame=null;
+// The scene pass draws into one target at one viewport for the whole frame. Both are
+// fixed in beginSceneFrame so the scattering prepass can assert them, not query them.
+let sceneFramebuffer=null;
+/** @type {[number,number,number,number]} */
+let sceneViewport=[0,0,1,1];
 const PHYSICAL_PROGRAMS=['physicalSphere','atmosphere','scatteringGenerator'];
 let bodyBuf, ringBufs = {}, sceneLineBuf, sceneRanges = [], dropLineBuf, dropRanges = [];
 let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, texturesStarted = false;
@@ -1426,34 +1431,49 @@ function beginSceneFrame(width,height){
     }
   }
   if(!linearFrame)gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  sceneFramebuffer=linearFrame?hdrPresentation.framebuffer():null;sceneViewport=[0,0,width,height];
   for(const name of ['sphere','physicalSphere','line','ring','pt','glow','atmosphere','solar']){
     if(!P[name]||!P[`${name}U`])continue;
     gl.useProgram(P[name]);gl.uniform1i(P[`${name}U`].u_linearOutput,linearFrame?1:0);
   }
 }
 
-// Output units belong exclusively to the scattering consumers. Release their
-// prior bindings before taking the caller snapshot: restoring an owner texture
-// which generation may replace would create a dangling or feedback binding.
+// The scattering prepass runs inside the opaque body pass, whose state paint()
+// fixes once per frame before the first body: the scene target and its full
+// viewport, the default vertex array, blending and depth testing on, depth
+// writes on, no culling, scissor, stencil, discard or coverage, and dither at
+// its default. Every draw after the prepass sets its program, meshes and
+// sampler units itself, so nothing downstream depends on which of those the
+// prepass hands back. This writes that boundary state and hands the targets
+// the same values as the restore snapshot. The snapshot is therefore what the
+// context holds, by construction: no driver query is needed to learn it, and
+// no tracked guess stands in for one. Each restored handle is null or the
+// scene target the presentation owner names, so the targets' own check that a
+// restore never rebinds a scattering-owned handle stays true of the real state.
+// Output units 8 and 9 belong to the scattering consumers and unit 7 to the
+// column field the generator binds itself; all three are released here so a
+// restore can never rebind an owner texture that generation may replace.
+// The queries this replaces were synchronous round trips on the hosted runner:
+// the diagnostic checkpoint attributes 4,604.8 ms to 48 getParameter calls.
+const SCENE_PASS_ENABLES={blend:'BLEND',depthTest:'DEPTH_TEST',cullFace:'CULL_FACE',scissorTest:'SCISSOR_TEST',
+  stencilTest:'STENCIL_TEST',rasterizerDiscard:'RASTERIZER_DISCARD',sampleCoverage:'SAMPLE_COVERAGE',
+  sampleAlphaToCoverage:'SAMPLE_ALPHA_TO_COVERAGE',dither:'DITHER'};
+const SCENE_PASS_ENABLED=Object.freeze({blend:true,depthTest:true,cullFace:false,scissorTest:false,stencilTest:false,
+  rasterizerDiscard:false,sampleCoverage:false,sampleAlphaToCoverage:false,dither:true});
 function scatteringCallerState(){
-  const activeTexture=gl.getParameter(gl.ACTIVE_TEXTURE),textureUnits=[];
-  try{
-    for(const unit of [7,8,9]){
-      gl.activeTexture(gl.TEXTURE0+unit);
-      // Units 8 and 9 belong to the scattering targets. This releases them, so their
-      // restore binding is the null just written; reading it back was four synchronous
-      // driver queries per body per frame that could not return anything else, and each
-      // one costs a round trip on the hosted runner this prepass is measured against.
-      if(unit!==7){gl.bindTexture(gl.TEXTURE_2D,null);gl.bindSampler(unit,null);textureUnits.push({unit,texture:null,sampler:null});continue;}
-      textureUnits.push({unit,texture:gl.getParameter(gl.TEXTURE_BINDING_2D),sampler:gl.getParameter(gl.SAMPLER_BINDING)});
-    }
-  }finally{gl.activeTexture(activeTexture);}
-  return {drawFramebuffer:gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING),readFramebuffer:gl.getParameter(gl.READ_FRAMEBUFFER_BINDING),
-    viewport:Array.from(gl.getParameter(gl.VIEWPORT)),program:gl.getParameter(gl.CURRENT_PROGRAM),vertexArray:gl.getParameter(gl.VERTEX_ARRAY_BINDING),
-    activeTexture,textureUnits,colorMask:Array.from(gl.getParameter(gl.COLOR_WRITEMASK)),depthMask:gl.getParameter(gl.DEPTH_WRITEMASK),
-    enabled:Object.fromEntries(Object.entries({blend:'BLEND',depthTest:'DEPTH_TEST',cullFace:'CULL_FACE',scissorTest:'SCISSOR_TEST',
-      stencilTest:'STENCIL_TEST',rasterizerDiscard:'RASTERIZER_DISCARD',sampleCoverage:'SAMPLE_COVERAGE',
-      sampleAlphaToCoverage:'SAMPLE_ALPHA_TO_COVERAGE',dither:'DITHER'}).map(([key,constant])=>[key,gl.isEnabled(gl[constant])]))};
+  if(linearFrame&&!sceneFramebuffer)throw new Error('HDR scene target unavailable for scattering restore');
+  const framebuffer=linearFrame?sceneFramebuffer:null,viewport=[...sceneViewport],textureUnits=[];
+  gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer);gl.viewport(...sceneViewport);
+  gl.bindVertexArray(null);gl.useProgram(null);
+  for(const unit of [7,8,9]){
+    gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,null);gl.bindSampler(unit,null);
+    textureUnits.push({unit,texture:null,sampler:null});
+  }
+  gl.activeTexture(gl.TEXTURE0);
+  gl.colorMask(true,true,true,true);gl.depthMask(true);
+  for(const [key,constant] of Object.entries(SCENE_PASS_ENABLES))gl[SCENE_PASS_ENABLED[key]?'enable':'disable'](gl[constant]);
+  return {drawFramebuffer:framebuffer,readFramebuffer:framebuffer,viewport,program:null,vertexArray:null,
+    activeTexture:gl.TEXTURE0,textureUnits,colorMask:[true,true,true,true],depthMask:true,enabled:{...SCENE_PASS_ENABLED}};
 }
 
 function generateBodyScattering(body,profile,opticalOptions,physicalRadius,mesh){

@@ -29,7 +29,7 @@ function graphics(options={}) {
   for(const name of ['bindTexture','texImage2D','texParameteri','bindRenderbuffer','renderbufferStorage',
     'framebufferTexture2D','framebufferRenderbuffer','shaderSource','compileShader','attachShader','linkProgram',
     'bindVertexArray','useProgram','viewport','disable','enable','scissor','colorMask','depthMask','activeTexture','uniform1i','uniform1f'])gl[name]=()=>{};
-  return {gl,live,draws,options};
+  return {gl,live,draws,options,get bound(){return bound;}};
 }
 const identity=(serial=1)=>({generation:7,epoch:1800000000.25,serial});
 
@@ -109,4 +109,24 @@ test('resizing between visible sizes reuses the compiled presentation program',(
   assert.equal(p.resize(0,0).state,'deferred');assert.equal(h.live.size,0);
   assert.equal(p.resize(20,10).state,'ready');assert.equal(programs,2);
   p.dispose();assert.equal(h.live.size,0);
+});
+
+test('the presentation names its scene target only while a frame is pending',()=>{
+  // A caller that runs its own offscreen passes inside an HDR frame restores this
+  // target afterwards. It is borrowed for that frame; there is nothing to name otherwise.
+  const h=graphics(),p=createHdrPresentation(h.gl,{generation:7});
+  assert.equal(p.framebuffer(),null,'no target before allocation');
+  assert.equal(p.resize(20,10).state,'ready');
+  assert.equal(p.framebuffer(),null,'no target before a frame begins');
+  assert.equal(p.beginFrame(identity()),true);
+  const target=p.framebuffer();
+  assert.ok(target&&h.live.has(target),'the pending frame names a live framebuffer');
+  assert.equal(target,h.bound,'the named target is the framebuffer the frame bound');
+  assert.equal(p.present({exposure:1,frameIdentity:identity()}),true);
+  assert.equal(p.framebuffer(),null,'a presented frame has no pending target');
+  assert.equal(p.beginFrame(identity(2)),true);assert.ok(p.framebuffer());
+  assert.equal(p.resize(30,10).state,'ready');
+  assert.equal(p.framebuffer(),null,'a resize releases the pending target with its attachments');
+  assert.equal(p.beginFrame(identity(3)),true);p.dispose();
+  assert.equal(p.framebuffer(),null,'disposal releases the target');
 });
