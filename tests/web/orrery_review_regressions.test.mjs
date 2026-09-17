@@ -1,6 +1,96 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { orreryHarness as harness } from "./helpers/orreryHarness.mjs";
+import { matchesMoonNormal } from "./helpers/moonDraws.mjs";
+import { MOON_ALBEDO, MOON_ALBEDO_REFERENCE } from "../../apps/web/js/moonAppearance.js";
+import { moonOffsetAU } from "../../apps/web/js/moonorbits.js";
+import { sunlightOnMoon } from "../../apps/web/js/moonshadows.js";
+import { iauRotation } from "../../apps/web/js/orreryMath.js";
+import { BODY, AU_KM } from "../../apps/web/js/bodyData.js";
+import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
+
+test("Sun submits an emissive white display while held solar texture detail stays disabled", async t => {
+  const h = await harness(t, { controls: true, reducedMotion: true });
+  await h.enterOrrery();
+  const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
+  for (const enabled of [false, true]) {
+    const first = h.uniformDraws.length;
+    h.check("orreryTextures", enabled);
+    const sun = h.uniformDraws.slice(first).find(draw => draw.u_mode === 1);
+    assert.ok(sun, "the actual renderer submits the Sun");
+    const [r, g, b] = sun.u_base;
+    assert.ok(r >= 0.95 && g >= 0.95 && b >= 0.9, "emissive display must not reuse the gray missing-detail material");
+    assert.ok(r >= g && g >= b && r - b < 0.1, "subtle display warmth, not the EUV false-color palette");
+    assert.equal(sun.u_style, -1, "unqualified procedural spots and granulation stay disabled");
+    assert.equal(sun.u_useTex, 0, "unregistered camera disk cannot wrap onto the sphere");
+    assert.deepEqual(sun.u_model.slice(12, 15), [0, 0, 0], "Sun remains at the engine origin");
+  }
+  assert.ok(!h.images.some(image => /\/sun\.jpg(?:$|\?)/.test(image.src)));
+  assert.equal(h.state.renderUnix, epoch);
+  assert.equal(JSON.stringify(h.state.bodies), bodies);
+  h.leaveOrrery();
+});
+
+test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse attenuation", async t => {
+  const h = await harness(t, { controls: true, catalogues: "ready", reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  h.input("orreryAnchor", "Jupiter", "change");
+  h.state.radius = 0.1;
+  const first = h.uniformDraws.length;
+  h.check("orreryTrueScale", true);
+  const jupiter = h.state.bodies.find(body => body.name === "Jupiter");
+  const parent = [jupiter.x_au, jupiter.y_au, jupiter.z_au];
+  const rot = iauRotation(BODY.Jupiter, h.state.renderUnix);
+  const toBody = vector => [0, 1, 2].map(i => rot[i * 4] * vector[0] + rot[i * 4 + 1] * vector[1] + rot[i * 4 + 2] * vector[2]);
+  const sun = toBody(parent.map(value => -value * AU_KM));
+  const uploads = new Map();
+  for (const moon of h.moons.filter(moon => moon.p === "Jupiter")) {
+    const offset = moonOffsetAU(moon, h.state.renderUnix);
+    const position = offset.map((value, i) => value + parent[i]);
+    const matches = h.uniformDraws.slice(first).filter(draw => draw.u_style === -1 && draw.u_mode === 0
+      && matchesMoonNormal(h, moon, draw.u_nmat)
+      && draw.u_model?.slice(12, 15).every((value, i) => Math.abs(value - position[i]) < 1e-6));
+    assert.equal(matches.length, 1, `${moon.n}: one actual moon sphere upload at its physical position`);
+    const draw = matches[0], [red, green, blue] = draw.u_base;
+    assert.equal(draw.u_useTex, 0, `${moon.n}: held texture cannot supply detail`);
+    assert.equal(draw.u_texMode, 0);
+    assert.equal(red, green, `${moon.n}: no unqualified catalogue hue`);
+    assert.equal(red, blue);
+    const sunlit = sunlightOnMoon(toBody(offset.map(value => value * AU_KM)), sun,
+      { eqRadius: BODY.Jupiter.radiusKm, polarRadius: BODY.Jupiter.polarKm, sunRadius: BODY.Sun.radiusKm });
+    const illumination = 0.06 + 0.94 * sunlit;
+    const expected = (MOON_ALBEDO[moon.n] / MOON_ALBEDO_REFERENCE * illumination) ** (1 / 2.2);
+    assert.ok(Math.abs(red - expected) < 1e-6, `${moon.n}: uploaded brightness retains the existing albedo and eclipse transfer`);
+    uploads.set(moon.n, red ** 2.2 / illumination);
+  }
+  assert.ok(uploads.get("Europa") > uploads.get("Ganymede"), "the larger Ganymede must retain its lower reflectance");
+  assert.ok(Math.abs(uploads.get("Callisto") / uploads.get("Europa") - MOON_ALBEDO.Callisto / MOON_ALBEDO.Europa) < 1e-6);
+  assert.ok(h.images.filter(image=>image.src).every(image=>appearanceReferences().some(a=>a.path===image.src)),
+    'only dated registered references load; held moon images remain blocked');
+  assert.ok(Object.values(h.state.appearanceStatus).filter(status=>status==='loading').length<=2,
+    'only the bounded set of useful visible maps can be pending');
+  h.leaveOrrery();
+});
+
+test("paused physical-scale control updates immediately when the canvas cannot paint", async t => {
+  const h = await harness(t, { controls: true, reducedMotion: true });
+  await h.enterOrrery(); h.frame(1000);
+  assert.equal(h.frames.size, 0);
+  const epoch = h.state.renderUnix, before = h.draws;
+  h.nodes.orreryCanvas.clientWidth = 0;
+  h.nodes.orrerySize.value = "2";
+  for (const checked of [true, false]) {
+    h.check("orreryTrueScale", checked);
+    assert.equal(h.state.trueScale, checked);
+    assert.equal(h.nodes.orrerySize.disabled, checked, "control state cannot depend on a successful GPU paint");
+    assert.match(h.nodes.orreryScaleStatus.textContent, checked ? /Physical scale/ : /Enlarged for visibility/);
+    assert.equal(h.nodes.orrerySize.value, "2", "preserve the user's parked enlargement value");
+    assert.equal(h.state.renderUnix, epoch);
+    assert.equal(h.frames.size, 0, "scale changes do not resume a paused clock");
+    assert.equal(h.draws, before, "the zero-width canvas did not paint");
+  }
+  h.leaveOrrery();
+});
 
 test("Retry after failed System re-entry restores the retained canvas and animation loop", async t => {
   const h = await harness(t);

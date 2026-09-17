@@ -135,6 +135,59 @@ export function isRetrograde(m, parentPhys, poleFn, unixSeconds) {
   return dot < 0;
 }
 
+/**
+ * Moons that rotate synchronously, keeping one face toward their planet. Each has an IAU
+ * WGCCRE 2015 rotation model (Archinal et al. 2018, Celest. Mech. Dyn. Astron. 130:22) whose
+ * rate equals its mean motion and whose prime meridian is the mean sub-planet longitude.
+ * Nereid is the exception: Kepler K2 photometry gives an 11.6-hour spin (Kiss et al. 2016,
+ * MNRAS 457:2908) and the IAU publishes no rotation model, so it keeps the renderer frame.
+ * Every catalogue moon belongs to exactly one of these two sets.
+ */
+export const SYNCHRONOUS_MOONS = new Set([
+  "Phobos", "Deimos", "Io", "Europa", "Ganymede", "Callisto",
+  "Mimas", "Enceladus", "Tethys", "Dione", "Rhea", "Titan", "Iapetus",
+  "Miranda", "Ariel", "Umbriel", "Titania", "Oberon", "Triton", "Proteus",
+]);
+export const ASYNCHRONOUS_MOONS = new Set(["Nereid"]);
+
+/**
+ * Body frame of a synchronously rotating moon, as a column-major mat4 (rotation only) in the
+ * iauRotation convention: x is the prime meridian, y is +90 degrees east, z is the north pole.
+ *
+ * Synchronous rotation is uniform, so the prime meridian tracks the MEAN direction to the
+ * planet rather than the instantaneous one. On an eccentric orbit the true sub-planet point
+ * then wanders by the optical libration (true minus mean anomaly), as it does on the real
+ * body. The pole is the orbit normal turned to the side of the planet's IAU north pole, which
+ * is how the IAU orients these moons, Triton's retrograde orbit included. Not modelled: the
+ * small Cassini-state obliquity between spin axis and orbit normal, physical libration, and
+ * the fixed offsets by which some IAU prime meridians sit off the exact mean sub-planet line.
+ *
+ * `parentPole` is the planet's IAU north-pole unit vector (bodyData's poleVector), passed in
+ * so this module keeps no imports. Returns null for a moon not known to rotate synchronously.
+ *
+ * @param {{n:string,t0?:number,step?:number,el?:number[]}} m
+ * @param {number} unixSeconds
+ * @param {number[]} parentPole
+ * @returns {number[]|null}
+ */
+export function synchronousMoonRotation(m, unixSeconds, parentPole) {
+  if (!SYNCHRONOUS_MOONS.has(m.n)) return null;
+  const el = moonElementsAt(m, unixSeconds);
+  const inc = el.i * D2R, node = el.node * D2R, u = (el.argp + el.M) * D2R;
+  const ci = Math.cos(inc), si = Math.sin(inc), cn = Math.cos(node), sn = Math.sin(node);
+  const cu = Math.cos(u), su = Math.sin(u);
+  // Mean planet-to-moon direction and orbital angular momentum, in the same Rz(node)*Rx(i)
+  // frame as offsetFromElements.
+  const mean = [cn * cu - sn * su * ci, sn * cu + cn * su * ci, su * si];
+  const orbitNormal = [si * sn, -si * cn, ci];
+  const side = orbitNormal[0] * parentPole[0] + orbitNormal[1] * parentPole[1]
+    + orbitNormal[2] * parentPole[2] < 0 ? -1 : 1;
+  const z = orbitNormal.map((v) => v * side);
+  const x = mean.map((v) => -v);
+  const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+  return [x[0], x[1], x[2], 0, y[0], y[1], y[2], 0, z[0], z[1], z[2], 0, 0, 0, 0, 1];
+}
+
 /** One full orbit as world-frame planetocentric points (AU), for drawing the path. */
 export function moonOrbitPath(m, unixSeconds, steps = 72) {
   const el = moonElementsAt(m, unixSeconds);
@@ -157,7 +210,7 @@ export function moonOrbitPath(m, unixSeconds, steps = 72) {
  * spacing BETWEEN them stays true: Callisto still sits 4.46× farther out than Io, and the
  * Galilean rhythm is preserved. Returns 1 in true-scale mode, where nothing needs help.
  */
-export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU = 0) {
+export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU = 0, radiusOf = (_moon) => 0, offsetOf = null) {
   if (trueScale || !moons.length) return 1;
   let innermost = Infinity;
   for (const m of moons) innermost = Math.min(innermost, (m.a * (1 - m.e)) / AU_KM);
@@ -167,6 +220,18 @@ export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU
   // put it inside them, and Miranda and Proteus likewise sat within Uranus's and Neptune's.
   // Every one of those moons orbits comfortably beyond its planet's outer ring in reality, so
   // the drawing was inverting a real relationship.
-  const clearance = Math.max(planetDisplayRadiusAU * 1.7, ringOuterAU * 1.12);
-  return Math.max(1, clearance / innermost);
+  let scale = Math.max(1, Math.max(planetDisplayRadiusAU * 1.7, ringOuterAU * 1.12) / innermost);
+  for (const m of moons) {
+    const periapsis = m.a * (1 - m.e) / AU_KM;
+    if (periapsis > 0) scale = Math.max(scale,
+      (Math.max(planetDisplayRadiusAU, ringOuterAU) + radiusOf(m)) / (0.95 * periapsis));
+  }
+  // Optional bounded point comparison, never orbit-segment comparisons. The renderer instead
+  // caps sibling enlargement so conjunctions cannot expand the entire system without bound.
+  if (offsetOf) for (let i = 0; i < moons.length; i++) for (let j = i + 1; j < moons.length; j++) {
+    const a = offsetOf(moons[i], i), b = offsetOf(moons[j], j);
+    const distance = Math.hypot(...a.map((v, k) => v - b[k]));
+    if (distance > 0) scale = Math.max(scale, (radiusOf(moons[i]) + radiusOf(moons[j])) / (0.95 * distance));
+  }
+  return scale;
 }

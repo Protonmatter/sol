@@ -148,7 +148,7 @@ export const STAGE_PLAIN = {
 // the frame (~0.4565); AIA's wider field of view makes the disk smaller (~0.39).
 const SDO = "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_";
 export const BASE_IMAGES = {
-  continuum:   { url: SDO + "HMIIC.jpg", label: "Visible (HMI continuum)", centerFrac: 0.5, radiusFrac: 0.4565, clip: true, layer: "Photosphere — the surface", temp: "~5,500 K", blurb: "Ordinary white light from the Sun's surface. Dark sunspots are cooler, magnetically intense regions." },
+  continuum:   { url: SDO + "HMIIC.jpg", label: "Visible continuum (HMI, colorized)", centerFrac: 0.5, radiusFrac: 0.4565, clip: true, layer: "Photosphere — the surface", temp: "~5,500 K", blurb: "HMI continuum intensity with NASA's assigned display color. Dark sunspots are cooler, magnetically intense regions." },
   magnetogram: { url: SDO + "HMIB.jpg", label: "Magnetic field (HMI magnetogram)", centerFrac: 0.5, radiusFrac: 0.4565, clip: true, layer: "Photosphere — magnetic field", temp: "magnetic map", blurb: "The surface magnetic field. Black and white are opposite magnetic polarities; active regions are where they're strongest." },
   aia1700:     { url: SDO + "1700.jpg", label: "1700 Å — ultraviolet", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Photosphere / temperature minimum", temp: "~4,500 K", blurb: "Ultraviolet from the lowest atmosphere, just above the visible surface." },
   aia304:      { url: SDO + "0304.jpg", label: "304 Å — chromosphere", centerFrac: 0.5, radiusFrac: 0.39, clip: false, layer: "Chromosphere / transition region", temp: "~50,000 K", blurb: "He II light from the chromosphere — filaments, prominences, and the cooler atmosphere above the surface." },

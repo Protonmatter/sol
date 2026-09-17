@@ -19,16 +19,16 @@ async function harness() {
       set textContent(text) { value = String(text); children.length = 0; },
       appendChild(child) { children.push(child); } };
   }
-  const images = [], draws = [];
+  const images = [], draws = [], commands = [];
   class ImageBoundary {
     complete = false;
     naturalWidth = 0;
     constructor() { images.push(this); }
   }
-  const ctx = { createRadialGradient: () => ({ addColorStop() {} }),
-    drawImage: img => draws.push(img) };
+  const ctx = { createRadialGradient: (...args) => { commands.push({ method: 'createRadialGradient', args }); return { addColorStop() {} }; },
+    drawImage: (...args) => { draws.push(args[0]); commands.push({ method: 'drawImage', args }); } };
   for (const name of ["clearRect", "fillRect", "beginPath", "arc", "stroke", "save", "clip", "restore",
-    "fill", "ellipse", "moveTo", "bezierCurveTo", "lineTo", "fillText", "setLineDash"]) ctx[name] = () => {};
+    "fill", "ellipse", "moveTo", "bezierCurveTo", "lineTo", "fillText", "setLineDash"]) ctx[name] = (...args) => { commands.push({ method: name, args }); };
   const canvas = () => ({ ...element(), width: 400, height: 300, getContext: () => ctx,
     getBoundingClientRect: () => ({ width: 400, height: 300 }) });
   const nodes = { wavelengthCaption: element(), baseLabel: element(), solarCanvas: canvas(),
@@ -58,16 +58,57 @@ async function harness() {
     "tour.js": { maybeAutoStartTour: context.maybeAutoStartTour },
     "solarWorkerClient.js": { requestSolarSimulation: context.requestSolarSimulation, cancelSolarSimulation: context.cancelSolarSimulation },
   };
-  Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "render", "wavelength"].map(moduleURL), {
+  Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "render", "wavelength", "explorer"].map(moduleURL), {
     resolveImport: (_specifier, url) => boundaries[url.pathname.split("/").at(-1)],
     initializeImportMeta: meta => { meta.url = "https://example.invalid/js/data.js"; },
   }));
+  context.explorer.choose("research"); // These scenarios explicitly exercise Research image/model transitions.
   context.setWavelength("continuum");
-  return { context, store, nodes, images, draws,
-    ready() { images[0].complete = true; images[0].naturalWidth = 1024; images[0].onload(); },
+  return { context, store, nodes, images, draws, commands,
+    ready(image = images[0], width = 1024, height = 1024) { image.complete = true; image.naturalWidth = width; image.naturalHeight = height; image.onload(); },
     fail() { images[0].onerror(); },
   };
 }
+
+for (const channel of ['continuum', 'magnetogram', 'aia171']) {
+  test(`${channel} preserves the full observed frame without a model rim or added limb shading`, async () => {
+    const h = await harness();
+    h.context.setWavelength(channel);
+    const image = h.images.at(-1);
+    h.ready(image);
+    h.commands.length = 0;
+    h.context.drawSolarDisk();
+    const imageDraws = h.commands.filter(command => command.method === 'drawImage');
+    assert.equal(imageDraws.length, 1);
+    assert.deepEqual(imageDraws[0].args, [image, 50, 0, 300, 300], 'whole square camera frame fits the 400x300 canvas including caption and corona');
+    assert.ok(!h.commands.some(command => command.method === 'clip' || command.method === 'stroke'), 'no assumed photospheric boundary is drawn on observed data');
+    const afterImage = h.commands.slice(h.commands.indexOf(imageDraws[0]) + 1);
+    assert.ok(!afterImage.some(command => ['fill', 'fillRect', 'createRadialGradient'].includes(command.method)), 'no extra brightness transform after the image');
+    assert.equal(h.store.projectedRegions.length, 0, 'no modeled region geometry becomes registered to the source');
+  });
+}
+
+test('observed camera frames retain their aspect ratio and the model keeps its own geometry', async () => {
+  const h = await harness();
+  h.ready(h.images[0], 800, 400);
+  h.commands.length = 0;
+  h.context.drawSolarDisk();
+  assert.deepEqual(h.commands.find(command => command.method === 'drawImage').args.slice(1), [0, 50, 400, 200]);
+  h.context.setWavelength('model');
+  h.commands.length = 0;
+  h.context.drawSolarDisk();
+  assert.ok(!h.commands.some(command => command.method === 'drawImage'));
+  assert.ok(h.commands.some(command => command.method === 'arc' && command.args[0] === 200 && command.args[1] === 150 && command.args[2] === 126));
+  assert.ok(h.commands.some(command => command.method === 'stroke'), 'synthetic model rim remains available');
+});
+
+test('HMI continuum caption identifies the provider colorized intensity display', async () => {
+  const h = await harness();
+  h.ready();
+  assert.match(h.nodes.wavelengthCaption.textContent, /continuum intensity.*NASA.*display color/i);
+  assert.doesNotMatch(h.nodes.wavelengthCaption.textContent, /Ordinary white light/);
+  assert.match(h.nodes.wavelengthCaption.textContent, /capture time unavailable/);
+});
 
 for (const mode of ["cycle", "local simulation"]) {
   for (const timing of ["image ready during model", "channel reselected during model"]) {

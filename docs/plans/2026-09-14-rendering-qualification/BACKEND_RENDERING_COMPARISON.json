@@ -1,0 +1,972 @@
+{
+  "schema": "sol.hosted-rendering-cost-comparison.v1",
+  "status": "Hosted original 3-in-5 failure remains unresolved; diagnostic comparisons retained",
+  "production_revision": "daa1fbec5f6f13333731b0b279fd085926a483ff",
+  "hosted_revision": "a9dfadc36fd0afa14f494b1be5e4028fab072df9",
+  "published_parent": "89e1e28b226fa7346eaa53ecfa0d404dcbc37124",
+  "source_comparison": [
+    {
+      "path": "apps/web/js/orrery.js",
+      "identical_git_blobs": true,
+      "sha256": "dadd2748258159479c8853f4a7d9891fa7d1e9a008c1e677214413e8518024ac"
+    },
+    {
+      "path": "apps/web/js/orreryShaders.js",
+      "identical_git_blobs": true,
+      "sha256": "7158492c19143154a91b3d2a99eb2af01c6c73ad172a887d6385b3348c4b6d8a"
+    },
+    {
+      "path": "apps/web/js/atmosphereShaders.js",
+      "identical_git_blobs": true,
+      "sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635"
+    },
+    {
+      "path": "apps/web/js/atmosphereColumnField.js",
+      "identical_git_blobs": true,
+      "sha256": "84177099c937c7c9b4fa859994e2be381bd5b20034298c6c370fa96e13eeb5da"
+    },
+    {
+      "path": "apps/web/js/atmosphereScattering.js",
+      "identical_git_blobs": true,
+      "sha256": "4c43aaa434b7388e9f7b9185f845e3c508ce5a4db4d1e3d38ac0cf7bc293af6b"
+    },
+    {
+      "path": "apps/web/js/scatteringTargets.js",
+      "identical_git_blobs": true,
+      "sha256": "10fee1c07a5886abf9c41b72781b457f7b0a761ce43a69376582c84e86cd1036"
+    },
+    {
+      "path": "tools/browser_validation.mjs",
+      "identical_git_blobs": true,
+      "sha256": "7730346b9b8a89f02f0ea6aa9656672e1a684b2812c5bf0e6e849da22f135d65"
+    },
+    {
+      "path": "tools/earth_spin_probe.mjs",
+      "identical_git_blobs": true,
+      "sha256": "9ff76ff48272b43777bd8df5315afcdf4673091edb28a29231945513b700a767"
+    }
+  ],
+  "tool_comparison": [
+    {
+      "path": "tools/browser_validation.mjs",
+      "hosted_sha256": "7730346b9b8a89f02f0ea6aa9656672e1a684b2812c5bf0e6e849da22f135d65",
+      "local_raw_sha256": "dbf716d81f44c894133b8688fd43d80b08e0d36e42f06f2bdcd13c44ea70db18",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/browser_backend.mjs",
+      "hosted_sha256": "63aa1e2ce88c9fc4bbba732fa50578665367b0bccfff222a57dbf2cc3314a532",
+      "local_raw_sha256": "5f114bae6914e3046bb266309e082f5df1999c344dc7eaf69330582b4612d072",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/texture_device_telemetry.mjs",
+      "hosted_sha256": "bd5873ad316fa415505db4ef48d9335952fd80ef8b0629c37e22fd2bc326193f",
+      "local_raw_sha256": "ca29e2d2bf89e6f3883ab1d214132f9daaa1dc2c1ed4b37c1b1e52819528d690",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/earth_spin_probe.mjs",
+      "hosted_sha256": "9ff76ff48272b43777bd8df5315afcdf4673091edb28a29231945513b700a767",
+      "local_raw_sha256": "12e45031d7cc41ff6f14f6515045a4024143ad1b6a1c5ca6aea104c338db6ccd",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/physical_spin_probe.mjs",
+      "hosted_sha256": "0680f085aa8d9f278ee43acf72d9f9aa89429fc9a16a34a2520e392f4bd82f2d",
+      "local_raw_sha256": "971697d40af1ac2e585a5a78c208d48f37efab3472b1770794ad38f24f69dc7c",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/physical_texture_probe.mjs",
+      "hosted_sha256": "7ef5351c8aff31ab0b7d9f495b28beb3bc90bcfd6b0e808018aa8db168754f9c",
+      "local_raw_sha256": "45d6fe804de2b867acfb0401c7ac73bd166863dada25ae2bb5905b9ecb409135",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/scattering_producer_probe.mjs",
+      "hosted_sha256": "5d5140fc8bd618a0604b984121cfa1f0005d832fd276a432d86fffef2f42b593",
+      "local_raw_sha256": "28cb49636b4fdb859760e36721d3cd48c9901089497c08090e8c75def106d2f8",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/full_feature_memory.mjs",
+      "hosted_sha256": "d08f3b880172880ac769f8fa4ad56669599f5c6d8193a0428378e1fffcc28760",
+      "local_raw_sha256": "1a83c63723e2e41034946d44be27c21fc610d5844330f94ae2c959088556e8a6",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/texture_device_memory.ps1",
+      "hosted_sha256": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+      "local_raw_sha256": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+      "match": "raw-exact"
+    },
+    {
+      "path": "tools/context_restore.mjs",
+      "hosted_sha256": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+      "local_raw_sha256": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+      "match": "raw-exact"
+    },
+    {
+      "path": "tools/mars_terrain_probe.mjs",
+      "hosted_sha256": "85bf707353b7f5179c43d3784bcfc889bb7b26e5e2b966874a8aab0eb836b65a",
+      "local_raw_sha256": "56c9b84d35bc8254a42ae029e6463a96ecbefb308984a03db857f3957906bc5f",
+      "match": "CRLF-to-LF-only"
+    },
+    {
+      "path": "tools/mars_spin_assertions.mjs",
+      "hosted_sha256": "cb961eb7816a48838890b994889fe1ccf15dfa39d27e42507fa7e9d45ff2fe15",
+      "local_raw_sha256": "b09b5e86e30ac8fd155bb9e9c41d048341d0dfc05cfad31590e97f227684a8e8",
+      "match": "CRLF-to-LF-only"
+    }
+  ],
+  "os_architecture": "Arm64 (RuntimeInformation.OSArchitecture)",
+  "browser_architectures": [
+    {
+      "path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "sha256": "93f3cd836f52984983b20aecc4359852ceff167cbde2b69c6d99019d58505eaf",
+      "pe_machine": "0xaa64",
+      "architecture": "ARM64"
+    },
+    {
+      "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\browser-cache-chrome152\\chrome\\win64-152.0.7977.82\\chrome-win64\\chrome.exe",
+      "sha256": "ea36dd818a90176f1a70616f0363d9be527229389a6c073a0b1688b9e73f67e9",
+      "pe_machine": "0x8664",
+      "architecture": "AMD64"
+    }
+  ],
+  "runs": {
+    "hosted152_sdr": {
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\pr107-production-20260914\\hosted-89e1e28-coverage-failure\\browser\\browser-evidence.json",
+      "evidence_sha256": "ba006c627509adcd35309fe4064cfc5229a6b0e77dda9ad6ff0844f6efbf96b9",
+      "spin": "C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\pr107-production-20260914\\hosted-89e1e28-coverage-failure\\browser\\visual\\earth-submitted-spin.json",
+      "spin_sha256": "10570b46165336c6ce6e13dc438c3b7fda7b25da354121e4014e3241639c151a",
+      "status": "failed",
+      "failure": {
+        "phase": "System/WebGL",
+        "error": "insufficient Earth sphere draws: 1"
+      },
+      "artifact": {
+        "release_id": "coverage-a9dfadc36fd0afa14f494b1be5e4028fab072df9-34833369781-1",
+        "source_sha": "a9dfadc36fd0afa14f494b1be5e4028fab072df9",
+        "manifest_sha256": "4d5b929d7dbf95f51967cac94e20267e663b61b44da39ac2a14fe6ce3bdd665a"
+      },
+      "browser_version": "Chrome/152.0.7977.82",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "launch_args": [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-default-apps",
+        "--disable-extensions",
+        "--disable-sync",
+        "--enable-unsafe-swiftshader",
+        "--use-angle=swiftshader",
+        "--use-gl=angle",
+        "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"
+      ],
+      "context_attributes": {
+        "alpha": false,
+        "antialias": true,
+        "depth": true,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": false,
+        "preserveDrawingBuffer": false,
+        "stencil": false,
+        "xrCompatible": false
+      },
+      "canvas": {
+        "width": 732,
+        "height": 612
+      },
+      "timing": {
+        "startedMs": 210113.2,
+        "endedMs": 219870.90000000002,
+        "elapsedMs": 9757.700000000012
+      },
+      "sample_completion_ms": [
+        3236.2000000000116
+      ],
+      "drawCounts": {
+        "attempted": 108,
+        "submitted": 108,
+        "arrayAttempted": 60,
+        "arraySubmitted": 60,
+        "surface": 1,
+        "earth": 1,
+        "duplicateEpoch": 0,
+        "candidates": 1,
+        "unknown": 38,
+        "gpuMismatch": 0,
+        "expiredDraws": 69,
+        "lateReadbacks": 0,
+        "offscreenEarth": 0,
+        "presentedEarth": 0,
+        "presentationMismatch": 0,
+        "heldPresentations": 0,
+        "physicalRejected": 0,
+        "physicalAccepted": 0,
+        "terrainRejected": 0,
+        "terrainAccepted": 0
+      },
+      "rafHeartbeat": {
+        "count": 3,
+        "samples": [
+          {
+            "timestamp": 210110.9,
+            "sampledMs": 213366.3,
+            "elapsedMs": 3253.0999999999767
+          },
+          {
+            "timestamp": 213360.7,
+            "sampledMs": 216628,
+            "elapsedMs": 6514.799999999988
+          },
+          {
+            "timestamp": 216627.3,
+            "sampledMs": 219868.3,
+            "elapsedMs": 9755.099999999977
+          }
+        ]
+      },
+      "original_gate_passed": false,
+      "hdrEnabled": false,
+      "programStatus": {
+        "base": "ready",
+        "physical": "ready"
+      },
+      "opticsStatus": {
+        "Sun": "deferred",
+        "Mercury": "deferred",
+        "Venus": "deferred",
+        "Earth": "ready",
+        "Mars": "deferred",
+        "Jupiter": "deferred",
+        "Saturn": "deferred",
+        "Uranus": "deferred",
+        "Neptune": "deferred",
+        "Moon": "deferred"
+      },
+      "renderUnix": 1784182982.4,
+      "sampleError": "",
+      "scope": "Original actual mode/model/normal readback; program/optics status is diagnostic and does not establish additional physical/source evidence"
+    },
+    "windows151_hdr": {
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader\\browser-evidence.json",
+      "evidence_sha256": "3b3a5789185466883e1e75ffff40fe32f68d4fc64604304536da9661c8c05c21",
+      "spin": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader\\visual\\earth-submitted-spin.json",
+      "spin_sha256": "f6799dc4156ddca4d219fe652eeea317184662e2c9651a7cf498a6f293549dc6",
+      "status": "passed",
+      "failure": null,
+      "artifact": {
+        "release_id": "pr107-shadow-20260914",
+        "source_sha": "daa1fbec5f6f13333731b0b279fd085926a483ff",
+        "manifest_sha256": "66bed0d35d930ba834017b6f948aada05c70b47767ab394130d310f54928adf4"
+      },
+      "browser_version": "Chrome/151.0.7922.174",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "launch_args": [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-default-apps",
+        "--disable-extensions",
+        "--disable-sync",
+        "--enable-unsafe-swiftshader",
+        "--use-angle=swiftshader",
+        "--use-gl=angle",
+        "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"
+      ],
+      "context_attributes": {
+        "alpha": false,
+        "antialias": true,
+        "depth": true,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": false,
+        "preserveDrawingBuffer": false,
+        "stencil": false,
+        "xrCompatible": false
+      },
+      "canvas": {
+        "width": 732,
+        "height": 612
+      },
+      "timing": {
+        "startedMs": 46715,
+        "endedMs": 47696.09999996424,
+        "elapsedMs": 981.0999999642372
+      },
+      "sample_completion_ms": [
+        250,
+        483,
+        727.5,
+        978.8000000119209
+      ],
+      "drawCounts": {
+        "attempted": 144,
+        "submitted": 144,
+        "arrayAttempted": 84,
+        "arraySubmitted": 84,
+        "surface": 4,
+        "earth": 4,
+        "duplicateEpoch": 0,
+        "candidates": 4,
+        "unknown": 140,
+        "gpuMismatch": 0,
+        "expiredDraws": 0,
+        "lateReadbacks": 0,
+        "offscreenEarth": 4,
+        "presentedEarth": 4,
+        "presentationMismatch": 0,
+        "heldPresentations": 0,
+        "physicalRejected": 0,
+        "physicalAccepted": 0,
+        "terrainRejected": 0,
+        "terrainAccepted": 0
+      },
+      "rafHeartbeat": {
+        "count": 4,
+        "samples": [
+          {
+            "timestamp": 46700.7,
+            "sampledMs": 46965.09999996424,
+            "elapsedMs": 250.0999999642372
+          },
+          {
+            "timestamp": 46950.7,
+            "sampledMs": 47198,
+            "elapsedMs": 483
+          },
+          {
+            "timestamp": 47184.1,
+            "sampledMs": 47442.5,
+            "elapsedMs": 727.5
+          },
+          {
+            "timestamp": 47434.1,
+            "sampledMs": 47693.80000001192,
+            "elapsedMs": 978.8000000119209
+          }
+        ]
+      },
+      "original_gate_passed": true,
+      "hdrEnabled": true,
+      "programStatus": {
+        "base": "ready",
+        "physical": "ready"
+      },
+      "opticsStatus": {
+        "Sun": "deferred",
+        "Mercury": "deferred",
+        "Venus": "deferred",
+        "Earth": "ready",
+        "Mars": "deferred",
+        "Jupiter": "deferred",
+        "Saturn": "deferred",
+        "Uranus": "deferred",
+        "Neptune": "deferred",
+        "Moon": "deferred"
+      },
+      "renderUnix": 1784023116.3072,
+      "sampleError": "",
+      "scope": "Original actual mode/model/normal readback; program/optics status is diagnostic and does not establish additional physical/source evidence",
+      "earth-physical-spin.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader\\visual\\earth-physical-spin.json",
+        "sha256": "c9e04a8d0d5e787851b48ea477dd4dcea00b44b39afdcf4b53efcc276a67a73e",
+        "timing": {
+          "startedMs": 64783.5,
+          "endedMs": 66406.89999997616,
+          "elapsedMs": 1623.3999999761581
+        },
+        "passed": null,
+        "reason": null,
+        "sample_count": 5,
+        "drawCounts": {
+          "attempted": 180,
+          "submitted": 180,
+          "arrayAttempted": 105,
+          "arraySubmitted": 105,
+          "surface": 5,
+          "earth": 5,
+          "duplicateEpoch": 0,
+          "candidates": 5,
+          "unknown": 175,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 5,
+          "presentedEarth": 5,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 5,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "control": null,
+        "systemStartedMs": null,
+        "deadlineMs": null,
+        "startedMs": null,
+        "endedMs": null,
+        "firstPhysicalReadyElapsedMs": null
+      },
+      "earth-physical-readiness.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader\\visual\\earth-physical-readiness.json",
+        "sha256": "c5314ae700fdecac6e3cdadf5230feb9e9305bc551614dd12e835e071079c209",
+        "timing": null,
+        "passed": true,
+        "reason": "Observed current physical draw before the original System deadline",
+        "sample_count": 0,
+        "drawCounts": null,
+        "control": null,
+        "systemStartedMs": 17491.69999998808,
+        "deadlineMs": 92491.69999998808,
+        "startedMs": 63373.09999996424,
+        "endedMs": 63643.59999996424,
+        "firstPhysicalReadyElapsedMs": 46151.89999997616
+      },
+      "earth-held-scattering-producer.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader\\visual\\earth-held-scattering-producer.json",
+        "sha256": "7da0efdea29aa02a84574305ab53622c46ddff6f5dc6a3f6def30c6e73c3968e",
+        "timing": null,
+        "passed": null,
+        "reason": null,
+        "sample_count": 0,
+        "drawCounts": null,
+        "control": {
+          "restored": true,
+          "sourceFiltered": 40,
+          "candidateQueries": 80,
+          "currentProgramMismatch": 0,
+          "held": 80
+        },
+        "systemStartedMs": null,
+        "deadlineMs": null,
+        "startedMs": null,
+        "endedMs": null,
+        "firstPhysicalReadyElapsedMs": null
+      },
+      "earth-scattering-recovery.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\scattering-runtime-daa1fbe-windows-final\\earth-swiftshader\\visual\\earth-scattering-recovery.json",
+        "sha256": "0189820c29c38872c5bdd547bcc79e235b60b0f2e250cee8ba9028afd5abafce",
+        "timing": {
+          "startedMs": 75025.09999996424,
+          "endedMs": 76189,
+          "elapsedMs": 1163.9000000357628
+        },
+        "passed": null,
+        "reason": null,
+        "sample_count": 4,
+        "drawCounts": {
+          "attempted": 144,
+          "submitted": 144,
+          "arrayAttempted": 84,
+          "arraySubmitted": 84,
+          "surface": 4,
+          "earth": 4,
+          "duplicateEpoch": 0,
+          "candidates": 4,
+          "unknown": 140,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 4,
+          "presentedEarth": 4,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 4,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "control": null,
+        "systemStartedMs": null,
+        "deadlineMs": null,
+        "startedMs": null,
+        "endedMs": null,
+        "firstPhysicalReadyElapsedMs": null
+      }
+    },
+    "windows151_sdr": {
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader\\browser-evidence.json",
+      "evidence_sha256": "a072cf1a317ee4817e99095331d5f861d25772aada94c1e230a465fdc5be6910",
+      "spin": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader\\visual\\earth-submitted-spin.json",
+      "spin_sha256": "106c9904a3cab908378397354ba9d2cc3a322fe08af0c565c0e335c744c04336",
+      "status": "passed",
+      "failure": null,
+      "artifact": {
+        "release_id": "pr107-shadow-20260914",
+        "source_sha": "daa1fbec5f6f13333731b0b279fd085926a483ff",
+        "manifest_sha256": "66bed0d35d930ba834017b6f948aada05c70b47767ab394130d310f54928adf4"
+      },
+      "browser_version": "Chrome/151.0.7922.174",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+      "launch_args": [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-default-apps",
+        "--disable-extensions",
+        "--disable-sync",
+        "--enable-unsafe-swiftshader",
+        "--use-angle=swiftshader",
+        "--use-gl=angle",
+        "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"
+      ],
+      "context_attributes": {
+        "alpha": false,
+        "antialias": true,
+        "depth": true,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": false,
+        "preserveDrawingBuffer": false,
+        "stencil": false,
+        "xrCompatible": false
+      },
+      "canvas": {
+        "width": 732,
+        "height": 612
+      },
+      "timing": {
+        "startedMs": 50703.19999998808,
+        "endedMs": 52198,
+        "elapsedMs": 1494.800000011921
+      },
+      "sample_completion_ms": [
+        368.10000002384186,
+        770.5,
+        1125.5,
+        1477.5
+      ],
+      "drawCounts": {
+        "attempted": 144,
+        "submitted": 144,
+        "arrayAttempted": 80,
+        "arraySubmitted": 80,
+        "surface": 4,
+        "earth": 4,
+        "duplicateEpoch": 0,
+        "candidates": 4,
+        "unknown": 140,
+        "gpuMismatch": 0,
+        "expiredDraws": 0,
+        "lateReadbacks": 0,
+        "offscreenEarth": 0,
+        "presentedEarth": 0,
+        "presentationMismatch": 0,
+        "heldPresentations": 0,
+        "physicalRejected": 0,
+        "physicalAccepted": 0,
+        "terrainRejected": 0,
+        "terrainAccepted": 0
+      },
+      "rafHeartbeat": {
+        "count": 4,
+        "samples": [
+          {
+            "timestamp": 50694.5,
+            "sampledMs": 51085.10000002384,
+            "elapsedMs": 381.9000000357628
+          },
+          {
+            "timestamp": 51077.8,
+            "sampledMs": 51489,
+            "elapsedMs": 785.8000000119209
+          },
+          {
+            "timestamp": 51477.9,
+            "sampledMs": 51841,
+            "elapsedMs": 1137.800000011921
+          },
+          {
+            "timestamp": 51827.8,
+            "sampledMs": 52195.60000002384,
+            "elapsedMs": 1492.4000000357628
+          }
+        ]
+      },
+      "original_gate_passed": true,
+      "hdrEnabled": false,
+      "programStatus": {
+        "base": "ready",
+        "physical": "ready"
+      },
+      "opticsStatus": {
+        "Sun": "deferred",
+        "Mercury": "deferred",
+        "Venus": "deferred",
+        "Earth": "ready",
+        "Mars": "deferred",
+        "Jupiter": "deferred",
+        "Saturn": "deferred",
+        "Uranus": "deferred",
+        "Neptune": "deferred",
+        "Moon": "deferred"
+      },
+      "renderUnix": 1784034726.5664,
+      "sampleError": "",
+      "scope": "Original actual mode/model/normal readback; program/optics status is diagnostic and does not establish additional physical/source evidence",
+      "earth-physical-spin.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader\\visual\\earth-physical-spin.json",
+        "sha256": "6796c26c3bf0514aa699aa32934831d5b79f2b51c54558302ee3620fd7945930",
+        "timing": {
+          "startedMs": 66572.19999998808,
+          "endedMs": 67983.30000001192,
+          "elapsedMs": 1411.1000000238419
+        },
+        "passed": null,
+        "reason": null,
+        "sample_count": 4,
+        "drawCounts": {
+          "attempted": 144,
+          "submitted": 144,
+          "arrayAttempted": 80,
+          "arraySubmitted": 80,
+          "surface": 4,
+          "earth": 4,
+          "duplicateEpoch": 0,
+          "candidates": 4,
+          "unknown": 140,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 0,
+          "presentedEarth": 0,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 4,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "control": null,
+        "systemStartedMs": null,
+        "deadlineMs": null,
+        "startedMs": null,
+        "endedMs": null,
+        "firstPhysicalReadyElapsedMs": null
+      },
+      "earth-physical-readiness.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader\\visual\\earth-physical-readiness.json",
+        "sha256": "b9495470fe01ce459b66506540404be28f2cc8bb7d9530b9cd3bfc30436a753f",
+        "timing": null,
+        "passed": true,
+        "reason": "Observed current physical draw before the original System deadline",
+        "sample_count": 0,
+        "drawCounts": null,
+        "control": null,
+        "systemStartedMs": 17867,
+        "deadlineMs": 92867,
+        "startedMs": 64356.10000002384,
+        "endedMs": 64708.19999998808,
+        "firstPhysicalReadyElapsedMs": 46841.19999998808
+      },
+      "earth-held-scattering-producer.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader\\visual\\earth-held-scattering-producer.json",
+        "sha256": "b757e0df1d1229e9efe32b9b4a910f3c5e46296dc3ad14c9d11d1be3776daa71",
+        "timing": null,
+        "passed": null,
+        "reason": null,
+        "sample_count": 0,
+        "drawCounts": null,
+        "control": {
+          "restored": true,
+          "sourceFiltered": 0,
+          "candidateQueries": 54,
+          "currentProgramMismatch": 0,
+          "held": 54
+        },
+        "systemStartedMs": null,
+        "deadlineMs": null,
+        "startedMs": null,
+        "endedMs": null,
+        "firstPhysicalReadyElapsedMs": null
+      },
+      "earth-scattering-recovery.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader\\visual\\earth-scattering-recovery.json",
+        "sha256": "775650f0e873f2aa1c8053b8268f78cc67dc3da6af3e1ea4fef25269abaefe13",
+        "timing": {
+          "startedMs": 77415.60000002384,
+          "endedMs": 78927.5,
+          "elapsedMs": 1511.8999999761581
+        },
+        "passed": null,
+        "reason": null,
+        "sample_count": 4,
+        "drawCounts": {
+          "attempted": 144,
+          "submitted": 144,
+          "arrayAttempted": 80,
+          "arraySubmitted": 80,
+          "surface": 4,
+          "earth": 4,
+          "duplicateEpoch": 0,
+          "candidates": 4,
+          "unknown": 140,
+          "gpuMismatch": 0,
+          "expiredDraws": 0,
+          "lateReadbacks": 0,
+          "offscreenEarth": 0,
+          "presentedEarth": 0,
+          "presentationMismatch": 0,
+          "heldPresentations": 0,
+          "physicalRejected": 0,
+          "physicalAccepted": 4,
+          "terrainRejected": 0,
+          "terrainAccepted": 0
+        },
+        "control": null,
+        "systemStartedMs": null,
+        "deadlineMs": null,
+        "startedMs": null,
+        "endedMs": null,
+        "firstPhysicalReadyElapsedMs": null
+      },
+      "execution": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader.identity.json",
+        "sha256": "58efab6d9861bd07b319205eb0156fb4ea4cc0c89f4a1cf2deb18e2384d293a8",
+        "gate": "earth-swiftshader",
+        "identity_sha256": "c7346dc5fa39f8a54f8cc1a55ec6f6d8ac40618f77210afbc3fd4807ea302db3",
+        "runner_sha256": "881ac3867f4e0af8772a1fa284ce01abd41a6f4a6eedbcd2b2a29fc181ede45f",
+        "revision": "daa1fbec5f6f13333731b0b279fd085926a483ff",
+        "manifest_sha256": "66bed0d35d930ba834017b6f948aada05c70b47767ab394130d310f54928adf4",
+        "command": {
+          "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+          "argv": [
+            "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+            "tools/browser_validation.mjs",
+            "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+            "--backend=swiftshader",
+            "--physical-spin=true",
+            "--output-dir=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader"
+          ],
+          "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader",
+          "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome151\\earth-swiftshader.log",
+          "environment": {
+            "CHROME_BIN": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+          }
+        },
+        "before": {
+          "passed": true,
+          "failures": [],
+          "snapshot_files": 836,
+          "stage_assets": 205,
+          "observed_at": "2026-09-14T10:40:44.529073+00:00"
+        },
+        "exit_code": 0,
+        "after": {
+          "passed": true,
+          "failures": [],
+          "snapshot_files": 836,
+          "stage_assets": 205,
+          "observed_at": "2026-09-14T10:42:35.787037+00:00"
+        }
+      }
+    },
+    "windows152_sdr": {
+      "evidence": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome152\\earth-swiftshader\\browser-evidence.json",
+      "evidence_sha256": "fbf550ab4d7aaffc1fb44fa2a99cac4f95db4df097742c1574ab90baf27daba0",
+      "spin": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome152\\earth-swiftshader\\visual\\earth-submitted-spin.json",
+      "spin_sha256": "65bfb615e3b314e473b8a090dbe2be2cca0414483f34e1caf2a60110ef49c65c",
+      "status": "failed",
+      "failure": {
+        "phase": "System/WebGL",
+        "error": "Physical Earth preparation failed: Physical preparation exceeded the original System deadline"
+      },
+      "artifact": {
+        "release_id": "pr107-shadow-20260914",
+        "source_sha": "daa1fbec5f6f13333731b0b279fd085926a483ff",
+        "manifest_sha256": "66bed0d35d930ba834017b6f948aada05c70b47767ab394130d310f54928adf4"
+      },
+      "browser_version": "Chrome/152.0.7977.82",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "launch_args": [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-background-networking",
+        "--disable-component-update",
+        "--disable-default-apps",
+        "--disable-extensions",
+        "--disable-sync",
+        "--enable-unsafe-swiftshader",
+        "--use-angle=swiftshader",
+        "--use-gl=angle",
+        "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"
+      ],
+      "context_attributes": {
+        "alpha": false,
+        "antialias": true,
+        "depth": true,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": false,
+        "preserveDrawingBuffer": false,
+        "stencil": false,
+        "xrCompatible": false
+      },
+      "canvas": {
+        "width": 732,
+        "height": 612
+      },
+      "timing": {
+        "startedMs": 104268,
+        "endedMs": 108133.80000001192,
+        "elapsedMs": 3865.800000011921
+      },
+      "sample_completion_ms": [
+        935.1999999880791,
+        1910.300000011921,
+        2876.199999988079,
+        3828.300000011921
+      ],
+      "drawCounts": {
+        "attempted": 144,
+        "submitted": 144,
+        "arrayAttempted": 80,
+        "arraySubmitted": 80,
+        "surface": 4,
+        "earth": 4,
+        "duplicateEpoch": 0,
+        "candidates": 4,
+        "unknown": 140,
+        "gpuMismatch": 0,
+        "expiredDraws": 0,
+        "lateReadbacks": 0,
+        "offscreenEarth": 0,
+        "presentedEarth": 0,
+        "presentationMismatch": 0,
+        "heldPresentations": 0,
+        "physicalRejected": 0,
+        "physicalAccepted": 0,
+        "terrainRejected": 0,
+        "terrainAccepted": 0
+      },
+      "rafHeartbeat": {
+        "count": 4,
+        "samples": [
+          {
+            "timestamp": 104261.8,
+            "sampledMs": 105244.5,
+            "elapsedMs": 976.5
+          },
+          {
+            "timestamp": 105245.1,
+            "sampledMs": 106209.60000002384,
+            "elapsedMs": 1941.6000000238419
+          },
+          {
+            "timestamp": 106211.9,
+            "sampledMs": 107175.60000002384,
+            "elapsedMs": 2907.600000023842
+          },
+          {
+            "timestamp": 107178.5,
+            "sampledMs": 108127.60000002384,
+            "elapsedMs": 3859.600000023842
+          }
+        ]
+      },
+      "original_gate_passed": true,
+      "hdrEnabled": false,
+      "programStatus": {
+        "base": "ready",
+        "physical": "ready"
+      },
+      "opticsStatus": {
+        "Sun": "deferred",
+        "Mercury": "deferred",
+        "Venus": "deferred",
+        "Earth": "ready",
+        "Mars": "deferred",
+        "Jupiter": "deferred",
+        "Saturn": "deferred",
+        "Uranus": "deferred",
+        "Neptune": "deferred",
+        "Moon": "deferred"
+      },
+      "renderUnix": 1784187302.4,
+      "sampleError": "",
+      "scope": "Original actual mode/model/normal readback; program/optics status is diagnostic and does not establish additional physical/source evidence",
+      "earth-physical-readiness.json": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome152\\earth-swiftshader\\visual\\earth-physical-readiness.json",
+        "sha256": "55228ac3fedaf5da610c15fc11a180a1ce6cada3e59dac0993d2de753fb9a9e6",
+        "timing": null,
+        "passed": false,
+        "reason": "Physical preparation exceeded the original System deadline",
+        "sample_count": 0,
+        "drawCounts": null,
+        "control": null,
+        "systemStartedMs": 33954.80000001192,
+        "deadlineMs": 108954.80000001192,
+        "startedMs": 136775.80000001192,
+        "endedMs": 136776.60000002384,
+        "firstPhysicalReadyElapsedMs": null
+      },
+      "execution": {
+        "path": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome152\\earth-swiftshader.identity.json",
+        "sha256": "7f64fabb269dbe2dea509e435252c5eccdf072a165ad1414654b091eab227760",
+        "gate": "earth-swiftshader",
+        "identity_sha256": "44423b01fe17f6d59f63bdd053e9b3602e1eb6c2e546139fc0ff17c56d36cf48",
+        "runner_sha256": "059977bfef0982f40b9aabbbda204f391be922e38b0552b39c85b3aa19857106",
+        "revision": "daa1fbec5f6f13333731b0b279fd085926a483ff",
+        "manifest_sha256": "66bed0d35d930ba834017b6f948aada05c70b47767ab394130d310f54928adf4",
+        "command": {
+          "cwd": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\source-daa1fbe-final-capture",
+          "argv": [
+            "C:/Users/mkang/.claude/Sol/sol-review-20260911/build/pr107-review-34eea27/node22.exe",
+            "tools/browser_validation.mjs",
+            "--web-root=C:\\Users\\mkang\\.claude\\Sol\\sol-review-20260911\\build\\scattering-runtime-shadow-daa1fbe",
+            "--backend=swiftshader",
+            "--physical-spin=true",
+            "--output-dir=C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome152\\earth-swiftshader"
+          ],
+          "output": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome152\\earth-swiftshader",
+          "log": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\coverage\\diagnostic-daa1fbe-default-sdr-chrome152\\earth-swiftshader.log",
+          "environment": {
+            "CHROME_BIN": "C:\\Users\\mkang\\.claude\\Sol\\sol-color-hdr-20260914\\build\\browser-cache-chrome152\\chrome\\win64-152.0.7977.82\\chrome-win64\\chrome.exe"
+          }
+        },
+        "before": {
+          "passed": true,
+          "failures": [],
+          "snapshot_files": 836,
+          "stage_assets": 205,
+          "observed_at": "2026-09-14T10:46:04.648503+00:00"
+        },
+        "exit_code": 1,
+        "after": {
+          "passed": true,
+          "failures": [],
+          "snapshot_files": 836,
+          "stage_assets": 205,
+          "observed_at": "2026-09-14T10:48:33.423103+00:00"
+        }
+      }
+    }
+  },
+  "conclusions": [
+    "Both local and hosted tools enable page block and worker precise V8 coverage; no coverage bypass in local runner.",
+    "Hosted independent frame callbacks are about 3.25 seconds apart; the original probe admits one on-time Earth draw and rejects later draws, with no mismatches or late GPU readbacks.",
+    "Default-SDR Chrome151 ARM64/LLVM passes full original and additional physical gates; SDR/HDR configuration alone is insufficient to explain hosted failure.",
+    "Exact Chrome152.0.7977.82 Windows AMD64 exposes Subzero and passes original 4 draws in 3865.8 ms, but fails the additional absolute 75-second System preparation budget before any physical collector attempt.",
+    "Chrome152 x64 runs on ARM64 Windows; emulation/host/browser architecture confounds timing. Neither renderer string nor version establishes hosted throughput parity.",
+    "Per-pass actual GPU timing plus CPU/native-call timing is required to separate producer integration cost, consumer shading, runtime state queries and measurement synchronization. No source correction or gate relaxation is justified by these observations alone."
+  ],
+  "limits": [
+    "No runtime/validator source/dependency modifications. No reduced detail/tolerance/deadlines.",
+    "Original full application Chrome152 qualification failed and moon-shadow controls after the additional failure did not run.",
+    "Original default probe records mode/model/normal but not actual physical program/source/field admission; status-ready is not a substitute.",
+    "Launch argument arrays match between retained runs; source includes a disable-features flag absent after Puppeteer launch normalization in both receipts.",
+    "Retain all earlier successful/failing runs; no superseding source identity or deployment claim."
+  ]
+}

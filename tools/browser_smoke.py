@@ -13,6 +13,7 @@ import contextlib
 import http.server
 import json
 import os
+import re
 import shutil
 import socketserver
 import struct
@@ -21,6 +22,7 @@ import tempfile
 import threading
 import time
 import urllib.request
+from urllib.parse import urlsplit
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -315,6 +317,12 @@ def dump_dom(browser: str, url: str) -> tuple[str, str]:
             f"browser exited {result.returncode} for {url}\n{result.stderr[-4000:]}"
         )
     captured = json.loads(result.stdout)
+    target = urlsplit(url)
+    if target.path.endswith("/index.html") and not target.fragment.startswith("sky="):
+        observation_dom = captured.get("observationDom", "")
+        assert_no_runtime_failure(observation_dom, captured["stderr"] + result.stderr, "Sun observation")
+        if 'data-experience="observe"' not in observation_dom or 'id="observationImage"' not in observation_dom:
+            raise AssertionError("Sun observation: initial Observe capture is missing")
     return captured["dom"], captured["stderr"] + result.stderr
 
 
@@ -346,8 +354,6 @@ def capture_screenshot(browser: str, url: str) -> bytes:
 
 def assert_no_runtime_failure(dom: str, stderr: str, surface: str) -> None:
     failures = (
-        "Loading snapshot.",
-        "Base: loading",
         "Sky engine unavailable",
         "WebAssembly module failed to load",
         "Uncaught TypeError",
@@ -375,6 +381,12 @@ def assert_no_runtime_failure(dom: str, stderr: str, surface: str) -> None:
 def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot.v3") -> None:
     sun_dom, sun_stderr = dump_dom(browser, f"{base}/index.html")
     assert_no_runtime_failure(sun_dom, sun_stderr, "Sun")
+    # The initial Observe surface intentionally leaves this hidden model label
+    # uninitialized. It must resolve only after the driver's native Research entry.
+    base_label = re.search(r'id="baseLabel"[^>]*>([^<]*)<', sun_dom)
+    if ('data-experience="research"' not in sun_dom or "Loading snapshot." in sun_dom or base_label is None
+            or not base_label.group(1).startswith("Base: ") or "loading" in base_label.group(1)):
+        raise AssertionError("Sun Research: native entry did not produce a ready model base")
     if solar_schema not in sun_dom:
         raise AssertionError(f"Sun: rendered schema version was not {solar_schema}")
     if 'id="regionList"' not in sun_dom or "data-object-id" not in sun_dom:

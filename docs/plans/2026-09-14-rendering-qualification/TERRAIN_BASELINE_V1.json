@@ -1,0 +1,102 @@
+{
+  "schema_version": "terrain-assets.v1",
+  "references": [
+    {
+      "id": "moon-radial-height-v1",
+      "body": "Moon",
+      "path": "textures/terrain/moon-radial-height.u16.bin",
+      "sha256": "f6ade389b0b3e716b95e2db16e72ba780224f6089ed9e04c11616ecb65a2bd13",
+      "bytes": 2073600,
+      "width": 1440,
+      "height": 720,
+      "encoding": "uint16-little-endian",
+      "nodata_code": 65535,
+      "heightOffsetKm": -32.768,
+      "heightScaleKm": 0.001,
+      "quantity": "radial-height-from-reference-sphere",
+      "referenceRadiusKm": 1737.4,
+      "minHeightKm": -8.878,
+      "maxHeightKm": 10.504,
+      "minRadiusKm": 1728.5220000000002,
+      "maxRadiusKm": 1747.904,
+      "nativeDegreesPerTexel": 0.25,
+      "nativeEquatorialKmPerTexel": 7.58083760603737,
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "pixelRegistration": "cell-centered",
+        "rowOrder": "north-to-south"
+      },
+      "coverage": "global source grid, including source-team interpolation",
+      "label": "LRO / LOLA measured relief",
+      "source_url": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_4.tif",
+      "source_sha256": "330afa2556a86fd05ac6ba2f912f246600fdade35de2a0d90593d50d07b01b65",
+      "source_bytes": 4153352,
+      "source_retrieved_at": "2026-09-13",
+      "metadata_urls": [
+        "https://svs.gsfc.nasa.gov/4720/"
+      ],
+      "metadata_sha256": {},
+      "observation_label": "LOLA gridded reference available in spring 2019; not a single observation epoch",
+      "credits": "NASA Scientific Visualization Studio / LRO LOLA instrument team",
+      "derivation": "prepare_terrain_reference.py v1; native samples retained; float kilometres (Moon) or signed big-endian integer metres (Mars) to little-endian unsigned integer metres with -32768m offset; round-half-up; no resampling; maximum quantization error 0.5m",
+      "limitations": "Numerical laser-altimetry grid, not the CGI kit's aesthetic color image. Native 0.25-degree cells; source gridding is retained. No sub-cell geological detail. Lunar reference orientation is not a current-facing feature-location claim."
+    },
+    {
+      "id": "mars-radial-height-v1",
+      "body": "Mars",
+      "path": "textures/terrain/mars-radial-height.u16.bin",
+      "sha256": "821cbd539517b18b29da201d15d6ca01491ce1890b505dbf06892df76d8a3717",
+      "bytes": 2073600,
+      "width": 1440,
+      "height": 720,
+      "encoding": "uint16-little-endian",
+      "nodata_code": 65535,
+      "heightOffsetKm": -32.768,
+      "heightScaleKm": 0.001,
+      "quantity": "radial-height-from-reference-sphere",
+      "referenceRadiusKm": 3396.0,
+      "minHeightKm": -22.931,
+      "maxHeightKm": 21.241,
+      "minRadiusKm": 3373.069,
+      "maxRadiusKm": 3417.241,
+      "nativeDegreesPerTexel": 0.25,
+      "nativeEquatorialKmPerTexel": 14.817845349431858,
+      "mapping": {
+        "primeMeridianU": 0.0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "pixelRegistration": "cell-centered",
+        "rowOrder": "north-to-south"
+      },
+      "coverage": "global source grid, including source-team interpolation",
+      "label": "MGS / MOLA measured relief",
+      "source_url": "https://pds-geosciences.wustl.edu/mgs/urn-nasa-pds-mgs_mola_topography_derived/meg004/megr90n000cb.img",
+      "source_sha256": "f03189d62bb882f81d4f1dd08537e56d42f3d0371747ce62c9f01db3f552834a",
+      "source_bytes": 2073600,
+      "source_retrieved_at": "2026-09-13",
+      "metadata_urls": [
+        "https://pds-geosciences.wustl.edu/missions/mgs/megdr.html",
+        "https://pds-geosciences.wustl.edu/mgs/urn-nasa-pds-mgs_mola_topography_derived/meg004/megr90n000cb.lbl",
+        "https://pds-geosciences.wustl.edu/mgs/urn-nasa-pds-mgs_mola_topography_derived/meg004/megr90n000cb.xml"
+      ],
+      "metadata_sha256": {
+        "megr90n000cb.lbl": "5b5887d828354542e92eb404c1b7c25371b2aedeeedf645a18da22efaf06a8a9",
+        "megr90n000cb.xml": "18a41c681c7d418eca3be847f8b0b33bbb6f2bfe838b41c96f047c2e4540b332"
+      },
+      "observation_label": "MOLA 1997-2001 source interval; MEGR product 2.0 created 2003-04-03",
+      "credits": "NASA Goddard / MGS MOLA Science Team / PDS Geosciences Node",
+      "derivation": "prepare_terrain_reference.py v1; native samples retained; float kilometres (Moon) or signed big-endian integer metres (Mars) to little-endian unsigned integer metres with -32768m offset; round-half-up; no resampling; maximum quantization error 0.5m",
+      "limitations": "Mean planetary radius, not height above areoid. IAU2000 planetocentric positive-east coordinates. Source team interpolates bins without measurements; about 55 percent of equatorial bins contain a shot. No local interpolation is claimed as newly observed geology."
+    }
+  ]
+}

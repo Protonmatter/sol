@@ -54,7 +54,7 @@ let plotted = [];          // {name, x, y, hit, body} in backing-store px, for h
 let domeGeom = null;       // {cx, cy, r, dpr}
 let activeName = null;     // hovered or pinned object
 let pinned = false;
-let showConstellations = true;
+let showConstellations = false;
 let showTrajectory = true;
 
 // The surface's user-facing state, registered on the shared store (store.sky) so it is
@@ -62,6 +62,7 @@ let showTrajectory = true;
 // Rendering internals (plotted/domeGeom/hover state above) stay module-local.
 const skyState = (store.sky = {
   presentation: /** @type {any} */ (null),
+  overview: /** @type {any} */ (null),
   observer: { lat: 40.71, lon: -74.01, elev: 0, label: "New York example location" },
   provider: "local", // "local" = on-device WASM (default), "server" = DE441 high-precision tier
   displayMode: "device",
@@ -252,6 +253,7 @@ export async function renderSky() {
 
 function publishSkyPresentation(snapshot, actualProvider, error = null) {
   skyState.presentation = resolveSkyPresentation({ snapshot, observerLabel: displayedObserverLabel, actualProvider, requestedProvider: skyState.provider, error });
+  skyState.overview = { snapshot, selectedName };
   if (typeof window !== "undefined") window.dispatchEvent(new Event("sol:presentation"));
 }
 
@@ -337,7 +339,7 @@ function drawDome(snap) {
   if (!canvas || !resize(canvas)) return;
   const ctx = canvas.getContext("2d");
   const w = canvas.width, h = canvas.height;
-  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.46;
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.44;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const g = { cx, cy, r, dpr };
   domeGeom = g;
@@ -377,7 +379,8 @@ function drawDome(snap) {
     plotted.push({ name: b.name, x, y, hit: Math.max(10 * dpr, size + 6 * dpr), body: b });
     if (mag < 1.5) {
       ctx.font = `${Math.max(9, r * 0.024)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
-      ctx.fillStyle = "rgba(200,210,235,0.72)"; ctx.fillText(b.name, x + size + 3, y);
+      ctx.fillStyle = "rgba(200,210,235,0.72)";
+      ctx.fillText(b.name, Math.max(4 * dpr, Math.min(x + size + 3, w - ctx.measureText(b.name).width - 4 * dpr)), y);
     }
   }
 
@@ -406,7 +409,7 @@ function drawDome(snap) {
       ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fillStyle = style.color; ctx.fill();
       }
       ctx.fillStyle = "rgba(246,243,232,0.95)"; ctx.font = `${Math.max(11, r * 0.033)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
-      ctx.fillText(b.name, x + size + 4, y);
+      ctx.fillText(b.name, Math.max(4 * dpr, Math.min(x + size + 4, w - ctx.measureText(b.name).width - 4 * dpr)), y);
       plotted.push({ name: b.name, x, y, hit: Math.max(12 * dpr, size + 7 * dpr), body: b });
     } else {
       const a = b.az_deg * Math.PI / 180, rr = r * 1.05;
@@ -537,7 +540,9 @@ function updateSelectedFacts(snap) {
 }
 function selectObject(name) {
   selectedName=name;activeName=name;pinned=true;
+  skyState.overview = { snapshot: lastSnap, selectedName };
   if(lastSnap){updateList(lastSnap);redraw();}
+  if (typeof CustomEvent !== "undefined") window.dispatchEvent(new CustomEvent("sol:object-selected", {detail:{surface:"sky",objectId:name}}));
 }
 function updateList(snap) {
   const list=document.getElementById("skyList");if(!list)return;

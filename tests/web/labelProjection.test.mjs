@@ -3,6 +3,9 @@ import fs from "node:fs";
 import vm from "node:vm";
 import test from "node:test";
 import { layoutLabels } from "../../apps/web/js/labelLayout.js";
+import { projectOpaqueDisc, isLabelOccluded } from "../../apps/web/js/labelOcclusion.js";
+import { BODY } from "../../apps/web/js/bodyData.js";
+import { perspective } from "../../apps/web/js/orreryMath.js";
 
 // Execute the production label function, with only its DOM/scene dependencies
 // supplied. No projection formula or packing algorithm is copied into the test.
@@ -11,9 +14,13 @@ function fixture() {
   const functionSource = source.slice(source.indexOf("function updateLabels("), source.indexOf("// ---------------------------------------------------------------- detail panel"));
   const labels = [];
   const context = vm.createContext({
-    labelEls: labels, updateOrreryAccuracy() {}, layoutLabels,
+    labelEls: labels, updateOrreryAccuracy() {}, layoutLabels, projectOpaqueDisc, isLabelOccluded, BODY,
+    // The scene boundary supplies a known enlarged display radius. Projection
+    // and occlusion still execute their actual production implementations.
+    displayRadiusAU: () => 0.3,
     state: { bodies: [{ name: "Jupiter", p: [0, 0, 0] }], anchor: "Jupiter" },
     DRAW_LIST: ["Jupiter"], moonMarkers: [], bodyWorldPos: body => body.p,
+    cel: { pulsars: [], deepsky: [], brightStars: [] },
     document: { getElementById: () => ({ style: {}, appendChild() {} }),
       createElement: () => ({ style: {}, dataset: {}, offsetWidth: 40, offsetHeight: 16, classList: { toggle() {} } }) },
   });
@@ -43,4 +50,33 @@ test("hidden, invalid and removed labels clear stale projection anchors", () => 
     assert.equal(f.labels[0].dataset.projectionX, undefined, mode);
     assert.equal(f.labels[0].dataset.projectionY, undefined, mode);
   }
+});
+
+test("a background label behind an opaque planet clears its anchor and returns when unobstructed", () => {
+  const f = fixture();
+  f.matrix.splice(0,16,...perspective(Math.PI / 2,2,.1,100));
+  f.context.state.bodies[0].p = [0,0,-2];
+  f.context.state.showLabels = true;
+  f.context.state.showSky = true;
+  const star = { name: "Reference star", m: 0, pos: [0,1,-2] };
+  f.context.cel.brightStars.push(star);
+  f.render();
+  const label = f.labels.find(label => label.textContent === star.name);
+  assert.ok(label);
+  assert.equal(label.style.display, "block");
+  assert.equal(label.dataset.projectionX, "100");
+  assert.ok(Math.abs(Number(label.dataset.projectionY) - 25) < 1e-12);
+  const bodyPosition = [...f.context.state.bodies[0].p];
+  star.pos = [0,0,-2000];
+  f.render();
+  assert.equal(label.style.display, "none", "directional sky distance must not prevent opaque-disc occlusion");
+  assert.equal(label.dataset.projectionX, undefined);
+  assert.equal(label.dataset.projectionY, undefined);
+  assert.equal(f.labels.find(label => label.textContent === "Jupiter").style.display, "block", "a body's own disc must not hide its label");
+  assert.deepEqual(f.context.state.bodies[0].p, bodyPosition, "label suppression cannot move the body");
+  star.pos = [0,1,-2];
+  f.render();
+  assert.equal(label.style.display, "block");
+  assert.equal(label.dataset.projectionX, "100");
+  assert.ok(Math.abs(Number(label.dataset.projectionY) - 25) < 1e-12);
 });

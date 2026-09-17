@@ -4,6 +4,7 @@ import puppeteer from "puppeteer-core";
 const [browserPath,url,screenshotPath]=process.argv.slice(2);
 const target=new URL(url);
 if(target.protocol!=="http:"||target.hostname!=="127.0.0.1"||target.username||target.password)throw new Error("Smoke driver requires a credential-free loopback HTTP fixture");
+const sunTarget=target.pathname.endsWith("/index.html")&&!target.hash.startsWith("#sky=");
 let browser;
 let launchPromise;
 let expired=false;
@@ -64,13 +65,40 @@ async function capture() {
   await cdp.send("Network.setBlockedURLs",{urls:["https://*","http://localhost/*"]});
   phase="navigation";
   await page.goto(url,{waitUntil:"domcontentloaded",timeout:30000});
+  let observationDom="";
   try {
+    if(sunTarget) {
+      phase="observation readiness";
+      await page.waitForFunction(()=>{
+        const visible=node=>Boolean(node&&!node.hidden&&node.getClientRects().length&&getComputedStyle(node).visibility!=="hidden");
+        const image=document.getElementById("observationImage");
+        const source=document.getElementById("observationSource");
+        const status=document.getElementById("observationStatus")?.textContent||"";
+        return document.body.dataset.surface==="today"&&document.body.dataset.experience==="observe"
+          &&document.getElementById("exploreObservation")?.getAttribute("aria-pressed")==="true"
+          &&visible(document.getElementById("solarObservation"))&&visible(image)&&image.complete&&image.naturalWidth>0
+          &&source?.href?.startsWith("https://")&&source.textContent.includes("NASA")
+          &&status.includes("UTC")&&status.includes("archival")&&!status.includes("unavailable");
+      },{timeout:45000,polling:100});
+      // Preserve the initial user experience before exercising the existing model.
+      phase="observation capture";
+      observationDom=await page.content();
+      phase="research activation";
+      await page.click("#exploreResearch");
+    }
     phase="readiness";
-    await page.waitForFunction(()=>{
+    await page.waitForFunction(isSun=>{
       if(location.pathname.endsWith("__smoke_orrery.html"))return document.body.dataset.smokeDone==="yes"||Boolean(document.body.dataset.smokeErrs);
       if(location.hash.startsWith("#sky="))return document.querySelectorAll("#skyList [data-object-id]").length>0;
+      if(isSun) {
+        const canvas=document.getElementById("solarCanvas");
+        const base=document.getElementById("baseLabel")?.textContent||"";
+        if(document.body.dataset.experience!=="research"||document.getElementById("exploreResearch")?.getAttribute("aria-pressed")!=="true"
+          ||!canvas?.getClientRects().length||getComputedStyle(canvas).visibility==="hidden"
+          ||!base.startsWith("Base: ")||base.includes("loading"))return false;
+      }
       return document.getElementById("schemaVersion")?.textContent?.startsWith("solar-state-snapshot.v")&&document.querySelectorAll("#regionList [data-object-id]").length>0;
-    },{timeout:45000,polling:100});
+    },{timeout:45000,polling:100},sunTarget);
     const failure=await page.evaluate(()=>document.body.dataset.smokeErrs || "");
     if(failure)throw new Error(failure);
     phase="fonts";
@@ -79,7 +107,7 @@ async function capture() {
     if(screenshotPath)await page.screenshot({path:screenshotPath});
   } catch(error) {errors.push(`Smoke readiness failed: ${error.message}`);}
   phase="content";
-  return {dom:await page.content(),stderr:errors.join("\n")};
+  return {dom:await page.content(),observationDom,stderr:errors.join("\n")};
 }
 try {
   const captured=await Promise.race([capture(),deadline]);

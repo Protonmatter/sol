@@ -18,8 +18,10 @@ Sources of truth:
     be WORSE than 2009. This gate pins Mars to 2009 and requires the in-code warning comment
     to survive, so nobody "upgrades" the constants without implementing the series.
   * Radii / masses / tilts: NASA planetary fact sheets (nssdc.gsfc.nasa.gov).
-  * Ring radii: Saturn C-ring inner edge to A-ring outer edge with the Cassini Division
-    (NASA/Cassini); Uranus/Neptune main-ring spans.
+  * Ring radii: USGS Gazetteer ring table, consulted 2026-09-13,
+    https://planetarynames.wr.usgs.gov/Page/Rings . Representative widths and the
+    conflicting NASA/JPL Galle width are explicit in
+    docs/plans/2026-09-13-system-polish/RING_SOURCES.md; opacity is display-only.
 
 Also enforced here (regression classes this repo has actually shipped):
   * rotationHours must agree with 360/|Ẇ| (≤ 0.15 h fact-sheet rounding) and carry Ẇ's sign —
@@ -113,7 +115,12 @@ REFERENCE: dict[str, dict] = {
         "rotationHours": 10.656, "poleRaDeg": 40.589, "poleDecDeg": 83.537,
         "poleRaDotDegPerCty": -0.036, "poleDecDotDegPerCty": -0.004,
         "w0Deg": 38.9, "wDotDegPerDay": 810.7939024,
-        "rings": {"innerKm": 74500, "outerKm": 136780, "gaps": [[117580, 122170]]},
+        "rings": {"innerKm": 74500, "outerKm": 136780,
+                  "gaps": [[77750, 77850], [87365, 87635], [88690, 88720],
+                           [90200, 90220], [117500, 122050], [133407.5, 133732.5],
+                           [136487.5, 136522.5]],
+                  "bands": [("C", 74500, 91980, .18), ("B", 91980, 117500, .78),
+                            ("A", 122050, 136770, .5)]},
     },
     "Uranus": {
         "radiusKm": 25559, "polarKm": 24973, "massKg": 8.6811e25, "tiltDeg": 97.77,
@@ -122,7 +129,12 @@ REFERENCE: dict[str, dict] = {
         "rotationHours": -17.24, "poleRaDeg": 257.311, "poleDecDeg": -15.175,
         "poleRaDotDegPerCty": 0, "poleDecDotDegPerCty": 0,
         "w0Deg": 203.81, "wDotDegPerDay": -501.1600928,
-        "rings": {"innerKm": 38000, "outerKm": 51150},
+        "rings": {"innerKm": 38000, "outerKm": 51150,
+                  "bands": [("6", 41838.5, 41841.5, .16), ("5", 42228.5, 42231.5, .16),
+                            ("4", 42578.5, 42581.5, .16), ("Alpha", 44714, 44726, .16),
+                            ("Beta", 45664, 45676, .16), ("Eta", 47189, 47191, .16),
+                            ("Gamma", 47628, 47632, .16), ("Delta", 48285.5, 48294.5, .16),
+                            ("Lambda", 50019, 50021, .16), ("Epsilon", 51130, 51150, .16)]},
     },
     # WGCCRE 2015: W = 249.978 + 541.1397757·d (15.9663 h). The 2009 values
     # (253.18 + 536.3128492·d, 16.11 h — still on NASA's fact sheet) are RETIRED.
@@ -135,7 +147,12 @@ REFERENCE: dict[str, dict] = {
         "rotationHours": 15.9663, "poleRaDeg": 299.36, "poleDecDeg": 43.46,
         "poleRaDotDegPerCty": 0, "poleDecDotDegPerCty": 0,
         "w0Deg": 249.978, "wDotDegPerDay": 541.1397757,
-        "rings": {"innerKm": 41900, "outerKm": 62930},
+        # The former values were ring CENTRES. Edges are centre +/- half the
+        # admitted representative width (Galle 15, Adams 40 within <50 km).
+        "rings": {"innerKm": 41892.5, "outerKm": 62950,
+                  "bands": [("Galle", 41892.5, 41907.5, .16),
+                            ("Le Verrier", 53192.5, 53207.5, .16),
+                            ("Adams", 62910, 62950, .16)]},
         "poleNut": {"n0Deg": 357.85, "nDotDegPerCty": 52.316,
                     "raAmpDeg": 0.70, "decAmpDeg": -0.51, "wAmpDeg": -0.48},
     },
@@ -248,6 +265,22 @@ def check_bodies(dump: dict) -> list[str]:
                         errors.append(f"{name}.rings.gaps: have {have_gaps!r}, pinned {want_gaps!r}")
                     if not (have_rings["innerKm"] < h0 < h1 < have_rings["outerKm"]):
                         errors.append(f"{name}.rings.gaps: gap [{h0}, {h1}] outside ring span")
+            want_bands = want_rings.get("bands") or []
+            have_bands = have_rings.get("bands") or []
+            if len(have_bands) != len(want_bands):
+                errors.append(f"{name}.rings.bands: count {len(have_bands)}, pinned {len(want_bands)}")
+            else:
+                previous_outer = have_rings["innerKm"]
+                for expected, actual in zip(want_bands, have_bands):
+                    fields = ("name", "innerKm", "outerKm", "opacity")
+                    if (set(actual) != set(fields) or actual.get("name") != expected[0]
+                            or any(not close(float(actual.get(k, -1)), v)
+                                   for k, v in zip(fields[1:], expected[1:]))):
+                        errors.append(f"{name}.rings.bands: have {actual!r}, pinned {expected!r}")
+                    lo, hi = actual.get("innerKm", -1), actual.get("outerKm", -1)
+                    if not (previous_outer <= lo < hi <= have_rings["outerKm"]):
+                        errors.append(f"{name}.rings.bands: invalid or overlapping interval {lo}..{hi}")
+                    previous_outer = hi
         # Internal coherence, independent of the pins.
         rot_h, w_dot = got.get("rotationHours"), got.get("wDotDegPerDay")
         if rot_h and w_dot:

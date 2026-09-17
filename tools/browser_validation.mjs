@@ -4,10 +4,23 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createHash } from 'node:crypto';
 import coverageModule from "istanbul-lib-coverage";
 import puppeteer from "puppeteer-core";
 import v8ToIstanbul from "v8-to-istanbul";
 import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
+import { waitForCanvasGeometry } from "./canvas_capture.mjs";
+import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
+import { collectFrameCostDiagnostic } from './frame_cost_diagnostic.mjs';
+import { installProgramSourceEvidence, preparePhysicalSpinEvidence, waitForPhysicalSpinReadiness } from './physical_spin_probe.mjs';
+import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
+import { installScatteringProducerEvidence, beginScatteringProducerHold, endScatteringProducerHold } from './scattering_producer_probe.mjs';
+import { browserBackendFromArgs, browserBackendArgs, assertBrowserBackend, captureBrowserCapabilities } from './browser_backend.mjs';
+import { classifyTextureBackend } from './texture_device_telemetry.mjs';
+import {memoryRequested,runFullFeatureMemoryCheckpoints} from './full_feature_memory.mjs';
+import { assertCaptionLayouts } from "./caption_layout.mjs";
+import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
+import { waitForReferenceReadiness } from "./reference_readiness.mjs";
 import {
   ROOT,
   WEB,
@@ -168,16 +181,41 @@ async function clickMode(page, mode) {
     { timeout: 15_000 },
     mode
   );
+  if (mode === 'today') await page.click('#exploreResearch');
+  if (await page.$eval('#panelToggle', node => node.getAttribute('aria-expanded') === 'false')) {
+    await page.click('#panelToggle');
+  }
+  // These scenarios deliberately exercise full research controls; the separate
+  // experience suite verifies their initial disclosure and context-card entry.
+  if (mode !== 'today') await page.$$eval('#viewInspector details', nodes => nodes.forEach(node => { node.open = true; }));
 }
 
 async function assertDisclosureContract(page) {
+  await page.waitForFunction(()=>{
+    const image=document.getElementById('observationImage');
+    return image?.complete&&image.naturalWidth>0;
+  },{timeout:20000});
+  const observed=await page.evaluate(()=>({
+    visible:['solarObservation','observationImage','explorerOverview','observationStatus','viewSource','viewTime'].every(id=>document.getElementById(id)?.getClientRects().length>0),
+    modelVisible:['solarCanvas','dataState','ingestState','readinessState','regionCount','brMax','confidenceMean','layerConfidence','layerRegions','liveRun'].filter(id=>document.getElementById(id)?.getClientRects().length>0),
+    caption:document.getElementById('observationStatus').textContent,
+    source:document.getElementById('viewSource').textContent,
+    time:document.getElementById('viewTime').textContent,
+  }));
+  if(!observed.visible||observed.modelVisible.length||!/archiv/i.test(observed.caption)||!/observ|archiv/i.test(observed.source)||!/\d{4}/.test(observed.time)) {
+    throw new Error(`initial observed Explore provenance or separation failed: ${JSON.stringify(observed)}`);
+  }
+  await page.click('#exploreResearch');
+  if(await page.$eval('#solarObservation',node=>node.getClientRects().length>0)) throw new Error('Research must hide the separate observation surface');
   const initial = await page.evaluate(() => ({
     modes: Array.from(document.querySelectorAll(".mode-button")).map((button) => ({
       mode: button.dataset.mode,
       pressed: button.getAttribute("aria-pressed"),
     })),
     panelExpanded: document.getElementById("panelToggle")?.getAttribute("aria-expanded"),
-    statusVisible: document.querySelector(".summary-panel")?.getClientRects().length > 0,
+    statusVisible: ['viewSource', 'viewTime', 'dataState', 'ingestState', 'readinessState']
+      .every(id => document.getElementById(id)?.getClientRects().length > 0),
+    timelineHidden: document.getElementById('timeline')?.hidden,
     sunInside: document.getElementById("sunInside")?.open,
     sunExplore: document.getElementById("sunExplore")?.open,
     sunWeather: document.getElementById("sunWeather")?.open,
@@ -192,8 +230,9 @@ async function assertDisclosureContract(page) {
     throw new Error(`initial destination state violates the UX contract: ${JSON.stringify(initial.modes)}`);
   }
   if (
-    initial.panelExpanded !== "true"
+    initial.panelExpanded !== "false"
     || !initial.statusVisible
+    || initial.timelineHidden !== true
     || initial.sunInside !== false
     || initial.sunExplore !== true
     || initial.sunWeather !== false
@@ -203,6 +242,8 @@ async function assertDisclosureContract(page) {
   }
 
   // Native disclosure controls must work from the keyboard and expose their state.
+  await page.click('#panelToggle');
+  await page.click('#timelineToggle');
   await page.focus("#sunResearch > summary");
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => document.getElementById("sunResearch")?.open === true);
@@ -379,11 +420,37 @@ async function zoomIn(page, presses) {
 }
 
 async function canvasScreenshot(page, output) {
+  await waitForReferenceReadiness(page);
   const canvas = await page.$("#orreryCanvas");
   if (!canvas) throw new Error("3-D canvas is missing");
-  const bytes = Buffer.from(await canvas.screenshot({ path: output, type: "png" }));
+  // ElementHandle.screenshot scrolls, then reads the bounding box and page offset
+  // separately. Beyond-viewport capture can also recompose viewport-relative CSS.
+  // The hosted failure included toolbar/caption pixels outside the canvas. Keep
+  // the real page overlays, but capture one settled, entirely visible rectangle.
+  await canvas.evaluate(node => node.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }));
+  const geometry = await canvas.evaluate(waitForCanvasGeometry);
+  const [x, y, width, height, pageLeft, pageTop] = geometry;
+  const clipX = Math.round(x + pageLeft), clipY = Math.round(y + pageTop);
+  const clip = { x: clipX, y: clipY,
+    width: Math.round(width + x + pageLeft - clipX),
+    height: Math.round(height + y + pageTop - clipY) };
+  const bytes = Buffer.from(await page.screenshot({ path: output, type: "png",
+    clip, captureBeyondViewport: false }));
+  const after = await canvas.evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    return [rect.x, rect.y, rect.width, rect.height,
+      visualViewport.pageLeft, visualViewport.pageTop, node.width, node.height];
+  });
+  if (JSON.stringify(after) !== JSON.stringify(geometry)) {
+    throw new Error(`canvas geometry changed during capture: ${JSON.stringify({ before: geometry, after })}`);
+  }
+  fs.writeFileSync(output.replace(/\.png$/, ".geometry.json"), `${JSON.stringify({ before: geometry, after })}\n`);
   if (bytes.length < 10_000) {
     throw new Error(`3-D canvas screenshot is implausibly small (${bytes.length} bytes)`);
+  }
+  // PNG's IHDR dimensions detect a silently intersected or otherwise wrong crop.
+  if (bytes.readUInt32BE(16) !== clip.width || bytes.readUInt32BE(20) !== clip.height) {
+    throw new Error(`canvas screenshot dimensions differ from the measured clip: ${JSON.stringify(clip)}`);
   }
   return bytes;
 }
@@ -663,11 +730,15 @@ async function moonShadowAssertions(page, visualDirectory) {
     const state = store.orrery;
     return { az: state.az, el: state.el, radius: state.radius, anchor: state.anchor };
   });
-  // Overlays that draw lines and points across the disc are irrelevant to this measurement and
-  // would put stray bright pixels inside the sampled annulus; they are restored below.
+  // These quantitative pixel gates retain their calibrated legacy material (.05
+  // ambient, encoded-space RGB). Switch reference imagery off through its public
+  // control for this measurement and restore it below. The actual source shader's
+  // linear-light shadow term has separate GPU fixtures; archived cloud contrast
+  // cannot serve as an unshadowed radiometric reference for these annular samples.
+  // Overlays would also put stray pixels inside the sampled annulus.
   const overlays = [
     "orreryShowOrbits", "orreryShowSmall", "orreryShowSky", "orreryShowConst",
-    "orreryDeepSky", "orreryShowSunEq",
+    "orreryDeepSky", "orreryShowSunEq", "orreryTextures",
   ];
   const overlayState = {};
   for (const id of overlays) {
@@ -675,8 +746,36 @@ async function moonShadowAssertions(page, visualDirectory) {
     if (overlayState[id]) await setChecked(page, `#${id}`, false);
   }
 
+  // Scientific pixel fixture: clientWidth is integer, while responsive CSS bounds may be
+  // fractional. Align the composited canvas to whole CSS pixels at this harness's DPR=1,
+  // so the production projection and screenshot use exactly the same origin and scale.
+  // Keep the page overlays in place: raw framebuffer capture would bypass occlusion checks.
+  const canvasStyle = await page.$eval("#orreryCanvas", canvas => {
+    const original = canvas.getAttribute("style");
+    if (devicePixelRatio !== 1) throw new Error("moon pixel fixture requires DPR=1");
+    canvas.style.setProperty("width", `${canvas.clientWidth}px`, "important");
+    canvas.style.setProperty("height", `${canvas.clientHeight}px`, "important");
+    canvas.style.setProperty("max-width", "none", "important");
+    const resized = canvas.getBoundingClientRect();
+    canvas.style.setProperty("transform", `translate(${Math.round(resized.left) - resized.left}px, ${Math.round(resized.top) - resized.top}px)`, "important");
+    return original;
+  });
+  await page.evaluate(async () => {
+    window.dispatchEvent(new Event("resize"));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    document.getElementById("orrerySize").dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
   const frame = async (name, options) => {
     console.log(`Browser validation: moon-shadow frame ${name}`);
+    await page.$eval("#orreryCanvas", canvas => {
+      const box = canvas.getBoundingClientRect();
+      if (![box.x, box.y, box.width, box.height].every(Number.isInteger)
+          || box.width !== canvas.clientWidth || box.height !== canvas.clientHeight
+          || canvas.width !== box.width || canvas.height !== box.height) {
+        throw new Error(`moon fixture pixel geometry is not aligned: ${JSON.stringify({ x: box.x, y: box.y, width: box.width, height: box.height, bufferWidth: canvas.width, bufferHeight: canvas.height })}`);
+      }
+    });
     const plan = await page.evaluate(planMoonShadowFrame, options);
     // One settled frame: the repaint above is synchronous, but the compositor still has to hand
     // the canvas to the screenshot.
@@ -721,6 +820,12 @@ async function moonShadowAssertions(page, visualDirectory) {
     eclipse.bytes, eclipseControl.bytes, eclipse.plan, eclipseControl.plan, "Io"
   );
 
+  await page.$eval("#orreryCanvas", (canvas, original) => {
+    if (original === null) canvas.removeAttribute("style");
+    else canvas.setAttribute("style", original);
+    window.dispatchEvent(new Event("resize"));
+  }, canvasStyle);
+
   // Hand the view back exactly as it was found: the clock to the harness's fixed epoch, the
   // camera to the caller's, the overlays to their own state, and the labels to visible.
   await page.evaluate(async ({ fixedNow, camera }) => {
@@ -743,9 +848,21 @@ async function moonShadowAssertions(page, visualDirectory) {
   return { transit: transitStats, control: controlStats, eclipse: eclipseStats };
 }
 
-async function visualAssertions(page, visualDirectory) {
+async function visualAssertions(page, visualDirectory, observeContext, systemBudget) {
   fs.mkdirSync(visualDirectory, { recursive: true });
+  if(argument('hdr-candidate','false')==='true'){
+    const hdr=await page.evaluate(async()=>{
+      const entry=document.querySelector('script[type="module"][src^="app.js"]');
+      const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+      store.orrery.hdrEnabled=true;
+      document.getElementById('orrerySize').dispatchEvent(new Event('input',{bubbles:true}));
+      return store.orrery.hdrStatus;
+    });
+    if(hdr.state!=='ready')throw new Error(`HDR candidate unavailable: ${hdr.reason}`);
+  }
   await focusBody(page, "Sun");
+  // The visible-light contract is separate from the new explicitly assigned EUV colors.
+  await page.select('#orrerySolarMode','visible');
   await zoomIn(page, 34);
   await new Promise((resolve) => setTimeout(resolve, 500));
   const sun = await canvasScreenshot(page, path.join(visualDirectory, "sun-warm-white.png"));
@@ -753,6 +870,7 @@ async function visualAssertions(page, visualDirectory) {
 
   await focusBody(page, "Earth");
   await zoomIn(page, 8);
+  await waitForReferenceReadiness(page, "Earth");
   await new Promise((resolve) => setTimeout(resolve, 300));
   const earthBefore = await canvasScreenshot(page, path.join(visualDirectory, "earth-before-orbit.png"));
   const earthStats = assertBlueEarth(earthBefore);
@@ -808,19 +926,110 @@ async function visualAssertions(page, visualDirectory) {
     }`);
   }
 
-  // At one simulated week per real second the old renderer froze every planet's rotation.
-  // Compare two settled frames while the real production clock is running: the focused Earth
-  // must continue turning, including under the perceptual cap used to prevent low-FPS aliasing.
+  // A uniform low-detail sphere has no azimuthal texture from which pixels can prove spin.
+  // Background/orbit movement can also satisfy a pixel-change check while the globe is frozen.
+  // Keep both PNG artifacts, but inspect the actual Earth draw uniforms for this regression.
   await page.$eval('#orrerySpeedPresets button[data-dps="7"]', (button) => button.click());
   await new Promise((resolve) => setTimeout(resolve, 250));
-  const highSpeedBefore = await canvasScreenshot(
-    page, path.join(visualDirectory, "earth-week-per-second-before.png")
-  );
-  await new Promise((resolve) => setTimeout(resolve, 250));
-  const highSpeedAfter = await canvasScreenshot(
-    page, path.join(visualDirectory, "earth-week-per-second-after.png")
-  );
-  const rotationStats = assertFrameChanged(highSpeedBefore, highSpeedAfter);
+  await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-before.png"));
+  const spinProbe = await page.evaluate(collectSubmittedEarthSpin);
+  // Preserve the probe even when no frames arrive or an assertion fails. A stalled
+  // renderer, a stopped clock, and a mismatched draw must remain distinguishable
+  // in hosted evidence without relaxing the bounded wait or the spin contract.
+  fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify(spinProbe, null, 2));
+  if (spinProbe.sampleError) throw new Error(`Earth draw inspection failed: ${spinProbe.sampleError}`);
+  const spinSamples = spinProbe.samples;
+  await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-after.png"));
+  const assertSubmittedSpin = (samples) => {
+    if (samples.length < 3) throw new Error(`insufficient Earth sphere draws: ${samples.length}`);
+    let totalAngle = 0;
+    let previousRotation = null;
+    for (let i = 0; i < samples.length; i++) {
+      const sample = samples[i], n = sample.normal, model = sample.model;
+      if (n.length !== 9 || model.length !== 16 || ![...n, ...model, sample.epoch, sample.rate].every(Number.isFinite)) throw new Error("nonfinite Earth draw transform");
+      const equatorialScale = Math.hypot(...model.slice(0, 3)), rotation = [];
+      for (let column = 0; column < 3; column++) {
+        const axis = model.slice(column * 4, column * 4 + 3), length = Math.hypot(...axis);
+        if (!(length > 0)) throw new Error("degenerate Earth model axis");
+        // N = inverse-transpose(M), up to the common equatorial scale. Oblate
+        // normals have a longer polar column; only their normalized directions
+        // form the rotation used by the spin gate.
+        const normalLength = Math.hypot(...n.slice(column * 3, column * 3 + 3));
+        if (!(normalLength > 0)) throw new Error("degenerate Earth normal axis");
+        for (let row = 0; row < 3; row++) {
+          if (Math.abs(axis[row] * equatorialScale / (length * length) - n[column * 3 + row]) > 1e-5) throw new Error("Earth normal is not the submitted model inverse transpose");
+          rotation.push(n[column * 3 + row] / normalLength);
+        }
+      }
+      for (let column = 0; column < 3; column++) {
+        for (let other = 0; other < 3; other++) {
+          const dot = rotation[column * 3] * rotation[other * 3] + rotation[column * 3 + 1] * rotation[other * 3 + 1] + rotation[column * 3 + 2] * rotation[other * 3 + 2];
+          if (Math.abs(dot - (column === other ? 1 : 0)) > 1e-5) throw new Error("Earth rotation is not orthonormal");
+        }
+      }
+      if (!i) { previousRotation = rotation; continue; }
+      const previous = samples[i - 1];
+      // Ephemeris advancement recovers the renderer's bounded simulated step, including its
+      // 50ms frame clamp. Wall-clock delay is not an appropriate expected-angle oracle.
+      const realStep = (sample.epoch - previous.epoch) / sample.rate;
+      const expected = realStep * (2 * Math.PI / 5);
+      const trace = rotation.reduce((sum, value, k) => sum + value * previousRotation[k], 0);
+      const angle = Math.acos(Math.max(-1, Math.min(1, (trace - 1) / 2)));
+      if (!(expected > 0) || Math.abs(angle - expected) > Math.max(1e-4, expected * .10)) throw new Error(`Earth submitted spin frozen or outside cap: angle=${angle}, expected=${expected}`);
+      totalAngle += angle;
+      previousRotation = rotation;
+    }
+    if (totalAngle < .01) throw new Error("Earth submitted spin is frozen or undersampled");
+    return { draws: samples.length, radians: totalAngle };
+  };
+  const rotationStats = assertSubmittedSpin(spinSamples);
+  // A control preserving epochs but freezing both submitted transforms must fail this gate.
+  let frozenRejected = false;
+  try { assertSubmittedSpin(spinSamples.map(sample => ({ ...sample, normal: spinSamples[0].normal, model: spinSamples[0].model }))); }
+  catch (error) { frozenRejected = /frozen|outside cap/.test(error.message); }
+  if (!frozenRejected) throw new Error("spin gate accepted the original frozen-transform regression");
+  let heldPresentationProbe=null;
+  if(spinSamples.some(sample=>sample.presentation)){
+    heldPresentationProbe=await page.evaluate(collectSubmittedEarthSpin,{holdPresentation:true});
+    if(heldPresentationProbe.samples.length||!heldPresentationProbe.drawCounts.heldPresentations)
+      throw new Error('spin gate accepted a held HDR presentation or did not observe its negative control');
+  }
+  fs.writeFileSync(path.join(visualDirectory, "earth-submitted-spin.json"), JSON.stringify({ ...spinProbe, ...rotationStats, frozenRejected,heldPresentationProbe }, null, 2));
+  if(argument('hdr-candidate','false')==='true'||argument('physical-spin','false')==='true'){
+    // This additional gate never substitutes for the original Earth rotation
+    // acceptance above. Source preparation/hashing precedes its unchanged 5s window.
+    await page.evaluate(preparePhysicalSpinEvidence,{body:'Earth'});
+    const readiness=await page.evaluate(waitForPhysicalSpinReadiness,{body:'Earth',...systemBudget});
+    fs.writeFileSync(path.join(visualDirectory,'earth-physical-readiness.json'),JSON.stringify(readiness,null,2));
+    if(!readiness.passed)throw new Error(`Physical Earth preparation failed: ${readiness.reason}`);
+    const physicalBackend=await observeContext('physical-spin');
+    const physicalSpin=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});
+    physicalSpin.backend=physicalBackend;
+    physicalSpin.readiness=readiness;
+    physicalSpin.validation_source_sha256=Object.fromEntries(['earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs']
+      .map(name=>[name,createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')]));
+    fs.writeFileSync(path.join(visualDirectory,'earth-physical-spin.json'),JSON.stringify(physicalSpin,null,2));
+    if(physicalSpin.sampleError)throw new Error(`Physical Earth draw inspection failed: ${physicalSpin.sampleError}`);
+    assertSubmittedSpin(physicalSpin.samples);
+    if(physicalSpin.samples.some(sample=>!sample.physical?.passed))throw new Error('Physical Earth spin admitted fallback evidence');
+    if(await page.evaluate(deadline=>deadline-performance.now(),systemBudget.deadlineMs)<5000)
+      throw new Error('Insufficient original System budget for held scattering producer control');
+    let heldScattering,heldScatteringState;
+    await page.evaluate(beginScatteringProducerHold);
+    try{heldScattering=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});}
+    finally{heldScatteringState=await page.evaluate(endScatteringProducerHold);}
+    fs.writeFileSync(path.join(visualDirectory,'earth-held-scattering-producer.json'),JSON.stringify({probe:heldScattering,control:heldScatteringState},null,2));
+    if(!heldScatteringState.restored||!heldScatteringState.held||heldScatteringState.currentProgramMismatch
+      ||heldScattering.samples.length||!heldScattering.drawCounts.physicalRejected||heldScattering.sampleError)
+      throw new Error('Physical gate accepted held scattering producers or did not exercise their negative control');
+    const recoveredScattering=await page.evaluate(collectSubmittedEarthSpin,{physicalEvidence:true});
+    fs.writeFileSync(path.join(visualDirectory,'earth-scattering-recovery.json'),JSON.stringify(recoveredScattering,null,2));
+    if(recoveredScattering.sampleError||recoveredScattering.samples.some(sample=>!sample.physical?.scattering?.passed))
+      throw new Error('Scattering producer recovery did not observe fresh physical fields');
+    assertSubmittedSpin(recoveredScattering.samples);
+    if(await page.evaluate(deadline=>performance.now()>deadline,systemBudget.deadlineMs))
+      throw new Error('Scattering producer controls exceeded the original System deadline');
+  }
   const spinDisclosure = await page.$eval("#orreryAccuracy", (node) => node.textContent);
   if (!spinDisclosure.includes("Rotation display rate-limited")) {
     throw new Error(`high-speed rotation disclosure is missing: ${JSON.stringify(spinDisclosure)}`);
@@ -836,7 +1045,7 @@ async function visualAssertions(page, visualDirectory) {
     `Sun G/R=${sunStats.greenRed.toFixed(3)} B/R=${sunStats.blueRed.toFixed(3)};`,
     `Earth blue pixels=${earthStats.bluePixels};`,
     `orbit mean delta=${orbitStats.meanDifference.toFixed(3)};`,
-    `high-speed rotation delta=${rotationStats.meanDifference.toFixed(3)}`
+    `high-speed submitted rotation=${rotationStats.radians.toFixed(4)} rad over ${rotationStats.draws} draws`
   );
   console.log(
     "moon-shadow assertions:",
@@ -850,17 +1059,20 @@ async function visualAssertions(page, visualDirectory) {
   );
 }
 
-async function exerciseOrrery(page, visualDirectory) {
+async function exerciseOrrery(page, visualDirectory, observeContext) {
+  const systemBudget=await page.evaluate(()=>{const systemStartedMs=performance.now();return {systemStartedMs,deadlineMs:systemStartedMs+75000};});
   await clickMode(page, "orrery");
   // V8 block-coverage collection instruments the large lazy star/moon catalogues and can
   // more than double their cold-start time on shared CI runners. Keep the assertion exact,
   // but allow the instrumented initialization the same bounded headroom as the standalone
   // browser smoke's retry budget.
   try {
+    const remaining=await page.evaluate(deadlineMs=>deadlineMs-performance.now(),systemBudget.deadlineMs);
+    if(!(remaining>0))throw new Error('Original System entry deadline elapsed');
     await page.waitForFunction(
       () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2")
         && document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21,
-      { timeout: 75_000 }
+      { timeout: remaining }
     );
   } catch (error) {
     const state = await page.evaluate(() => ({
@@ -871,13 +1083,20 @@ async function exerciseOrrery(page, visualDirectory) {
     }));
     throw new Error(`3-D readiness timed out: ${JSON.stringify(state)}`, { cause: error });
   }
+  await observeContext('initial');
   await setChecked(page, "#orreryAnimate", false);
+  // Settle the current visible demand; distant and disabled maps remain deferred.
+  const appearance = await waitForReferenceReadiness(page);
+  fs.mkdirSync(visualDirectory, { recursive: true });
+  fs.writeFileSync(path.join(visualDirectory, 'appearance-readiness.json'), `${JSON.stringify(appearance)}\n`);
   // Network idleness is not scene readiness: cancelled workers and offline-cache
   // installation can keep the driver's network accounting busy after the view is
   // ready. Require native fonts/frame delivery, then the exact material/pixel gates
   // below establish that actual assets rendered. No performance threshold is inferred.
   await page.evaluate(async()=>{await document.fonts.ready;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
-  await visualAssertions(page, visualDirectory);
+  const captionLayouts = await assertCaptionLayouts(page);
+  fs.writeFileSync(path.join(visualDirectory, 'caption-layout.json'), `${JSON.stringify(captionLayouts, null, 2)}\n`);
+  await visualAssertions(page, visualDirectory, observeContext, systemBudget);
 
   for (const id of [
     "orreryTrueScale",
@@ -1063,8 +1282,11 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
 
 async function main() {
   let phase="setup";
+  const backend=browserBackendFromArgs(process.argv.slice(2));
+  const memory=memoryRequested(process.argv.slice(2));
   const webRoot = path.resolve(argument("web-root", WEB));
   const outputDirectory = path.resolve(argument("output-dir", path.join(ROOT, "coverage", "browser")));
+  fs.mkdirSync(outputDirectory, { recursive: true });
   const mapping = releaseSourceMap(webRoot);
   if (mapping) {
     const validation = spawnSync(process.env.PYTHON || "python", [path.join(ROOT, "tools", "validate_release_manifest.py"), path.join(webRoot, "web-release-manifest.json")], { stdio: "inherit" });
@@ -1082,18 +1304,26 @@ async function main() {
     }
   }
 
-  const server = await staticServer(webRoot, mapping?.manifest.base_path || "/");
   let browser;
   let workerCoverage;
   let diagnosticPage;
+  const failures = [];
+  const evidence={schema_version:'browser-validation.v1',status:'running',started_at:new Date().toISOString(),
+    requested_backend:backend,memory_requested:memory,scope:'Complete existing application gates; native execution requires actual application-context renderer identity.',
+    artifact:mapping?{release_id:mapping.manifest.release_id,source_sha:mapping.manifest.source_sha,
+      manifest_sha256:createHash('sha256').update(fs.readFileSync(path.join(webRoot,'web-release-manifest.json'))).digest('hex')}:null,
+    validation_source_sha256:Object.fromEntries(['browser_validation.mjs','browser_backend.mjs','texture_device_telemetry.mjs',
+      'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs','frame_cost_diagnostic.mjs',
+      'full_feature_memory.mjs','texture_device_memory.ps1','context_restore.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,
+      createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')])),
+  };
+  const saveEvidence=()=>fs.writeFileSync(path.join(outputDirectory,'browser-evidence.json'),JSON.stringify(evidence,null,2)+'\n');
+  const server = await staticServer(webRoot, mapping?.manifest.base_path || "/");
   const started = Date.now();
   const progress = setInterval(() => console.log(`Browser validation: ${phase} still running (${Math.round((Date.now()-started)/1000)}s elapsed)`), 30_000);
   progress.unref();
   try {
-  browser = await puppeteer.launch({
-    executablePath: browserBinary(),
-    headless: true,
-    args: [
+  const launchArgs=[
       "--no-sandbox",
       "--disable-dev-shm-usage",
       "--disable-background-networking",
@@ -1102,15 +1332,18 @@ async function main() {
       "--disable-extensions",
       "--disable-features=Translate,OptimizationHints",
       "--disable-sync",
-      "--enable-unsafe-swiftshader",
-      "--use-angle=swiftshader",
-      "--use-gl=angle",
+      ...browserBackendArgs(backend),
       "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
-    ],
-  });
+    ];
+  evidence.browser_launch_args=launchArgs;saveEvidence();
+  browser = await puppeteer.launch({executablePath:browserBinary(),headless:true,args:launchArgs});
+  evidence.browser_version=await browser.version();saveEvidence();
 
     console.log("Browser validation: Chromium launched");
     const page = await browser.newPage();
+    await page.evaluateOnNewDocument(installProgramSourceEvidence);
+    await page.evaluateOnNewDocument(installPhysicalTextureEvidence);
+    await page.evaluateOnNewDocument(installScatteringProducerEvidence);
     diagnosticPage=page;
     await page.setBypassServiceWorker(true);
     workerCoverage=await startWorkerCoverage(page);
@@ -1148,7 +1381,8 @@ async function main() {
       } catch {}
     }, { fixedNow: FIXED_UNIX_MS, serverBase: server.base });
 
-    const failures = [];
+    const moduleRequests = [];
+    page.on("request", request => moduleRequests.push(request.url()));
     page.on("pageerror", (error) => failures.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
       // The optional DE441 exercise deliberately receives a 404 from the static server
@@ -1173,6 +1407,8 @@ async function main() {
     });
     phase="disclosure";console.log(`Browser validation: ${phase}`);
     await assertDisclosureContract(page);
+    const mobileUpdate = await assertMobileOfflineUpdate(page);
+    fs.writeFileSync(path.join(outputDirectory, "mobile-update.json"), JSON.stringify(mobileUpdate, null, 2) + "\n");
     const solarSchema = mapping ? mapping.manifest.schemas.find((schema) => schema.startsWith("solar-state-snapshot."))
       : JSON.parse(fs.readFileSync(path.join(pageRoot, "data/latest-state.json"), "utf8")).schema_version;
     if (!solarSchema) throw new Error("staged release does not declare its solar schema");
@@ -1182,8 +1418,26 @@ async function main() {
     await exerciseSky(page);
     await workerCoverage.collect();
     phase="System/WebGL";console.log(`Browser validation: ${phase}`);
-    await exerciseOrrery(page, path.join(outputDirectory, "visual"));
+    await exerciseOrrery(page, path.join(outputDirectory, "visual"),async label=>{
+      evidence.capabilities=await page.evaluate(captureBrowserCapabilities);
+      evidence.observed_backend=classifyTextureBackend(evidence.capabilities.renderer);
+      const observation={label,requested_backend:backend,capabilities:evidence.capabilities,observed_backend:evidence.observed_backend};
+      (evidence.application_contexts??=[]).push(observation);saveEvidence();
+      assertBrowserBackend(backend,evidence.capabilities);
+      return observation;
+    });
+    // Mapping holds intentionally prevent these archived vectors becoming a globe
+    // texture. Exercise their module contract separately, without enabling that
+    // unqualified rendering path or adding a first-paint runtime download.
+    await page.evaluate(async () => {
+      const entry = document.querySelector('script[type="module"][src^="app.js"]');
+      const geography = await import(`./js/geography.js${entry ? new URL(entry.src).search : ''}`);
+      if (geography.QUANT !== 20 || typeof geography.decodeRing !== 'function'
+          || !geography.EARTH || !geography.FEATURES) throw new Error('archived geography module contract failed');
+    });
     await workerCoverage.collect();
+    const manifestRequests = assertManifestRequestIdentity(moduleRequests);
+    fs.writeFileSync(path.join(outputDirectory, "manifest-requests.json"), JSON.stringify(manifestRequests) + "\n");
     const entries = [...await page.coverage.stopJSCoverage(),...workerCoverage.entries];
     failures.push(...workerCoverage.errors.map(error=>"worker coverage: "+error));
     if (failures.length) {
@@ -1191,27 +1445,72 @@ async function main() {
     }
     phase="coverage mapping";console.log(`Browser validation: ${phase}`);
     await writeBrowserCoverage(entries, webRoot, outputDirectory);
+    evidence.original_gates={passed:true,completed_at:new Date().toISOString()};saveEvidence();
+    if(memory){
+      phase='optional memory follow-up';console.log(`Browser validation: ${phase}; original gates complete`);
+      await workerCoverage.dispose();workerCoverage=null;
+      await runFullFeatureMemoryCheckpoints({browser,page,body:'Earth',backend,originalReceipt:evidence.original_gates,
+        save:observation=>{evidence.memory=observation;saveEvidence();}});
+    }
+    // Keep original acceptance separate; a later memory/restoration error still
+    // fails this complete run through the unchanged page/console listeners.
+    if (failures.length) {
+      throw new Error(`browser runtime errors after original acceptance:\n${failures.map((item) => `  - ${item}`).join("\n")}`);
+    }
+    evidence.status='passed';
   } catch(error) {
-    let timer;
+    evidence.status='failed';evidence.failure={phase,error:error.message};
+    // Preserve the original failed gate before any separate instrumented replay.
+    try{saveEvidence();}catch(failure){console.error('Could not persist original failure:',failure);}
+    if(phase==='System/WebGL'&&/^(insufficient Earth sphere draws:|Physical Earth preparation failed:)/.test(error.message)){
+      try{
+      const frameCostPath=path.join(outputDirectory,'frame-cost-after-failure.json');
+      let frameCostTimer;
+      const frameCost={schema:'post-failure-frame-cost.v1',original_failure:{...evidence.failure},
+        original_status:'failed',outer_budget_ms:25000,
+        tool_sha256:evidence.validation_source_sha256['frame_cost_diagnostic.mjs']};
+      try{
+        frameCost.observation=await Promise.race([diagnosticPage.evaluate(collectFrameCostDiagnostic),
+          new Promise((_,reject)=>{frameCostTimer=setTimeout(()=>reject(new Error('Separate frame-cost diagnostic deadline')),25000);})]);
+      }catch(failure){frameCost.error=failure instanceof Error?failure.message:String(failure);}
+      finally{clearTimeout(frameCostTimer);}
+      fs.writeFileSync(frameCostPath,JSON.stringify(frameCost,null,2)+'\n');
+      evidence.frame_cost_diagnostic={path:frameCostPath,status:frameCost.observation?.status||'unavailable'};saveEvidence();
+      }catch(failure){
+        evidence.frame_cost_diagnostic={status:'unavailable',error:failure instanceof Error?failure.message:String(failure)};
+        console.error('Frame-cost diagnostic could not be recorded:',failure);
+      }
+    }
+    let timer, diagnostic, diagnosticError;
     try {
-      const diagnostic=await Promise.race([diagnosticPage?.evaluate(()=>({
+      diagnostic=await Promise.race([diagnosticPage?.evaluate(()=>({
         surface:document.body.dataset.surface,
         skyRows:document.querySelectorAll("#skyList .sky-row").length,
         skyInsight:document.getElementById("skyInsight")?.textContent,
         skyInputError:document.getElementById("skyInputError")?.textContent,
         skyProvider:document.getElementById("skyProviderStatus")?.textContent,
+        liveStatus:document.getElementById("liveStatus")?.textContent,
+        liveRun:{disabled:document.getElementById("liveRun")?.disabled,text:document.getElementById("liveRun")?.textContent},
+        activeSunMode:document.querySelector('[data-sun-mode][aria-pressed="true"]')?.getAttribute('data-sun-mode'),
+        workerResources:performance.getEntriesByType('resource').filter(item=>/Worker|worker|\.wasm/.test(item.name)).map(item=>({url:item.name,duration:item.duration})),
       })),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("diagnostic deadline")),5000);})]);
-      fs.writeFileSync(path.join(outputDirectory,"failure.json"),JSON.stringify({phase,error:error.message,diagnostic,workerErrors:workerCoverage?.errors},null,2)+"\n");
-    } catch(diagnosticError) {console.error(`Failure diagnostics unavailable: ${diagnosticError.message}`);}
+    } catch(failure) {diagnosticError=failure.message;console.error(`Failure diagnostics unavailable: ${diagnosticError}`);}
     finally {clearTimeout(timer);}
+    fs.writeFileSync(path.join(outputDirectory,"failure.json"),JSON.stringify({phase,error:error.message,
+      diagnostic,diagnosticError,runtimeErrors:[...failures],workerErrors:workerCoverage?.errors},null,2)+"\n");
     console.error(`Browser validation failed during ${phase}: ${error.message}`);throw error;
   } finally {
     clearInterval(progress);
     console.log(`Browser validation: cleanup after ${phase}`);
     try {
-      if (workerCoverage) await workerCoverage.dispose();
-      if (browser) await closeOwnedBrowser(browser);
-    } finally { await server.close(); }
+      try{if (workerCoverage) await workerCoverage.dispose();}
+      finally{if (browser) await closeOwnedBrowser(browser);}
+    } catch(error){evidence.status='failed';evidence.cleanup_error=error.message;throw error;}
+    finally {
+      try{await server.close();}
+      catch(error){evidence.status='failed';evidence.server_cleanup_error=error.message;throw error;}
+      finally{evidence.completed_at=new Date().toISOString();saveEvidence();}
+    }
   }
   console.log("OK: Chromium runtime coverage and WebGL visual assertions passed");
 }

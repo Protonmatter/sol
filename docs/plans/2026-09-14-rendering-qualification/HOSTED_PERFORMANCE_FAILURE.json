@@ -1,0 +1,295 @@
+{
+  "schema_version": "hosted-rendering-failure.v1",
+  "status": "failed",
+  "pr_head": "89e1e28b226fa7346eaa53ecfa0d404dcbc37124",
+  "hosted_merge_commit": "a9dfadc36fd0afa14f494b1be5e4028fab072df9",
+  "merge_parents": [
+    "841ba94eabe588f745625a995d20bf6c79ac97f3",
+    "89e1e28b226fa7346eaa53ecfa0d404dcbc37124"
+  ],
+  "verified_no_diff_paths": [
+    "apps/web",
+    "tools/browser_validation.mjs",
+    "tools/earth_spin_probe.mjs",
+    "tools/build_web.py",
+    ".github/workflows/coverage.yml"
+  ],
+  "original_gate": {
+    "minimum_final_draws": 3,
+    "deadline_ms": 5000
+  },
+  "runs": [
+    {
+      "run_id": 34833369781,
+      "artifact_id": 10343507334,
+      "artifact_zip_sha256_reported_by_github": "1e00f2590ccb8b777db76ade5ced231a284ab6d34c954fff56099d86d4fe7788",
+      "artifact_url": "https://github.com/Protonmatter/sol/actions/runs/34833369781/artifacts/10343507334",
+      "source": {
+        "release_id": "coverage-a9dfadc36fd0afa14f494b1be5e4028fab072df9-34833369781-1",
+        "source_sha": "a9dfadc36fd0afa14f494b1be5e4028fab072df9",
+        "manifest_sha256": "4d5b929d7dbf95f51967cac94e20267e663b61b44da39ac2a14fe6ce3bdd665a"
+      },
+      "browser_version": "Chrome/152.0.7977.82",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "context_attributes": {
+        "alpha": false,
+        "antialias": true,
+        "depth": true,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": false,
+        "preserveDrawingBuffer": false,
+        "stencil": false,
+        "xrCompatible": false
+      },
+      "canvas": {
+        "width": 732,
+        "height": 612
+      },
+      "status": "failed",
+      "failure": {
+        "phase": "System/WebGL",
+        "error": "insufficient Earth sphere draws: 1"
+      },
+      "source_hashes": {
+        "browser_validation.mjs": "7730346b9b8a89f02f0ea6aa9656672e1a684b2812c5bf0e6e849da22f135d65",
+        "browser_backend.mjs": "63aa1e2ce88c9fc4bbba732fa50578665367b0bccfff222a57dbf2cc3314a532",
+        "texture_device_telemetry.mjs": "bd5873ad316fa415505db4ef48d9335952fd80ef8b0629c37e22fd2bc326193f",
+        "earth_spin_probe.mjs": "9ff76ff48272b43777bd8df5315afcdf4673091edb28a29231945513b700a767",
+        "physical_spin_probe.mjs": "0680f085aa8d9f278ee43acf72d9f9aa89429fc9a16a34a2520e392f4bd82f2d",
+        "physical_texture_probe.mjs": "7ef5351c8aff31ab0b7d9f495b28beb3bc90bcfd6b0e808018aa8db168754f9c",
+        "scattering_producer_probe.mjs": "5d5140fc8bd618a0604b984121cfa1f0005d832fd276a432d86fffef2f42b593",
+        "full_feature_memory.mjs": "d08f3b880172880ac769f8fa4ad56669599f5c6d8193a0428378e1fffcc28760",
+        "texture_device_memory.ps1": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+        "context_restore.mjs": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+        "mars_terrain_probe.mjs": "85bf707353b7f5179c43d3784bcfc889bb7b26e5e2b966874a8aab0eb836b65a",
+        "mars_spin_assertions.mjs": "cb961eb7816a48838890b994889fe1ccf15dfa39d27e42507fa7e9d45ff2fe15"
+      },
+      "files_sha256": {
+        "browser-evidence.json": "ba006c627509adcd35309fe4064cfc5229a6b0e77dda9ad6ff0844f6efbf96b9",
+        "failure.json": "c8152072dad4ce7ac3b07fdb124033e2adb844189f3d9ed289aaecc3106ddc16",
+        "visual/earth-submitted-spin.json": "10570b46165336c6ce6e13dc438c3b7fda7b25da354121e4014e3241639c151a",
+        "visual/earth-week-per-second-before.png": "86422047532aa4723a34fc9f89942c217cd6565bcbbaf29a7a81663725444d56",
+        "visual/earth-week-per-second-after.png": "92a04ffc36427fedfd82585fe41f52e77fd0cea2bdf69ff848f78653e3afefab"
+      },
+      "timing": {
+        "startedMs": 210113.2,
+        "endedMs": 219870.90000000002,
+        "elapsedMs": 9757.700000000012
+      },
+      "raf_heartbeat": {
+        "count": 3,
+        "samples": [
+          {
+            "timestamp": 210110.9,
+            "sampledMs": 213366.3,
+            "elapsedMs": 3253.0999999999767
+          },
+          {
+            "timestamp": 213360.7,
+            "sampledMs": 216628,
+            "elapsedMs": 6514.799999999988
+          },
+          {
+            "timestamp": 216627.3,
+            "sampledMs": 219868.3,
+            "elapsedMs": 9755.099999999977
+          }
+        ]
+      },
+      "draw_counts": {
+        "attempted": 108,
+        "submitted": 108,
+        "arrayAttempted": 60,
+        "arraySubmitted": 60,
+        "surface": 1,
+        "earth": 1,
+        "duplicateEpoch": 0,
+        "candidates": 1,
+        "unknown": 38,
+        "gpuMismatch": 0,
+        "expiredDraws": 69,
+        "lateReadbacks": 0,
+        "offscreenEarth": 0,
+        "presentedEarth": 0,
+        "presentationMismatch": 0,
+        "heldPresentations": 0,
+        "physicalRejected": 0,
+        "physicalAccepted": 0,
+        "terrainRejected": 0,
+        "terrainAccepted": 0
+      },
+      "accepted_samples": [
+        {
+          "elapsed_ms": 3236.2000000000116,
+          "epoch": 1784213222.4
+        }
+      ],
+      "initial_state": {
+        "active": true,
+        "animate": true,
+        "hidden": false,
+        "visibility": "visible",
+        "contextLost": false,
+        "anchor": "Earth",
+        "engineError": "",
+        "hdrEnabled": false,
+        "opticsEnabled": true,
+        "opticsStatus": {
+          "Sun": "deferred",
+          "Mercury": "deferred",
+          "Venus": "deferred",
+          "Earth": "ready",
+          "Mars": "deferred",
+          "Jupiter": "deferred",
+          "Saturn": "deferred",
+          "Uranus": "deferred",
+          "Neptune": "deferred",
+          "Moon": "deferred"
+        },
+        "programStatus": {
+          "base": "ready",
+          "physical": "ready"
+        }
+      }
+    },
+    {
+      "run_id": 34833369932,
+      "artifact_id": 10343607072,
+      "artifact_zip_sha256_reported_by_github": "4af469629871a284935ea8f679aa8d01174c5b0d539d446794d933d845f77235",
+      "artifact_url": "https://github.com/Protonmatter/sol/actions/runs/34833369932/artifacts/10343607072",
+      "source": {
+        "release_id": "ci-a9dfadc36fd0afa14f494b1be5e4028fab072df9-34833369932-1",
+        "source_sha": "a9dfadc36fd0afa14f494b1be5e4028fab072df9",
+        "manifest_sha256": "de9e687271515b65a8fac9c53300bbcd64a48e827133f71f730ff6ed68dbc097"
+      },
+      "browser_version": "Chrome/152.0.7977.82",
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "context_attributes": {
+        "alpha": false,
+        "antialias": true,
+        "depth": true,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": false,
+        "preserveDrawingBuffer": false,
+        "stencil": false,
+        "xrCompatible": false
+      },
+      "canvas": {
+        "width": 732,
+        "height": 612
+      },
+      "status": "failed",
+      "failure": {
+        "phase": "System/WebGL",
+        "error": "insufficient Earth sphere draws: 1"
+      },
+      "source_hashes": {
+        "browser_validation.mjs": "7730346b9b8a89f02f0ea6aa9656672e1a684b2812c5bf0e6e849da22f135d65",
+        "browser_backend.mjs": "63aa1e2ce88c9fc4bbba732fa50578665367b0bccfff222a57dbf2cc3314a532",
+        "texture_device_telemetry.mjs": "bd5873ad316fa415505db4ef48d9335952fd80ef8b0629c37e22fd2bc326193f",
+        "earth_spin_probe.mjs": "9ff76ff48272b43777bd8df5315afcdf4673091edb28a29231945513b700a767",
+        "physical_spin_probe.mjs": "0680f085aa8d9f278ee43acf72d9f9aa89429fc9a16a34a2520e392f4bd82f2d",
+        "physical_texture_probe.mjs": "7ef5351c8aff31ab0b7d9f495b28beb3bc90bcfd6b0e808018aa8db168754f9c",
+        "scattering_producer_probe.mjs": "5d5140fc8bd618a0604b984121cfa1f0005d832fd276a432d86fffef2f42b593",
+        "full_feature_memory.mjs": "d08f3b880172880ac769f8fa4ad56669599f5c6d8193a0428378e1fffcc28760",
+        "texture_device_memory.ps1": "d642a461d267050b77ed03d0b73304e85d945944936d000ec43ddfdef6aa21e6",
+        "context_restore.mjs": "5169071b8506ed228ccd2926306a3a0399382434b5bb3b4854514fa6b3c9c4be",
+        "mars_terrain_probe.mjs": "85bf707353b7f5179c43d3784bcfc889bb7b26e5e2b966874a8aab0eb836b65a",
+        "mars_spin_assertions.mjs": "cb961eb7816a48838890b994889fe1ccf15dfa39d27e42507fa7e9d45ff2fe15"
+      },
+      "files_sha256": {
+        "browser-evidence.json": "a400be90bc00f57389eb76a80183e197fb23eafc0eeb94930dd6f1626e917ad3",
+        "failure.json": "5c42b33d8ed2df196d1d22aa836cf214d0332a7c20500e9295d0d49044a924a5",
+        "visual/earth-submitted-spin.json": "0eb81193c238fc31fe7fe282a2afad9e55ed54768c2fe31b2fe676436318f4e0",
+        "visual/earth-week-per-second-before.png": "b1fcecf5fc49d4b7565cd4cad31685247e47fcd8f9de3af7b2fc3a69f25db05f",
+        "visual/earth-week-per-second-after.png": "4a0e7e4bbe22d7e6d7a7b2d901a8096ce92260eaac0b88d1733e287e3ef2cc7d"
+      },
+      "timing": {
+        "startedMs": 195570.9,
+        "endedMs": 205357.4,
+        "elapsedMs": 9786.5
+      },
+      "raf_heartbeat": {
+        "count": 3,
+        "samples": [
+          {
+            "timestamp": 195563.1,
+            "sampledMs": 198817.80000000002,
+            "elapsedMs": 3246.9000000000233
+          },
+          {
+            "timestamp": 198813,
+            "sampledMs": 202095.00000000003,
+            "elapsedMs": 6524.100000000035
+          },
+          {
+            "timestamp": 202096.2,
+            "sampledMs": 205354.80000000002,
+            "elapsedMs": 9783.900000000023
+          }
+        ]
+      },
+      "draw_counts": {
+        "attempted": 108,
+        "submitted": 108,
+        "arrayAttempted": 60,
+        "arraySubmitted": 60,
+        "surface": 1,
+        "earth": 1,
+        "duplicateEpoch": 0,
+        "candidates": 1,
+        "unknown": 38,
+        "gpuMismatch": 0,
+        "expiredDraws": 69,
+        "lateReadbacks": 0,
+        "offscreenEarth": 0,
+        "presentedEarth": 0,
+        "presentationMismatch": 0,
+        "heldPresentations": 0,
+        "physicalRejected": 0,
+        "physicalAccepted": 0,
+        "terrainRejected": 0,
+        "terrainAccepted": 0
+      },
+      "accepted_samples": [
+        {
+          "elapsed_ms": 3223.9000000000233,
+          "epoch": 1784092262.4
+        }
+      ],
+      "initial_state": {
+        "active": true,
+        "animate": true,
+        "hidden": false,
+        "visibility": "visible",
+        "contextLost": false,
+        "anchor": "Earth",
+        "engineError": "",
+        "hdrEnabled": false,
+        "opticsEnabled": true,
+        "opticsStatus": {
+          "Sun": "deferred",
+          "Mercury": "deferred",
+          "Venus": "deferred",
+          "Earth": "ready",
+          "Mars": "deferred",
+          "Jupiter": "deferred",
+          "Saturn": "deferred",
+          "Uranus": "deferred",
+          "Neptune": "deferred",
+          "Moon": "deferred"
+        },
+        "programStatus": {
+          "base": "ready",
+          "physical": "ready"
+        }
+      }
+    }
+  ],
+  "interpretation": "Both runs submit complete approximately 3.25-second frames. Only the first Earth draw falls inside the unchanged five-second window. Healthy program/optical state and zero mismatch/rejection distinguish sustained cost from lost or incorrectly filtered evidence. Local Chrome151/LLVM and hosted Chrome152/Subzero are separate device/backend claims. Root cause awaits pass-specific profiling.",
+  "admission": "Performance P1 remains open. No merge qualification, gate waiver, tolerance/detail reduction or failed-to-passed relabeling."
+}

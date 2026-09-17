@@ -144,6 +144,40 @@ qualify hosted execution.
 
 ## Local validation
 
+Run general repository checks and the relevant feature gates against the same source
+and staged artifact. Record missing toolchains separately from passing checks.
+
+## Physical rendering validation
+
+RFC 0005 source and numerical contracts add the following offline commands. Use the
+same immutable staged directory for all GPU passes; the tools verify selected module
+hashes against its release manifest. Full-app evidence also identifies working-tree
+differences from the recorded base revision, so a preview is not a commit claim.
+
+```powershell
+python tools/validate_physical_assets.py
+python tools/validate_planet_phenomena.py
+node tools/atmosphere_validation.mjs --web-root=build/site --out=coverage/atmosphere
+node tools/incident_budget_validation.mjs --web-root=build/site --out=coverage/incident-budget
+node tools/terrain_shadow_validation.mjs --web-root=build/site --out=coverage/terrain-shadows
+node tools/solar_appearance_validation.mjs --web-root=build/site --out=coverage/solar-appearance
+node tools/planet_phenomena_validation.mjs --web-root=build/site --out=coverage/planet-phenomena
+node tools/physical_rendering_validation.mjs --web-root=build/site --out=coverage/physical-rendering --context-loss
+```
+
+The full-app gate exercises actual source/terrain transfers, Workers, source playback,
+inspection/overview, light/terrain A/B changes, mobile width and physical-state invariance.
+The context-loss flag verifies recreation rather than reusing dead GPU handles. Missing
+sources and compiler failures remain failures. CPU/GPU agreement qualifies the declared
+numerical reference cases, not observed atmospheric/weather accuracy or device frame rate.
+The incident budget gate executes the production vertex shader with ready, hash-checked
+fields on real MOLA meshes at 4,753 and 74,305 vertices. It checks finite normalized
+directions, bounded transmission, day/night separation, field-domain coverage and
+identical illumination at shared terrain samples. Reported draw/readback times are
+device-specific evidence; the whole-app deadlines remain unchanged.
+
+## General local commands
+
 Use the commands in `INSTRUCTIONS.md`. A developer without Rust or Chromium can run the
 governance, docs, Python, Node unit, type, static-web, and deterministic generator checks,
 but MUST state which toolchain-dependent gates were left to CI.

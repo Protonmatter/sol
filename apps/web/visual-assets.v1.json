@@ -1,0 +1,2604 @@
+{
+  "schema_version": "visual-assets.v1",
+  "reviewed_at": "2026-09-13",
+  "policy": "Identity, mapping, color, and release qualification are separate. Unknown detail stays unavailable.",
+  "assets": [
+    {
+      "id": "mercury",
+      "body": "Mercury",
+      "path": "textures/mercury.jpg",
+      "sha256": "5a5c80607f643496bac9a631e71957def35ed788895f18b678ac849c2b38e48a",
+      "bytes": 872555,
+      "label": "Mercury retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/MESSENGER",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_mercury.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/MESSENGER",
+      "metadata_evidence": []
+    },
+    {
+      "id": "venus",
+      "body": "Venus",
+      "path": "textures/venus.jpg",
+      "sha256": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac",
+      "bytes": 229696,
+      "label": "Venus retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Magellan + Pioneer Venus",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_venus_atmosphere.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Magellan + Pioneer Venus",
+      "metadata_evidence": []
+    },
+    {
+      "id": "earth",
+      "body": "Earth",
+      "path": "textures/earth.jpg",
+      "sha256": "5b54cc586c6cbf2b28762ef4d4011f6cf4227a8b93a637b818a0c54090ce6c2c",
+      "bytes": 238676,
+      "label": "Earth retained browse raster",
+      "credits": "NASA/GSFC; image by Reto Stockli (land surface, shallow water, clouds); legacy product attribution",
+      "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg",
+      "product_id": "Visible Earth 57752",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "earth",
+          "sha256": "5b54cc586c6cbf2b28762ef4d4011f6cf4227a8b93a637b818a0c54090ce6c2c",
+          "bytes": 238676,
+          "matches": true,
+          "final_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg",
+          "verified_at": "2026-09-13T01:49:29.439169+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "NASA Visible Earth \u2014 Blue Marble (public domain)",
+      "metadata_evidence": [
+        {
+          "url": "https://visibleearth.nasa.gov/images/57752/blue-marble-land-surface-shallow-water-and-shaded-topography",
+          "status": "search-index-only; current page redirects",
+          "note": "Indexed NASA record identifies Blue Marble 57752 and Reto Stockli credit. No observation time inferred."
+        }
+      ]
+    },
+    {
+      "id": "mars",
+      "body": "Mars",
+      "path": "textures/mars.jpg",
+      "sha256": "2d187f3e77a98eaa8cea5f4cc722f633c122ef170b9e94ace6b5fb6cbc3f8e01",
+      "bytes": 750547,
+      "label": "Mars retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Viking + MGS/MOLA",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_mars.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Viking + MGS/MOLA",
+      "metadata_evidence": []
+    },
+    {
+      "id": "jupiter",
+      "body": "Jupiter",
+      "path": "textures/jupiter.jpg",
+      "sha256": "b0f04d005350252636b0e3396fc592548cbd9e9126b269d32d5c6abd4b0e4f2b",
+      "bytes": 498976,
+      "label": "Jupiter retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini + Juno",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini + Juno",
+      "metadata_evidence": []
+    },
+    {
+      "id": "saturn",
+      "body": "Saturn",
+      "path": "textures/saturn.jpg",
+      "sha256": "54a900ca9bf7ab62e70f862852759abdf342e6d6436a95a2fe9ebdb6bcd3bbac",
+      "bytes": 199916,
+      "label": "Saturn retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_saturn.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini",
+      "metadata_evidence": []
+    },
+    {
+      "id": "uranus",
+      "body": "Uranus",
+      "path": "textures/uranus.jpg",
+      "sha256": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d",
+      "bytes": 77751,
+      "label": "Uranus retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_uranus.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "metadata_evidence": []
+    },
+    {
+      "id": "neptune",
+      "body": "Neptune",
+      "path": "textures/neptune.jpg",
+      "sha256": "cb42ea82709741d28b0af44d8b283cbc6dbd0c521a7f0e1e1e010ade00977df6",
+      "bytes": 241580,
+      "label": "Neptune retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_neptune.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "metadata_evidence": []
+    },
+    {
+      "id": "moon",
+      "body": "Moon",
+      "path": "textures/moon.jpg",
+      "sha256": "2764ba6535ea0481a062846ee033cc7a909dae05b31a8fd13f3e98f3a7fd92bd",
+      "bytes": 1053869,
+      "label": "Moon retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/LRO + Clementine",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_moon.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/LRO + Clementine",
+      "metadata_evidence": []
+    },
+    {
+      "id": "saturn_ring",
+      "body": "Saturn rings",
+      "path": "textures/saturn_ring.png",
+      "sha256": "4b0644b2f3ef259fd0bfaedd9dc52f9e7d9738f65f50363e8c4dd19f650d7334",
+      "bytes": 12119,
+      "label": "Saturn rings retained browse raster",
+      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini ring photometry",
+      "source_url": "https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini ring photometry",
+      "metadata_evidence": []
+    },
+    {
+      "id": "sun",
+      "body": "Sun",
+      "path": "textures/sun.jpg",
+      "sha256": "eb299e3eae0a93bf1b53c4531e7d3e0edd258bd4ee539b2de5630f8f398b268c",
+      "bytes": 200751,
+      "label": "Sun retained browse raster",
+      "credits": "NASA SDO/HMI continuum \u2014 today's real Sun (public domain, NASA/SDO)",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg",
+      "product_id": "unknown",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "unverified",
+        "evidence": null
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [],
+      "qualification_notes": "Upstream identity and derivation not verified; detailed rendering disabled.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "NASA SDO/HMI continuum \u2014 undated retained solar disk (public domain, NASA/SDO)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "io",
+      "body": "Io",
+      "path": "textures/io.jpg",
+      "sha256": "f772f466aa89291a99e0593048c16b23dfc082aefb19d03fe0125d6e349b31ba",
+      "bytes": 135333,
+      "label": "Io retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/b9102ce8-3ee4-4848-8558-3dab5f52091a/resource/19e9cb9d-a62e-4345-8778-9580db879922/download/full.jpg",
+      "product_id": "b9102ce8-3ee4-4848-8558-3dab5f52091a",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "io",
+          "sha256": "f772f466aa89291a99e0593048c16b23dfc082aefb19d03fe0125d6e349b31ba",
+          "bytes": 135333,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/b9102ce8-3ee4-4848-8558-3dab5f52091a/resource/19e9cb9d-a62e-4345-8778-9580db879922/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.495071+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Io Voyager/Galileo SSI Global Mosaic 1 km, browse rendering (public domain, NASA/JPL/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "europa",
+      "body": "Europa",
+      "path": "textures/europa.jpg",
+      "sha256": "96453723e4dd7d7b709cbc097282b9292360908139c72a617b0d26d9ae9ce5f9",
+      "bytes": 71532,
+      "label": "Europa retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/3647e7b3-425e-4dcf-951b-cc4a22fb0129/download/europa_voyager_galileossi_global_mosaic_500m_1024.jpg",
+      "product_id": "4080036f-afc5-422e-abe9-1c0c8e4f98ea",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "europa",
+          "sha256": "96453723e4dd7d7b709cbc097282b9292360908139c72a617b0d26d9ae9ce5f9",
+          "bytes": 71532,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/3647e7b3-425e-4dcf-951b-cc4a22fb0129/download/europa_voyager_galileossi_global_mosaic_500m_1024.jpg",
+          "verified_at": "2026-09-13T01:49:28.260585+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Europa Voyager/Galileo SSI Global Mosaic 500 m, browse rendering (public domain, NASA/JPL/USGS)",
+      "metadata_evidence": [
+        {
+          "url": "https://astrogeology.usgs.gov/search/map/europa_voyager_galileo_ssi_global_mosaic_500m",
+          "status": "search-index-only; direct retrieval 403",
+          "note": "Indexed official description identifies Simple Cylindrical projection at 500 m; exact browse coverage still unverified."
+        }
+      ]
+    },
+    {
+      "id": "ganymede",
+      "body": "Ganymede",
+      "path": "textures/ganymede.jpg",
+      "sha256": "e6e556175ebf2fd18592aa4a1ff3283f2690a84ce59e295608614587a26a8c25",
+      "bytes": 308952,
+      "label": "Ganymede retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/b2d0bf2c-1335-424b-a952-da3d8374723b/resource/19e807a2-9eee-4f24-9965-5e25f0bcb9fc/download/full.jpg",
+      "product_id": "b2d0bf2c-1335-424b-a952-da3d8374723b",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "ganymede",
+          "sha256": "e6e556175ebf2fd18592aa4a1ff3283f2690a84ce59e295608614587a26a8c25",
+          "bytes": 308952,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/b2d0bf2c-1335-424b-a952-da3d8374723b/resource/19e807a2-9eee-4f24-9965-5e25f0bcb9fc/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.332389+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Ganymede Voyager/Galileo Simple Cylindrical global mosaic, browse rendering (public domain, NASA/JPL/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "callisto",
+      "body": "Callisto",
+      "path": "textures/callisto.jpg",
+      "sha256": "6d9adc939fb5a2039ab7d04ab483b095b9fff511026e68781965a8b1b5eb52e3",
+      "bytes": 264772,
+      "label": "Callisto retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/842a3a75-af37-40ff-bf83-78ee5c76afb2/resource/b16c6dfd-199e-449e-9875-1361c1858af3/download/full.jpg",
+      "product_id": "842a3a75-af37-40ff-bf83-78ee5c76afb2",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "callisto",
+          "sha256": "6d9adc939fb5a2039ab7d04ab483b095b9fff511026e68781965a8b1b5eb52e3",
+          "bytes": 264772,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/842a3a75-af37-40ff-bf83-78ee5c76afb2/resource/b16c6dfd-199e-449e-9875-1361c1858af3/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.506097+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification. The legacy 1024x498 browse is cropped; its exact latitude bounds remain unverified. Never infer bounds from image aspect ratio or stretch it to the poles.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, cropped browse rendering; exact latitude bounds unverified (public domain, NASA/JPL/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "enceladus",
+      "body": "Enceladus",
+      "path": "textures/enceladus.jpg",
+      "sha256": "b6fb97de67f902ae7ca4738607f5693068e8c5fa72ed151eb215656eca7b4a78",
+      "bytes": 111639,
+      "label": "Enceladus retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/30bff65e-56bb-4fd1-bd04-edd9bc2e77d0/resource/19ba2e14-9ceb-45e6-8cc8-e784e36ed4f0/download/full.jpg",
+      "product_id": "30bff65e-56bb-4fd1-bd04-edd9bc2e77d0",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "enceladus",
+          "sha256": "b6fb97de67f902ae7ca4738607f5693068e8c5fa72ed151eb215656eca7b4a78",
+          "bytes": 111639,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/30bff65e-56bb-4fd1-bd04-edd9bc2e77d0/resource/19ba2e14-9ceb-45e6-8cc8-e784e36ed4f0/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.676544+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Enceladus Cassini Global Mosaic 110 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "tethys",
+      "body": "Tethys",
+      "path": "textures/tethys.jpg",
+      "sha256": "3bb0cc869a81bce4cfbb1fb6b65de323df07214a9655b5f2839a03d1cea83b7b",
+      "bytes": 128674,
+      "label": "Tethys retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/e40296c1-b4bf-46d8-86af-4b6cf0301b0c/resource/36d40203-d9b3-447e-9004-c3dc100bde04/download/full.jpg",
+      "product_id": "e40296c1-b4bf-46d8-86af-4b6cf0301b0c",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "tethys",
+          "sha256": "3bb0cc869a81bce4cfbb1fb6b65de323df07214a9655b5f2839a03d1cea83b7b",
+          "bytes": 128674,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/e40296c1-b4bf-46d8-86af-4b6cf0301b0c/resource/36d40203-d9b3-447e-9004-c3dc100bde04/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:29.146703+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Tethys Cassini Global Mosaic 293 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "dione",
+      "body": "Dione",
+      "path": "textures/dione.jpg",
+      "sha256": "3d4fadf8ae8e522f73fffcc706a9486fc13760dab4e3191f9ddccd4c2e7ce358",
+      "bytes": 123333,
+      "label": "Dione retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/acb98ae6-ec50-42df-9a74-142d177bbe6d/resource/8a6a8ada-42e1-4b92-b13e-c63493133efc/download/full.jpg",
+      "product_id": "acb98ae6-ec50-42df-9a74-142d177bbe6d",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "dione",
+          "sha256": "3d4fadf8ae8e522f73fffcc706a9486fc13760dab4e3191f9ddccd4c2e7ce358",
+          "bytes": 123333,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/acb98ae6-ec50-42df-9a74-142d177bbe6d/resource/8a6a8ada-42e1-4b92-b13e-c63493133efc/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:28.683987+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Dione Cassini/Voyager Global Mosaic 154 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "rhea",
+      "body": "Rhea",
+      "path": "textures/rhea.jpg",
+      "sha256": "1f1401668e26a42f33aa88ab337981dd621382b137fd04847286dc5f780a9f0b",
+      "bytes": 93406,
+      "label": "Rhea retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/22bc1015-d9c9-4212-86c3-e42061b204d4/resource/77fa77f8-6d6b-4072-9360-17138caa6e7d/download/full.jpg",
+      "product_id": "22bc1015-d9c9-4212-86c3-e42061b204d4",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "rhea",
+          "sha256": "1f1401668e26a42f33aa88ab337981dd621382b137fd04847286dc5f780a9f0b",
+          "bytes": 93406,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/22bc1015-d9c9-4212-86c3-e42061b204d4/resource/77fa77f8-6d6b-4072-9360-17138caa6e7d/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:29.149201+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Rhea Cassini/Voyager Global Mosaic 417 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "iapetus",
+      "body": "Iapetus",
+      "path": "textures/iapetus.jpg",
+      "sha256": "c8fae974a837a641769ca0e34efd9f5cf442804806b5e12f09f2080ce524cfd3",
+      "bytes": 113097,
+      "label": "Iapetus retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/6ac8ecfb-36e7-4113-8d16-c92ba857c3d7/resource/141c2d1e-aa01-4e2f-969a-e46a581db4b9/download/full.jpg",
+      "product_id": "6ac8ecfb-36e7-4113-8d16-c92ba857c3d7",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "iapetus",
+          "sha256": "c8fae974a837a641769ca0e34efd9f5cf442804806b5e12f09f2080ce524cfd3",
+          "bytes": 113097,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/6ac8ecfb-36e7-4113-8d16-c92ba857c3d7/resource/141c2d1e-aa01-4e2f-969a-e46a581db4b9/download/full.jpg",
+          "verified_at": "2026-09-13T01:49:29.136334+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Iapetus Cassini/Voyager Global Mosaic 803 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "metadata_evidence": []
+    },
+    {
+      "id": "phobos",
+      "body": "Phobos",
+      "path": "textures/phobos.jpg",
+      "sha256": "d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4",
+      "bytes": 161960,
+      "label": "Phobos retained browse raster",
+      "credits": "NASA/JPL/USGS; mission-specific credit retained in legacy_source_label, not independently qualified",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg",
+      "product_id": "85290c2c-7524-44ba-9251-61ea69fcd9dd",
+      "mission": "unknown",
+      "instrument": "unknown",
+      "color_interpretation": "unknown; browse pixels are not calibrated reflectance",
+      "projection": "unknown",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "observation_time": null,
+      "original_retrieval_time": null,
+      "derivation": "Retained raster; no local transformations established. Source-byte match recorded separately.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "id": "phobos",
+          "sha256": "d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4",
+          "bytes": 161960,
+          "matches": true,
+          "final_url": "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg",
+          "verified_at": "2026-09-13T01:49:29.636998+00:00"
+        }
+      },
+      "mapping_status": "hold",
+      "allowed_usages": [
+        "browse-preview"
+      ],
+      "qualification_notes": "Source identity verified; projection, coverage, orientation and color interpretation require qualification.",
+      "fallback": {
+        "rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "label": "Neutral missing-detail display; no measured color claim."
+      },
+      "legacy_source_label": "USGS Astrogeology \u2014 Phobos Viking Global Mosaic (DLR control), browse rendering (public domain, NASA/JPL/DLR/USGS)",
+      "metadata_evidence": []
+    }
+  ],
+  "procedural_assets": [
+    {
+      "id": "titan-fallback",
+      "body": "Titan",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "mimas-fallback",
+      "body": "Mimas",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "triton-fallback",
+      "body": "Triton",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "miranda-fallback",
+      "body": "Miranda",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "ariel-fallback",
+      "body": "Ariel",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "umbriel-fallback",
+      "body": "Umbriel",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "titania-fallback",
+      "body": "Titania",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "oberon-fallback",
+      "body": "Oberon",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "deimos-fallback",
+      "body": "Deimos",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "proteus-fallback",
+      "body": "Proteus",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "nereid-fallback",
+      "body": "Nereid",
+      "kind": "missing-detail",
+      "qualification": "neutral-display",
+      "detail_allowed": false,
+      "notes": "No qualified detailed asset in this repository; this is not a claim that no map exists."
+    },
+    {
+      "id": "earth-generated",
+      "path": "js/surfacemap.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Natural Earth geography rasterization; colors and relief are cartographic illustration."
+    },
+    {
+      "id": "moon-generated",
+      "path": "js/surfacemap.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Named feature extents do not establish measured albedo or crater relief."
+    },
+    {
+      "id": "surface-shaders",
+      "path": "js/orreryShaders.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Procedural craters, spots, bands, continents and granulation are illustrative and disabled for unqualified scientific surfaces."
+    },
+    {
+      "id": "galaxy-model",
+      "path": "js/orreryGalaxy.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Procedural galaxy point distribution is illustrative, not a NASA image."
+    },
+    {
+      "id": "solar-model",
+      "path": "js/render.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Modeled solar surface is not observed imagery."
+    },
+    {
+      "id": "ring-opacity-profile",
+      "path": "js/orreryMath.js",
+      "kind": "procedural",
+      "qualification": "hold",
+      "detail_allowed": false,
+      "notes": "Ring radial dimensions and gaps come from the bodyData.js catalogue. Neutral RGB is a display convention. Retained ringColorAt opacity and ringOpacityProfile shadows are illustrative, photometrically uncalibrated; no measured optical-depth claim.",
+      "geometry_source_path": "js/bodyData.js",
+      "rendering_use": "explicitly-labelled-illustration"
+    }
+  ],
+  "fallbacks": {
+    "Venus": {
+      "rgb": [
+        0.9,
+        0.86,
+        0.72
+      ],
+      "label": "Visible-light cloud deck: a near-featureless pale yellow-white sulfuric-acid overcast; RGB illustrative, not calibrated. No visible-light global map exists. The Magellan radar surface is an optional separate layer.",
+      "source_url": "https://www.planetary.org/articles/why-the-true-colors-of-the-planets-arent-what-you-think",
+      "credits": "The Planetary Society; NASA NSSDCA Venus fact sheet"
+    },
+    "Titan": {
+      "rgb": [
+        0.72,
+        0.48,
+        0.24
+      ],
+      "label": "Illustrative visible-light orange haze; RGB illustrative, not calibrated. The opaque atmosphere hides the surface.",
+      "source_url": "https://www.jpl.nasa.gov/images/pia06230-cassinis-view-of-titan-natural-color-composite/",
+      "credits": "NASA/JPL-Caltech/Space Science Institute"
+    }
+  },
+  "dynamic_sources": [
+    {
+      "id": "sdo-continuum",
+      "channel": "continuum",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg",
+      "mission": "SDO",
+      "instrument": "HMI",
+      "spectral_interpretation": "Visible continuum intensity browse",
+      "product_identity": "NASA SDO latest 1024 HMIIC.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the HMI science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-magnetogram",
+      "channel": "magnetogram",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIB.jpg",
+      "mission": "SDO",
+      "instrument": "HMI",
+      "spectral_interpretation": "Magnetogram browse; display tones encode magnetic polarity, not natural color",
+      "product_identity": "NASA SDO latest 1024 HMIB.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the HMI science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia1700",
+      "channel": "aia1700",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_1700.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "1700 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 1700.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia304",
+      "channel": "aia304",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0304.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "304 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0304.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia171",
+      "channel": "aia171",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0171.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "171 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0171.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia193",
+      "channel": "aia193",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0193.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "193 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0193.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia211",
+      "channel": "aia211",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0211.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "211 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0211.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia335",
+      "channel": "aia335",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0335.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "335 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0335.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia131",
+      "channel": "aia131",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0131.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "131 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0131.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    },
+    {
+      "id": "sdo-aia094",
+      "channel": "aia094",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_0094.jpg",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "spectral_interpretation": "94 angstrom passband; nonvisible, assigned display palette",
+      "product_identity": "NASA SDO latest 1024 0094.jpg",
+      "source_policy": "official-mutable-browse",
+      "allowed_usages": [
+        "observed-disk"
+      ],
+      "capture_time": null,
+      "content_sha256": null,
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "credits": "NASA/SDO and the AIA science team",
+      "limits": "Mutable latest URL. Successful display does not verify capture epoch, freshness, exact byte identity or registration. No calibrated measurement or model overlay claim.",
+      "config_source_path": "js/config.js"
+    }
+  ],
+  "observed_images": [
+    {
+      "id": "sdo-aia171-20260912T000722Z",
+      "body": "Sun",
+      "path": "textures/solar-observation-171.jpg",
+      "label": "The Sun in extreme ultraviolet",
+      "source_url": "https://sdo.gsfc.nasa.gov/assets/img/browse/2026/09/12/20260912_000722_1024_0171.jpg",
+      "source_policy": "official-pinned-archive",
+      "sha256": "7429a6b0cebf8b61d4a35783937836ebc5218dd194de9508a6c3da848aa55c99",
+      "bytes": 182246,
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "credits": "Courtesy of NASA/SDO and the AIA, EVE, and HMI science teams.",
+      "mission": "SDO",
+      "instrument": "AIA",
+      "wavelength_angstrom": 171,
+      "is_false_color": true,
+      "interpretation": "AIA 171 angstrom extreme ultraviolet reveals structure in the solar corona. Gold is the channel's false color, not the Sun's visible-light appearance.",
+      "projection": "camera-disk",
+      "coverage": {
+        "status": "unknown",
+        "latitude_deg": null,
+        "longitude_deg": null
+      },
+      "captured_at": "2026-09-12T00:07:22Z",
+      "capture_time_evidence": {
+        "status": "verified",
+        "caption": "SDO/AIA 171 2026-09-12 00:07:22 UT"
+      },
+      "retrieved_at": "2026-09-13T05:03:15Z",
+      "status": "archival",
+      "derivation": "Original NASA SDO archive JPEG bytes retained unchanged, including embedded instrument and UTC caption. Full image visually inspected at acquisition. No crop, recoloring, generated fill or geometric remapping.",
+      "source_identity": {
+        "status": "verified",
+        "evidence": {
+          "final_url": "https://sdo.gsfc.nasa.gov/assets/img/browse/2026/09/12/20260912_000722_1024_0171.jpg",
+          "sha256": "7429a6b0cebf8b61d4a35783937836ebc5218dd194de9508a6c3da848aa55c99",
+          "bytes": 182246,
+          "matches": true,
+          "verified_at": "2026-09-13T05:03:15Z"
+        }
+      },
+      "allowed_usages": [
+        "observed-image"
+      ],
+      "registration_verified": false,
+      "global_mapping_allowed": false,
+      "scientific_analysis_allowed": false,
+      "limits": "Archived educational browse still; not live or synchronized to the model. Display the full image in its original camera plane. No model overlay, global sphere wrapping, heliographic coordinate measurement or calibrated analysis. NASA SDO browse products require principal-investigator consent for scientific analysis or publication.",
+      "metadata_sources": [
+        "https://sdo.gsfc.nasa.gov/data/channels.php",
+        "https://science.nasa.gov/photojournal/comparing-wavelengths/",
+        "https://sdo.gsfc.nasa.gov/data/rules.php"
+      ]
+    }
+  ],
+  "mapped_references": [
+    {
+      "id": "earth-bmng-200401-day",
+      "body": "Earth",
+      "role": "surface",
+      "path": "textures/reference/earth-land-2004.jpg",
+      "sha256": "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5",
+      "bytes": 1884678,
+      "dimensions": [
+        5400,
+        2700
+      ],
+      "label": "NASA Blue Marble land and ice",
+      "credits": "NASA Earth Observatory / Reto Stockli",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/january/world.200401.3x5400x2700.jpg",
+      "source_sha256": "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5",
+      "source_bytes": 1884678,
+      "source_retrieved_at": "2026-09-13T07:08:51.764741+00:00",
+      "observation_label": "January 2004",
+      "color_interpretation": "Display-color composite; assigned ocean blue and provider gap filling, not calibrated albedo.",
+      "limitations": "Deep ocean uses assigned uniform blue Temporal and spatial gaps are filled by provider High-latitude winter snow uses temporal interpolation Arctic ocean is blue in this original; do not add a synthetic polar cap.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "Original source bytes preserved. RGB is treated as sRGB display imagery; illumination is a visualization convention, not photometric calibration.",
+      "metadata_urls": [
+        "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+      ],
+      "reviewed_at": "2026-09-13T07:21:44.732254+00:00"
+    },
+    {
+      "id": "earth-black-marble-2016-night-gray",
+      "body": "Earth",
+      "role": "night-lights",
+      "path": "textures/reference/earth-lights-2016.jpg",
+      "sha256": "4d2158f59123dadf0696a1cf8909c45018a1de8d0daab40da04122a5aa7f27c6",
+      "bytes": 365655,
+      "dimensions": [
+        3600,
+        1800
+      ],
+      "label": "NASA Black Marble night lights",
+      "credits": "NASA Earth Observatory; Black Marble 2016",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_01deg_gray.jpg",
+      "source_sha256": "4d2158f59123dadf0696a1cf8909c45018a1de8d0daab40da04122a5aa7f27c6",
+      "source_bytes": 365655,
+      "source_retrieved_at": "2026-09-13T07:08:52.745296+00:00",
+      "observation_label": "2016",
+      "color_interpretation": "Published grayscale display emission, not current lighting or radiance.",
+      "limitations": "Cloud-free nights selected over each land mass A display composite, not instantaneous city lights or an outage measurement No radiometric interpretation of display intensities.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "Original source bytes preserved. RGB is treated as sRGB display imagery; illumination is a visualization convention, not photometric calibration.",
+      "metadata_urls": [
+        "https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/"
+      ],
+      "reviewed_at": "2026-09-13T07:21:44.733043+00:00"
+    },
+    {
+      "id": "earth-blue-marble-2002-cloud-layer",
+      "body": "Earth",
+      "role": "cloud-composite",
+      "path": "textures/reference/earth-blue-marble-2002-cloud-layer.png",
+      "sha256": "82005bba2cec05b41137b766985d516eaf6b66ea045191d8869d45abd05f7995",
+      "bytes": 1911552,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "NASA Blue Marble cloud layer",
+      "credits": "NASA Goddard / Reto Stockli (clouds) and Robert Simmon (compositing)",
+      "source_url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg",
+      "source_sha256": "daddaad84d7a33bbbc86cdda3f591099f57cee8607b7bcf3b67eb7e4f7a1c793",
+      "source_bytes": 829367,
+      "source_retrieved_at": "2026-09-15T04:53:38.283750+00:00",
+      "observation_label": "Blue Marble 2002 cloud composite (constituent days unstated)",
+      "color_interpretation": "NASA grayscale display cloud brightness mapped to white cloud opacity by a curve fitted to NASA's 2002 composite, blended in linear light over the separately dated land map before sunlight; not calibrated reflectance, optical depth, cloud fraction or cloud height.",
+      "limitations": "Historical visual reference published in 2002. NASA describes the clouds as two days of visible imagery and a third day of thermal-infrared imagery over the poles; exact dates and instruments are unstated, and an earlier review recorded manually filled regions. The layer contains no surface: land, ocean and land ice come from the January 2004 land map, so clouds and surface are not simultaneous observations. Opacity reproduces NASA's 2002 composite within the documented residual; it is not a physical cloud transmission. No current weather, cloud height, optical depth or feature-position measurement may be inferred. The source JPEG has no geotags or ICC profile; registration is reviewed for display, not measurement. Night lights remain a separately dated annual reference.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "tools/prepare_earth_clouds.py with Pillow 12.2.0: the NASA JPEG decodes to identical R, G and B in every pixel; each output pixel is white RGB with alpha from the tool's pinned 256-entry opacity curve applied to that source byte, encoded as a deterministic RGBA PNG without resampling, filling or colour change. Opacity curve: over dark-ocean 24-pixel blocks with a cloud-free base in NASA's 2002 land/ocean/ice/cloud composite (record 57735), the linear-light opacity each grey value implies is taken as a median, interpolated and made monotone; --fit-opacity reproduces it from both pinned originals. On 490 held-out blocks the curve fitted on the other blocks gives mean encoded error 11.48/255 over ocean, 13.69/255 over land and 17.35/255 in thin haze, against 14.64, 17.76 and 22.81 for alpha equal to grey. Display registration (reviewed): after a 9-pixel high-pass, source brightness between about 70 degrees north and south correlates with the darkest channel of the coastline-registered composite at r=0.823 at zero offset, 0.572 one pixel east or west, 0.485 one pixel north or south and 0.031 half a map away, so it shares that composite's north-up, eastward, Greenwich u=0.5, full-latitude grid. This is display-registration and display-opacity evidence, not a geotag or a scientific cloud retrieval.",
+      "derivation_inputs": [
+        {
+          "url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg",
+          "sha256": "daddaad84d7a33bbbc86cdda3f591099f57cee8607b7bcf3b67eb7e4f7a1c793",
+          "bytes": 829367
+        },
+        {
+          "url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57735/land_ocean_ice_cloud_2048.jpg",
+          "sha256": "fb67ac030214c1891994c8f976e7f6c9cd5b0f21586aba8567250781a4fe708e",
+          "bytes": 593729
+        }
+      ],
+      "metadata_urls": [
+        "https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/",
+        "https://www.nasa.gov/people-of-nasa/goddard-people/robert-simmon-aka-mr-blue-marble/"
+      ],
+      "reviewed_at": "2026-09-15T05:17:11.558912+00:00"
+    },
+    {
+      "id": "earth-jpl-mur-sea-ice-20260907",
+      "body": "Earth",
+      "role": "sea-ice",
+      "path": "textures/reference/earth-sea-ice-20260907.png",
+      "sha256": "89264243ea3c39795b549f68dbafaf86669bc2900f6de9ff8a79dd4b5dcf2e21",
+      "bytes": 121355,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "NASA/JPL sea ice concentration",
+      "credits": "NASA/JPL MUR / PO.DAAC; visualization NASA EOSDIS GIBS",
+      "source_url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=GHRSST_L4_MUR_Sea_Ice_Concentration&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-07",
+      "source_sha256": "89264243ea3c39795b549f68dbafaf86669bc2900f6de9ff8a79dd4b5dcf2e21",
+      "source_bytes": 121355,
+      "source_retrieved_at": "2026-09-13T07:10:21.072107+00:00",
+      "observation_label": "7 September 2026",
+      "color_interpretation": "Scientific false-color concentration palette, not photographic ice.",
+      "limitations": "Data visualization of analyzed sea ice concentration; not a photograph Transparent cells mean no displayed data; cannot generally infer ice-free Data layer dated six days before retrieval Palette pixels may be spatially resampled; do not inverse-map them to exact scientific measurements.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "Original source bytes preserved. RGB is treated as sRGB display imagery; illumination is a visualization convention, not photometric calibration.",
+      "metadata_urls": [
+        "https://podaac.jpl.nasa.gov/dataset/MUR-JPL-L4-GLOB-v4.1",
+        "https://gibs.earthdata.nasa.gov/colormaps/v1.3/GHRSST_Sea_Ice_Concentration.xml"
+      ],
+      "reviewed_at": "2026-09-13T07:21:44.734073+00:00",
+      "legend": {
+        "path": "images/earth-sea-ice-legend.png",
+        "sha256": "460e8ae290340176ebd4f2c0608a1710b0b79e2537b69ef48ebd83da19a771f4",
+        "bytes": 4298,
+        "dimensions": [
+          420,
+          95
+        ],
+        "source_url": "https://gibs.earthdata.nasa.gov/legends/GHRSST_Sea_Ice_Concentration_H.png"
+      }
+    },
+    {
+      "id": "earth-modis-weather-20260912",
+      "body": "Earth",
+      "role": "weather",
+      "path": "textures/reference/earth-weather-20260912.png",
+      "sha256": "4b26e448151fe0ce83cbf34d865c8804a500aa4ff95190fc625585ea4fd70918",
+      "bytes": 4836310,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "NASA satellite clouds and surface",
+      "credits": "NASA Terra/Aqua MODIS / EOSDIS GIBS",
+      "source_url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
+      "source_sha256": "a1452574ed01213f960580171c5fee39b13460f630522ea344a3aa33f7ce6ade",
+      "source_bytes": 4813063,
+      "source_retrieved_at": "2026-09-13T07:43:02.452978+00:00",
+      "observation_label": "12 September 2026 daily composite",
+      "color_interpretation": "MODIS corrected-reflectance display RGB; not a cloud-only layer or calibrated albedo.",
+      "limitations": "Dated Terra-priority/Aqua-fallback MODIS corrected-reflectance composite; different overpass times on the same UTC day. Surface and clouds, not simultaneous or live weather. Seams and remaining gaps are retained; no global completeness claim. Missing areas show the historical land map. Night lights are a separate annual cloud-free reference, not cloud-attenuated live emissions.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "Preserve each original decoded RGB value. Set alpha255 for published mask Data(0,0,0,0), alpha0 for NoData(202,170,86,255). Reject other classes. No inferred cloud pixels or black-color threshold. Same-date Aqua fills only pixels where Terra's published mask is NoData and Aqua's mask is Data. Retain Terra at overlap, including valid black RGB. No averaging, cloud motion extrapolation or interpolation. Both missing stays transparent. Coverage: {\"valid_pixels\": 1909254, \"no_data_pixels\": 187898, \"total_pixels\": 2097152, \"terra_pixels\": 1848641, \"aqua_fill_pixels\": 60613}",
+      "metadata_urls": [
+        "https://gis.earthdata.nasa.gov/portal/home/item.html?id=780c03ffe3dc42e8bb03ca3b07bb283e",
+        "https://nasa-gibs.github.io/gibs-api-docs/python-usage/#using-a-mask",
+        "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml",
+        "https://gibs.earthdata.nasa.gov/layer-metadata/v1.0/MODIS_Aqua_Data_No_Data.json"
+      ],
+      "reviewed_at": "2026-09-13T07:45:12.162127+00:00",
+      "derivation_inputs": [
+        {
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
+          "sha256": "a1452574ed01213f960580171c5fee39b13460f630522ea344a3aa33f7ce6ade",
+          "bytes": 4813063
+        },
+        {
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_Data_No_Data",
+          "sha256": "bd4d4d26c3e65c406a42289c8d14fbdcd36dfad5e6288e4c1f8ec1dded0544df",
+          "bytes": 22190
+        },
+        {
+          "url": "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml",
+          "sha256": "547bd46510b3dd552db7f1b3e032f43bfa5e3568eb66b06ee4ad95cf37c40220",
+          "bytes": 638
+        },
+        {
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Aqua_CorrectedReflectance_TrueColor",
+          "sha256": "67e2583fd6630d8476d47a1db7dfed12f086383b8b460206d3cec77cbd8c2371",
+          "bytes": 4736399
+        },
+        {
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Aqua_Data_No_Data",
+          "sha256": "6fe08aa520499a3e4b4679984d9854daaf3b73a5454e4b52fcfcfe104d938896",
+          "bytes": 23368
+        }
+      ]
+    },
+    {
+      "id": "mercury-mission-reference",
+      "body": "Mercury",
+      "role": "surface",
+      "path": "textures/reference/mercury-reference.png",
+      "sha256": "1dc83dbbf0b59633673dd325b6f3e0f453c4a33c09a54c008bef71c2a0cd5ead",
+      "bytes": 601660,
+      "dimensions": [
+        1024,
+        512
+      ],
+      "label": "MESSENGER monochrome surface reference",
+      "credits": "NASA / Johns Hopkins University Applied Physics Laboratory / Carnegie Institution of Washington / USGS",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/17ebee80-ed66-485a-9b06-5ffd10e935e3/resource/c20d3c86-97d5-4446-8c9d-397ec8fde290/download/mercury_messenger_mdis_basemap_bdr_mosaic_global_1024.jpg",
+      "source_sha256": "f7a5b7b3e7a7e7b61c0e9267d87432a1c5f3f18282b55e264f14ef2f3bff8d31",
+      "source_bytes": 193330,
+      "source_retrieved_at": "2026-09-13T07:11:11.753162+00:00",
+      "observation_label": "2012-03-29 to 2015-04-30; multiple images and illumination geometries",
+      "color_interpretation": "Monochrome NAC and WAC 750 nm reflectance mosaic; stretched grayscale, not visible RGB color or an unlit albedo texture. Source JPEG has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Official browse is natively 1024x512; no invented higher-resolution detail. Photometric normalization retains topographic shading; global lighting is not recalibrated albedo. USGS describes no large gaps, not perfect coverage. JPEG has no independent nodata mask. Local display mask withholds |latitude| > 85 degrees to avoid severe polar seam/shading artifacts; this is a conservative display restriction, not the mission coverage boundary.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0,
+          1.0
+        ],
+        "uvOffset": [
+          0.0,
+          0.0
+        ]
+      },
+      "validLatitudeBounds": [
+        -85,
+        85
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [1024, 512], \"outputDimensions\": [1024, 512], \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Conservative latitude exclusions only; no synthetic pixel fill\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: USGS BDR ISIS label: SimpleCylindrical, planetocentric, positive east, center 0, full -180..180 and -90..90. The official 1024x512 browse retains that full extent. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1]",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/mercury_messenger_mdis_global_basemap_bdr_166m",
+        "https://astrogeology.usgs.gov/ckan/dataset/17ebee80-ed66-485a-9b06-5ffd10e935e3/resource/a9b827d2-1385-4d89-b9f9-5bd7f86e756f/download/mercury_messenger_mdis_basemap_bdr_mosaic_global_166m.lbl"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.840243+00:00"
+    },
+    {
+      "id": "mars-mission-reference",
+      "body": "Mars",
+      "role": "surface",
+      "path": "textures/reference/mars-reference.png",
+      "sha256": "f62de76a876702a3959dc5b2873c34f5cdeedda4c54eb7bddb6f78f62dbcfc74",
+      "bytes": 4072026,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Viking colorized surface reference",
+      "credits": "NASA / USGS / Ames Research Center",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/7131d503-cdc9-45a5-8f83-5126c0fd397e/resource/5ea881c6-01b3-41fa-a7af-42d2131b54f1/download/mars_viking_mdim21_clrmosaic_1km.jpg",
+      "source_sha256": "fdfcd335559c3dc67052b7e8a9565d850e336ac0d1f3ea7f5eb7826ffb44ecb2",
+      "source_bytes": 36708552,
+      "source_retrieved_at": "2026-09-13T07:08:59.668206+00:00",
+      "observation_label": "Viking mission-era composite (1976-1980); exact contributing dates unavailable; USGS publication 2009-02-02",
+      "color_interpretation": "Viking color mosaic warped onto the MDIM 2.1 monochrome map. Colorized reference appearance, not simultaneous natural-color photography or calibrated albedo. Source JPEG has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "The source raster has slight outer latitude/longitude padding. Preserve the supplied bounds; do not assume exact -180/+180 pixel edges. Zero is declared nodata in each source band; JPEG compression and mosaic seams limit exact per-pixel validity. No inference of current dust, polar-cap season, or weather.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.500025982878026,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9999948970612607,
+          0.9999480369442475
+        ],
+        "uvOffset": [
+          0,
+          2.5981527876261516e-05
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [21339, 10670], \"outputDimensions\": [2048, 1024], \"resampling\": \"BOX, full source raster extent retained\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Exact JPEG auxiliary XML supplies the 1000m affine transform and 3396190m sphere; degree bounds and primeU are calculated directly from that transform. Full-resolution ISIS label identifies planetocentric positive-east mapping. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1]",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/mars_viking_colorized_global_mosaic_232m",
+        "https://astrogeology.usgs.gov/ckan/dataset/7131d503-cdc9-45a5-8f83-5126c0fd397e/resource/69f3953f-9791-4d92-bffe-ebe24945eb95/download/mars_viking_mdim21_clrmosaic_1km.jpg.aux.xml",
+        "https://astrogeology.usgs.gov/ckan/dataset/7131d503-cdc9-45a5-8f83-5126c0fd397e/resource/be4e44f4-5ec7-46e1-9498-643b91eecf21/download/mars_viking_mdim21_clrmosaic_global_232m.lbl",
+        "https://astrogeology.usgs.gov/search/map/mars_viking_colorized_global_mosaic_232m"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.842468+00:00"
+    },
+    {
+      "id": "venus-mission-reference",
+      "body": "Venus",
+      "role": "surface",
+      "path": "textures/reference/venus-reference.png",
+      "sha256": "fc043e4ebabe8d50eba42c80378dbb82284f2e3ff7e59f1a0870f17e52c03bd7",
+      "bytes": 1794072,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Magellan radar surface beneath clouds",
+      "credits": "NASA / JPL / USGS",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Venus_Magellan_C3-MDIR_Global_Mosaic_2025m.tif",
+      "source_sha256": "833d5368564b626a787b6d0a2b2432a0afaa89f72d4b46e5221a19b3a01ec380",
+      "source_bytes": 176335453,
+      "source_retrieved_at": "2026-09-13T07:18:54.620588+00:00",
+      "observation_label": "Magellan imaging cycles 1-3, September 1990 to September 1992; multiple observations",
+      "color_interpretation": "Single-band radar backscatter in grayscale. This depicts surface structure beneath opaque clouds, not visible-light terrain colors, cloud structure, elevation, or calibrated optical albedo. Original 8-bit grayscale TIFF has no embedded ICC profile; equal-channel browser RGB is a display assumption.",
+      "limitations": "Incomplete radar coverage: black source gaps are masked, not interpreted as terrain. Conservative source-zero mask plus BOX area downsampling excludes pixels whose support contains withheld values; no gap inpainting or colorization was performed. Actual raster extent is slightly short of a full360degrees; source UV outside[0,1] is unavailable and must not silently repeat to assert coverage. Radar backscatter depends on illumination/viewing geometry and material; visual lighting is illustrative and must not imply optical reflectance.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5000000000000042,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0000047158519485,
+          0.9999514561205971
+        ],
+        "uvOffset": [
+          0,
+          4.263049459555349e-15
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [18775, 9388], \"outputDimensions\": [2048, 1024], \"resampling\": \"BOX, full source raster extent retained\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Original GeoTIFF declares RasterPixelIsArea, 2025m pixel spacing, tie point, equatorial/polar radius6051000m, equirectangular projection and nodata0; exact ISIS label independently specifies planetocentric positive-east mapping. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1]",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/venus_magellan_global_c3_mdir_mosaic_2025m",
+        "https://astrogeology.usgs.gov/ckan/dataset/bf10c4f9-7587-4357-b0d9-81d5b6e6637c/resource/26c2e4b0-bdd5-449b-b075-972ce565b77e/download/venus_magellan_c3-mdir_global_mosaic_2025m.lbl"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.843636+00:00"
+    },
+    {
+      "id": "jupiter-mission-reference",
+      "body": "Jupiter",
+      "role": "surface",
+      "path": "textures/reference/jupiter-reference.png",
+      "sha256": "b134fbf614aa21dda6e951f616067b2d32ed825950e48d35d35d09f6a5c80637",
+      "bytes": 2332112,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Contrast-enhanced Hubble cloud reference",
+      "credits": "NASA / ESA / A. Simon (GSFC) / M. Wong (UC Berkeley) / G. Orton (JPL); HST OPAL",
+      "source_url": "https://archive.stsci.edu/hlsps/opal/cycle22/jupiter/hlsp_opal_hst_wfc3-uvis_jupiter-2015a_f395n-f502n-f631n_v1_globalmap.tif",
+      "source_sha256": "c3b915227ef88899a07a2b62584d9303d77d3491b9bb7de8824fb6df4a52f7b2",
+      "source_bytes": 19461484,
+      "source_retrieved_at": "2026-09-13T07:11:11.166451+00:00",
+      "observation_label": "19 January 2015",
+      "color_interpretation": "F631N red, F502N green, F395N blue; slight contrast enhancement and Minnaert limb correction. Arbitrarily scaled display TIFF, not calibrated I/F. RGB TIFF has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Frozen cloud map from 2015, not current storms or a forecast. Outside supplied coverage, show an explicit approximation; black source caps are not dark planetary terrain. Source replaced some satellite/shadow transit regions using adjacent observations; slight boundaries may remain.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0,
+          1.0
+        ],
+        "uvOffset": [
+          0.0,
+          0.0
+        ]
+      },
+      "validLatitudeBounds": [
+        -79.8,
+        79.8
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [3600, 1800], \"outputDimensions\": [2048, 1024], \"resampling\": \"LANCZOS, full source raster extent retained\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: OPAL README: 10 pixels/degree; -79.8..79.8 planetographic observed coverage; left edge 360 System III west longitude, decreasing to the right (source X is east-positive). Full raster is 3600x1800 with black caps. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1] Source observation interval: 2015-01-19T02:00:00Z/2015-01-19T12:30:00Z",
+      "metadata_urls": [
+        "https://svs.gsfc.nasa.gov/12021/",
+        "https://archive.stsci.edu/hlsps/opal/cycle22/jupiter/hlsp_opal_hst_wfc3-uvis_jupiter-2015_all_v2_readme.txt",
+        "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.844913+00:00"
+    },
+    {
+      "id": "moon-mission-reference",
+      "body": "Moon",
+      "role": "surface",
+      "path": "textures/reference/moon-reference.jpg",
+      "sha256": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170",
+      "bytes": 457942,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "LRO surface reference \u00b7 2025 map",
+      "credits": "NASA's Scientific Visualization Studio / LRO camera and laser altimeter teams",
+      "source_url": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg",
+      "source_sha256": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170",
+      "source_bytes": 457942,
+      "source_retrieved_at": "2026-09-13T07:06:44.293677+00:00",
+      "observation_label": "Multi-observation LROC/LOLA composite; map produced December 2025, not one observation date",
+      "color_interpretation": "643/566/415nm RGB, exposure and white balance adjusted; outside 70N..70S replaced with lower-resolution monochrome LOLA reflectance; small high-latitude dropouts inpainted by the source producer. Embedded original ICC profile: sRGB IEC61966-2.1",
+      "limitations": "NASA describes this as optimized for aesthetics, not science; not calibrated radiometry. Polar pixels and small inpainted gaps are source-produced completion, not measured visible color. Surface map epoch is independent of SOL simulation time.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0,
+          1.0
+        ],
+        "uvOffset": [
+          0.0,
+          0.0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\": \"none\", \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"originalBytesRetained\": true} Registration: NASA CGI Moon Kit explicitly centers this equirectangular map on 0 degrees longitude. LROC/LOLA reference is north-up, positive-east, planetocentric on a 1737.4km sphere. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1]",
+      "metadata_urls": [
+        "https://svs.gsfc.nasa.gov/4720/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.845527+00:00"
+    },
+    {
+      "id": "saturn-mission-reference",
+      "body": "Saturn",
+      "role": "surface",
+      "path": "textures/reference/saturn-reference.png",
+      "sha256": "c88eb864e3c6a2c4a23f7b8cfa32a510e4dc46431da8b0697b7121f45e307fee",
+      "bytes": 1331177,
+      "dimensions": [
+        1800,
+        900
+      ],
+      "label": "Contrast-enhanced Hubble cloud reference",
+      "credits": "NASA / ESA / HST OPAL team; data archived by STScI MAST",
+      "source_url": "https://archive.stsci.edu/missions/hlsp/opal/cycle32/saturn/hlsp_opal_hst_wfc3-uvis_saturn-2025a_f395n-f502n-f631n_v1_globalmap.tif",
+      "source_sha256": "c34a13a8253a39bcc1f8376b24c077b89f05ce0b5202706f535ded20314440d7",
+      "source_bytes": 4885052,
+      "source_retrieved_at": "2026-09-13T07:06:42.955740+00:00",
+      "observation_label": "29 August 2025",
+      "color_interpretation": "F631N red, F502N green, F395N blue; slight contrast enhancement. Arbitrarily scaled display TIFF; not calibrated I/F or a true-color calibration. RGB TIFF has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Source contains moon/shadow transit residuals; transient bright/dark points are not permanent surface features. The source has polar gaps and a black band near the equator. A local conservative display mask withholds the ring/occlusion band from 0 to 7 degrees planetographic and polar fringes. This is a cloud map only; it provides no ring texture or ring geometry. Frozen archival clouds; their rotation with the modeled body is a reference illustration, not current feature tracking.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1.0,
+          1.0
+        ],
+        "uvOffset": [
+          0.0,
+          0.0
+        ]
+      },
+      "validLatitudeBounds": [
+        -80,
+        75
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [1800, 900], \"outputDimensions\": [1800, 900], \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Exact product README specifies planetographic latitude, source longitude direction, ellipsoid radii, and pixel scale; local masks are deliberately narrower than nonzero coverage. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1] Source observation interval: 2025-08-29T05:53:28Z/2025-08-29T14:20:17Z",
+      "metadata_urls": [
+        "https://archive.stsci.edu/hlsp/opal/opal-saturn-cycle-32",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/saturn/hlsp_opal_hst_wfc3-uvis_saturn-2025_all_v1_readme.txt",
+        "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.846378+00:00"
+    },
+    {
+      "id": "uranus-mission-reference",
+      "body": "Uranus",
+      "role": "surface",
+      "path": "textures/reference/uranus-reference.png",
+      "sha256": "d59ba81033bba3faf30950c2d8893319a8f3e94f968a648c03b16b5d0fd8c8a5",
+      "bytes": 128846,
+      "dimensions": [
+        721,
+        361
+      ],
+      "label": "Contrast-enhanced Hubble cloud reference",
+      "credits": "NASA / ESA / HST OPAL team; data archived by STScI MAST",
+      "source_url": "https://archive.stsci.edu/missions/hlsp/opal/cycle32/uranus/hlsp_opal_hst_wfc3-uvis_uranus-2024a_f657n-f547m-f467m_v1_globalmap.tif",
+      "source_sha256": "838dbf45072d4354425389d7c5869312185fd8df3d0d5ee526661b22db4c3c12",
+      "source_bytes": 787762,
+      "source_retrieved_at": "2026-09-13T07:06:42.956470+00:00",
+      "observation_label": "9 November 2024",
+      "color_interpretation": "F657N red, F547M green, F467M blue; slight contrast enhancement. Arbitrarily scaled display TIFF; not calibrated I/F or a true-color calibration. RGB TIFF has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Large unobserved southern coverage is withheld; neutral completion must be labeled as an approximation. Two pixels/degree oversamples the observations; 721x361 storage does not provide that angular resolving power. The 721x361 endpoint-inclusive interpretation follows the stated 2px/degree and full 360x180 grid dimensions; verify this inference against FITS WCS before geographic feature picking. Frozen archival clouds; their rotation with the modeled body is a reference illustration, not current feature tracking.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "west",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9986130374479889,
+          0.997229916897507
+        ],
+        "uvOffset": [
+          0.0006934812760055479,
+          0.0013850415512465374
+        ]
+      },
+      "validLatitudeBounds": [
+        -5,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [721, 361], \"outputDimensions\": [721, 361], \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Exact product README specifies planetographic latitude, source longitude direction, ellipsoid radii, and pixel scale; local masks are deliberately narrower than nonzero coverage. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1] Source observation interval: 2024-11-09T07:01:00Z/2024-11-09T20:04:00Z",
+      "metadata_urls": [
+        "https://archive.stsci.edu/hlsp/opal/opal-uranus-cycle-32",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/uranus/hlsp_opal_hst_wfc3-uvis_uranus-2024_all_v1_readme.txt",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/uranus/hlsp_opal_hst_wfc3-uvis_uranus-2024a_f467m_v1_globalmap.fits",
+        "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.846862+00:00"
+    },
+    {
+      "id": "neptune-mission-reference",
+      "body": "Neptune",
+      "role": "surface",
+      "path": "textures/reference/neptune-reference.png",
+      "sha256": "c9dee0f329268f801ae5e4c736da72c329539f862a651f536e0c3d4846682adf",
+      "bytes": 175533,
+      "dimensions": [
+        721,
+        361
+      ],
+      "label": "Contrast-enhanced Hubble cloud reference",
+      "credits": "NASA / ESA / HST OPAL team; data archived by STScI MAST",
+      "source_url": "https://archive.stsci.edu/missions/hlsp/opal/cycle32/neptune/hlsp_opal_hst_wfc3-uvis_neptune-2025b_f467m-f547m-f657n_v1_globalmap.tif",
+      "source_sha256": "8c17a2872b5d55577c63abe7ba1369997ff32bb83e0f9b9c350a46db96713cb8",
+      "source_bytes": 789926,
+      "source_retrieved_at": "2026-09-13T07:06:43.730992+00:00",
+      "observation_label": "24-25 August 2025",
+      "color_interpretation": "F657N red, F547M green, F467M blue; some contrast enhancement. The filename lists filters in a different order from RGB; use the source README channel interpretation. Arbitrarily scaled display TIFF; not calibrated I/F or a true-color calibration. RGB TIFF has no embedded ICC profile; browser RGB display interpretation is a local assumption.",
+      "limitations": "Northern unobserved coverage and color fringes are withheld. Green/cyan display colors must not be recolored to a familiar saturated blue and called true color. Two pixels/degree oversamples the observations; source resolving power is lower. Campaign date range is retained; exact B-map rotation range is not asserted because the README names two rotations without mapping B/C unambiguously. The 721x361 endpoint-inclusive interpretation is an explicit dimension-based inference; verify against FITS WCS before geographic feature picking. Frozen archival clouds; their rotation with the modeled body is a reference illustration, not current feature tracking.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetographic",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9986130374479889,
+          0.997229916897507
+        ],
+        "uvOffset": [
+          0.0006934812760055479,
+          0.0013850415512465374
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        35
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\": \"Pillow 12.2.0\", \"sourceDimensions\": [721, 361], \"outputDimensions\": [721, 361], \"resampling\": \"none\", \"colorAdjustment\": \"none\", \"coverageMask\": \"Latitude exclusions; any zero source RGB channel excluded with 5x5 minimum filter before conservative BOX downsampling\", \"alphaMeaning\": \"0 = withheld display coverage; 255 = admitted reference appearance, not a scientific quality flag\"} Registration: Exact product README specifies planetographic latitude, source longitude direction, ellipsoid radii, and pixel scale; local masks are deliberately narrower than nonzero coverage. Window: u=fract(phasePrimeU + longitudeDirectionSign*eastLongitudeDegrees/360)*uvScale[0]+uvOffset[0]; v=((90-mappedLatitudeDegrees)/180)*uvScale[1]+uvOffset[1] Source observation interval: 2025-08-24T03:18:00Z/2025-08-25T09:45:00Z",
+      "metadata_urls": [
+        "https://archive.stsci.edu/hlsp/opal/opal-neptune-cycle-32",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/neptune/hlsp_opal_hst_wfc3-uvis_neptune-2025b_all_v1_readme.txt",
+        "https://archive.stsci.edu/missions/hlsp/opal/cycle32/neptune/hlsp_opal_hst_wfc3-uvis_neptune-2025b_f467m_v1_globalmap.fits",
+        "https://science.nasa.gov/missions/hubble/nasas-hubble-celebrates-decade-of-tracking-outer-planets/"
+      ],
+      "reviewed_at": "2026-09-13T07:30:19.847319+00:00"
+    },
+    {
+      "id": "mimas-cassini-reference",
+      "body": "Mimas",
+      "role": "surface",
+      "path": "textures/reference/mimas-cassini-reference-2k.png",
+      "sha256": "fbb571b298642fe64899c548ff6948daf0634e15b8ce6ba3abe963abd7d40196",
+      "bytes": 1189557,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2017 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/p/i/a/1/PIA17214_unlabeled.png",
+      "source_sha256": "f8ffa667b2c35ec890973ea3300a33d3ee506f596b53d3818cdfee56943e038b",
+      "source_bytes": 6959979,
+      "source_retrieved_at": "2026-09-13T09:51:06.419906+00:00",
+      "observation_label": "Cassini flyby composite, June 2017 release, including November 2016 and February 2017 images; not one observation",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "Full map from Cassini flybys. The labeled companion carries a January 2017 title while NASA dates the released update June 2017 and describes February 2017 inputs; the release date is used here. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Mimas\",\"filename\":\"mimas-PIA17214-unlabeled-original.png\",\"sha256\":\"f8ffa667b2c35ec890973ea3300a33d3ee506f596b53d3818cdfee56943e038b\",\"source_bytes\":6959979,\"dimensions\":[5760,2880],\"mode\":\"L\",\"crop\":[0,0,5760,2880],\"output_dimensions\":[2048,1024],\"output\":\"mimas-cassini-reference-2k.png\",\"output_sha256\":\"fbb571b298642fe64899c548ff6948daf0634e15b8ce6ba3abe963abd7d40196\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA17214 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/resource/mimas-global-map-june-2017/",
+        "https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/p/i/a/1/PIA17214_labeled.png"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "iapetus-cassini-reference",
+      "body": "Iapetus",
+      "role": "surface",
+      "path": "textures/reference/iapetus-cassini-reference-2k.png",
+      "sha256": "519dd1c1781d2a183666ed4b3fc5541cbaa351e604214a0a774e298db49bd6a0",
+      "bytes": 2023258,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2008 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia11/pia11116/PIA11116.jpg",
+      "source_sha256": "c054d5927ca1f3b42914fef82cd700c8bbfd28c6890b5410faaf79e3368d0887",
+      "source_bytes": 2057630,
+      "source_retrieved_at": "2026-09-13T09:56:02.959595+00:00",
+      "observation_label": "Cassini and Voyager flyby composite, May 2008 map edition, released October 2008; individual source dates differ",
+      "color_interpretation": "Monochrome mission-image mosaic. The published JPEG stores the grayscale map in RGB channels; those channels are retained. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "Voyager images fill Cassini coverage gaps, and some terrain was imaged in Saturn-reflected light. Source contrast and varying native resolution remain visible. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Iapetus\",\"filename\":\"iapetus-nasa-map.jpg\",\"sha256\":\"c054d5927ca1f3b42914fef82cd700c8bbfd28c6890b5410faaf79e3368d0887\",\"source_bytes\":2057630,\"dimensions\":[6199,3407],\"mode\":\"RGB\",\"crop\":[240,203,6000,3083],\"output_dimensions\":[2048,1024],\"output\":\"iapetus-cassini-reference-2k.png\",\"output_sha256\":\"519dd1c1781d2a183666ed4b3fc5541cbaa351e604214a0a774e298db49bd6a0\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA11116 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The original contains labels only outside the measured data rectangle x=[240,6000), y=[203,3083); that exact 5760x2880 map rectangle is extracted before resampling. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-iapetus-may-2008/"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "enceladus-cassini-reference",
+      "body": "Enceladus",
+      "role": "surface",
+      "path": "textures/reference/enceladus-cassini-reference-2k.png",
+      "sha256": "ec869b20d7aa570b55ecd0bbda42ba42797d84e1eeaf4bfc5a5f52ca312e1c9c",
+      "bytes": 1537963,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2010 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia12/pia12564/PIA12564.jpg",
+      "source_sha256": "52bf59db9a98cce6073139fb649282113e0dde92d39b84bb029636ca9671537b",
+      "source_bytes": 4136213,
+      "source_retrieved_at": "2026-09-13T09:56:02.898644+00:00",
+      "observation_label": "Cassini and Voyager composite, February 2010 map edition, including October and November 2009 flybys",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "One Voyager 2 image fills part of the north, reaching southward to about 50N in places; other regions include lower-resolution Cassini images. The provider already applied the 3.5-degree westward longitude update. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Enceladus\",\"filename\":\"enceladus-nasa-map.jpg\",\"sha256\":\"52bf59db9a98cce6073139fb649282113e0dde92d39b84bb029636ca9671537b\",\"source_bytes\":4136213,\"dimensions\":[7200,3600],\"mode\":\"L\",\"crop\":[0,0,7200,3600],\"output_dimensions\":[2048,1024],\"output\":\"enceladus-cassini-reference-2k.png\",\"output_sha256\":\"ec869b20d7aa570b55ecd0bbda42ba42797d84e1eeaf4bfc5a5f52ca312e1c9c\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA12564 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-enceladus-february-2010/",
+        "https://assets.science.nasa.gov/dynamicimage/assets/science/psd/photojournal/pia/pia12/pia12564/figures/PIA12564_fig1.jpg?w=1600&fit=clip",
+        "https://science.nasa.gov/resource/enceladus-polar-maps-february-2010-2/"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "tethys-cassini-reference",
+      "body": "Tethys",
+      "role": "surface",
+      "path": "textures/reference/tethys-cassini-reference-2k.png",
+      "sha256": "ecc49fcac05091c42d456d23266fd378d6e7728c90024bf65728637767fe77af",
+      "bytes": 1499343,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2012 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia14/pia14931/PIA14931.jpg",
+      "source_sha256": "08f6fed39325fa7532be01eebc85c0b2a55bf0b9fdcfbf85c878db5bbac45ae5",
+      "source_bytes": 7104011,
+      "source_retrieved_at": "2026-09-13T09:56:03.426791+00:00",
+      "observation_label": "Multiple Cassini flybys, June 2012 map edition, released November 2012; individual source dates not listed",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "The provider describes a complete cylindrical mosaic on a 536.3 km reference sphere. Native sharpness varies among flyby images; map radius is not substituted for the orbital catalogue radius. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Tethys\",\"filename\":\"tethys-nasa-map.jpg\",\"sha256\":\"08f6fed39325fa7532be01eebc85c0b2a55bf0b9fdcfbf85c878db5bbac45ae5\",\"source_bytes\":7104011,\"dimensions\":[11520,5760],\"mode\":\"L\",\"crop\":[0,0,11520,5760],\"output_dimensions\":[2048,1024],\"output\":\"tethys-cassini-reference-2k.png\",\"output_sha256\":\"ecc49fcac05091c42d456d23266fd378d6e7728c90024bf65728637767fe77af\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA14931 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-tethys-june-2012/",
+        "https://assets.science.nasa.gov/dynamicimage/assets/science/psd/photojournal/pia/pia14/pia14931/figures/PIA14931_fig1.jpg?w=1600&fit=clip"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "dione-cassini-reference",
+      "body": "Dione",
+      "role": "surface",
+      "path": "textures/reference/dione-cassini-reference-2k.png",
+      "sha256": "e95437fecb7d447179b65427afcb80c1eaa948f1073470995d1c21a25ba8467d",
+      "bytes": 1537869,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2010 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia12/pia12577/PIA12577.jpg",
+      "source_sha256": "de59158e9d9b5b00d717bb0d2750e960dc3eb68f5aed36a3b214ce6db46660ec",
+      "source_bytes": 21677835,
+      "source_retrieved_at": "2026-09-13T09:56:04.041465+00:00",
+      "observation_label": "Cassini and Voyager flyby composite, February 2010 map edition; individual source dates differ",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "Voyager imagery fills gaps in Cassini coverage. The provider already applied the 0.6-degree westward longitude update; no additional shift is applied. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Dione\",\"filename\":\"dione-nasa-map.jpg\",\"sha256\":\"de59158e9d9b5b00d717bb0d2750e960dc3eb68f5aed36a3b214ce6db46660ec\",\"source_bytes\":21677835,\"dimensions\":[23040,11520],\"mode\":\"L\",\"crop\":[0,0,23040,11520],\"output_dimensions\":[2048,1024],\"output\":\"dione-cassini-reference-2k.png\",\"output_sha256\":\"e95437fecb7d447179b65427afcb80c1eaa948f1073470995d1c21a25ba8467d\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA12577 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-dione-february-2010/",
+        "https://assets.science.nasa.gov/dynamicimage/assets/science/psd/photojournal/pia/pia12/pia12577/figures/PIA12577_fig1.jpg?w=1600&fit=clip"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "rhea-cassini-reference",
+      "body": "Rhea",
+      "role": "surface",
+      "path": "textures/reference/rhea-cassini-reference-2k.png",
+      "sha256": "759e9732ad7804221bc85da61c459d6846342d4aa1fe06d67b566d4b9b889779",
+      "bytes": 1322217,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Cassini monochrome reference \u00b7 2012 map",
+      "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
+      "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia14/pia14928/PIA14928.jpg",
+      "source_sha256": "dd17563a8cd20fb057af7f4f0df465855f895e61cf29ec0a27e3e8862d14bd5e",
+      "source_bytes": 5583646,
+      "source_retrieved_at": "2026-09-13T09:56:04.341705+00:00",
+      "observation_label": "Cassini and Voyager composite, March 2012 edition, including Cassini observations from March 10, 2012",
+      "color_interpretation": "Monochrome mission-image mosaic. The original has one grayscale channel, retained without recoloring. Brightness and contrast are a published display interpretation, not calibrated local reflectance.",
+      "limitations": "Six Voyager images fill Cassini north-polar coverage gaps. Source processing and varying native resolution remain visible. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain. This is not calibrated local reflectance. No synthetic terrain or color is added.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Rhea\",\"filename\":\"rhea-nasa-map.jpg\",\"sha256\":\"dd17563a8cd20fb057af7f4f0df465855f895e61cf29ec0a27e3e8862d14bd5e\",\"source_bytes\":5583646,\"dimensions\":[11520,5760],\"mode\":\"L\",\"crop\":[0,0,11520,5760],\"output_dimensions\":[2048,1024],\"output\":\"rhea-cassini-reference-2k.png\",\"output_sha256\":\"759e9732ad7804221bc85da61c459d6846342d4aa1fe06d67b566d4b9b889779\"},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\"} Registration: NASA PIA14928 labeled companion identifies north at the top, +90 to -90 latitude, 0 degrees at the horizontal midpoint, and 180 degrees at both edges. West-longitude numbers decrease from left to right, so shader positive-east longitude increases with U. The unlabeled source fills the declared 360x180-degree image grid. Dark pixels are retained as valid image data; no brightness-based mask or polar edge fill is applied.",
+      "metadata_urls": [
+        "https://science.nasa.gov/photojournal/map-of-rhea-march-2012/",
+        "https://assets.science.nasa.gov/dynamicimage/assets/science/psd/photojournal/pia/pia14/pia14928/figures/PIA14928_fig1.jpg?w=1600&fit=clip"
+      ],
+      "reviewed_at": "2026-09-13T10:04:22.785966+00:00"
+    },
+    {
+      "id": "phobos-viking-reference",
+      "body": "Phobos",
+      "role": "surface",
+      "path": "textures/reference/phobos-viking-reference-1k.png",
+      "sha256": "57b0b9bb3d69e2735cfe19b68d6d64d05a6cd7cf33ae0a3bd87501f70e90b5fe",
+      "bytes": 332013,
+      "dimensions": [
+        1024,
+        512
+      ],
+      "label": "Viking structural reference \u00b7 2012 mosaic",
+      "credits": "NASA/Viking imagery / Phil Stooke / USGS Astrogeology / DLR control",
+      "source_url": "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg",
+      "source_sha256": "d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4",
+      "source_bytes": 161960,
+      "source_retrieved_at": "2026-09-13T10:09:48.491605+00:00",
+      "observation_label": "Viking-era and supplementary spacecraft images; USGS mosaic published June 2012; individual source dates differ",
+      "color_interpretation": "Single-band grayscale browse of a controlled image mosaic. The producer applies artistic blending where opposite lighting meets, affecting appearance but not map geometry. No visible-color or calibrated reflectance claim.",
+      "limitations": "Preliminary structural mosaic; provider artistic illumination blending and varying resolution remain visible. SOL renders a simplified sphere, not the measured irregular shape. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by the existing albedo and eclipse display gain; this is not calibrated local reflectance.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "none",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Phobos\",\"filename\":\"phobos-usgs-source.jpg\",\"sha256\":\"d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4\",\"source_bytes\":161960,\"dimensions\":[1024,512],\"mode\":\"L\",\"crop\":[0,0,1024,512],\"output_dimensions\":[1024,512],\"output\":\"phobos-viking-reference-1k.png\",\"output_sha256\":\"57b0b9bb3d69e2735cfe19b68d6d64d05a6cd7cf33ae0a3bd87501f70e90b5fe\",\"latitude_bounds\":[-90,90],\"valid_latitude_bounds\":[-90,90],\"nodata_zero_channel\":false},\"pillow_version\":\"12.2.0\",\"resampling\":\"none\",\"colorAdjustment\":\"none\"} The metadata page explicitly links this exact 1024-pixel sample. Its ISIS label defines a 14400x7200 simple cylindrical grid, 40 pixels/degree, planetocentric 11100m sphere, center0, PositiveEast, latitude +/-90 and longitude +/-180. The linked unannotated sample retains the full 2:1 grid. All decoded grayscale pixels are copied without resizing into lossless PNG; no brightness-based mask or invented irregular shape.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/phobos_viking_global_mosaic_5m",
+        "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/3d2f2c56-c13d-4f3b-9a4e-5ff538e02c89/download/phobos_viking_mosaic_40ppd_dlrcontrol.lbl"
+      ],
+      "reviewed_at": "2026-09-13T10:14:03.885777+00:00"
+    },
+    {
+      "id": "io-galileo-color-reference",
+      "body": "Io",
+      "role": "surface",
+      "path": "textures/reference/io-galileo-color-reference-2k.png",
+      "sha256": "f83b274d56021fa11eac9c0c3755bd6ffc1397d93cc9fadb6207faca77366ed8",
+      "bytes": 2843310,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Galileo SSI false-color reference",
+      "credits": "NASA/JPL Galileo SSI imagery / USGS Astrogeology; Voyager/Galileo archive lineage",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif",
+      "source_sha256": "524dcabd247c889a4e7c2a1bfd9e5fcc545c6a039b2c765da9b741befdfd00bd",
+      "source_bytes": 196637696,
+      "source_retrieved_at": "2026-09-13T14:22:28.175623+00:00",
+      "observation_label": "Historical multi-epoch mosaic: Galileo Jupiter mission (1995-2003), with Voyager archive lineage (1979); mission periods, not a single image date",
+      "color_interpretation": "Mission-derived false color: Galileo SSI violet, green and 756 nm near-infrared images. Producer-processed RGB relationships are preserved; human-eye colors are more muted. This is not natural color or calibrated radiance.",
+      "limitations": "Variable native resolution and multi-epoch illumination processing. Producer-interpolated polar colors within approximately 5 degrees of each pole are withheld with a conservative 85S to 85N coverage boundary. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. A common scalar adjusts source display RGB using coverage-aware relative brightness, exponent 0.6 and cap 1.8, with common-peak compression before neutral albedo/eclipse gain. This preserves covered RGB ratios and proportional eclipse dimming, not calibrated local reflectance or exact disc-average albedo. Missing areas use a simplified neutral surface; no color or terrain is invented.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0.5,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9999624910105137,
+          0.9998751275218705
+        ],
+        "uvOffset": [
+          6.24416943936531e-05,
+          0.00014980300474710465
+        ]
+      },
+      "validLatitudeBounds": [
+        -85,
+        85
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Io\",\"filename\":\"Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif\",\"sha256\":\"524dcabd247c889a4e7c2a1bfd9e5fcc545c6a039b2c765da9b741befdfd00bd\",\"source_bytes\":196637696,\"dimensions\":[11445,5723],\"mode\":\"RGB\",\"crop\":[0,0,11445,5723],\"output_dimensions\":[2048,1024],\"output\":\"io-galileo-color-reference-2k.png\",\"output_sha256\":\"f83b274d56021fa11eac9c0c3755bd6ffc1397d93cc9fadb6207faca77366ed8\",\"latitude_bounds\":[-89.99551194477426,90.02696790840403],\"valid_latitude_bounds\":[-85,85],\"nodata_zero_channel\":true},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\",\"validPixels\":1978368,\"missingPixels\":118784} Original GeoTIFF and both ISIS/PDS3 labels establish center0, east-increasing columns, north-up planetocentric latitude and the existing affine grid. GDAL_NODATA=0 applies to all three source bands; any zero channel is invalid. The existing 5x5 conservative source mask and +/-85 degree latitude bounds apply before BOX reduction; mixed coverage output stays transparent. No crop, recoloring, inpainting, labels or graticules. Independent Pele, Prometheus and Loki anchors confirm feature registration.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/io_galileo_ssi_global_color_merge_mosaic_1km",
+        "https://astrogeology.usgs.gov/ckan/dataset/0fc15885-24ee-4d9d-9666-11de0667c10c/resource/91c2447c-1932-48e5-b33c-c199db865805/download/io_galileo_ssi_global_mosaic_clrmerge_1km.lbl",
+        "https://astrogeology.usgs.gov/ckan/dataset/0fc15885-24ee-4d9d-9666-11de0667c10c/resource/7b1875cf-ca17-4147-b3d1-47a4509cf07e/download/io_galileo_ssi_global_mosaic_clrmerge_1km_pds3.lbl",
+        "https://science.nasa.gov/photojournal/io-in-motion/"
+      ],
+      "reviewed_at": "2026-09-13T14:30:26.279962+00:00",
+      "moon_color_mode": "source-rgb"
+    },
+    {
+      "id": "europa-voyager-galileo-reference",
+      "body": "Europa",
+      "role": "surface",
+      "path": "textures/reference/europa-voyager-galileo-reference-2k.png",
+      "sha256": "87ad2488589f01e72a4bbc3656c22555728b21e38b4d0df2a6c2aeb9fc894a07",
+      "bytes": 2079254,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Voyager / Galileo monochrome reference",
+      "credits": "NASA/JPL Voyager and Galileo SSI imagery / USGS Astrogeology",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif",
+      "source_sha256": "a323f0c9ccb47d5af9902ea8297fe81f9a9708795645b80801f103c3f7c9a624",
+      "source_bytes": 192777263,
+      "source_retrieved_at": "2026-09-13T10:16:15.493662Z",
+      "observation_label": "Historical multi-epoch mosaic: Voyager Jupiter encounters (1979) and Galileo Jupiter mission (1995-2003); these are mission periods, not a single image date",
+      "color_interpretation": "Original single-band grayscale mosaic. Pixel brightness is retained through BOX display reduction and replicated into RGB with a separate coverage mask. No visible-color or calibrated local albedo claim.",
+      "limitations": "No source coverage south of 83 degrees S; variable resolution and additional original no-data mask retained. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by existing albedo and eclipse display gain; this is not calibrated local reflectance. Missing source pixels remain transparent; no terrain, visual color or polar detail is synthesized.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9999898120319843,
+          0.9999388753056176
+        ],
+        "uvOffset": [
+          3.0563904033558386e-05,
+          3.056234719248089e-05
+        ]
+      },
+      "validLatitudeBounds": [
+        -83,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Europa\",\"filename\":\"europa-original.tif\",\"sha256\":\"a323f0c9ccb47d5af9902ea8297fe81f9a9708795645b80801f103c3f7c9a624\",\"source_bytes\":192777263,\"dimensions\":[19631,9816],\"mode\":\"L\",\"crop\":[0,0,19631,9816],\"output_dimensions\":[2048,1024],\"output\":\"europa-voyager-galileo-reference-2k.png\",\"output_sha256\":\"87ad2488589f01e72a4bbc3656c22555728b21e38b4d0df2a6c2aeb9fc894a07\",\"latitude_bounds\":[-90.00550155877526,90.00550155877575],\"valid_latitude_bounds\":[-83,90],\"nodata_zero_channel\":true},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\",\"validPixels\":2000438,\"missingPixels\":96714} Registration: original GeoTIFF pixel scale/tie point and linked ISIS SimpleCylindrical label define the full affine grid. ISIS converts PositiveWest labels to east-positive projected X; raster columns increase east. Six projected-coordinate anchors and comparison with the linked browse independently reject horizontal/vertical flips and half-map shifts. Archive GDAL_NODATA=0 establishes missing source pixels. A 5x5 conservative source mask and valid latitude bounds are applied before BOX reduction; any mixed coverage output is transparent. Source RGB is never filled. Callisto affine roundoff below 1e-13 is normalized to identity.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/europa_voyager_galileo_ssi_global_mosaic_500m",
+        "https://astrogeology.usgs.gov/ckan/dataset/4080036f-afc5-422e-abe9-1c0c8e4f98ea/resource/db62f55a-9d03-474e-a349-1fd7d8f0d5fc/download/europa_voyager_galileossi_global_mosaic_500m.lbl",
+        "https://isis.astrogeology.usgs.gov/10.0.0/Object/Programmer/_simple_cylindrical_8cpp_source.html"
+      ],
+      "reviewed_at": "2026-09-13T10:25:13.470859+00:00"
+    },
+    {
+      "id": "ganymede-voyager-galileo-reference",
+      "body": "Ganymede",
+      "role": "surface",
+      "path": "textures/reference/ganymede-voyager-galileo-reference-2k.png",
+      "sha256": "900af8e39acb7137e2c6d1745279ebdac1152702818711336f149972a055b050",
+      "bytes": 1805208,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Voyager / Galileo monochrome reference",
+      "credits": "NASA/JPL Voyager and Galileo SSI imagery / USGS Astrogeology",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Ganymede_Voyager_GalileoSSI_global_mosaic_1km.tif",
+      "source_sha256": "c2c8d9506b8cf8f7a0a90d823d9052e91c8d9885cf7267fdce8de8216f4df888",
+      "source_bytes": 136844537,
+      "source_retrieved_at": "2026-09-13T10:16:16.152213Z",
+      "observation_label": "Historical multi-epoch mosaic: Voyager Jupiter encounters (1979) and Galileo Jupiter mission (1995-2003); these are mission periods, not a single image date",
+      "color_interpretation": "Original single-band grayscale mosaic. Pixel brightness is retained through BOX display reduction and replicated into RGB with a separate coverage mask. No visible-color or calibrated local albedo claim.",
+      "limitations": "Heterogeneous resolution/illumination and original no-data gaps; grayscale photographic display reference, not calibrated surface albedo. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by existing albedo and eclipse display gain; this is not calibrated local reflectance. Missing source pixels remain transparent; no terrain, visual color or polar detail is synthesized.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          0.9999637218186012,
+          0.9999032645198213
+        ],
+        "uvOffset": [
+          4.837051812325701e-05,
+          4.836759366629671e-05
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Ganymede\",\"filename\":\"ganymede-original.tif\",\"sha256\":\"c2c8d9506b8cf8f7a0a90d823d9052e91c8d9885cf7267fdce8de8216f4df888\",\"source_bytes\":136844537,\"dimensions\":[16539,8270],\"mode\":\"L\",\"crop\":[0,0,16539,8270],\"output_dimensions\":[2048,1024],\"output\":\"ganymede-voyager-galileo-reference-2k.png\",\"output_sha256\":\"900af8e39acb7137e2c6d1745279ebdac1152702818711336f149972a055b050\",\"latitude_bounds\":[-90.00870700914194,90.00870700914318],\"valid_latitude_bounds\":[-90,90],\"nodata_zero_channel\":true},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\",\"validPixels\":2016836,\"missingPixels\":80316} Registration: original GeoTIFF pixel scale/tie point and linked ISIS SimpleCylindrical label define the full affine grid. ISIS converts PositiveWest labels to east-positive projected X; raster columns increase east. Six projected-coordinate anchors and comparison with the linked browse independently reject horizontal/vertical flips and half-map shifts. Archive GDAL_NODATA=0 establishes missing source pixels. A 5x5 conservative source mask and valid latitude bounds are applied before BOX reduction; any mixed coverage output is transparent. Source RGB is never filled. Callisto affine roundoff below 1e-13 is normalized to identity.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_global_mosaic_1km",
+        "https://astrogeology.usgs.gov/ckan/dataset/57cad6e2-ed52-4b99-9d44-afbb9def6450/resource/32769bd3-7a00-4aa6-9ce8-52126cbd4384/download/ganymede_voyager_galileossi_global_mosaic_1km.lbl",
+        "https://isis.astrogeology.usgs.gov/10.0.0/Object/Programmer/_simple_cylindrical_8cpp_source.html"
+      ],
+      "reviewed_at": "2026-09-13T10:25:13.477096+00:00"
+    },
+    {
+      "id": "callisto-voyager-galileo-reference",
+      "body": "Callisto",
+      "role": "surface",
+      "path": "textures/reference/callisto-voyager-galileo-reference-2k.png",
+      "sha256": "fb8cd280cd2fbd82f55b33f8a7710087cc590f128e72adac95fc1e21dc88a909",
+      "bytes": 1790932,
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "label": "Voyager / Galileo monochrome reference",
+      "credits": "NASA/JPL Voyager and Galileo SSI imagery / USGS Astrogeology",
+      "source_url": "https://planetarymaps.usgs.gov/mosaic/Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif",
+      "source_sha256": "e1f0bd2e0e05de605d067d6b5f5ededddaf31ca6c064562a1ca770f15a7dbaa3",
+      "source_bytes": 114640717,
+      "source_retrieved_at": "2026-09-13T10:16:16.677522Z",
+      "observation_label": "Historical multi-epoch mosaic: Voyager Jupiter encounters (1979) and Galileo Jupiter mission (1995-2003); these are mission periods, not a single image date",
+      "color_interpretation": "Original single-band grayscale mosaic. Pixel brightness is retained through BOX display reduction and replicated into RGB with a separate coverage mask. No visible-color or calibrated local albedo claim.",
+      "limitations": "Heterogeneous resolution/illumination and original no-data gaps; grayscale photographic display reference, not calibrated surface albedo. SOL turns this tidally locked moon so its prime meridian faces its planet along the mean orbit, with its pole on the orbit normal on the planet's IAU north side, so feature longitudes land near their planetographic values. Cassini-state obliquity, physical libration and any fixed offset of the IAU prime meridian from the mean sub-planet line are not modelled. Display contrast is normalized by the coverage-aware image mean, exponent 0.6 and cap 1.8, then scaled by existing albedo and eclipse display gain; this is not calibrated local reflectance. Missing source pixels remain transparent; no terrain, visual color or polar detail is synthesized.",
+      "projection": "equirectangular",
+      "mapping": {
+        "primeMeridianU": 0,
+        "longitudeDirection": "east",
+        "latitudeType": "planetocentric",
+        "latitudeBounds": [
+          -90,
+          90
+        ],
+        "uvScale": [
+          1,
+          1
+        ],
+        "uvOffset": [
+          0,
+          0
+        ]
+      },
+      "validLatitudeBounds": [
+        -90,
+        90
+      ],
+      "nodata": "alpha",
+      "derivation": "{\"tool\":\"tools/prepare_moon_reference.py\",\"recipe\":{\"body\":\"Callisto\",\"filename\":\"callisto-original.tif\",\"sha256\":\"e1f0bd2e0e05de605d067d6b5f5ededddaf31ca6c064562a1ca770f15a7dbaa3\",\"source_bytes\":114640717,\"dimensions\":[15138,7569],\"mode\":\"L\",\"crop\":[0,0,15138,7569],\"output_dimensions\":[2048,1024],\"output\":\"callisto-voyager-galileo-reference-2k.png\",\"output_sha256\":\"fb8cd280cd2fbd82f55b33f8a7710087cc590f128e72adac95fc1e21dc88a909\",\"latitude_bounds\":[-90,90],\"valid_latitude_bounds\":[-90,90],\"nodata_zero_channel\":true},\"pillow_version\":\"12.2.0\",\"resampling\":\"BOX\",\"colorAdjustment\":\"none\",\"validPixels\":2008724,\"missingPixels\":88428} Registration: original GeoTIFF pixel scale/tie point and linked ISIS SimpleCylindrical label define the full affine grid. ISIS converts PositiveWest labels to east-positive projected X; raster columns increase east. Six projected-coordinate anchors and comparison with the linked browse independently reject horizontal/vertical flips and half-map shifts. Archive GDAL_NODATA=0 establishes missing source pixels. A 5x5 conservative source mask and valid latitude bounds are applied before BOX reduction; any mixed coverage output is transparent. Source RGB is never filled. Callisto affine roundoff below 1e-13 is normalized to identity.",
+      "metadata_urls": [
+        "https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km",
+        "https://astrogeology.usgs.gov/ckan/dataset/a80abd68-7ed9-440e-829a-76376779164f/resource/66433621-ca46-4563-994f-c615931adb42/download/callisto_voyager_galileossi_global_mosaic_1km.lbl",
+        "https://isis.astrogeology.usgs.gov/10.0.0/Object/Programmer/_simple_cylindrical_8cpp_source.html"
+      ],
+      "reviewed_at": "2026-09-13T10:25:13.483805+00:00"
+    }
+  ]
+}

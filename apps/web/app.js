@@ -5,7 +5,7 @@ import { store } from "./js/store.js?v=dcca6290db";
 import { TOUR_STEPS } from "./js/config.js?v=dcca6290db";
 import { controls } from "./js/dom.js?v=dcca6290db";
 import { clamp } from "./js/format.js?v=dcca6290db";
-import { renderAll, updateTaskHeader } from "./js/view.js?v=dcca6290db";
+import { renderAll, updateTaskHeader, currentViewPresentation } from "./js/view.js?v=dcca6290db";
 import { updateModeButtons } from "./js/panels.js?v=dcca6290db";
 import { loadState } from "./js/data.js?v=dcca6290db";
 import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay, cancelLiveEngine, stepTimeline } from "./js/timeline.js?v=dcca6290db";
@@ -13,18 +13,29 @@ import { startTour, endTour, showTourStep } from "./js/tour.js?v=dcca6290db";
 import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=dcca6290db";
 import { enterSky, leaveSky, resizeSky } from "./js/sky.js?v=dcca6290db";
 import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=dcca6290db";
-import { buildWavelengthBar } from "./js/wavelength.js?v=dcca6290db";
+import { buildWavelengthBar, setWavelength } from "./js/wavelength.js?v=dcca6290db";
 import { buildSunCutaway } from "./js/sunlayers.js?v=dcca6290db";
 import { nearestSeriesFrame } from "./js/seriesModel.js?v=dcca6290db";
 import { registerOfflineRelease } from "./js/releaseClient.js?v=dcca6290db";
 import { createViewEvidence } from "./js/viewEvidence.js?v=dcca6290db";
+import { workspace, renderWorkspace, openInspector, revealWorkspaceControl } from "./js/workspace.js?v=dcca6290db";
+import { explorer, initExplorer } from "./js/explorer.js?v=dcca6290db";
+function chooseExperience(mode, tools = false) {
+  explorer.choose(mode);
+  if (mode === 'observe') { cancelLiveEngine(); stopPlay(); workspace.setInspector('today', false); workspace.timelineOpen = false; }
+  else setWavelength('model');
+  if (tools) openInspector('today');
+  renderAll();
+  if (tools) document.getElementById('inspectorClose')?.focus();
+  window.dispatchEvent(new Event('resize'));
+}
 window.addEventListener("sol:presentation", updateTaskHeader);
 let previewEvidence=null;
 document.getElementById("viewEvidencePreview")?.addEventListener("click",()=>{
-  const presentation=store.activeMode==="today"?store.presentation:store.activeMode==="sky"?store.sky?.presentation:store.orrery?.presentation;
+  const presentation=currentViewPresentation();
   const output=document.getElementById("viewEvidenceJson"),panel=document.getElementById("viewEvidencePanel"),download=document.getElementById("viewEvidenceDownload");
   try {
-    previewEvidence=createViewEvidence({surface:store.activeMode,presentation,releaseId:"__SOL_RELEASE_ID__",exportedAt:new Date().toISOString(),bundleIdentity:store.dataBundleIdentity});
+    previewEvidence=createViewEvidence({surface:store.activeMode,presentation,releaseId:"__SOL_RELEASE_ID__",exportedAt:new Date().toISOString(),bundleIdentity:store.activeMode==='today'&&explorer.mode==='observe'?null:store.dataBundleIdentity});
     if(output)output.textContent=JSON.stringify(previewEvidence,null,2);download?.removeAttribute("disabled");
   } catch(error) {previewEvidence=null;if(output)output.textContent=error.message;download?.setAttribute("disabled","");}
   if(panel)panel.hidden=false;output?.focus();
@@ -73,6 +84,7 @@ document.getElementById("solarCanvas")?.addEventListener("click", (event) => {
     if (distance < 34 && (!best || distance < best.distance)) best = { distance, item };
   }
   if (best) {
+    openInspector("today");
     store.selectedRegionId = best.item.region.id;
     store.activeMode = "today";
     const exp = /** @type {HTMLDetailsElement|null} */ (document.getElementById("sunExplore"));
@@ -87,6 +99,7 @@ window.addEventListener("sol:region-selected", (event) => {
   const id = /** @type {CustomEvent} */ (event).detail;
   const region = (store.state.active_regions || []).find((r) => r.id === id);
   if (!region) return;
+  openInspector("today");
   store.selectedRegionId = region.id; // keep the original id type so selectors match
   store.activeMode = "today";
   updateModeButtons();
@@ -122,6 +135,7 @@ document.getElementById("butterflyCanvas")?.addEventListener("click", (event) =>
   if (best) {
     store.selectedRegionId = best.item.region.id;
     store.activeMode = "today";
+    openInspector("today");
     const exp = /** @type {HTMLDetailsElement|null} */ (document.getElementById("sunExplore"));
     if (exp) exp.open = true; // reveal the selection in the Explore drawer
     updateModeButtons();
@@ -185,7 +199,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 // --- Onboarding tour controls ---
-document.getElementById("tourStart")?.addEventListener("click", startTour);
+document.getElementById("tourStart")?.addEventListener("click", () => { chooseExperience('research'); startTour(); });
 document.getElementById("sourcesLink")?.addEventListener("click", () => {
   const details = /** @type {HTMLDetailsElement|null} */ (document.getElementById("sourcesAndLimits"));
   if (details) details.open = true;
@@ -225,20 +239,78 @@ document.getElementById("liveActivity")?.addEventListener("change", runLiveEngin
 
 // --- Collapsible / pinned control panel (for an unobstructed full-bleed 3-D view) ---
 document.getElementById("panelToggle")?.addEventListener("click", () => {
-  const collapsed = document.body.classList.toggle("panel-collapsed");
-  const btn = document.getElementById("panelToggle");
-  if (btn) {
-    btn.textContent = collapsed ? "Show inspector" : "Hide inspector";
-    btn.setAttribute("aria-expanded", String(!collapsed));
-    btn.setAttribute("aria-label", collapsed ? "Show inspector" : "Hide inspector");
+  const open = !workspace.inspectorVisible(store.activeMode);
+  workspace.focus = false;
+  workspace.setInspector(store.activeMode, open);
+  renderWorkspace(store.activeMode);
+});
+document.getElementById("inspectorClose")?.addEventListener("click", () => {
+  workspace.setInspector(store.activeMode, false);
+  document.getElementById("panelToggle")?.focus();
+  renderWorkspace(store.activeMode);
+});
+document.getElementById("focusToggle")?.addEventListener("click", () => {
+  workspace.focus = !workspace.focus;
+  renderWorkspace(store.activeMode);
+});
+const revealTime = () => {
+  workspace.focus = false;
+  if (store.activeMode === "today") workspace.timelineOpen = !workspace.timelineOpen;
+  else openInspector(store.activeMode);
+  renderWorkspace(store.activeMode);
+  if (store.activeMode !== "today") revealWorkspaceControl(store.activeMode, store.activeMode === 'sky' ? 'skyTime' : 'orreryTime');
+};
+document.getElementById("timelineToggle")?.addEventListener("click", revealTime);
+document.querySelectorAll('a[href="#timeline"]').forEach(link => link.addEventListener("click", () => {
+  workspace.timelineOpen = true; workspace.focus = false; renderWorkspace(store.activeMode);
+}));
+window.addEventListener("sol:object-selected", event => {
+  const surface = /** @type {CustomEvent} */ (event).detail?.surface;
+  if (surface === store.activeMode) {
+    if (surface === 'today') openInspector(surface);
+    else { workspace.focus = false; renderWorkspace(surface); updateTaskHeader(); }
   }
-  const inspector = document.getElementById("viewInspector");
-  if (inspector) inspector.inert = collapsed;
-  // Let the canvases re-fit to the new width (orrery ResizeObserver + 2-D canvases via renderAll).
-  window.dispatchEvent(new Event("resize"));
+});
+
+for (const [id, skyTarget, systemTarget] of [
+  ['destinationSearch', 'skySearch', 'orrerySearch'],
+  ['destinationDetails', 'skySelectedFacts', 'orreryDetail'],
+  ['destinationLocation', 'skyLat', 'orreryTime'],
+  ['destinationEarthLayers', 'skySelectedFacts', 'orreryEarthNight'],
+]) document.getElementById(id)?.addEventListener('click', () => {
+  if (id === 'destinationDetails' && store.activeMode === 'orrery' && store.orrery?.galaxy && !store.orrery?.selectedStar) return;
+  revealWorkspaceControl(store.activeMode, store.activeMode === 'sky' ? skyTarget : systemTarget);
+});
+document.getElementById('destinationTime')?.addEventListener('click', revealTime);
+const focusBody = body => {
+  const anchor = /** @type {HTMLSelectElement|null} */ (document.getElementById('orreryAnchor'));
+  if (store.activeMode !== 'orrery' || !anchor) return;
+  // #orreryAnchor lists the planets and Earth's Moon only, but the renderer anchors on any
+  // catalogue moon (anchorPos/anchorDisplayExtent both resolve one, and follow its parent
+  // outside the validated window). Its own Focus control takes the current selection, so a
+  // moon card's action goes there instead of advertising a button that does nothing.
+  if (![...anchor.options].some(option => option.value === body)) {
+    if (body && store.orrery?.selected === body) document.getElementById('orreryFocusSelected')?.click();
+    return;
+  }
+  const freeFly = /** @type {HTMLInputElement|null} */ (document.getElementById('orreryFreeFly'));
+  if (freeFly?.checked) { freeFly.checked = false; freeFly.dispatchEvent(new Event('change')); }
+  anchor.value = body; anchor.dispatchEvent(new Event('change')); updateTaskHeader();
+};
+document.getElementById('destinationFocus')?.addEventListener('click', event => {
+  const body=/** @type {HTMLElement} */ (event.currentTarget).dataset.body;
+  if(store.activeMode==='orrery'&&body==='Sun')document.getElementById('orreryInspectSun')?.click();
+  else focusBody(body);
+});
+for (const button of document.querySelectorAll('[data-camera-body]')) button.addEventListener('click', () => focusBody(/** @type {HTMLElement} */ (button).dataset.cameraBody));
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && store.tourIndex < 0 && workspace.focus) {
+    workspace.focus = false; renderWorkspace(store.activeMode); document.getElementById("focusToggle")?.focus();
+  }
 });
 
 // --- Boot ---
+initExplorer(chooseExperience, updateTaskHeader);
 buildWavelengthBar();
 buildSunCutaway();
 // Route the initial surface: a #sky= share link outranks the remembered surface, which

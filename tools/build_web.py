@@ -12,17 +12,56 @@ import tempfile
 from pathlib import Path
 
 from validate_release_manifest import RELEASE_ID, base_path as validate_base_path, digest, validate_manifest
+from validate_physical_assets import validate_physical_source
+from validate_planet_phenomena import validate_phenomena_source
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def validate_visual_source(source_root: Path) -> frozenset[str]:
+    """Validate visual identity and return images required by the initial experience."""
+    if not any((source_root / name).exists() for name in ("js/visualAssets.js", "js/solarObservation.js")):
+        return frozenset()  # Historical artifacts retain their optional-texture contract.
+    from validate_visual_assets import browser_module, validate_inventory
+    inventory = source_root / "visual-assets.v1.json"
+    if not inventory.is_file() or inventory.is_symlink():
+        raise ValueError("visual runtime requires its reviewed inventory")
+    data = json.loads(inventory.read_text(encoding="utf-8"))
+    validate_inventory(data, source_root)
+    generated = source_root / "js/visualAssetManifest.js"
+    if not generated.is_file() or generated.read_text(encoding="utf-8") != browser_module(data):
+        raise ValueError("browser visual inventory drift")
+    # solarObservation.js selects observed_images[0] for the default Sun view.
+    # Its first request can precede SW control, so installation must admit these
+    # exact pinned bytes; remaining archive previews and textures stay on demand.
+    # Cache admission does not upgrade a source's scientific qualification.
+    if (source_root / "js/solarObservation.js").is_file():
+        return frozenset({data["observed_images"][0]["path"]})
+    return frozenset()
+
 TOKEN = re.compile(r"\?v=[0-9a-zA-Z._-]+")
 WASM_FILES = ("solar_wasm.wasm", "solar_ephemeris.wasm")
 TRANSITION_SCHEMAS = {"solar-state-snapshot.v2", "solar-state-snapshot.v3", "ephemeris-snapshot.v2", "ephemeris-snapshot.v3"}
 SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "ephemerisSchema.js", "ephemerisContract.js", "ephemerisContractV2.js",
     "solarSchema.js", "solarContract.js", "systemContract.js", "dataBundle.js", "sourceAttribution.js",
     "solarProjection.js", "solarRegionFacts.js", "celestial.js", "engineLimits.js",
+    "displayGeometry.js", "labelOcclusion.js", "visualAssets.js", "visualAssetManifest.js", "solarObservation.js", "orrery.js", "orreryShaders.js", "planetAppearance.js", "moonAppearance.js", "surfaceMapping.js",
+    "materialColor.js", "ringTransport.js", "ringTransportShaders.js", "surfaceReflection.js", "surfaceReflectionShaders.js",
+    "hdrPresentation.js", "hdrPresentationShaders.js", "shaderPrograms.js", "referenceDemand.js",
     "bodyData.js", "moonelements.js", "moonorbits.js", "moonshadows.js", "starphysics.js", "starcatalog.js",
-    "orreryMath.js", "orreryTime.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
-    "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js"})
+    "orreryMath.js", "orreryTime.js", "orbitCamera.js", "solarWorker.js", "skyWorker.js", "systemWorker.js",
+    "workerClient.js", "solarWorkerClient.js", "skyWorkerClient.js", "systemWorkerClient.js",
+    "terrainAssets.js", "terrainGeometry.js", "terrainResources.js", "terrainShadowShaders.js", "terrain.worker.js", "terrainWorkerClient.js",
+    "solarAppearance.js", "solarAppearanceManifest.js", "solarVolumeShaders.js", "atmosphereOptics.js", "atmosphereShaders.js", "atmosphereIncident.js", "atmosphereIncidentManifest.js",
+    "atmosphereColumnField.js", "atmosphereColumnManifest.js", "atmosphereScattering.js", "scatteringTargets.js",
+    "planetPhenomena.js", "planetPhenomenaManifest.js", "solarAssetLoader.js", "physicalRendering.js",
+    "illustrativeHaze.js",
+    # render.js decides how an observed solar frame reaches the canvas: drawObservedBase()
+    # chooses between a registered photospheric disk and a whole browse frame, and owns the
+    # clip and limb treatment that go with each. That is observation rendering, so its hash
+    # belongs in the science fingerprint rather than letting a later change to this path
+    # reuse a qualification recorded for different behaviour.
+    "render.js"})
 
 
 def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id: str,
@@ -37,6 +76,9 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     if not RELEASE_ID.fullmatch(release_id):
         raise ValueError("invalid release ID")
     validate_base_path(base_path)
+    critical_visuals = validate_visual_source(source_root)
+    validate_physical_source(source_root)
+    validate_phenomena_source(source_root)
     if schemas is None:
         solar_text = (source_root / "js/solarSchema.js").read_text(encoding="utf-8")
         declarations = [line.strip() for line in solar_text.splitlines() if line.strip() and not line.lstrip().startswith("//")]
@@ -73,6 +115,11 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     out_root.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=".sol-stage-", dir=out_root.parent))
     namespace = f"releases/{release_id}/"
+    critical_visual_paths = {namespace + path for path in critical_visuals}
+    # These verified numerical fields load on optical demand, not SW install.
+    # Keep their manifests, runtime modules and all other data critical.
+    optional_optical_paths = {namespace + f"data/optics/{body}-{kind}-v1.f32"
+                              for body in ("earth", "mars") for kind in ("incident", "columns")}
     source_map: dict[str, dict] = {}
     try:
         for file in sorted(source_root.rglob("*")):
@@ -99,6 +146,10 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
                 target.write_bytes(raw)
             source_map[destination] = {"source_path": "apps/web/" + relative,
                                        "source_sha256": hashlib.sha256(raw).hexdigest()}
+        # Recheck copied bytes and generated-data parity after source reads, before
+        # publishing the staged artifact. Source validation alone is not readback.
+        validate_physical_source(temporary / namespace)
+        validate_phenomena_source(temporary / namespace)
         bundle_descriptor = None
         if selected_bundle:
             bundle_root = namespace + "data/bundles/" + selected_bundle.bundle_id + "/"
@@ -141,7 +192,8 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
                 continue
             relative = file.relative_to(temporary).as_posix()
             current = relative in ("index.html", "sw.js") or relative.startswith(namespace)
-            role = "optional" if "/textures/" in relative or not current else "critical"
+            role = "optional" if (not current or relative in optional_optical_paths
+                                  or ("/textures/" in relative and relative not in critical_visual_paths)) else "critical"
             assets.append({"path": relative, "size": file.stat().st_size, "sha256": digest(file),
                            "role": role, **source_map.get(relative, {})})
         data_assets = [asset for asset in assets if asset["path"].startswith(namespace + "data/")]

@@ -3,12 +3,18 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+static NEXT_FIXTURE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 fn temp_dir(label: &str) -> PathBuf {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let path = std::env::temp_dir().join(format!("sol-cli-{label}-{}-{nonce}", std::process::id()));
+    let path = std::env::temp_dir().join(format!(
+        "sol-cli-{label}-{}-{nonce}-{}",
+        std::process::id(),
+        NEXT_FIXTURE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
     fs::create_dir_all(&path).expect("create temp directory");
     path
 }

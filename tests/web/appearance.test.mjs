@@ -105,7 +105,7 @@ test("each moon texture file is declared in the fetcher and credited", () => {
     assert.match(line, /https:\/\/astrogeology\.usgs\.gov\//, `${moon} must come from USGS`);
     assert.match(line, /public domain/, `${moon} needs a licence in its credit string`);
     // Partial coverage must say so in the credit, not just in a commit message.
-    if (moon === "Callisto") assert.match(line, /±87\.6° latitude/);
+    if (moon === "Callisto") assert.match(line, /latitude registration unverified/);
   }
 });
 
@@ -113,15 +113,15 @@ test("the renderer loads moon maps through the same path and toggle as the plane
   const orrery = repoFile("apps/web/js/orrery.js");
   assert.match(orrery, /\.\.\.MOON_TEXTURE_FILES/);          // one TEXTURE_FILES table
   assert.match(orrery, /state\.useTextures && textures\[m\.n\]/); // same Photo-textures toggle
-  assert.match(orrery, /u_texMode, moonTex \? 2 : 0/);       // mosaic mode, else procedural
+  assert.match(orrery, /u_texMode, registered \? \(reference\.moon_color_mode === 'source-rgb' \? 5 : 4\) : legacy \? 2 : 0/); // explicit source registration before legacy eligibility
   assert.match(orrery, /u_useTex, moonTex \? 1 : 0/);        // graceful fallback when absent
 });
 
 // ---------------------------------------------------------------- shader branches
 
-test("Europa gets its own low-crater ice style rather than the shared cratered one", () => {
+test("Europa retains its optional ice shader while unqualified surface rendering stays neutral", () => {
   assert.equal(STYLE_ID.moonIce, 12);
-  assert.match(repoFile("apps/web/js/orrery.js"), /m\.n === "Europa" \? STYLE_ID\.moonIce/);
+  assert.match(repoFile("apps/web/js/orrery.js"), /u_style, -1\); \/\/ no invented craters/);
   const branch = SPHERE_FS.split("u_style==12")[1].split("else if(u_style==")[0];
   assert.match(branch, /Bierhaus/, "the crater-count claim needs its citation in place");
   assert.match(branch, /ILLUSTRATIVE/, "the procedural lineae must be labelled, not implied real");

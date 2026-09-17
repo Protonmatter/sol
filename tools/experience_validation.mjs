@@ -50,6 +50,150 @@ try {
   await page.evaluate(value=>{window.__solQaPrefix=value;},prefix);
   const moduleUrl = `${prefix}js/store.js${token}`;
   await page.click('[data-mode="today"]');
+  await page.waitForFunction(() => {
+    const image=document.getElementById("observationImage");
+    return image?.complete && image.naturalWidth > 0;
+  }, {timeout:20000});
+  const observationDefault=await page.evaluate(()=>({
+    visible:["solarObservation","observationImage","explorerOverview","observationStatus","viewSource","viewTime"].every(id=>document.getElementById(id)?.getClientRects().length>0),
+    modelVisible:["solarCanvas","dataState","ingestState","readinessState","regionCount","brMax","confidenceMean","layerConfidence","layerRegions","liveRun"].filter(id=>document.getElementById(id)?.getClientRects().length>0),
+    caption:document.getElementById("observationStatus").textContent,
+    source:document.getElementById("viewSource").textContent,
+    time:document.getElementById("viewTime").textContent,
+  }));
+  assert.equal(observationDefault.visible,true,"initial observation, overview and provenance are visible");
+  assert.deepEqual(observationDefault.modelVisible,[],"observed Explore never overlays synthetic model metrics or controls");
+  assert.match(observationDefault.caption,/archiv/i,"observation caption identifies the archived image");
+  assert.match(observationDefault.time,/\d{4}/,"observation time includes the source year");
+  assert.match(observationDefault.source,/observ|archiv/i,"source identifies observed imagery");
+  for(const width of [1440,900,390,320]) {
+    await page.setViewport({width,height:900});
+    const reflow=await page.evaluate(()=>({
+      overflow:document.documentElement.scrollWidth>innerWidth+1,
+      clipped:[...document.querySelectorAll('.mode-button, #exploreObservation, #exploreResearch, #sourcesLink, #tourStart')].filter(node=>{const r=node.getBoundingClientRect();return !r.width||r.left<0||r.right>innerWidth+1;}).map(node=>node.id||node.textContent.trim()),
+      imageFit:getComputedStyle(document.getElementById('observationImage')).objectFit,
+    }));
+    assert.deepEqual(reflow,{overflow:false,clipped:[],imageFit:'contain'},`${width}: observation navigation reflows and the complete image is contained`);
+    if(width===1440) {
+      const fit=await page.evaluate(()=>{
+        const overview=document.getElementById('explorerOverview'),caption=document.querySelector('.observation-caption');
+        return {overviewBottom:overview.getBoundingClientRect().bottom,captionTop:caption.getBoundingClientRect().top,overflowY:getComputedStyle(overview).overflowY,scrollHeight:overview.scrollHeight,clientHeight:overview.clientHeight};
+      });
+      assert.ok(fit.overviewBottom<=fit.captionTop+1,'desktop overview must fit above the observation caption');
+      if(fit.scrollHeight>fit.clientHeight+1) assert.match(fit.overflowY,/auto|scroll/,'overflowing overview content must remain locally scrollable');
+      diagnostics.checks.push({overviewFit:fit});
+    }
+    await page.screenshot({path:path.join(out,`observation-initial-${width}.png`),fullPage:true});
+  }
+  diagnostics.checks.push({observationDefault});
+  if(!captureOnly) {
+    // Isolate image failure from caches and from the main scientific-workflow page.
+    const failureContext=await browser.createBrowserContext();
+    try {
+      const failurePage=await failureContext.newPage();
+      await failurePage.setViewport({width:1440,height:900});
+      await failurePage.setBypassServiceWorker(true);
+      await failurePage.setCacheEnabled(false);
+      let failObservation=true,abortedImages=0;
+      await failurePage.setRequestInterception(true);
+      failurePage.on('request',request=>{
+        if(failObservation&&new URL(request.url()).pathname.endsWith('/textures/solar-observation-171.jpg')) { abortedImages++;request.abort(); }
+        else request.continue();
+      });
+      await failurePage.goto(origin,{waitUntil:'networkidle0'});
+      await failurePage.waitForSelector('#observationUnavailable',{visible:true,timeout:15000});
+      const failure=await failurePage.evaluate(()=>({
+        header:document.querySelector('.view-heading').innerText,
+        unavailableVisible:document.getElementById('observationUnavailable').getClientRects().length>0,
+        modelVisible:document.getElementById('solarCanvas').getClientRects().length>0,
+        imageWidth:document.getElementById('observationImage').naturalWidth,
+        source:document.getElementById('viewSource').textContent,
+      }));
+      assert.ok(abortedImages>=1,'failure scenario must actually abort the observation asset');
+      assert.equal(failure.unavailableVisible,true);
+      assert.match(failure.header,/unavailable|failed|could not.*load/i,'visible header explains the missing observation');
+      assert.equal(failure.modelVisible,false,'image failure never substitutes the synthetic solar canvas');
+      assert.equal(failure.imageWidth,0,'failed observation has no decoded fallback bitmap');
+      assert.equal(await failurePage.$eval('#observationImage',node=>node.hidden),true,'failed image is hidden so its broken bitmap and alt text cannot overlap the channel badge');
+      assert.doesNotMatch(failure.source,/synthetic/i,'a model fallback is never represented as an observation');
+      await failurePage.screenshot({path:path.join(out,'observation-unavailable-1440.png'),fullPage:true});
+      failObservation=false;
+      await failurePage.click('#observationRetry');
+      await failurePage.waitForFunction(()=>{
+        const image=document.getElementById('observationImage');
+        return image.complete&&image.naturalWidth>0&&document.getElementById('observationUnavailable').hidden;
+      },{timeout:15000});
+      assert.equal(await failurePage.$eval('#solarCanvas',node=>node.getClientRects().length>0),false,'successful image retry remains an observation-only view');
+      assert.doesNotMatch(await failurePage.$eval('.view-heading',node=>node.innerText),/could not.*load|unavailable|failed/i,'successful retry clears failure messaging');
+      await failurePage.screenshot({path:path.join(out,'observation-recovered-1440.png'),fullPage:true});
+      diagnostics.checks.push({observationFailure:failure,abortedImages,observationRetry:'loaded actual image'});
+    } finally { await failureContext.close(); }
+    const entryContext=await browser.createBrowserContext();
+    try {
+      const entryPage=await entryContext.newPage();
+      await entryPage.setViewport({width:1440,height:900});
+      await entryPage.goto(origin,{waitUntil:'networkidle0'});
+      await entryPage.waitForFunction(()=>document.getElementById('observationImage')?.naturalWidth>0);
+      await entryPage.click('#openResearchTools');
+      assert.equal(await entryPage.evaluate(()=>document.activeElement.id),'inspectorClose','overview Research entry transfers focus to visible controls');
+      assert.equal(await entryPage.$eval('#viewInspector',node=>node.hidden||node.inert),false);
+      assert.equal(await entryPage.$eval('#inspectorClose',node=>node.getClientRects().length>0),true);
+      await entryPage.click('#exploreObservation');
+      await entryPage.click('#openEarthContext');
+      const earthFocus=await entryPage.evaluate(()=>({
+        summaryFocused:document.activeElement===document.querySelector('#sunWeather > summary'),
+        summaryVisible:document.querySelector('#sunWeather > summary').getClientRects().length>0,
+        open:document.getElementById('sunWeather').open,
+        inspectorVisible:!document.getElementById('viewInspector').hidden&&!document.getElementById('viewInspector').inert,
+      }));
+      assert.deepEqual(earthFocus,{summaryFocused:true,summaryVisible:true,open:true,inspectorVisible:true},'Earth entry opens its research disclosure and moves focus there');
+      diagnostics.checks.push({researchEntryFocus:'visible inspector close control',earthEntryFocus:earthFocus});
+    } finally { await entryContext.close(); }
+  }
+  await page.setViewport({width:1440,height:900});
+  await page.click("#exploreResearch");
+  assert.equal(await page.$eval("#solarObservation",node=>node.getClientRects().length>0),false,"Research hides the separate observation surface");
+  const initialWorkspace = await page.evaluate(() => ({
+    inspectorHidden: document.getElementById("viewInspector").hidden,
+    inspectorInert: document.getElementById("viewInspector").inert,
+    inspectorExpanded: document.getElementById("panelToggle").getAttribute("aria-expanded"),
+    timelineHidden: document.getElementById("timeline").hidden,
+    timelineExpanded: document.getElementById("timelineToggle").getAttribute("aria-expanded"),
+    evidenceVisible: ["viewSource", "viewTime", "readinessState", "ingestState"].every(id => document.getElementById(id).getBoundingClientRect().height > 0),
+  }));
+  assert.deepEqual(initialWorkspace, {inspectorHidden:true,inspectorInert:true,inspectorExpanded:"false",timelineHidden:true,timelineExpanded:"false",evidenceVisible:true});
+  for (const width of [1440, 390, 320]) {
+    await page.setViewport({width,height:900});
+    const initialReflow = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth > innerWidth + 1,
+      clipped: Array.from(document.querySelectorAll('.mode-button, .workspace-actions button')).filter(node => {
+        const r = node.getBoundingClientRect(); return !r.width || r.left < 0 || r.right > innerWidth + 1;
+      }).map(node => node.id || node.textContent.trim()),
+    }));
+    assert.deepEqual(initialReflow, {overflow:false,clipped:[]}, `${width}: initial destination and disclosure controls reflow`);
+    await page.screenshot({path:path.join(out,`workspace-initial-${width}.png`),fullPage:true});
+  }
+  await page.setViewport({width:1440,height:900});
+  await page.click("#panelToggle");
+  await page.click("#timelineToggle");
+  assert.equal(await page.$eval("#viewInspector", node => node.hidden || node.inert), false);
+  assert.equal(await page.$eval("#timeline", node => node.hidden), false);
+  await page.click("#focusToggle");
+  assert.equal(await page.$eval("#focusToggle", node => node.getAttribute("aria-pressed")), "true");
+  assert.equal(await page.$eval("#viewInspector", node => node.hidden && node.inert), true);
+  assert.equal(await page.$eval("#timeline", node => node.hidden), true);
+  for (const id of ["viewSource", "viewTime", "readinessState", "ingestState", "sourcesLink", "tourStart"]) {
+    assert.equal(await page.$eval(`#${id}`, node => node.getBoundingClientRect().height > 0), true, `${id} remains visible in focus`);
+  }
+  await page.keyboard.press("Escape");
+  assert.equal(await page.$eval("#focusToggle", node => node.getAttribute("aria-pressed")), "false");
+  assert.equal(await page.$eval("#viewInspector", node => node.hidden), false, "focus restores prior inspector choice");
+  assert.equal(await page.$eval("#timeline", node => node.hidden), false, "focus restores prior timeline choice");
+  await page.click('[data-mode="sky"]');
+  assert.equal(await page.$eval("#viewInspector", node => node.hidden), true, "Sky has its own initially closed inspector");
+  await page.click('[data-mode="today"]');
+  assert.equal(await page.$eval("#viewInspector", node => node.hidden), false, "Sun inspector choice survives navigation");
+  diagnostics.checks.push({initialWorkspace,disclosures:"opened",focus:"restored",surfaceState:"independent"});
   await page.evaluate(async q => { (await import(`${window.__solQaPrefix}js/wavelength.js${q}`)).setWavelength("model"); }, token);
   // Exercise the longest supported header state explicitly; document overflow can
   // remain hidden while individual controls have already been clipped off-screen.
@@ -64,7 +208,7 @@ try {
     await page.screenshot({ path: path.join(out, `sun-${width}.png`), fullPage: true });
     const layout = await page.evaluate(() => {
       const rect = selector => { const node = document.querySelector(selector); if (!node) return null; const r = node.getBoundingClientRect(); return { x:r.x,y:r.y,width:r.width,height:r.height }; };
-      const clippedControls=Array.from(document.querySelectorAll(".header-actions a, .header-actions button, .timeline-controls button, .timeline-controls input")).filter(node=>{
+      const clippedControls=Array.from(document.querySelectorAll(".header-actions a, .header-actions button, .workspace-actions button, .timeline-controls button, .timeline-controls input")).filter(node=>{
         const r=node.getBoundingClientRect();return r.width>0&&r.height>0&&(r.left < -1 || r.right > innerWidth+1);
       }).map(node=>node.id||node.textContent.trim());
       return { hero: rect(".viewport"), inspector: rect(".control-panel"), nav: rect(".mode-nav"), clippedControls, overflow: document.documentElement.scrollWidth > innerWidth + 1, tourHidden: document.getElementById("tourLayer")?.hidden !== false };
@@ -89,6 +233,10 @@ try {
     await page.evaluate(()=>{document.getElementById("sourcesAndLimits").open=true;document.getElementById("viewEvidencePreview").click();});
     const exported=await page.$eval("#viewEvidenceJson",node=>JSON.parse(node.textContent));
     assert.deepEqual(exported.presentation,truth,"summary exports the same immutable explanatory revision as the visible view");
+    await page.waitForSelector('#viewEvidenceCancel',{visible:true});
+    await page.$eval('#viewEvidenceCancel',node=>node.scrollIntoView({block:'center',behavior:'instant'}));
+    await page.waitForFunction(()=>{const r=document.getElementById('viewEvidenceCancel').getBoundingClientRect();return r.width>0&&r.height>0&&r.top>=0&&r.bottom<=innerHeight;});
+    diagnostics.checks.push({evidenceCancel:await page.$eval('#viewEvidenceCancel',node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};})});
     await page.click("#viewEvidenceCancel");
     await page.evaluate(()=>{document.getElementById("sourcesAndLimits").open=false;});
     await page.evaluate(() => { document.getElementById("sunExplore").open = true; });
@@ -189,9 +337,116 @@ try {
     assert.equal(cancellation.retained,true);assert.match(cancellation.status,/cancelled/i);
 
     await page.click('[data-mode="orrery"]');
+    assert.equal(await page.$eval("#viewInspector", node => node.hidden), true, "System starts with a closed inspector");
     await page.waitForFunction(async u=>{const state=(await import(u)).store.orrery;return state?.active&&state.bodies.length===9;},{timeout:25000},moduleUrl);
+    assert.equal(await page.$eval('#destinationOverview',node=>node.hidden),false);
+    assert.equal(await page.$eval('#destinationTitle',node=>node.textContent),'The Solar System');
+    assert.match(await page.$eval('#destinationCaption',node=>node.textContent),/physical centers preserved/);
+    for(const width of [1440,900,390,320]) {
+      await page.setViewport({width,height:900});
+      const layout=await page.evaluate(()=>({
+        overflow:document.documentElement.scrollWidth>innerWidth+1,
+        clipped:[...document.querySelectorAll('#destinationOverview button:not([hidden]), #systemJumps button')].filter(node=>{const r=node.getBoundingClientRect();return !r.width||r.left<0||r.right>innerWidth+1;}).map(node=>node.id||node.textContent),
+        visible:['destinationOverview','viewSource','viewTime','destinationCaption','systemJumps'].every(id=>document.getElementById(id).getClientRects().length>0),
+      }));
+      assert.deepEqual(layout,{overflow:false,clipped:[],visible:true},`${width}: System overview and navigation remain usable`);
+      assert.equal(await page.$$eval('#destinationOverview .overview-cta:not([hidden])',nodes=>nodes.every(node=>node.getBoundingClientRect().height>=44)),true,`${width}: primary System actions meet the 44px target`);
+      await page.screenshot({path:path.join(out,`system-context-${width}.png`),fullPage:true});
+      diagnostics.checks.push({systemContextWidth:width,layout});
+    }
+    await page.setViewport({width:1440,height:900});
+    await page.click('[data-camera-body="Earth"]');
+    await page.waitForFunction(()=>document.getElementById('destinationTitle').textContent==='Earth');
+    await page.waitForFunction(()=>{
+      const image=document.getElementById('destinationImage');
+      return image.complete&&image.naturalWidth>0&&!image.hidden;
+    },{timeout:15000});
+    const earthContext=await page.evaluate(async u=>{
+      const state=(await import(u)).store.orrery;
+      return {anchor:state.anchor,selected:state.selected,closed:document.getElementById('viewInspector').hidden,
+        facts:document.getElementById('destinationFacts').textContent,note:document.getElementById('destinationNote').textContent,
+        source:document.getElementById('viewSource').textContent,
+        previewLabel:document.getElementById('destinationImageStatus').textContent};
+    },moduleUrl);
+    assert.equal(earthContext.anchor,'Earth'); assert.equal(earthContext.selected,'Earth'); assert.equal(earthContext.closed,true);
+    assert.match(earthContext.facts,/Reference radius.*Reference gravity.*Reference rotation/);
+    assert.match(earthContext.note,/separate from the rendered date/);
+    assert.match(earthContext.previewLabel,/separate from the 3-D scene/);
+    assert.doesNotMatch(earthContext.source,/observed|SDO\/AIA/,'planetary metadata never inherits the separate Sun observation source');
+    const centeredEarth=await page.$eval('#orreryCanvas',canvas=>{const r=canvas.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};});
+    await page.mouse.click(centeredEarth.x,centeredEarth.y);
+    assert.equal(await page.$eval('#viewInspector',node=>node.hidden),true,'System canvas selection keeps tools closed');
+    assert.equal(await page.$eval('#destinationTitle',node=>node.textContent),'Earth');
+    for(const width of [1440,900,390,320]) {
+      await page.setViewport({width,height:900});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+      await page.screenshot({path:path.join(out,`system-earth-context-${width}.png`),fullPage:true});
+    }
+    // Exercise the real native high-speed control and its renderer-produced caveats.
+    // Synchronously substituting presentation flags would be overwritten at the next frame.
+    const playbackBefore=await page.evaluate(()=>{
+      const speed=document.getElementById('orrerySpeed'),play=document.getElementById('orreryAnimate');
+      const before={speed:speed.value,play:play.checked};
+      document.querySelector('#orrerySpeedPresets [data-dps="1826.25"]').click();
+      play.checked=true;play.dispatchEvent(new Event('change'));return before;
+    });
+    await page.waitForFunction(()=>/under-sampled/.test(document.getElementById('destinationCaveat').textContent)&&/one visible turn\/5s/.test(document.getElementById('destinationCaveat').textContent),{timeout:10000});
+    const longCaption=await page.evaluate(()=>{
+      const canvas=document.getElementById('orreryCanvas').getBoundingClientRect(),caption=document.querySelector('.destination-caption').getBoundingClientRect();
+      return {text:document.getElementById('destinationCaveat').textContent,canvasBottom:canvas.bottom,captionTop:caption.top,captionBottom:caption.bottom,viewportBottom:document.querySelector('.viewport').getBoundingClientRect().bottom,overflow:document.documentElement.scrollWidth>innerWidth+1};
+    });
+    assert.match(longCaption.text,/under-sampled/); assert.match(longCaption.text,/one visible turn\/5s/);
+    assert.ok(longCaption.canvasBottom<=longCaption.captionTop+1,'320px high-speed warnings must not cover the canvas');
+    assert.ok(longCaption.captionBottom<=longCaption.viewportBottom+1,'320px high-speed warning must fit inside its viewport');
+    assert.equal(longCaption.overflow,false);
+    await page.screenshot({path:path.join(out,'system-high-speed-caption-320.png'),fullPage:true});
+    await page.evaluate(before=>{
+      const speed=document.getElementById('orrerySpeed'),play=document.getElementById('orreryAnimate');
+      play.checked=before.play;play.dispatchEvent(new Event('change'));
+      speed.value=before.speed;speed.dispatchEvent(new Event('input'));document.getElementById('orreryNow').click();
+    },playbackBefore);
+    diagnostics.checks.push({longCaption,scenario:'native 5-year-per-second playback; prior controls restored and Now selected'});
+    await page.setViewport({width:1440,height:900});
+    await page.click('#focusToggle');
+    assert.equal(await page.$eval('#destinationOverview',node=>node.hidden),true);
+    for(const id of ['viewSource','viewTime','destinationCaption']) assert.equal(await page.$eval(`#${id}`,node=>node.getClientRects().length>0),true,`${id} survives System focus`);
+    await page.keyboard.press('Escape');
+    await page.click('#destinationDetails');
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'orreryDetail');
+    assert.equal(await page.$eval('#destinationOverview',node=>node.hidden),true);
+    await page.click('#inspectorClose');
+    await page.click('#destinationTime');
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'orreryTime');
+    assert.equal(await page.$eval('#systemTimeControls',node=>node.open),true);
+    await page.click('#inspectorClose');
+    await page.click('#destinationSearch');
+    assert.equal(await page.evaluate(()=>document.activeElement.id),'orrerySearch');
+    assert.equal(await page.$eval("#viewInspector", node => node.hidden || node.inert), false);
+    // Explicit scientific workflow: open the time and View disclosures without changing their values.
+    for(const selector of ['#systemTimeControls','#orreryTopDown']) {
+      const summary=await page.$eval(selector,node=>{const details=node.tagName==='DETAILS'?node:node.closest('details');if(!details.open)details.querySelector('summary').click();return details.open;});
+      assert.equal(summary,true);
+    }
+    diagnostics.checks.push({earthContext,systemContextActions:'native focus, details, date and search preserve scientific state'});
+    await page.$eval('#orreryFreeFly',node=>{const details=node.closest('details');if(!details.open)details.querySelector('summary').click();});
+    await page.click('#orreryFreeFly');
+    assert.equal(await page.evaluate(async u=>(await import(u)).store.orrery.freeFly,moduleUrl),true);
+    await page.click('#inspectorClose');
+    await page.click('[data-camera-body="Earth"]');
+    const focusRecovery=await page.evaluate(async u=>({freeFly:(await import(u)).store.orrery.freeFly,checked:document.getElementById('orreryFreeFly').checked,anchor:(await import(u)).store.orrery.anchor}),moduleUrl);
+    assert.deepEqual(focusRecovery,{freeFly:false,checked:false,anchor:'Earth'},'planet shortcut deliberately exits free fly through its existing control');
+    await page.click('[data-mode="today"]');
+    assert.equal(await page.$eval('#systemJumps',node=>node.getClientRects().length),0,'System camera shortcuts never leak onto the Sun');
+    assert.equal(await page.$eval('#destinationOverview',node=>node.hidden),true);
+    await page.click('[data-mode="orrery"]');
+    await page.click('[data-camera-body="Sun"]');
+    await page.click('#destinationSearch');
+    diagnostics.checks.push({systemFocusRecovery:focusRecovery,sunNavigation:'System shortcuts hidden'});
     await page.waitForSelector('#orreryPositions [data-object-id="Earth"]');
     await page.focus('#orreryPositions [data-object-id="Earth"]');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(()=>document.activeElement.dataset.objectId),'Earth');
+    assert.equal(await page.$eval('#viewInspector',node=>node.hidden),false,'keyboard selection retains the existing open-tools choice');
     const system=await page.evaluate(async q=>{
       const {store}=await import(`${window.__solQaPrefix}js/store.js${q}`),s=store.orrery;
       const focused=document.activeElement;

@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+static NEXT_FIXTURE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 struct FixtureDirectory(PathBuf);
 
 impl FixtureDirectory {
@@ -13,8 +15,9 @@ impl FixtureDirectory {
             .expect("clock")
             .as_nanos();
         let root = std::env::temp_dir().join(format!(
-            "sol-snapshot-admission-{}-{nonce}",
-            std::process::id()
+            "sol-snapshot-admission-{}-{nonce}-{}",
+            std::process::id(),
+            NEXT_FIXTURE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         fs::create_dir(&root).expect("create unique temporary directory");
         Self(root)
@@ -23,7 +26,10 @@ impl FixtureDirectory {
 
 impl Drop for FixtureDirectory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove only this test's temporary directory");
+        let removed = fs::remove_dir_all(&self.0);
+        if !std::thread::panicking() {
+            removed.expect("remove only this test's temporary directory");
+        }
     }
 }
 

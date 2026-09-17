@@ -1,6 +1,6 @@
 # Sol status
 
-Updated: 2026-09-11. Scope: inspected local implementation, not production activation.
+Updated: 2026-09-13. Scope: inspected local implementation, not production activation.
 
 ## Implementation versus qualification
 
@@ -9,9 +9,13 @@ acceptance case has passed, the change is merged, or an artifact is deployable.
 The existing public website and previously published crate are separate, unverified
 artifacts for this status update.
 
-See [the local implementation ledger](LOCAL_IMPLEMENTATION.md) for concrete candidate
-evidence and open gates. In particular, the separate Node 90/90/90 gate currently fails;
-a passing whole-web line merge does not make the candidate release-ready.
+See [the earlier implementation ledger](LOCAL_IMPLEMENTATION.md) and the current
+[scientific workspace ledger](plans/2026-09-12-scientific-workspace/README.md) for exact
+candidate evidence and open gates. The earlier Node coverage failure was resolved by
+the observation candidate; its recorded Node 90/90/90 and whole-web line gates passed.
+Subsequent candidates require their own fresh source-bound checks. Review PRs and
+production promotion are distinct: missing scientific/manual qualification holds promotion,
+while a scoped, tested implementation can be submitted for code review.
 
 ## Current architecture
 
@@ -37,6 +41,11 @@ Sun, My Sky and Solar System expose selected non-canvas facts, native object con
 visible mode/source/epoch/limitations and bounded lists. The timeline distinguishes
 idealized cycle frames from observed data and treats missing frames as gaps.
 Observed imagery and synthetic model presentation are separate.
+The default Sun is a preserved NASA observation. Sky and System have concise scene cards,
+explicit task entry, native disclosures and source-qualified archive previews. Sky cards use
+the retained snapshot observer and actual provider after a failed request. Planetary
+global-map qualifications remain held; the evidence and next steps are recorded in
+[asset qualification](plans/2026-09-12-scientific-workspace/ASSET_QUALIFICATION.md).
 
 Sky uses geometric altitude greater than zero for above-horizon groups, not refracted
 altitude. Invalid observer/time inputs retain valid state. Device civil timezone is
