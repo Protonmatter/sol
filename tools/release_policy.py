@@ -177,8 +177,12 @@ def evaluate(candidate: Mapping[str, Any], trusted: Mapping[str, Any],
     verified = not reasons
     if candidate.get("event") != "push" or candidate.get("ref") != "refs/heads/master":
         reasons.append("not-master-candidate")
-    if not rollback and candidate.get("source_sha") != trusted.get("current_master_sha"):
-        reasons.append("superseded-candidate")
+    if not rollback:
+        master_sha = trusted.get("current_master_sha")
+        if not re.fullmatch(r"[0-9a-f]{40}", str(master_sha or "")):
+            reasons.append("master-identity-missing")
+        elif candidate.get("source_sha") != master_sha:
+            reasons.append("superseded-candidate")
     if trusted.get("settings_verified") is not True:
         reasons.append("settings-evidence-missing")
     if trusted.get("policy_accepted") is not True or not re.fullmatch(r"[0-9a-f]{64}", str(trusted.get("policy_digest", ""))):
