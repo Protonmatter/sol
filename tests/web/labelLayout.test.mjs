@@ -21,6 +21,14 @@ test("crowded inner-planet labels still place beside the Sun instead of disappea
   assert.ok(ids.includes("Venus"));
   assert.ok(!ids.includes("Iapetus"),"an outer moon must not take a planet's last slot");
 });
+test("overflow planet callouts stay below a reserved top inset",()=>{
+  const rows=["Sun","Mercury","Venus"].map((id,i)=>({id,priority:id==="Sun"?0:2,x:160+i,y:20+i,width:70,height:16}));
+  const result=layoutLabels(rows,{width:320,height:220,limit:3,topInset:72});
+  const venus=result.find(r=>r.id==="Venus");
+  const mercury=result.find(r=>r.id==="Mercury");
+  assert.ok(venus&&venus.y>=76,"Venus must sit below the system-jump chips");
+  assert.ok(mercury&&mercury.y>=76,"Mercury must sit below the system-jump chips");
+});
 test("focused-system moons keep callouts so a crowded Saturn system stays named",()=>{
   const rows=["Saturn","Mimas","Enceladus","Tethys","Dione","Rhea","Titan","Iapetus"]
     .map((id,i)=>({id,priority:1,x:160+i,y:90+i,width:70,height:16}));

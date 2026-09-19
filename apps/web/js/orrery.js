@@ -2500,8 +2500,15 @@ function updateLabels(canvas, vp, skyVp) {
       : 4;
     candidates.push({id:it.name,x:sx,y:sy,width:el.offsetWidth,height:el.offsetHeight,priority});
   }
+  const jumps = document.getElementById("systemJumps");
+  let topInset = 0;
+  if (jumps && !jumps.hidden && typeof jumps.getBoundingClientRect === "function"
+      && typeof host.getBoundingClientRect === "function") {
+    const overlap = jumps.getBoundingClientRect().bottom - host.getBoundingClientRect().top;
+    if (Number.isFinite(overlap) && overlap > 0) topInset = Math.ceil(overlap + 8);
+  }
   const placements = new Map(layoutLabels(candidates,{
-    width:cw,height:ch,limit:cw<600?14:24,
+    width:cw,height:ch,limit:cw<600?14:24,topInset,
   }).map(p=>[p.id,p]));
   for (let i=0;i<items.length;i++) {
     const el=labelEls[i];
