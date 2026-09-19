@@ -4,6 +4,7 @@ import { MOONS } from './moons.js?v=dcca6290db';
 import { SYNCHRONOUS_MOONS } from './moonorbits.js?v=dcca6290db';
 import { visualBrowsePreview, textureEligible } from './visualAssets.js';
 import { appearanceReference, appearanceDescription, appearanceSummary } from './planetAppearance.js';
+import { formatApparentV, formatIrradiance } from './sunPhotometry.js?v=dcca6290db';
 
 /** @typedef {{eyebrow:string,title:string,description:string,facts:{label:string,value:string}[],note:string,preview:ReturnType<typeof visualBrowsePreview>,focusBody:string|null}} DestinationCard */
 const unavailable = 'Unavailable';
@@ -69,13 +70,20 @@ export function systemCard(state = {}) {
     description: 'Open object details for its catalogue facts, source and position limits.'};
   const body = BODY[name];
   const appearance=name==='Sun'&&state.solarMode
-    ? state.solarMode==='visible'?'Visible-light approximation: a white photosphere; detailed visible imagery is unavailable.'
-      :state.solarStatus==='ready'&&state.useTextures!==false?'NASA/SDO AIA 171 Å reference from 10 May 2024. Gold is assigned EUV color. Elevated plasma arcs are modeled; the unobserved hemisphere stays dark.'
-        :'EUV reference '+(state.useTextures===false?'disabled':state.solarStatus||'loading')+'; a simplified visible photosphere is retained.'
+    ? state.solarMode==='visible'?'Visible-light approximation: a white photosphere display recipe, not measured radiance. Detailed visible imagery is unavailable.'
+      :state.solarStatus==='ready'&&state.useTextures!==false?'NASA/SDO AIA 171 Å reference from 10 May 2024. Gold is assigned EUV color. Elevated plasma arcs are modeled; the unobserved hemisphere stays dark. Globe brightness does not use L☉ or S(r).'
+        :'EUV reference '+(state.useTextures===false?'disabled':state.solarStatus||'loading')+'; a simplified visible photosphere is retained. Globe brightness does not use L☉ or S(r).'
     :appearanceReference(name)?appearanceDescription(name,state):!textureEligible(name)||state.useTextures===false?'Surface detail unavailable in this view; the 3-D appearance is simplified.':'';
-  return {...card, eyebrow: 'LOOK CLOSER', title: name, description: body.blurb,
-    facts: [fact('Reference radius', number(body.radiusKm, ' km')), fact('Reference gravity', number(body.gravity, ' m/s²')),
-      fact('Reference rotation', Number.isFinite(body.rotationHours) ? `${number(Math.abs(body.rotationHours), ' h')}${body.rotationHours < 0 ? ' · retrograde' : ''}` : unavailable)],
-    note: `Reference facts from the body catalogue, separate from the rendered date. ${scale}${retained} ${appearance}`,
+  const sunLive = name === 'Sun' && Array.isArray(state.bodies)
+    ? state.bodies.find(item => item?.name === 'Sun') : null;
+  const earthDistance = Number.isFinite(sunLive?.geo_dist_au) ? sunLive.geo_dist_au : null;
+  const facts = name === 'Sun'
+    ? [fact('Luminosity L☉', '3.828×10²⁶ W'),
+      fact('Irradiance S(r)', formatIrradiance(earthDistance) || '1,361 W/m² at 1 AU'),
+      fact('Apparent V☉', formatApparentV(earthDistance) || '−26.74 at 1 AU')]
+    : [fact('Reference radius', number(body.radiusKm, ' km')), fact('Reference gravity', number(body.gravity, ' m/s²')),
+      fact('Reference rotation', Number.isFinite(body.rotationHours) ? `${number(Math.abs(body.rotationHours), ' h')}${body.rotationHours < 0 ? ' · retrograde' : ''}` : unavailable)];
+  return {...card, eyebrow: 'LOOK CLOSER', title: name, description: body.blurb, facts,
+    note: `Reference facts from the body catalogue, separate from the rendered date. ${name === 'Sun' ? 'Photometry is inverse-square from L☉; the globe does not use it. ' : ''}${scale}${retained} ${appearance}`,
     preview: visualBrowsePreview(name), focusBody: name};
 }

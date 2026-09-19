@@ -19,7 +19,8 @@ function fixture() {
     // and occlusion still execute their actual production implementations.
     displayRadiusAU: () => 0.3,
     state: { bodies: [{ name: "Jupiter", p: [0, 0, 0] }], anchor: "Jupiter" },
-    DRAW_LIST: ["Jupiter"], moonMarkers: [], bodyWorldPos: body => body.p,
+    DRAW_LIST: ["Jupiter"], moonMarkers: [], moonSet: { MOONS: [] },
+    moonDisplayRadius: () => 0.02, bodyWorldPos: body => body.p,
     cel: { pulsars: [], deepsky: [], brightStars: [] },
     document: { getElementById: () => ({ style: {}, appendChild() {} }),
       createElement: () => ({ style: {}, dataset: {}, offsetWidth: 40, offsetHeight: 16, classList: { toggle() {} } }) },
@@ -79,4 +80,32 @@ test("a background label behind an opaque planet clears its anchor and returns w
   assert.equal(label.style.display, "block");
   assert.equal(label.dataset.projectionX, "100");
   assert.ok(Math.abs(Number(label.dataset.projectionY) - 25) < 1e-12);
+});
+
+test("a moon keeps its name when it sits on or behind its parent disc", () => {
+  const f = fixture();
+  f.matrix.splice(0, 16, ...perspective(Math.PI / 2, 2, .1, 100));
+  f.context.DRAW_LIST = ["Earth", "Moon"];
+  f.context.state.bodies = [
+    { name: "Earth", p: [0, 0, -2] },
+    { name: "Moon", p: [0.02, 0, -2.4] },
+  ];
+  f.context.state.anchor = "Earth";
+  f.context.state.selected = "Earth";
+  f.context.moonSet = { MOONS: [] };
+  f.render();
+  const moon = f.labels.find(label => label.textContent === "Moon");
+  assert.ok(moon, "Earth's Moon remains a label candidate");
+  assert.equal(moon.style.display, "block", "Earth's disc must not hide the Moon's name");
+
+  f.context.DRAW_LIST = ["Jupiter"];
+  f.context.state.bodies = [{ name: "Jupiter", p: [0, 0, -2] }];
+  f.context.state.anchor = "Jupiter";
+  f.context.state.selected = "Jupiter";
+  f.context.moonSet = { MOONS: [{ n: "Io", p: "Jupiter" }] };
+  f.context.moonMarkers = [{ name: "Io", pos: [0.02, 0, -2.4], moon: { n: "Io", p: "Jupiter" } }];
+  f.render();
+  const io = f.labels.find(label => label.textContent === "Io");
+  assert.ok(io, "a catalog moon remains a label candidate");
+  assert.equal(io.style.display, "block", "Jupiter's disc must not hide Io's name");
 });

@@ -14,8 +14,16 @@ test('Sun card identifies enabled source, modeled volume and explicit fallback',
   const ready={selected:'Sun',solarMode:'reconstructed-euv',solarStatus:'ready',useTextures:true};
   assert.match(systemCard(ready).note,/AIA 171/);assert.match(systemCard(ready).note,/modeled/);
   assert.doesNotMatch(systemCard(ready).note,/detail unavailable/);
+  assert.match(systemCard(ready).note,/does not use/);
+  assert.equal(fact(systemCard(ready),'Luminosity L☉'),'3.828×10²⁶ W');
+  assert.equal(fact(systemCard(ready),'Irradiance S(r)'),'1,361 W/m² at 1 AU');
+  assert.equal(fact(systemCard(ready),'Apparent V☉'),'−26.74 at 1 AU');
+  const live=systemCard({...ready,bodies:[{name:'Sun',geo_dist_au:1.0167}]});
+  assert.match(fact(live,'Irradiance S(r)'),/1,317 W\/m²/);
+  assert.equal(fact(live,'Apparent V☉'),'-26.70');
   assert.match(systemCard({...ready,solarStatus:'unavailable'}).note,/simplified visible photosphere/);
   assert.match(systemCard({...ready,solarMode:'visible'}).note,/Visible-light approximation/);
+  assert.match(systemCard({...ready,solarMode:'visible'}).note,/not measured radiance/);
   assert.match(systemCard({...ready,useTextures:false}).note,/reference disabled/);
 });
 

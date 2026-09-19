@@ -68,6 +68,28 @@ export function sampleDensityColumns(values,profile,origin,direction,distance,po
 
 const COLUMN_GLSL=`
 uniform highp sampler2D u_atmosphereColumnField;
+uniform vec3 u_atmosphereOzoneKm;
+uniform vec2 u_atmosphereOzoneLayerKm;
+float atmosphereOzoneDensity(float height){
+  float width=u_atmosphereOzoneLayerKm.y;
+  if(width<=0.0) return 0.0;
+  return exp(-abs(height-u_atmosphereOzoneLayerKm.x)/width);
+}
+float atmosphereOzoneColumnOnAxis(float impact,float x0,float x1){
+  float span=x1-x0;
+  if(span<=0.0||u_atmosphereOzoneLayerKm.y<=0.0) return 0.0;
+  float halfWidth=span*.5, middle=(x0+x1)*.5, column=0.0;
+  for(int i=0;i<8;i++){
+    float x=middle+halfWidth*ATM_X8[i];
+    float height=max(0.0,length(vec2(impact,x))-u_atmosphereRadiusKm);
+    column+=ATM_W8[i]*atmosphereOzoneDensity(height);
+  }
+  return column*halfWidth;
+}
+float atmosphereOzoneToTop(float impact,float begin){
+  float outer=sqrt(max(0.0,(u_atmosphereRadiusKm+u_atmosphereTopKm)*(u_atmosphereRadiusKm+u_atmosphereTopKm)-impact*impact));
+  return begin>outer?0.0:atmosphereOzoneColumnOnAxis(impact,begin,outer);
+}
 vec2 atmosphereOutwardColumns(float height,float mu){
   if(height>=u_atmosphereTopKm)return vec2(0);
   vec2 p=sqrt(clamp(vec2(mu,height/u_atmosphereTopKm),vec2(0),vec2(1)))*511.0;
@@ -95,7 +117,8 @@ vec3 atmosphereOpticalDepth(vec3 origin,vec3 direction,float distance){
   vec2 a=atmosphereColumnTail(impact,abs(begin)),b=atmosphereColumnTail(impact,abs(end));
   vec2 columns=begin>=0.0?a-b:end<=0.0?b-a:2.0*atmosphereColumnTail(impact,0.0)-a-b;
   columns=max(vec2(0),columns/scale);
-  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y;
+  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y
+    +u_atmosphereOzoneKm*(atmosphereOzoneColumnOnAxis(impact,begin,end)/scale);
 }
 // All view samples share one physical ray. Cache only its invariant geometry
 // and tails; retain the generic evaluator for direct comparison.
@@ -115,7 +138,8 @@ vec3 atmosphereCachedOpticalDepth(AtmosphereColumnRay ray,float distance){
   vec2 b=atmosphereColumnTail(ray.impact,abs(end));
   vec2 columns=ray.begin>=0.0?ray.initial-b:end<=0.0?b-ray.initial:ray.twiceClosest-ray.initial-b;
   columns=max(vec2(0),columns/ray.scale);
-  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y;
+  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y
+    +u_atmosphereOzoneKm*(atmosphereOzoneColumnOnAxis(ray.impact,ray.begin,end)/ray.scale);
 }
 // Called after public Sun visibility or prepared lit support, and a positive
 // outer-exit check (conditioning may intentionally evaluate a dark centroid).
@@ -129,7 +153,8 @@ vec3 atmosphereSunOpticalDepthToTop(vec3 origin,vec3 direction){
   vec2 initial=atmosphereColumnTail(impact,abs(begin));
   vec2 columns=begin>=0.0?initial:2.0*atmosphereColumnTail(impact,0.0)-initial;
   columns=max(vec2(0),columns/scale);
-  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y;
+  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y
+    +u_atmosphereOzoneKm*(atmosphereOzoneToTop(impact,begin)/scale);
 }
 `;
 

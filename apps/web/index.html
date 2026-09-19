@@ -32,9 +32,9 @@
     <link rel="modulepreload" href="js/ephemerisSchema.js?v=dcca6290db">
     <link rel="modulepreload" href="js/format.js?v=dcca6290db">
     <link rel="modulepreload" href="js/galacticobjects.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/orrery.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/orrery.js?v=dcca6290dd">
     <link rel="modulepreload" href="js/shaderPrograms.js">
-    <link rel="modulepreload" href="js/labelLayout.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/labelLayout.js?v=dcca6290dd">
     <link rel="modulepreload" href="js/labelOcclusion.js">
     <link rel="modulepreload" href="js/planetAppearance.js">
     <link rel="modulepreload" href="js/atmosphereOptics.js">
@@ -76,7 +76,7 @@
     <link rel="modulepreload" href="js/orreryDetail.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orreryGalaxy.js?v=dcca6290db">
     <link rel="modulepreload" href="js/moonAppearance.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/moonorbits.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/moonorbits.js?v=dcca6290dd">
     <link rel="modulepreload" href="js/moons.js?v=dcca6290db">
     <link rel="modulepreload" href="js/moonshadows.js?v=dcca6290db">
     <link rel="modulepreload" href="js/orreryMath.js?v=dcca6290db">
@@ -112,6 +112,7 @@
     <link rel="modulepreload" href="js/explorer.js?v=dcca6290db">
     <link rel="modulepreload" href="js/destinationCards.js?v=dcca6290db">
     <link rel="modulepreload" href="js/destinationOverview.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/sunPhotometry.js?v=dcca6290db">
     <link rel="modulepreload" href="js/solarObservation.js">
     <link rel="modulepreload" href="js/displayGeometry.js?v=dcca6290db">
     <link rel="modulepreload" href="js/visualAssetManifest.js">
@@ -383,6 +384,7 @@
               <h1>The Solar System</h1>
               <p id="orreryInsight" class="insight" aria-live="polite">Explore modeled planetary positions in 3-D or a top-down map. Bodies are enlarged for visibility; source limits are shown with the rendered date. Select an object in the view or search below. Keyboard: focus the view, then arrow keys orbit and +/− zoom.</p>
             </header>
+            <h3 class="inspector-chapter">Tools</h3>
             <div class="sky-observer">
               <details id="systemTimeControls" class="destination-control-group">
               <summary>Date, focus &amp; motion</summary>
@@ -466,7 +468,7 @@
                   </label>
                   <p id="orreryEarthCloudHelp" class="time-frame-label">The Blue Marble 2002 cloud layer lies over the land map, so clouds and continents stay visible together. Dated MODIS swaths replace the land map with their own surface and retain gaps and boundaries between passes. Neither is live weather.</p>
                   <p id="orreryEarthLayerStatus" class="time-frame-label" role="status"></p>
-                  <p class="time-frame-label">Imagery keeps its source date as the model clock moves. Antarctica and Greenland appear in the land map. Sea ice is a dated scientific color overlay. The blue atmospheric rim is an illustrative scattering effect, not a measurement of current air conditions.</p>
+                  <p class="time-frame-label">Imagery keeps its source date as the model clock moves. Antarctica and Greenland appear in the land map. Sea ice is a dated scientific color overlay. Earth's close limb uses the reference molecular, aerosol and Chappuis ozone transfer; it is not a measurement of current air conditions.</p>
                   <figure id="orreryIceLegend" class="earth-ice-legend" hidden>
                     <img src="images/earth-sea-ice-legend.png" width="420" height="95" alt="NASA sea ice concentration scale from 0 percent (dark) through purple, blue, cyan, green, yellow and red to 100 percent (white)">
                     <figcaption id="orreryIceLegendCaption">NASA/JPL MUR sea ice concentration. Transparent areas have no displayed data.</figcaption>
@@ -519,6 +521,7 @@
               <button id="orreryRetry" class="time-btn" type="button" hidden>Retry System calculation</button>
             </div>
             <div class="sky-whatsup">
+              <h3 class="inspector-chapter">This body</h3>
               <span class="label">Selected body</span>
               <div id="orreryDetail" class="sky-list" tabindex="-1"><div class="sky-row">Click the Sun or a planet to inspect its size, gravity, rotation, tilt, magnetic field, atmosphere, and live distance.</div></div>
               <p id="orrerySelectionStatus" class="sr-only" role="status"></p>
@@ -527,6 +530,7 @@
 
             </div>
             <div class="sky-whatsup">
+              <h3 class="inspector-chapter">Find</h3>
               <label class="label" for="orrerySearch">Find an object</label>
               <input id="orrerySearch" class="sky-input" type="search" placeholder="Planet, moon, small body or named star">
               <label class="label" for="orreryObjectGroup">Object group</label>
@@ -671,6 +675,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=dcca6290db"></script>
+    <script type="module" src="app.js?v=dcca6290dd"></script>
   </body>
 </html>

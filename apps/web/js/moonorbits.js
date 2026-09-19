@@ -235,3 +235,19 @@ export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU
   }
   return scale;
 }
+
+/**
+ * Display-space radius that encloses a planet, its rings, and every catalog moon
+ * of that planet after the same systemScale drawMoons uses. Camera framing uses
+ * this so a focused system keeps Iapetus and Nereid on screen instead of
+ * cropping them behind a 76% globe fill.
+ */
+export function satelliteSystemExtent(moons, planetDisplayAU, trueScale, ringOuterAU = 0, radiusOf = () => 0) {
+  const scale = systemScale(moons, planetDisplayAU, trueScale, ringOuterAU, radiusOf);
+  let extent = Math.max(planetDisplayAU, ringOuterAU);
+  for (const m of moons) {
+    const reach = (m.a * (1 + m.e) / AU_KM) * scale + radiusOf(m);
+    if (Number.isFinite(reach) && reach > 0) extent = Math.max(extent, reach);
+  }
+  return extent;
+}

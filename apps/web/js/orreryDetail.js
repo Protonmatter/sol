@@ -7,6 +7,7 @@ import { isRetrograde } from "./moonorbits.js?v=dcca6290db";
 import { MOON_ALBEDO } from "./moonAppearance.js?v=dcca6290db";
 import { visualProvenanceText, visualBrowsePreview } from "./visualAssets.js";
 import { appearanceReference, appearanceReferences, appearanceDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
+import { formatApparentV, formatIrradiance } from "./sunPhotometry.js?v=dcca6290db";
 
 // Keep mutable appearance text separate from the native disclosure and source links.
 // Presentation updates must not replace a focused link, glossary button or open card.
@@ -196,7 +197,12 @@ export function renderDetail(name, live, appearanceState = {}) {
     if (live.magnitude != null) add("Apparent magnitude", live.magnitude.toFixed(1), "apparent-magnitude");
   }
   if (name === "Sun") {
-    add("Luminosity", "3.828×10²⁶ W");
+    add("Luminosity", "3.828×10²⁶ W", "solar-luminosity");
+    const sunDistance = live && Number.isFinite(live.geo_dist_au) && live.geo_dist_au > 0 ? live.geo_dist_au : null;
+    add("Irradiance S(r)", sunDistance != null
+      ? `${formatIrradiance(sunDistance)} at ${fmt(sunDistance, 3)} AU` : "1,361 W/m² at 1 AU", "solar-irradiance");
+    add("Apparent V☉", sunDistance != null ? formatApparentV(sunDistance) : "−26.74 at 1 AU", "solar-magnitude");
+    add("Display", "Globe brightness is a display recipe. It does not use L☉ or S(r).");
     add("Composition", "73% H, 25% He (by mass)");
     add("Surface imagery", "3D imagery mapping held; retained solar disk has no verified observation time. Fetch time is not capture time.");
   }
@@ -217,6 +223,9 @@ export function updateLiveDetailFacts(live) {
     "Illuminated":live.illuminated_fraction==null ? "Unavailable" : `${fmt(live.illuminated_fraction*100,1)}% · phase ${fmt(live.phase_angle_deg,1)}°`,
     "Apparent magnitude":fmt(live.magnitude,1),
     "Equilibrium temp":`${fmt(live.equilibrium_temp_k)} K — black-body from sunlight alone (excludes greenhouse & internal heat)`,
+    "Irradiance S(r)":Number.isFinite(live.geo_dist_au)&&live.geo_dist_au>0
+      ? `${formatIrradiance(live.geo_dist_au)} at ${fmt(live.geo_dist_au,3)} AU` : "1,361 W/m² at 1 AU",
+    "Apparent V☉":Number.isFinite(live.geo_dist_au)&&live.geo_dist_au>0 ? formatApparentV(live.geo_dist_au) : "−26.74 at 1 AU",
   };
   for(const node of host.querySelectorAll("[data-metric]")) {
     const value=values[node.getAttribute("data-metric")];
