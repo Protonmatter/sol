@@ -15,9 +15,10 @@ export function layoutLabels(candidates, {width, height, clearance = 4, limit = 
     const w = Math.min(c.width,width-2*clearance), h = Math.min(c.height,height-2*clearance);
     const positions = [[c.x+8,c.y-h/2],[c.x-w-8,c.y-h/2],[c.x-w/2,c.y-h-8],[c.x-w/2,c.y+8]];
     let box = positions.map(([x,y])=>({id:c.id,x,y,width:w,height:h,callout:false})).find(fits);
-    if (!box && c.priority === 0) {
-      // Selection is first priority. Pin a readable callout inside the viewport
-      // when its normal placements run off an edge or conflict with another selection.
+    if (!box && c.priority <= 2) {
+      // Planets and the current selection keep a readable name even when they
+      // sit on top of each other around the Sun. Moons and sky objects (3+) stay
+      // optional so they cannot bury Mercury or Venus.
       const x = Math.max(clearance,Math.min(width-clearance-w,c.x+8));
       const y = Math.max(clearance,Math.min(height-clearance-h,c.y-h/2));
       box = {id:c.id,x,y,width:w,height:h,callout:true};

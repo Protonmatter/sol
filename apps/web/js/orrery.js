@@ -142,8 +142,14 @@ const TEXTURE_FILES = {
 // Registered on the shared store (store.orrery) so this surface's state is inspectable
 // from one place like the rest of the app — the same object, no copies. Rendering-internal
 // GL handles stay module-local below; this holds the user-facing/scene state.
+// Overview framing: high enough off the ecliptic that Mercury and Venus do not
+// sit inside the enlarged Sun disc after a source-facing Sun inspection.
+const OVERVIEW_AZ = 0.7;
+const OVERVIEW_EL = 0.45;
+const OVERVIEW_RADIUS = 26;
+
 const state = (store.orrery = {
-  az: 0.7, el: 0.45, radius: 26, savedRadius: 26, offsetYears: 0,
+  az: OVERVIEW_AZ, el: OVERVIEW_EL, radius: OVERVIEW_RADIUS, savedRadius: OVERVIEW_RADIUS, offsetYears: 0,
   presentation: /** @type {any} */ (null),
   active: false, entering: false, exaggeration: 1, trueScale: false, animate: true,
   // Solar-system animation rate (sim years per real second). The close-up default is one
@@ -2422,7 +2428,13 @@ function updateLabels(canvas, vp, skyVp) {
       if(state.solarInspection&&name!=='Sun')continue;
       if (!b) continue;
       const p = bodyWorldPos(b), phys = BODY[name];
-      const disc = projectOpaqueDisc({id:name,position:p,radius:displayRadiusAU(name)*Math.min(1,phys.polarKm/phys.radiusKm)}, vp, {width:cw,height:ch});
+      // Label occlusion uses the physical photosphere for the Sun. The display
+      // disc is ~40× larger and would hide Mercury and Venus whenever the camera
+      // looks near the ecliptic.
+      const discRadius = name === "Sun"
+        ? phys.radiusKm / AU_KM
+        : displayRadiusAU(name) * Math.min(1, phys.polarKm / phys.radiusKm);
+      const disc = projectOpaqueDisc({id:name,position:p,radius:discRadius}, vp, {width:cw,height:ch});
       if (disc) discs.push(disc);
       items.push({ name, p, cls: "orrery-label" });
     }
@@ -2475,7 +2487,9 @@ function updateLabels(canvas, vp, skyVp) {
     const priority = selected ? 0 : it.name === state.anchor ? 1 : DRAW_LIST.includes(it.name) ? 2 : moonMarkers.some(m=>m.name === it.name) ? 3 : 4;
     candidates.push({id:it.name,x:sx,y:sy,width:el.offsetWidth,height:el.offsetHeight,priority});
   }
-  const placements = new Map(layoutLabels(candidates,{width:cw,height:ch}).map(p=>[p.id,p]));
+  const placements = new Map(layoutLabels(candidates,{
+    width:cw,height:ch,limit:cw<600?14:24,
+  }).map(p=>[p.id,p]));
   for (let i=0;i<items.length;i++) {
     const el=labelEls[i];
     let box=placements.get(items[i].name);
@@ -2637,7 +2651,9 @@ function setAnchor(name) {
     // return previously reframed the camera but left the placeholder detail card visible.
     state.selected = name;
     showDetail(name);
-    state.radius = 26;
+    state.az = OVERVIEW_AZ;
+    state.el = OVERVIEW_EL;
+    state.radius = OVERVIEW_RADIUS;
     paint();
     return;
   }
@@ -3207,7 +3223,7 @@ async function showFallback(msg) {
       if (btn) btn.textContent = "← Back to the Solar System";
       if (insight) insight.textContent = "The Milky Way, face-on. Two dominant stellar arms (Scutum–Centaurus and Perseus) spring from the ends of the central bar, tilted ~28° to our line to the centre, with the fainter Sagittarius–Carina and Norma–Outer arms between them. The Sun (cyan) sits INSIDE the short Orion Spur, ~8.2 kpc (26,700 ly) out — Sagittarius–Carina is the next arm inward, Perseus the next outward. One lap is a ~220-million-year “galactic year.” Press Animate: the disc rotates DIFFERENTIALLY — inner stars lap outer ones, so over a few hundred Myr the arms shear and wind up. That “winding problem” is exactly why real spiral arms must be density waves, not fixed clumps of stars. Drag to rotate, scroll to zoom.";
     } else {
-      state.radius = state.savedRadius; state.el = 0.45;
+      state.radius = state.savedRadius; state.el = OVERVIEW_EL;
       if (btn) btn.textContent = "Zoom out to the Milky Way";
       if (insight) insight.textContent = SYSTEM_VIEW_HINT;
       rebuildPositions();

@@ -74,7 +74,12 @@ test('Sun inspection omits surrounding bodies and restores the overview without 
   assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),identity);
   from=h.gpuDraws.length;h.input('orreryAnchor','Sun','change');
   assert.equal(h.state.solarInspection,false);assert.equal(h.state.radius,26);
+  assert.equal(h.state.az,0.7);assert.equal(h.state.el,0.45);
   assert.ok(h.gpuDraws.slice(from).filter(({uniforms:u})=>u.u_mode===0).length>=9);
+  const overviewLabels=new Set(h.nodes.orreryLabels.children
+    .filter(node=>node.style.display==='block').map(node=>node.textContent));
+  assert.ok(overviewLabels.has('Mercury'),'Mercury keeps a readable overview label');
+  assert.ok(overviewLabels.has('Venus'),'Venus keeps a readable overview label');
   h.event('orreryInspectSun','click');h.input('orreryAnchor','Earth','change');assert.equal(h.state.solarInspection,false);
   assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),identity);assert.deepEqual(h.errors,[]);
 });

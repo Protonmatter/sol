@@ -12,3 +12,12 @@ test("selected edge object gets a readable callout and offscreen objects are cul
   assert.equal(result.length,1);assert.equal(result[0].id,"selected");assert.equal(result[0].callout,true);assert.ok(result[0].width<=312);
   assert.deepEqual(layoutLabels([],{width:1440,height:900}),[]);
 });
+test("crowded inner-planet labels still place beside the Sun instead of disappearing",()=>{
+  const rows=["Sun","Mercury","Venus","Earth"].map((id,i)=>({id,priority:id==="Sun"?0:2,x:160+i,y:90+i,width:70,height:16}));
+  rows.push({id:"Iapetus",priority:3,x:162,y:92,width:70,height:16});
+  const result=layoutLabels(rows,{width:320,height:180,limit:4});
+  const ids=result.map(r=>r.id);
+  assert.ok(ids.includes("Mercury"));
+  assert.ok(ids.includes("Venus"));
+  assert.ok(!ids.includes("Iapetus"),"an outer moon must not take a planet's last slot");
+});
