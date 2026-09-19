@@ -4,6 +4,8 @@ import { orreryHarness } from "./helpers/orreryHarness.mjs";
 import { matchesMoonNormal } from "./helpers/moonDraws.mjs";
 import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
 import { BODY } from '../../apps/web/js/bodyData.js';
+import { moonsOf, MOON_PARENTS } from '../../apps/web/js/moons.js';
+import { satelliteSystemExtent } from '../../apps/web/js/moonorbits.js';
 import {terrainExtentKm} from '../../apps/web/js/terrainAssets.js';
 import {getAtmosphereProfile} from '../../apps/web/js/atmosphereOptics.js';
 
@@ -84,12 +86,55 @@ test('Sun inspection omits surrounding bodies and restores the overview without 
   assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),identity);assert.deepEqual(h.errors,[]);
 });
 
+test('focused moon-bearing planets keep every catalog moon labeled', async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  h.check('orreryShowSky', false);
+  h.check('orreryShowSmall', false);
+  for (const parent of MOON_PARENTS) {
+    h.input('orreryAnchor', parent, 'change');
+    const visible = new Set(h.nodes.orreryLabels.children
+      .filter(node => node.style.display === 'block').map(node => node.textContent));
+    for (const moon of moonsOf(parent)) {
+      assert.ok(visible.has(moon.n), `${parent} keeps ${moon.n} labeled`);
+    }
+  }
+  assert.deepEqual(h.errors, []);
+});
+
+function requestedMoonRadius(moon, parentRadiusKm, parentDisplayAU) {
+  const ratio = moon.r / parentRadiusKm;
+  return Math.min(parentDisplayAU * 0.42, Math.max(parentDisplayAU * 0.055, parentDisplayAU * ratio * 4));
+}
+
+function portraitExtentRatio(parent, displayAU, trueScale) {
+  const body = BODY[parent];
+  const globe = Math.max(
+    1 + (getAtmosphereProfile(parent)?.topKm || 0) / body.radiusKm,
+    (terrainExtentKm(parent)?.maxRadiusKm || body.radiusKm) / body.radiusKm,
+    (body.rings?.outerKm || body.radiusKm) / body.radiusKm,
+  );
+  if (parent === 'Earth') return trueScale ? globe : Math.max(globe, 2.4 + 1.5 * 0.022 / 0.080);
+  const moons = moonsOf(parent);
+  if (!moons.length || trueScale) return globe;
+  const ring = body.rings ? body.rings.outerKm / body.radiusKm * displayAU : 0;
+  return Math.max(globe, satelliteSystemExtent(
+    moons, displayAU, false, ring, moon => requestedMoonRadius(moon, body.radiusKm, displayAU),
+  ) / displayAU);
+}
+
 function assertFocusedDisc(h, expected = .76, extentRatio = null) {
-  if(extentRatio===null){const body=BODY[h.state.anchor];extentRatio=body?Math.max(1+(getAtmosphereProfile(h.state.anchor)?.topKm||0)/body.radiusKm,(terrainExtentKm(h.state.anchor)?.maxRadiusKm||body.radiusKm)/body.radiusKm):1;}
   const u = h.gpuDraws.findLast(({ uniforms: u }) => u.u_mode === 0 && u.u_model
     && Math.abs(u.u_mvp[12] / u.u_mvp[15]) < 1e-3 && Math.abs(u.u_mvp[13] / u.u_mvp[15]) < 1e-3)?.uniforms;
   assert.ok(u, 'an actual submitted sphere is at the focus centre');
-  const extent = Math.hypot(...u.u_model.slice(0, 3)) * extentRatio;
+  const display = Math.hypot(...u.u_model.slice(0, 3));
+  if (extentRatio === null) {
+    const body = BODY[h.state.anchor];
+    extentRatio = body && (h.state.anchor === 'Earth' || moonsOf(h.state.anchor).length)
+      ? portraitExtentRatio(h.state.anchor, display, h.state.trueScale)
+      : body ? Math.max(1+(getAtmosphereProfile(h.state.anchor)?.topKm||0)/body.radiusKm,(terrainExtentKm(h.state.anchor)?.maxRadiusKm||body.radiusKm)/body.radiusKm) : 1;
+  }
+  const extent = display * extentRatio;
   const aspect = h.nodes.orreryCanvas.clientWidth / h.nodes.orreryCanvas.clientHeight;
   const occupied = extent / Math.sqrt(h.state.radius ** 2 - extent ** 2)
     / (Math.tan(21 * Math.PI / 180) * Math.min(1, aspect));
@@ -129,8 +174,7 @@ test('focused planets and moons fit desktop and portrait views without changing 
         if (models.has(key)) assert.equal(value, models.get(key), `${name}: a reappearing body retains its radius and transform`);
         else models.set(key, value);
       }
-      const ratio = name === 'Saturn' ? BODY.Saturn.rings.outerKm / BODY.Saturn.radiusKm : null;
-      assertFocusedDisc(h, .76, ratio);
+      assertFocusedDisc(h);
     }
   }
   const extent = assertFocusedDisc(h);
@@ -183,10 +227,9 @@ test('existing focus refits portrait resizing and retains zoom while overview an
   assert.equal(h.state.radius, 26, 'initial overview does not become a Sun close-up');
   h.resize(800, 600);
   h.input('orreryAnchor', 'Saturn', 'change');
-  const ratio = BODY.Saturn.rings.outerKm / BODY.Saturn.radiusKm;
-  assertFocusedDisc(h, .76, ratio);
+  assertFocusedDisc(h);
   h.resize(320, 720);
-  assertFocusedDisc(h, .76, ratio);
+  assertFocusedDisc(h);
   const portraitFit = h.state.radius;
   h.event('orreryCanvas', 'keydown', { key: '-' });
   const zoom = h.state.radius / portraitFit;
@@ -200,18 +243,18 @@ test('existing focus refits portrait resizing and retains zoom while overview an
   h.check('orreryTopDown', true); h.resize(320, 720);
   assert.equal(h.state.radius, 78, 'top-down keeps the system overview');
   h.check('orreryTopDown', false);
-  assertFocusedDisc(h, .76, ratio);
+  assertFocusedDisc(h);
   h.check('orreryFreeFly', true);
   const freePosition = JSON.stringify(h.state.freePos), freeRadius = h.state.radius;
   h.resize(800, 600); h.check('orreryTrueScale', true);
   assert.equal(JSON.stringify(h.state.freePos), freePosition, 'resize and scale do not move the free-fly camera');
   assert.equal(h.state.radius, freeRadius, 'free flight does not mutate the stored orbit zoom');
   h.check('orreryFreeFly', false);
-  assertFocusedDisc(h, .76, ratio);
+  assertFocusedDisc(h);
   h.event('orreryGalaxy', 'click'); h.resize(320, 720);
   assert.equal(h.state.radius, 118, 'galaxy keeps its separate overview distance');
   h.event('orreryGalaxy', 'click');
-  assertFocusedDisc(h, .76, ratio);
+  assertFocusedDisc(h);
   h.input('orreryAnchor', 'Pluto', 'change'); h.resize(800, 600);
   assert.equal(h.state.radius, 4, 'small-body marker focus keeps its contextual distance');
   h.input('orreryAnchor', 'Sun', 'change'); h.resize(320, 720);

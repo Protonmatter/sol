@@ -21,3 +21,10 @@ test("crowded inner-planet labels still place beside the Sun instead of disappea
   assert.ok(ids.includes("Venus"));
   assert.ok(!ids.includes("Iapetus"),"an outer moon must not take a planet's last slot");
 });
+test("focused-system moons keep callouts so a crowded Saturn system stays named",()=>{
+  const rows=["Saturn","Mimas","Enceladus","Tethys","Dione","Rhea","Titan","Iapetus"]
+    .map((id,i)=>({id,priority:1,x:160+i,y:90+i,width:70,height:16}));
+  const result=layoutLabels(rows,{width:320,height:220,limit:8});
+  assert.equal(result.length,8);
+  for (const id of rows.map(r=>r.id)) assert.ok(result.some(r=>r.id===id),id);
+});

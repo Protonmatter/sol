@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveDisplayRadii, moonGuideVisible } from '../../apps/web/js/displayGeometry.js';
-import { systemScale, moonOffsetAU } from '../../apps/web/js/moonorbits.js';
+import { systemScale, satelliteSystemExtent, moonOffsetAU } from '../../apps/web/js/moonorbits.js';
 import { MOONS, MOON_VALID_MIN_JD, MOON_VALID_MAX_JD } from '../../apps/web/js/moons.js';
 import { MOON_ELEMENTS } from '../../apps/web/js/moonelements.js';
 import { BODY, AU_KM } from '../../apps/web/js/bodyData.js';
@@ -63,6 +63,9 @@ test('moon clearance includes moon radius, ring extent, and sibling center dista
   assert.ok(.34 <= .95 * .001 * scale);
   assert.ok(.08 <= .95 * .000001 * scale + 1e-12);
   assert.equal(systemScale(moons, .1, true, .3, () => .04), 1);
+  const reach = satelliteSystemExtent(moons, .1, false, .3, () => .04);
+  assert.ok(reach >= Math.max(.1, .3));
+  assert.ok(reach >= (moons[1].a * (1 + moons[1].e) / 149597870.7) * systemScale(moons, .1, false, .3, () => .04) + .04);
 });
 
 test('detailed moon guides follow selected or focused systems with explicit all/off overrides', () => {

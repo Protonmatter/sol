@@ -67,7 +67,7 @@ import { renderStarDetail } from "./starDetail.js?v=dcca6290db";
 import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dcca6290db";
 import { resolveDisplayRadii, moonGuideVisible } from "./displayGeometry.js?v=dcca6290db";
 import { textureEligible, missingDetailColor } from "./visualAssets.js?v=dcca6290db";
-import { moonOffsetAU, moonOrbitPath, systemScale, withinMoonValidity, aliasedByClock, synchronousMoonRotation } from "./moonorbits.js?v=dcca6290db";
+import { moonOffsetAU, moonOrbitPath, systemScale, satelliteSystemExtent, withinMoonValidity, aliasedByClock, synchronousMoonRotation } from "./moonorbits.js?v=dcca6290db";
 import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=dcca6290db";
 import * as moonCatalogue from "./moons.js?v=dcca6290db";
 import { MOON_TEXTURE_FILES, moonBaseColor, moonAtmosphereColor } from "./moonAppearance.js?v=dcca6290db";
@@ -1805,9 +1805,11 @@ function drawnMoonsFor(parentName, parentPos, parentDisplayAU, eye) {
   const ringOuterAU = phys.rings ? (phys.rings.outerKm / phys.radiusKm) * parentDisplayAU : 0;
   const scale = systemScale(moons, parentDisplayAU, state.trueScale, ringOuterAU, moon => requestedMoonRadius(moon, phys.radiusKm, parentDisplayAU));
   // Beyond this the whole system is a few pixels wide; drawing it just speckles the planet.
+  // A focused or selected parent keeps its moons anyway: the camera is there to show them.
   const outermost = (moons[moons.length - 1].a / AU_KM) * scale;
   const dist = Math.hypot(eye[0] - parentPos[0], eye[1] - parentPos[1], eye[2] - parentPos[2]);
-  if (outermost / Math.max(dist, 1e-9) < 0.012) return null;
+  const focused = parentName === state.selected || parentName === state.anchor;
+  if (!focused && outermost / Math.max(dist, 1e-9) < 0.012) return null;
 
   /** @type {DrawnMoon[]} */
   const drawn = [];
@@ -2468,6 +2470,11 @@ function updateLabels(canvas, vp, skyVp) {
     el.className = it.cls; el.textContent = it.name; el.style.transform = "none";
     el.style.maxWidth = Math.max(0,cw-8)+"px"; el.style.width = "max-content";
   }
+  const parentOf = name => name === "Moon" ? "Earth" : moonSet.MOONS.find(m => m.n === name)?.p ?? null;
+  const occludersFor = name => {
+    const parent = parentOf(name);
+    return parent ? discs.filter(d => d.id !== parent) : discs;
+  };
   const candidates = [];
   for (let i = 0; i < items.length; i++) {
     const el = labelEls[i];
@@ -2478,13 +2485,19 @@ function updateLabels(canvas, vp, skyVp) {
     if (wv <= 0.0001) { el.style.display = "none"; continue; }
     const sx = (x / wv * 0.5 + 0.5) * cw, sy = (1 - (y / wv * 0.5 + 0.5)) * ch;
     const projected = {id:it.name,x:sx,y:sy,depth:wv,background:it.sky===true};
-    if (isLabelOccluded(projected, discs)) { el.style.display = "none"; continue; }
+    if (isLabelOccluded(projected, occludersFor(it.name))) { el.style.display = "none"; continue; }
     projectedById.set(it.name, projected);
     if (Number.isFinite(sx) && Number.isFinite(sy)) {
       el.dataset.projectionX=String(sx); el.dataset.projectionY=String(sy);
     }
     const selected = it.name === state.selected || it.name === state.selectedStar?.name;
-    const priority = selected ? 0 : it.name === state.anchor ? 1 : DRAW_LIST.includes(it.name) ? 2 : moonMarkers.some(m=>m.name === it.name) ? 3 : 4;
+    const moonParent = parentOf(it.name);
+    const focusedMoon = moonParent && (moonParent === state.selected || moonParent === state.anchor);
+    const priority = selected ? 0
+      : (it.name === state.anchor || focusedMoon) ? 1
+      : DRAW_LIST.includes(it.name) ? 2
+      : moonParent ? 3
+      : 4;
     candidates.push({id:it.name,x:sx,y:sy,width:el.offsetWidth,height:el.offsetHeight,priority});
   }
   const placements = new Map(layoutLabels(candidates,{
@@ -2493,7 +2506,7 @@ function updateLabels(canvas, vp, skyVp) {
   for (let i=0;i<items.length;i++) {
     const el=labelEls[i];
     let box=placements.get(items[i].name);
-    if (box && isLabelOccluded({...projectedById.get(items[i].name),bounds:box}, discs)) box=null;
+    if (box && isLabelOccluded({...projectedById.get(items[i].name),bounds:box}, occludersFor(items[i].name))) box=null;
     el.style.display = box ? "block" : "none";
     if (!box) { delete el.dataset.projectionX; delete el.dataset.projectionY; continue; }
     el.dataset.objectId=box.id; el.classList.toggle("label-callout",box.callout);
@@ -2628,16 +2641,46 @@ function flyStep(dt) {
 // Switch the orbit anchor (focus). Re-frames the camera at a distance suited to that body's
 // size, and approaches from the SUNLIT side: the old camera kept its previous azimuth, which as
 // often as not framed the night hemisphere — a black disc is a broken-looking first impression.
+function planetGlobeExtent(name) {
+  const body = BODY[name];
+  if (!body) return null;
+  return displayRadiusAU(name) * Math.max(name === "Sun" ? 1.35 : 1,
+    1 + (getAtmosphereProfile(name)?.topKm || 0) / body.radiusKm,
+    (body.rings?.outerKm || body.radiusKm) / body.radiusKm,
+    (terrainExtentKm(name)?.maxRadiusKm || body.radiusKm) / body.radiusKm);
+}
+
+function planetSystemExtent(name) {
+  const globe = planetGlobeExtent(name);
+  if (globe == null) return null;
+  // Earth's Moon is a DRAW_LIST body, not a catalog moon. Frame the same
+  // inflated clearance moonDisplayPos uses so the name and disc stay in view.
+  if (name === "Earth" && !state.trueScale) {
+    return Math.max(globe, displayRadiusAU("Earth") * 2.4 + displayRadiusAU("Moon") * 1.5);
+  }
+  if (state.trueScale || !moonElementsReady || !state.showMoons) return globe;
+  if (!withinMoonValidity(state.renderUnix, moonSet.MOON_VALID_MIN_JD, moonSet.MOON_VALID_MAX_JD)) {
+    return globe;
+  }
+  const moons = moonSet.moonsOf(name);
+  if (!moons.length) return globe;
+  const body = BODY[name];
+  const parentDisplayAU = displayRadiusAU(name);
+  const ringOuterAU = body.rings ? (body.rings.outerKm / body.radiusKm) * parentDisplayAU : 0;
+  return Math.max(globe, satelliteSystemExtent(
+    moons, parentDisplayAU, state.trueScale, ringOuterAU,
+    moon => requestedMoonRadius(moon, body.radiusKm, parentDisplayAU),
+  ));
+}
+
 function anchorDisplayExtent() {
   const moon = moonSet.MOONS.find(m => m.n === state.anchor);
   if (moon && moonWorldPos(moon.n)) {
     return moonDisplayRadius(moon, BODY[moon.p].radiusKm, displayRadiusAU(moon.p));
   }
   // The existing anchor follows the parent when a moon position is unavailable.
-  const name = moon ? moon.p : state.anchor, body = BODY[name];
-  return body ? displayRadiusAU(name) * Math.max(name==='Sun'?1.35:1,
-    1+(getAtmosphereProfile(name)?.topKm||0)/body.radiusKm,
-    (body.rings?.outerKm||body.radiusKm)/body.radiusKm,(terrainExtentKm(name)?.maxRadiusKm||body.radiusKm)/body.radiusKm) : null;
+  const name = moon ? moon.p : state.anchor;
+  return name && BODY[name] ? planetSystemExtent(name) : null;
 }
 
 function setAnchor(name) {
@@ -2675,7 +2718,10 @@ function setAnchor(name) {
   const t = anchorPos();
   if (t[0] || t[1]) {
     state.az = Math.atan2(-t[1], -t[0]) + 0.5; // eye toward the Sun, offset for a gibbous phase
-    state.el = 0.3;
+    // Moon-bearing planets pull back to a system portrait; a higher elevation
+    // keeps the satellites around the disc instead of stacked behind it.
+    const systemPortrait = name === "Earth" || moonSet.moonsOf(name).length > 0;
+    state.el = systemPortrait ? 0.62 : 0.3;
   }
   paint();
 }
