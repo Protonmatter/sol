@@ -390,7 +390,7 @@ function updatePhysicalAppearance() {
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
-  if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; illustrative limb shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; illustrative limb shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb is illustrative.'));
+  if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
   if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
@@ -2021,8 +2021,9 @@ function drawBody(b, vp, eye) {
   gl.disable(gl.CULL_FACE);
 
   // atmosphere limb halo (additive shell, slightly larger, no depth write)
-  if (atmoStr > 0 && b.name !== "Sun"&&!profile) {
+  if (atmoStr > 0 && b.name !== "Sun" && b.name !== "Earth" && !profile) {
     // A restrained illustrative optical limb, not an atmospheric-height measurement.
+    // Earth keeps the admitted haze or the physical transfer; it does not grow a 1.015× shell.
     const sModel = mul(translate(pos), mul(rot, scaleM([rEq * 1.015, rEq * 1.015, rPol * 1.015])));
     queueTransparent(pos,eye,()=>{
       // This callback runs after other bodies/moons: bind every uniform used by mode 2.
@@ -2294,7 +2295,7 @@ function atmoColor(name) {
     Jupiter: [0.9, 0.8, 0.6], Saturn: [0.9, 0.85, 0.6], Uranus: [0.6, 0.9, 0.95], Neptune: [0.4, 0.6, 1.0] }[name]) || [0, 0, 0];
 }
 function atmoStrength(name) {
-  return ({ Venus: 0.3, Earth: 0.2, Mars: 0.08, Jupiter: 0.18, Saturn: 0.16, Uranus: 0.18, Neptune: 0.18 }[name]) || 0;
+  return ({ Venus: 0.3, Mars: 0.08, Jupiter: 0.18, Saturn: 0.16, Uranus: 0.18, Neptune: 0.18 }[name]) || 0;
 }
 
 // ---------------------------------------------------------------- galactic-scale view

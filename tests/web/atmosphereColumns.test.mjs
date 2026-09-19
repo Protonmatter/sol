@@ -36,6 +36,8 @@ test('production transfer preserves scattering expressions but contains no neste
   for(const shader of [SPHERE_VS,SPHERE_FS,ATMOSPHERE_RENDER_FS]){
     assert.doesNotMatch(shader,/float atmosphereColumnSegment\(|float atmosphereColumn\(/);
     assert.match(shader,/texelFetch\(u_atmosphereColumnField/);
+    assert.match(shader,/u_atmosphereOzoneKm/);
+    assert.match(shader,/atmosphereOzoneColumnOnAxis/);
   }
   const from='vec3 atmosphereSunTransmission(';
   const routed=specializeAtmosphereSunDepth(cacheAtmosphereViewRay(ATMOSPHERE_GLSL));

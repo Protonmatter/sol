@@ -122,7 +122,10 @@ test('every physical scene generates two passes before surface and shell consume
 test('failed float target admission keeps the full illustrative surface and shell and never retries on repaint',async t=>{
   const h=await boot(t,{scatteringFramebufferFailure:true});
   assert.equal(h.state.opticsStatus.Earth,'unavailable');assert.equal(consumers(h.gpuSubmissions).length,0);
-  assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_mode===2),'fallback shell remains visible');
+  assert.ok(!h.gpuDraws.some(draw=>draw.uniforms.u_mode===2&&draw.uniforms.u_hazeRayleighTau?.[2]>0.05),
+    'failed Earth optics must not grow a 1.015× shell');
+  assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_mode===0&&draw.uniforms.u_hazeRayleighTau?.[2]>0.05),
+    'failed Earth optics keep admitted haze columns');
   const allocations=h.textureUploads.length,programs=h.programs.length,start=h.gpuSubmissions.length;
   h.resize(810,606);assert.equal(consumers(h.gpuSubmissions.slice(start)).length,0);
   assert.equal(h.textureUploads.length,allocations);assert.equal(h.programs.length,programs);

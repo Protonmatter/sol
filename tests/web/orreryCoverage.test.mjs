@@ -54,7 +54,8 @@ test('deferred atmospheric halos rebind their own body lighting and normals afte
   const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true});await h.enterOrrery();await h.settleCatalogues();
   h.state.opticsEnabled=false;const first=h.gpuSubmissions.length;h.check('orreryTextures',false);
   const draws=h.gpuSubmissions.slice(first),opaque=draws.filter(d=>d.uniforms.u_mode===0&&d.kind==='elements');
-  const halos=draws.filter(d=>d.uniforms.u_mode===2&&d.kind==='elements');assert.equal(halos.length,7);
+  const halos=draws.filter(d=>d.uniforms.u_mode===2&&d.kind==='elements');assert.equal(halos.length,6);
+  assert.ok(!halos.some(halo=>halo.uniforms.u_hazeRayleighTau?.[2]>0.05),'Earth does not receive the 1.015× limb shell');
   for(const halo of halos){
     const body=opaque.find(d=>d.uniforms.u_model.slice(12,15).every((v,i)=>v===halo.uniforms.u_model[12+i]));
     assert.ok(body);assert.equal(halo.depthWrites,false);assert.ok(draws.indexOf(halo)>draws.indexOf(opaque.at(-1)));
