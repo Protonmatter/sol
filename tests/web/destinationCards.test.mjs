@@ -18,9 +18,11 @@ test('Sun card identifies enabled source, modeled volume and explicit fallback',
   assert.equal(fact(systemCard(ready),'Luminosity L☉'),'3.828×10²⁶ W');
   assert.equal(fact(systemCard(ready),'Irradiance S(r)'),'1,361 W/m² at 1 AU');
   assert.equal(fact(systemCard(ready),'Apparent V☉'),'−26.74 at 1 AU');
-  const live=systemCard({...ready,bodies:[{name:'Sun',geo_dist_au:1.0167}]});
+  const live=systemCard({...ready,bodies:[{name:'Earth',dist_au:1.0167,geo_dist_au:0}]});
   assert.match(fact(live,'Irradiance S(r)'),/1,317 W\/m²/);
   assert.equal(fact(live,'Apparent V☉'),'-26.70');
+  const fakeSun=systemCard({...ready,bodies:[{name:'Sun',geo_dist_au:2}]});
+  assert.equal(fact(fakeSun,'Irradiance S(r)'),'1,361 W/m² at 1 AU','photometry reads Earth.dist_au, not an invented Sun row');
   assert.match(systemCard({...ready,solarStatus:'unavailable'}).note,/simplified visible photosphere/);
   assert.match(systemCard({...ready,solarMode:'visible'}).note,/Visible-light approximation/);
   assert.match(systemCard({...ready,solarMode:'visible'}).note,/not measured radiance/);

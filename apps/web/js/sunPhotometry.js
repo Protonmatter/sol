@@ -25,3 +25,10 @@ export function formatApparentV(distanceAu) {
   const v = apparentVSun(distanceAu);
   return v == null ? null : v.toFixed(2);
 }
+
+/** Snapshot Earth.dist_au is the admitted Earth-Sun distance. There is no Sun row. */
+export function earthSunDistanceAu(bodies) {
+  const earth = Array.isArray(bodies) ? bodies.find(item => item?.name === 'Earth') : null;
+  const distance = earth?.dist_au;
+  return Number.isFinite(distance) && distance > 0 ? distance : null;
+}

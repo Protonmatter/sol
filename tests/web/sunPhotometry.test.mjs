@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { L_SUN_W, SOLAR_CONSTANT_WM2, V_SUN_1AU, irradianceWm2, apparentVSun,
-  formatIrradiance, formatApparentV } from '../../apps/web/js/sunPhotometry.js';
+  formatIrradiance, formatApparentV, earthSunDistanceAu } from '../../apps/web/js/sunPhotometry.js';
 
 test('catalogue photometry is inverse-square and refuses a non-physical distance', () => {
   assert.equal(L_SUN_W, 3.828e26);
@@ -17,4 +17,11 @@ test('catalogue photometry is inverse-square and refuses a non-physical distance
     assert.equal(formatIrradiance(bad), null);
     assert.equal(formatApparentV(bad), null);
   }
+});
+
+test('Earth-Sun distance comes from the snapshot Earth row, never an invented Sun body', () => {
+  assert.equal(earthSunDistanceAu([{ name: 'Earth', dist_au: 1.0167 }]), 1.0167);
+  assert.equal(earthSunDistanceAu([{ name: 'Sun', geo_dist_au: 2 }, { name: 'Earth', dist_au: 0 }]), null);
+  assert.equal(earthSunDistanceAu([{ name: 'Mars', dist_au: 1.5 }]), null);
+  assert.equal(earthSunDistanceAu(null), null);
 });

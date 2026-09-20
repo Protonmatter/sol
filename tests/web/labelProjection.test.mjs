@@ -47,6 +47,11 @@ test("hidden, invalid and removed labels clear stale projection anchors", () => 
     if (mode === "invalid") f.context.state.bodies[0].p = [NaN, 0, 0];
     if (mode === "removed") f.context.state.bodies = [];
     f.render();
+    if (mode === "outside") {
+      assert.equal(f.labels[0].dataset.projectionX, undefined, mode);
+      assert.equal(f.labels[0].dataset.projectionY, undefined, mode);
+      continue;
+    }
     assert.equal(f.labels[0].style.display, "none", mode);
     assert.equal(f.labels[0].dataset.projectionX, undefined, mode);
     assert.equal(f.labels[0].dataset.projectionY, undefined, mode);

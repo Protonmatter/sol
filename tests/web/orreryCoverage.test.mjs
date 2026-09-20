@@ -5,7 +5,7 @@ import { matchesMoonNormal } from "./helpers/moonDraws.mjs";
 import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
 import { BODY } from '../../apps/web/js/bodyData.js';
 import { moonsOf, MOON_PARENTS } from '../../apps/web/js/moons.js';
-import { satelliteSystemExtent } from '../../apps/web/js/moonorbits.js';
+import { satelliteSystemExtent, cameraSystemExtent } from '../../apps/web/js/moonorbits.js';
 import {terrainExtentKm} from '../../apps/web/js/terrainAssets.js';
 import {getAtmosphereProfile} from '../../apps/web/js/atmosphereOptics.js';
 
@@ -86,6 +86,22 @@ test('Sun inspection omits surrounding bodies and restores the overview without 
   assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),identity);assert.deepEqual(h.errors,[]);
 });
 
+test('focused ice giants keep a globe large enough to request their surface maps', async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  for (const [width, height] of [[800, 600], [320, 720]]) {
+    h.resize(width, height);
+    for (const name of ['Saturn', 'Neptune']) {
+      h.input('orreryAnchor', name, 'change');
+      const asset = appearanceReferences().find(item => item.body === name && item.role === 'surface');
+      assert.ok(asset, `${name} has an admitted surface`);
+      assert.ok(h.images.some(image => image.src === asset.path),
+        `${name} at ${width}x${height} must stay above the 8px texture gate`);
+    }
+  }
+  assert.deepEqual(h.errors, []);
+});
+
 test('focused moon-bearing planets keep every catalog moon labeled', async t => {
   const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
   await h.enterOrrery(); await h.settleCatalogues();
@@ -118,9 +134,10 @@ function portraitExtentRatio(parent, displayAU, trueScale) {
   const moons = moonsOf(parent);
   if (!moons.length || trueScale) return globe;
   const ring = body.rings ? body.rings.outerKm / body.radiusKm * displayAU : 0;
-  return Math.max(globe, satelliteSystemExtent(
+  const system = Math.max(globe * displayAU, satelliteSystemExtent(
     moons, displayAU, false, ring, moon => requestedMoonRadius(moon, body.radiusKm, displayAU),
-  ) / displayAU);
+  ));
+  return cameraSystemExtent(globe * displayAU, system) / displayAU;
 }
 
 function assertFocusedDisc(h, expected = .76, extentRatio = null) {

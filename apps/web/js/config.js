@@ -127,8 +127,8 @@ export const GLOSSARY = {
   "effective-temperature": ["Effective temperature", "The surface temperature of a star, in kelvin. Here it is computed from the measured B−V colour using the Ballesteros (2012) relation rather than measured directly, so treat it as good to a few percent for normal stars."],
   "luminosity": ["Luminosity", "The total energy a star radiates per second, given as a multiple of the Sun's output. Computed from apparent magnitude and distance with a bolometric correction — it depends on the distance being right."],
   "solar-luminosity": ["Solar luminosity L☉", "The Sun's total radiated power, 3.828×10²⁶ W. This is a catalogue constant. The 3-D globe does not use it to set brightness."],
-  "solar-irradiance": ["Irradiance S(r)", "How much sunlight arrives at distance r: S(r) = 1,361 W/m² / r², with r in AU. Shown for the current Earth–Sun distance. The globe's brightness is a display recipe, not this number."],
-  "solar-magnitude": ["Apparent V☉", "The Sun's apparent visual magnitude as seen from Earth. At 1 AU it is −26.74; it changes as 5 log10(r) when the Earth–Sun distance changes."],
+  "solar-irradiance": ["Irradiance S(r)", "How much sunlight arrives at distance r: S(r) = 1,361 W/m² / r², with r in AU. Shown for Earth's heliocentric distance from the snapshot. The globe's brightness is a display recipe, not this number."],
+  "solar-magnitude": ["Apparent V☉", "The Sun's apparent visual magnitude as seen from Earth. At 1 AU it is −26.74; it changes as 5 log10(r) when Earth's snapshot distance changes."],
   "stellar-mass": ["Stellar mass", "How much matter a star contains, in solar masses. Real masses can only be measured directly when a star orbits a companion; the value shown here is inferred from luminosity using the main-sequence mass–luminosity relation, which is why it is marked as an estimate and is withheld for giants and supergiants, where the relation breaks down."]
 };
 

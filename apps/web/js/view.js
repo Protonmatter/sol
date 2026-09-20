@@ -7,7 +7,7 @@ import { currentBaseImage, baseImageState } from "./data.js?v=dcca6290db";
 import { resolvePresentation } from "./presentationState.js?v=dcca6290db";
 import { renderWorkspace } from "./workspace.js?v=dcca6290db";
 import { explorer, renderExplorer, currentObservationPresentation } from "./explorer.js?v=dcca6290db";
-import { renderDestinationOverview } from './destinationOverview.js?v=dcca6290db';
+import { renderDestinationOverview } from './destinationOverview.js?v=dcca6290de';
 
 export function renderAll() {
   applySurfaceVisibility();

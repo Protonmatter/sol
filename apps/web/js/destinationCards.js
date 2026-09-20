@@ -4,7 +4,7 @@ import { MOONS } from './moons.js?v=dcca6290db';
 import { SYNCHRONOUS_MOONS } from './moonorbits.js?v=dcca6290db';
 import { visualBrowsePreview, textureEligible } from './visualAssets.js';
 import { appearanceReference, appearanceDescription, appearanceSummary } from './planetAppearance.js';
-import { formatApparentV, formatIrradiance } from './sunPhotometry.js?v=dcca6290db';
+import { earthSunDistanceAu, formatApparentV, formatIrradiance } from './sunPhotometry.js?v=dcca6290de';
 
 /** @typedef {{eyebrow:string,title:string,description:string,facts:{label:string,value:string}[],note:string,preview:ReturnType<typeof visualBrowsePreview>,focusBody:string|null}} DestinationCard */
 const unavailable = 'Unavailable';
@@ -74,9 +74,7 @@ export function systemCard(state = {}) {
       :state.solarStatus==='ready'&&state.useTextures!==false?'NASA/SDO AIA 171 Å reference from 10 May 2024. Gold is assigned EUV color. Elevated plasma arcs are modeled; the unobserved hemisphere stays dark. Globe brightness does not use L☉ or S(r).'
         :'EUV reference '+(state.useTextures===false?'disabled':state.solarStatus||'loading')+'; a simplified visible photosphere is retained. Globe brightness does not use L☉ or S(r).'
     :appearanceReference(name)?appearanceDescription(name,state):!textureEligible(name)||state.useTextures===false?'Surface detail unavailable in this view; the 3-D appearance is simplified.':'';
-  const sunLive = name === 'Sun' && Array.isArray(state.bodies)
-    ? state.bodies.find(item => item?.name === 'Sun') : null;
-  const earthDistance = Number.isFinite(sunLive?.geo_dist_au) ? sunLive.geo_dist_au : null;
+  const earthDistance = name === 'Sun' ? earthSunDistanceAu(state.bodies) : null;
   const facts = name === 'Sun'
     ? [fact('Luminosity L☉', '3.828×10²⁶ W'),
       fact('Irradiance S(r)', formatIrradiance(earthDistance) || '1,361 W/m² at 1 AU'),

@@ -38,7 +38,7 @@ import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
-import { layoutLabels } from "./labelLayout.js?v=dcca6290dd";
+import { layoutLabels } from "./labelLayout.js?v=dcca6290de";
 import { projectOpaqueDisc, isLabelOccluded } from "./labelOcclusion.js";
 import { fitOrbitDistance, minimumOrbitDistance, orbitNearPlane } from "./orbitCamera.js";
 import { resolveSystemPresentation } from "./presentationState.js?v=dcca6290db";
@@ -62,12 +62,12 @@ import {
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
 } from "./orreryGalaxy.js?v=dcca6290db";
-import { renderDetail, renderMoonDetail, renderSmallDetail, updateLiveDetailFacts, updateDetailAppearance } from "./orreryDetail.js?v=dcca6290db";
+import { renderDetail, renderMoonDetail, renderSmallDetail, updateLiveDetailFacts, updateDetailAppearance } from "./orreryDetail.js?v=dcca6290de";
 import { renderStarDetail } from "./starDetail.js?v=dcca6290db";
 import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dcca6290db";
 import { resolveDisplayRadii, moonGuideVisible } from "./displayGeometry.js?v=dcca6290db";
 import { textureEligible, missingDetailColor } from "./visualAssets.js?v=dcca6290db";
-import { moonOffsetAU, moonOrbitPath, systemScale, satelliteSystemExtent, withinMoonValidity, aliasedByClock, synchronousMoonRotation } from "./moonorbits.js?v=dcca6290dd";
+import { moonOffsetAU, moonOrbitPath, systemScale, satelliteSystemExtent, cameraSystemExtent, withinMoonValidity, aliasedByClock, synchronousMoonRotation } from "./moonorbits.js?v=dcca6290de";
 import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=dcca6290db";
 import * as moonCatalogue from "./moons.js?v=dcca6290db";
 import { MOON_TEXTURE_FILES, moonBaseColor, moonAtmosphereColor } from "./moonAppearance.js?v=dcca6290db";
@@ -78,7 +78,7 @@ import { elpMoonAliased,
 
 // Update the heliocentric-accuracy readout for the current epoch offset.
 function updateOrreryAccuracy() {
-  updateLiveDetailFacts(state.bodies.find(body=>body.name===state.selected));
+  updateLiveDetailFacts(state.bodies.find(body=>body.name===state.selected), state.bodies);
   updateDetailAppearance(state);
   state.presentation = resolveSystemPresentation({ renderUnix: state.renderUnix, scene: state.galaxy ? "galaxy" : "system", selected: state.selected, hasSnapshot: state.bodies.length===9, error: state.engineError });
   window.dispatchEvent(new Event("sol:presentation"));
@@ -2487,8 +2487,10 @@ function updateLabels(canvas, vp, skyVp) {
     const projected = {id:it.name,x:sx,y:sy,depth:wv,background:it.sky===true};
     if (isLabelOccluded(projected, occludersFor(it.name))) { el.style.display = "none"; continue; }
     projectedById.set(it.name, projected);
-    if (Number.isFinite(sx) && Number.isFinite(sy)) {
+    if (Number.isFinite(sx) && Number.isFinite(sy) && sx >= 0 && sx <= cw && sy >= 0 && sy <= ch) {
       el.dataset.projectionX=String(sx); el.dataset.projectionY=String(sy);
+    } else {
+      delete el.dataset.projectionX; delete el.dataset.projectionY;
     }
     const selected = it.name === state.selected || it.name === state.selectedStar?.name;
     const moonParent = parentOf(it.name);
@@ -2674,7 +2676,7 @@ function planetSystemExtent(name) {
   const body = BODY[name];
   const parentDisplayAU = displayRadiusAU(name);
   const ringOuterAU = body.rings ? (body.rings.outerKm / body.radiusKm) * parentDisplayAU : 0;
-  return Math.max(globe, satelliteSystemExtent(
+  return cameraSystemExtent(globe, satelliteSystemExtent(
     moons, parentDisplayAU, state.trueScale, ringOuterAU,
     moon => requestedMoonRadius(moon, body.radiusKm, parentDisplayAU),
   ));
