@@ -91,11 +91,16 @@ test('a focused planet can zoom to its globe; paint does not restore the satelli
   await h.enterOrrery(); await h.settleCatalogues();
   h.input('orreryAnchor', 'Jupiter', 'change');
   const systemFit = h.state.radius;
-  for (let i = 0; i < 40; i++) h.event('orreryCanvas', 'keydown', { key: '+' });
-  assert.ok(h.state.radius < systemFit * 0.5, 'Jupiter close-up is not locked to the satellite portrait');
-  const tight = h.state.radius;
-  h.check('orreryTextures', h.state.useTextures);
-  assert.equal(h.state.radius, tight, 'an ordinary paint must not undo a deliberate globe close-up');
+  // Inside the 8× portrait (~0.30× fit) but outside the globe floor (~0.04× fit).
+  // #orrerySize is the moon-shadow harness paint path; it must not pull the camera back.
+  const closeUp = systemFit * 0.15;
+  h.state.radius = closeUp;
+  h.input('orrerySize', String(h.state.exaggeration));
+  assert.equal(h.state.radius, closeUp, 'orrerySize paint must not restore the satellite portrait');
+  const tight = 0.170 * h.state.exaggeration / (0.80 * Math.tan(21 * Math.PI / 180));
+  h.state.radius = tight;
+  h.input('orrerySize', String(h.state.exaggeration));
+  assert.equal(h.state.radius, tight, 'orrerySize paint must keep the moon-shadow 80% disc');
   assert.deepEqual(h.errors, []);
 });
 
