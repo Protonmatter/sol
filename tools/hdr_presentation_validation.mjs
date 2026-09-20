@@ -50,7 +50,7 @@ from atmosphere_reference import trace_single_scattering
 results=[]
 for c in json.loads(sys.stdin.read()):
  p=c['profile']
- results.append(trace_single_scattering(c['origin'],c['direction'],c['sun'],radius_km=p['radiusKm'],top_km=p['topKm'],rayleigh_h_km=p['rayleighScaleHeightKm'],aerosol_h_km=p['aerosolScaleHeightKm'],beta_rayleigh=p['betaRayleighKm'],beta_extinction=p['betaAerosolExtinctionKm'],aerosol_ssa=p['aerosolSingleScatteringAlbedo'],g=p['aerosolG'],polar_ratio=1,solar_distance_au=1,view_steps=512,solar_steps=512,max_distance_km=c['maximum']))
+ results.append(trace_single_scattering(c['origin'],c['direction'],c['sun'],radius_km=p['radiusKm'],top_km=p['topKm'],rayleigh_h_km=p['rayleighScaleHeightKm'],aerosol_h_km=p['aerosolScaleHeightKm'],beta_rayleigh=p['betaRayleighKm'],beta_extinction=p['betaAerosolExtinctionKm'],aerosol_ssa=p['aerosolSingleScatteringAlbedo'],g=p['aerosolG'],beta_ozone=p.get('betaOzoneKm',[0,0,0]),ozone_peak_km=p.get('ozonePeakKm',0),ozone_width_km=p.get('ozoneWidthKm',0),polar_ratio=1,solar_distance_au=1,view_steps=512,solar_steps=512,max_distance_km=c['maximum']))
 print(json.dumps(results))`;
   const opticalExpected=JSON.parse(execFileSync(arg('python',process.env.PYTHON||'python'),['-c',referenceScript],
     {cwd:root,input:JSON.stringify(opticalCases),encoding:'utf8',timeout:60000,windowsHide:true}));

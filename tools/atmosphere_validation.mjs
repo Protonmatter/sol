@@ -84,7 +84,8 @@ const ABSOLUTE_TOLERANCE=1e-4, RELATIVE_TOLERANCE=.002, ZERO_TOLERANCE=1e-7;
 const cases = [];
 function fixture(name, body, origin, direction, sun, q=1, au=1, vacuum=false, altitude=0){
   let profile=getAtmosphereProfile(body);
-  if(vacuum) profile={...profile,betaRayleighKm:[0,0,0],betaAerosolExtinctionKm:[0,0,0]};
+  if(vacuum) profile={...profile,betaRayleighKm:[0,0,0],betaAerosolExtinctionKm:[0,0,0],
+    betaOzoneKm:[0,0,0],ozonePeakKm:0,ozoneWidthKm:0};
   const a=direction[0]**2+direction[1]**2+(direction[2]/q)**2;
   const b=origin[0]*direction[0]+origin[1]*direction[1]+origin[2]*direction[2]/q**2;
   const c=origin[0]**2+origin[1]**2+(origin[2]/q)**2-profile.radiusKm**2;
@@ -114,14 +115,14 @@ from atmosphere_reference import trace_single_scattering
 result=[]
 for c in json.loads(sys.stdin.read()):
  p=c['profile']
- result.append(trace_single_scattering(c['origin'],c['direction'],c['sun'],radius_km=p['radiusKm'],top_km=p['topKm'],rayleigh_h_km=p['rayleighScaleHeightKm'],aerosol_h_km=p['aerosolScaleHeightKm'],beta_rayleigh=p['betaRayleighKm'],beta_extinction=p['betaAerosolExtinctionKm'],aerosol_ssa=p['aerosolSingleScatteringAlbedo'],g=p['aerosolG'],polar_ratio=c['q'],solar_distance_au=c['au'],view_steps=c.get('viewSteps',512),solar_steps=c.get('solarSteps',512),max_distance_km=c['maximum'],terrain_endpoint=c.get('terrainEndpoint',False)))
+ result.append(trace_single_scattering(c['origin'],c['direction'],c['sun'],radius_km=p['radiusKm'],top_km=p['topKm'],rayleigh_h_km=p['rayleighScaleHeightKm'],aerosol_h_km=p['aerosolScaleHeightKm'],beta_rayleigh=p['betaRayleighKm'],beta_extinction=p['betaAerosolExtinctionKm'],aerosol_ssa=p['aerosolSingleScatteringAlbedo'],g=p['aerosolG'],beta_ozone=p.get('betaOzoneKm',[0,0,0]),ozone_peak_km=p.get('ozonePeakKm',0),ozone_width_km=p.get('ozoneWidthKm',0),polar_ratio=c['q'],solar_distance_au=c['au'],view_steps=c.get('viewSteps',512),solar_steps=c.get('solarSteps',512),max_distance_km=c['maximum'],terrain_endpoint=c.get('terrainEndpoint',False)))
 print(json.dumps(result))`;
 const expected=JSON.parse(execFileSync(argument('python','python'),['-c',script],{cwd:ROOT,input:JSON.stringify(cases),encoding:'utf8',timeout:90000,windowsHide:true}));
 // Independent fixed-step float64 shooting reference; actual production vertex
 // outputs are captured below, rather than reimplementing the shader in a probe.
 const refractionCases=[];
 function refractiveFixture(body,zenithDegrees,{q=1,latitude=0,altitude=0,azimuth=0,vacuum=false}={}){
- const original=getAtmosphereProfile(body), profile=vacuum?{...original,surfaceRefractivity:0}:original;
+ const original=getAtmosphereProfile(body), profile=vacuum?{...original,surfaceRefractivity:0,betaOzoneKm:[0,0,0],ozonePeakKm:0,ozoneWidthKm:0}:original;
  const lat=latitude*Math.PI/180, radius=profile.radiusKm+altitude;
  const point=[radius*Math.cos(lat),0,radius*q*Math.sin(lat)];
  let up=[Math.cos(lat),0,Math.sin(lat)/q];const length=Math.hypot(...up);up=up.map(v=>v/length);
@@ -240,7 +241,8 @@ const materialCases=[
 ];
 const low=[Math.sin(5*Math.PI/180),Math.cos(5*Math.PI/180),0], high=[Math.sin(40*Math.PI/180),Math.cos(40*Math.PI/180),0];
 const terrainColor=incidence=>color.map(value=>encode(decode(value)*(.001+.999*incidence)));
-const terrainVacuum={...getAtmosphereProfile('Earth'),radiusKm:1000,betaRayleighKm:[0,0,0],betaAerosolExtinctionKm:[0,0,0]};
+const terrainVacuum={...getAtmosphereProfile('Earth'),radiusKm:1000,betaRayleighKm:[0,0,0],betaAerosolExtinctionKm:[0,0,0],
+  betaOzoneKm:[0,0,0],ozonePeakKm:0,ozoneWidthKm:0};
 materialCases.push(
  {name:'combined ridge blocks low direct light',uniforms:{u_atmosphereEnabled:0},terrain:true,normal:[1,0,0],point:[1,0,0],light:low,expected:terrainColor(0)},
  {name:'combined ridge clears high direct light',uniforms:{u_atmosphereEnabled:0},terrain:true,normal:[1,0,0],point:[1,0,0],light:high,expected:terrainColor(high[0])},

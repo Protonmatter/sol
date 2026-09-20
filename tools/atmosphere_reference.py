@@ -72,6 +72,37 @@ def density_column(origin: Sequence[float], direction: Sequence[float], length_k
     return math.fsum(samples) * step
 
 
+def ozone_density(height_km: float, peak_km: float, width_km: float) -> float:
+    """Two-sided exponential ozone layer. Width 0 disables the absorber."""
+    if not math.isfinite(height_km) or not math.isfinite(peak_km):
+        raise ValueError("ozone height and peak must be finite")
+    if not math.isfinite(width_km) or width_km < 0:
+        raise ValueError("ozone width must be finite and nonnegative")
+    return 0.0 if width_km == 0 else math.exp(-abs(height_km - peak_km) / width_km)
+
+
+def ozone_column(origin: Sequence[float], direction: Sequence[float], length_km: float,
+                 radius_km: float, peak_km: float, width_km: float, *, steps: int = 1024,
+                 polar_ratio: float = 1) -> float:
+    """Integral of dimensionless Chappuis ozone density over physical path length."""
+    _positive(length_km, "length", True)
+    _positive(radius_km, "radius")
+    _positive(polar_ratio, "polar ratio")
+    if not isinstance(steps, int) or not 1 <= steps <= 65536:
+        raise ValueError("steps must be an integer in [1,65536]")
+    if width_km == 0:
+        ozone_density(0.0, peak_km, width_km)
+        return 0.0
+    o, d = _vec(origin), _unit(direction)
+    step = length_km / steps
+    samples = []
+    for i in range(steps):
+        p = _point(o, d, (i + .5) * step)
+        height = max(0., math.sqrt(p[0] ** 2 + p[1] ** 2 + (p[2] / polar_ratio) ** 2) - radius_km)
+        samples.append(ozone_density(height, peak_km, width_km))
+    return math.fsum(samples) * step
+
+
 def trace_single_scattering(origin: Sequence[float], direction: Sequence[float], sun_direction: Sequence[float], *,
                             radius_km: float, top_km: float, rayleigh_h_km: float, aerosol_h_km: float,
                             beta_rayleigh: Sequence[float], beta_extinction: Sequence[float],
@@ -79,7 +110,9 @@ def trace_single_scattering(origin: Sequence[float], direction: Sequence[float],
                             view_steps: int = 256, solar_steps: int = 256,
                             solar_distance_au: float = 1, exposure: float = 1,
                             max_distance_km: float | None = None,
-                            terrain_endpoint: bool = False) -> dict:
+                            terrain_endpoint: bool = False,
+                            beta_ozone: Sequence[float] = (0., 0., 0.),
+                            ozone_peak_km: float = 0., ozone_width_km: float = 0.) -> dict:
     """Reference single scattering with explicit ground/terrain semantics.
 
     Default behavior still clips the view at the reference ellipsoid. The opt-in
@@ -96,8 +129,10 @@ def trace_single_scattering(origin: Sequence[float], direction: Sequence[float],
         _positive(max_distance_km, "surface endpoint distance", True)
     o, d, sun = _vec(origin), _unit(direction), _unit(sun_direction)
     br, be, ssa = _vec(beta_rayleigh), _vec(beta_extinction), _vec(aerosol_ssa)
-    for v in (*br, *be):
+    bo = _vec(beta_ozone)
+    for v in (*br, *be, *bo):
         _positive(v, "extinction", True)
+    ozone_density(0.0, ozone_peak_km, ozone_width_km)
     if not all(0 <= a <= 1 for a in ssa) or not math.isfinite(g) or abs(g) >= 1:
         raise ValueError("invalid scattering albedo or asymmetry")
     for value, label in [(top_km, "top"), (rayleigh_h_km, "molecular scale"), (aerosol_h_km, "aerosol scale"),
@@ -128,6 +163,11 @@ def trace_single_scattering(origin: Sequence[float], direction: Sequence[float],
         column = density_column(o, d, length, radius_km, h, steps=max(1024, view_steps), polar_ratio=polar_ratio)
         for j in range(3):
             tau_total[j] += column * beta[j]
+    if any(bo) and ozone_width_km > 0:
+        ozone = ozone_column(o, d, length, radius_km, ozone_peak_km, ozone_width_km,
+                             steps=max(1024, view_steps), polar_ratio=polar_ratio)
+        for j in range(3):
+            tau_total[j] += ozone * bo[j]
     result["transmittance"] = tuple(math.exp(-t) for t in tau_total)
     mu = max(-1., min(1., sum(x * y for x, y in zip(d, sun))))
     phase_r = 3 * (1 + mu * mu) / (16 * math.pi)
@@ -162,8 +202,14 @@ def trace_single_scattering(origin: Sequence[float], direction: Sequence[float],
         for h in (rayleigh_h_km, aerosol_h_km):
             cols.append(density_column(o, d, distance, radius_km, h, steps=solar_steps, polar_ratio=polar_ratio)
                         + density_column(p, sun, sunlight[1], radius_km, h, steps=solar_steps, polar_ratio=polar_ratio))
+        ozone = 0.0
+        if any(bo) and ozone_width_km > 0:
+            ozone = (ozone_column(o, d, distance, radius_km, ozone_peak_km, ozone_width_km,
+                                  steps=solar_steps, polar_ratio=polar_ratio)
+                     + ozone_column(p, sun, sunlight[1], radius_km, ozone_peak_km, ozone_width_km,
+                                    steps=solar_steps, polar_ratio=polar_ratio))
         for j in range(3):
-            attenuation = math.exp(-br[j] * cols[0] - be[j] * cols[1])
+            attenuation = math.exp(-br[j] * cols[0] - be[j] * cols[1] - bo[j] * ozone)
             source = br[j] * densities[0] * phase_r + be[j] * ssa[j] * densities[1] * phase_a
             accum[j] += attenuation * source * step
     result["scattering"] = tuple(v * math.pi * exposure / solar_distance_au ** 2 for v in accum)

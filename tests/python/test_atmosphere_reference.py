@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
-from atmosphere_reference import density_column, ray_sphere_interval, trace_single_scattering, trace_refracted_ray, incident_solar_refraction
+from atmosphere_reference import density_column, ozone_density, ozone_column, ray_sphere_interval, trace_single_scattering, trace_refracted_ray, incident_solar_refraction
 
 
 class AtmosphereReferenceTests(unittest.TestCase):
@@ -59,6 +59,28 @@ class AtmosphereReferenceTests(unittest.TestCase):
         lit = trace_single_scattering((0, 0, 8000), (0, 0, -1), (0, 0, 1), **opts)
         self.assertTrue(all(x > 0 for x in lit["scattering"]))
         self.assertGreater(lit["scattering"][2], lit["scattering"][0])
+
+    def test_chappuis_ozone_is_absorption_only_and_width_zero_is_a_no_op(self) -> None:
+        self.assertEqual(ozone_density(25, 25, 15), 1)
+        self.assertEqual(ozone_density(10, 25, 0), 0)
+        with self.assertRaises(ValueError):
+            ozone_density(10, 25, -1)
+        base = dict(radius_km=6378.137, top_km=100, rayleigh_h_km=8, aerosol_h_km=1.2,
+                    beta_rayleigh=(.0058, .0136, .0331), beta_extinction=(0, 0, 0),
+                    aerosol_ssa=(.9, .9, .9), g=.8)
+        clear = trace_single_scattering((0, 0, 8000), (0, 0, -1), (0, 0, 1), **base)
+        ozone = trace_single_scattering((0, 0, 8000), (0, 0, -1), (0, 0, 1), **base,
+                                        beta_ozone=(.000523, .000913, .000037),
+                                        ozone_peak_km=25, ozone_width_km=15)
+        off = trace_single_scattering((0, 0, 8000), (0, 0, -1), (0, 0, 1), **base,
+                                      beta_ozone=(.000523, .000913, .000037),
+                                      ozone_peak_km=25, ozone_width_km=0)
+        self.assertEqual(off["transmittance"], clear["transmittance"])
+        self.assertTrue(all(a < b for a, b in zip(ozone["transmittance"], clear["transmittance"])))
+        self.assertLess(ozone["transmittance"][1] / clear["transmittance"][1],
+                        ozone["transmittance"][2] / clear["transmittance"][2])
+        self.assertTrue(all(a < b for a, b in zip(ozone["scattering"], clear["scattering"])))
+        self.assertGreater(ozone_column((0, 0, 6378.137), (0, 0, 1), 100, 6378.137, 25, 15), 0)
 
     def test_refracted_ray_vacuum_limit_and_outward_escape(self) -> None:
         original = (0.6, 0, 0.8)
