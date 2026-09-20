@@ -87,8 +87,8 @@ export function generateAtmosphereOzoneColumns(profile){
 
 /** Runtime RGBA32F: admitted RG columns plus baked ozone. Unit 7 stays RG32F. */
 export function packAtmosphereOpticalField(columns,ozone){
-  const cells=ATMOSPHERE_COLUMN_SIZE**2;
-  if(columns.length!==cells*2||ozone.length!==cells)throw new RangeError('Invalid packed optical field');
+  const cells=ozone.length;
+  if(!Number.isInteger(cells)||cells<1||columns.length!==cells*2)throw new RangeError('Invalid packed optical field');
   const packed=new Float32Array(cells*4);
   for(let i=0;i<cells;i++){
     packed[i*4]=columns[i*2];
