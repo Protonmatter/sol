@@ -28,7 +28,7 @@ import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms,serialize
 import {setHazeUniforms} from './illustrativeHaze.js';
 import {INCIDENT_FIELD_UNIFORMS} from './atmosphereIncident.js';
 import {ATMOSPHERE_VS} from './atmosphereShaders.js';
-import {loadAtmosphereFields} from './atmosphereColumnField.js';
+import {generateAtmosphereOzoneColumns,loadAtmosphereFields} from './atmosphereColumnField.js';
 import {ATMOSPHERE_COLUMN_FIELDS} from './atmosphereColumnManifest.js';
 import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,
   SCATTERING_UNIFORMS,planAtmosphereScattering,validScatteringPlanBudget} from './atmosphereScattering.js';
@@ -281,22 +281,25 @@ function initIncidentResources(){
   const cache=createDetailCache({capacity:2,load:async(body,signal)=>{
     const [field,columns]=await loadAtmosphereFields(body,{signal});
     if(signal.aborted||incidentFields!==cache||incidentBodyDemand()!==body||incidentDemand!==body||gl!==context||context.isContextLost())throw new Error('Incident field graphics demand changed');
-    let texture=null,columnTexture=null;
+    let texture=null,columnTexture=null,ozoneTexture=null;
+    const uploadField=(unit,handle,internal,format,pixels,width,height)=>{
+      context.activeTexture(context.TEXTURE0+unit);context.bindTexture(context.TEXTURE_2D,handle);
+      context.texImage2D(context.TEXTURE_2D,0,internal,width,height,0,format,context.FLOAT,pixels);
+      for(const parameter of [context.TEXTURE_MIN_FILTER,context.TEXTURE_MAG_FILTER])context.texParameteri(context.TEXTURE_2D,parameter,context.NEAREST);
+      for(const parameter of [context.TEXTURE_WRAP_S,context.TEXTURE_WRAP_T])context.texParameteri(context.TEXTURE_2D,parameter,context.CLAMP_TO_EDGE);
+    };
     try{
-    texture=context.createTexture();context.activeTexture(context.TEXTURE0+6);context.bindTexture(context.TEXTURE_2D,texture);
-    context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
-    context.texImage2D(context.TEXTURE_2D,0,context.RGBA32F,field.width,field.height,0,context.RGBA,context.FLOAT,field.values);
-    for(const parameter of [context.TEXTURE_MIN_FILTER,context.TEXTURE_MAG_FILTER])context.texParameteri(context.TEXTURE_2D,parameter,context.NEAREST);
-    for(const parameter of [context.TEXTURE_WRAP_S,context.TEXTURE_WRAP_T])context.texParameteri(context.TEXTURE_2D,parameter,context.CLAMP_TO_EDGE);
-    columnTexture=context.createTexture();context.activeTexture(context.TEXTURE0+7);context.bindTexture(context.TEXTURE_2D,columnTexture);
-    context.texImage2D(context.TEXTURE_2D,0,context.RG32F,columns.width,columns.height,0,context.RG,context.FLOAT,columns.values);
-    for(const parameter of [context.TEXTURE_MIN_FILTER,context.TEXTURE_MAG_FILTER])context.texParameteri(context.TEXTURE_2D,parameter,context.NEAREST);
-    for(const parameter of [context.TEXTURE_WRAP_S,context.TEXTURE_WRAP_T])context.texParameteri(context.TEXTURE_2D,parameter,context.CLAMP_TO_EDGE);
+    texture=context.createTexture();context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);context.pixelStorei(context.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+    uploadField(6,texture,context.RGBA32F,context.RGBA,field.values,field.width,field.height);
+    columnTexture=context.createTexture();
+    uploadField(7,columnTexture,context.RG32F,context.RG,columns.values,columns.width,columns.height);
+    ozoneTexture=context.createTexture();
+    uploadField(10,ozoneTexture,context.R32F,context.RED,generateAtmosphereOzoneColumns(getAtmosphereProfile(body)),columns.width,columns.height);
     if(context.getError()!==context.NO_ERROR)throw new Error('GPU rejected optical fields');
-    return {texture,columnTexture,height:[field.domain.minHeightKm,field.domain.maxHeightKm,Number(field.domain.quadratic)]};
-    }catch(error){if(texture)context.deleteTexture(texture);if(columnTexture)context.deleteTexture(columnTexture);throw error;}
+    return {texture,columnTexture,ozoneTexture,height:[field.domain.minHeightKm,field.domain.maxHeightKm,Number(field.domain.quadratic)]};
+    }catch(error){if(texture)context.deleteTexture(texture);if(columnTexture)context.deleteTexture(columnTexture);if(ozoneTexture)context.deleteTexture(ozoneTexture);throw error;}
     finally{context.activeTexture(context.TEXTURE0);}
-  },release:value=>{if(value){context.deleteTexture(value.texture);context.deleteTexture(value.columnTexture);}},onChange:body=>{
+  },release:value=>{if(value){context.deleteTexture(value.texture);context.deleteTexture(value.columnTexture);if(value.ozoneTexture)context.deleteTexture(value.ozoneTexture);}},onChange:body=>{
     queueMicrotask(()=>{if(incidentFields!==cache||gl!==context)return;
       state.opticsStatus[body]=opticalReadiness(body);updatePhysicalAppearance();if(state.active&&!document.hidden&&!state.animate)paint();});
   }});
@@ -336,7 +339,10 @@ function bindIncidentField(body,profile,locations=P.sphereU){
 function bindAtmosphereColumns(body,locations){
   const field=incidentFields?.get(body);
   gl.activeTexture(gl.TEXTURE0+7);gl.bindTexture(gl.TEXTURE_2D,field?.columnTexture||whiteTex);
-  gl.uniform1i(locations.u_atmosphereColumnField,7);gl.activeTexture(gl.TEXTURE0);
+  gl.uniform1i(locations.u_atmosphereColumnField,7);
+  gl.activeTexture(gl.TEXTURE0+10);gl.bindTexture(gl.TEXTURE_2D,field?.ozoneTexture||whiteTex);
+  if(locations.u_atmosphereOzoneField)gl.uniform1i(locations.u_atmosphereOzoneField,10);
+  gl.activeTexture(gl.TEXTURE0);
 }
 
 function initTerrainResources() {
@@ -811,7 +817,7 @@ function finishGL(){
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
-  Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
+  Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
   Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear']));
   for(const name of ['sphere','line','ring','pt','glow','solar'])
@@ -857,9 +863,9 @@ function admitPhysicalPrograms(){
       P.physicalSphere=shaderPrograms.get('physicalSphere');
       P.physicalSphereU=uloc(P.physicalSphere,[...Object.keys(P.sphereU),...SCATTERING_UNIFORMS,'u_scatteringReferenceHeightKm']);
       P.atmosphere=shaderPrograms.get('atmosphere');
-      P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,...SCATTERING_UNIFORMS,'u_atmosphereColumnField','u_linearOutput']);
+      P.atmosphereU=uloc(P.atmosphere,['u_mvp',...ATMOSPHERE_UNIFORMS,...SCATTERING_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_linearOutput']);
       P.scatteringGenerator=shaderPrograms.get('scatteringGenerator');
-      P.scatteringGeneratorU=uloc(P.scatteringGenerator,[...ATMOSPHERE_UNIFORMS,...SCATTERING_UNIFORMS,'u_atmosphereColumnField','u_scatteringPass']);
+      P.scatteringGeneratorU=uloc(P.scatteringGenerator,[...ATMOSPHERE_UNIFORMS,...SCATTERING_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_scatteringPass']);
     }
     scatteringTargets??=createScatteringTargets(gl,{contextGeneration,programGeneration:programContextGeneration,
       programs:shaderPrograms,generatorKey:'scatteringGenerator',generatorUniforms:P.scatteringGeneratorU,
@@ -1497,8 +1503,9 @@ function generateBodyScattering(body,profile,opticalOptions,physicalRadius,mesh)
   if(plan.status!=='ready'){
     state.scatteringStatus[body]={state:'unavailable',reason:plan.reason,submission:null};return null;
   }
-  const columnTexture=incidentFields?.get(body)?.columnTexture;
-  const args={frame:scatteringFrame,plan,profile,opticalOptions:options,columnTexture,columnIdentity:ATMOSPHERE_COLUMN_FIELDS[body].sha256};
+  const opticalFields=incidentFields?.get(body);
+  const columnTexture=opticalFields?.columnTexture;
+  const args={frame:scatteringFrame,plan,profile,opticalOptions:options,columnTexture,ozoneTexture:opticalFields?.ozoneTexture||null,columnIdentity:ATMOSPHERE_COLUMN_FIELDS[body].sha256};
   // Cancellation records withdrawn demand, not a failed target. A demand switch
   // cancels every entry but retries only the newly demanded body, so a body that
   // is still drawn with a resident field would otherwise stay cancelled for the

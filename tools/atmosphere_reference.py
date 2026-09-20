@@ -103,6 +103,48 @@ def ozone_column(origin: Sequence[float], direction: Sequence[float], length_km:
     return math.fsum(samples) * step
 
 
+# Same nodes as ATM_X12 / ATM_W12 in atmosphereShaders.js. One interval stays
+# cheap on hosted SwiftShader; twelve nodes recover the twilight limb that
+# eight nodes missed.
+_OZONE_X12 = (-.9815606342, -.9041172564, -.7699026742, -.5873179543,
+              -.3678314990, -.1252334085, .1252334085, .3678314990,
+              .5873179543, .7699026742, .9041172564, .9815606342)
+_OZONE_W12 = (.0471753364, .1069393260, .1600783285, .2031674267,
+              .2334925365, .2491470458, .2491470458, .2334925365,
+              .2031674267, .1600783285, .1069393260, .0471753364)
+
+
+def ozone_column_gpu(origin: Sequence[float], direction: Sequence[float], length_km: float,
+                     radius_km: float, peak_km: float, width_km: float, *,
+                     polar_ratio: float = 1) -> float:
+    """COLUMN_GLSL atmosphereOzoneColumnOnAxis, including the physical Jacobian."""
+    _positive(length_km, "length", True)
+    _positive(radius_km, "radius")
+    _positive(polar_ratio, "polar ratio")
+    if width_km == 0:
+        ozone_density(0.0, peak_km, width_km)
+        return 0.0
+    o, d = _vec(origin), _unit(direction)
+    p = (o[0], o[1], o[2] / polar_ratio)
+    dv = (d[0], d[1], d[2] / polar_ratio)
+    scale = math.sqrt(sum(v * v for v in dv))
+    if scale == 0:
+        raise ValueError("ozone column direction vanished")
+    axis = tuple(v / scale for v in dv)
+    begin = sum(a * b for a, b in zip(p, axis))
+    end = begin + length_km * scale
+    span = end - begin
+    if span <= 0:
+        return 0.0
+    impact = math.sqrt(sum((p[i] - begin * axis[i]) ** 2 for i in range(3)))
+    half, middle, column = span * .5, (begin + end) * .5, 0.0
+    for node, weight in zip(_OZONE_X12, _OZONE_W12):
+        x = middle + half * node
+        height = max(0.0, math.hypot(impact, x) - radius_km)
+        column += weight * ozone_density(height, peak_km, width_km)
+    return column * half / scale
+
+
 def trace_single_scattering(origin: Sequence[float], direction: Sequence[float], sun_direction: Sequence[float], *,
                             radius_km: float, top_km: float, rayleigh_h_km: float, aerosol_h_km: float,
                             beta_rayleigh: Sequence[float], beta_extinction: Sequence[float],

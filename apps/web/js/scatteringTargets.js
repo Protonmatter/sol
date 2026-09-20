@@ -133,7 +133,7 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
   function validated(args){
     if(!args||!sameFrame(currentFrame,args.frame))throw new Error('Scattering frame does not match the current scene');
     const frame={...currentFrame};
-    const {plan,profile,opticalOptions,columnTexture,columnIdentity}=args;
+    const {plan,profile,opticalOptions,columnTexture,columnIdentity,ozoneTexture=null}=args;
     const allocation=budget(plan,maxSize);
     if(!profile||!opticalOptions||!columnTexture||typeof columnIdentity!=='string'||!columnIdentity||columnIdentity.length>256
       ||!vector(plan.cameraBodyKm,3)||!vector(opticalOptions.cameraBodyKm,3)||!sameVector(plan.cameraBodyKm,opticalOptions.cameraBodyKm)
@@ -150,7 +150,7 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
     if(identity!==serializeAtmosphereProfile({inputs:snapshot({plan,profile,opticalOptions,columnIdentity}),
       uniforms:snapshot(atmosphereUniformValues(profile,opticalOptions))}))throw new Error('Scattering input changed during admission');
     if(!sameFrame(currentFrame,frame)||!sameFrame(args.frame,frame))throw new Error('Scattering frame changed during admission');
-    return {plan:copied.plan,values,identity,columnTexture,allocation,frame};
+    return {plan:copied.plan,values,identity,columnTexture,ozoneTexture,allocation,frame};
   }
   function restoreSnapshot(value){
     const handles=[];for(const entry of entries.values())if(entry.group)handles.push(...Object.values(entry.group));
@@ -230,6 +230,10 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
       gl.colorMask(true,true,true,true);gl.depthMask(false);
       for(const unit of UNITS){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,unit===7?data.columnTexture:null);gl.bindSampler(unit,null);}
       upload(gl,locations,data.values);uploadGrid(gl,locations,data.plan,0);gl.uniform1i(locations.u_atmosphereColumnField,7);
+      if(locations.u_atmosphereOzoneField){
+        gl.activeTexture(gl.TEXTURE0+10);gl.bindTexture(gl.TEXTURE_2D,data.ozoneTexture||null);gl.bindSampler(10,null);
+        gl.uniform1i(locations.u_atmosphereOzoneField,10);
+      }
       for(let pass=0;pass<2;pass++){
         if(entry.revision!==revision||!currentOwner())throw new Error('Scattering demand cancelled during generation');
         gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,pass===0?group.surface:group.limb,0);

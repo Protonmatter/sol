@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
-from atmosphere_reference import density_column, ozone_density, ozone_column, ray_sphere_interval, trace_single_scattering, trace_refracted_ray, incident_solar_refraction
+from atmosphere_reference import density_column, ozone_density, ozone_column, ozone_column_gpu, ray_sphere_interval, trace_single_scattering, trace_refracted_ray, incident_solar_refraction
 
 
 class AtmosphereReferenceTests(unittest.TestCase):
@@ -81,6 +81,10 @@ class AtmosphereReferenceTests(unittest.TestCase):
                         ozone["transmittance"][2] / clear["transmittance"][2])
         self.assertTrue(all(a < b for a, b in zip(ozone["scattering"], clear["scattering"])))
         self.assertGreater(ozone_column((0, 0, 6378.137), (0, 0, 1), 100, 6378.137, 25, 15), 0)
+        vertical = ozone_column((0, 0, 6378.137), (0, 0, 1), 100, 6378.137, 25, 15)
+        gpu = ozone_column_gpu((0, 0, 6378.137), (0, 0, 1), 100, 6378.137, 25, 15)
+        self.assertGreater(gpu, 0)
+        self.assertAlmostEqual(gpu / vertical, 1, delta=0.1)
 
     def test_refracted_ray_vacuum_limit_and_outward_escape(self) -> None:
         original = (0.6, 0, 0.8)

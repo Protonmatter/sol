@@ -36,6 +36,55 @@ export function generateAtmosphereColumns(profile){
   return values;
 }
 
+function ozoneDensity(heightKm,peakKm,widthKm){
+  return widthKm<=0?0:Math.exp(-Math.abs(heightKm-peakKm)/widthKm);
+}
+
+function ozoneGauss(impact,x0,x1,radiusKm,peakKm,widthKm){
+  const span=x1-x0;if(span<=0)return 0;
+  const half=span*.5,middle=(x0+x1)*.5;let column=0;
+  for(let i=0;i<8;i++){
+    const x=middle+half*X[i];
+    column+=W[i]*ozoneDensity(Math.max(0,Math.hypot(impact,x)-radiusKm),peakKm,widthKm);
+  }
+  return column*half;
+}
+
+function ozoneColumnOnAxis(impact,x0,x1,radiusKm,peakKm,widthKm){
+  if(x1<=x0||widthKm<=0)return 0;
+  const peakR=radiusKm+Math.max(0,peakKm),disc=peakR*peakR-impact*impact;
+  let column=0,prev=x0;
+  if(disc>0){
+    const peakX=Math.sqrt(disc);
+    if(-peakX>x0+1e-4&&-peakX<x1-1e-4){column+=ozoneGauss(impact,prev,-peakX,radiusKm,peakKm,widthKm);prev=-peakX;}
+    if(0>x0+1e-4&&0<x1-1e-4){column+=ozoneGauss(impact,prev,0,radiusKm,peakKm,widthKm);prev=0;}
+    if(peakX>x0+1e-4&&peakX<x1-1e-4){column+=ozoneGauss(impact,prev,peakX,radiusKm,peakKm,widthKm);prev=peakX;}
+  }else if(0>x0+1e-4&&0<x1-1e-4){
+    column+=ozoneGauss(impact,prev,0,radiusKm,peakKm,widthKm);prev=0;
+  }
+  return column+ozoneGauss(impact,prev,x1,radiusKm,peakKm,widthKm);
+}
+
+/** Outward Chappuis column on the same (height, mu) grid as the shipped RG field. */
+export function outwardOzoneColumn(radiusKm,heightKm,mu,peakKm,widthKm,topKm){
+  if(![radiusKm,heightKm,mu,peakKm,widthKm,topKm].every(Number.isFinite)||radiusKm<=0||heightKm<0||mu<0||mu>1||widthKm<0||topKm<=0)
+    throw new RangeError('Invalid ozone-column geometry');
+  if(widthKm===0||heightKm>=topKm)return 0;
+  const radius=radiusKm+heightKm,impact=radius*Math.sqrt(Math.max(0,1-mu*mu));
+  const x0=radius*mu,x1=Math.sqrt(Math.max(0,(radiusKm+topKm)**2-impact**2));
+  return ozoneColumnOnAxis(impact,x0,x1,radiusKm,peakKm,widthKm);
+}
+
+export function generateAtmosphereOzoneColumns(profile){
+  const n=ATMOSPHERE_COLUMN_SIZE,values=new Float32Array(n*n);
+  if(profile.ozoneWidthKm<=0)return values;
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+    const height=profile.topKm*(y/(n-1))**2,mu=(x/(n-1))**2;
+    values[y*n+x]=outwardOzoneColumn(profile.radiusKm,height,mu,profile.ozonePeakKm,profile.ozoneWidthKm,profile.topKm);
+  }
+  return values;
+}
+
 /** Float64 interpolation reference; GPU uses explicit texelFetch, not float filtering. */
 export function sampleOutwardColumns(values,profile,heightKm,mu){
   if(values.length!==ATMOSPHERE_COLUMN_SIZE**2*2||![heightKm,mu].every(Number.isFinite)||heightKm<0||mu<0||mu>1)throw new RangeError('Invalid column field sample');
@@ -68,6 +117,7 @@ export function sampleDensityColumns(values,profile,origin,direction,distance,po
 
 const COLUMN_GLSL=`
 uniform highp sampler2D u_atmosphereColumnField;
+uniform highp sampler2D u_atmosphereOzoneField;
 uniform vec3 u_atmosphereOzoneKm;
 uniform vec2 u_atmosphereOzoneLayerKm;
 float atmosphereOzoneDensity(float height){
@@ -75,44 +125,32 @@ float atmosphereOzoneDensity(float height){
   if(width<=0.0) return 0.0;
   return exp(-abs(height-u_atmosphereOzoneLayerKm.x)/width);
 }
-float atmosphereOzoneGauss4(float impact,float x0,float x1){
-  float span=x1-x0;
-  if(span<=0.0) return 0.0;
-  float halfWidth=span*.5, middle=(x0+x1)*.5;
-  float h0=max(0.0,length(vec2(impact,middle-halfWidth*.8611363116))-u_atmosphereRadiusKm);
-  float h1=max(0.0,length(vec2(impact,middle-halfWidth*.3399810436))-u_atmosphereRadiusKm);
-  float h2=max(0.0,length(vec2(impact,middle+halfWidth*.3399810436))-u_atmosphereRadiusKm);
-  float h3=max(0.0,length(vec2(impact,middle+halfWidth*.8611363116))-u_atmosphereRadiusKm);
-  return halfWidth*(.3478548451*atmosphereOzoneDensity(h0)+.6521451549*atmosphereOzoneDensity(h1)
-    +.6521451549*atmosphereOzoneDensity(h2)+.3478548451*atmosphereOzoneDensity(h3));
+vec2 atmosphereOutwardLookup(highp sampler2D field,float height,float mu){
+  if(height>=u_atmosphereTopKm)return vec2(0);
+  vec2 p=sqrt(clamp(vec2(mu,height/u_atmosphereTopKm),vec2(0),vec2(1)))*511.0;
+  ivec2 lo=ivec2(floor(p)),hi=min(lo+ivec2(1),ivec2(511));vec2 f=fract(p);
+  return mix(mix(texelFetch(field,lo,0).rg,texelFetch(field,ivec2(hi.x,lo.y),0).rg,f.x),
+    mix(texelFetch(field,ivec2(lo.x,hi.y),0).rg,texelFetch(field,hi,0).rg,f.x),f.y);
+}
+vec2 atmosphereOutwardColumns(float height,float mu){return atmosphereOutwardLookup(u_atmosphereColumnField,height,mu);}
+float atmosphereOzoneOutward(float height,float mu){return atmosphereOutwardLookup(u_atmosphereOzoneField,height,mu).r;}
+float atmosphereOzoneTail(float impact,float x){
+  float radius=length(vec2(impact,x)),height=((impact-u_atmosphereRadiusKm)*(impact+u_atmosphereRadiusKm)+x*x)/(radius+u_atmosphereRadiusKm);
+  if(height<0.0){
+    float ground=sqrt(max(0.0,u_atmosphereRadiusKm*u_atmosphereRadiusKm-impact*impact));
+    return atmosphereOzoneOutward(0.0,ground/u_atmosphereRadiusKm)+max(0.0,ground-x)*atmosphereOzoneDensity(0.0);
+  }
+  return atmosphereOzoneOutward(height,x/max(radius,1e-9));
 }
 float atmosphereOzoneColumnOnAxis(float impact,float x0,float x1){
   if(x1<=x0||u_atmosphereOzoneLayerKm.y<=0.0) return 0.0;
-  // One unsplit interval misses a 25 km Chapman peak on a long grazing chord.
-  // Walk already-ordered cuts: -peak, closest approach, +peak.
-  float peakR=u_atmosphereRadiusKm+max(0.0,u_atmosphereOzoneLayerKm.x);
-  float disc=peakR*peakR-impact*impact;
-  float column=0.0, prev=x0;
-  if(disc>0.0){
-    float peakX=sqrt(disc);
-    if(-peakX>x0+1e-4&&-peakX<x1-1e-4){column+=atmosphereOzoneGauss4(impact,prev,-peakX);prev=-peakX;}
-    if(0.0>x0+1e-4&&0.0<x1-1e-4){column+=atmosphereOzoneGauss4(impact,prev,0.0);prev=0.0;}
-    if(peakX>x0+1e-4&&peakX<x1-1e-4){column+=atmosphereOzoneGauss4(impact,prev,peakX);prev=peakX;}
-  }else if(0.0>x0+1e-4&&0.0<x1-1e-4){
-    column+=atmosphereOzoneGauss4(impact,prev,0.0);prev=0.0;
-  }
-  return column+atmosphereOzoneGauss4(impact,prev,x1);
+  float a=atmosphereOzoneTail(impact,abs(x0)),b=atmosphereOzoneTail(impact,abs(x1));
+  float raw=x0>=0.0?a-b:x1<=0.0?b-a:2.0*atmosphereOzoneTail(impact,0.0)-a-b;
+  return max(0.0,raw);
 }
 float atmosphereOzoneToTop(float impact,float begin){
   float outer=sqrt(max(0.0,(u_atmosphereRadiusKm+u_atmosphereTopKm)*(u_atmosphereRadiusKm+u_atmosphereTopKm)-impact*impact));
   return begin>outer?0.0:atmosphereOzoneColumnOnAxis(impact,begin,outer);
-}
-vec2 atmosphereOutwardColumns(float height,float mu){
-  if(height>=u_atmosphereTopKm)return vec2(0);
-  vec2 p=sqrt(clamp(vec2(mu,height/u_atmosphereTopKm),vec2(0),vec2(1)))*511.0;
-  ivec2 lo=ivec2(floor(p)),hi=min(lo+ivec2(1),ivec2(511));vec2 f=fract(p);
-  return mix(mix(texelFetch(u_atmosphereColumnField,lo,0).rg,texelFetch(u_atmosphereColumnField,ivec2(hi.x,lo.y),0).rg,f.x),
-    mix(texelFetch(u_atmosphereColumnField,ivec2(lo.x,hi.y),0).rg,texelFetch(u_atmosphereColumnField,hi,0).rg,f.x),f.y);
 }
 vec2 atmosphereColumnTail(float impact,float x){
   // Rationalize altitude before lookup: subtracting a rounded body-sized radius

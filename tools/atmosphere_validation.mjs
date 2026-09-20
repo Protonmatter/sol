@@ -40,7 +40,8 @@ async function moduleFile(relative){
  return import(pathToFileURL(file).href);
 }
 const {ATMOSPHERE_VS,ATMOSPHERE_GLSL:REFERENCE_ATMOSPHERE_GLSL}=await moduleFile('js/atmosphereShaders.js');
-let {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS}=await moduleFile('js/atmosphereColumnField.js');
+let {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS,
+  generateAtmosphereOzoneColumns}=await moduleFile('js/atmosphereColumnField.js');
 const {ATMOSPHERE_COLUMN_FIELDS}=await moduleFile('js/atmosphereColumnManifest.js');
 const {getAtmosphereProfile,atmosphereUniformValues}=await moduleFile('js/atmosphereOptics.js');
 let {SPHERE_VS,SPHERE_FS}=await moduleFile('js/orreryShaders.js');
@@ -66,7 +67,8 @@ for(const [body,reference]of Object.entries(ATMOSPHERE_COLUMN_FIELDS)){
  const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
  assert.equal(bytes.length,reference.bytes);assert.equal(digest(bytes),reference.sha256);hashes[relative]=digest(bytes);
  if(release){const entry=release.assets.find(a=>a.path===path.relative(webRoot,file).split(path.sep).join('/'));assert.equal(entry?.sha256,reference.sha256);}
- columns[body]={values:Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4)),width:512,height:512};
+ columns[body]={values:Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4)),
+  ozone:Array.from(generateAtmosphereOzoneColumns(getAtmosphereProfile(body))),width:512,height:512};
 }
 for(const [body,reference]of Object.entries(INCIDENT_FIELDS)){
  const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
@@ -286,14 +288,23 @@ try {
   const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,1,1);
   const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
   if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('incomplete float target');
-  const columnTextures={};
-  for(const [body,field]of Object.entries(columns)){
-    gl.activeTexture(gl.TEXTURE7);const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RG32F,field.width,field.height,0,gl.RG,gl.FLOAT,new Float32Array(field.values));
+  const columnTextures={},ozoneTextures={};
+  const uploadField=(unit,internal,format,field,pixels)=>{
+    gl.activeTexture(gl.TEXTURE0+unit);const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.texImage2D(gl.TEXTURE_2D,0,internal,field.width,field.height,0,format,gl.FLOAT,new Float32Array(pixels));
     for(const param of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,param,gl.NEAREST);
-    for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);columnTextures[body]=texture;
+    for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);
+    return texture;
+  };
+  for(const [body,field]of Object.entries(columns)){
+    columnTextures[body]=uploadField(7,gl.RG32F,gl.RG,field,field.values);
+    ozoneTextures[body]=uploadField(10,gl.R32F,gl.RED,field,field.ozone);
   }
-  const bindColumns=(program,body)=>{gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,columnTextures[body]);gl.uniform1i(gl.getUniformLocation(program,'u_atmosphereColumnField'),7);gl.activeTexture(gl.TEXTURE0);};
+  const bindColumns=(program,body)=>{
+    gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,columnTextures[body]);gl.uniform1i(gl.getUniformLocation(program,'u_atmosphereColumnField'),7);
+    gl.activeTexture(gl.TEXTURE10);gl.bindTexture(gl.TEXTURE_2D,ozoneTextures[body]);gl.uniform1i(gl.getUniformLocation(program,'u_atmosphereOzoneField'),10);
+    gl.activeTexture(gl.TEXTURE0);
+  };
   gl.useProgram(p);
   const upload=(name,value)=>{const u=gl.getUniformLocation(p,name);if(Array.isArray(value)) {if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);} else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
   const transfer=cases.map(c=>{bindColumns(p,c.profile.body);for(const [key,value]of Object.entries(c.uniforms))upload(key,value);upload('u_probeOrigin',c.origin);upload('u_probeDir',c.direction);upload('u_probeMax',c.maximum);

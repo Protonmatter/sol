@@ -7,7 +7,7 @@ import {ATMOSPHERE_GLSL} from '../../apps/web/js/atmosphereShaders.js';
 import {SPHERE_FS,SPHERE_VS,BASE_SPHERE_FS,BASE_SPHERE_VS} from '../../apps/web/js/orreryShaders.js';
 import {ATMOSPHERE_COLUMN_FIELDS} from '../../apps/web/js/atmosphereColumnManifest.js';
 import {ATMOSPHERE_COLUMN_SIZE,ATMOSPHERE_COLUMN_BYTES,outwardDensityColumn,generateAtmosphereColumns,
-  sampleOutwardColumns,sampleDensityColumns,ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_RENDER_FS,
+  generateAtmosphereOzoneColumns,sampleOutwardColumns,sampleDensityColumns,ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_RENDER_FS,
   loadAtmosphereColumns,loadAtmosphereFields,cacheAtmosphereViewRay,specializeAtmosphereSunDepth} from '../../apps/web/js/atmosphereColumnField.js';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const bytesFor=body=>fs.readFileSync(new URL(`../../apps/web/data/optics/${body.toLowerCase()}-columns-v1.f32`,import.meta.url));
@@ -32,10 +32,21 @@ test('offline column generation exactly reproduces the shipped Float32 fields an
   }
 });
 
+test('runtime ozone columns stay off the admitted RG field and vanish for Mars',()=>{
+  const earth=generateAtmosphereOzoneColumns(getAtmosphereProfile('Earth'));
+  const mars=generateAtmosphereOzoneColumns(getAtmosphereProfile('Mars'));
+  assert.equal(earth.length,ATMOSPHERE_COLUMN_SIZE**2);
+  assert.equal(mars.length,earth.length);
+  assert.ok(earth.some(value=>value>0));
+  assert.ok(mars.every(value=>value===0));
+});
+
 test('production transfer preserves scattering expressions but contains no nested density quadrature',()=>{
   for(const shader of [SPHERE_VS,SPHERE_FS,ATMOSPHERE_RENDER_FS]){
     assert.doesNotMatch(shader,/float atmosphereColumnSegment\(|float atmosphereColumn\(/);
-    assert.match(shader,/texelFetch\(u_atmosphereColumnField/);
+    assert.match(shader,/u_atmosphereColumnField/);
+    assert.match(shader,/texelFetch\(field/);
+    assert.match(shader,/u_atmosphereOzoneField/);
     assert.match(shader,/u_atmosphereOzoneKm/);
     assert.match(shader,/atmosphereOzoneColumnOnAxis/);
   }
