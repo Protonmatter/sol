@@ -89,7 +89,8 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
   if(!programs||programs.generation!==programGeneration||typeof programs.get!=='function'
     ||typeof generatorKey!=='string'||!generatorKey||generatorKey.length>80)throw new TypeError('Invalid scattering shader owner');
   const program=programs.get(generatorKey);
-  if(!program||!generatorUniforms||generatorUniforms.u_scatteringPass==null||generatorUniforms.u_atmosphereColumnField==null)
+  if(!program||!generatorUniforms||generatorUniforms.u_scatteringPass==null
+    ||(generatorUniforms.u_atmosphereColumnField==null&&generatorUniforms.u_atmosphereOzoneField==null))
     throw new TypeError('Already-ready scattering generator and uniform locations required');
   const locations={...generatorUniforms},entries=new Map();
   let currentFrame=null,lastSerial=-1,disposed=false,fatal='',maxSize=0,maxUnits=0,lastFailure='';
@@ -229,7 +230,8 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
       for(const constant of Object.values(ENABLES))gl.disable(gl[constant]);
       gl.colorMask(true,true,true,true);gl.depthMask(false);
       for(const unit of UNITS){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,unit===7?data.columnTexture:null);gl.bindSampler(unit,null);}
-      upload(gl,locations,data.values);uploadGrid(gl,locations,data.plan,0);gl.uniform1i(locations.u_atmosphereColumnField,7);
+      upload(gl,locations,data.values);uploadGrid(gl,locations,data.plan,0);
+      if(locations.u_atmosphereColumnField)gl.uniform1i(locations.u_atmosphereColumnField,7);
       if(locations.u_atmosphereOzoneField){
         gl.activeTexture(gl.TEXTURE0+10);gl.bindTexture(gl.TEXTURE_2D,data.ozoneTexture||null);gl.bindSampler(10,null);
         gl.uniform1i(locations.u_atmosphereOzoneField,10);

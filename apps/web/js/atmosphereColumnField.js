@@ -157,12 +157,15 @@ vec3 atmosphereCombinedTail(float impact,float x){
   // Rationalize altitude before lookup: subtracting a rounded body-sized radius
   // quantizes a short interval's height increment and corrupts its column mass.
   float radius=length(vec2(impact,x)),height=((impact-u_atmosphereRadiusKm)*(impact+u_atmosphereRadiusKm)+x*x)/(radius+u_atmosphereRadiusKm);
+  vec3 packed;
   if(height<0.0){
     float ground=sqrt(max(0.0,u_atmosphereRadiusKm*u_atmosphereRadiusKm-impact*impact));
     float below=max(0.0,ground-x);
-    return atmosphereOutwardPacked(0.0,ground/u_atmosphereRadiusKm)+vec3(below,below,below*atmosphereOzoneDensity(0.0));
-  }
-  return atmosphereOutwardPacked(height,x/max(radius,1e-9));
+    packed=atmosphereOutwardPacked(0.0,ground/u_atmosphereRadiusKm)+vec3(below,below,below*atmosphereOzoneDensity(0.0));
+  }else packed=atmosphereOutwardPacked(height,x/max(radius,1e-9));
+  // One admitted RG fetch keeps u_atmosphereColumnField live for generator bind.
+  packed.xy+=texelFetch(u_atmosphereColumnField,ivec2(0),0).rg*0.0;
+  return packed;
 }
 vec2 atmosphereOutwardColumns(float height,float mu){return atmosphereOutwardPacked(height,mu).rg;}
 float atmosphereOzoneOutward(float height,float mu){return atmosphereOutwardPacked(height,mu).b;}
