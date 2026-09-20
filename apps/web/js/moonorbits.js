@@ -242,7 +242,7 @@ export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU
  * full envelope; camera fill must go through cameraSystemExtent so Nereid-class
  * apoapses cannot shrink the globe under the 8px texture gate.
  */
-export function satelliteSystemExtent(moons, planetDisplayAU, trueScale, ringOuterAU = 0, radiusOf = () => 0) {
+export function satelliteSystemExtent(moons, planetDisplayAU, trueScale, ringOuterAU = 0, radiusOf = (_moon) => 0) {
   const scale = systemScale(moons, planetDisplayAU, trueScale, ringOuterAU, radiusOf);
   let extent = Math.max(planetDisplayAU, ringOuterAU);
   for (const m of moons) {

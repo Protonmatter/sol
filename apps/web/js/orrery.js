@@ -38,7 +38,7 @@ import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
-import { layoutLabels } from "./labelLayout.js?v=dcca6290de";
+import { layoutLabels } from "./labelLayout.js?v=dcca6290df";
 import { projectOpaqueDisc, isLabelOccluded } from "./labelOcclusion.js";
 import { fitOrbitDistance, minimumOrbitDistance, orbitNearPlane } from "./orbitCamera.js";
 import { resolveSystemPresentation } from "./presentationState.js?v=dcca6290db";
@@ -67,7 +67,7 @@ import { renderStarDetail } from "./starDetail.js?v=dcca6290db";
 import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dcca6290db";
 import { resolveDisplayRadii, moonGuideVisible } from "./displayGeometry.js?v=dcca6290db";
 import { textureEligible, missingDetailColor } from "./visualAssets.js?v=dcca6290db";
-import { moonOffsetAU, moonOrbitPath, systemScale, satelliteSystemExtent, cameraSystemExtent, withinMoonValidity, aliasedByClock, synchronousMoonRotation } from "./moonorbits.js?v=dcca6290de";
+import { moonOffsetAU, moonOrbitPath, systemScale, satelliteSystemExtent, cameraSystemExtent, withinMoonValidity, aliasedByClock, synchronousMoonRotation } from "./moonorbits.js?v=dcca6290df";
 import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js?v=dcca6290db";
 import * as moonCatalogue from "./moons.js?v=dcca6290db";
 import { MOON_TEXTURE_FILES, moonBaseColor, moonAtmosphereColor } from "./moonAppearance.js?v=dcca6290db";
@@ -2487,10 +2487,8 @@ function updateLabels(canvas, vp, skyVp) {
     const projected = {id:it.name,x:sx,y:sy,depth:wv,background:it.sky===true};
     if (isLabelOccluded(projected, occludersFor(it.name))) { el.style.display = "none"; continue; }
     projectedById.set(it.name, projected);
-    if (Number.isFinite(sx) && Number.isFinite(sy) && sx >= 0 && sx <= cw && sy >= 0 && sy <= ch) {
+    if (Number.isFinite(sx) && Number.isFinite(sy)) {
       el.dataset.projectionX=String(sx); el.dataset.projectionY=String(sy);
-    } else {
-      delete el.dataset.projectionX; delete el.dataset.projectionY;
     }
     const selected = it.name === state.selected || it.name === state.selectedStar?.name;
     const moonParent = parentOf(it.name);

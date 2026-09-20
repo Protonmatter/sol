@@ -4,7 +4,7 @@ export function layoutLabels(candidates, {width, height, clearance = 4, limit = 
   const top = clearance + topInset;
   const ordered = candidates.filter(c => typeof c.id === "string" && [c.x,c.y,c.width,c.height,c.priority].every(Number.isFinite)
     && c.width > 0 && c.height > 0
-    && (c.priority <= 2 || (c.x >= 0 && c.x <= width && c.y >= 0 && c.y <= height)))
+    && (c.priority <= 1 || (c.x >= 0 && c.x <= width && c.y >= 0 && c.y <= height)))
     .slice().sort((a,b)=>a.priority-b.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const placed = [], seen = new Set();
   const fits = box => box.x >= clearance && box.y >= top && box.x+box.width <= width-clearance

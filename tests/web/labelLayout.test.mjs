@@ -11,12 +11,14 @@ test("selected edge object gets a readable callout and offscreen focused moons k
   const result=layoutLabels([
     {id:"selected",priority:0,x:2,y:2,width:500,height:20},
     {id:"Nereid",priority:1,x:-40,y:20,width:20,height:20},
+    {id:"Uranus",priority:2,x:-80,y:40,width:20,height:20},
     {id:"star",priority:4,x:-8,y:40,width:20,height:20},
   ],{width:320,height:180});
   assert.ok(result.some(r=>r.id==="selected"));
   assert.equal(result.find(r=>r.id==="selected").callout,true);
   assert.ok(result.find(r=>r.id==="selected").width<=312);
   assert.ok(result.some(r=>r.id==="Nereid"),"a focused-system moon off the 76% frame still gets a callout");
+  assert.ok(!result.some(r=>r.id==="Uranus"),"an unfocused planet off the frame stays culled");
   assert.ok(!result.some(r=>r.id==="star"),"optional sky objects stay culled");
   assert.deepEqual(layoutLabels([],{width:1440,height:900}),[]);
 });

@@ -48,8 +48,9 @@ test("hidden, invalid and removed labels clear stale projection anchors", () => 
     if (mode === "removed") f.context.state.bodies = [];
     f.render();
     if (mode === "outside") {
-      assert.equal(f.labels[0].dataset.projectionX, undefined, mode);
-      assert.equal(f.labels[0].dataset.projectionY, undefined, mode);
+      assert.equal(f.labels[0].style.display, "block", "the focused body keeps an overflow name when it leaves the frame");
+      assert.ok(Number.isFinite(Number(f.labels[0].dataset.projectionX)), mode);
+      assert.ok(Number.isFinite(Number(f.labels[0].dataset.projectionY)), mode);
       continue;
     }
     assert.equal(f.labels[0].style.display, "none", mode);
