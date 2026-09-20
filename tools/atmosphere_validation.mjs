@@ -41,7 +41,7 @@ async function moduleFile(relative){
 }
 const {ATMOSPHERE_VS,ATMOSPHERE_GLSL:REFERENCE_ATMOSPHERE_GLSL}=await moduleFile('js/atmosphereShaders.js');
 let {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS,
-  generateAtmosphereOzoneColumns}=await moduleFile('js/atmosphereColumnField.js');
+  generateAtmosphereOzoneColumns,packAtmosphereOpticalField}=await moduleFile('js/atmosphereColumnField.js');
 const {ATMOSPHERE_COLUMN_FIELDS}=await moduleFile('js/atmosphereColumnManifest.js');
 const {getAtmosphereProfile,atmosphereUniformValues}=await moduleFile('js/atmosphereOptics.js');
 let {SPHERE_VS,SPHERE_FS}=await moduleFile('js/orreryShaders.js');
@@ -67,8 +67,9 @@ for(const [body,reference]of Object.entries(ATMOSPHERE_COLUMN_FIELDS)){
  const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
  assert.equal(bytes.length,reference.bytes);assert.equal(digest(bytes),reference.sha256);hashes[relative]=digest(bytes);
  if(release){const entry=release.assets.find(a=>a.path===path.relative(webRoot,file).split(path.sep).join('/'));assert.equal(entry?.sha256,reference.sha256);}
- columns[body]={values:Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4)),
-  ozone:Array.from(generateAtmosphereOzoneColumns(getAtmosphereProfile(body))),width:512,height:512};
+ const values=Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4));
+ const ozone=Array.from(generateAtmosphereOzoneColumns(getAtmosphereProfile(body)));
+ columns[body]={values,ozone,packed:Array.from(packAtmosphereOpticalField(Float32Array.from(values),Float32Array.from(ozone))),width:512,height:512};
 }
 for(const [body,reference]of Object.entries(INCIDENT_FIELDS)){
  const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
@@ -298,7 +299,7 @@ try {
   };
   for(const [body,field]of Object.entries(columns)){
     columnTextures[body]=uploadField(7,gl.RG32F,gl.RG,field,field.values);
-    ozoneTextures[body]=uploadField(10,gl.R32F,gl.RED,field,field.ozone);
+    ozoneTextures[body]=uploadField(10,gl.RGBA32F,gl.RGBA,field,field.packed);
   }
   const bindColumns=(program,body)=>{
     gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,columnTextures[body]);gl.uniform1i(gl.getUniformLocation(program,'u_atmosphereColumnField'),7);

@@ -85,6 +85,20 @@ export function generateAtmosphereOzoneColumns(profile){
   return values;
 }
 
+/** Runtime RGBA32F: admitted RG columns plus baked ozone. Unit 7 stays RG32F. */
+export function packAtmosphereOpticalField(columns,ozone){
+  const cells=ATMOSPHERE_COLUMN_SIZE**2;
+  if(columns.length!==cells*2||ozone.length!==cells)throw new RangeError('Invalid packed optical field');
+  const packed=new Float32Array(cells*4);
+  for(let i=0;i<cells;i++){
+    packed[i*4]=columns[i*2];
+    packed[i*4+1]=columns[i*2+1];
+    packed[i*4+2]=ozone[i];
+    packed[i*4+3]=1;
+  }
+  return packed;
+}
+
 /** Float64 interpolation reference; GPU uses explicit texelFetch, not float filtering. */
 export function sampleOutwardColumns(values,profile,heightKm,mu){
   if(values.length!==ATMOSPHERE_COLUMN_SIZE**2*2||![heightKm,mu].every(Number.isFinite)||heightKm<0||mu<0||mu>1)throw new RangeError('Invalid column field sample');
@@ -132,16 +146,27 @@ vec2 atmosphereOutwardLookup(highp sampler2D field,float height,float mu){
   return mix(mix(texelFetch(field,lo,0).rg,texelFetch(field,ivec2(hi.x,lo.y),0).rg,f.x),
     mix(texelFetch(field,ivec2(lo.x,hi.y),0).rg,texelFetch(field,hi,0).rg,f.x),f.y);
 }
-vec2 atmosphereOutwardColumns(float height,float mu){return atmosphereOutwardLookup(u_atmosphereColumnField,height,mu);}
-float atmosphereOzoneOutward(float height,float mu){return atmosphereOutwardLookup(u_atmosphereOzoneField,height,mu).r;}
-float atmosphereOzoneTail(float impact,float x){
+vec3 atmosphereOutwardPacked(float height,float mu){
+  if(height>=u_atmosphereTopKm)return vec3(0);
+  vec2 p=sqrt(clamp(vec2(mu,height/u_atmosphereTopKm),vec2(0),vec2(1)))*511.0;
+  ivec2 lo=ivec2(floor(p)),hi=min(lo+ivec2(1),ivec2(511));vec2 f=fract(p);
+  return mix(mix(texelFetch(u_atmosphereOzoneField,lo,0).rgb,texelFetch(u_atmosphereOzoneField,ivec2(hi.x,lo.y),0).rgb,f.x),
+    mix(texelFetch(u_atmosphereOzoneField,ivec2(lo.x,hi.y),0).rgb,texelFetch(u_atmosphereOzoneField,hi,0).rgb,f.x),f.y);
+}
+vec3 atmosphereCombinedTail(float impact,float x){
+  // Rationalize altitude before lookup: subtracting a rounded body-sized radius
+  // quantizes a short interval's height increment and corrupts its column mass.
   float radius=length(vec2(impact,x)),height=((impact-u_atmosphereRadiusKm)*(impact+u_atmosphereRadiusKm)+x*x)/(radius+u_atmosphereRadiusKm);
   if(height<0.0){
     float ground=sqrt(max(0.0,u_atmosphereRadiusKm*u_atmosphereRadiusKm-impact*impact));
-    return atmosphereOzoneOutward(0.0,ground/u_atmosphereRadiusKm)+max(0.0,ground-x)*atmosphereOzoneDensity(0.0);
+    float below=max(0.0,ground-x);
+    return atmosphereOutwardPacked(0.0,ground/u_atmosphereRadiusKm)+vec3(below,below,below*atmosphereOzoneDensity(0.0));
   }
-  return atmosphereOzoneOutward(height,x/max(radius,1e-9));
+  return atmosphereOutwardPacked(height,x/max(radius,1e-9));
 }
+vec2 atmosphereOutwardColumns(float height,float mu){return atmosphereOutwardPacked(height,mu).rg;}
+float atmosphereOzoneOutward(float height,float mu){return atmosphereOutwardPacked(height,mu).b;}
+float atmosphereOzoneTail(float impact,float x){return atmosphereCombinedTail(impact,x).z;}
 float atmosphereOzoneColumnOnAxis(float impact,float x0,float x1){
   if(x1<=x0||u_atmosphereOzoneLayerKm.y<=0.0) return 0.0;
   float a=atmosphereOzoneTail(impact,abs(x0)),b=atmosphereOzoneTail(impact,abs(x1));
@@ -152,49 +177,37 @@ float atmosphereOzoneToTop(float impact,float begin){
   float outer=sqrt(max(0.0,(u_atmosphereRadiusKm+u_atmosphereTopKm)*(u_atmosphereRadiusKm+u_atmosphereTopKm)-impact*impact));
   return begin>outer?0.0:atmosphereOzoneColumnOnAxis(impact,begin,outer);
 }
-vec2 atmosphereColumnTail(float impact,float x){
-  // Rationalize altitude before lookup: subtracting a rounded body-sized radius
-  // quantizes a short interval's height increment and corrupts its column mass.
-  // This is the same geometric height, with no support cutoff or fitted scale.
-  float radius=length(vec2(impact,x)),height=((impact-u_atmosphereRadiusKm)*(impact+u_atmosphereRadiusKm)+x*x)/(radius+u_atmosphereRadiusKm);
-  if(height<0.0){
-    float ground=sqrt(max(0.0,u_atmosphereRadiusKm*u_atmosphereRadiusKm-impact*impact));
-    return atmosphereOutwardColumns(0.0,ground/u_atmosphereRadiusKm)+vec2(max(0.0,ground-x));
-  }
-  return atmosphereOutwardColumns(height,x/max(radius,1e-9));
-}
+vec2 atmosphereColumnTail(float impact,float x){return atmosphereCombinedTail(impact,x).rg;}
 vec3 atmosphereOpticalDepth(vec3 origin,vec3 direction,float distance){
   if(distance<=0.0)return vec3(0);
   vec3 p=atmosphereUnflatten(origin),d=atmosphereUnflatten(direction);
   float scale=length(d);vec3 axis=d/scale;
   float begin=dot(p,axis),end=begin+distance*scale;
   float impact=length(p-begin*axis);
-  vec2 a=atmosphereColumnTail(impact,abs(begin)),b=atmosphereColumnTail(impact,abs(end));
-  vec2 columns=begin>=0.0?a-b:end<=0.0?b-a:2.0*atmosphereColumnTail(impact,0.0)-a-b;
-  columns=max(vec2(0),columns/scale);
-  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y
-    +u_atmosphereOzoneKm*(atmosphereOzoneColumnOnAxis(impact,begin,end)/scale);
+  vec3 a=atmosphereCombinedTail(impact,abs(begin)),b=atmosphereCombinedTail(impact,abs(end));
+  vec3 columns=begin>=0.0?a-b:end<=0.0?b-a:2.0*atmosphereCombinedTail(impact,0.0)-a-b;
+  columns=max(vec3(0),columns/scale);
+  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y+u_atmosphereOzoneKm*columns.z;
 }
 // All view samples share one physical ray. Cache only its invariant geometry
 // and tails; retain the generic evaluator for direct comparison.
-struct AtmosphereColumnRay { float scale; float begin; float impact; vec2 initial; vec2 twiceClosest; };
+struct AtmosphereColumnRay { float scale; float begin; float impact; vec3 initial; vec3 twiceClosest; };
 AtmosphereColumnRay atmosphereColumnRay(vec3 origin,vec3 direction,float maxDistance){
   vec3 p=atmosphereUnflatten(origin),d=atmosphereUnflatten(direction);
   float scale=length(d);vec3 axis=d/scale;
   float begin=dot(p,axis),end=begin+maxDistance*scale;
   float impact=length(p-begin*axis);
-  vec2 initial=atmosphereColumnTail(impact,abs(begin));
-  vec2 twiceClosest=begin<0.0&&end>0.0?2.0*atmosphereColumnTail(impact,0.0):vec2(0);
+  vec3 initial=atmosphereCombinedTail(impact,abs(begin));
+  vec3 twiceClosest=begin<0.0&&end>0.0?2.0*atmosphereCombinedTail(impact,0.0):vec3(0);
   return AtmosphereColumnRay(scale,begin,impact,initial,twiceClosest);
 }
 vec3 atmosphereCachedOpticalDepth(AtmosphereColumnRay ray,float distance){
   if(distance<=0.0)return vec3(0);
   float end=ray.begin+distance*ray.scale;
-  vec2 b=atmosphereColumnTail(ray.impact,abs(end));
-  vec2 columns=ray.begin>=0.0?ray.initial-b:end<=0.0?b-ray.initial:ray.twiceClosest-ray.initial-b;
-  columns=max(vec2(0),columns/ray.scale);
-  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y
-    +u_atmosphereOzoneKm*(atmosphereOzoneColumnOnAxis(ray.impact,ray.begin,end)/ray.scale);
+  vec3 b=atmosphereCombinedTail(ray.impact,abs(end));
+  vec3 columns=ray.begin>=0.0?ray.initial-b:end<=0.0?b-ray.initial:ray.twiceClosest-ray.initial-b;
+  columns=max(vec3(0),columns/ray.scale);
+  return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y+u_atmosphereOzoneKm*columns.z;
 }
 // Called after public Sun visibility or prepared lit support, and a positive
 // outer-exit check (conditioning may intentionally evaluate a dark centroid).
@@ -205,9 +218,12 @@ vec3 atmosphereSunOpticalDepthToTop(vec3 origin,vec3 direction){
   float scale=length(d);vec3 axis=d/scale;
   float begin=dot(p,axis);
   float impact=length(p-begin*axis);
-  vec2 initial=atmosphereColumnTail(impact,abs(begin));
-  vec2 columns=begin>=0.0?initial:2.0*atmosphereColumnTail(impact,0.0)-initial;
-  columns=max(vec2(0),columns/scale);
+  vec3 initial=atmosphereCombinedTail(impact,abs(begin));
+  vec3 closest=begin<0.0?atmosphereCombinedTail(impact,0.0):vec3(0);
+  vec3 columns=begin>=0.0?initial:2.0*closest-initial;
+  columns=max(vec3(0),columns/scale);
+  // Ozone keeps the outer TOA sample; interpolated table height at the top is
+  // not identically zero the way a support-clipped molecular column is.
   return u_atmosphereRayleighKm*columns.x+u_atmosphereAerosolKm*columns.y
     +u_atmosphereOzoneKm*(atmosphereOzoneToTop(impact,begin)/scale);
 }

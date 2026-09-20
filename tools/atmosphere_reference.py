@@ -103,15 +103,11 @@ def ozone_column(origin: Sequence[float], direction: Sequence[float], length_km:
     return math.fsum(samples) * step
 
 
-# Same nodes as ATM_X12 / ATM_W12 in atmosphereShaders.js. One interval stays
-# cheap on hosted SwiftShader; twelve nodes recover the twilight limb that
-# eight nodes missed.
-_OZONE_X12 = (-.9815606342, -.9041172564, -.7699026742, -.5873179543,
-              -.3678314990, -.1252334085, .1252334085, .3678314990,
-              .5873179543, .7699026742, .9041172564, .9815606342)
-_OZONE_W12 = (.0471753364, .1069393260, .1600783285, .2031674267,
-              .2334925365, .2491470458, .2491470458, .2334925365,
-              .2031674267, .1600783285, .1069393260, .0471753364)
+# Cheap 8-node comparison helper. Production ozone is the baked outward table.
+_OZONE_X8 = (-.9602898565, -.7966664774, -.5255324099, -.1834346425,
+             .1834346425, .5255324099, .7966664774, .9602898565)
+_OZONE_W8 = (.1012285363, .2223810345, .3137066459, .3626837834,
+             .3626837834, .3137066459, .2223810345, .1012285363)
 
 
 def ozone_column_gpu(origin: Sequence[float], direction: Sequence[float], length_km: float,
@@ -138,7 +134,7 @@ def ozone_column_gpu(origin: Sequence[float], direction: Sequence[float], length
         return 0.0
     impact = math.sqrt(sum((p[i] - begin * axis[i]) ** 2 for i in range(3)))
     half, middle, column = span * .5, (begin + end) * .5, 0.0
-    for node, weight in zip(_OZONE_X12, _OZONE_W12):
+    for node, weight in zip(_OZONE_X8, _OZONE_W8):
         x = middle + half * node
         height = max(0.0, math.hypot(impact, x) - radius_km)
         column += weight * ozone_density(height, peak_km, width_km)

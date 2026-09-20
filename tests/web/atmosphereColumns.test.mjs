@@ -7,7 +7,7 @@ import {ATMOSPHERE_GLSL} from '../../apps/web/js/atmosphereShaders.js';
 import {SPHERE_FS,SPHERE_VS,BASE_SPHERE_FS,BASE_SPHERE_VS} from '../../apps/web/js/orreryShaders.js';
 import {ATMOSPHERE_COLUMN_FIELDS} from '../../apps/web/js/atmosphereColumnManifest.js';
 import {ATMOSPHERE_COLUMN_SIZE,ATMOSPHERE_COLUMN_BYTES,outwardDensityColumn,generateAtmosphereColumns,
-  generateAtmosphereOzoneColumns,sampleOutwardColumns,sampleDensityColumns,ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_RENDER_FS,
+  generateAtmosphereOzoneColumns,packAtmosphereOpticalField,sampleOutwardColumns,sampleDensityColumns,ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_RENDER_FS,
   loadAtmosphereColumns,loadAtmosphereFields,cacheAtmosphereViewRay,specializeAtmosphereSunDepth} from '../../apps/web/js/atmosphereColumnField.js';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const bytesFor=body=>fs.readFileSync(new URL(`../../apps/web/data/optics/${body.toLowerCase()}-columns-v1.f32`,import.meta.url));
@@ -39,6 +39,14 @@ test('runtime ozone columns stay off the admitted RG field and vanish for Mars',
   assert.equal(mars.length,earth.length);
   assert.ok(earth.some(value=>value>0));
   assert.ok(mars.every(value=>value===0));
+  const columns=generateAtmosphereColumns(getAtmosphereProfile('Earth'));
+  const packed=packAtmosphereOpticalField(columns,earth);
+  assert.equal(packed.length,ATMOSPHERE_COLUMN_SIZE**2*4);
+  assert.equal(packed[0],columns[0]);
+  assert.equal(packed[1],columns[1]);
+  assert.equal(packed[2],earth[0]);
+  assert.equal(packed[3],1);
+  assert.throws(()=>packAtmosphereOpticalField(columns,earth.subarray(1)),/Invalid packed optical field/);
 });
 
 test('production transfer preserves scattering expressions but contains no nested density quadrature',()=>{
