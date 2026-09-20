@@ -1368,7 +1368,10 @@ function reconcileOrbitFocus(aspect) {
   // resizing all change the fit. Preserve zoom relative to it, then enforce the
   // current enclosing-surface/numerical floor before constructing the eye.
   if (fit !== orbitFocusFit.distance) state.radius *= fit / orbitFocusFit.distance;
-  state.radius = Math.max(state.radius, minimumOrbitDistance(extent, worldDistance));
+  // Initial framing uses the satellite portrait. The zoom floor is the globe
+  // (or focused moon) so a close-up, including the moon-shadow 80% disc, can
+  // stay inside that envelope through an ordinary paint.
+  state.radius = Math.max(state.radius, minimumOrbitDistance(anchorNearExtent() || extent, worldDistance));
   orbitFocusFit.distance = fit;
 }
 
@@ -1389,7 +1392,7 @@ function cameraMatrices(w, h) {
     eye = orbitEye();
     view = lookAt(eye, t, [0, 0, 1]);
   }
-  const proj = perspective(FOVY, w / h, state.freeFly || state.galaxy ? .008 : orbitNearPlane(state.radius, anchorDisplayExtent() || 0), 800);
+  const proj = perspective(FOVY, w / h, state.freeFly || state.galaxy ? .008 : orbitNearPlane(state.radius, anchorNearExtent() || 0), 800);
   const vp = mul(proj, view);
   const skyView = view.slice(); skyView[12] = 0; skyView[13] = 0; skyView[14] = 0;
   const skyVp = mul(proj, skyView);
@@ -2680,14 +2683,29 @@ function planetSystemExtent(name) {
   ));
 }
 
-function anchorDisplayExtent() {
+function focusedCatalogMoon() {
   const moon = moonSet.MOONS.find(m => m.n === state.anchor);
-  if (moon && moonWorldPos(moon.n)) {
-    return moonDisplayRadius(moon, BODY[moon.p].radiusKm, displayRadiusAU(moon.p));
-  }
+  return moon && moonWorldPos(moon.n) ? moon : null;
+}
+
+function focusedPlanetName() {
+  const moon = moonSet.MOONS.find(m => m.n === state.anchor);
+  return moon ? moon.p : state.anchor;
+}
+
+function anchorDisplayExtent() {
+  const moon = focusedCatalogMoon();
+  if (moon) return moonDisplayRadius(moon, BODY[moon.p].radiusKm, displayRadiusAU(moon.p));
   // The existing anchor follows the parent when a moon position is unavailable.
-  const name = moon ? moon.p : state.anchor;
+  const name = focusedPlanetName();
   return name && BODY[name] ? planetSystemExtent(name) : null;
+}
+
+function anchorNearExtent() {
+  const moon = focusedCatalogMoon();
+  if (moon) return moonDisplayRadius(moon, BODY[moon.p].radiusKm, displayRadiusAU(moon.p));
+  const name = focusedPlanetName();
+  return name && BODY[name] ? planetGlobeExtent(name) : null;
 }
 
 function setAnchor(name) {
@@ -3025,7 +3043,7 @@ async function showFallback(msg) {
     if (cb) cb.checked = false;
   }
   const clampR = (r) => {
-    const extent = !state.galaxy && state.anchor !== "Sun" ? anchorDisplayExtent() : null;
+    const extent = !state.galaxy && state.anchor !== "Sun" ? anchorNearExtent() : null;
     const minimum = extent ? minimumOrbitDistance(extent, Math.hypot(...anchorPos())) : .6;
     return Math.max(minimum, Math.min(160, r));
   };

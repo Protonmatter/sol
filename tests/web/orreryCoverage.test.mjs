@@ -86,6 +86,19 @@ test('Sun inspection omits surrounding bodies and restores the overview without 
   assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),identity);assert.deepEqual(h.errors,[]);
 });
 
+test('a focused planet can zoom to its globe; paint does not restore the satellite portrait', async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  h.input('orreryAnchor', 'Jupiter', 'change');
+  const systemFit = h.state.radius;
+  for (let i = 0; i < 40; i++) h.event('orreryCanvas', 'keydown', { key: '+' });
+  assert.ok(h.state.radius < systemFit * 0.5, 'Jupiter close-up is not locked to the satellite portrait');
+  const tight = h.state.radius;
+  h.check('orreryTextures', h.state.useTextures);
+  assert.equal(h.state.radius, tight, 'an ordinary paint must not undo a deliberate globe close-up');
+  assert.deepEqual(h.errors, []);
+});
+
 test('focused ice giants keep a globe large enough to request their surface maps', async t => {
   const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
   await h.enterOrrery(); await h.settleCatalogues();
