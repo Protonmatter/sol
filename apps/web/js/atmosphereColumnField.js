@@ -75,45 +75,33 @@ float atmosphereOzoneDensity(float height){
   if(width<=0.0) return 0.0;
   return exp(-abs(height-u_atmosphereOzoneLayerKm.x)/width);
 }
-float atmosphereOzoneGauss(float impact,float x0,float x1){
+float atmosphereOzoneGauss4(float impact,float x0,float x1){
   float span=x1-x0;
   if(span<=0.0) return 0.0;
-  float halfWidth=span*.5, middle=(x0+x1)*.5, column=0.0;
-  for(int i=0;i<8;i++){
-    float x=middle+halfWidth*ATM_X8[i];
-    float height=max(0.0,length(vec2(impact,x))-u_atmosphereRadiusKm);
-    column+=ATM_W8[i]*atmosphereOzoneDensity(height);
-  }
-  return column*halfWidth;
+  float halfWidth=span*.5, middle=(x0+x1)*.5;
+  float h0=max(0.0,length(vec2(impact,middle-halfWidth*.8611363116))-u_atmosphereRadiusKm);
+  float h1=max(0.0,length(vec2(impact,middle-halfWidth*.3399810436))-u_atmosphereRadiusKm);
+  float h2=max(0.0,length(vec2(impact,middle+halfWidth*.3399810436))-u_atmosphereRadiusKm);
+  float h3=max(0.0,length(vec2(impact,middle+halfWidth*.8611363116))-u_atmosphereRadiusKm);
+  return halfWidth*(.3478548451*atmosphereOzoneDensity(h0)+.6521451549*atmosphereOzoneDensity(h1)
+    +.6521451549*atmosphereOzoneDensity(h2)+.3478548451*atmosphereOzoneDensity(h3));
 }
 float atmosphereOzoneColumnOnAxis(float impact,float x0,float x1){
   if(x1<=x0||u_atmosphereOzoneLayerKm.y<=0.0) return 0.0;
-  // One 8-node interval misses a 25 km Chapman peak on a long grazing chord.
-  // Split at closest approach and at the peak-height crossings.
-  float cuts[5];
-  int n=2;
-  cuts[0]=x0; cuts[1]=x1;
+  // One unsplit interval misses a 25 km Chapman peak on a long grazing chord.
+  // Walk already-ordered cuts: -peak, closest approach, +peak.
   float peakR=u_atmosphereRadiusKm+max(0.0,u_atmosphereOzoneLayerKm.x);
   float disc=peakR*peakR-impact*impact;
-  float extra0=0.0;
-  float extra1=disc>0.0?sqrt(disc):x0-1.0;
-  float extra2=-extra1;
-  for(int k=0;k<3;k++){
-    float cut=k==0?extra0:k==1?extra1:extra2;
-    bool inside=cut>x0+1e-4&&cut<x1-1e-4, seen=false;
-    for(int i=0;i<5;i++) if(i<n&&abs(cuts[i]-cut)<1e-4) seen=true;
-    if(inside&&!seen){cuts[n]=cut;n+=1;}
+  float column=0.0, prev=x0;
+  if(disc>0.0){
+    float peakX=sqrt(disc);
+    if(-peakX>x0+1e-4&&-peakX<x1-1e-4){column+=atmosphereOzoneGauss4(impact,prev,-peakX);prev=-peakX;}
+    if(0.0>x0+1e-4&&0.0<x1-1e-4){column+=atmosphereOzoneGauss4(impact,prev,0.0);prev=0.0;}
+    if(peakX>x0+1e-4&&peakX<x1-1e-4){column+=atmosphereOzoneGauss4(impact,prev,peakX);prev=peakX;}
+  }else if(0.0>x0+1e-4&&0.0<x1-1e-4){
+    column+=atmosphereOzoneGauss4(impact,prev,0.0);prev=0.0;
   }
-  for(int i=1;i<5;i++){
-    if(i>=n) break;
-    float key=cuts[i];
-    int j=i-1;
-    while(j>=0&&cuts[j]>key){cuts[j+1]=cuts[j];j--;}
-    cuts[j+1]=key;
-  }
-  float column=0.0;
-  for(int i=0;i<4;i++) if(i+1<n) column+=atmosphereOzoneGauss(impact,cuts[i],cuts[i+1]);
-  return column;
+  return column+atmosphereOzoneGauss4(impact,prev,x1);
 }
 float atmosphereOzoneToTop(float impact,float begin){
   float outer=sqrt(max(0.0,(u_atmosphereRadiusKm+u_atmosphereTopKm)*(u_atmosphereRadiusKm+u_atmosphereTopKm)-impact*impact));
