@@ -14,8 +14,8 @@ export const INCIDENT_FIELDS=Object.freeze({
     "generator_sha256": "5eeaff5c04bbdd67520c219fb8b264563c8640728d2c1abb56fa368db629126f",
     "generator_source_sha256": "10b3284023e6a8f82eb9fac95d1b2cc3e75ceec720ce8fb89730d041f8cc6ee7",
     "solver_source_sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
-    "profile_source_sha256": "feb46692e6e2ad582350822ff5b01a582fdc832ec75e5a547b77408be509b802",
-    "field_source_sha256": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+    "profile_source_sha256": "b8ad270b14c4ef16affc7c31bd7fb5111895bc9cc6332cbe7c8c171d4582b965",
+    "field_source_sha256": "2a70930c00d32b3bd157baecff5044c7b2929c6d37ff826620edb285f849e7da",
     "browser_version": "Chrome/151.0.7922.174",
     "dimensions": [
       385,
@@ -38,8 +38,8 @@ export const INCIDENT_FIELDS=Object.freeze({
     "generator_sha256": "5eeaff5c04bbdd67520c219fb8b264563c8640728d2c1abb56fa368db629126f",
     "generator_source_sha256": "10b3284023e6a8f82eb9fac95d1b2cc3e75ceec720ce8fb89730d041f8cc6ee7",
     "solver_source_sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
-    "profile_source_sha256": "feb46692e6e2ad582350822ff5b01a582fdc832ec75e5a547b77408be509b802",
-    "field_source_sha256": "cea91103472cbf13a2306e209ab0b68f9f0526516e537e7236e11082e0a510b9",
+    "profile_source_sha256": "b8ad270b14c4ef16affc7c31bd7fb5111895bc9cc6332cbe7c8c171d4582b965",
+    "field_source_sha256": "2a70930c00d32b3bd157baecff5044c7b2929c6d37ff826620edb285f849e7da",
     "browser_version": "Chrome/151.0.7922.174",
     "dimensions": [
       385,

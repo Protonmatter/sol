@@ -53,6 +53,8 @@ test('production transfer preserves scattering expressions but contains no neste
   for(const shader of [SPHERE_VS,SPHERE_FS,ATMOSPHERE_RENDER_FS]){
     assert.doesNotMatch(shader,/float atmosphereColumnSegment\(|float atmosphereColumn\(/);
     assert.match(shader,/u_atmosphereColumnField/);
+    assert.match(shader,/texelFetch\(u_atmosphereColumnField,ivec2\(0\),0\)\.rg\*u_atmosphereColumnKeep/);
+    assert.doesNotMatch(shader,/u_atmosphereColumnField,ivec2\(0\),0\)\.rg\*0\.0/);
     assert.match(shader,/texelFetch\(field/);
     assert.match(shader,/u_atmosphereOzoneField/);
     assert.match(shader,/u_atmosphereOzoneKm/);

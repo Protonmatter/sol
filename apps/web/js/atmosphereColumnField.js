@@ -99,6 +99,27 @@ export function packAtmosphereOpticalField(columns,ozone){
   return packed;
 }
 
+const ozoneTables=new Map();
+/** Bilinear sample of the baked ozone table, matching atmosphereOutwardPacked. */
+export function sampleOutwardOzone(values,profile,heightKm,mu){
+  if(values.length!==ATMOSPHERE_COLUMN_SIZE**2||![heightKm,mu].every(Number.isFinite))throw new RangeError('Invalid ozone field sample');
+  if(!(profile.ozoneWidthKm>0)||heightKm>=profile.topKm)return 0;
+  const n=ATMOSPHERE_COLUMN_SIZE-1;
+  const p=[Math.sqrt(Math.min(1,Math.max(0,mu)))*n,Math.sqrt(Math.min(1,Math.max(0,heightKm/profile.topKm)))*n];
+  const lo=p.map(Math.floor),hi=lo.map(value=>Math.min(value+1,n)),f=p.map((value,i)=>value-lo[i]);
+  const texel=(x,y)=>values[y*ATMOSPHERE_COLUMN_SIZE+x];
+  return (texel(lo[0],lo[1])*(1-f[0])+texel(hi[0],lo[1])*f[0])*(1-f[1])+(texel(lo[0],hi[1])*(1-f[0])+texel(hi[0],hi[1])*f[0])*f[1];
+}
+/** Sun-to-surface ozone column at height and solar cosine. Width 0 stays zero. */
+export function incidentOzoneColumn(profile,heightKm,mu){
+  if(!profile||!(profile.ozoneWidthKm>0))return 0;
+  if(![heightKm,mu].every(Number.isFinite))throw new RangeError('Invalid ozone-column geometry');
+  const key=[profile.body,profile.version,profile.radiusKm,profile.topKm,profile.ozonePeakKm,profile.ozoneWidthKm].join('|');
+  let table=ozoneTables.get(key);
+  if(!table){table=generateAtmosphereOzoneColumns(profile);ozoneTables.set(key,table);}
+  return sampleOutwardOzone(table,profile,heightKm,mu);
+}
+
 /** Float64 interpolation reference; GPU uses explicit texelFetch, not float filtering. */
 export function sampleOutwardColumns(values,profile,heightKm,mu){
   if(values.length!==ATMOSPHERE_COLUMN_SIZE**2*2||![heightKm,mu].every(Number.isFinite)||heightKm<0||mu<0||mu>1)throw new RangeError('Invalid column field sample');
@@ -131,6 +152,7 @@ export function sampleDensityColumns(values,profile,origin,direction,distance,po
 
 const COLUMN_GLSL=`
 uniform highp sampler2D u_atmosphereColumnField;
+uniform float u_atmosphereColumnKeep;
 uniform highp sampler2D u_atmosphereOzoneField;
 uniform vec3 u_atmosphereOzoneKm;
 uniform vec2 u_atmosphereOzoneLayerKm;
@@ -163,8 +185,9 @@ vec3 atmosphereCombinedTail(float impact,float x){
     float below=max(0.0,ground-x);
     packed=atmosphereOutwardPacked(0.0,ground/u_atmosphereRadiusKm)+vec3(below,below,below*atmosphereOzoneDensity(0.0));
   }else packed=atmosphereOutwardPacked(height,x/max(radius,1e-9));
-  // One admitted RG fetch keeps u_atmosphereColumnField live for generator bind.
-  packed.xy+=texelFetch(u_atmosphereColumnField,ivec2(0),0).rg*0.0;
+  // A uniform scale, not a literal zero, keeps the admitted sampler from being
+  // constant-folded out of the generator. The runtime value stays 0.
+  packed.xy+=texelFetch(u_atmosphereColumnField,ivec2(0),0).rg*u_atmosphereColumnKeep;
   return packed;
 }
 vec2 atmosphereOutwardColumns(float height,float mu){return atmosphereOutwardPacked(height,mu).rg;}

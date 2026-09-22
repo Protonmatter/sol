@@ -179,6 +179,7 @@ export function atmosphereUniformValues(profile, options) {
     u_atmosphereCameraKm: vector(options.cameraBodyKm, 'camera'), u_atmosphereSunDirection: unit(options.sunDirectionBody),
     u_atmosphereSolarScale: solarIrradianceScale(options.solarDistanceAu), u_atmosphereExposure: positive(options.exposure, 'display exposure', true),
     u_atmosphereRefractionEnabled: 1, u_atmosphereRefractivity: profile.surfaceRefractivity,
+    u_atmosphereColumnKeep: 0,
   };
 }
 

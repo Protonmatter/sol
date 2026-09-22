@@ -157,6 +157,17 @@ for c in json.loads(sys.stdin.read()):
  results.append(r)
 print(json.dumps(results))`;
 const refractiveExpected=JSON.parse(execFileSync(argument('python','python'),['-c',refractiveScript],{cwd:ROOT,input:JSON.stringify(refractionCases),encoding:'utf8',timeout:90000,windowsHide:true}));
+for(let i=0;i<refractionCases.length;i++){
+ const c=refractionCases[i],values=new Float32Array(fields[c.profile.body].values);
+ const args=[values,c.profile.body,c.point,c.sun,c.profile.radiusKm,c.q];
+ const withOzone=sampleIncidentField(...args,c.profile.betaOzoneKm);
+ const bare=sampleIncidentField(...args,[0,0,0]);
+ refractiveExpected[i].baselineTransmission=refractiveExpected[i].transmission;
+ refractiveExpected[i].transmission=refractiveExpected[i].transmission.map((value,channel)=>{
+  const plain=bare.transmission[channel];
+  return plain===0?value:value*(withOzone.transmission[channel]/plain);
+ });
+}
 const decode=value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4;
 const encode=value=>value<=.0031308?value*12.92:1.055*value**(1/2.4)-.055;
 const color=[64,96,128].map(value=>value/255), nightColor=[32,128,224].map(value=>value/255);
@@ -283,9 +294,11 @@ try {
   if(!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('float WebGL2 unavailable');
   const shader=(kind,source)=>{const s=gl.createShader(kind);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
   const program=(vs,fs,varyings)=>{const p=gl.createProgram();gl.attachShader(p,shader(gl.VERTEX_SHADER,vs));gl.attachShader(p,shader(gl.FRAGMENT_SHADER,fs));if(varyings)gl.transformFeedbackVaryings(p,varyings,gl.INTERLEAVED_ATTRIBS);gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));return p;};
-  program(shellVs,shellFs);
-  program(sphereVs,sphereFs);
+  const requireColumnSampler=linked=>{if(!gl.getUniformLocation(linked,'u_atmosphereColumnField'))throw Error('admitted column sampler was stripped');};
+  requireColumnSampler(program(shellVs,shellFs));
+  requireColumnSampler(program(sphereVs,sphereFs));
   const p=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}', '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform float u_probeMax;uniform int u_probeKind;'+probeShared+'\nvoid main(){AtmosphereResult r=integrateAtmosphere(u_probeOrigin,u_probeDir,u_probeMax);o=vec4(u_probeKind==2?vec3(qualificationNodes):u_probeKind==0?r.transmittance:r.scattering,1.0);}');
+  requireColumnSampler(p);
   const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,1,1);
   const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
   if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('incomplete float target');
@@ -313,6 +326,7 @@ try {
   const cacheProgram=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}',
     '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform float u_probeMax,u_probeDistance;uniform int u_probeKind;'+shared+
     '\nvoid main(){AtmosphereColumnRay ray=atmosphereColumnRay(u_probeOrigin,u_probeDir,u_probeMax);vec3 tau=(u_probeKind==0||u_probeKind==2)?atmosphereOpticalDepth(u_probeOrigin,u_probeDir,u_probeDistance):atmosphereCachedOpticalDepth(ray,u_probeDistance);o=vec4(u_probeKind<2?tau:exp(-tau),1.0);}');
+  requireColumnSampler(cacheProgram);
   gl.useProgram(cacheProgram);
   const cacheUpload=(name,value)=>{const u=gl.getUniformLocation(cacheProgram,name);if(Array.isArray(value)){if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);}else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
   const cacheDepth=cacheCases.map(c=>{
@@ -324,6 +338,7 @@ try {
   const sunProgram=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}',
     '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform int u_probeKind;'+shared+genericSunSource+
     '\nvoid main(){vec3 ray=normalize(u_probeDir);vec2 sky=atmosphereRayInterval(u_probeOrigin,ray,u_atmosphereRadiusKm+u_atmosphereTopKm);vec3 value;if(u_probeKind<2)value=sky.y>0.0?(u_probeKind==0?atmosphereOpticalDepth(u_probeOrigin,ray,sky.y):atmosphereSunOpticalDepthToTop(u_probeOrigin,ray)):vec3(0);else value=u_probeKind==2?atmosphereGenericSunTransmission(u_probeOrigin):atmosphereSunTransmission(u_probeOrigin);o=vec4(value,1.0);}');
+  requireColumnSampler(sunProgram);
   gl.useProgram(sunProgram);
   const sunUpload=(name,value)=>{const u=gl.getUniformLocation(sunProgram,name);if(Array.isArray(value)){if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);}else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
   const sunDepth=sunCases.map(c=>{
@@ -333,6 +348,7 @@ try {
     if(gl.getError()!==gl.NO_ERROR)throw Error('Sun-to-top GL readback error');return result;
   });
   const refractiveProgram=program(sphereVs,'#version 300 es\nprecision highp float;out vec4 o;void main(){o=vec4(0);}', ['v_incidentSunBody','v_incidentSunWorld','v_incidentTransmission']);
+  requireColumnSampler(refractiveProgram);
   gl.useProgram(refractiveProgram);
   const fieldTextures={};
   for(const [body,field]of Object.entries(fields)){
@@ -435,9 +451,15 @@ try {
     passed:measured.transmission.every((v,j)=>Number.isFinite(v)&&Math.abs(v-reference.transmission[j])<=tolerances[j])},
   ];
  }));
+ evidence.checks.push(...refractionCases.filter(c=>c.name==='Earth incident 89deg q1 lat0 alt0 az0').map(c=>{
+  const i=refractionCases.indexOf(c),measured=actual.refraction[i],baseline=refractiveExpected[i].baselineTransmission;
+  const ratio=measured.transmission.map((value,channel)=>baseline[channel]===0?1:value/baseline[channel]);
+  return {name:`${c.name} Chappuis direct beam`,expected:'green absorption exceeds red, which exceeds blue',actual:ratio,
+   passed:ratio[1]<ratio[0]&&ratio[0]<ratio[2]&&ratio[1]<0.99};
+ }));
  evidence.checks.push(...refractionCases.filter(c=>!c.vacuum&&c.zenithDegrees!==0).map(c=>{
    const measured=actual.refraction[refractionCases.indexOf(c)];
-   const reference=sampleIncidentField(new Float32Array(fields[c.profile.body].values),c.profile.body,c.point,c.sun,c.profile.radiusKm,c.q);
+   const reference=sampleIncidentField(new Float32Array(fields[c.profile.body].values),c.profile.body,c.point,c.sun,c.profile.radiusKm,c.q,c.profile.betaOzoneKm);
    return {name:`${c.name} CPU GPU field interpolation`,expected:reference,actual:measured,
      passed:reference.direction.every((v,j)=>Math.abs(v-measured.direction[j])<3e-6)&&reference.transmission.every((v,j)=>Math.abs(v-measured.transmission[j])<5e-5)};
  }));
