@@ -48,7 +48,7 @@ test('the scattering prepass asserts the scene-pass state it restores instead of
       probing=true;
       try{
         const active=realGet(gl.ACTIVE_TEXTURE);
-        const units=[7,8,9].map(unit=>{gl.activeTexture(gl.TEXTURE0+unit);return [realGet(gl.TEXTURE_BINDING_2D),realGet(gl.SAMPLER_BINDING)];});
+        const units=[7,8,9,10].map(unit=>{gl.activeTexture(gl.TEXTURE0+unit);return [realGet(gl.TEXTURE_BINDING_2D),realGet(gl.SAMPLER_BINDING)];});
         gl.activeTexture(active);
         observed.push({framebuffers:[realGet(gl.DRAW_FRAMEBUFFER_BINDING),realGet(gl.READ_FRAMEBUFFER_BINDING)],viewport:realGet(gl.VIEWPORT),
           program:realGet(gl.CURRENT_PROGRAM),vertexArray:realGet(gl.VERTEX_ARRAY_BINDING),activeTexture:active,units,
@@ -64,7 +64,7 @@ test('the scattering prepass asserts the scene-pass state it restores instead of
     assert.deepEqual(queried,[],'no caller-state parameter may be read back from the driver');
     assert.deepEqual(enabledQueries,[],'no enable state may be read back from the driver');
     assert.deepEqual(observed,[{framebuffers:[null,null],viewport:[0,0,812,604],program:null,vertexArray:null,activeTexture:gl.TEXTURE0,
-      units:[[null,null],[null,null],[null,null]],colorMask:[true,true,true,true],depthMask:true,
+      units:[[null,null],[null,null],[null,null],[null,null]],colorMask:[true,true,true,true],depthMask:true,
       enabled:[true,true,false,false,false,false,false,false,true]}],'generation starts from exactly the asserted scene-pass state');
     const surface=consumers(draws)[0];
     assert.ok(surface,'the physical surface still composes after the prepass');

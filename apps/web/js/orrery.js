@@ -1468,9 +1468,10 @@ function beginSceneFrame(width,height){
 // no tracked guess stands in for one. Each restored handle is null or the
 // scene target the presentation owner names, so the targets' own check that a
 // restore never rebinds a scattering-owned handle stays true of the real state.
-// Output units 8 and 9 belong to the scattering consumers and unit 7 to the
-// column field the generator binds itself; all three are released here so a
-// restore can never rebind an owner texture that generation may replace.
+// Output units 8 and 9 belong to the scattering consumers, unit 7 to the
+// admitted column field, and unit 10 to the packed ozone field. All four are
+// released here so a restore can never rebind an owner texture that generation
+// may replace.
 // The queries this replaces were synchronous round trips on the hosted runner:
 // the diagnostic checkpoint attributes 4,604.8 ms to 48 getParameter calls.
 const SCENE_PASS_ENABLES={blend:'BLEND',depthTest:'DEPTH_TEST',cullFace:'CULL_FACE',scissorTest:'SCISSOR_TEST',
@@ -1483,7 +1484,7 @@ function scatteringCallerState(){
   const framebuffer=linearFrame?sceneFramebuffer:null,viewport=[...sceneViewport],textureUnits=[];
   gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer);gl.viewport(...sceneViewport);
   gl.bindVertexArray(null);gl.useProgram(null);
-  for(const unit of [7,8,9]){
+  for(const unit of [7,8,9,10]){
     gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,null);gl.bindSampler(unit,null);
     textureUnits.push({unit,texture:null,sampler:null});
   }
