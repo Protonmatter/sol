@@ -124,7 +124,10 @@ void main(){
   }
   // Fixed display exposure, not a measured EUV response or optically thick extinction model.
   float glow=1.0-exp(-35.0*emission);
-  color+=vec3(1.0,.58,.12)*glow;
+  // Applied after the exponential so saturated arches still dim and recover.
+  // In phase around the whole limb; a traveling wave alone stays hidden once glow clamps.
+  float pulse=.7+.3*cos(u_phase);
+  color+=vec3(1.0,.58,.12)*glow*pulse;
   // Shell RGB is added after the off-limb divide. That divide recovers arcade hue
   // from a premultiplied glow; applying it to the shell cancels the pulse.
   vec3 shellColor=vec3(0.0);
@@ -134,8 +137,7 @@ void main(){
     // never a measured electron corona, and off unless the live view asks for it.
     float impact=length(cross(u_camObj,direction));
     float limb=impact>1.0 && impact<u_extent ? 1.0-smoothstep(1.02,u_extent,impact) : 0.0;
-    float breathe=.72+.28*cos(u_phase+atan(direction.y,direction.x)*2.0);
-    shellColor=vec3(1.0,.78,.32)*limb*breathe*u_coronaGlow;
+    shellColor=vec3(1.0,.78,.32)*limb*pulse*u_coronaGlow;
     shellCover=limb*u_coronaGlow;
   }
   opacity=max(opacity,glow);

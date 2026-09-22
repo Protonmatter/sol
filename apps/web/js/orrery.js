@@ -2616,7 +2616,8 @@ function pickStar(px, py, w, h, m, project) {
 let rafId = 0;
 function tick(now) {
   if (!state.active || document.hidden) { rafId = 0; state.lastTick = 0; return; }
-  const dt = state.lastTick ? Math.min(0.05, (now - state.lastTick) / 1000) : 0.016;
+  const rawDt = state.lastTick ? (now - state.lastTick) / 1000 : 0.016;
+  const dt = Math.min(0.05, rawDt);
   state.lastTick = now;
   const spinBefore = state.spinLimitedCount;
   if (state.animate) {
@@ -2659,7 +2660,8 @@ function tick(now) {
   if (state.freeFly) flyStep(dt);
   const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
   state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion});
-  if(solarFlowActive())solarFlowSeconds+=dt;
+  // Wall time, not the 50ms simulation cap. A slow frame should still move the corona.
+  if(solarFlowActive())solarFlowSeconds+=Math.min(1,rawDt);
   const moonNoteBefore = state.moonsHiddenReason;
   paint();
   if (state.moonsHiddenReason !== moonNoteBefore || state.spinLimitedCount !== spinBefore) updateOrreryAccuracy();

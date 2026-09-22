@@ -103,8 +103,9 @@ The source-facing coverage remains fixed to its observation frame. Gold is an as
 EUV color. Elevated arcs are an educational model. Twelve follow source-bright anchors on
 the observed face. Twelve quieter arches continue around the whole star, and their
 brightness travels while that view is showing. The live EUV view lifts the gold map
-and adds a breathing limb glow so the star stays luminous; neither is calibrated
-radiance. Reduced motion holds the flow at zero.
+and adds a breathing limb glow so the star stays luminous; a shared pulse also
+raises and lowers that glow so arches which would otherwise sit fully bright still
+change. Neither is calibrated radiance. Reduced motion holds the flow at zero.
 Neither set is fluid dynamics, PFSS, or MHD, and neither paints far-side active regions.
 The unobserved hemisphere uses the observed disk's radial median and does not receive
 invented structure. The visible-light
