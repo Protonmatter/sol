@@ -30,6 +30,10 @@ uniform vec4 u_projection0;
 uniform vec4 u_projection1;
 uniform vec2 u_observerRadii;
 uniform sampler2D u_quiet;
+// 0 keeps the admitted 1x gold map. The live view uploads a presentation lift.
+uniform float u_displayGain;
+// 0 draws no whole-limb shell, so an empty off-limb probe stays transparent.
+uniform float u_coronaGlow;
 uniform vec4 u_loopNormal[24];
 uniform vec4 u_loopTangent[24];
 uniform float u_loopGain[24];
@@ -67,7 +71,7 @@ float emissivity(vec3 point,vec3 normal,vec3 tangent,float arcRadius,float width
   float radial=length(vec2(x,y))-arcRadius;
   float d2=(radial*radial+z*z)/(width*width);
   if(d2>16.0)return 0.0;
-  float angle=atan(y,x),flow=.35+.65*cos(4.0*angle-u_phase+offset);
+  float angle=atan(y,x),flow=.7+.3*cos(4.0*angle-u_phase+offset);
   return exp(-.5*d2)*gain*flow;
 }
 float quietIntensity(float axisZ,float distance,float row){
@@ -98,7 +102,8 @@ void main(){
     // Whole-sphere arches are a separate educational volume, not disk imagery.
     float quiet=mix(quietIntensity(dot(point,u_sourceBasis0[2]),u_observerRadii.x,0.25),
       quietIntensity(dot(point,u_sourceBasis1[2]),u_observerRadii.y,0.75),u_frameMix);
-    color=gold(mix(quiet,value,coverage));
+    float presentation=u_displayGain>0.0?u_displayGain:1.0;
+    color=gold(mix(quiet,value,coverage))*presentation;
     opacity=1.0;
   }
   float emission=0.0;
@@ -120,14 +125,29 @@ void main(){
   // Fixed display exposure, not a measured EUV response or optically thick extinction model.
   float glow=1.0-exp(-35.0*emission);
   color+=vec3(1.0,.58,.12)*glow;
+  // Shell RGB is added after the off-limb divide. That divide recovers arcade hue
+  // from a premultiplied glow; applying it to the shell cancels the pulse.
+  vec3 shellColor=vec3(0.0);
+  float shellCover=0.0;
+  if(u_pass!=1 && u_coronaGlow>0.0){
+    // A breathing shell around the whole limb. Brighter near the photosphere,
+    // never a measured electron corona, and off unless the live view asks for it.
+    float impact=length(cross(u_camObj,direction));
+    float limb=impact>1.0 && impact<u_extent ? 1.0-smoothstep(1.02,u_extent,impact) : 0.0;
+    float breathe=.72+.28*cos(u_phase+atan(direction.y,direction.x)*2.0);
+    shellColor=vec3(1.0,.78,.32)*limb*breathe*u_coronaGlow;
+    shellCover=limb*u_coronaGlow;
+  }
   opacity=max(opacity,glow);
-  if(opacity<.001)discard;
+  if(opacity<.001 && shellCover<.001)discard;
   // The modeled corona is optically thin emission, not an opaque outer bounding sphere.
   // Production pass 2 uses ONE, ONE with depth writes off, preserving the background.
   // Its submission precedes nearer transparent rings/atmospheres so those can attenuate it.
-  if(u_pass==2)o=vec4(displayOutput(color),0.0);
+  if(u_pass==2)o=vec4(displayOutput(color+shellColor),0.0);
   else {
     if(!surfaceHit)color/=max(opacity,1e-8);
+    color+=shellColor;
+    opacity=max(opacity,shellCover);
     o=vec4(displayOutput(clamp(color,0.0,1.0)),opacity);
   }
   float depthTime=surfaceHit?inner.x:start;

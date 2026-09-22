@@ -12,6 +12,9 @@ function deepFreeze(value) {
 
 export const SOLAR_APPEARANCE = deepFreeze(solarAppearanceManifest);
 export const SOLAR_VOLUME_EXTENT = SOLAR_APPEARANCE.geometry.extent_solar_radii;
+// Presentation only. 1 is the admitted gold map used by probes; the live EUV view
+// lifts that map so the quiet disk is a luminous star, not a dim brown one.
+export const SOLAR_EUV_DISPLAY_GAIN = 3;
 export const SOLAR_SOURCE_UNIX = Date.parse(SOLAR_APPEARANCE.frames[0].observed_at)/1000;
 const DEG = Math.PI/180, RAD_TO_ARCSEC = 180*3600/Math.PI;
 const dot = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -130,7 +133,7 @@ export function solarLoopDensity(point,loops=SOLAR_APPEARANCE.geometry.loops,pha
     if(d2>16) continue;
     const theta=Math.atan2(y,x);
     // Traveling brightness is an educational flow cue, independent of source-frame intensity.
-    const flow=.35+.65*Math.cos(4*theta-phase+(loop.phaseOffset??i*.47));
+    const flow=.7+.3*Math.cos(4*theta-phase+(loop.phaseOffset??i*.47));
     density+=Math.exp(-.5*d2)*loop.gain*flow;
   }
   return density;

@@ -25,6 +25,8 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   assert.equal(inspected.euv[0].uniforms['u_loopGain[0]'].length, 24, 'source arches plus whole-sphere arches');
   assert.ok(inspected.euv[0].uniforms['u_loopGain[0]'].slice(12).every(gain => Math.abs(gain - 0.42) < 1e-6));
   assert.equal(inspected.euv[0].uniforms.u_phase, 0);
+  assert.equal(inspected.euv[0].uniforms.u_displayGain, 3, 'the live EUV disk is lifted above the admitted 1x gold map');
+  assert.ok(inspected.euv.every(draw => draw.uniforms.u_coronaGlow === 1), 'the whole-limb shell is on while the EUV Sun is showing');
   assert.equal(inspected.visible.length, 0);
   const unix = h.state.renderUnix;
   h.frame((h.state.lastTick || 0) + 1000);

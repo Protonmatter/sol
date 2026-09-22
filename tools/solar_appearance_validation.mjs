@@ -33,7 +33,7 @@ const source=input('js/solarVolumeShaders.js'),reference=input('js/solarAppearan
 input('js/solarAppearanceManifest.js');
 const {SOLAR_VS,SOLAR_FS}=await import(pathToFileURL(source.file).href);
 const {SOLAR_APPEARANCE,solarRenderUniforms,solarDisplayColor,solarFrameUniforms,projectSolarSurface,
-  integrateSolarEmission,solarAtlasQuietProfiles,solarQuietBytes,solarGlobalLoops,solarLoopDensity}=await import(pathToFileURL(reference.file).href);
+  integrateSolarEmission,solarAtlasQuietProfiles,solarQuietBytes,solarGlobalLoops,solarLoopDensity,SOLAR_EUV_DISPLAY_GAIN}=await import(pathToFileURL(reference.file).href);
 const atlas=input(SOLAR_APPEARANCE.atlas.path);
 assert.equal(hash(atlas.bytes),SOLAR_APPEARANCE.atlas.sha256);
 const uniforms=solarRenderUniforms(0);
@@ -67,7 +67,7 @@ async function run(){
     args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1']});
   const page=await browser.newPage();page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
-  evidence.gpu=await page.evaluate(async({vs,fs,probeVS,uniforms,quiet})=>{
+  evidence.gpu=await page.evaluate(async({vs,fs,probeVS,uniforms,quiet,displayGain})=>{
     const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false,preserveDrawingBuffer:true});
     if(!gl)throw Error('WebGL2 unavailable');
     const shader=(type,text)=>{const sh=gl.createShader(type);gl.shaderSource(sh,text);gl.compileShader(sh);
@@ -111,6 +111,7 @@ precision highp float;uniform vec4 color;out vec4 o;void main(){o=color;}`);
       gl.useProgram(p);gl.uniform1i(loc('u_pass'),pass);
       v3('u_camObj',options.camera||[0,0,3]);v3('u_probe',options.target||[0,0,1.35]);
       f('u_frameMix',options.mix||0);f('u_phase',options.phase||0);
+      f('u_displayGain',options.displayGain||0);f('u_coronaGlow',options.coronaGlow||0);
       v4('u_loopNormal[0]',options.normals||uniforms.loopNormal);v4('u_loopTangent[0]',options.tangents||uniforms.loopTangent);
       const gainUpload=new Array(24).fill(0);
       if(options.gains)for(let i=0;i<options.gains.length&&i<24;i++)gainUpload[i]=options.gains[i];
@@ -151,7 +152,7 @@ layout(location=0) in vec2 a_pos;
 uniform vec3 u_cam;uniform vec3 u_forward;uniform vec3 u_right;uniform vec3 u_up;uniform float u_span;
 out vec3 v_obj;
 void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_span);v_obj=u_cam+dir*8.0;gl_Position=vec4(a_pos,0,1);}`;
-    const legacy=fs.replace('color=gold(mix(quiet,value,coverage));','color=mix(vec3(.065,.039,.015),gold(value),coverage);');
+    const legacy=fs.replace('color=gold(mix(quiet,value,coverage))*presentation;','color=mix(vec3(.065,.039,.015),gold(value),coverage)*presentation;');
     const programs={current:program(viewVS,fs),legacy:program(viewVS,legacy)};
     window.renderDisk=({camera,forward,right,up,span,texture,shader,size,phase})=>{
       const target=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,target);
@@ -170,6 +171,7 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
       gl.uniform4fv(at('u_projection0'),uniforms.projection0);gl.uniform4fv(at('u_projection1'),uniforms.projection1);
       gl.uniform2fv(at('u_observerRadii'),uniforms.observerRadii);
       gl.uniform1f(at('u_extent'),uniforms.extent);gl.uniform1f(at('u_phase'),phase||0);gl.uniform1f(at('u_frameMix'),0);gl.uniform1i(at('u_pass'),0);
+      gl.uniform1f(at('u_displayGain'),displayGain);gl.uniform1f(at('u_coronaGlow'),1);
       gl.uniform4fv(at('u_loopNormal[0]'),uniforms.loopNormal);gl.uniform4fv(at('u_loopTangent[0]'),uniforms.loopTangent);
       gl.uniform1fv(at('u_loopGain[0]'),uniforms.loopGain);
       gl.uniform3fv(at('u_cam'),camera);gl.uniform3fv(at('u_camObj'),camera);
@@ -184,7 +186,7 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
       return [...pixel];
     };
     return {renderer:gl.getParameter(gl.RENDERER),version:gl.getParameter(gl.VERSION)};
-  },{vs:SOLAR_VS,fs:SOLAR_FS,probeVS,uniforms,quiet});
+  },{vs:SOLAR_VS,fs:SOLAR_FS,probeVS,uniforms,quiet,displayGain:SOLAR_EUV_DISPLAY_GAIN});
   const probe=options=>page.evaluate(options=>window.probe(options),options);
   const rgba=value=>[...solarDisplayColor(value).map(c=>255*c),255];
   almost('source north remains up',await probe({target:[0,.35,1]}),rgba(200/255));
@@ -197,6 +199,13 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
   const dark=[.065*255,.039*255,.015*255];
   const farPixel=await probe({texture:'atlas',camera:[0,0,-3],target:[0,0,-1.35]});
   checks.push({name:'far side is not the old dark material',actual:farPixel,passed:farPixel[0]>dark[0]+40});
+  const lifted=await probe({texture:'atlas',camera:[0,0,-3],target:[0,0,-1.35],displayGain:SOLAR_EUV_DISPLAY_GAIN});
+  checks.push({name:'EUV presentation lifts the quiet disk well above the 1x gold map',actual:lifted,baseline:farPixel,passed:lifted[0]>farPixel[0]+80&&lifted[0]>180});
+  const shellOn={camera:[0,0,-4],target:[1.15,0,0],coronaGlow:1,gains:new Array(24).fill(0)};
+  const shellBright=await probe({...shellOn,phase:0});
+  const shellDim=await probe({...shellOn,phase:Math.PI});
+  checks.push({name:'whole-limb shell is bright off the disk',actual:shellBright,passed:shellBright[0]>160&&shellBright[3]>180});
+  checks.push({name:'limb shell stays bright and breathes between flow phases',actual:shellDim,reference:shellBright,passed:Math.abs(shellBright[0]-shellDim[0])>40&&shellDim[0]>70});
   const noVolume=await probe({camera:[0,0,3],target:[1.2,0,0]});
   almost('empty off-limb volume is transparent',noVolume,[0,0,0,0]);
   const loop={normal:[0,0,1],tangent:[1,0,0],radius:.2,width:.01,gain:1};
@@ -252,7 +261,7 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
   const get=(xx,yy)=>decoded.data[(yy*decoded.width+xx)*4]/255;
   const value=(1-ty)*((1-tx)*get(x0,y0)+tx*get(x0+1,y0))+ty*((1-tx)*get(x0,y0+1)+tx*get(x0+1,y0+1));
   almost('pinned NASA atlas source-center intensity matches decoded pixels',await probe({texture:'atlas'}),rgba(value),3);
-  assert.match(SOLAR_FS,/color=gold\(mix\(quiet,value,coverage\)\);/);
+  assert.match(SOLAR_FS,/color=gold\(mix\(quiet,value,coverage\)\)\*presentation;/);
   if(checks.every(check=>check.passed)){
     const size=256;
     const side={camera:[4,0,0],forward:[-1,0,0],right:[0,0,-1],up:[0,1,0],span:.42,texture:'atlas',size};
