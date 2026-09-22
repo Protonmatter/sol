@@ -23,7 +23,9 @@ export function formatIrradiance(distanceAu) {
 
 export function formatApparentV(distanceAu) {
   const v = apparentVSun(distanceAu);
-  return v == null ? null : v.toFixed(2);
+  if (v == null) return null;
+  const text = v.toFixed(2);
+  return text.startsWith('-') ? `−${text.slice(1)}` : text;
 }
 
 /** Snapshot Earth.dist_au is the admitted Earth-Sun distance. There is no Sun row. */

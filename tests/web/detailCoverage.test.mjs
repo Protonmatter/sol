@@ -228,7 +228,7 @@ test("Sun facts retain mapping hold regardless of fetch time without losing live
   assert.match(rows(h.host).get("Surface imagery"), /mapping held.*no verified observation time/);
   assert.equal(rows(h.host).get("Luminosity"), "3.828×10²⁶ W");
   assert.equal(rows(h.host).get("Irradiance S(r)"), "1,361 W/m² at 1.000 AU");
-  assert.equal(rows(h.host).get("Apparent V☉"), "-26.74");
+  assert.equal(rows(h.host).get("Apparent V☉"), "−26.74");
   assert.match(rows(h.host).get("Display"), /does not use L☉ or S\(r\)/);
   assert.equal(rows(h.host).get("Composition"), "73% H, 25% He (by mass)");
   assert.equal(rows(h.host).get("Magnetic field"), "intrinsic field");
@@ -244,10 +244,10 @@ test("Sun photometry follows snapshot Earth.dist_au, not a fake Sun row", async 
   const h = await harness();
   h.renderDetail("Sun", live({ name: "Sun", geo_dist_au: 2 }), { bodies: [{ name: "Earth", dist_au: 1.0167 }] });
   assert.equal(rows(h.host).get("Irradiance S(r)"), "1,317 W/m² at 1.017 AU");
-  assert.equal(rows(h.host).get("Apparent V☉"), "-26.70");
+  assert.equal(rows(h.host).get("Apparent V☉"), "−26.70");
   h.updateLiveDetailFacts(undefined, [{ name: "Earth", dist_au: 1.1 }]);
   assert.equal(rows(h.host).get("Irradiance S(r)"), "1,125 W/m² at 1.100 AU");
-  assert.equal(rows(h.host).get("Apparent V☉"), "-26.53");
+  assert.equal(rows(h.host).get("Apparent V☉"), "−26.53");
 });
 
 test("unknown selection and absent host do not retain an unrelated facts card", async () => {

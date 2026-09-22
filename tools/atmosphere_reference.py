@@ -113,7 +113,10 @@ _OZONE_W8 = (.1012285363, .2223810345, .3137066459, .3626837834,
 def ozone_column_gpu(origin: Sequence[float], direction: Sequence[float], length_km: float,
                      radius_km: float, peak_km: float, width_km: float, *,
                      polar_ratio: float = 1) -> float:
-    """COLUMN_GLSL atmosphereOzoneColumnOnAxis, including the physical Jacobian."""
+    """Eight-node segment integral used only to compare with ozone_column.
+
+    Production ozone is the baked outward-table difference, not this helper.
+    """
     _positive(length_km, "length", True)
     _positive(radius_km, "radius")
     _positive(polar_ratio, "polar ratio")

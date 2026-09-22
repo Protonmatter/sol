@@ -10,7 +10,7 @@ test('catalogue photometry is inverse-square and refuses a non-physical distance
   assert.equal(apparentVSun(1), V_SUN_1AU);
   assert.ok(Math.abs(apparentVSun(Math.sqrt(10)) - (V_SUN_1AU + 2.5)) < 1e-12);
   assert.equal(formatIrradiance(1), '1,361 W/m²');
-  assert.equal(formatApparentV(1), '-26.74');
+  assert.equal(formatApparentV(1), '−26.74');
   for (const bad of [0, -1, NaN, Infinity]) {
     assert.equal(irradianceWm2(bad), null);
     assert.equal(apparentVSun(bad), null);
