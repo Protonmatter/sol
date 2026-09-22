@@ -71,7 +71,7 @@ export function systemCard(state = {}) {
   const body = BODY[name];
   const appearance=name==='Sun'&&state.solarMode
     ? state.solarMode==='visible'?'Visible-light approximation: a white photosphere display recipe, not measured radiance. Detailed visible imagery is unavailable.'
-      :state.solarStatus==='ready'&&state.useTextures!==false?'NASA/SDO AIA 171 Å reference from 10 May 2024. Gold is assigned EUV color. Elevated plasma arcs are modeled. The unobserved hemisphere keeps the observed disk\'s radial brightness and does not invent active regions. Globe brightness does not use L☉ or S(r).'
+      :state.solarStatus==='ready'&&state.useTextures!==false?'NASA/SDO AIA 171 Å reference from 10 May 2024. Gold is assigned EUV color. Bright arcs are modeled from the observed face; quieter arches continue around the whole star as an educational flow, not fluid dynamics and not a far-side observation. The unobserved hemisphere keeps the observed disk\'s radial brightness and does not invent active regions. Globe brightness does not use L☉ or S(r).'
         :'EUV reference '+(state.useTextures===false?'disabled':state.solarStatus||'loading')+'; a simplified visible photosphere is retained. Globe brightness does not use L☉ or S(r).'
     :appearanceReference(name)?appearanceDescription(name,state):!textureEligible(name)||state.useTextures===false?'Surface detail unavailable in this view; the 3-D appearance is simplified.':'';
   const earthDistance = name === 'Sun' ? earthSunDistanceAu(state.bodies) : null;

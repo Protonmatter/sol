@@ -408,7 +408,7 @@ function updatePhysicalAppearance() {
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
-  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. The unobserved hemisphere keeps the observed disk's radial brightness, without invented active regions.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
+  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color. Bright arcs follow the observed face; quieter arches continue around the whole star as an educational flow model, not fluid dynamics and not a far-side observation. The unobserved disk keeps the observed radial brightness, without invented active regions.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
@@ -493,7 +493,7 @@ function initSolarResources() {
     }finally{bitmap.close();}
   },release:value=>{if(value){context.deleteTexture(value.tex);context.deleteTexture(value.quiet);}},onChange:(_key,status)=>{
     state.solarStatus=status;
-    queueMicrotask(()=>{updatePhysicalAppearance();if(state.active&&gl===context){window.dispatchEvent(new Event('sol:presentation'));if(!state.animate)paint();}});
+    queueMicrotask(()=>{updatePhysicalAppearance();if(state.active&&gl===context){window.dispatchEvent(new Event('sol:presentation'));if(!state.animate)paint();armSolarFlow();}});
   }});
 }
 
@@ -502,7 +502,8 @@ function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
   if(pixels>=12)solarDetail.request('reference');
   const detail=solarDetail.get('reference');if(!detail)return false;
   const rot=sourceSolarRotation(),model=mul(translate(pos),mul(rot,scaleM([radius,radius,radius])));
-  const values=solarRenderUniforms(state.solarPlayback.seconds,{reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false});
+  const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
+  const values=solarRenderUniforms(state.solarPlayback.seconds,{reducedMotion,flowSeconds:solarFlowSeconds});
   const cam=physicalCameraPosition(eye,pos,rot,radius,1);
   gl.useProgram(P.solar);gl.uniformMatrix4fv(P.solarU.u_mvp,false,new Float32Array(mul(vp,model)));
   gl.uniform1i(P.solarU.u_pass,pass);
@@ -1183,6 +1184,7 @@ function updateOrreryPositions() {
     const focus = document.getElementById("orreryFocusSelected");
     if (focus) focus.toggleAttribute("disabled", !!state.selectedStar);
     if (!state.animate) paint();
+    armSolarFlow();
   };
   const addRow = (name, text, kind, searchName = name) => {
     if (!matchesObject({name:searchName,kind},state.objectQuery,state.objectGroup)) return;
@@ -2653,20 +2655,29 @@ function tick(now) {
     }
   }
   if (state.freeFly) flyStep(dt);
-  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false});
+  const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
+  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion});
+  if(solarFlowActive())solarFlowSeconds+=dt;
   const moonNoteBefore = state.moonsHiddenReason;
   paint();
   if (state.moonsHiddenReason !== moonNoteBefore || state.spinLimitedCount !== spinBefore) updateOrreryAccuracy();
   // Idle when nothing advances frame-to-frame: with Animate off (and no free-fly) the loop
   // used to keep re-tessellating and repainting the full scene at 60 fps forever. All the
   // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
-  if (state.animate || state.freeFly || (state.solarPlayback.playing&&solarPlaybackAvailable())) {
+  // The EUV corona flow is the exception: it moves while that Sun is showing and does not
+  // advance orbital time. Reduced motion holds the flow and returns to idle.
+  if (state.animate || state.freeFly || (state.solarPlayback.playing&&solarPlaybackAvailable()) || solarFlowActive()) {
     rafId = requestAnimationFrame(tick);
   } else {
     rafId = 0;
   }
 }
 function startLoop() { if (!rafId && !document.hidden) { state.lastTick = 0; rafId = requestAnimationFrame(tick); } }
+let solarFlowSeconds=0;
+function solarFlowActive() {
+  return solarPlaybackAvailable()&&!(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+}
+function armSolarFlow() { if(solarFlowActive())startLoop(); }
 
 // Integrate free-fly movement from held keys (WASD = move, Q/E or R/F = down/up, Shift = boost).
 function flyStep(dt) {
@@ -2763,6 +2774,7 @@ function setAnchor(name) {
     state.el = OVERVIEW_EL;
     state.radius = OVERVIEW_RADIUS;
     paint();
+    armSolarFlow();
     return;
   }
   const small = smallBodies.find((s) => s.name === name);
@@ -2806,7 +2818,7 @@ function inspectSun() {
   // Retain the standard fit above so resize reconciliation preserves this zoom ratio.
   state.radius*=.84;
   const anchor=/** @type {HTMLSelectElement|null} */(document.getElementById('orreryAnchor'));if(anchor)anchor.value='Sun';
-  showDetail('Sun');paint();
+  showDetail('Sun');paint();armSolarFlow();
 }
 
 // Fill the Focus dropdown from the data rather than hard-coding it: Sun + planets (+ Earth's
@@ -3167,9 +3179,10 @@ async function showFallback(msg) {
         state.selectedStar = pickStar(px, py, w, h, vp,
           (s) => (s.dist == null ? null : neighbourhoodPos(s.ra, s.dec, s.dist)));
         if (state.selectedStar && typeof CustomEvent === "function") window.dispatchEvent?.(new CustomEvent("sol:object-selected", { detail: { surface: "orrery" } }));
-        showDetail(state.selected);
-        if (!state.animate) paint();
-      }
+    showDetail(state.selected);
+    if (!state.animate) paint();
+    armSolarFlow();
+  }
       return; // the galaxy disc has no per-object picking
     }
 
@@ -3211,6 +3224,7 @@ async function showFallback(msg) {
     if ((state.selected || state.selectedStar) && typeof CustomEvent === "function") window.dispatchEvent?.(new CustomEvent("sol:object-selected", { detail: { surface: "orrery" } }));
     showDetail(state.selected);
     if (!state.animate) paint();
+    armSolarFlow();
   }
 
   const bind = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
@@ -3287,7 +3301,7 @@ async function showFallback(msg) {
   // left alone: this selects the body, it does not reframe the view like Inspect.
   bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;
     if(state.anchor==='Sun'&&!solarSubject()&&!state.galaxy&&!state.selectedStar){state.selected='Sun';showDetail('Sun');}
-    syncSolarPlaybackControls();paint();window.dispatchEvent(new Event('sol:presentation'));});
+    syncSolarPlaybackControls();paint();armSolarFlow();window.dispatchEvent(new Event('sol:presentation'));});
   bind('orrerySolarPlay','click',()=>{
     if(!solarPlaybackAvailable())return;
     if(state.solarPlayback.seconds>=state.solarPlayback.duration)state.solarPlayback.seconds=0;

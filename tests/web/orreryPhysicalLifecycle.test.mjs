@@ -231,7 +231,17 @@ for(const route of ['orreryGalaxy','orreryLocal','orreryTextures','orreryAnchor'
     else if(route==='context-lost')h.event('orreryCanvas','webglcontextlost');
     else h.event(route,'click');
     assert.equal(h.state.solarPlayback.playing,false);assert.equal(h.nodes.orrerySolarPlay.textContent,'Play source');
-    if(h.frames.size)h.frame(100);assert.equal(h.frames.size,0);h.leaveOrrery();
+    if(h.frames.size)h.frame(100);
+    const coronaFlow=route==='orrerySolarTime'||route==='orrerySolarRestart';
+    assert.equal(h.frames.size,coronaFlow?1:0,coronaFlow?'the EUV flow clock stays armed after source scrubbing':'leaving the EUV Sun stops the flow clock');
+    if(coronaFlow){
+      const unix=h.state.renderUnix;
+      h.frame(h.state.lastTick+1000);
+      assert.equal(h.state.renderUnix,unix,'corona flow does not advance orbital time');
+      assert.equal(h.state.solarPlayback.playing,false);
+      assert.equal(h.frames.size,1);
+    }
+    h.leaveOrrery();
   });
 }
 

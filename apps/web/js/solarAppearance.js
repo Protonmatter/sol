@@ -74,6 +74,13 @@ export function projectSolarSurface(point,frame=SOLAR_APPEARANCE.frames[0]) {
   return {uv,coverage,mu};
 }
 
+/** Traveling brightness along the arches. Independent of the source-frame scrub.
+ * One brightness cycle takes four seconds. Reduced motion holds the phase at zero. */
+export function solarFlowPhase(seconds,{reducedMotion=false}={}) {
+  if(!Number.isFinite(seconds)) throw new TypeError('corona flow time must be finite');
+  return reducedMotion?0:seconds*Math.PI/2;
+}
+
 /** Twenty seconds maps to the fixed source interval; callers pause/reset explicitly. */
 export function solarPlayback(seconds,{reducedMotion=false}={}) {
   if(!Number.isFinite(seconds)) throw new TypeError('source playback must be finite');
@@ -123,7 +130,7 @@ export function solarLoopDensity(point,loops=SOLAR_APPEARANCE.geometry.loops,pha
     if(d2>16) continue;
     const theta=Math.atan2(y,x);
     // Traveling brightness is an educational flow cue, independent of source-frame intensity.
-    const flow=.78+.22*Math.cos(4*theta-phase+(loop.phaseOffset??i*.47));
+    const flow=.35+.65*Math.cos(4*theta-phase+(loop.phaseOffset??i*.47));
     density+=Math.exp(-.5*d2)*loop.gain*flow;
   }
   return density;
@@ -255,18 +262,61 @@ export function solarQuietBytes(profiles) {
   return bytes;
 }
 
+// The manifest keeps 12 source-anchored arches. These quieter ones continue the
+// same circular-arcade emissivity around the star. They are a flow model, not
+// fluid dynamics and not a far-side observation.
+const SOLAR_SOURCE_ARCS = SOLAR_APPEARANCE.geometry.loops.length;
+export const SOLAR_ARCADE_COUNT = SOLAR_SOURCE_ARCS+12;
+const GLOBAL_GAIN = 0.42;
+
+function arcadeTangent(normal,angle) {
+  const north=[0,1,0];
+  let tangent=cross(north,normal);
+  const span=length(tangent);
+  if(span<1e-8) throw new RangeError('corona footpoint is too close to the pole');
+  tangent=scale(tangent,1/span);
+  const binormal=cross(normal,tangent);
+  const c=Math.cos(angle),s=Math.sin(angle);
+  return tangent.map((value,axis)=>value*c+binormal[axis]*s);
+}
+
+let globalLoops;
+/** Six footpoints, two strands each, including the far hemisphere. */
+export function solarGlobalLoops() {
+  if(globalLoops) return globalLoops;
+  const feet=[];
+  for(let i=0;i<4;i++) {
+    const lon=i*Math.PI/2+.4;
+    feet.push([Math.cos(lon),0,Math.sin(lon)]);
+  }
+  for(const lat of [.85,-.85]) feet.push([Math.cos(lat),Math.sin(lat),0]);
+  const loops=[];
+  feet.forEach((normal,i)=>{
+    const tangent=arcadeTangent(normal,(20+27*i)*DEG);
+    for(let strand=0;strand<2;strand++) {
+      loops.push({normal,tangent,radius:.16+.05*strand,width:.01+.002*strand,gain:GLOBAL_GAIN,
+        phaseOffset:(SOLAR_SOURCE_ARCS+loops.length)*.47,role:'whole-sphere-model'});
+    }
+  });
+  globalLoops=loops;
+  return globalLoops;
+}
+
 /** Packed immutable-reference uniforms; viewport/camera matrices are supplied by the caller. */
 export function solarRenderUniforms(seconds=0,options={}) {
   const frame0=solarFrameUniforms(SOLAR_APPEARANCE.frames[0]),frame1=solarFrameUniforms(SOLAR_APPEARANCE.frames[1]);
   const playback=solarPlayback(seconds,options);
+  const loops=[...SOLAR_APPEARANCE.geometry.loops,...solarGlobalLoops()];
+  if(loops.length!==SOLAR_ARCADE_COUNT) throw new RangeError('solar arcade count left the shader contract');
   const loopNormal=[],loopTangent=[];
-  for(const loop of SOLAR_APPEARANCE.geometry.loops) {
+  for(const loop of loops) {
     loopNormal.push(...loop.normal,loop.radius);
     loopTangent.push(...loop.tangent,loop.width);
   }
-  return {extent:SOLAR_VOLUME_EXTENT,frameMix:playback.mix,phase:playback.phase,
+  const phase=options.flowSeconds==null?playback.phase:solarFlowPhase(options.flowSeconds,options);
+  return {extent:SOLAR_VOLUME_EXTENT,frameMix:playback.mix,phase,
     sourceBasis0:frame0.basis,sourceBasis1:frame1.basis,
     projection0:frame0.projection,projection1:frame1.projection,
     observerRadii:[frame0.observerRadius,frame1.observerRadius],
-    loopNormal,loopTangent,loopGain:SOLAR_APPEARANCE.geometry.loops.map(loop=>loop.gain),playback};
+    loopNormal,loopTangent,loopGain:loops.map(loop=>loop.gain),playback};
 }

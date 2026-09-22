@@ -33,7 +33,7 @@ const source=input('js/solarVolumeShaders.js'),reference=input('js/solarAppearan
 input('js/solarAppearanceManifest.js');
 const {SOLAR_VS,SOLAR_FS}=await import(pathToFileURL(source.file).href);
 const {SOLAR_APPEARANCE,solarRenderUniforms,solarDisplayColor,solarFrameUniforms,projectSolarSurface,
-  integrateSolarEmission,solarAtlasQuietProfiles,solarQuietBytes}=await import(pathToFileURL(reference.file).href);
+  integrateSolarEmission,solarAtlasQuietProfiles,solarQuietBytes,solarGlobalLoops,solarLoopDensity}=await import(pathToFileURL(reference.file).href);
 const atlas=input(SOLAR_APPEARANCE.atlas.path);
 assert.equal(hash(atlas.bytes),SOLAR_APPEARANCE.atlas.sha256);
 const uniforms=solarRenderUniforms(0);
@@ -112,7 +112,9 @@ precision highp float;uniform vec4 color;out vec4 o;void main(){o=color;}`);
       v3('u_camObj',options.camera||[0,0,3]);v3('u_probe',options.target||[0,0,1.35]);
       f('u_frameMix',options.mix||0);f('u_phase',options.phase||0);
       v4('u_loopNormal[0]',options.normals||uniforms.loopNormal);v4('u_loopTangent[0]',options.tangents||uniforms.loopTangent);
-      gl.uniform1fv(loc('u_loopGain[0]'),options.gains||new Array(12).fill(0));
+      const gainUpload=new Array(24).fill(0);
+      if(options.gains)for(let i=0;i<options.gains.length&&i<24;i++)gainUpload[i]=options.gains[i];
+      gl.uniform1fv(loc('u_loopGain[0]'),gainUpload);
       const textureName=options.texture||'fixture';
       gl.bindTexture(gl.TEXTURE_2D,textures[textureName]);
       gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,textures[textureName+'Quiet']);gl.uniform1i(loc('u_quiet'),1);
@@ -151,7 +153,7 @@ out vec3 v_obj;
 void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_span);v_obj=u_cam+dir*8.0;gl_Position=vec4(a_pos,0,1);}`;
     const legacy=fs.replace('color=gold(mix(quiet,value,coverage));','color=mix(vec3(.065,.039,.015),gold(value),coverage);');
     const programs={current:program(viewVS,fs),legacy:program(viewVS,legacy)};
-    window.renderDisk=({camera,forward,right,up,span,texture,shader,size})=>{
+    window.renderDisk=({camera,forward,right,up,span,texture,shader,size,phase})=>{
       const target=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,target);
       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,size,size,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
       const depth=gl.createRenderbuffer();gl.bindRenderbuffer(gl.RENDERBUFFER,depth);
@@ -167,7 +169,7 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
       gl.uniformMatrix3fv(at('u_sourceBasis0'),false,uniforms.sourceBasis0);gl.uniformMatrix3fv(at('u_sourceBasis1'),false,uniforms.sourceBasis1);
       gl.uniform4fv(at('u_projection0'),uniforms.projection0);gl.uniform4fv(at('u_projection1'),uniforms.projection1);
       gl.uniform2fv(at('u_observerRadii'),uniforms.observerRadii);
-      gl.uniform1f(at('u_extent'),uniforms.extent);gl.uniform1f(at('u_phase'),0);gl.uniform1f(at('u_frameMix'),0);gl.uniform1i(at('u_pass'),0);
+      gl.uniform1f(at('u_extent'),uniforms.extent);gl.uniform1f(at('u_phase'),phase||0);gl.uniform1f(at('u_frameMix'),0);gl.uniform1i(at('u_pass'),0);
       gl.uniform4fv(at('u_loopNormal[0]'),uniforms.loopNormal);gl.uniform4fv(at('u_loopTangent[0]'),uniforms.loopTangent);
       gl.uniform1fv(at('u_loopGain[0]'),uniforms.loopGain);
       gl.uniform3fv(at('u_cam'),camera);gl.uniform3fv(at('u_camObj'),camera);
@@ -226,6 +228,17 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
     await composite({normals,tangents,gains}),emitted,2);
   const phase=await probe({normals,tangents,gains,phase:Math.PI});
   checks.push({name:'explicit model phase changes emitted brightness',actual:phase,reference:emitted,passed:phase.some((v,i)=>i<3&&Math.abs(v-emitted[i])>2)});
+  const farLoop=solarGlobalLoops().find(loop=>loop.normal[2]<-0.5);
+  const apex=farLoop.normal.map(v=>v*(Math.sqrt(1-farLoop.radius*farLoop.radius)+farLoop.radius));
+  const wholeGains=uniforms.loopGain.map((gain,index)=>index<12?0:gain);
+  const brightPhase=[0,Math.PI/2,Math.PI,3*Math.PI/2].reduce((best,phase)=>solarLoopDensity(apex,[farLoop],phase)>solarLoopDensity(apex,[farLoop],best)?phase:best,0);
+  const farView={camera:[0,0,-4],target:apex,normals:uniforms.loopNormal,tangents:uniforms.loopTangent,gains:wholeGains,phase:brightPhase};
+  const farGlow=await probe(farView);
+  checks.push({name:'whole-sphere arch emits on the far side',actual:farGlow,passed:farGlow[3]>20&&farGlow[0]>40});
+  const farMoved=await probe({...farView,phase:brightPhase+Math.PI});
+  checks.push({name:'whole-sphere flow changes far-side brightness',actual:farMoved,reference:farGlow,passed:farMoved.slice(0,3).some((v,i)=>Math.abs(v-farGlow[i])>2)});
+  const frontDisk=await probe({camera:[0,0,4],target:apex});
+  almost('far-side arch cannot shine through the opaque disk',await probe({camera:[0,0,4],target:apex,normals:uniforms.loopNormal,tangents:uniforms.loopTangent,gains:wholeGains}),frontDisk);
   almost('repeated source/model phase reproduces pixels',await probe({normals,tangents,gains}),emitted,0);
   // Numerical reference at exactly the shader's midpoint samples, separate implementation.
   const emission=integrateSolarEmission([0,0,3],[0,0,-1],[loop],0,32);
@@ -244,7 +257,7 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
     const size=256;
     const side={camera:[4,0,0],forward:[-1,0,0],right:[0,0,-1],up:[0,1,0],span:.42,texture:'atlas',size};
     const far={camera:[0,0,-4],forward:[0,0,1],right:[-1,0,0],up:[0,1,0],span:.42,texture:'atlas',size};
-    const shots=[['sun-euv-side-before',{...side,shader:'legacy'}],['sun-euv-side-after',{...side,shader:'current'}],['sun-euv-far-after',{...far,shader:'current'}]];
+    const shots=[['sun-euv-side-before',{...side,shader:'legacy'}],['sun-euv-side-after',{...side,shader:'current'}],['sun-euv-far-after',{...far,shader:'current'}],['sun-euv-far-flow',{...far,shader:'current',phase:Math.PI}]];
     const written=[];
     for(const [name,options] of shots){
       const raw=await page.evaluate(view=>window.renderDisk(view),options);
@@ -260,10 +273,37 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
       for(let y=0;y<size;y++)compare.data.set(png.data.subarray(y*size*4,(y+1)*size*4),(y*compare.width+index*(size+gap))*4);
     }
     fs.writeFileSync(path.join(out,'sun-euv-side-compare.png'),PNG.sync.write(compare));
+    const flowCompare=new PNG({width:size*2+gap,height:size});
+    for(let i=0;i<flowCompare.data.length;i+=4){flowCompare.data[i]=8;flowCompare.data[i+1]=12;flowCompare.data[i+2]=20;flowCompare.data[i+3]=255;}
+    for(const [index,png] of [written[2],written[3]].entries()){
+      for(let y=0;y<size;y++)flowCompare.data.set(png.data.subarray(y*size*4,(y+1)*size*4),(y*flowCompare.width+index*(size+gap))*4);
+    }
+    fs.writeFileSync(path.join(out,'sun-euv-far-flow-compare.png'),PNG.sync.write(flowCompare));
+    const offLimb=png=>{
+      let count=0;
+      for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+        const radiusPx=Math.hypot(x-127.5,y-127.5);
+        if(radiusPx<86||radiusPx>120)continue;
+        const i=(y*size+x)*4;
+        if(png.data[i]!==8||png.data[i+1]!==12||png.data[i+2]!==20)count++;
+      }
+      return count;
+    };
+    const changed=()=>{
+      let count=0;
+      for(let i=0;i<written[2].data.length;i+=4){
+        const delta=Math.abs(written[2].data[i]-written[3].data[i])+Math.abs(written[2].data[i+1]-written[3].data[i+1])+Math.abs(written[2].data[i+2]-written[3].data[i+2]);
+        if(delta>12)count++;
+      }
+      return count;
+    };
+    checks.push({name:'far view shows arches beyond the disk',actual:offLimb(written[2]),passed:offLimb(written[2])>20});
+    checks.push({name:'side view shows arches beyond the disk',actual:offLimb(written[1]),passed:offLimb(written[1])>20});
+    checks.push({name:'far-side flow moves visible pixels',actual:changed(),passed:changed()>15});
     if(fs.existsSync('/opt/cursor')){
       const artifacts='/opt/cursor/artifacts';
       fs.mkdirSync(artifacts,{recursive:true});
-      for(const name of [...shots.map(([shot])=>shot),'sun-euv-side-compare']){
+      for(const name of [...shots.map(([shot])=>shot),'sun-euv-side-compare','sun-euv-far-flow-compare']){
         fs.copyFileSync(path.join(out,`${name}.png`),path.join(artifacts,`${name}.png`));
       }
     }

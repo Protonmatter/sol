@@ -1,6 +1,8 @@
 // A source-facing reference sphere plus an explicitly modeled optically thin arcade volume.
 // All coordinates are in the fixed frame-0 observer basis, with distances in solar radii.
-// 32 midpoint samples × 12 bounded arches. No noise, fictitious spots, or far-side imagery.
+// 32 midpoint samples × 24 bounded arches: 12 source-anchored, 12 whole-sphere educational.
+// No noise and no fictitious photospheric spots. Far-side disk structure stays the observed
+// radial median. The extra arches are a flow model, not fluid dynamics or far-side imagery.
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 export const SOLAR_VS = `#version 300 es
 layout(location=0) in vec3 a_pos;
@@ -28,9 +30,9 @@ uniform vec4 u_projection0;
 uniform vec4 u_projection1;
 uniform vec2 u_observerRadii;
 uniform sampler2D u_quiet;
-uniform vec4 u_loopNormal[12];
-uniform vec4 u_loopTangent[12];
-uniform float u_loopGain[12];
+uniform vec4 u_loopNormal[24];
+uniform vec4 u_loopTangent[24];
+uniform float u_loopGain[24];
 
 vec2 sphereRay(vec3 origin,vec3 direction,float radius){
   // Perpendicular distance avoids subtracting two squared distant-camera lengths.
@@ -65,7 +67,7 @@ float emissivity(vec3 point,vec3 normal,vec3 tangent,float arcRadius,float width
   float radial=length(vec2(x,y))-arcRadius;
   float d2=(radial*radial+z*z)/(width*width);
   if(d2>16.0)return 0.0;
-  float angle=atan(y,x),flow=.78+.22*cos(4.0*angle-u_phase+offset);
+  float angle=atan(y,x),flow=.35+.65*cos(4.0*angle-u_phase+offset);
   return exp(-.5*d2)*gain*flow;
 }
 float quietIntensity(float axisZ,float distance,float row){
@@ -92,14 +94,15 @@ void main(){
     float coverage=mix(a.y,b.y,u_frameMix);
     float value=mix(a.x*a.y,b.x*b.y,u_frameMix)/max(coverage,1e-8);
     // Where AIA did not see the disk, keep the observed radial median. That is
-    // self-luminous quiet corona, not a dark hemisphere and not invented loops.
+    // self-luminous quiet corona, not a dark hemisphere and not invented spots.
+    // Whole-sphere arches are a separate educational volume, not disk imagery.
     float quiet=mix(quietIntensity(dot(point,u_sourceBasis0[2]),u_observerRadii.x,0.25),
       quietIntensity(dot(point,u_sourceBasis1[2]),u_observerRadii.y,0.75),u_frameMix);
     color=gold(mix(quiet,value,coverage));
     opacity=1.0;
   }
   float emission=0.0;
-  for(int arc=0;arc<12;arc++){
+  for(int arc=0;arc<24;arc++){
     if(u_pass==1)break;
     vec3 normal=u_loopNormal[arc].xyz,tangent=u_loopTangent[arc].xyz;
     float radius=u_loopNormal[arc].w,width=u_loopTangent[arc].w,gain=u_loopGain[arc];

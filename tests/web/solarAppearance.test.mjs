@@ -8,6 +8,7 @@ import {
   solarPlayback, raySphereInterval, solarVisibleInterval,
   solarLoopDensity, integrateSolarEmission, solarDisplayColor,
   solarQuietProfile, solarAtlasQuietProfiles, solarQuietBytes,
+  solarGlobalLoops, solarFlowPhase, solarRenderUniforms, SOLAR_ARCADE_COUNT,
 } from '../../apps/web/js/solarAppearance.js';
 
 const norm = a => Math.hypot(...a);
@@ -118,6 +119,44 @@ test('admitted modeled loops have orthonormal frames and remain inside declared 
   }
 });
 
+test('whole-sphere arches stay in the volume, stay hidden through the disk, and move with the flow clock', () => {
+  const loops=solarGlobalLoops();
+  assert.equal(loops.length,12);
+  assert.equal(SOLAR_ARCADE_COUNT,24);
+  assert.ok(loops.some(loop=>loop.normal[2]<0),'arches continue onto the far hemisphere');
+  assert.ok(loops.every(loop=>loop.role==='whole-sphere-model'&&loop.gain>0&&loop.gain<1));
+  for(const loop of loops){
+    assert.ok(Math.abs(norm(loop.normal)-1)<1e-12);
+    assert.ok(Math.abs(norm(loop.tangent)-1)<1e-12);
+    assert.ok(Math.abs(dot(loop.normal,loop.tangent))<1e-12);
+    assert.ok(Math.sqrt(1-loop.radius**2)+loop.radius+4*loop.width<1.35);
+  }
+  const far=loops.find(loop=>loop.normal[2]<-0.5);
+  const height=Math.sqrt(1-far.radius**2)+far.radius;
+  const apex=far.normal.map(v=>v*height);
+  const phases=[0,Math.PI/2,Math.PI,3*Math.PI/2];
+  const samples=phases.map(phase=>solarLoopDensity(apex,[far],phase));
+  const peak=phases[samples.indexOf(Math.max(...samples))];
+  assert.ok(samples[phases.indexOf(peak)]>.2,'the arch is bright at some flow phase');
+  assert.ok(Math.min(...samples)<Math.max(...samples)*.5,'the flow drops the same point well below its peak');
+  assert.equal(integrateSolarEmission([0,0,3],[0,0,-1],[far],peak,128),0,'a far arch cannot shine through the photosphere');
+  const origin=[0,0,-4];
+  const ray=apex.map((v,i)=>v-origin[i]);
+  const seen=integrateSolarEmission(origin,scale(ray,1/norm(ray)),[far],peak,128);
+  assert.ok(seen>0,'the same arch is visible from the far side');
+  assert.equal(solarFlowPhase(4,{reducedMotion:true}),0);
+  assert.ok(solarFlowPhase(4)>0);
+  assert.throws(()=>solarFlowPhase(NaN),/finite/);
+  const flowing=solarRenderUniforms(7.5,{flowSeconds:4});
+  assert.equal(flowing.loopGain.length,SOLAR_ARCADE_COUNT);
+  assert.equal(flowing.frameMix,solarPlayback(7.5).mix);
+  assert.equal(flowing.phase,solarFlowPhase(4));
+  assert.equal(solarRenderUniforms(7.5,{reducedMotion:true,flowSeconds:4}).phase,0);
+  assert.equal(solarRenderUniforms(7.5).phase,solarPlayback(7.5).phase,'omitted flow time keeps the source-scrub phase');
+  assert.ok(flowing.loopGain.slice(12).every(gain=>gain===loops[0].gain));
+  assert.ok(flowing.loopGain.slice(0,12).every((gain,i)=>gain===SOLAR_APPEARANCE.geometry.loops[i].gain));
+});
+
 test('EUV display mapping is finite and monotonic without calibrated color claims', () => {
   let prior=-1;
   for(let i=0;i<=255;i++){
@@ -144,6 +183,8 @@ test('unobserved hemisphere uses the observed radial median, not a night side or
   const shader=await readFile(new URL('../../apps/web/js/solarVolumeShaders.js',import.meta.url),'utf8');
   assert.doesNotMatch(shader,/vec3\(\.065,\.039,\.015\)/);
   assert.match(shader,/quietIntensity/);
+  assert.match(shader,/u_loopNormal\[24\]/);
+  assert.match(shader,/arc<24/);
   const png=PNG.sync.read(await readFile(new URL('../../apps/web/'+SOLAR_APPEARANCE.atlas.path,import.meta.url)));
   const profiles=solarAtlasQuietProfiles(png.data,png.width,png.height);
   const bytes=solarQuietBytes(profiles);

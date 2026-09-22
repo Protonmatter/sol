@@ -22,7 +22,15 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   const inspected = repaint(h);
   assert.deepEqual(inspected.euv.map(draw => draw.uniforms.u_pass), [1, 2]);
   assert.ok(inspected.euv.every(draw => draw.uniforms.u_quiet === 4), 'EUV draws sample the radial quiet profile');
+  assert.equal(inspected.euv[0].uniforms['u_loopGain[0]'].length, 24, 'source arches plus whole-sphere arches');
+  assert.ok(inspected.euv[0].uniforms['u_loopGain[0]'].slice(12).every(gain => Math.abs(gain - 0.42) < 1e-6));
+  assert.equal(inspected.euv[0].uniforms.u_phase, 0);
   assert.equal(inspected.visible.length, 0);
+  const unix = h.state.renderUnix;
+  h.frame((h.state.lastTick || 0) + 1000);
+  const flowing = repaint(h);
+  assert.ok(flowing.euv[0].uniforms.u_phase > 0, 'corona flow advances while the EUV Sun is showing');
+  assert.equal(h.state.renderUnix, unix, 'corona flow does not advance orbital time');
 
   // The default overview: anchored on the Sun, nothing selected, no inspection. The atlas
   // is still resident, yet the Sun is only context here, so the photosphere draws.

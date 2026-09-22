@@ -100,8 +100,12 @@ weather or dense-cloud radiative transfer; there is no qualified ocean glint mas
 The Sun's EUV source playback is finite, reproducible, and independent of orbital time;
 restarting playback retains a ready or loading atlas and retries only a failed entry.
 The source-facing coverage remains fixed to its observation frame. Gold is an assigned
-EUV color. Elevated arcs are an educational model. The unobserved hemisphere uses the
-observed disk's radial median and does not receive invented structure. The visible-light
+EUV color. Elevated arcs are an educational model. Twelve follow source-bright anchors on
+the observed face. Twelve quieter arches continue around the whole star, and their
+brightness travels while that view is showing. Reduced motion holds the flow at zero.
+Neither set is fluid dynamics, PFSS, or MHD, and neither paints far-side active regions.
+The unobserved hemisphere uses the observed disk's radial median and does not receive
+invented structure. The visible-light
 approximation and all optical limitations stay identifiable.
 The Sun inspection hides other display bodies and guides without moving any engine
 state; returning to Our system restores the scene. A source/date/band-aware observation
