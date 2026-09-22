@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import {PNG} from 'pngjs';
 import {
-  SOLAR_APPEARANCE, solarFrameUniforms, projectSolarSurface, solarReferenceRotation,
+  SOLAR_APPEARANCE, SOLAR_QUIET_BINS, solarFrameUniforms, projectSolarSurface, solarReferenceRotation,
   solarPlayback, raySphereInterval, solarVisibleInterval,
   solarLoopDensity, integrateSolarEmission, solarDisplayColor,
+  solarQuietProfile, solarAtlasQuietProfiles, solarQuietBytes,
 } from '../../apps/web/js/solarAppearance.js';
 
 const norm = a => Math.hypot(...a);
@@ -21,6 +23,7 @@ test('solar reference retains immutable source epochs and explicitly modeled geo
   assert.equal(SOLAR_APPEARANCE.frames[0].observed_at,'2024-05-10T12:00:09.349Z');
   assert.equal(SOLAR_APPEARANCE.geometry.status,'modeled-reference');
   assert.equal(SOLAR_APPEARANCE.far_side,'unavailable');
+  assert.equal(SOLAR_APPEARANCE.far_side_display,'observed-disk radial median');
   assert.ok(Object.isFrozen(SOLAR_APPEARANCE.frames[0]));
   assert.throws(()=>{SOLAR_APPEARANCE.frames[0].observed_at='now';},TypeError);
   const bytes=await readFile(new URL('../../apps/web/'+SOLAR_APPEARANCE.atlas.path,import.meta.url));
@@ -124,4 +127,31 @@ test('EUV display mapping is finite and monotonic without calibrated color claim
   }
   assert.deepEqual(solarDisplayColor(0),[0,0,0]);
   assert.match(SOLAR_APPEARANCE.color_interpretation,/false.color/i);
+});
+
+test('unobserved hemisphere uses the observed radial median, not a night side or a copied bright loop', async () => {
+  const quiet=solarQuietProfile(()=>0.42);
+  assert.equal(quiet.length,SOLAR_QUIET_BINS);
+  assert.ok(quiet.every(value=>Math.abs(value-0.42)<1e-12));
+  let spikes=0;
+  const spiked=solarQuietProfile(uv=>{
+    const angle=Math.atan2(uv[1]-.5,uv[0]-.5);
+    if(angle>0&&angle<0.4){spikes++;return 1;}
+    return 0.2;
+  });
+  assert.ok(spikes>0,'the bright sample is actually on the disk');
+  assert.ok(spiked.every(value=>Math.abs(value-0.2)<1e-9),'one active-region spike does not set the far-side fill');
+  const shader=await readFile(new URL('../../apps/web/js/solarVolumeShaders.js',import.meta.url),'utf8');
+  assert.doesNotMatch(shader,/vec3\(\.065,\.039,\.015\)/);
+  assert.match(shader,/quietIntensity/);
+  const png=PNG.sync.read(await readFile(new URL('../../apps/web/'+SOLAR_APPEARANCE.atlas.path,import.meta.url)));
+  const profiles=solarAtlasQuietProfiles(png.data,png.width,png.height);
+  const bytes=solarQuietBytes(profiles);
+  assert.equal(bytes.length,SOLAR_QUIET_BINS*2);
+  for(const profile of profiles){
+    assert.ok(profile.every(value=>value>0.05&&value<1),'the radial fill stays luminous across the disk');
+    const center=profile[profile.length-1],limb=profile[4];
+    assert.ok(limb>center,'AIA 171 quiet corona is brighter toward the limb than at disk center');
+  }
+  assert.ok(bytes[SOLAR_QUIET_BINS-1]>20,'far-side disk center is not the old dark material');
 });

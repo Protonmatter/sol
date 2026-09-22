@@ -88,6 +88,7 @@
     }
   ],
   "far_side": "unavailable",
+  "far_side_display": "observed-disk radial median",
   "surface_min_mu": 0.12,
   "surface_full_mu": 0.2,
   "reference_frame": "Frame-0 observer: +X image west/right, +Y image north/up, +Z toward observer; no IAU W assumption",

@@ -21,6 +21,7 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   assert.equal(h.state.solarStatus, 'ready');
   const inspected = repaint(h);
   assert.deepEqual(inspected.euv.map(draw => draw.uniforms.u_pass), [1, 2]);
+  assert.ok(inspected.euv.every(draw => draw.uniforms.u_quiet === 4), 'EUV draws sample the radial quiet profile');
   assert.equal(inspected.visible.length, 0);
 
   // The default overview: anchored on the Sun, nothing selected, no inspection. The atlas

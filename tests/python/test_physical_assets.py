@@ -267,6 +267,7 @@ class PhysicalAssetsTests(unittest.TestCase):
         self.install()
         variants=[]
         bad=copy.deepcopy(self.solar);bad['far_side']='observed';variants.append(bad)
+        bad=copy.deepcopy(self.solar);bad['far_side_display']='night';variants.append(bad)
         bad=copy.deepcopy(self.solar);bad['frames'][1]['observed_at']=bad['frames'][0]['observed_at'];variants.append(bad)
         bad=copy.deepcopy(self.solar);bad['geometry']['loops'][0]['radius']=2;variants.append(bad)
         bad=copy.deepcopy(self.solar);bad['frames'][0]['wcs']['latitude_deg']=float('nan');variants.append(bad)

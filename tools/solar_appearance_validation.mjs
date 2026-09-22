@@ -33,7 +33,7 @@ const source=input('js/solarVolumeShaders.js'),reference=input('js/solarAppearan
 input('js/solarAppearanceManifest.js');
 const {SOLAR_VS,SOLAR_FS}=await import(pathToFileURL(source.file).href);
 const {SOLAR_APPEARANCE,solarRenderUniforms,solarDisplayColor,solarFrameUniforms,projectSolarSurface,
-  integrateSolarEmission}=await import(pathToFileURL(reference.file).href);
+  integrateSolarEmission,solarAtlasQuietProfiles,solarQuietBytes}=await import(pathToFileURL(reference.file).href);
 const atlas=input(SOLAR_APPEARANCE.atlas.path);
 assert.equal(hash(atlas.bytes),SOLAR_APPEARANCE.atlas.sha256);
 const uniforms=solarRenderUniforms(0);
@@ -49,6 +49,8 @@ for(let y=0;y<1024;y++)for(let x=0;x<2048;x++){
   fixture.data.set([value,value,value,255],(y*2048+x)*4);
 }
 const fixtureBytes=PNG.sync.write(fixture);
+const quietBytes=png=>{const image=PNG.sync.read(png);return [...solarQuietBytes(solarAtlasQuietProfiles(image.data,image.width,image.height))];};
+const quiet={fixture:quietBytes(fixtureBytes),atlas:quietBytes(atlas.bytes)};
 const probeVS=`#version 300 es
 layout(location=0) in vec2 a_pos;uniform vec3 u_probe;out vec3 v_obj;
 void main(){v_obj=u_probe;gl_Position=vec4(a_pos,0,1);}`;
@@ -65,7 +67,7 @@ async function run(){
     args:['--no-sandbox','--disable-dev-shm-usage','--use-angle=swiftshader','--enable-unsafe-swiftshader','--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1']});
   const page=await browser.newPage();page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
-  evidence.gpu=await page.evaluate(async({vs,fs,probeVS,uniforms})=>{
+  evidence.gpu=await page.evaluate(async({vs,fs,probeVS,uniforms,quiet})=>{
     const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false,preserveDrawingBuffer:true});
     if(!gl)throw Error('WebGL2 unavailable');
     const shader=(type,text)=>{const sh=gl.createShader(type);gl.shaderSource(sh,text);gl.compileShader(sh);
@@ -94,7 +96,14 @@ precision highp float;uniform vec4 color;out vec4 o;void main(){o=color;}`);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
       textures[name]=tex;
+      const profile=gl.createTexture();gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,profile);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,32,2,0,gl.RED,gl.UNSIGNED_BYTE,new Uint8Array(quiet[name]));
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+      textures[name+'Quiet']=profile;
     }
+    gl.activeTexture(gl.TEXTURE0);
     const vao=gl.createVertexArray();gl.bindVertexArray(vao);const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
     gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
     gl.disable(gl.DITHER);gl.disable(gl.BLEND);gl.disable(gl.DEPTH_TEST);gl.viewport(0,0,1,1);
@@ -104,7 +113,10 @@ precision highp float;uniform vec4 color;out vec4 o;void main(){o=color;}`);
       f('u_frameMix',options.mix||0);f('u_phase',options.phase||0);
       v4('u_loopNormal[0]',options.normals||uniforms.loopNormal);v4('u_loopTangent[0]',options.tangents||uniforms.loopTangent);
       gl.uniform1fv(loc('u_loopGain[0]'),options.gains||new Array(12).fill(0));
-      gl.bindTexture(gl.TEXTURE_2D,textures[options.texture||'fixture']);
+      const textureName=options.texture||'fixture';
+      gl.bindTexture(gl.TEXTURE_2D,textures[textureName]);
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,textures[textureName+'Quiet']);gl.uniform1i(loc('u_quiet'),1);
+      gl.activeTexture(gl.TEXTURE0);
       gl.drawArrays(gl.TRIANGLES,0,3);
     };
     const read=()=>{
@@ -132,15 +144,57 @@ precision highp float;uniform vec4 color;out vec4 o;void main(){o=color;}`);
       if(options.foregroundRing){gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);drawFlat([.1,.6,.2,.5],.25);}
       return read();
     };
+    const viewVS=`#version 300 es
+layout(location=0) in vec2 a_pos;
+uniform vec3 u_cam;uniform vec3 u_forward;uniform vec3 u_right;uniform vec3 u_up;uniform float u_span;
+out vec3 v_obj;
+void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_span);v_obj=u_cam+dir*8.0;gl_Position=vec4(a_pos,0,1);}`;
+    const legacy=fs.replace('color=gold(mix(quiet,value,coverage));','color=mix(vec3(.065,.039,.015),gold(value),coverage);');
+    const programs={current:program(viewVS,fs),legacy:program(viewVS,legacy)};
+    window.renderDisk=({camera,forward,right,up,span,texture,shader,size})=>{
+      const target=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,target);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,size,size,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+      const depth=gl.createRenderbuffer();gl.bindRenderbuffer(gl.RENDERBUFFER,depth);
+      gl.renderbufferStorage(gl.RENDERBUFFER,gl.DEPTH_COMPONENT24,size,size);
+      const fbo=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,target,0);
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.RENDERBUFFER,depth);
+      gl.viewport(0,0,size,size);gl.disable(gl.BLEND);gl.disable(gl.DEPTH_TEST);
+      gl.clearColor(8/255,12/255,20/255,1);gl.clear(gl.COLOR_BUFFER_BIT);
+      const view=programs[shader];gl.useProgram(view);
+      const at=name=>gl.getUniformLocation(view,name);
+      gl.uniformMatrix4fv(at('u_mvp'),false,[1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1]);
+      gl.uniformMatrix3fv(at('u_sourceBasis0'),false,uniforms.sourceBasis0);gl.uniformMatrix3fv(at('u_sourceBasis1'),false,uniforms.sourceBasis1);
+      gl.uniform4fv(at('u_projection0'),uniforms.projection0);gl.uniform4fv(at('u_projection1'),uniforms.projection1);
+      gl.uniform2fv(at('u_observerRadii'),uniforms.observerRadii);
+      gl.uniform1f(at('u_extent'),uniforms.extent);gl.uniform1f(at('u_phase'),0);gl.uniform1f(at('u_frameMix'),0);gl.uniform1i(at('u_pass'),0);
+      gl.uniform4fv(at('u_loopNormal[0]'),uniforms.loopNormal);gl.uniform4fv(at('u_loopTangent[0]'),uniforms.loopTangent);
+      gl.uniform1fv(at('u_loopGain[0]'),uniforms.loopGain);
+      gl.uniform3fv(at('u_cam'),camera);gl.uniform3fv(at('u_camObj'),camera);
+      gl.uniform3fv(at('u_forward'),forward);gl.uniform3fv(at('u_right'),right);gl.uniform3fv(at('u_up'),up);gl.uniform1f(at('u_span'),span);
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,textures[texture]);gl.uniform1i(at('u_atlas'),0);
+      gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,textures[texture+'Quiet']);gl.uniform1i(at('u_quiet'),1);
+      gl.drawArrays(gl.TRIANGLES,0,3);
+      const pixel=new Uint8Array(size*size*4);gl.readPixels(0,0,size,size,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+      const error=gl.getError();if(error!==gl.NO_ERROR)throw Error(`GL error ${error}`);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.deleteFramebuffer(fbo);gl.deleteRenderbuffer(depth);gl.deleteTexture(target);
+      gl.viewport(0,0,1,1);
+      return [...pixel];
+    };
     return {renderer:gl.getParameter(gl.RENDERER),version:gl.getParameter(gl.VERSION)};
-  },{vs:SOLAR_VS,fs:SOLAR_FS,probeVS,uniforms});
+  },{vs:SOLAR_VS,fs:SOLAR_FS,probeVS,uniforms,quiet});
   const probe=options=>page.evaluate(options=>window.probe(options),options);
   const rgba=value=>[...solarDisplayColor(value).map(c=>255*c),255];
   almost('source north remains up',await probe({target:[0,.35,1]}),rgba(200/255));
   almost('source south remains down',await probe({target:[0,-.35,1]}),rgba(64/255));
   almost('second source frame is sampled from independent atlas tile',await probe({target:[0,.35,1],mix:1}),rgba(128/255));
   almost('source interpolation is display intensity, not wall clock',await probe({target:[0,.35,1],mix:.5}),rgba(164/255));
-  almost('unobserved hemisphere is held',await probe({camera:[0,0,-3],target:[0,0,-1.35]}),[.065*255,.039*255,.015*255,255]);
+  const farQuiet=quiet.fixture[31]/255;
+  almost('unobserved hemisphere keeps the observed radial median',await probe({camera:[0,0,-3],target:[0,0,-1.35]}),rgba(farQuiet));
+  almost('pinned atlas far side is the observed radial median',await probe({texture:'atlas',camera:[0,0,-3],target:[0,0,-1.35]}),rgba(quiet.atlas[31]/255),4);
+  const dark=[.065*255,.039*255,.015*255];
+  const farPixel=await probe({texture:'atlas',camera:[0,0,-3],target:[0,0,-1.35]});
+  checks.push({name:'far side is not the old dark material',actual:farPixel,passed:farPixel[0]>dark[0]+40});
   const noVolume=await probe({camera:[0,0,3],target:[1.2,0,0]});
   almost('empty off-limb volume is transparent',noVolume,[0,0,0,0]);
   const loop={normal:[0,0,1],tangent:[1,0,0],radius:.2,width:.01,gain:1};
@@ -185,6 +239,35 @@ precision highp float;uniform vec4 color;out vec4 o;void main(){o=color;}`);
   const get=(xx,yy)=>decoded.data[(yy*decoded.width+xx)*4]/255;
   const value=(1-ty)*((1-tx)*get(x0,y0)+tx*get(x0+1,y0))+ty*((1-tx)*get(x0,y0+1)+tx*get(x0+1,y0+1));
   almost('pinned NASA atlas source-center intensity matches decoded pixels',await probe({texture:'atlas'}),rgba(value),3);
+  assert.match(SOLAR_FS,/color=gold\(mix\(quiet,value,coverage\)\);/);
+  if(checks.every(check=>check.passed)){
+    const size=256;
+    const side={camera:[4,0,0],forward:[-1,0,0],right:[0,0,-1],up:[0,1,0],span:.42,texture:'atlas',size};
+    const far={camera:[0,0,-4],forward:[0,0,1],right:[-1,0,0],up:[0,1,0],span:.42,texture:'atlas',size};
+    const shots=[['sun-euv-side-before',{...side,shader:'legacy'}],['sun-euv-side-after',{...side,shader:'current'}],['sun-euv-far-after',{...far,shader:'current'}]];
+    const written=[];
+    for(const [name,options] of shots){
+      const raw=await page.evaluate(view=>window.renderDisk(view),options);
+      const png=new PNG({width:size,height:size});
+      for(let y=0;y<size;y++)png.data.set(raw.slice((size-1-y)*size*4,(size-y)*size*4),y*size*4);
+      const file=path.join(out,`${name}.png`);
+      fs.writeFileSync(file,PNG.sync.write(png));
+      written.push(png);
+    }
+    const gap=8,compare=new PNG({width:size*2+gap,height:size});
+    for(let i=0;i<compare.data.length;i+=4){compare.data[i]=8;compare.data[i+1]=12;compare.data[i+2]=20;compare.data[i+3]=255;}
+    for(const [index,png] of written.slice(0,2).entries()){
+      for(let y=0;y<size;y++)compare.data.set(png.data.subarray(y*size*4,(y+1)*size*4),(y*compare.width+index*(size+gap))*4);
+    }
+    fs.writeFileSync(path.join(out,'sun-euv-side-compare.png'),PNG.sync.write(compare));
+    if(fs.existsSync('/opt/cursor')){
+      const artifacts='/opt/cursor/artifacts';
+      fs.mkdirSync(artifacts,{recursive:true});
+      for(const name of [...shots.map(([shot])=>shot),'sun-euv-side-compare']){
+        fs.copyFileSync(path.join(out,`${name}.png`),path.join(artifacts,`${name}.png`));
+      }
+    }
+  }
   assert.deepEqual(errors,[]);
   const failed=checks.filter(c=>!c.passed);if(failed.length)throw Error(failed.map(c=>c.name).join('; '));
 }

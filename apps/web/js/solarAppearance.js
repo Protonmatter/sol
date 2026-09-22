@@ -161,6 +161,100 @@ export function solarDisplayColor(intensity) {
   return [Math.pow(v,.7),.76*Math.pow(v,1.25),.22*Math.pow(v,2.1)];
 }
 
+// One sample per mu bin. The far hemisphere is this radial curve, not a night side
+// and not a copy of active-region structure.
+export const SOLAR_QUIET_BINS = 32;
+const QUIET_AZIMUTH = 64;
+const QUIET_MIN_SAMPLES = 8;
+
+function median(values) {
+  const sorted=Float64Array.from(values).sort();
+  const n=sorted.length,mid=n>>1;
+  return n&1 ? sorted[mid] : (sorted[mid-1]+sorted[mid])*0.5;
+}
+
+/** Unit-sphere ring whose finite-distance foreshortening cosine is mu. */
+function ringAtMu(mu,distance) {
+  if(!Number.isFinite(mu)||mu<0||mu>1) throw new RangeError('quiet mu must be within 0..1');
+  if(!Number.isFinite(distance)||distance<=1) throw new RangeError('observer distance must exceed one solar radius');
+  const m2=mu*mu,A=distance*distance,B=2*distance*(m2-1),C=1-m2*(A+1),disc=B*B-4*A*C;
+  if(disc<0) throw new RangeError('quiet mu has no photosphere ring');
+  const z=Math.min(1,(-B+Math.sqrt(disc))/(2*A));
+  if(!(z>=0)) throw new RangeError('quiet ring left the photosphere');
+  return {z,radial:Math.sqrt(Math.max(0,1-z*z))};
+}
+
+function bilinearRed(rgba,width,height,x,y) {
+  const x0=Math.max(0,Math.floor(x)),y0=Math.max(0,Math.floor(y));
+  const x1=Math.min(x0+1,width-1),y1=Math.min(y0+1,height-1);
+  const tx=x-Math.floor(x),ty=y-Math.floor(y);
+  const at=(xx,yy)=>rgba[(yy*width+xx)*4]/255;
+  return (1-ty)*((1-tx)*at(x0,y0)+tx*at(x1,y0))+ty*((1-tx)*at(x0,y1)+tx*at(x1,y1));
+}
+
+/** Frame-local UV to atlas red, matching the shader's half-texel clamp. */
+export function sampleAtlasIntensity(rgba,width,height,frame,uv) {
+  if(!rgba||rgba.length!==width*height*4||typeof rgba[0]!=='number') {
+    throw new TypeError('atlas samples must be tightly packed RGBA');
+  }
+  if(!Number.isInteger(frame)||frame<0||frame>1||width<2||width%2||height<1) throw new RangeError('atlas frame is outside the two-tile image');
+  const frameW=width/2;
+  const u=clamp(uv[0],.5/frameW,1-.5/frameW),v=clamp(uv[1],.5/height,1-.5/height);
+  return bilinearRed(rgba,width,height,(u+frame)*frameW-.5,v*height-.5);
+}
+
+/**
+ * Azimuthal median of one observed disk, indexed by foreshortening cosine.
+ * A bright loop cannot set the fill used where that longitude was not observed.
+ */
+export function solarQuietProfile(sample,frame=SOLAR_APPEARANCE.frames[0],bins=SOLAR_QUIET_BINS) {
+  if(typeof sample!=='function') throw new TypeError('quiet profile sample must be a function');
+  if(!Number.isInteger(bins)||bins<2||bins>256) throw new RangeError('quiet profile bins must be 2..256');
+  const basis=solarFrameUniforms(frame),distance=basis.observerRadius;
+  const buckets=Array.from({length:bins},()=>[]);
+  for(let i=0;i<bins;i++) {
+    const {z,radial}=ringAtMu((i+.5)/bins,distance);
+    for(let k=0;k<QUIET_AZIMUTH;k++) {
+      const phi=(k+.5)*2*Math.PI/QUIET_AZIMUTH,c=Math.cos(phi),s=Math.sin(phi);
+      const point=[0,1,2].map(axis=>basis.right[axis]*radial*c+basis.up[axis]*radial*s+basis.axis[axis]*z);
+      const projected=projectSolarSurface(point,frame);
+      if(projected.mu<=0||projected.uv.some(value=>value<0||value>1)) continue;
+      const intensity=sample(projected.uv);
+      if(!Number.isFinite(intensity)) throw new TypeError('quiet sample must be finite');
+      buckets[i].push(clamp(intensity,0,1));
+    }
+  }
+  const values=Array.from({length:bins},(_,i)=>buckets[i].length>=QUIET_MIN_SAMPLES?median(buckets[i]):null);
+  let carry=null;
+  for(let i=bins-1;i>=0;i--) {
+    if(values[i]!==null) carry=values[i];
+    else if(carry!==null) values[i]=carry;
+  }
+  if(values.some(value=>value===null)) throw new RangeError('quiet profile has no on-disk samples');
+  return values;
+}
+
+/** Both atlas tiles, in shader row order. Values stay in display intensity, 0..1. */
+export function solarAtlasQuietProfiles(rgba,width,height) {
+  return SOLAR_APPEARANCE.frames.map((frame,index)=>solarQuietProfile(
+    uv=>sampleAtlasIntensity(rgba,width,height,index,uv),frame));
+}
+
+/** R8 rows, one per source frame. Linear sampling at mu reconstructs the curve. */
+export function solarQuietBytes(profiles) {
+  if(!Array.isArray(profiles)||profiles.length!==2) throw new TypeError('quiet upload needs both source frames');
+  const bytes=new Uint8Array(SOLAR_QUIET_BINS*2);
+  profiles.forEach((profile,row)=>{
+    if(!Array.isArray(profile)||profile.length!==SOLAR_QUIET_BINS) throw new RangeError('quiet profile width changed');
+    for(let i=0;i<profile.length;i++) {
+      const value=profile[i];
+      if(!Number.isFinite(value)||value<0||value>1) throw new RangeError('quiet profile sample left 0..1');
+      bytes[row*SOLAR_QUIET_BINS+i]=Math.round(value*255);
+    }
+  });
+  return bytes;
+}
+
 /** Packed immutable-reference uniforms; viewport/camera matrices are supplied by the caller. */
 export function solarRenderUniforms(seconds=0,options={}) {
   const frame0=solarFrameUniforms(SOLAR_APPEARANCE.frames[0]),frame1=solarFrameUniforms(SOLAR_APPEARANCE.frames[1]);

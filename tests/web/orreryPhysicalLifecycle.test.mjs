@@ -147,7 +147,11 @@ test('solar restart preserves a pending atlas request and uploads its completion
   assert.equal(loads[0].signal.aborted,false);assert.equal(h.state.solarStatus,'loading');
   assert.equal(h.textureUploads.length,uploads);assert.equal(h.deletedTextures.length,releases);
   loads[0].resolve({width:2048,height:1024,close(){closed++;}});await h.settle();
-  assert.equal(h.state.solarStatus,'ready');assert.equal(closed,1);assert.equal(h.textureUploads.length,uploads+1);
+  assert.equal(h.state.solarStatus,'ready');assert.equal(closed,1);
+  const uploaded=h.textureUploads.slice(uploads);
+  assert.equal(uploaded.length,2,'the atlas and its radial quiet profile upload once');
+  const quiet=uploaded.find(args=>args[3]===32&&args[4]===2);
+  assert.equal(quiet?.[2],33321);assert.equal(quiet?.[6],6403);assert.equal(quiet.at(-1).length,32*2);
   assert.equal(h.deletedTextures.length,releases);assert.equal(h.nodes.orrerySolarPlay.disabled,false);h.leaveOrrery();
 });
 

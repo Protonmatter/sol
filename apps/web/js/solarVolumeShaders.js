@@ -27,6 +27,7 @@ uniform mat3 u_sourceBasis1;
 uniform vec4 u_projection0;
 uniform vec4 u_projection1;
 uniform vec2 u_observerRadii;
+uniform sampler2D u_quiet;
 uniform vec4 u_loopNormal[12];
 uniform vec4 u_loopTangent[12];
 uniform float u_loopGain[12];
@@ -67,6 +68,12 @@ float emissivity(vec3 point,vec3 normal,vec3 tangent,float arcRadius,float width
   float angle=atan(y,x),flow=.78+.22*cos(4.0*angle-u_phase+offset);
   return exp(-.5*d2)*gain*flow;
 }
+float quietIntensity(float axisZ,float distance,float row){
+  // |mu| is the same center-to-limb coordinate on both hemispheres. The Sun has
+  // no night side; the unobserved face keeps this observed radial median.
+  float mu=abs((distance*axisZ-1.0)/sqrt(max(distance*distance+1.0-2.0*distance*axisZ,1e-12)));
+  return texture(u_quiet,vec2(clamp(mu,0.0,1.0),row)).r;
+}
 void main(){
   if(length(u_camObj)<=1.0)discard;
   vec3 direction=normalize(v_obj-u_camObj);
@@ -84,8 +91,11 @@ void main(){
     vec2 b=sourceIntensity(point,u_sourceBasis1,u_projection1,u_observerRadii.y,1.0);
     float coverage=mix(a.y,b.y,u_frameMix);
     float value=mix(a.x*a.y,b.x*b.y,u_frameMix)/max(coverage,1e-8);
-    // The held hemisphere is a uniform disclosed missing-detail material, never invented imagery.
-    color=mix(vec3(.065,.039,.015),gold(value),coverage);
+    // Where AIA did not see the disk, keep the observed radial median. That is
+    // self-luminous quiet corona, not a dark hemisphere and not invented loops.
+    float quiet=mix(quietIntensity(dot(point,u_sourceBasis0[2]),u_observerRadii.x,0.25),
+      quietIntensity(dot(point,u_sourceBasis1[2]),u_observerRadii.y,0.75),u_frameMix);
+    color=gold(mix(quiet,value,coverage));
     opacity=1.0;
   }
   float emission=0.0;

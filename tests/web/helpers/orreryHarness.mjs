@@ -46,7 +46,8 @@ export async function orreryHarness(t, options = {}) {
     TEXTURE_WRAP_S: 10242, TEXTURE_WRAP_T: 10243,
     NEAREST: 9728, LINEAR: 9729, LINEAR_MIPMAP_LINEAR: 9987,
     REPEAT: 10497, CLAMP_TO_EDGE: 33071,
-    UNPACK_FLIP_Y_WEBGL: 37440, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 37441,
+    UNPACK_ALIGNMENT: 3317, UNPACK_FLIP_Y_WEBGL: 37440, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 37441,
+    R8: 33321, RED: 6403, UNSIGNED_BYTE: 5121,
     ZERO:0,ONE:1,SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,TRIANGLES:4,LINES:1,LINE_STRIP:3,POINTS:0,
     COMPILE_STATUS:35713,LINK_STATUS:35714,VERTEX_SHADER:35633,FRAGMENT_SHADER:35632,
     MAX_TEXTURE_IMAGE_UNITS:34930,MAX_COMBINED_TEXTURE_IMAGE_UNITS:35661,ACTIVE_TEXTURE:34016,
@@ -63,7 +64,7 @@ export async function orreryHarness(t, options = {}) {
       : name==='EXT_color_buffer_float'&&options.floatTargets!==false ? {}
       : name==='WEBGL_debug_renderer_info'&&options.renderer ? { UNMASKED_RENDERER_WEBGL: 37446 } : null,
     getParameter: name => {
-      const values=new Map([[3379,options.maxTextureSize??16384],[34930,16],[35661,32],[34016,graphicsConstants.TEXTURE0+activeTextureUnit],
+      const values=new Map([[3379,options.maxTextureSize??16384],[3317,pixelStore.get(3317)??4],[34930,16],[35661,32],[34016,graphicsConstants.TEXTURE0+activeTextureUnit],
         [32873,textureBindings.get(activeTextureUnit)??null],[35097,samplerBindings.get(activeTextureUnit)??null],
         [35725,currentProgram??null],[34229,vertexArray],[36006,drawFramebuffer],[36010,readFramebuffer],
         [2978,[...viewport]],[3107,[...colorMask]],[2930,depthWrites]]);

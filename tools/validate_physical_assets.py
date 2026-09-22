@@ -150,12 +150,14 @@ def validate_terrain(data: dict, root: Path) -> int:
 def validate_solar(data: dict, root: Path) -> int:
     if not isinstance(data,dict) or data.get("schema_version")!="solar-appearance.v1":raise ValueError("invalid solar manifest schema")
     expected={"schema_version","id","label","status","credits","color_interpretation","source_kind","atlas","frames","far_side",
-              "surface_min_mu","surface_full_mu","reference_frame","surface_interpretation","playback","geometry"}
+              "far_side_display","surface_min_mu","surface_full_mu","reference_frame","surface_interpretation","playback","geometry"}
     if set(data)!=expected:raise ValueError("unknown or missing solar manifest field")
     for name in ("id","label","credits","color_interpretation","source_kind","reference_frame","surface_interpretation"):
         text(data.get(name),name)
     if data.get("status")!="educational-reconstruction" or data.get("far_side")!="unavailable":
         raise ValueError("solar reconstruction coverage/status not qualified")
+    if data.get("far_side_display")!="observed-disk radial median":
+        raise ValueError("solar far side must stay the observed radial median, not a night side or invented imagery")
     low=number(data.get("surface_min_mu"),"solar coverage minimum",0,1)
     high=number(data.get("surface_full_mu"),"solar coverage full",low,1)
     if low!=.12 or high!=.2:raise ValueError("solar coverage differs from shader contract")

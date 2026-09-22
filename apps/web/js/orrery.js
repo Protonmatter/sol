@@ -6,7 +6,8 @@
 //   • registered mission reference imagery with dated source/coverage disclosures,
 //     Lambert lighting from the Sun so every body shows its geometric phase/terminator,
 //   • Saturn / Uranus / Neptune ring systems with real radii and the Cassini Division,
-//   • registered NASA/SDO EUV reference frames with explicitly modeled elevated emission,
+//   • registered NASA/SDO EUV reference frames with explicitly modeled elevated emission;
+//     the unobserved hemisphere stays self-luminous at the observed radial median,
 //   • dimensioned reference optical transfer where qualified, disclosed halos otherwise,
 //   • the real sky as a backdrop: ~1700 catalogue-weighted stars, the Milky Way band, headline
 //     constellation figures, and the true positions of seven pulsars + eight galaxies / the
@@ -33,7 +34,7 @@ import {ATMOSPHERE_COLUMN_FIELDS} from './atmosphereColumnManifest.js';
 import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,
   SCATTERING_UNIFORMS,planAtmosphereScattering,validScatteringPlanBudget} from './atmosphereScattering.js';
 import {createScatteringTargets} from './scatteringTargets.js';
-import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,solarReferenceRotation,solarRenderUniforms,solarPlayback} from './solarAppearance.js';
+import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
@@ -407,7 +408,7 @@ function updatePhysicalAppearance() {
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
-  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
+  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. The unobserved hemisphere keeps the observed disk's radial brightness, without invented active regions.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
@@ -450,6 +451,29 @@ function sourceSolarRotation() {
   return solarRotation;
 }
 
+function bitmapPixels(bitmap) {
+  const canvas=document.createElement('canvas');
+  canvas.width=bitmap.width;canvas.height=bitmap.height;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)throw new Error('Solar quiet profile unavailable');
+  ctx.drawImage(bitmap,0,0);
+  return ctx.getImageData(0,0,bitmap.width,bitmap.height).data;
+}
+
+function makeQuietTexture(context,bytes) {
+  const tex=context.createTexture(),alignment=context.getParameter(context.UNPACK_ALIGNMENT);
+  context.bindTexture(context.TEXTURE_2D,tex);
+  context.pixelStorei(context.UNPACK_ALIGNMENT,1);
+  context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);
+  context.texImage2D(context.TEXTURE_2D,0,context.R8,SOLAR_QUIET_BINS,2,0,context.RED,context.UNSIGNED_BYTE,bytes);
+  context.pixelStorei(context.UNPACK_ALIGNMENT,alignment);
+  context.texParameteri(context.TEXTURE_2D,context.TEXTURE_MIN_FILTER,context.LINEAR);
+  context.texParameteri(context.TEXTURE_2D,context.TEXTURE_MAG_FILTER,context.LINEAR);
+  context.texParameteri(context.TEXTURE_2D,context.TEXTURE_WRAP_S,context.CLAMP_TO_EDGE);
+  context.texParameteri(context.TEXTURE_2D,context.TEXTURE_WRAP_T,context.CLAMP_TO_EDGE);
+  return tex;
+}
+
 function initSolarResources() {
   solarDetail?.dispose();solarDetail=null;state.solarStatus='deferred';
   if(typeof createImageBitmap!=='function')return;
@@ -459,12 +483,15 @@ function initSolarResources() {
     try{
       if(signal.aborted||!state.active||gl!==context||context.isContextLost())throw new Error('Solar graphics generation changed');
       if(context.getParameter(context.MAX_TEXTURE_SIZE)<bitmap.width)throw new Error('Solar reference exceeds device texture limit');
+      const pixels=bitmapPixels(bitmap);
+      const quietBytes=solarQuietBytes(solarAtlasQuietProfiles(pixels,bitmap.width,bitmap.height));
       const tex=makeTexture(bitmap,false);
       // Atlas frames have no mip chain blending and no implicit color conversion.
       context.texParameteri(context.TEXTURE_2D,context.TEXTURE_MIN_FILTER,context.LINEAR);
-      return {tex};
+      const quiet=makeQuietTexture(context,quietBytes);
+      return {tex,quiet};
     }finally{bitmap.close();}
-  },release:value=>{if(value)context.deleteTexture(value.tex);},onChange:(_key,status)=>{
+  },release:value=>{if(value){context.deleteTexture(value.tex);context.deleteTexture(value.quiet);}},onChange:(_key,status)=>{
     state.solarStatus=status;
     queueMicrotask(()=>{updatePhysicalAppearance();if(state.active&&gl===context){window.dispatchEvent(new Event('sol:presentation'));if(!state.animate)paint();}});
   }});
@@ -488,6 +515,8 @@ function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
   gl.uniform4fv(P.solarU['u_loopTangent[0]'],new Float32Array(values.loopTangent));
   gl.uniform1fv(P.solarU['u_loopGain[0]'],new Float32Array(values.loopGain));
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,detail.tex);gl.uniform1i(P.solarU.u_atlas,0);
+  gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,detail.quiet);gl.uniform1i(P.solarU.u_quiet,4);
+  gl.activeTexture(gl.TEXTURE0);
   bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(Math.hypot(...cam)<values.extent?gl.FRONT:gl.BACK);
   gl.drawElements(gl.TRIANGLES,sphere.count,gl.UNSIGNED_SHORT,0);gl.disable(gl.CULL_FACE);
   return true;
@@ -821,7 +850,7 @@ function finishGL(){
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
   Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
-  P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
+  P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_quiet','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
   Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear']));
   for(const name of ['sphere','line','ring','pt','glow','solar'])
     Object.assign(P[`${name}U`],uloc(P[name],['u_linearOutput']));
