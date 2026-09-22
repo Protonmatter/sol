@@ -40,7 +40,8 @@ async function moduleFile(relative){
  return import(pathToFileURL(file).href);
 }
 const {ATMOSPHERE_VS,ATMOSPHERE_GLSL:REFERENCE_ATMOSPHERE_GLSL}=await moduleFile('js/atmosphereShaders.js');
-let {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS}=await moduleFile('js/atmosphereColumnField.js');
+let {ATMOSPHERE_RENDER_GLSL:ATMOSPHERE_GLSL,ATMOSPHERE_RENDER_FS:ATMOSPHERE_FS,
+  generateAtmosphereOzoneColumns,packAtmosphereOpticalField}=await moduleFile('js/atmosphereColumnField.js');
 const {ATMOSPHERE_COLUMN_FIELDS}=await moduleFile('js/atmosphereColumnManifest.js');
 const {getAtmosphereProfile,atmosphereUniformValues}=await moduleFile('js/atmosphereOptics.js');
 let {SPHERE_VS,SPHERE_FS}=await moduleFile('js/orreryShaders.js');
@@ -66,7 +67,9 @@ for(const [body,reference]of Object.entries(ATMOSPHERE_COLUMN_FIELDS)){
  const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
  assert.equal(bytes.length,reference.bytes);assert.equal(digest(bytes),reference.sha256);hashes[relative]=digest(bytes);
  if(release){const entry=release.assets.find(a=>a.path===path.relative(webRoot,file).split(path.sep).join('/'));assert.equal(entry?.sha256,reference.sha256);}
- columns[body]={values:Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4)),width:512,height:512};
+ const values=Array.from({length:bytes.length/4},(_,i)=>bytes.readFloatLE(i*4));
+ const ozone=Array.from(generateAtmosphereOzoneColumns(getAtmosphereProfile(body)));
+ columns[body]={values,ozone,packed:Array.from(packAtmosphereOpticalField(Float32Array.from(values),Float32Array.from(ozone))),width:512,height:512};
 }
 for(const [body,reference]of Object.entries(INCIDENT_FIELDS)){
  const relative=path.posix.normalize(`js/${reference.path}`),file=path.join(pageRoot,relative),bytes=fs.readFileSync(file);
@@ -84,7 +87,8 @@ const ABSOLUTE_TOLERANCE=1e-4, RELATIVE_TOLERANCE=.002, ZERO_TOLERANCE=1e-7;
 const cases = [];
 function fixture(name, body, origin, direction, sun, q=1, au=1, vacuum=false, altitude=0){
   let profile=getAtmosphereProfile(body);
-  if(vacuum) profile={...profile,betaRayleighKm:[0,0,0],betaAerosolExtinctionKm:[0,0,0]};
+  if(vacuum) profile={...profile,betaRayleighKm:[0,0,0],betaAerosolExtinctionKm:[0,0,0],
+    betaOzoneKm:[0,0,0],ozonePeakKm:0,ozoneWidthKm:0};
   const a=direction[0]**2+direction[1]**2+(direction[2]/q)**2;
   const b=origin[0]*direction[0]+origin[1]*direction[1]+origin[2]*direction[2]/q**2;
   const c=origin[0]**2+origin[1]**2+(origin[2]/q)**2-profile.radiusKm**2;
@@ -114,14 +118,14 @@ from atmosphere_reference import trace_single_scattering
 result=[]
 for c in json.loads(sys.stdin.read()):
  p=c['profile']
- result.append(trace_single_scattering(c['origin'],c['direction'],c['sun'],radius_km=p['radiusKm'],top_km=p['topKm'],rayleigh_h_km=p['rayleighScaleHeightKm'],aerosol_h_km=p['aerosolScaleHeightKm'],beta_rayleigh=p['betaRayleighKm'],beta_extinction=p['betaAerosolExtinctionKm'],aerosol_ssa=p['aerosolSingleScatteringAlbedo'],g=p['aerosolG'],polar_ratio=c['q'],solar_distance_au=c['au'],view_steps=c.get('viewSteps',512),solar_steps=c.get('solarSteps',512),max_distance_km=c['maximum'],terrain_endpoint=c.get('terrainEndpoint',False)))
+ result.append(trace_single_scattering(c['origin'],c['direction'],c['sun'],radius_km=p['radiusKm'],top_km=p['topKm'],rayleigh_h_km=p['rayleighScaleHeightKm'],aerosol_h_km=p['aerosolScaleHeightKm'],beta_rayleigh=p['betaRayleighKm'],beta_extinction=p['betaAerosolExtinctionKm'],aerosol_ssa=p['aerosolSingleScatteringAlbedo'],g=p['aerosolG'],beta_ozone=p.get('betaOzoneKm',[0,0,0]),ozone_peak_km=p.get('ozonePeakKm',0),ozone_width_km=p.get('ozoneWidthKm',0),polar_ratio=c['q'],solar_distance_au=c['au'],view_steps=c.get('viewSteps',512),solar_steps=c.get('solarSteps',512),max_distance_km=c['maximum'],terrain_endpoint=c.get('terrainEndpoint',False)))
 print(json.dumps(result))`;
 const expected=JSON.parse(execFileSync(argument('python','python'),['-c',script],{cwd:ROOT,input:JSON.stringify(cases),encoding:'utf8',timeout:90000,windowsHide:true}));
 // Independent fixed-step float64 shooting reference; actual production vertex
 // outputs are captured below, rather than reimplementing the shader in a probe.
 const refractionCases=[];
 function refractiveFixture(body,zenithDegrees,{q=1,latitude=0,altitude=0,azimuth=0,vacuum=false}={}){
- const original=getAtmosphereProfile(body), profile=vacuum?{...original,surfaceRefractivity:0}:original;
+ const original=getAtmosphereProfile(body), profile=vacuum?{...original,surfaceRefractivity:0,betaOzoneKm:[0,0,0],ozonePeakKm:0,ozoneWidthKm:0}:original;
  const lat=latitude*Math.PI/180, radius=profile.radiusKm+altitude;
  const point=[radius*Math.cos(lat),0,radius*q*Math.sin(lat)];
  let up=[Math.cos(lat),0,Math.sin(lat)/q];const length=Math.hypot(...up);up=up.map(v=>v/length);
@@ -153,6 +157,17 @@ for c in json.loads(sys.stdin.read()):
  results.append(r)
 print(json.dumps(results))`;
 const refractiveExpected=JSON.parse(execFileSync(argument('python','python'),['-c',refractiveScript],{cwd:ROOT,input:JSON.stringify(refractionCases),encoding:'utf8',timeout:90000,windowsHide:true}));
+for(let i=0;i<refractionCases.length;i++){
+ const c=refractionCases[i],values=new Float32Array(fields[c.profile.body].values);
+ const args=[values,c.profile.body,c.point,c.sun,c.profile.radiusKm,c.q];
+ const withOzone=sampleIncidentField(...args,c.profile.betaOzoneKm);
+ const bare=sampleIncidentField(...args,[0,0,0]);
+ refractiveExpected[i].baselineTransmission=refractiveExpected[i].transmission;
+ refractiveExpected[i].transmission=refractiveExpected[i].transmission.map((value,channel)=>{
+  const plain=bare.transmission[channel];
+  return plain===0?value:value*(withOzone.transmission[channel]/plain);
+ });
+}
 const decode=value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4;
 const encode=value=>value<=.0031308?value*12.92:1.055*value**(1/2.4)-.055;
 const color=[64,96,128].map(value=>value/255), nightColor=[32,128,224].map(value=>value/255);
@@ -240,7 +255,8 @@ const materialCases=[
 ];
 const low=[Math.sin(5*Math.PI/180),Math.cos(5*Math.PI/180),0], high=[Math.sin(40*Math.PI/180),Math.cos(40*Math.PI/180),0];
 const terrainColor=incidence=>color.map(value=>encode(decode(value)*(.001+.999*incidence)));
-const terrainVacuum={...getAtmosphereProfile('Earth'),radiusKm:1000,betaRayleighKm:[0,0,0],betaAerosolExtinctionKm:[0,0,0]};
+const terrainVacuum={...getAtmosphereProfile('Earth'),radiusKm:1000,betaRayleighKm:[0,0,0],betaAerosolExtinctionKm:[0,0,0],
+  betaOzoneKm:[0,0,0],ozonePeakKm:0,ozoneWidthKm:0};
 materialCases.push(
  {name:'combined ridge blocks low direct light',uniforms:{u_atmosphereEnabled:0},terrain:true,normal:[1,0,0],point:[1,0,0],light:low,expected:terrainColor(0)},
  {name:'combined ridge clears high direct light',uniforms:{u_atmosphereEnabled:0},terrain:true,normal:[1,0,0],point:[1,0,0],light:high,expected:terrainColor(high[0])},
@@ -278,20 +294,31 @@ try {
   if(!gl || !gl.getExtension('EXT_color_buffer_float')) throw Error('float WebGL2 unavailable');
   const shader=(kind,source)=>{const s=gl.createShader(kind);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
   const program=(vs,fs,varyings)=>{const p=gl.createProgram();gl.attachShader(p,shader(gl.VERTEX_SHADER,vs));gl.attachShader(p,shader(gl.FRAGMENT_SHADER,fs));if(varyings)gl.transformFeedbackVaryings(p,varyings,gl.INTERLEAVED_ATTRIBS);gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));return p;};
-  program(shellVs,shellFs);
-  program(sphereVs,sphereFs);
+  const requireColumnSampler=linked=>{if(!gl.getUniformLocation(linked,'u_atmosphereColumnField'))throw Error('admitted column sampler was stripped');};
+  requireColumnSampler(program(shellVs,shellFs));
+  requireColumnSampler(program(sphereVs,sphereFs));
   const p=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}', '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform float u_probeMax;uniform int u_probeKind;'+probeShared+'\nvoid main(){AtmosphereResult r=integrateAtmosphere(u_probeOrigin,u_probeDir,u_probeMax);o=vec4(u_probeKind==2?vec3(qualificationNodes):u_probeKind==0?r.transmittance:r.scattering,1.0);}');
+  requireColumnSampler(p);
   const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,1,1);
   const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
   if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('incomplete float target');
-  const columnTextures={};
-  for(const [body,field]of Object.entries(columns)){
-    gl.activeTexture(gl.TEXTURE7);const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RG32F,field.width,field.height,0,gl.RG,gl.FLOAT,new Float32Array(field.values));
+  const columnTextures={},ozoneTextures={};
+  const uploadField=(unit,internal,format,field,pixels)=>{
+    gl.activeTexture(gl.TEXTURE0+unit);const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.texImage2D(gl.TEXTURE_2D,0,internal,field.width,field.height,0,format,gl.FLOAT,new Float32Array(pixels));
     for(const param of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,param,gl.NEAREST);
-    for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);columnTextures[body]=texture;
+    for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);
+    return texture;
+  };
+  for(const [body,field]of Object.entries(columns)){
+    columnTextures[body]=uploadField(7,gl.RG32F,gl.RG,field,field.values);
+    ozoneTextures[body]=uploadField(10,gl.RGBA32F,gl.RGBA,field,field.packed);
   }
-  const bindColumns=(program,body)=>{gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,columnTextures[body]);gl.uniform1i(gl.getUniformLocation(program,'u_atmosphereColumnField'),7);gl.activeTexture(gl.TEXTURE0);};
+  const bindColumns=(program,body)=>{
+    gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,columnTextures[body]);gl.uniform1i(gl.getUniformLocation(program,'u_atmosphereColumnField'),7);
+    gl.activeTexture(gl.TEXTURE10);gl.bindTexture(gl.TEXTURE_2D,ozoneTextures[body]);gl.uniform1i(gl.getUniformLocation(program,'u_atmosphereOzoneField'),10);
+    gl.activeTexture(gl.TEXTURE0);
+  };
   gl.useProgram(p);
   const upload=(name,value)=>{const u=gl.getUniformLocation(p,name);if(Array.isArray(value)) {if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);} else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
   const transfer=cases.map(c=>{bindColumns(p,c.profile.body);for(const [key,value]of Object.entries(c.uniforms))upload(key,value);upload('u_probeOrigin',c.origin);upload('u_probeDir',c.direction);upload('u_probeMax',c.maximum);
@@ -299,6 +326,7 @@ try {
   const cacheProgram=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}',
     '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform float u_probeMax,u_probeDistance;uniform int u_probeKind;'+shared+
     '\nvoid main(){AtmosphereColumnRay ray=atmosphereColumnRay(u_probeOrigin,u_probeDir,u_probeMax);vec3 tau=(u_probeKind==0||u_probeKind==2)?atmosphereOpticalDepth(u_probeOrigin,u_probeDir,u_probeDistance):atmosphereCachedOpticalDepth(ray,u_probeDistance);o=vec4(u_probeKind<2?tau:exp(-tau),1.0);}');
+  requireColumnSampler(cacheProgram);
   gl.useProgram(cacheProgram);
   const cacheUpload=(name,value)=>{const u=gl.getUniformLocation(cacheProgram,name);if(Array.isArray(value)){if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);}else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
   const cacheDepth=cacheCases.map(c=>{
@@ -310,6 +338,7 @@ try {
   const sunProgram=program('#version 300 es\nvoid main(){vec2 p=gl_VertexID==0?vec2(-1,-1):gl_VertexID==1?vec2(3,-1):vec2(-1,3);gl_Position=vec4(p,0,1);}',
     '#version 300 es\nprecision highp float;out vec4 o;uniform vec3 u_probeOrigin,u_probeDir;uniform int u_probeKind;'+shared+genericSunSource+
     '\nvoid main(){vec3 ray=normalize(u_probeDir);vec2 sky=atmosphereRayInterval(u_probeOrigin,ray,u_atmosphereRadiusKm+u_atmosphereTopKm);vec3 value;if(u_probeKind<2)value=sky.y>0.0?(u_probeKind==0?atmosphereOpticalDepth(u_probeOrigin,ray,sky.y):atmosphereSunOpticalDepthToTop(u_probeOrigin,ray)):vec3(0);else value=u_probeKind==2?atmosphereGenericSunTransmission(u_probeOrigin):atmosphereSunTransmission(u_probeOrigin);o=vec4(value,1.0);}');
+  requireColumnSampler(sunProgram);
   gl.useProgram(sunProgram);
   const sunUpload=(name,value)=>{const u=gl.getUniformLocation(sunProgram,name);if(Array.isArray(value)){if(value.length===2)gl.uniform2fv(u,value);else gl.uniform3fv(u,value);}else if(name==='u_atmosphereEnabled'||name==='u_atmosphereRefractionEnabled'||name==='u_probeKind')gl.uniform1i(u,value);else gl.uniform1f(u,value);};
   const sunDepth=sunCases.map(c=>{
@@ -319,6 +348,7 @@ try {
     if(gl.getError()!==gl.NO_ERROR)throw Error('Sun-to-top GL readback error');return result;
   });
   const refractiveProgram=program(sphereVs,'#version 300 es\nprecision highp float;out vec4 o;void main(){o=vec4(0);}', ['v_incidentSunBody','v_incidentSunWorld','v_incidentTransmission']);
+  requireColumnSampler(refractiveProgram);
   gl.useProgram(refractiveProgram);
   const fieldTextures={};
   for(const [body,field]of Object.entries(fields)){
@@ -421,9 +451,15 @@ try {
     passed:measured.transmission.every((v,j)=>Number.isFinite(v)&&Math.abs(v-reference.transmission[j])<=tolerances[j])},
   ];
  }));
+ evidence.checks.push(...refractionCases.filter(c=>c.name==='Earth incident 89deg q1 lat0 alt0 az0').map(c=>{
+  const i=refractionCases.indexOf(c),measured=actual.refraction[i],baseline=refractiveExpected[i].baselineTransmission;
+  const ratio=measured.transmission.map((value,channel)=>baseline[channel]===0?1:value/baseline[channel]);
+  return {name:`${c.name} Chappuis direct beam`,expected:'green absorption exceeds red, which exceeds blue',actual:ratio,
+   passed:ratio[1]<ratio[0]&&ratio[0]<ratio[2]&&ratio[1]<0.99};
+ }));
  evidence.checks.push(...refractionCases.filter(c=>!c.vacuum&&c.zenithDegrees!==0).map(c=>{
    const measured=actual.refraction[refractionCases.indexOf(c)];
-   const reference=sampleIncidentField(new Float32Array(fields[c.profile.body].values),c.profile.body,c.point,c.sun,c.profile.radiusKm,c.q);
+   const reference=sampleIncidentField(new Float32Array(fields[c.profile.body].values),c.profile.body,c.point,c.sun,c.profile.radiusKm,c.q,c.profile.betaOzoneKm);
    return {name:`${c.name} CPU GPU field interpolation`,expected:reference,actual:measured,
      passed:reference.direction.every((v,j)=>Math.abs(v-measured.direction[j])<3e-6)&&reference.transmission.every((v,j)=>Math.abs(v-measured.transmission[j])<5e-5)};
  }));

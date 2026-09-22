@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {ATMOSPHERE_RENDER_GLSL} from '../../apps/web/js/atmosphereColumnField.js';
 import {geometryInterpreter} from './fixtures/glslFloat32Geometry.mjs';
 
-const tail=ATMOSPHERE_RENDER_GLSL.slice(ATMOSPHERE_RENDER_GLSL.indexOf('vec2 atmosphereColumnTail('));
+const tail=ATMOSPHERE_RENDER_GLSL.slice(ATMOSPHERE_RENDER_GLSL.indexOf('vec3 atmosphereCombinedTail('));
 const declaration=tail.match(/float radius=([^;]+);/)[0];
 // Execute the actual tail's radius/height declaration with stepwise binary32
 // arithmetic. The oracle below independently uses binary64 Euclidean geometry.

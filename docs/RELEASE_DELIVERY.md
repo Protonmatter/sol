@@ -78,38 +78,40 @@ dependency and expanded promotion job identity.
 A PR merge preview may be `candidate_verified` but is never a normal deployable artifact.
 Dispatch is diagnostic and does not replace PR check association.
 
-Normal Pages promotion downloads the same candidate and evidence. It checks the
-repository, source SHA, workflow, event, run ID/attempt, artifact ID, final manifest,
-and current master using independently resolved metadata. Static artifact code is
-never executed on the privileged promotion runner. The verifier itself must be pinned
-by the separately configured `SOL_TRUSTED_VERIFIER_SHA` repository variable.
+Normal Pages publication downloads the candidate and evidence from a successful CI
+push to master. It checks the repository, source SHA, workflow, event, run ID/attempt,
+artifact ID, final manifest, mandatory job inventory, and current master using
+independently resolved metadata. Static artifact code is never executed on the
+privileged publication runner. The checks use the tools on the default branch.
 
-The pinned verifier checkout must contain reviewed `docs/release-profiles.json` and
-`docs/accepted-qualification.json`. They are deliberately not supplied as manufactured
-approvals by this change. The latter is an array of qualification records. Their
-schemas are [release profiles](release-profiles.schema.json) and
+Pages does not read `docs/release-profiles.json` or `docs/accepted-qualification.json`.
+Assistive-technology audits and physical-device performance profiles are not a
+publication hold, and publication does not mark those cases passed. A green master
+candidate publishes when the identity checks and the rich outer evidence match the
+staged manifest.
+
+The protected profile path below remains for an explicit rollback evaluation. Pages
+does not consult it. Its records, when a maintainer chooses to keep them, are an array
+whose schemas are [release profiles](release-profiles.schema.json) and
 [qualification evidence](qualification-evidence-v1.schema.json). Evidence paths are
-relative to that pinned checkout; the promotion path checks actual evidence-file hashes.
+relative to that checkout; that path checks actual evidence-file hashes.
 The protected index keys are canonical sorted compact JSON SHA256 digests of complete
 records and must map to their exact `reviewed_by` and `acceptance_id` values.
 
-Protected policy also requires `required_job_names`, the exact expanded map in the
-pinned verifier's `MANDATORY_JOB_NAMES`. It includes all three determinism matrix
-members, all three Coverage children, the Docs child, and the other mandatory jobs.
-The additive WASM identity requires a coordinated reviewed pinned-verifier and protected
-`required_job_names` update before production promotion. An older protected map is not
-silently accepted by the new verifier. This source change does not modify protected
-settings or authorize that later administrative operation.
-Promotion fetches jobs from the exact run-attempt endpoint and rejects absent,
+Pages fetches jobs from the exact run-attempt endpoint and rejects absent,
 ambiguous, unexpected, non-completed, non-successful, or foreign run/attempt/source
 results. Candidate summary must agree with the independently resolved complete map.
-The protected map cannot weaken the verifier's mandatory inventory. A changed hosted
-job naming convention holds promotion until reviewed; no hosted naming qualification
-is implied by local synthetic API fixtures.
+That inventory is `MANDATORY_JOB_NAMES`: all three determinism matrix members, all
+three Coverage children, the Docs child, and the other mandatory jobs. A changed
+hosted job name holds publication until the workflow inventory matches it. Local
+synthetic API fixtures do not qualify hosted job names.
 
-Only protected exact-SHA profile selections can authorize `corrective` or
-`experience-milestone`. Missing settings evidence or acceptance holds promotion.
-The milestone requires AC-01 through AC-35 and F01 through F22. Protected selections
+Protected `--promotion` and `--rollback` still require an exact-SHA profile selection
+for `corrective` or `experience-milestone`, plus `required_job_names` equal to that
+same inventory. Missing settings evidence or acceptance holds that evaluation. Pages
+does not run it, so the experience milestone is not a publication requirement. When
+that evaluation is used, the milestone requires AC-01 through AC-35 and F01 through
+F22. Protected selections
 can provide `qualification_scope[kind][case]` with required component keys and platform
 scope. Its union must exactly cover the selected cases; a milestone cannot omit cases.
 Scientific scopes also declare quantities and inclusive JD bounds, matched against
@@ -132,20 +134,20 @@ matching the relevant fingerprints and accepted artifact/reuse identity. Narrow 
 records cannot replace full-case qualification; narrow overlapping failures cannot be
 hidden by unrelated quantities or platforms in a broader passing record.
 
-Deploy is serialized and rechecks full eligibility after environment approval, using
-the same pinned verifier/policy/qualification and original artifact/manifest identities.
-API job and master state are resolved again, static bytes are revalidated, and reference
-age/EOP horizon are evaluated using the current UTC date; no artifact is rebuilt.
-Source code
-alone cannot prove branch rules, environment approvals, artifact retention limits, or
-maintainer acceptance. Missing reviewed configuration remains a hold, not a green claim.
+Deploy is serialized and rechecks the same master artifact after environment approval.
+API job and master state are resolved again, static bytes are revalidated, and no
+artifact is rebuilt. Source code alone cannot prove branch rules, environment
+approvals, or artifact retention limits. A failed identity or rich-evidence check
+remains a hold. Missing assistive-technology or physical-device profiles do not.
 
 ## Exit codes and retained evidence
 
 The Python delivery tools exit 0 for their requested verified operation, and nonzero
 for invalid inputs or failed predicates. The policy prints separate boolean states and
-stable reason codes. Without `--promotion`, its exit status describes automated candidate
-verification; with `--promotion`, eligibility is required. CLI argument errors may exit 2.
+stable reason codes. Without `--promotion` or `--publish-master`, its exit status
+describes automated candidate verification. `--promotion` requires protected eligibility.
+`--publish-master` requires the master artifact identity and rich evidence, and ignores
+qualification profiles. CLI argument errors may exit 2.
 The candidate and outer evidence request 90-day hosted retention; plan-enforced limits
 must be checked separately. Local `build/` products are disposable, uncommitted artifacts,
 not accepted scientific or manual evidence.

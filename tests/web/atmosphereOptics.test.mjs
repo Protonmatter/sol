@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getAtmosphereProfile, atmosphericTransmission, rayleighPhase, henyeyGreensteinPhase,
-  dielectricFresnel, solarIrradianceScale, refractDirection, atmosphereUniformValues } from '../../apps/web/js/atmosphereOptics.js';
+  dielectricFresnel, solarIrradianceScale, refractDirection, atmosphereUniformValues, ozoneDensity } from '../../apps/web/js/atmosphereOptics.js';
 
 test('only admitted thin reference profiles can enable optical rendering', () => {
   for (const name of ['Earth', 'Mars']) {
@@ -56,12 +56,27 @@ test('dielectric Fresnel and Snell reference preserve energy and vacuum directio
   assert.equal(refractDirection([Math.sqrt(.99), -.1, 0], [0, 1, 0], 1.5, 1), null);
 });
 
+test('Earth Chappuis ozone absorbs green more than blue and Mars carries none', () => {
+  const earth = getAtmosphereProfile('Earth'), mars = getAtmosphereProfile('Mars');
+  assert.equal(earth.version, 'earth-clear-reference.v2');
+  assert.match(earth.limitations, /Chappuis ozone/);
+  assert.doesNotMatch(earth.limitations, /no ozone/);
+  assert.ok(earth.betaOzoneKm[1] > earth.betaOzoneKm[0] && earth.betaOzoneKm[0] > earth.betaOzoneKm[2]);
+  assert.equal(ozoneDensity(25, earth.ozonePeakKm, earth.ozoneWidthKm), 1);
+  assert.ok(ozoneDensity(10, earth.ozonePeakKm, earth.ozoneWidthKm) < 0.4);
+  assert.deepEqual(mars.betaOzoneKm, [0, 0, 0]);
+  assert.equal(ozoneDensity(25, mars.ozonePeakKm, mars.ozoneWidthKm), 0);
+  assert.throws(() => ozoneDensity(10, 25, -1), RangeError);
+});
+
 test('renderer parameters disable unsupported profiles and isolate physical radius from display size', () => {
   const opts = {cameraBodyKm: [0, 0, 20000], sunDirectionBody: [1, 0, 0], polarRatio: .9966, solarDistanceAu: 2, exposure: 1};
   const result = atmosphereUniformValues(getAtmosphereProfile('Earth'), opts);
   assert.equal(result.u_atmosphereEnabled, 1);
   assert.equal(result.u_atmosphereSolarScale, .25);
   assert.equal(result.u_atmosphereRadiusKm, 6378.137);
+  assert.deepEqual(result.u_atmosphereOzoneKm, [...getAtmosphereProfile('Earth').betaOzoneKm]);
+  assert.deepEqual(result.u_atmosphereOzoneLayerKm, [25, 15]);
   assert.equal(result.u_atmosphereRefractionEnabled, 1);
   assert.ok(result.u_atmosphereRefractivity > 0);
   assert.equal(atmosphereUniformValues(null, opts).u_atmosphereEnabled, 0);

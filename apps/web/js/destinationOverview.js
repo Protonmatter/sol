@@ -1,5 +1,5 @@
 // Small read-only cards use accepted presentation data; controls keep their existing owners.
-import { skyCard, systemCard } from './destinationCards.js?v=dcca6290db';
+import { skyCard, systemCard } from './destinationCards.js?v=dcca6290de';
 import { elpMoonAliased } from './orreryTime.js?v=dcca6290db';
 import { appearanceReference, appearanceDescription, appearanceReferences, earthLayerDescription } from './planetAppearance.js';
 

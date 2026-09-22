@@ -7,7 +7,7 @@ import {ATMOSPHERE_GLSL} from '../../apps/web/js/atmosphereShaders.js';
 import {SPHERE_FS,SPHERE_VS,BASE_SPHERE_FS,BASE_SPHERE_VS} from '../../apps/web/js/orreryShaders.js';
 import {ATMOSPHERE_COLUMN_FIELDS} from '../../apps/web/js/atmosphereColumnManifest.js';
 import {ATMOSPHERE_COLUMN_SIZE,ATMOSPHERE_COLUMN_BYTES,outwardDensityColumn,generateAtmosphereColumns,
-  sampleOutwardColumns,sampleDensityColumns,ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_RENDER_FS,
+  generateAtmosphereOzoneColumns,loadAtmosphereOzoneColumns,packAtmosphereOpticalField,sampleOutwardColumns,sampleDensityColumns,ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_RENDER_FS,
   loadAtmosphereColumns,loadAtmosphereFields,cacheAtmosphereViewRay,specializeAtmosphereSunDepth} from '../../apps/web/js/atmosphereColumnField.js';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const bytesFor=body=>fs.readFileSync(new URL(`../../apps/web/data/optics/${body.toLowerCase()}-columns-v1.f32`,import.meta.url));
@@ -32,10 +32,33 @@ test('offline column generation exactly reproduces the shipped Float32 fields an
   }
 });
 
+test('runtime ozone columns stay off the admitted RG field and vanish for Mars',()=>{
+  const earth=generateAtmosphereOzoneColumns(getAtmosphereProfile('Earth'));
+  const mars=generateAtmosphereOzoneColumns(getAtmosphereProfile('Mars'));
+  assert.equal(earth.length,ATMOSPHERE_COLUMN_SIZE**2);
+  assert.equal(mars.length,earth.length);
+  assert.ok(earth.some(value=>value>0));
+  assert.ok(mars.every(value=>value===0));
+  const columns=generateAtmosphereColumns(getAtmosphereProfile('Earth'));
+  const packed=packAtmosphereOpticalField(columns,earth);
+  assert.equal(packed.length,ATMOSPHERE_COLUMN_SIZE**2*4);
+  assert.equal(packed[0],columns[0]);
+  assert.equal(packed[1],columns[1]);
+  assert.equal(packed[2],earth[0]);
+  assert.equal(packed[3],1);
+  assert.throws(()=>packAtmosphereOpticalField(columns,earth.subarray(1)),/Invalid packed optical field/);
+});
+
 test('production transfer preserves scattering expressions but contains no nested density quadrature',()=>{
   for(const shader of [SPHERE_VS,SPHERE_FS,ATMOSPHERE_RENDER_FS]){
     assert.doesNotMatch(shader,/float atmosphereColumnSegment\(|float atmosphereColumn\(/);
-    assert.match(shader,/texelFetch\(u_atmosphereColumnField/);
+    assert.match(shader,/u_atmosphereColumnField/);
+    assert.match(shader,/texelFetch\(u_atmosphereColumnField,ivec2\(0\),0\)\.rg\*u_atmosphereColumnKeep/);
+    assert.doesNotMatch(shader,/u_atmosphereColumnField,ivec2\(0\),0\)\.rg\*0\.0/);
+    assert.match(shader,/texelFetch\(field/);
+    assert.match(shader,/u_atmosphereOzoneField/);
+    assert.match(shader,/u_atmosphereOzoneKm/);
+    assert.match(shader,/atmosphereOzoneColumnOnAxis/);
   }
   const from='vec3 atmosphereSunTransmission(';
   const routed=specializeAtmosphereSunDepth(cacheAtmosphereViewRay(ATMOSPHERE_GLSL));
@@ -173,4 +196,16 @@ test('optical field groups promptly cancel a companion transfer and suppress lat
   const pending=loadAtmosphereFields('Earth',{signal:controller.signal,incidentLoader:async()=>1,columnLoader:async()=>new Promise(resolve=>{finish=resolve;})});
   controller.abort();finish(2);await assert.rejects(pending,{name:'AbortError'});
   assert.deepEqual(await loadAtmosphereFields('Earth',{incidentLoader:async()=>1,columnLoader:async()=>2}),[1,2]);
+});
+
+test('ozone table generation yields and stays cached for the same profile',async()=>{
+  const profile=getAtmosphereProfile('Earth');
+  const cancelled=new AbortController();cancelled.abort();
+  await assert.rejects(loadAtmosphereOzoneColumns(profile,{signal:cancelled.signal}),{name:'AbortError'});
+  const first=await loadAtmosphereOzoneColumns(profile,{rowsPerSlice:32});
+  const direct=generateAtmosphereOzoneColumns(profile);
+  assert.equal(first.length,direct.length);
+  assert.equal(first[256*512+128],direct[256*512+128]);
+  assert.equal(await loadAtmosphereOzoneColumns(profile),first);
+  await assert.rejects(loadAtmosphereOzoneColumns({...profile,version:profile.version+'-slice'},{rowsPerSlice:0}),RangeError);
 });

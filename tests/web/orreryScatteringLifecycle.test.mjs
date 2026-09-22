@@ -48,7 +48,7 @@ test('the scattering prepass asserts the scene-pass state it restores instead of
       probing=true;
       try{
         const active=realGet(gl.ACTIVE_TEXTURE);
-        const units=[7,8,9].map(unit=>{gl.activeTexture(gl.TEXTURE0+unit);return [realGet(gl.TEXTURE_BINDING_2D),realGet(gl.SAMPLER_BINDING)];});
+        const units=[7,8,9,10].map(unit=>{gl.activeTexture(gl.TEXTURE0+unit);return [realGet(gl.TEXTURE_BINDING_2D),realGet(gl.SAMPLER_BINDING)];});
         gl.activeTexture(active);
         observed.push({framebuffers:[realGet(gl.DRAW_FRAMEBUFFER_BINDING),realGet(gl.READ_FRAMEBUFFER_BINDING)],viewport:realGet(gl.VIEWPORT),
           program:realGet(gl.CURRENT_PROGRAM),vertexArray:realGet(gl.VERTEX_ARRAY_BINDING),activeTexture:active,units,
@@ -64,7 +64,7 @@ test('the scattering prepass asserts the scene-pass state it restores instead of
     assert.deepEqual(queried,[],'no caller-state parameter may be read back from the driver');
     assert.deepEqual(enabledQueries,[],'no enable state may be read back from the driver');
     assert.deepEqual(observed,[{framebuffers:[null,null],viewport:[0,0,812,604],program:null,vertexArray:null,activeTexture:gl.TEXTURE0,
-      units:[[null,null],[null,null],[null,null]],colorMask:[true,true,true,true],depthMask:true,
+      units:[[null,null],[null,null],[null,null],[null,null]],colorMask:[true,true,true,true],depthMask:true,
       enabled:[true,true,false,false,false,false,false,false,true]}],'generation starts from exactly the asserted scene-pass state');
     const surface=consumers(draws)[0];
     assert.ok(surface,'the physical surface still composes after the prepass');
@@ -122,7 +122,10 @@ test('every physical scene generates two passes before surface and shell consume
 test('failed float target admission keeps the full illustrative surface and shell and never retries on repaint',async t=>{
   const h=await boot(t,{scatteringFramebufferFailure:true});
   assert.equal(h.state.opticsStatus.Earth,'unavailable');assert.equal(consumers(h.gpuSubmissions).length,0);
-  assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_mode===2),'fallback shell remains visible');
+  assert.ok(!h.gpuDraws.some(draw=>draw.uniforms.u_mode===2&&draw.uniforms.u_hazeRayleighTau?.[2]>0.05),
+    'failed Earth optics must not grow a 1.015× shell');
+  assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_mode===0&&draw.uniforms.u_hazeRayleighTau?.[2]>0.05),
+    'failed Earth optics keep admitted haze columns');
   const allocations=h.textureUploads.length,programs=h.programs.length,start=h.gpuSubmissions.length;
   h.resize(810,606);assert.equal(consumers(h.gpuSubmissions.slice(start)).length,0);
   assert.equal(h.textureUploads.length,allocations);assert.equal(h.programs.length,programs);

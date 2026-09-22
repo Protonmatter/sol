@@ -235,3 +235,28 @@ export function systemScale(moons, planetDisplayRadiusAU, trueScale, ringOuterAU
   }
   return scale;
 }
+
+/**
+ * Display-space radius that encloses a planet, its rings, and every catalog moon
+ * of that planet after the same systemScale drawMoons uses. Labels can use the
+ * full envelope; camera fill must go through cameraSystemExtent so Nereid-class
+ * apoapses cannot shrink the globe under the 8px texture gate.
+ */
+export function satelliteSystemExtent(moons, planetDisplayAU, trueScale, ringOuterAU = 0, radiusOf = (_moon) => 0) {
+  const scale = systemScale(moons, planetDisplayAU, trueScale, ringOuterAU, radiusOf);
+  let extent = Math.max(planetDisplayAU, ringOuterAU);
+  for (const m of moons) {
+    const reach = (m.a * (1 + m.e) / AU_KM) * scale + radiusOf(m);
+    if (Number.isFinite(reach) && reach > 0) extent = Math.max(extent, reach);
+  }
+  return extent;
+}
+
+/** Camera fill may include nearby moons, but the globe stays at least 1/8 of the frame. */
+export const MAX_CAMERA_SYSTEM_TO_GLOBE = 8;
+
+export function cameraSystemExtent(globe, system) {
+  if (!Number.isFinite(globe) || globe <= 0) return globe;
+  if (!Number.isFinite(system) || system <= 0) return globe;
+  return Math.min(Math.max(globe, system), globe * MAX_CAMERA_SYSTEM_TO_GLOBE);
+}

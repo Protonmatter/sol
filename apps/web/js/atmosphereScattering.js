@@ -180,7 +180,8 @@ vec2 scatteringViewColumns(AtmosphereColumnRay ray,float distance){
   if(distance<=0.0)return vec2(0);
   float end=ray.begin+distance*ray.scale;
   vec2 tail=atmosphereColumnTail(ray.impact,abs(end));
-  vec2 raw=ray.begin>=0.0?ray.initial-tail:end<=0.0?tail-ray.initial:ray.twiceClosest-ray.initial-tail;
+  vec2 initial=ray.initial.xy,closest=ray.twiceClosest.xy;
+  vec2 raw=ray.begin>=0.0?initial-tail:end<=0.0?tail-initial:closest-initial-tail;
   return max(vec2(0),raw/ray.scale);
 }
 vec3 scatteringTransmissionMass(AtmosphereColumnRay ray,vec2 interval){

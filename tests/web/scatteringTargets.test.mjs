@@ -29,7 +29,7 @@ function graphics(options={}){
     sampleAlphaToCoverage:'SAMPLE_ALPHA_TO_COVERAGE',dither:'DITHER'};
   const restore={drawFramebuffer:{hdr:true},readFramebuffer:{read:true},viewport:[13,17,800,600],
     program:{scene:true},vertexArray:{sceneVao:true},activeTexture:gl.TEXTURE0+2,
-    textureUnits:[7,8,9].map(unit=>({unit,texture:{previous:unit},sampler:{previousSampler:unit}})),
+    textureUnits:[7,8,9,10].map(unit=>({unit,texture:{previous:unit},sampler:{previousSampler:unit}})),
     enabled:{...enabled},colorMask:[false,true,false,true],depthMask:true};
   const state={...restore,viewport:[...restore.viewport],enabled:{...enabled},colorMask:[...restore.colorMask],
     textureUnits:restore.textureUnits.map(value=>({...value}))};
@@ -43,7 +43,7 @@ function graphics(options={}){
   const unit=()=>state.textureUnits.find(value=>value.unit===state.activeTexture-gl.TEXTURE0);
   gl.isContextLost=()=>!!options.lost;
   gl.getExtension=name=>{assert.equal(name,'EXT_color_buffer_float');return options.extension===false?null:{};};
-  gl.getParameter=name=>{queries.push(name);assert.ok([gl.MAX_TEXTURE_SIZE,gl.MAX_TEXTURE_IMAGE_UNITS,gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS].includes(name),'only capability queries');return name===gl.MAX_TEXTURE_SIZE?(options.maxSize??4096):(options.maxUnits??10);};
+  gl.getParameter=name=>{queries.push(name);assert.ok([gl.MAX_TEXTURE_SIZE,gl.MAX_TEXTURE_IMAGE_UNITS,gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS].includes(name),'only capability queries');return name===gl.MAX_TEXTURE_SIZE?(options.maxSize??4096):(options.maxUnits??16);};
   for(const [name,type] of [['createTexture','texture'],['createFramebuffer','framebuffer'],['createVertexArray','vao']])gl[name]=()=>resource(type);
   for(const name of ['deleteTexture','deleteFramebuffer','deleteVertexArray'])gl[name]=release;
   for(const name of ['createShader','compileShader','createProgram','linkProgram','getShaderParameter','getProgramParameter','getUniformLocation','deleteProgram','deleteShader','finish','flush','readPixels'])gl[name]=()=>assert.fail(`Forbidden ${name}`);
@@ -137,6 +137,13 @@ test('forged budget and malformed plans cannot allocate even when the caller adm
   }
 });
 
+test('the admitted column sampler location is required even when ozone is bound',()=>{
+  const h=graphics(),programs={generation:3,get:()=>({})},admitPlan=()=>true;
+  const uniforms={...locations,u_atmosphereOzoneField:'u_atmosphereOzoneField'};
+  delete uniforms.u_atmosphereColumnField;
+  assert.throws(()=>createScatteringTargets(h.gl,{contextGeneration:12,programGeneration:3,programs,generatorKey:'g',generatorUniforms:uniforms,admitPlan}),/uniform locations required/);
+});
+
 test('caller plan admission is mandatory and is rechecked on bind',()=>{
   const h=graphics(),programs={generation:3,get:()=>({})};
   assert.throws(()=>createScatteringTargets(h.gl,{contextGeneration:12,programGeneration:3,programs,generatorKey:'g',generatorUniforms:locations}),/admission/i);
@@ -148,7 +155,7 @@ test('caller plan admission is mandatory and is rechecked on bind',()=>{
 });
 
 test('capability and allocation failures release partial resources and require explicit retry',()=>{
-  for(const options of [{extension:false},{maxUnits:9},{maxSize:4},{incomplete:true},
+  for(const options of [{extension:false},{maxUnits:9},{maxUnits:10},{maxSize:4},{incomplete:true},
     ...[1,2,3,4].map(failAllocation=>({failAllocation})),{storageError:true},{drawError:true}]){
     const h=setup(options),args=input();h.manager.beginFrame(args.frame);
     assert.equal(h.manager.generate('Earth',args,h.restore),false,JSON.stringify(options));

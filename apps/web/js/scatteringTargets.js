@@ -2,14 +2,14 @@
 // belong to the caller; no scattering formula or shader compilation lives here.
 import {atmosphereUniformValues,serializeAtmosphereProfile} from './atmosphereOptics.js';
 
-export const SCATTERING_TARGET_LIMITS=Object.freeze({targets:2,evaluations:65536,bytesPerTarget:1048576,textureUnits:10});
+export const SCATTERING_TARGET_LIMITS=Object.freeze({targets:2,evaluations:65536,bytesPerTarget:1048576,textureUnits:11});
 export const SCATTERING_TARGET_UNIFORMS=Object.freeze(['u_scatteringReady','u_scatteringSurface','u_scatteringLimb',
   'u_scatteringAxis','u_scatteringU','u_scatteringV','u_scatteringCameraRadius','u_scatteringHeightRange',
   'u_scatteringSurfaceSize','u_scatteringLimbSize']);
 const ENABLES={blend:'BLEND',depthTest:'DEPTH_TEST',cullFace:'CULL_FACE',scissorTest:'SCISSOR_TEST',
   stencilTest:'STENCIL_TEST',rasterizerDiscard:'RASTERIZER_DISCARD',sampleCoverage:'SAMPLE_COVERAGE',
   sampleAlphaToCoverage:'SAMPLE_ALPHA_TO_COVERAGE',dither:'DITHER'};
-const UNITS=[7,8,9];
+const UNITS=[7,8,9,10];
 const number=value=>typeof value==='number'&&Number.isFinite(value)&&Number.isFinite(Math.fround(value));
 const vector=(value,size)=>Array.isArray(value)&&value.length===size&&value.every(number);
 const sameNumber=(a,b)=>Object.is(Math.fround(a),Math.fround(b));
@@ -89,7 +89,8 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
   if(!programs||programs.generation!==programGeneration||typeof programs.get!=='function'
     ||typeof generatorKey!=='string'||!generatorKey||generatorKey.length>80)throw new TypeError('Invalid scattering shader owner');
   const program=programs.get(generatorKey);
-  if(!program||!generatorUniforms||generatorUniforms.u_scatteringPass==null||generatorUniforms.u_atmosphereColumnField==null)
+  if(!program||!generatorUniforms||generatorUniforms.u_scatteringPass==null
+    ||generatorUniforms.u_atmosphereColumnField==null)
     throw new TypeError('Already-ready scattering generator and uniform locations required');
   const locations={...generatorUniforms},entries=new Map();
   let currentFrame=null,lastSerial=-1,disposed=false,fatal='',maxSize=0,maxUnits=0,lastFailure='';
@@ -97,8 +98,8 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
     if(!gl.getExtension('EXT_color_buffer_float'))throw new Error('Float scattering targets unavailable');
     maxSize=gl.getParameter(gl.MAX_TEXTURE_SIZE);
     const fragmentUnits=gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);maxUnits=gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS);
-    if(!Number.isSafeInteger(maxSize)||maxSize<2||!Number.isSafeInteger(fragmentUnits)||fragmentUnits<10
-      ||!Number.isSafeInteger(maxUnits)||maxUnits<10)throw new Error('Scattering targets require ten texture units and valid dimensions');
+    if(!Number.isSafeInteger(maxSize)||maxSize<2||!Number.isSafeInteger(fragmentUnits)||fragmentUnits<SCATTERING_TARGET_LIMITS.textureUnits
+      ||!Number.isSafeInteger(maxUnits)||maxUnits<SCATTERING_TARGET_LIMITS.textureUnits)throw new Error('Scattering targets require eleven texture units and valid dimensions');
   }catch(error){fatal=message(error);}
 
   function release(entry,invalidateRevision=true){
@@ -133,7 +134,7 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
   function validated(args){
     if(!args||!sameFrame(currentFrame,args.frame))throw new Error('Scattering frame does not match the current scene');
     const frame={...currentFrame};
-    const {plan,profile,opticalOptions,columnTexture,columnIdentity}=args;
+    const {plan,profile,opticalOptions,columnTexture,columnIdentity,ozoneTexture=null}=args;
     const allocation=budget(plan,maxSize);
     if(!profile||!opticalOptions||!columnTexture||typeof columnIdentity!=='string'||!columnIdentity||columnIdentity.length>256
       ||!vector(plan.cameraBodyKm,3)||!vector(opticalOptions.cameraBodyKm,3)||!sameVector(plan.cameraBodyKm,opticalOptions.cameraBodyKm)
@@ -150,7 +151,7 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
     if(identity!==serializeAtmosphereProfile({inputs:snapshot({plan,profile,opticalOptions,columnIdentity}),
       uniforms:snapshot(atmosphereUniformValues(profile,opticalOptions))}))throw new Error('Scattering input changed during admission');
     if(!sameFrame(currentFrame,frame)||!sameFrame(args.frame,frame))throw new Error('Scattering frame changed during admission');
-    return {plan:copied.plan,values,identity,columnTexture,allocation,frame};
+    return {plan:copied.plan,values,identity,columnTexture,ozoneTexture,allocation,frame};
   }
   function restoreSnapshot(value){
     const handles=[];for(const entry of entries.values())if(entry.group)handles.push(...Object.values(entry.group));
@@ -158,7 +159,7 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
       ||!Number.isInteger(value.activeTexture)||value.activeTexture<gl.TEXTURE0||value.activeTexture>=gl.TEXTURE0+maxUnits
       ||!Array.isArray(value.colorMask)||value.colorMask.length!==4||!value.colorMask.every(v=>typeof v==='boolean')
       ||typeof value.depthMask!=='boolean'||!value.enabled||Object.keys(ENABLES).some(key=>typeof value.enabled[key]!=='boolean')
-      ||!Array.isArray(value.textureUnits)||value.textureUnits.length!==3)throw new Error('Complete caller scattering restore state required');
+      ||!Array.isArray(value.textureUnits)||value.textureUnits.length!==UNITS.length)throw new Error('Complete caller scattering restore state required');
     for(const key of ['drawFramebuffer','readFramebuffer','program','vertexArray'])
       if(!Object.hasOwn(value,key)||!binding(value[key])||handles.includes(value[key]))throw new Error('Restore state must contain caller-owned live bindings');
     const textureUnits=UNITS.map(unit=>{
@@ -228,8 +229,10 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,group.framebuffer);gl.bindVertexArray(group.vao);gl.useProgram(program);
       for(const constant of Object.values(ENABLES))gl.disable(gl[constant]);
       gl.colorMask(true,true,true,true);gl.depthMask(false);
-      for(const unit of UNITS){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,unit===7?data.columnTexture:null);gl.bindSampler(unit,null);}
-      upload(gl,locations,data.values);uploadGrid(gl,locations,data.plan,0);gl.uniform1i(locations.u_atmosphereColumnField,7);
+      for(const unit of UNITS){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,unit===7?data.columnTexture:unit===10?data.ozoneTexture||null:null);gl.bindSampler(unit,null);}
+      upload(gl,locations,data.values);uploadGrid(gl,locations,data.plan,0);
+      gl.uniform1i(locations.u_atmosphereColumnField,7);
+      if(locations.u_atmosphereOzoneField)gl.uniform1i(locations.u_atmosphereOzoneField,10);
       for(let pass=0;pass<2;pass++){
         if(entry.revision!==revision||!currentOwner())throw new Error('Scattering demand cancelled during generation');
         gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,pass===0?group.surface:group.limb,0);

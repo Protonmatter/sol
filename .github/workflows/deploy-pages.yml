@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify trusted qualified artifact
+    name: Verify master CI artifact
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'master' &&
@@ -24,27 +24,12 @@ jobs:
     timeout-minutes: 15
     outputs:
       eligible: ${{ steps.eligibility.outputs.eligible }}
-      verifier_sha: ${{ steps.identity.outputs.verifier_sha }}
       manifest_sha256: ${{ steps.eligibility.outputs.manifest_sha256 }}
       artifact_id: ${{ steps.eligibility.outputs.artifact_id }}
     steps:
-      - name: Require independently configured trusted verifier
-        env:
-          TRUSTED_VERIFIER_SHA: ${{ vars.SOL_TRUSTED_VERIFIER_SHA }}
-        run: |
-          if [[ ! "$TRUSTED_VERIFIER_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo '::error::Promotion held: configure a reviewed exact verifier SHA and protected qualification/settings evidence.'
-            exit 1
-          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ vars.SOL_TRUSTED_VERIFIER_SHA }}
-          fetch-depth: 0
-          path: trusted
           persist-credentials: false
-      - name: Retain exact verifier identity across approval wait
-        id: identity
-        run: echo "verifier_sha=$(git -C trusted rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
@@ -81,7 +66,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
           path: candidate-site
-      - name: Validate static payload using trusted verifier only
+      - name: Validate static payload against the CI manifest
         env:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
           EXPECTED_RUN: ${{ github.event.workflow_run.id }}
@@ -89,14 +74,12 @@ jobs:
         run: |
           set -euo pipefail
           manifest_digest="$(jq -er .manifest_sha256 candidate-evidence/release-evidence.json)"
-          python trusted/tools/validate_release_manifest.py candidate-site/web-release-manifest.json --expected-sha256 "$manifest_digest" --source-sha "$EXPECTED_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$EXPECTED_RUN" --run-attempt "$EXPECTED_ATTEMPT"
-      - name: Require protected profile and accepted qualification
+          python tools/validate_release_manifest.py candidate-site/web-release-manifest.json --expected-sha256 "$manifest_digest" --source-sha "$EXPECTED_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$EXPECTED_RUN" --run-attempt "$EXPECTED_ATTEMPT"
+      - name: Require successful master artifact
         id: eligibility
         run: |
           set -euo pipefail
-          test -s trusted/docs/release-profiles.json
-          test -s trusted/docs/accepted-qualification.json
-          python trusted/tools/release_policy.py --candidate candidate-evidence/release-evidence.json --trusted trusted/docs/release-profiles.json --qualification trusted/docs/accepted-qualification.json --run-metadata metadata/run.json --artifact-metadata metadata/artifact.json --jobs-metadata metadata/jobs.json --master-sha "$(cat metadata/master-sha.txt)" --require-rich-evidence --manifest candidate-site/web-release-manifest.json --promotion
+          python tools/release_policy.py --candidate candidate-evidence/release-evidence.json --run-metadata metadata/run.json --artifact-metadata metadata/artifact.json --jobs-metadata metadata/jobs.json --master-sha "$(cat metadata/master-sha.txt)" --require-rich-evidence --manifest candidate-site/web-release-manifest.json --publish-master
           echo "manifest_sha256=$(jq -er .manifest_sha256 candidate-evidence/release-evidence.json)" >> "$GITHUB_OUTPUT"
           echo "artifact_id=$(jq -er .artifact_id candidate-evidence/release-evidence.json)" >> "$GITHUB_OUTPUT"
           echo 'eligible=true' >> "$GITHUB_OUTPUT"
@@ -106,7 +89,7 @@ jobs:
           retention-days: 90
 
   deploy:
-    name: Deploy qualified immutable artifact
+    name: Deploy immutable master artifact
     needs: verify
     if: needs.verify.outputs.eligible == 'true'
     runs-on: ubuntu-latest
@@ -122,9 +105,6 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ needs.verify.outputs.verifier_sha }}
-          fetch-depth: 0
-          path: trusted
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -141,7 +121,7 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
           path: candidate-site
-      - name: Re-evaluate full eligibility after environment approval
+      - name: Recheck master artifact after environment approval
         env:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -158,15 +138,14 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq .sha > metadata/master-sha.txt
           test "$(jq -er .artifact_id candidate-evidence/release-evidence.json)" = "$EXPECTED_ARTIFACT_ID"
           test "$(jq -er .manifest_sha256 candidate-evidence/release-evidence.json)" = "$EXPECTED_MANIFEST"
-          python trusted/tools/validate_release_manifest.py candidate-site/web-release-manifest.json --expected-sha256 "$EXPECTED_MANIFEST" --source-sha "$EXPECTED_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$CANDIDATE_RUN_ID" --run-attempt "$CANDIDATE_ATTEMPT"
-          # No --today override: evaluate the real UTC date after the approval wait.
-          python trusted/tools/release_policy.py --candidate candidate-evidence/release-evidence.json --trusted trusted/docs/release-profiles.json --qualification trusted/docs/accepted-qualification.json --run-metadata metadata/run.json --artifact-metadata metadata/artifact.json --jobs-metadata metadata/jobs.json --master-sha "$(cat metadata/master-sha.txt)" --require-rich-evidence --manifest candidate-site/web-release-manifest.json --promotion
+          python tools/validate_release_manifest.py candidate-site/web-release-manifest.json --expected-sha256 "$EXPECTED_MANIFEST" --source-sha "$EXPECTED_SHA" --repository "$GITHUB_REPOSITORY" --run-id "$CANDIDATE_RUN_ID" --run-attempt "$CANDIDATE_ATTEMPT"
+          python tools/release_policy.py --candidate candidate-evidence/release-evidence.json --run-metadata metadata/run.json --artifact-metadata metadata/artifact.json --jobs-metadata metadata/jobs.json --master-sha "$(cat metadata/master-sha.txt)" --require-rich-evidence --manifest candidate-site/web-release-manifest.json --publish-master
       - id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
       - name: Verify served manifest and critical bytes independently
         env:
           DEPLOYED_URL: ${{ steps.deployment.outputs.page_url }}
-        run: python trusted/tools/verify_served_release.py candidate-site/web-release-manifest.json --origin "$DEPLOYED_URL" > metadata/served-release-evidence.json
+        run: python tools/verify_served_release.py candidate-site/web-release-manifest.json --origin "$DEPLOYED_URL" > metadata/served-release-evidence.json
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:

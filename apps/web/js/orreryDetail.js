@@ -7,6 +7,7 @@ import { isRetrograde } from "./moonorbits.js?v=dcca6290db";
 import { MOON_ALBEDO } from "./moonAppearance.js?v=dcca6290db";
 import { visualProvenanceText, visualBrowsePreview } from "./visualAssets.js";
 import { appearanceReference, appearanceReferences, appearanceDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
+import { earthSunDistanceAu, formatApparentV, formatIrradiance } from "./sunPhotometry.js?v=dcca6290de";
 
 // Keep mutable appearance text separate from the native disclosure and source links.
 // Presentation updates must not replace a focused link, glossary button or open card.
@@ -196,7 +197,12 @@ export function renderDetail(name, live, appearanceState = {}) {
     if (live.magnitude != null) add("Apparent magnitude", live.magnitude.toFixed(1), "apparent-magnitude");
   }
   if (name === "Sun") {
-    add("Luminosity", "3.828×10²⁶ W");
+    add("Luminosity", "3.828×10²⁶ W", "solar-luminosity");
+    const sunDistance = earthSunDistanceAu(appearanceState.bodies);
+    add("Irradiance S(r)", sunDistance != null
+      ? `${formatIrradiance(sunDistance)} at ${fmt(sunDistance, 3)} AU` : "1,361 W/m² at 1 AU", "solar-irradiance");
+    add("Apparent V☉", sunDistance != null ? formatApparentV(sunDistance) : "−26.74 at 1 AU", "solar-magnitude");
+    add("Display", "Globe brightness is a display recipe. It does not use L☉ or S(r).");
     add("Composition", "73% H, 25% He (by mass)");
     add("Surface imagery", "3D imagery mapping held; retained solar disk has no verified observation time. Fetch time is not capture time.");
   }
@@ -206,18 +212,26 @@ export function renderDetail(name, live, appearanceState = {}) {
 // Keep glossary buttons and the selected card stable while mutable display facts
 // change. Positions are current; speed/phase/temperature retain their disclosed
 // asynchronous metadata epoch. This is formatting, not a second physics engine.
-export function updateLiveDetailFacts(live) {
-  if(!live)return;
+export function updateLiveDetailFacts(live, bodies) {
   const host=document.getElementById("orreryDetail");
-  if(host?.querySelector(".system-detail > strong")?.textContent!==live.name)return;
-  const values={
-    "Distance from Sun":`${fmt(live.dist_au,3)} AU`,
-    "Distance from Earth":`${fmt(live.geo_dist_au,3)} AU · light ${fmt(live.geo_dist_au*8.317,1)} min`,
-    "Orbital speed":`${fmt(live.speed_kms,2)} km/s`,
-    "Illuminated":live.illuminated_fraction==null ? "Unavailable" : `${fmt(live.illuminated_fraction*100,1)}% · phase ${fmt(live.phase_angle_deg,1)}°`,
-    "Apparent magnitude":fmt(live.magnitude,1),
-    "Equilibrium temp":`${fmt(live.equilibrium_temp_k)} K — black-body from sunlight alone (excludes greenhouse & internal heat)`,
-  };
+  const title=host?.querySelector(".system-detail > strong")?.textContent;
+  if(!title)return;
+  const values={};
+  if(live && title===live.name){
+    values["Distance from Sun"]=`${fmt(live.dist_au,3)} AU`;
+    values["Distance from Earth"]=`${fmt(live.geo_dist_au,3)} AU · light ${fmt(live.geo_dist_au*8.317,1)} min`;
+    values["Orbital speed"]=`${fmt(live.speed_kms,2)} km/s`;
+    values["Illuminated"]=live.illuminated_fraction==null ? "Unavailable" : `${fmt(live.illuminated_fraction*100,1)}% · phase ${fmt(live.phase_angle_deg,1)}°`;
+    values["Apparent magnitude"]=fmt(live.magnitude,1);
+    values["Equilibrium temp"]=`${fmt(live.equilibrium_temp_k)} K — black-body from sunlight alone (excludes greenhouse & internal heat)`;
+  }
+  if(title==="Sun"){
+    const sunDistance=earthSunDistanceAu(bodies);
+    values["Irradiance S(r)"]=sunDistance!=null
+      ? `${formatIrradiance(sunDistance)} at ${fmt(sunDistance,3)} AU` : "1,361 W/m² at 1 AU";
+    values["Apparent V☉"]=sunDistance!=null ? formatApparentV(sunDistance) : "−26.74 at 1 AU";
+  }
+  if(!Object.keys(values).length)return;
   for(const node of host.querySelectorAll("[data-metric]")) {
     const value=values[node.getAttribute("data-metric")];
     if(value!==undefined&&node.textContent!==value)node.textContent=value;

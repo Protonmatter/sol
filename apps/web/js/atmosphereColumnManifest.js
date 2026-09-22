@@ -11,11 +11,11 @@ export const ATMOSPHERE_COLUMN_FIELDS=Object.freeze({
     "sha256": "85605fa0d75feb5186e5b812054bef730726668c3690a2b0cecc592dd50c4893",
     "format": "little-endian-rg32f-outward-columns-v1",
     "profile_encoding": "atmosphere-profile-binary32-v1",
-    "profile_sha256": "0a3fe3c7688556331ebfc2725d533472751eeb498479dcc7d1f3a34390675e9d",
+    "profile_sha256": "e15e53579417f828a4f02b401d2c9ddebd78c6f956f5177d1def336ac7d7bed8",
     "generator_source_sha256": "6c7c90d4a4b72fc4d9c38bdb191889780e2f3a2cf44375cfe00f87c82c2fb48c",
-    "field_source_sha256": "84177099c937c7c9b4fa859994e2be381bd5b20034298c6c370fa96e13eeb5da",
+    "field_source_sha256": "26f9171d8db660af0bbe46b7631ec89b86895e143a181aaa13c2d6afce2115f1",
     "solver_source_sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
-    "profile_source_sha256": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c"
+    "profile_source_sha256": "b8ad270b14c4ef16affc7c31bd7fb5111895bc9cc6332cbe7c8c171d4582b965"
   },
   "Mars": {
     "path": "../data/optics/mars-columns-v1.f32",
@@ -28,10 +28,10 @@ export const ATMOSPHERE_COLUMN_FIELDS=Object.freeze({
     "sha256": "12ca78aa470ecb4191c450fa3c1981a48a0f9a049be628473929dfd2f7d8d895",
     "format": "little-endian-rg32f-outward-columns-v1",
     "profile_encoding": "atmosphere-profile-binary32-v1",
-    "profile_sha256": "133be6dfe9ff85c742be6518ab81b3ea1f4d272863ff5e1a8ac7435423e36e48",
+    "profile_sha256": "28e25e74130b1a426f07004ebdc66ca6c8f1094433f305302dab4c7338b15d7e",
     "generator_source_sha256": "6c7c90d4a4b72fc4d9c38bdb191889780e2f3a2cf44375cfe00f87c82c2fb48c",
-    "field_source_sha256": "84177099c937c7c9b4fa859994e2be381bd5b20034298c6c370fa96e13eeb5da",
+    "field_source_sha256": "26f9171d8db660af0bbe46b7631ec89b86895e143a181aaa13c2d6afce2115f1",
     "solver_source_sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
-    "profile_source_sha256": "825e97ea90fdc5e23266f61df5f9abeab0a6149d7dfb95c64220b08b0796df2c"
+    "profile_source_sha256": "b8ad270b14c4ef16affc7c31bd7fb5111895bc9cc6332cbe7c8c171d4582b965"
   }
 });

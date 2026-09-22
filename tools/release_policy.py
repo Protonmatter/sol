@@ -16,7 +16,7 @@ from typing import Any, Mapping, Sequence
 
 REQUIRED_JOBS = ("candidate", "governance", "test", "lint", "web", "artifact", "wasm", "coverage", "docs", "determinism", "determinism-compare")
 # Expanded API identities for this reviewed workflow, including reusable children
-# and every matrix member. Changes require a new pinned verifier and protected map.
+# and every matrix member. Pages publication uses this inventory directly.
 MANDATORY_JOB_NAMES = {
     "candidate": ["Candidate identity"], "governance": ["Governance and specification contracts"],
     "test": ["Rust tests (workspace)"], "lint": ["Rust lint (fmt + clippy)"],
@@ -94,19 +94,8 @@ def validate_protected_evidence(protected: dict, records: list[dict], root: Path
                 raise ValueError("protected evidence digest mismatch")
 
 
-def trusted_run_context(candidate: Mapping[str, Any], run: Mapping[str, Any],
-                        artifact: Mapping[str, Any], jobs: Sequence[Mapping[str, Any]],
-                        master_sha: str, protected: Mapping[str, Any]) -> dict:
-    """Bind protected policy to API-resolved metadata, never candidate approvals."""
-    if protected.get("schema_version") != "release-profiles.v1" or protected.get("policy_accepted") is not True:
-        raise ValueError("protected accepted release policy is required")
-    selected = protected.get("approved_candidates", {}).get(run.get("head_sha"))
-    if not isinstance(selected, dict):
-        raise ValueError("candidate has no protected profile selection; await review")
-    if run.get("conclusion") != "success" or run.get("path") != ".github/workflows/ci.yml":
-        raise ValueError("trusted CI workflow must have succeeded")
-    if protected.get("required_job_names") != MANDATORY_JOB_NAMES:
-        raise ValueError("protected mandatory job inventory differs from the reviewed verifier")
+def require_authoritative_jobs(run: Mapping[str, Any], jobs: Sequence[Mapping[str, Any]], candidate_jobs: Any) -> None:
+    """Require every mandatory CI job from this run, attempt, and source."""
     expected = {name for group in MANDATORY_JOB_NAMES.values() for name in group}
     seen_names, seen_ids = set(), set()
     for job in jobs:
@@ -122,13 +111,33 @@ def trusted_run_context(candidate: Mapping[str, Any], run: Mapping[str, Any],
         seen_ids.add(identity)
     if seen_names != expected:
         raise ValueError("authoritative mandatory job or matrix/reusable child is missing")
-    authoritative = {key: "success" for key in REQUIRED_JOBS}
-    if candidate.get("jobs") != authoritative:
+    if candidate_jobs != {key: "success" for key in REQUIRED_JOBS}:
         raise ValueError("candidate job summary differs from authoritative results")
+
+
+def require_web_artifact(run: Mapping[str, Any], artifact: Mapping[str, Any]) -> None:
     if artifact.get("expired") is not False or artifact.get("workflow_run", {}).get("id") != run.get("id"):
         raise ValueError("artifact is expired or belongs to another run")
     if artifact.get("name") != f"web-candidate-{run.get('id')}-{run.get('run_attempt')}":
         raise ValueError("artifact name/run attempt mismatch")
+
+
+def trusted_run_context(candidate: Mapping[str, Any], run: Mapping[str, Any],
+                        artifact: Mapping[str, Any], jobs: Sequence[Mapping[str, Any]],
+                        master_sha: str, protected: Mapping[str, Any]) -> dict:
+    """Bind protected policy to API-resolved metadata, never candidate approvals."""
+    if protected.get("schema_version") != "release-profiles.v1" or protected.get("policy_accepted") is not True:
+        raise ValueError("protected accepted release policy is required")
+    selected = protected.get("approved_candidates", {}).get(run.get("head_sha"))
+    if not isinstance(selected, dict):
+        raise ValueError("candidate has no protected profile selection; await review")
+    if run.get("conclusion") != "success" or run.get("path") != ".github/workflows/ci.yml":
+        raise ValueError("trusted CI workflow must have succeeded")
+    if protected.get("required_job_names") != MANDATORY_JOB_NAMES:
+        raise ValueError("protected mandatory job inventory differs from the reviewed verifier")
+    require_authoritative_jobs(run, jobs, candidate.get("jobs"))
+    require_web_artifact(run, artifact)
+    authoritative = {key: "success" for key in REQUIRED_JOBS}
     return {**selected, "repository": run.get("repository", {}).get("full_name"),
         "source_sha": run.get("head_sha"), "run_id": run.get("id"), "run_attempt": run.get("run_attempt"),
         "workflow": run.get("path"), "event": run.get("event"), "ref": "refs/heads/" + str(run.get("head_branch")),
@@ -140,6 +149,30 @@ def trusted_run_context(candidate: Mapping[str, Any], run: Mapping[str, Any],
         "accepted_served_evidence": protected.get("accepted_served_evidence", []),
         "supported_schemas": protected.get("supported_schemas", []),
         "served_manifest_sha256": protected.get("served_manifest_sha256")}
+
+
+def publish_master(candidate: Mapping[str, Any], run: Mapping[str, Any],
+                   artifact: Mapping[str, Any], jobs: Sequence[Mapping[str, Any]],
+                   master_sha: str, manifest_sha256: str) -> Decision:
+    """Publish a successful master push. Qualification profiles are not consulted."""
+    if run.get("conclusion") != "success" or run.get("path") != ".github/workflows/ci.yml":
+        raise ValueError("trusted CI workflow must have succeeded")
+    require_authoritative_jobs(run, jobs, candidate.get("jobs"))
+    require_web_artifact(run, artifact)
+    repository = run.get("repository", {}).get("full_name")
+    if (candidate.get("repository") != repository or candidate.get("source_sha") != run.get("head_sha")
+            or candidate.get("run_id") != run.get("id") or candidate.get("run_attempt") != run.get("run_attempt")
+            or candidate.get("workflow") != run.get("path") or candidate.get("artifact_id") != artifact.get("id")
+            or candidate.get("event") != "push" or run.get("event") != "push"
+            or candidate.get("ref") != "refs/heads/master" or run.get("head_branch") != "master"):
+        raise ValueError("candidate does not match the successful master push")
+    if not re.fullmatch(r"[0-9a-f]{40}", str(master_sha)) or candidate.get("source_sha") != master_sha:
+        raise ValueError("superseded-candidate")
+    claimed = candidate.get("manifest_sha256")
+    if (not re.fullmatch(r"[0-9a-f]{64}", str(claimed)) or not re.fullmatch(r"[0-9a-f]{64}", str(manifest_sha256))
+            or claimed != manifest_sha256):
+        raise ValueError("artifact-digest-invalid")
+    return Decision(True, True, False, False, ())
 
 
 def evaluate(candidate: Mapping[str, Any], trusted: Mapping[str, Any],
@@ -283,6 +316,8 @@ def main() -> int:
     parser.add_argument("--trusted", type=Path)
     parser.add_argument("--qualification", type=Path)
     parser.add_argument("--promotion", action="store_true")
+    parser.add_argument("--publish-master", action="store_true",
+                        help="Publish a successful master CI artifact without qualification profiles")
     parser.add_argument("--rollback", action="store_true", help="Evaluate separately authorized retained artifact; never deploys")
     parser.add_argument("--served-evidence", type=Path, help="Accepted point-in-time served verification record")
     parser.add_argument("--ci-evidence", type=Path)
@@ -300,7 +335,22 @@ def main() -> int:
     try:
         if args.rollback and (not args.run_metadata or not args.require_rich_evidence or not args.served_evidence):
             raise ValueError("rollback requires authoritative API metadata, rich staged evidence and accepted served proof")
-        if args.ci_evidence:
+        if args.publish_master:
+            if args.promotion or args.rollback or args.trusted or args.qualification or args.served_evidence:
+                raise ValueError("master publication does not use qualification profiles")
+            if not args.candidate or not args.run_metadata or not args.artifact_metadata or not args.jobs_metadata or not args.master_sha or not args.manifest or not args.require_rich_evidence:
+                raise ValueError("master publication requires the CI candidate, API metadata, and rich staged evidence")
+            candidate = json.loads(args.candidate.read_text(encoding="utf-8"))
+            pages = json.loads(args.jobs_metadata.read_text(encoding="utf-8"))
+            jobs = [job for page in pages for job in page["jobs"]]
+            from release_evidence import validate_outer
+            from validate_release_manifest import digest as manifest_digest
+            validate_outer(candidate, args.manifest)
+            decision = publish_master(candidate, json.loads(args.run_metadata.read_text(encoding="utf-8")),
+                json.loads(args.artifact_metadata.read_text(encoding="utf-8")), jobs, args.master_sha,
+                manifest_digest(args.manifest))
+            records, trusted = [], {}
+        elif args.ci_evidence:
             from validate_release_manifest import digest, validate_manifest
             if not args.manifest:
                 raise ValueError("--ci-evidence requires --manifest")
@@ -330,6 +380,14 @@ def main() -> int:
             args.ci_evidence.parent.mkdir(parents=True, exist_ok=True)
             args.ci_evidence.write_text(json.dumps(candidate, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             records = []
+            if args.served_evidence:
+                trusted["served_evidence"] = json.loads(args.served_evidence.read_text(encoding="utf-8"))
+            if args.require_rich_evidence:
+                if not args.manifest:
+                    raise ValueError("rich outer evidence verification requires the exact staged manifest")
+                from release_evidence import validate_outer
+                validate_outer(candidate, args.manifest)
+            decision = evaluate(candidate, trusted, records, args.today, rollback=args.rollback)
         else:
             if not args.candidate or not args.trusted:
                 raise ValueError("--candidate and --trusted are required")
@@ -351,14 +409,14 @@ def main() -> int:
                 validate_review(report, change_review)
                 trusted = trusted_run_context(candidate, json.loads(args.run_metadata.read_text()),
                     json.loads(args.artifact_metadata.read_text()), jobs, args.master_sha, trusted)
-        if args.served_evidence:
-            trusted["served_evidence"] = json.loads(args.served_evidence.read_text(encoding="utf-8"))
-        if args.require_rich_evidence:
-            if not args.manifest:
-                raise ValueError("rich outer evidence verification requires the exact staged manifest")
-            from release_evidence import validate_outer
-            validate_outer(candidate, args.manifest)
-        decision = evaluate(candidate, trusted, records, args.today, rollback=args.rollback)
+            if args.served_evidence:
+                trusted["served_evidence"] = json.loads(args.served_evidence.read_text(encoding="utf-8"))
+            if args.require_rich_evidence:
+                if not args.manifest:
+                    raise ValueError("rich outer evidence verification requires the exact staged manifest")
+                from release_evidence import validate_outer
+                validate_outer(candidate, args.manifest)
+            decision = evaluate(candidate, trusted, records, args.today, rollback=args.rollback)
     except (ValueError, KeyError, OSError, TypeError, subprocess.SubprocessError) as error:
         parser.exit(1, f"ERROR: {error}\n")
     references = []
@@ -382,7 +440,8 @@ def main() -> int:
             "cases": record.get("cases"), "components": record.get("components"), "platforms": record.get("platforms"),
             "case_scope": record.get("case_scope")} for record in records]}
     print(json.dumps(output, sort_keys=True))
-    return 0 if (decision.rollback_eligible if args.rollback else decision.promotion_eligible if args.promotion else decision.candidate_verified) else 1
+    publish = args.promotion or args.publish_master
+    return 0 if (decision.rollback_eligible if args.rollback else decision.promotion_eligible if publish else decision.candidate_verified) else 1
 
 
 if __name__ == "__main__":

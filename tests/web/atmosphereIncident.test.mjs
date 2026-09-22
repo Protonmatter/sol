@@ -15,6 +15,8 @@ test('incident ray solve budget is independent of geometry and animation frames'
   }
   assert.doesNotMatch(SPHERE_VS,/atmosphereCurvedRay|atmosphereRayDerivative|for\(int i=0;i<96/);
   assert.match(SPHERE_VS,/atmosphereIncidentLookup/);
+  assert.match(SPHERE_VS,/u_atmosphereOzoneKm\*atmosphereOzoneOutward\(max\(height,0\.0\),apparentMu\)/);
+  assert.doesNotMatch(SPHERE_VS,/atmosphereOzoneOutward\(max\(height,0\.0\),clamp\(mu/);
 });
 
 test('admitted immutable field verifies bytes and the model profile before decoding',async()=>{
@@ -23,6 +25,23 @@ test('admitted immutable field verifies bytes and the model profile before decod
   assert.equal(field.width,385);assert.equal(field.height,195);assert.equal(field.values.length,300300);
   const result=sampleIncidentField(field.values,'Earth',[6378.137,0,0],[1,0,0],6378.137,1);
   assert.ok(Math.abs(result.direction[0]-1)<1e-12);assert.ok(result.transmission.every(v=>v>0&&v<1));
+  const bare=sampleIncidentField(field.values,'Earth',[6378.137,0,0],[1,0,0],6378.137,1,[0,0,0]);
+  const ratio=result.transmission.map((value,i)=>value/bare.transmission[i]);
+  assert.ok(ratio[1]<ratio[0]&&ratio[0]<ratio[2],'Chappuis absorption is strongest in green, then red, then blue');
+  const zenith=89*Math.PI/180,grazingSun=[Math.cos(zenith),0,Math.sin(zenith)];
+  const grazing=sampleIncidentField(field.values,'Earth',[6378.137,0,0],grazingSun,6378.137,1);
+  const grazingBare=sampleIncidentField(field.values,'Earth',[6378.137,0,0],grazingSun,6378.137,1,[0,0,0]);
+  const grazingRatio=grazing.transmission[1]/grazingBare.transmission[1];
+  assert.ok(grazingRatio<ratio[1],'an 89 degree Sun crosses a longer ozone column than zenith');
+  const ozoneRatio=degrees=>{
+    const angle=degrees*Math.PI/180,sun=[Math.cos(angle),0,Math.sin(angle)];
+    const lit=sampleIncidentField(field.values,'Earth',[6378.137,0,0],sun,6378.137,1);
+    const dark=sampleIncidentField(field.values,'Earth',[6378.137,0,0],sun,6378.137,1,[0,0,0]);
+    assert.ok(lit.transmission[1]>0&&dark.transmission[1]>0);
+    return lit.transmission[1]/dark.transmission[1];
+  };
+  const horizon=ozoneRatio(90),refracted=ozoneRatio(90.6);
+  assert.ok(refracted<horizon,'a refracted below-horizon Sun keeps its own ozone column');
   const corrupt=Buffer.from(bytes);corrupt[0]^=1;
   await assert.rejects(loadIncidentField('Earth',{fetcher:async()=>new Response(corrupt)}),/hash mismatch/);
   await assert.rejects(loadIncidentField('Earth',{fetcher:async()=>new Response(bytes.subarray(4))}),/length mismatch/);

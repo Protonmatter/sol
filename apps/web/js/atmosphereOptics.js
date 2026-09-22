@@ -1,7 +1,7 @@
 // Dimensioned, immutable optical reference parameters. These do not evolve engine
 // state or represent current weather. Qualification: OPTICS_SOURCES.md / RFC 0005.
 
-/** @typedef {{body:string,version:string,classification:string,radiusKm:number,topKm:number,rayleighScaleHeightKm:number,aerosolScaleHeightKm:number,betaRayleighKm:readonly number[],betaAerosolExtinctionKm:readonly number[],aerosolSingleScatteringAlbedo:readonly number[],aerosolG:number,surfaceRefractivity:number,sourceRefs:readonly string[],limitations:string}} AtmosphereProfile */
+/** @typedef {{body:string,version:string,classification:string,radiusKm:number,topKm:number,rayleighScaleHeightKm:number,aerosolScaleHeightKm:number,betaRayleighKm:readonly number[],betaAerosolExtinctionKm:readonly number[],aerosolSingleScatteringAlbedo:readonly number[],aerosolG:number,ozonePeakKm:number,ozoneWidthKm:number,betaOzoneKm:readonly number[],surfaceRefractivity:number,sourceRefs:readonly string[],limitations:string}} AtmosphereProfile */
 /** @typedef {{cameraBodyKm:readonly number[],sunDirectionBody:readonly number[],polarRatio:number,solarDistanceAu:number,exposure:number}} AtmosphereOptions */
 
 const WAVELENGTHS_NM = [680, 550, 440];
@@ -29,16 +29,20 @@ function immutableProfile(profile) {
 
 const PROFILES = Object.freeze({
   Earth: immutableProfile({
-    body: 'Earth', version: 'earth-clear-reference.v1', classification: 'reference-single-scattering',
+    body: 'Earth', version: 'earth-clear-reference.v2', classification: 'reference-single-scattering',
     radiusKm: 6378.137, topKm: 100, rayleighScaleHeightKm: 8, aerosolScaleHeightKm: 1.2,
     betaRayleighKm: WAVELENGTHS_NM.map(nm => .00124062 * (nm / 1000) ** -4),
     betaAerosolExtinctionKm: [1, 1, 1].map(() => .005328 / 1.2),
     aerosolSingleScatteringAlbedo: [.9, .9, .9], aerosolG: .8,
+    // Chappuis-band absorption at 680/550/440 nm. Peak 25 km, 15 km e-folding;
+    // coefficients are km^-1 at the peak for a ~300 DU column.
+    ozonePeakKm: 25, ozoneWidthKm: 15, betaOzoneKm: [.000523, .000913, .000037],
     surfaceRefractivity: .0000806051 + .0248099 / (132.274 - .55 ** -2) + .000174557 / (39.32957 - .55 ** -2),
     sourceRefs: ['https://ebruneton.github.io/precomputed_atmospheric_scattering/',
       'https://github.com/ebruneton/precomputed_atmospheric_scattering/blob/master/atmosphere/demo/demo.cc',
-      'https://psg.gsfc.nasa.gov/images/help/handbook.pdf'],
-    limitations: 'Clear reference atmosphere; three wavelength display approximation, no ozone, clouds, multiple scattering or current weather.',
+      'https://psg.gsfc.nasa.gov/images/help/handbook.pdf',
+      'https://doi.org/10.5194/amt-7-625-2014'],
+    limitations: 'Clear reference atmosphere; three wavelength display approximation with Chappuis ozone absorption, no clouds, multiple scattering or current weather.',
   }),
   Mars: immutableProfile({
     body: 'Mars', version: 'mars-thin-dust-reference.v1', classification: 'reference-single-scattering',
@@ -46,6 +50,7 @@ const PROFILES = Object.freeze({
     betaRayleighKm: WAVELENGTHS_NM.map(co2ScatteringKm),
     betaAerosolExtinctionKm: [1, 1, 1].map(() => .05 / 11.1),
     aerosolSingleScatteringAlbedo: [.94, .94, .94], aerosolG: .65,
+    ozonePeakKm: 0, ozoneWidthKm: 0, betaOzoneKm: [0, 0, 0],
     surfaceRefractivity: co2Refractivity(550) * (610 / 101325) * (288.15 / 210),
     sourceRefs: ['https://psg.gsfc.nasa.gov/helpatm.php', 'https://psg.gsfc.nasa.gov/images/help/handbook.pdf',
       'https://doi.org/10.1029/2009JE003350', 'https://descanso.jpl.nasa.gov/propagation/mars/MarsPub_sec4.pdf'],
@@ -121,6 +126,13 @@ export function henyeyGreensteinPhase(mu, g) {
 /** @param {number} distanceAu */
 export function solarIrradianceScale(distanceAu) { return 1 / positive(distanceAu, 'physical solar distance') ** 2; }
 
+/** Two-sided exponential ozone layer. Width 0 disables the absorber.
+ * @param {number} heightKm @param {number} peakKm @param {number} widthKm */
+export function ozoneDensity(heightKm, peakKm, widthKm) {
+  if (![heightKm, peakKm, widthKm].every(Number.isFinite) || widthKm < 0) throw new RangeError('ozone layer must be finite and nonnegative');
+  return widthKm === 0 ? 0 : Math.exp(-Math.abs(heightKm - peakKm) / widthKm);
+}
+
 /** Exact unpolarized dielectric interface reference. No material inferred from RGB. @param {number} cosine @param {number} n1 @param {number} n2 */
 export function dielectricFresnel(cosine, n1, n2) {
   positive(n1, 'incident index'); positive(n2, 'transmitted index');
@@ -147,7 +159,8 @@ export function refractDirection(incident, normal, n1, n2) {
 
 export const ATMOSPHERE_UNIFORMS = Object.freeze(['u_atmosphereEnabled', 'u_atmosphereRadiusKm', 'u_atmosphereTopKm',
   'u_atmospherePolarRatio', 'u_atmosphereDensityScaleKm', 'u_atmosphereRayleighKm', 'u_atmosphereAerosolKm',
-  'u_atmosphereAerosolSSA', 'u_atmosphereG', 'u_atmosphereCameraKm', 'u_atmosphereSunDirection',
+  'u_atmosphereAerosolSSA', 'u_atmosphereG', 'u_atmosphereOzoneKm', 'u_atmosphereOzoneLayerKm',
+  'u_atmosphereCameraKm', 'u_atmosphereSunDirection',
   'u_atmosphereSolarScale', 'u_atmosphereExposure', 'u_atmosphereRefractionEnabled', 'u_atmosphereRefractivity']);
 
 /** No displayed radius enters this API. Camera is inverse-rotated and uniformly converted to physical km, with no z-unflattening.
@@ -162,9 +175,11 @@ export function atmosphereUniformValues(profile, options) {
     u_atmospherePolarRatio: q, u_atmosphereDensityScaleKm: [profile.rayleighScaleHeightKm, profile.aerosolScaleHeightKm],
     u_atmosphereRayleighKm: [...profile.betaRayleighKm], u_atmosphereAerosolKm: [...profile.betaAerosolExtinctionKm],
     u_atmosphereAerosolSSA: [...profile.aerosolSingleScatteringAlbedo], u_atmosphereG: profile.aerosolG,
+    u_atmosphereOzoneKm: [...profile.betaOzoneKm], u_atmosphereOzoneLayerKm: [profile.ozonePeakKm, profile.ozoneWidthKm],
     u_atmosphereCameraKm: vector(options.cameraBodyKm, 'camera'), u_atmosphereSunDirection: unit(options.sunDirectionBody),
     u_atmosphereSolarScale: solarIrradianceScale(options.solarDistanceAu), u_atmosphereExposure: positive(options.exposure, 'display exposure', true),
     u_atmosphereRefractionEnabled: 1, u_atmosphereRefractivity: profile.surfaceRefractivity,
+    u_atmosphereColumnKeep: 0,
   };
 }
 
