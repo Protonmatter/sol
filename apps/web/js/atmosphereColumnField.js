@@ -100,6 +100,40 @@ export function packAtmosphereOpticalField(columns,ozone){
 }
 
 const ozoneTables=new Map();
+const ozoneLoads=new Map();
+function ozoneTableKey(profile){
+  return [profile.body,profile.version,profile.radiusKm,profile.topKm,profile.ozonePeakKm,profile.ozoneWidthKm].join('|');
+}
+/** Chunked copy of the outward ozone table. A retained table is not rebuilt.
+ * @param {object} profile
+ * @param {{signal?:AbortSignal,rowsPerSlice?:number}} [options]
+ */
+export async function loadAtmosphereOzoneColumns(profile,options={}){
+  const {signal,rowsPerSlice=16}=options;
+  if(!profile)throw new RangeError('Ozone table profile unavailable');
+  const key=ozoneTableKey(profile);
+  const ready=ozoneTables.get(key);
+  if(ready)return ready;
+  const pending=ozoneLoads.get(key);
+  if(pending)return pending;
+  const job=(async()=>{
+    const n=ATMOSPHERE_COLUMN_SIZE,values=new Float32Array(n*n);
+    if(!(profile.ozoneWidthKm>0)){ozoneTables.set(key,values);return values;}
+    if(!Number.isInteger(rowsPerSlice)||rowsPerSlice<1)throw new RangeError('Invalid ozone table slice');
+    for(let y=0;y<n;y++){
+      if(signal?.aborted)throw new DOMException('Ozone table cancelled','AbortError');
+      for(let x=0;x<n;x++){
+        const height=profile.topKm*(y/(n-1))**2,mu=(x/(n-1))**2;
+        values[y*n+x]=outwardOzoneColumn(profile.radiusKm,height,mu,profile.ozonePeakKm,profile.ozoneWidthKm,profile.topKm);
+      }
+      if((y+1)%rowsPerSlice===0)await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    ozoneTables.set(key,values);
+    return values;
+  })();
+  ozoneLoads.set(key,job);
+  try{return await job;}finally{if(ozoneLoads.get(key)===job)ozoneLoads.delete(key);}
+}
 /** Bilinear sample of the baked ozone table, matching atmosphereOutwardPacked. */
 export function sampleOutwardOzone(values,profile,heightKm,mu){
   if(values.length!==ATMOSPHERE_COLUMN_SIZE**2||![heightKm,mu].every(Number.isFinite))throw new RangeError('Invalid ozone field sample');
@@ -114,7 +148,7 @@ export function sampleOutwardOzone(values,profile,heightKm,mu){
 export function incidentOzoneColumn(profile,heightKm,mu){
   if(!profile||!(profile.ozoneWidthKm>0))return 0;
   if(![heightKm,mu].every(Number.isFinite))throw new RangeError('Invalid ozone-column geometry');
-  const key=[profile.body,profile.version,profile.radiusKm,profile.topKm,profile.ozonePeakKm,profile.ozoneWidthKm].join('|');
+  const key=ozoneTableKey(profile);
   let table=ozoneTables.get(key);
   if(!table){table=generateAtmosphereOzoneColumns(profile);ozoneTables.set(key,table);}
   return sampleOutwardOzone(table,profile,heightKm,mu);

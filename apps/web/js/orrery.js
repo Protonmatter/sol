@@ -28,7 +28,7 @@ import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS,setAtmosphereUniforms,serialize
 import {setHazeUniforms} from './illustrativeHaze.js';
 import {INCIDENT_FIELD_UNIFORMS} from './atmosphereIncident.js';
 import {ATMOSPHERE_VS} from './atmosphereShaders.js';
-import {generateAtmosphereOzoneColumns,loadAtmosphereFields,packAtmosphereOpticalField} from './atmosphereColumnField.js';
+import {loadAtmosphereFields,loadAtmosphereOzoneColumns,packAtmosphereOpticalField} from './atmosphereColumnField.js';
 import {ATMOSPHERE_COLUMN_FIELDS} from './atmosphereColumnManifest.js';
 import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,
   SCATTERING_UNIFORMS,planAtmosphereScattering,validScatteringPlanBudget} from './atmosphereScattering.js';
@@ -295,7 +295,7 @@ function initIncidentResources(){
     uploadField(7,columnTexture,context.RG32F,context.RG,columns.values,columns.width,columns.height);
     ozoneTexture=context.createTexture();
     const ozone=columns.width===512&&columns.height===512
-      ?generateAtmosphereOzoneColumns(getAtmosphereProfile(body))
+      ?await loadAtmosphereOzoneColumns(getAtmosphereProfile(body),{signal})
       :new Float32Array(columns.width*columns.height);
     uploadField(10,ozoneTexture,context.RGBA32F,context.RGBA,packAtmosphereOpticalField(columns.values,ozone),columns.width,columns.height);
     if(context.getError()!==context.NO_ERROR)throw new Error('GPU rejected optical fields');

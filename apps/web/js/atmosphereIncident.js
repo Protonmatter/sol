@@ -63,10 +63,10 @@ export function sampleIncidentField(values,body,point,sun,radiusKm,q,betaOzoneKm
     const ix=x?hi[0]:lo[0],iy=y?hi[1]:lo[1],iz=z?hi[2]:lo[2],weight=(x?f[0]:1-f[0])*(y?f[1]:1-f[1])*(z?f[2]:1-f[2]);
     for(let c=0;c<4;c++)result[c]+=values[((iz*65+iy)*385+ix)*4+c]*weight;
   }
-  const zenith=geometry.zenithDegrees*Math.PI/180,resultAngle=zenith-result[0];
-  const ozone=incidentOzoneColumn(profile,geometry.heightKm,Math.cos(zenith));
+  const zenith=geometry.zenithDegrees*Math.PI/180,resultAngle=zenith-result[0],apparentMu=Math.cos(resultAngle);
+  const ozone=apparentMu>0?incidentOzoneColumn(profile,Math.max(0,geometry.heightKm),apparentMu):0;
   return {direction:geometry.normal.map((v,i)=>v*Math.cos(resultAngle)+geometry.tangent[i]*Math.sin(resultAngle)),
-    transmission:profile.betaRayleighKm.map((b,i)=>resultAngle<Math.PI/2?Math.exp(-(b*result[1]+profile.betaAerosolExtinctionKm[i]*result[2]+betaOzone[i]*ozone)*geometry.columnScale):0)};
+    transmission:apparentMu>0?profile.betaRayleighKm.map((b,i)=>Math.exp(-(b*result[1]+profile.betaAerosolExtinctionKm[i]*result[2]+betaOzone[i]*ozone)*geometry.columnScale)):[0,0,0]};
 }
 /** @param {ArrayBuffer} bytes */
 async function digest(bytes){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('');}
@@ -139,7 +139,8 @@ AtmosphereSolarRay atmosphereIncidentLookup(vec3 surface){
   float x=mu<-.02?32.0*(mu+.05233595624294384)/.03233595624294384:mu<.02?32.0+256.0*(mu+.02)/.04:mu<.15?288.0+32.0*(mu-.02)/.13:320.0+64.0*(mu-.15)/.85;
   vec4 field=incidentFieldSample(vec3(x/384.0,h,(scaledRadius-.98)/.04));
   vec3 direction=tangentLength>1e-6?normalize(target*cos(field.x)+(normal-target*mu)/tangentLength*sin(field.x)):target;
-  vec3 transmission=dot(direction,normal)>0.0?exp(-(u_atmosphereRayleighKm*field.y+u_atmosphereAerosolKm*field.z+u_atmosphereOzoneKm*atmosphereOzoneOutward(max(height,0.0),clamp(mu,0.0,1.0)))/g):vec3(0);
+  float apparentMu=dot(direction,normal);
+  vec3 transmission=apparentMu>0.0?exp(-(u_atmosphereRayleighKm*field.y+u_atmosphereAerosolKm*field.z+u_atmosphereOzoneKm*atmosphereOzoneOutward(max(height,0.0),apparentMu))/g):vec3(0);
   return AtmosphereSolarRay(direction,transmission);
 }
 `;

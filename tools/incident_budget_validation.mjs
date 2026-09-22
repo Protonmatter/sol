@@ -30,7 +30,7 @@ function bytes(relative){
 async function module(relative){bytes(relative);return import(pathToFileURL(path.resolve(pageRoot,relative)).href);}
 const {SPHERE_VS}=await module('js/orreryShaders.js');
 await module('js/atmosphereShaders.js');await module('js/terrainShadowShaders.js');
-await module('js/atmosphereColumnField.js');
+const {generateAtmosphereOzoneColumns,packAtmosphereOpticalField}=await module('js/atmosphereColumnField.js');
 const {ATMOSPHERE_COLUMN_FIELDS}=await module('js/atmosphereColumnManifest.js');
 const {INCIDENT_FIELDS}=await module('js/atmosphereIncidentManifest.js');
 const {INCIDENT_FIELD_SIZE,incidentFieldDomain,incidentFieldGeometry}=await module('js/atmosphereIncident.js');
@@ -47,6 +47,7 @@ assert.equal(hash(Buffer.from(serializeAtmosphereProfile(profile))),columnField.
 const columnBytes=bytes(path.posix.normalize('js/'+columnField.path));
 assert.equal(columnBytes.length,columnField.bytes);assert.equal(hash(columnBytes),columnField.sha256);
 const columnValues=Array.from({length:columnBytes.length/4},(_,i)=>columnBytes.readFloatLE(i*4));
+const ozonePacked=Array.from(packAtmosphereOpticalField(Float32Array.from(columnValues),generateAtmosphereOzoneColumns(profile)));
 assert.equal(field.profile_encoding,ATMOSPHERE_PROFILE_ENCODING,'Field uses the admitted profile encoding');
 assert.equal(hash(Buffer.from(serializeAtmosphereProfile(profile))),field.profile_sha256,'Field belongs to this exact GPU profile');
 const terrainBytes=bytes(reference.path);assert.equal(hash(terrainBytes),reference.sha256);
@@ -76,7 +77,7 @@ try{
     args:['--no-sandbox','--disable-background-networking','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
   evidence.browser_version=await browser.version();const page=await browser.newPage();
   await page.setRequestInterception(true);page.on('request',r=>r.abort());await page.setContent('<canvas width="1" height="1"></canvas>');
-  evidence.result=await page.evaluate(({source,fieldValues,columnValues,size,domain,uniforms,radius,q,meshes})=>{
+  evidence.result=await page.evaluate(({source,fieldValues,columnValues,ozonePacked,size,domain,uniforms,radius,q,meshes})=>{
     const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false});if(!gl)throw Error('WebGL2 unavailable');
     const shader=(kind,src)=>{const s=gl.createShader(kind);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
     const program=gl.createProgram();gl.attachShader(program,shader(gl.VERTEX_SHADER,source));
@@ -101,6 +102,11 @@ try{
     for(const param of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,param,gl.NEAREST);
     for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);
     gl.uniform1i(loc('u_atmosphereColumnField'),7);
+    gl.activeTexture(gl.TEXTURE10);const ozoneTexture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,ozoneTexture);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA32F,512,512,0,gl.RGBA,gl.FLOAT,new Float32Array(ozonePacked));
+    for(const param of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,param,gl.NEAREST);
+    for(const param of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,param,gl.CLAMP_TO_EDGE);
+    gl.uniform1i(loc('u_atmosphereOzoneField'),10);
     const arrays=[],results=[];
     for(const input of meshes){
       const geometry=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,geometry);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(input.pos),gl.STATIC_DRAW);
@@ -123,7 +129,7 @@ try{
     for(let i=0;i<=48;i++)for(let j=0;j<=96;j++)for(let c=0;c<9;c++)sharedMaxError=Math.max(sharedMaxError,Math.abs(arrays[0][(i*97+j)*9+c]-arrays[1][(i*4*385+j*4)*9+c]));
     if(sharedMaxError>1e-5)throw Error(`Shared terrain points changed illumination with mesh LOD: ${sharedMaxError}`);
     return {meshes:results,shared_points:4753,max_shared_point_error:sharedMaxError,field_ready:true};
-  },{source:SPHERE_VS,fieldValues,columnValues,size:INCIDENT_FIELD_SIZE,domain,radius:profile.radiusKm,q,
+  },{source:SPHERE_VS,fieldValues,columnValues,ozonePacked,size:INCIDENT_FIELD_SIZE,domain,radius:profile.radiusKm,q,
     uniforms:atmosphereUniformValues(profile,{cameraBodyKm:[5000,0,0],sunDirectionBody:sun,polarRatio:q,solarDistanceAu:1.52,exposure:1}),
     meshes:[{pos:Array.from(low.pos),count:low.vertexCount},{pos:Array.from(high.pos),count:high.vertexCount}]});
   evidence.status='passed';console.log(JSON.stringify(evidence.result));

@@ -62,7 +62,7 @@ try{
       const comparePresentation=Function(`return (${presentationPredicate})`)();
       const shaders=await import('/js/orreryShaders.js');
       const {appearanceReference,appearanceUniforms}=await import('/js/planetAppearance.js');
-      const {ATMOSPHERE_RENDER_GLSL,loadAtmosphereColumns}=await import('/js/atmosphereColumnField.js');
+      const {ATMOSPHERE_RENDER_GLSL,generateAtmosphereOzoneColumns,loadAtmosphereColumns,packAtmosphereOpticalField}=await import('/js/atmosphereColumnField.js');
       const {ATMOSPHERE_SCATTERING_GLSL,planAtmosphereScattering,setScatteringUniforms}=await import('/js/atmosphereScattering.js');
       const {getAtmosphereProfile,atmosphereUniformValues}=await import('/js/atmosphereOptics.js');
       const {createShaderPrograms}=await import('/js/shaderPrograms.js');
@@ -141,9 +141,11 @@ try{
         const earthDay=image(0,[60,95,130,255],gl.SRGB8_ALPHA8);
         for(const filter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,filter,gl.LINEAR);
         const object=[.3,.4,Math.sqrt(.75)],normal=[.2,.45,Math.sqrt(1-.2**2-.45**2)];
-        const cases=[],outputs=new Map(),columns={};
+        const cases=[],outputs=new Map(),columns={},ozone={};
         for(const body of ['Earth','Mars']){
           const f=await loadAtmosphereColumns(body);columns[body]=texture(7,f.width,f.height,gl.RG32F,gl.RG,gl.FLOAT,f.values);
+          const packed=packAtmosphereOpticalField(f.values,generateAtmosphereOzoneColumns(getAtmosphereProfile(body)));
+          ozone[body]=texture(10,f.width,f.height,gl.RGBA32F,gl.RGBA,gl.FLOAT,packed);
           const profile=getAtmosphereProfile(body),q=body==='Earth'?.9966471893:.99411;
           const mapping=fixtureMapping(body,appearanceUniforms(appearanceReference(body)));
           const camera=object.map((x,i)=>x*(profile.radiusKm+2000)*(i===2?q:1));
@@ -177,7 +179,7 @@ try{
             u_probeObject:object,u_probeNormal:normal,u_probeSun:c.sun,u_probeScale:1+c.height/profile.radiusKm,
             u_cam:c.options.cameraBodyKm,u_base:[.25,.36,.52],u_light:c.sun,u_lightObj:c.sun,u_oblate:q,u_bodyRadiusKm:profile.radiusKm,
             u_scatteringReferenceHeightKm:0,u_useTex:c.useTex,u_texMode:3,u_textureLinear:c.body==='Earth'?1:0,
-            u_tex:0,u_nightTex:1,u_weatherTex:2,u_iceTex:3,u_ringTex:4,u_terrainHeight:5,u_atmosphereColumnField:7,
+            u_tex:0,u_nightTex:1,u_weatherTex:2,u_iceTex:3,u_ringTex:4,u_terrainHeight:5,u_atmosphereColumnField:7,u_atmosphereOzoneField:10,
             u_map:c.mapping.map,u_mapLat:c.mapping.lat,u_mapWindow:c.mapping.window,u_mapNoData:c.mapping.nodata,
             u_earthNight:c.body==='Earth'?c.night:0,u_earthWeather:c.weather,u_earthIce:c.ice,
             u_terrainShadowEnabled:c.body==='Mars'?1:0,u_terrainShape:[profile.radiusKm,profile.radiusKm-2,profile.radiusKm+2,.5],u_terrainPoles:[1,1],
@@ -186,7 +188,7 @@ try{
           if(mutate)mutate(values);
           for(const [name,value]of Object.entries(values))uniform(p,name,value);
           const grid=Object.fromEntries(Object.entries(locations.get(p)).map(([n,u])=>[n,u.location]));setScatteringUniforms(gl,grid,plan);
-          for(const [unit,t]of [...materialTextures.map((t,i)=>[i,t]),[0,c.body==='Earth'?earthDay:materialTextures[0]],[5,c.terrain],[7,columns[c.body]],[8,c.surface],[9,c.limb]]){
+          for(const [unit,t]of [...materialTextures.map((t,i)=>[i,t]),[0,c.body==='Earth'?earthDay:materialTextures[0]],[5,c.terrain],[7,columns[c.body]],[8,c.surface],[9,c.limb],[10,ozone[c.body]]]){
             gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);}
           gl.drawArrays(gl.TRIANGLES,0,3);
           if(final){if(!hdr.present({exposure:1,frameIdentity:identity}))throw new Error('HDR presentation rejected');

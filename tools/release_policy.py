@@ -153,7 +153,7 @@ def trusted_run_context(candidate: Mapping[str, Any], run: Mapping[str, Any],
 
 def publish_master(candidate: Mapping[str, Any], run: Mapping[str, Any],
                    artifact: Mapping[str, Any], jobs: Sequence[Mapping[str, Any]],
-                   master_sha: str) -> Decision:
+                   master_sha: str, manifest_sha256: str) -> Decision:
     """Publish a successful master push. Qualification profiles are not consulted."""
     if run.get("conclusion") != "success" or run.get("path") != ".github/workflows/ci.yml":
         raise ValueError("trusted CI workflow must have succeeded")
@@ -168,7 +168,9 @@ def publish_master(candidate: Mapping[str, Any], run: Mapping[str, Any],
         raise ValueError("candidate does not match the successful master push")
     if not re.fullmatch(r"[0-9a-f]{40}", str(master_sha)) or candidate.get("source_sha") != master_sha:
         raise ValueError("superseded-candidate")
-    if not re.fullmatch(r"[0-9a-f]{64}", str(candidate.get("manifest_sha256", ""))):
+    claimed = candidate.get("manifest_sha256")
+    if (not re.fullmatch(r"[0-9a-f]{64}", str(claimed)) or not re.fullmatch(r"[0-9a-f]{64}", str(manifest_sha256))
+            or claimed != manifest_sha256):
         raise ValueError("artifact-digest-invalid")
     return Decision(True, True, False, False, ())
 
@@ -342,9 +344,11 @@ def main() -> int:
             pages = json.loads(args.jobs_metadata.read_text(encoding="utf-8"))
             jobs = [job for page in pages for job in page["jobs"]]
             from release_evidence import validate_outer
+            from validate_release_manifest import digest as manifest_digest
             validate_outer(candidate, args.manifest)
             decision = publish_master(candidate, json.loads(args.run_metadata.read_text(encoding="utf-8")),
-                json.loads(args.artifact_metadata.read_text(encoding="utf-8")), jobs, args.master_sha)
+                json.loads(args.artifact_metadata.read_text(encoding="utf-8")), jobs, args.master_sha,
+                manifest_digest(args.manifest))
             records, trusted = [], {}
         elif args.ci_evidence:
             from validate_release_manifest import digest, validate_manifest

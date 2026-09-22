@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
+import hashlib
 import sys
 import unittest
 import contextlib
@@ -479,7 +480,7 @@ class ReleasePolicyTests(unittest.TestCase):
             "repository": {"full_name": "owner/repo"}, "path": ".github/workflows/ci.yml",
             "event": "push", "conclusion": "success"}
         artifact = {"id": 456, "name": "web-candidate-123-1", "expired": False, "workflow_run": {"id": 123}}
-        decision = policy.publish_master(self.candidate, run, artifact, jobs, "a" * 40)
+        decision = policy.publish_master(self.candidate, run, artifact, jobs, "a" * 40, "b" * 64)
         self.assertTrue(decision.candidate_verified)
         self.assertTrue(decision.promotion_eligible)
         self.assertFalse(decision.served_verified)
@@ -487,13 +488,15 @@ class ReleasePolicyTests(unittest.TestCase):
         for bad_run in (dict(run, event="workflow_dispatch"), dict(run, head_branch="feature"),
                         dict(run, conclusion="failure")):
             with self.assertRaises(ValueError):
-                policy.publish_master(self.candidate, bad_run, artifact, jobs, "a" * 40)
+                policy.publish_master(self.candidate, bad_run, artifact, jobs, "a" * 40, "b" * 64)
         with self.assertRaisesRegex(ValueError, "superseded-candidate"):
-            policy.publish_master(self.candidate, run, artifact, jobs, "b" * 40)
+            policy.publish_master(self.candidate, run, artifact, jobs, "b" * 40, "b" * 64)
+        with self.assertRaisesRegex(ValueError, "artifact-digest-invalid"):
+            policy.publish_master(self.candidate, run, artifact, jobs, "a" * 40, "c" * 64)
         failed = copy.deepcopy(jobs)
         failed[-1]["conclusion"] = "failure"
         with self.assertRaisesRegex(ValueError, "did not succeed"):
-            policy.publish_master(self.candidate, run, artifact, failed, "a" * 40)
+            policy.publish_master(self.candidate, run, artifact, failed, "a" * 40, "b" * 64)
 
     def test_publish_master_cli_accepts_identity_without_profiles(self):
         _, jobs = self.authoritative_jobs()
@@ -501,8 +504,10 @@ class ReleasePolicyTests(unittest.TestCase):
             root = Path(directory)
             manifest = root / "web-release-manifest.json"
             manifest.write_text("{}", encoding="utf-8")
+            staged = hashlib.sha256(b"{}").hexdigest()
+            candidate = dict(self.candidate, manifest_sha256=staged)
             inputs = {
-                "candidate.json": self.candidate,
+                "candidate.json": candidate,
                 "run.json": {"id": 123, "run_attempt": 1, "head_sha": "a" * 40, "head_branch": "master",
                     "repository": {"full_name": "owner/repo"}, "path": ".github/workflows/ci.yml",
                     "event": "push", "conclusion": "success"},

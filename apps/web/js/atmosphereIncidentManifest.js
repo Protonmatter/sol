@@ -15,7 +15,7 @@ export const INCIDENT_FIELDS=Object.freeze({
     "generator_source_sha256": "10b3284023e6a8f82eb9fac95d1b2cc3e75ceec720ce8fb89730d041f8cc6ee7",
     "solver_source_sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
     "profile_source_sha256": "b8ad270b14c4ef16affc7c31bd7fb5111895bc9cc6332cbe7c8c171d4582b965",
-    "field_source_sha256": "2a70930c00d32b3bd157baecff5044c7b2929c6d37ff826620edb285f849e7da",
+    "field_source_sha256": "e6c0f5ab7b9f7ff2b4632d0ce2eb364a194750bfbc6f2172332378d61bca61d5",
     "browser_version": "Chrome/151.0.7922.174",
     "dimensions": [
       385,
@@ -39,7 +39,7 @@ export const INCIDENT_FIELDS=Object.freeze({
     "generator_source_sha256": "10b3284023e6a8f82eb9fac95d1b2cc3e75ceec720ce8fb89730d041f8cc6ee7",
     "solver_source_sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
     "profile_source_sha256": "b8ad270b14c4ef16affc7c31bd7fb5111895bc9cc6332cbe7c8c171d4582b965",
-    "field_source_sha256": "2a70930c00d32b3bd157baecff5044c7b2929c6d37ff826620edb285f849e7da",
+    "field_source_sha256": "e6c0f5ab7b9f7ff2b4632d0ce2eb364a194750bfbc6f2172332378d61bca61d5",
     "browser_version": "Chrome/151.0.7922.174",
     "dimensions": [
       385,

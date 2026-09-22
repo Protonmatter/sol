@@ -84,7 +84,7 @@ print(json.dumps(results))`;
       const {createHdrPresentation}=await import('./js/hdrPresentation.js');
       const shaders=await import('./js/orreryShaders.js');
       const {SOLAR_FS}=await import('./js/solarVolumeShaders.js');
-      const {ATMOSPHERE_RENDER_FS,loadAtmosphereColumns}=await import('./js/atmosphereColumnField.js');
+      const {ATMOSPHERE_RENDER_FS,generateAtmosphereOzoneColumns,loadAtmosphereColumns,packAtmosphereOpticalField}=await import('./js/atmosphereColumnField.js');
       const canvas=document.querySelector('canvas'),gl=canvas.getContext('webgl2',{antialias:false,preserveDrawingBuffer:true});
       if(!gl)throw new Error('WebGL2 unavailable');
       const debug=gl.getExtension('WEBGL_debug_renderer_info'),gpu={renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};
@@ -206,19 +206,27 @@ print(json.dumps(results))`;
       };
       const dayTexture=imageTexture(0,[64,96,128,255]),nightTexture=imageTexture(1,[32,128,224,255]);
       imageTexture(2,[0,0,0,0]);
-      const columns={};
-      for(const body of ['Earth','Mars']){
-        const field=await loadAtmosphereColumns(body),t=gl.createTexture();opticalTextures.push(t);columns[body]=t;
-        gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,t);
-        gl.texImage2D(gl.TEXTURE_2D,0,gl.RG32F,field.width,field.height,0,gl.RG,gl.FLOAT,field.values);
+      const columns={},ozoneTextures={};
+      const uploadOptical=(unit,internal,format,width,height,pixels)=>{
+        const t=gl.createTexture();opticalTextures.push(t);
+        gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);
+        gl.texImage2D(gl.TEXTURE_2D,0,internal,width,height,0,format,gl.FLOAT,pixels);
         for(const p of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);
         for(const p of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);
+        return t;
+      };
+      for(const body of ['Earth','Mars']){
+        const field=await loadAtmosphereColumns(body);
+        const profile=opticalCases.find(item=>item.profile.body===body).profile;
+        columns[body]=uploadOptical(7,gl.RG32F,gl.RG,field.width,field.height,field.values);
+        ozoneTextures[body]=uploadOptical(10,gl.RGBA32F,gl.RGBA,field.width,field.height,
+          packAtmosphereOpticalField(field.values,generateAtmosphereOzoneColumns(profile)));
       }
       const sphere=link(shaders.SPHERE_FS,
         'out vec3 v_obj,v_world,v_nrm;out float v_surfaceScale;out vec3 v_incidentSunBody,v_incidentSunWorld,v_incidentTransmission;',
         'v_obj=vec3(0,0,1);v_world=vec3(0,0,1);v_nrm=vec3(0,0,1);v_surfaceScale=1.0;v_incidentSunBody=vec3(0,0,1);v_incidentSunWorld=vec3(0,0,1);v_incidentTransmission=vec3(1);');
       const shell=link(ATMOSPHERE_RENDER_FS,'uniform vec3 u_probePoint;out vec3 v_atmosphereBodyKm;','v_atmosphereBodyKm=u_probePoint;');
-      const integers=new Set(['u_linearOutput','u_atmosphereEnabled','u_atmosphereRefractionEnabled','u_atmosphereColumnField',
+      const integers=new Set(['u_linearOutput','u_atmosphereEnabled','u_atmosphereRefractionEnabled','u_atmosphereColumnField','u_atmosphereOzoneField',
         'u_style','u_mode','u_useTex','u_texMode','u_earthNight','u_tex','u_nightTex','u_weatherTex','u_iceTex','u_ringTex','u_terrainHeight']);
       const uniform=(program,name,value)=>{
         const location=gl.getUniformLocation(program,name);
@@ -233,6 +241,7 @@ print(json.dumps(results))`;
         uniform(program,'u_linearOutput',linear);uniform(program,'u_atmosphereRefractionEnabled',0);
         uniform(program,'u_atmosphereSolarScale',1/(au*au));
         gl.activeTexture(gl.TEXTURE7);gl.bindTexture(gl.TEXTURE_2D,columns[c.profile.body]);uniform(program,'u_atmosphereColumnField',7);
+        gl.activeTexture(gl.TEXTURE10);gl.bindTexture(gl.TEXTURE_2D,ozoneTextures[c.profile.body]);uniform(program,'u_atmosphereOzoneField',10);
         if(c.kind==='shell')uniform(program,'u_probePoint',[c.origin[0],0,0]);
         else{
           const state={u_style:-1,u_mode:0,u_useTex:1,u_texMode:3,u_earthNight:c.kind==='night'?1:0,
