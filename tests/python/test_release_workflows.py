@@ -30,7 +30,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
             workflow = fixture / ".github/workflows/deploy-pages.yml"
             source = workflow.read_text(encoding="utf-8")
             prefix, deploy = source.split("\n  deploy:\n", 1)
-            workflow.write_text(prefix + "\n  deploy:\n" + deploy.replace("--promotion", "--candidate-only"), encoding="utf-8")
+            workflow.write_text(prefix + "\n  deploy:\n" + deploy.replace("--publish-master", "--candidate-only"), encoding="utf-8")
             errors = validate_sdlc.validate_workflows(fixture)
             self.assertTrue(any("post-approval" in error for error in errors), errors)
 

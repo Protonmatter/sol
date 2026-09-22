@@ -473,5 +473,58 @@ class ReleasePolicyTests(unittest.TestCase):
                 self.assertEqual({name:(root/name).read_bytes() for name in inputs},original)
 
 
+    def test_master_publication_ignores_qualification_profiles(self):
+        _, jobs = self.authoritative_jobs()
+        run = {"id": 123, "run_attempt": 1, "head_sha": "a" * 40, "head_branch": "master",
+            "repository": {"full_name": "owner/repo"}, "path": ".github/workflows/ci.yml",
+            "event": "push", "conclusion": "success"}
+        artifact = {"id": 456, "name": "web-candidate-123-1", "expired": False, "workflow_run": {"id": 123}}
+        decision = policy.publish_master(self.candidate, run, artifact, jobs, "a" * 40)
+        self.assertTrue(decision.candidate_verified)
+        self.assertTrue(decision.promotion_eligible)
+        self.assertFalse(decision.served_verified)
+        self.assertEqual(decision.reasons, ())
+        for bad_run in (dict(run, event="workflow_dispatch"), dict(run, head_branch="feature"),
+                        dict(run, conclusion="failure")):
+            with self.assertRaises(ValueError):
+                policy.publish_master(self.candidate, bad_run, artifact, jobs, "a" * 40)
+        with self.assertRaisesRegex(ValueError, "superseded-candidate"):
+            policy.publish_master(self.candidate, run, artifact, jobs, "b" * 40)
+        failed = copy.deepcopy(jobs)
+        failed[-1]["conclusion"] = "failure"
+        with self.assertRaisesRegex(ValueError, "did not succeed"):
+            policy.publish_master(self.candidate, run, artifact, failed, "a" * 40)
+
+    def test_publish_master_cli_accepts_identity_without_profiles(self):
+        _, jobs = self.authoritative_jobs()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "web-release-manifest.json"
+            manifest.write_text("{}", encoding="utf-8")
+            inputs = {
+                "candidate.json": self.candidate,
+                "run.json": {"id": 123, "run_attempt": 1, "head_sha": "a" * 40, "head_branch": "master",
+                    "repository": {"full_name": "owner/repo"}, "path": ".github/workflows/ci.yml",
+                    "event": "push", "conclusion": "success"},
+                "artifact.json": {"id": 456, "name": "web-candidate-123-1", "expired": False, "workflow_run": {"id": 123}},
+                "jobs.json": [{"jobs": jobs}],
+            }
+            for name, value in inputs.items():
+                (root / name).write_text(json.dumps(value), encoding="utf-8")
+            argv = ["release_policy.py", "--candidate", str(root / "candidate.json"),
+                "--run-metadata", str(root / "run.json"), "--artifact-metadata", str(root / "artifact.json"),
+                "--jobs-metadata", str(root / "jobs.json"), "--master-sha", "a" * 40,
+                "--require-rich-evidence", "--manifest", str(manifest), "--publish-master"]
+            with patch("release_evidence.validate_outer"), patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(policy.main(), 0)
+            printed = json.loads(output.getvalue())
+            self.assertTrue(printed["promotion_eligible"])
+            self.assertIsNone(printed["approved_profile"])
+            with patch("release_evidence.validate_outer"), patch.object(sys, "argv", [*argv, "--trusted", str(root / "candidate.json")]), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as error:
+                    policy.main()
+            self.assertEqual(error.exception.code, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

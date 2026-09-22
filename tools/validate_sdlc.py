@@ -375,19 +375,21 @@ def validate_workflows(root: Path) -> list[str]:
         "github.event.workflow_run.head_branch == 'master'",
         "github.event.workflow_run.head_sha",
         "validate_release_manifest.py",
-        "--promotion",
+        "--publish-master",
         "environment:",
         "name: github-pages",
     )))
     if "workflow_dispatch:" in deploy or "build_wasm.py" in deploy or "build_web.py" in deploy or "fetch_textures.py" in deploy:
-        errors.append("Pages must promote an exact qualified artifact, without manual ref/rebuild/fetch bypass")
+        errors.append("Pages must promote an exact CI artifact, without manual ref/rebuild/fetch bypass")
+    if "SOL_TRUSTED_VERIFIER_SHA" in deploy or "accepted-qualification.json" in deploy:
+        errors.append("Pages publication must not wait on qualification profiles")
     promotion = deploy.split("\n  deploy:\n", 1)[-1]
     before_publish = promotion.split("uses: actions/deploy-pages@", 1)[0]
     if not all(token in before_publish for token in (
-            "trusted/tools/release_policy.py", "--promotion", "--master-sha",
+            "tools/release_policy.py", "--publish-master", "--master-sha",
             "--require-rich-evidence", "--manifest candidate-site/web-release-manifest.json",
-            "needs.verify.outputs.verifier_sha", "needs.verify.outputs.manifest_sha256")):
-        errors.append("Pages post-approval eligibility must be rechecked with the pinned verifier and exact artifact")
+            "needs.verify.outputs.artifact_id", "needs.verify.outputs.manifest_sha256")):
+        errors.append("Pages post-approval eligibility must be rechecked against the same master artifact")
 
     crate = (workflow_dir / "publish-crate.yml").read_text(encoding="utf-8")
     errors.extend(require_tokens(".github/workflows/publish-crate.yml", crate, (
