@@ -34,7 +34,7 @@ import {ATMOSPHERE_COLUMN_FIELDS} from './atmosphereColumnManifest.js';
 import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,
   SCATTERING_UNIFORMS,planAtmosphereScattering,validScatteringPlanBudget} from './atmosphereScattering.js';
 import {createScatteringTargets} from './scatteringTargets.js';
-import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,SOLAR_EUV_DISPLAY_GAIN,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes} from './solarAppearance.js';
+import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,SOLAR_EUV_DISPLAY_GAIN,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes,solarPhotosphereSpots} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
@@ -408,7 +408,7 @@ function updatePhysicalAppearance() {
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
-  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. Bright arcs follow the observed face. A limb glow and quieter arches continue around the whole star and keep moving; that is an educational flow model, not fluid dynamics and not a far-side observation. The unobserved disk keeps the observed radial brightness, without invented active regions.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
+  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. The observed face stays those frames. Arches rooted in three tilted pairs drift with a compressed differential-rotation clock, and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved disk keeps the observed radial brightness.`:'Visible-light approximation. A compressed educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not an HMI observation.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
@@ -517,6 +517,8 @@ function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
   gl.uniform1fv(P.solarU['u_loopGain[0]'],new Float32Array(values.loopGain));
   gl.uniform1f(P.solarU.u_displayGain,SOLAR_EUV_DISPLAY_GAIN);
   gl.uniform1f(P.solarU.u_coronaGlow,1);
+  gl.uniform1f(P.solarU.u_cmeProgress,values.cme.progress);
+  gl.uniform3fv(P.solarU.u_cmeAxis,new Float32Array(values.cme.axis));
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,detail.tex);gl.uniform1i(P.solarU.u_atlas,0);
   gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,detail.quiet);gl.uniform1i(P.solarU.u_quiet,4);
   gl.activeTexture(gl.TEXTURE0);
@@ -846,14 +848,14 @@ function finishGL(){
   // Array uniforms are queried at element 0 — the location uniform4fv() needs to upload the
   // whole array in one call. GLSL ES 3.00 accepts the bare name for that too, but "[0]" is the
   // form the WebGL spec guarantees, and a silently null location would just skip the upload.
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex",
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_activity", "u_spot[0]", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex",
     "u_hazeRayleighTau", "u_hazeAerosol"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
   Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
-  P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_quiet','u_frameMix','u_phase','u_displayGain','u_coronaGlow','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
+  P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_quiet','u_frameMix','u_phase','u_displayGain','u_coronaGlow','u_cmeProgress','u_cmeAxis','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
   Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear']));
   for(const name of ['sphere','line','ring','pt','glow','solar'])
     Object.assign(P[`${name}U`],uloc(P[name],['u_linearOutput']));
@@ -2004,7 +2006,14 @@ function drawBody(b, vp, eye) {
   gl.uniformMatrix3fv(sphereUniforms.u_nmat, false, new Float32Array(normals));
   gl.uniform1i(sphereUniforms.u_style, -1); // unregistered surface detail stays neutral
   gl.uniform1i(sphereUniforms.u_mode, b.name === "Sun" ? 1 : 0);
-  gl.uniform1f(sphereUniforms.u_time, state.renderUnix * 0.0002);
+  const showPhotosphere=b.name==='Sun'&&!solarEuvActive();
+  if(sphereUniforms.u_activity)gl.uniform1f(sphereUniforms.u_activity, showPhotosphere?1:0);
+  gl.uniform1f(sphereUniforms.u_time, b.name==='Sun'?solarFlowSeconds:state.renderUnix * 0.0002);
+  if(showPhotosphere&&sphereUniforms['u_spot[0]']){
+    const packed=[];
+    for(const region of solarPhotosphereSpots(solarFlowSeconds)) packed.push(...region.lead,...region.trail);
+    gl.uniform4fv(sphereUniforms['u_spot[0]'], new Float32Array(packed));
+  }
   // The Sun emits white visible light (NASA SVS 13859). This slightly warm
   // display RGB is illustrative, not calibrated radiance or observed detail.
   // Keep u_style=-1: no unregistered disk, invented spots or granulation.
@@ -2679,7 +2688,10 @@ function tick(now) {
 function startLoop() { if (!rafId && !document.hidden) { state.lastTick = 0; rafId = requestAnimationFrame(tick); } }
 let solarFlowSeconds=0;
 function solarFlowActive() {
-  return solarPlaybackAvailable()&&!(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if(reduced||!state.active||state.galaxy||state.selectedStar||!solarSubject()) return false;
+  if(state.solarMode==='visible') return true;
+  return solarPlaybackAvailable();
 }
 function armSolarFlow() { if(solarFlowActive())startLoop(); }
 

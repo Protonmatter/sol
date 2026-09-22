@@ -9,6 +9,7 @@ import {
   solarLoopDensity, integrateSolarEmission, solarDisplayColor,
   solarQuietProfile, solarAtlasQuietProfiles, solarQuietBytes,
   solarGlobalLoops, solarFlowPhase, solarRenderUniforms, SOLAR_ARCADE_COUNT,
+  solarSiderealDegPerDay, solarActiveRegions, solarCme, SOLAR_ACTIVITY_SECONDS_PER_DAY,
 } from '../../apps/web/js/solarAppearance.js';
 
 const norm = a => Math.hypot(...a);
@@ -155,6 +156,29 @@ test('whole-sphere arches stay in the volume, stay hidden through the disk, and 
   assert.equal(solarRenderUniforms(7.5).phase,solarPlayback(7.5).phase,'omitted flow time keeps the source-scrub phase');
   assert.ok(flowing.loopGain.slice(12).every(gain=>gain===loops[0].gain));
   assert.ok(flowing.loopGain.slice(0,12).every((gain,i)=>gain===SOLAR_APPEARANCE.geometry.loops[i].gain));
+  assert.equal(flowing.cme.progress,0.5);
+  assert.equal(solarRenderUniforms(7.5).cme.progress,0);
+});
+
+test('tilted bipoles shear under the NSSDC differential-rotation law', () => {
+  assert.ok(Math.abs(solarSiderealDegPerDay(0)-14.37)<1e-12);
+  assert.ok(solarSiderealDegPerDay(0)>solarSiderealDegPerDay(Math.PI/3));
+  const lon=v=>Math.atan2(v[2],v[0]);
+  const gap=region=>{
+    let d=lon(region.lead)-lon(region.trail);
+    if(d<0)d+=Math.PI*2;
+    if(d>Math.PI)d-=Math.PI*2;
+    return d;
+  };
+  const start=solarActiveRegions(0)[0];
+  const later=solarActiveRegions(SOLAR_ACTIVITY_SECONDS_PER_DAY*30)[0];
+  assert.ok(gap(later)>gap(start)+0.05,'the higher-latitude footpoint lags');
+  const moved=solarGlobalLoops(SOLAR_ACTIVITY_SECONDS_PER_DAY);
+  const frozen=solarGlobalLoops(0);
+  assert.ok(moved.some((loop,i)=>Math.abs(loop.normal[0]-frozen[i].normal[0])>1e-3),'a displayed day moves the arches');
+  assert.equal(solarCme(10).progress,0);
+  assert.ok(solarCme(4).progress>0.4&&solarCme(4).progress<0.6);
+  assert.equal(solarCme(Number.NaN).progress,0);
 });
 
 test('EUV display mapping is finite and monotonic without calibrated color claims', () => {

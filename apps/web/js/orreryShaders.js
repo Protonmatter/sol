@@ -56,6 +56,8 @@ in vec3 v_obj; in vec3 v_world; in vec3 v_nrm; out vec4 o;
 in float v_surfaceScale;
 in vec3 v_incidentSunBody,v_incidentSunWorld,v_incidentTransmission;
 uniform int u_style; uniform int u_mode; uniform float u_time;
+uniform float u_activity;
+uniform vec4 u_spot[6];
 uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_atmo; uniform float u_atmoStr;
 // u_useTex: is a surface map bound at all. u_texMode: 0 = REPLACE (a real photographic map from
 // tools/fetch_textures.py, or Earth's generated coastline map — the texture IS the surface);
@@ -196,6 +198,25 @@ float referenceCoverage(vec3 grid,vec4 sampleColor){
   if(u_mapNoData==1&&max(sampleColor.r,max(sampleColor.g,sampleColor.b))<0.00392157) return 0.0;
   return u_mapNoData==2 ? sampleColor.a : 1.0;
 }
+float spotGroup(vec3 p,vec4 s){
+  if(s.w<=0.0) return 0.0;
+  float ang=acos(clamp(dot(normalize(p),normalize(s.xyz)),-1.0,1.0));
+  float umbra=1.0-smoothstep(s.w*0.42,s.w*0.58,ang);
+  float penumbra=1.0-smoothstep(s.w*0.58,s.w,ang);
+  return max(umbra,penumbra*0.5);
+}
+vec3 solarPhotosphere(vec3 p,float limb){
+  // Supergranular scale, about 35,000 km, plus a finer grain drawn larger than a
+  // real 1,000 km granule so the cells remain visible. Both scroll on the compressed clock.
+  float cells=fbm(p*18.0+vec3(u_time*0.11,0.0,0.0));
+  float grain=fbm(p*46.0+vec3(0.0,u_time*0.48,u_time*0.07));
+  vec3 c=mix(vec3(0.55,0.50,0.46),vec3(1.0,0.985,0.95),0.20+0.80*cells);
+  c*=1.0+0.14*(grain-0.5);
+  float spot=0.0;
+  for(int i=0;i<6;i++) spot=max(spot,spotGroup(p,u_spot[i]));
+  c=mix(c,vec3(0.16,0.12,0.10),clamp(spot,0.0,1.0));
+  return c*(0.72+0.28*limb);
+}
 void main(){
   vec3 N=normalize(v_nrm); vec3 V=normalize(u_cam-v_world); vec3 p=normalize(v_obj);
   float lat=p.z; float fres=pow(1.0-clamp(dot(N,V),0.0,1.0),3.0);
@@ -210,7 +231,9 @@ void main(){
       // Visible-light approximation only: a fixed relative display emission scale
       // of two retains an emissive white after the fixed HDR presentation. This
       // is not measured radiance, solar flux, or camera/distance compensation.
-      vec3 visible=displayOutput(u_base*(0.72+0.28*limb));
+      vec3 visible=u_base*(0.72+0.28*limb);
+      if(u_activity>0.5) visible=solarPhotosphere(p,limb);
+      visible=displayOutput(visible);
       o=vec4(visible*(u_linearOutput==1 ? 2.0 : 1.0),1.0);return;
     }
     // procedural granulation + sunspots + limb darkening — the whole sphere when no SDO frame

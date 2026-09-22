@@ -2,7 +2,8 @@
 // All coordinates are in the fixed frame-0 observer basis, with distances in solar radii.
 // 32 midpoint samples × 24 bounded arches: 12 source-anchored, 12 whole-sphere educational.
 // No noise and no fictitious photospheric spots. Far-side disk structure stays the observed
-// radial median. The extra arches are a flow model, not fluid dynamics or far-side imagery.
+// radial median. The extra arches drift with a compressed differential-rotation clock.
+// A periodic front is an educational ejection, not a measured CME, MHD, or far-side imagery.
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 export const SOLAR_VS = `#version 300 es
 layout(location=0) in vec3 a_pos;
@@ -34,6 +35,9 @@ uniform sampler2D u_quiet;
 uniform float u_displayGain;
 // 0 draws no whole-limb shell, so an empty off-limb probe stays transparent.
 uniform float u_coronaGlow;
+// 0 hides the ejection. Progress 0..1 moves a front from the surface toward u_extent.
+uniform float u_cmeProgress;
+uniform vec3 u_cmeAxis;
 uniform vec4 u_loopNormal[24];
 uniform vec4 u_loopTangent[24];
 uniform float u_loopGain[24];
@@ -139,6 +143,22 @@ void main(){
     float limb=impact>1.0 && impact<u_extent ? 1.0-smoothstep(1.02,u_extent,impact) : 0.0;
     shellColor=vec3(1.0,.78,.32)*limb*pulse*u_coronaGlow;
     shellCover=limb*u_coronaGlow;
+  }
+  if(u_pass!=1 && u_cmeProgress>0.0 && u_cmeProgress<1.0){
+    float front=mix(1.06,u_extent*0.98,u_cmeProgress);
+    vec2 hit=sphereRay(u_camObj,direction,front);
+    vec2 photo=sphereRay(u_camObj,direction,1.0);
+    float t=max(hit.x,0.0);
+    if(hit.y>t && (photo.y<=photo.x || t<photo.x)){
+      vec3 point=u_camObj+direction*t;
+      float radial=length(point);
+      vec3 nrm=point/max(radial,1e-4);
+      float facing=smoothstep(0.2,0.9,dot(nrm,normalize(u_cmeAxis)));
+      float band=exp(-pow((radial-front)/max(0.03+0.04*u_cmeProgress,1e-3),2.0));
+      float fade=1.0-u_cmeProgress;
+      shellColor+=vec3(1.0,.62,.18)*facing*band*fade;
+      shellCover=max(shellCover,facing*band*fade);
+    }
   }
   opacity=max(opacity,glow);
   if(opacity<.001 && shellCover<.001)discard;

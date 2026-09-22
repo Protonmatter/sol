@@ -15,6 +15,9 @@ export const SOLAR_VOLUME_EXTENT = SOLAR_APPEARANCE.geometry.extent_solar_radii;
 // Presentation only. 1 is the admitted gold map used by probes; the live EUV view
 // lifts that map so the quiet disk is a luminous star, not a dim brown one.
 export const SOLAR_EUV_DISPLAY_GAIN = 3;
+// Educational compression: one displayed second stands for two solar hours.
+// Equator then drifts about 14 degrees per 12 displayed seconds.
+export const SOLAR_ACTIVITY_SECONDS_PER_DAY = 12;
 export const SOLAR_SOURCE_UNIX = Date.parse(SOLAR_APPEARANCE.frames[0].observed_at)/1000;
 const DEG = Math.PI/180, RAD_TO_ARCSEC = 180*3600/Math.PI;
 const dot = (a,b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -266,11 +269,69 @@ export function solarQuietBytes(profiles) {
 }
 
 // The manifest keeps 12 source-anchored arches. These quieter ones continue the
-// same circular-arcade emissivity around the star. They are a flow model, not
-// fluid dynamics and not a far-side observation.
+// same circular-arcade emissivity around the star. Their footpoints follow the
+// NASA/NSSDC latitude law, compressed onto the display clock. They are not
+// fluid dynamics, a magnetogram, or a far-side observation.
 const SOLAR_SOURCE_ARCS = SOLAR_APPEARANCE.geometry.loops.length;
 export const SOLAR_ARCADE_COUNT = SOLAR_SOURCE_ARCS+12;
 const GLOBAL_GAIN = 0.42;
+const CME_PERIOD = 22;
+const CME_DURATION = 8;
+// Three tilted bipoles. Trailing footpoint sits at higher latitude, so differential
+// rotation shears the pair. Radii are angular size on the visible photosphere.
+const SOLAR_BIPOLES = [
+  {lat:18*DEG,lon:0.55,dLat:8*DEG,dLon:0.34,radius:0.09},
+  {lat:-20*DEG,lon:2.4,dLat:-7*DEG,dLon:0.30,radius:0.07},
+  {lat:14*DEG,lon:-1.15,dLat:9*DEG,dLon:0.28,radius:0.06},
+];
+
+/** Sidereal degrees per day: 14.37 - 2.33 sin^2 L - 1.56 sin^4 L. */
+export function solarSiderealDegPerDay(latitudeRad) {
+  if(!Number.isFinite(latitudeRad)) throw new TypeError('latitude must be finite');
+  const s2=Math.sin(latitudeRad)**2;
+  return 14.37-2.33*s2-1.56*s2*s2;
+}
+
+function activityDays(seconds) {
+  return (Number.isFinite(seconds)?seconds:0)/SOLAR_ACTIVITY_SECONDS_PER_DAY;
+}
+
+function spunLongitude(lon,lat,seconds) {
+  return lon+solarSiderealDegPerDay(lat)*DEG*activityDays(seconds);
+}
+
+function surfacePoint(lat,lon,northAxis) {
+  const c=Math.cos(lat),s=Math.sin(lat);
+  if(northAxis==='z') return [c*Math.cos(lon),c*Math.sin(lon),s];
+  return [c*Math.cos(lon),s,c*Math.sin(lon)];
+}
+
+export function solarActiveRegions(seconds=0,northAxis='y') {
+  return SOLAR_BIPOLES.map(group=>{
+    const trailLat=group.lat+group.dLat;
+    // Equatorward footpoint leads. It rotates faster, so the pair shears open.
+    const lead=surfacePoint(group.lat,spunLongitude(group.lon+group.dLon,group.lat,seconds),northAxis);
+    const trail=surfacePoint(trailLat,spunLongitude(group.lon,trailLat,seconds),northAxis);
+    return {lead,trail,radius:group.radius};
+  });
+}
+
+export function solarPhotosphereSpots(seconds=0) {
+  return solarActiveRegions(seconds,'z').map(region=>({
+    lead:[...region.lead,region.radius],
+    trail:[...region.trail,region.radius*0.72],
+  }));
+}
+
+export function solarCme(seconds=0) {
+  const idle={progress:0,axis:[0,1,0]};
+  if(!Number.isFinite(seconds)||seconds<0) return idle;
+  const regions=solarActiveRegions(seconds);
+  const axis=regions[0].lead;
+  const t=seconds%CME_PERIOD;
+  if(t>=CME_DURATION) return {progress:0,axis};
+  return {progress:t/CME_DURATION,axis};
+}
 
 function arcadeTangent(normal,angle) {
   const north=[0,1,0];
@@ -283,33 +344,38 @@ function arcadeTangent(normal,angle) {
   return tangent.map((value,axis)=>value*c+binormal[axis]*s);
 }
 
-let globalLoops;
-/** Six footpoints, two strands each, including the far hemisphere. */
-export function solarGlobalLoops() {
-  if(globalLoops) return globalLoops;
-  const feet=[];
-  for(let i=0;i<4;i++) {
-    const lon=i*Math.PI/2+.4;
-    feet.push([Math.cos(lon),0,Math.sin(lon)]);
-  }
-  for(const lat of [.85,-.85]) feet.push([Math.cos(lat),Math.sin(lat),0]);
+function leanTangent(foot,toward) {
+  const horiz=toward.map((value,axis)=>value-foot[axis]*dot(toward,foot));
+  const span=length(horiz);
+  if(span<1e-4) return arcadeTangent(foot,0.35);
+  return scale(horiz,1/span);
+}
+
+/** Three bipolar pairs, two strands on each footpoint. Time shears and rotates them. */
+export function solarGlobalLoops(seconds=0) {
+  const rise=solarCme(seconds).progress;
   const loops=[];
-  feet.forEach((normal,i)=>{
-    const tangent=arcadeTangent(normal,(20+27*i)*DEG);
-    for(let strand=0;strand<2;strand++) {
-      loops.push({normal,tangent,radius:.16+.05*strand,width:.01+.002*strand,gain:GLOBAL_GAIN,
-        phaseOffset:(SOLAR_SOURCE_ARCS+loops.length)*.47,role:'whole-sphere-model'});
-    }
+  solarActiveRegions(seconds).forEach((region,regionIndex)=>{
+    [region.lead,region.trail].forEach((foot,footIndex)=>{
+      const toward=footIndex===0?region.trail:region.lead;
+      const tangent=leanTangent(foot,toward);
+      for(let strand=0;strand<2;strand++) {
+        const opening=regionIndex===0?rise*0.12:0;
+        loops.push({normal:foot,tangent,radius:.16+.05*strand+opening,width:.01+.002*strand,gain:GLOBAL_GAIN,
+          phaseOffset:(SOLAR_SOURCE_ARCS+loops.length)*.47,role:'whole-sphere-model'});
+      }
+    });
   });
-  globalLoops=loops;
-  return globalLoops;
+  if(loops.length!==12) throw new RangeError('whole-sphere arcade must stay at 12');
+  return loops;
 }
 
 /** Packed immutable-reference uniforms; viewport/camera matrices are supplied by the caller. */
 export function solarRenderUniforms(seconds=0,options={}) {
   const frame0=solarFrameUniforms(SOLAR_APPEARANCE.frames[0]),frame1=solarFrameUniforms(SOLAR_APPEARANCE.frames[1]);
   const playback=solarPlayback(seconds,options);
-  const loops=[...SOLAR_APPEARANCE.geometry.loops,...solarGlobalLoops()];
+  const activitySeconds=options.flowSeconds??0;
+  const loops=[...SOLAR_APPEARANCE.geometry.loops,...solarGlobalLoops(activitySeconds)];
   if(loops.length!==SOLAR_ARCADE_COUNT) throw new RangeError('solar arcade count left the shader contract');
   const loopNormal=[],loopTangent=[];
   for(const loop of loops) {
@@ -321,5 +387,5 @@ export function solarRenderUniforms(seconds=0,options={}) {
     sourceBasis0:frame0.basis,sourceBasis1:frame1.basis,
     projection0:frame0.projection,projection1:frame1.projection,
     observerRadii:[frame0.observerRadius,frame1.observerRadius],
-    loopNormal,loopTangent,loopGain:loops.map(loop=>loop.gain),playback};
+    loopNormal,loopTangent,loopGain:loops.map(loop=>loop.gain),playback,cme:solarCme(activitySeconds)};
 }

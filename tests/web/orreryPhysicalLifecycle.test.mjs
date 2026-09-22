@@ -232,7 +232,7 @@ for(const route of ['orreryGalaxy','orreryLocal','orreryTextures','orreryAnchor'
     else h.event(route,'click');
     assert.equal(h.state.solarPlayback.playing,false);assert.equal(h.nodes.orrerySolarPlay.textContent,'Play source');
     if(h.frames.size)h.frame(100);
-    const coronaFlow=route==='orrerySolarTime'||route==='orrerySolarRestart';
+    const coronaFlow=route==='orrerySolarTime'||route==='orrerySolarRestart'||route==='orrerySolarMode';
     assert.equal(h.frames.size,coronaFlow?1:0,coronaFlow?'the EUV flow clock stays armed after source scrubbing':'leaving the EUV Sun stops the flow clock');
     if(coronaFlow){
       const unix=h.state.renderUnix;

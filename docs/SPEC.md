@@ -105,7 +105,12 @@ the observed face. Twelve quieter arches continue around the whole star, and the
 brightness travels while that view is showing. The live EUV view lifts the gold map
 and adds a breathing limb glow so the star stays luminous; a shared pulse also
 raises and lowers that glow so arches which would otherwise sit fully bright still
-change. Neither is calibrated radiance. Reduced motion holds the flow at zero.
+change. Three educational bipoles use the NSSDC latitude law
+(14.37 - 2.33 sin^2 L - 1.56 sin^4 L) deg/day, with one displayed second standing
+for two solar hours, so the higher-latitude footpoint lags. About every 22 displayed
+seconds one pair opens and a front leaves the star; that front is not a measured CME.
+The visible-light approximation draws convective cells and the same spot groups.
+Neither layer is calibrated radiance, MHD, or a magnetogram. Reduced motion holds the flow at zero.
 Neither set is fluid dynamics, PFSS, or MHD, and neither paints far-side active regions.
 The unobserved hemisphere uses the observed disk's radial median and does not receive
 invented structure. The visible-light

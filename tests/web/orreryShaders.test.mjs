@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { SPHERE_FS } from "../../apps/web/js/orreryShaders.js";
 
 test("unqualified Sun surface has an explicit neutral branch before generated spots", () => {
-  assert.match(SPHERE_FS, /if\(u_style<0\)\{[^}]*u_base[^}]*return;/);
-  assert.ok(SPHERE_FS.indexOf('if(u_style<0)') < SPHERE_FS.indexOf('float spot='));
+  assert.match(SPHERE_FS, /u_base\*\(0\.72\+0\.28\*limb\)/);
+  assert.match(SPHERE_FS, /u_activity>0\.5/);
+  assert.ok(SPHERE_FS.indexOf('if(u_style<0)') < SPHERE_FS.indexOf('float spot=1.0-smoothstep'));
 });
 
 test("Sun shader preserves HMI intensity without presenting its orange browse palette as natural colour", () => {
