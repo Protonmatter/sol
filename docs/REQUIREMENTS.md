@@ -67,3 +67,28 @@ Review starts at the requirement, follows its source to the intended behavior, f
 implementation paths to the code, and then follows verification and CI gates to executable
 evidence. A path existing is necessary but not sufficient: reviewers still inspect whether
 the test proves the statement and whether exceptions are visible.
+
+## Dynamic Sun candidate
+
+The SUN entries remain planned until their complete qualification and merge gates pass; local implementation and available evidence are recorded in [the guide](DYNAMIC_SUN.md).
+
+| ID | Acceptance requirement |
+| --- | --- |
+| `SOL-SUN-001` | The dynamic Sun MUST satisfy: Illustrative 3-D coverage is continuous through a full orbit and at both poles; there is no unexplained smooth hemisphere or duplicated observational active region. |
+| `SOL-SUN-002` | The dynamic Sun MUST satisfy: Observed/source, illustrative/model and legacy reference are visibly distinct; original observation timestamps and coverage remain intact. |
+| `SOL-SUN-003` | The dynamic Sun MUST satisfy: Visible and EUV modes use different physically justified image formation; photospheric granulation is not passed off as measured EUV structure. |
+| `SOL-SUN-004` | The dynamic Sun MUST satisfy: A single modeled scenario clock and coordinate contract control related surface, field and atmosphere features; acquisition and orbital clocks remain separately labeled. |
+| `SOL-SUN-005` | The dynamic Sun MUST satisfy: Local disk structure evolves beyond camera motion, rigid rotation and uniform brightness change; the motion is measurable only where its scale and selected time rate make it resolvable. |
+| `SOL-SUN-006` | The dynamic Sun MUST satisfy: Coronal structures have localized intensity/shape evolution and field-related topology; no mandatory global pulse or repetitive eruption substitutes for it. |
+| `SOL-SUN-007` | The dynamic Sun MUST satisfy: The photosphere occludes background and rear atmosphere correctly; foreground cool material can absorb where its recipe allows; volume bounds do not create a solid shell. |
+| `SOL-SUN-008` | The dynamic Sun MUST satisfy: Source data is immutable, hash-bound, channel/epoch/quality-aware, and kept separate from model assumptions and display LUTs. |
+| `SOL-SUN-009` | The dynamic Sun MUST satisfy: Identical seed, scenario and target time give reproducible descriptors, independent of frame rate, seek history and scheduling; floating-point portability uses stated tolerances. |
+| `SOL-SUN-010` | The dynamic Sun MUST satisfy: Fine-detail visibility and temporal filtering depend on physical projected scale; enlargement or time averaging is disclosed. |
+| `SOL-SUN-011` | The dynamic Sun MUST satisfy: Pause, explicit scrub, rate change, sequence end, mode switch, reduced motion and background resume have defined tested behavior. |
+| `SOL-SUN-012` | The dynamic Sun MUST satisfy: Shader, worker, asset, resize and context-loss failure retain a truthful usable state without stale cross-generation publication or leaked GPU resources. |
+| `SOL-SUN-013` | The dynamic Sun MUST satisfy: Performance and memory admission meet the proposed device-tier budgets in design-review; measurements identify real hardware and feature set. |
+| `SOL-SUN-014` | The dynamic Sun MUST satisfy: Linear composition, exposure, tone mapping, source-intensity normalization, palette and bloom are individually testable; measurements never use post-bloom RGB as plasma data. |
+| `SOL-SUN-015` | The dynamic Sun MUST satisfy: Blender and browser consume matched scene inputs; numerical transfer comparison uses linear, bloom-free outputs and separate scientific observation references. |
+| `SOL-SUN-016` | The dynamic Sun MUST satisfy: Interior/layer controls preserve the distinction between an educational cutaway and an external observation; no transparent external photosphere exposes interior structure by accident. |
+| `SOL-SUN-017` | The dynamic Sun MUST satisfy: Existing snapshot, WASM, ephemeris, sky, planetary appearance, accessibility and release identity contracts remain compatible; v1 legacy references remain readable. |
+| `SOL-SUN-018` | The dynamic Sun MUST satisfy: All new renderer components, scenario data and offline recipes enter the existing immutable build manifest and qualification process; a rollback switches the whole compatible bundle. |

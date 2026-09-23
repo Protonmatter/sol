@@ -13,8 +13,9 @@ const repaint = h => {
 
 test('the Sun draws in visible light when it is context, and EUV only as the subject', async t => {
   const h = await orreryHarness(t, {controls: true, catalogues: 'ready', reducedMotion: true, solarAtlas: true});
+  h.state.solarMode='reconstructed-euv'; // This regression specifically exercises the retained legacy reference.
   await h.enterOrrery(); await h.settleCatalogues(); h.setAnimate(false);
-  assert.equal(h.state.solarMode, 'reconstructed-euv', 'EUV stays the default science mode');
+  assert.equal(h.state.solarMode, 'reconstructed-euv', 'legacy EUV remains explicitly selectable');
 
   // Inspecting loads the atlas and makes the Sun the subject.
   h.event('orreryInspectSun', 'click'); await h.settleCatalogues();

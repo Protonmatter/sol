@@ -37,6 +37,10 @@ import {createScatteringTargets} from './scatteringTargets.js';
 import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,SOLAR_EUV_DISPLAY_GAIN,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes,solarPhotosphereSpots,solarActivityDays} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
+import {createSolarDynamicRenderer} from './solarDynamicRenderer.js';
+import {solarDynamicBundles} from './solarDynamicManifest.js';
+import {createSolarDynamicClock,transitionSolarClock} from './solarDynamicClock.js';
+import {buildSunCutaway} from './sunlayers.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
 import { layoutLabels } from "./labelLayout.js?v=dcca6290df";
@@ -165,7 +169,10 @@ const state = (store.orrery = {
   programStatus:{base:'deferred',physical:'deferred'},programDiagnostics:{},
   // Qualification candidate only; default enablement requires integrated/native gates.
   hdrEnabled:false, hdrStatus:{state:'deferred',reason:'HDR candidate disabled.'}, hdrFrame:null,
-  solarMode:'reconstructed-euv', solarStatus:'deferred', solarInspection:false, solarPlayback:{seconds:0,duration:20,playing:false},
+  solarMode:'dynamic-euv', solarStatus:'deferred', solarInspection:false, solarPlayback:{seconds:0,duration:20,playing:false},
+  solarDynamicClock:createSolarDynamicClock(),solarDynamicScenario:'active-v1',solarDynamicQuality:'low',
+  solarDynamicStatus:/** @type {any} */({state:'deferred',reason:'Select the illustrative Sun.'}),
+  solarDynamicStarted:false,solarDynamicCorona:true,solarDynamicDiffuse:true,solarDynamicBundles:true,solarDynamicCool:false,solarDynamicEventStart:null,solarDynamicExposure:0,
   showSmall: false, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   moonGuideMode: "context", // advanced callers may explicitly choose all or off
   showMoons: true, // the 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune
@@ -213,6 +220,7 @@ let terrainDetails=null,terrainDemand={};
 let incidentFields=null,incidentDemand='';
 let retryTerrainFailures=false;
 let solarDetail=null,solarRotation=null;
+let solarDynamicRenderer=null;
 let phenomenonBody='',disposePhenomena=()=>{};
 let ringShadowTex = {}; // per-planet 1-D radial ring-opacity profiles for the ring-shadow lookup
 let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3-D Sun's surface
@@ -408,7 +416,7 @@ function updatePhysicalAppearance() {
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
-  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. The observed face stays those frames. Arches rooted in three tilted pairs drift with a compressed differential-rotation clock, and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved disk keeps the observed radial brightness.`:'Visible-light approximation. A compressed educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not an HMI observation.');
+  if(body==='Sun')notes.push(solarDynamicMode()?dynamicSolarDescription():solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. The observed face stays those frames. Arches rooted in three tilted pairs drift with a compressed differential-rotation clock, and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved disk keeps the observed radial brightness.`:'Visible-light approximation. A compressed educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not an HMI observation.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
@@ -419,10 +427,66 @@ function updatePhysicalAppearance() {
 function syncSolarPlaybackControls() {
   const body=state.selected||state.anchor,playbackAvailable=solarPlaybackAvailable();
   if(!playbackAvailable)state.solarPlayback.playing=false;
-  const controls=document.getElementById('orrerySolarControls');if(controls)controls.hidden=body!=='Sun'||!!state.selectedStar||state.galaxy||!state.active;
+  const controls=document.getElementById('orrerySolarControls');if(controls)controls.hidden=body!=='Sun'||!solarSubject()||!!state.selectedStar||state.galaxy||!state.active;
+  document.body?.setAttribute('data-solar-inspection',String(!!controls&&!controls.hidden));
   const play=/** @type {HTMLButtonElement|null} */(document.getElementById('orrerySolarPlay'));if(play){play.textContent=state.solarPlayback.playing?'Pause source':'Play source';play.setAttribute('aria-pressed',String(state.solarPlayback.playing));play.disabled=!playbackAvailable;}
   const range=/** @type {HTMLInputElement|null} */(document.getElementById('orrerySolarTime'));if(range)range.value=String(state.solarPlayback.seconds);
   const epoch=document.getElementById('orrerySolarEpoch');if(epoch)epoch.textContent=solarPlayback(state.solarPlayback.seconds).sourceTime.replace('T',' ').replace('Z',' UTC');
+  const mode=/** @type {HTMLSelectElement|null} */(document.getElementById('orrerySolarMode'));if(mode)mode.value=state.solarMode;
+  const legacy=document.getElementById('orrerySolarLegacy');if(legacy)legacy.hidden=solarDynamicMode();
+  const dynamic=document.getElementById('solarDynamicControls');if(dynamic)dynamic.hidden=!solarDynamicMode();
+  const clock=state.solarDynamicClock,ready=state.solarDynamicStatus.state==='ready';
+  const dynamicPlay=/** @type {HTMLButtonElement|null} */(document.getElementById('solarDynamicPlay'));
+  if(dynamicPlay){dynamicPlay.textContent=clock.playing?'Pause':clock.reason==='ended'?'Replay':'Play';dynamicPlay.disabled=!ready;dynamicPlay.setAttribute('aria-pressed',String(clock.playing));}
+  const dynamicRange=/** @type {HTMLInputElement|null} */(document.getElementById('solarDynamicTime'));
+  if(dynamicRange){dynamicRange.value=String(clock.seconds);dynamicRange.disabled=!ready;}
+  const dynamicTime=document.getElementById('solarDynamicTimeLabel');
+  if(dynamicTime)dynamicTime.textContent=`${Math.floor(clock.seconds/3600).toString().padStart(2,'0')}:${Math.floor(clock.seconds/60%60).toString().padStart(2,'0')}:${Math.floor(clock.seconds%60).toString().padStart(2,'0')} model time · ${clock.rate}× · ${clock.reason}`;
+  const dynamicStatus=document.getElementById('solarDynamicStatus');
+  if(dynamicStatus)dynamicStatus.textContent=dynamicSolarDescription();
+}
+
+function solarDynamicMode(){return state.solarMode==='dynamic-euv'||state.solarMode==='dynamic-visible';}
+function solarDynamicActive(){return solarDynamicMode()&&state.solarInspection&&solarSubject()&&!state.galaxy;}
+function dynamicSolarDescription(){
+  const channel=state.solarMode==='dynamic-visible'?'Visible photosphere':'171 Å style · assigned gold';
+  const label=`Illustrative 3-D · ${channel} · ${state.solarDynamicScenario==='active-v1'?'active':'quiet'} scenario.`;
+  return !state.solarInspection?`${label} Choose The Sun to inspect the complete model.`
+    :state.solarDynamicStatus.state==='ready'?`${label} Full-sphere statistical texture and potential-field corona. Relative emission; no measured far side, magnetogram or plasma simulation.`
+      :`${label} ${state.solarDynamicStatus.reason||'Loading model fields.'} Simplified photosphere retained until ready.`;
+}
+function dynamicClockAction(event){
+  state.solarDynamicClock=transitionSolarClock(state.solarDynamicClock,event,performance.now()/1000);
+  syncSolarPlaybackControls();
+}
+function initDynamicSun(){
+  if(solarDynamicRenderer||!gl)return;
+  const context=gl;
+  const owner=createSolarDynamicRenderer(context,{generation:programContextGeneration,onChange:status=>{
+    queueMicrotask(()=>{
+      if(gl!==context||solarDynamicRenderer!==owner)return;
+      state.solarDynamicStatus=status;
+      if(status.state!=='ready'&&state.solarDynamicClock.playing)dynamicClockAction({type:status.state==='loading'?'loading':'pause'});
+      if(status.state==='ready'&&state.solarDynamicClock.reason==='loading'&&!prefersReducedMotion())dynamicClockAction({type:'play'});
+      syncSolarPlaybackControls();if(state.active&&!document.hidden){paint();startLoop();}
+    });
+  }});
+  solarDynamicRenderer=owner;
+}
+function drawSolarDynamic(vp,eye,pos,radius,pixels,pass){
+  if(!solarDynamicActive())return false;
+  initDynamicSun();if(!solarDynamicRenderer)return false;
+  const record=solarDynamicBundles[state.solarDynamicScenario];
+  void solarDynamicRenderer.ensure(record,{quality:state.solarDynamicQuality});
+  const seconds=state.solarDynamicClock.seconds;
+  // The complete Carrington frame rotates once; shaders apply only its relative
+  // latitude-dependent drift. IAU +Z supplies the real pole, not projected image north.
+  const rotation=iauRotation(BODY.Sun,SOLAR_SOURCE_UNIX+seconds);
+  const model=mul(translate(pos),mul(rotation,scaleM([radius,radius,radius])));
+  return solarDynamicRenderer.draw({mvp:mul(vp,model),camera:physicalCameraPosition(eye,pos,rotation,radius,1),seconds,pass,
+    channel:state.solarMode==='dynamic-visible'?'visible':'euv',pixelDiameter:pixels,rate:state.solarDynamicClock.rate,
+    linearOutput:linearFrame,showCorona:state.solarDynamicCorona,showDiffuse:state.solarDynamicDiffuse,showBundles:state.solarDynamicBundles,coolEnabled:state.solarDynamicCool,exposure:2**state.solarDynamicExposure,
+    eventSeconds:state.solarDynamicEventStart===null?-1:seconds-state.solarDynamicEventStart,bindMesh:()=>bindBodyMesh(),count:sphere.count});
 }
 
 // Reconstructed EUV is a science view of the Sun as the subject: it applies while the
@@ -1479,7 +1543,7 @@ function beginSceneFrame(width,height){
   // cause until explicit demand/optics retry, without retrying on every repaint.
   state.scatteringStatus=Object.fromEntries(Object.entries(state.scatteringStatus).filter(([,status])=>status.preparationFailed===true));
   scatteringTargets?.beginFrame(scatteringFrame);
-  if(!state.hdrEnabled||state.earthIce){
+  if((!state.hdrEnabled||state.earthIce)&&!solarDynamicActive()){
     hdrPresentation?.dispose();hdrPresentation=null;
     state.hdrStatus={state:'deferred',reason:state.earthIce?'Scientific palette selected; SDR composition preserved.':'HDR candidate disabled.'};
   }else{
@@ -1582,7 +1646,7 @@ function sceneClearColor(r,g,b){
 }
 function finishSceneFrame(){
   if(!linearFrame)return;
-  if(!hdrPresentation.present({exposure:1,frameIdentity:state.hdrFrame})){
+  if(!hdrPresentation.present({exposure:solarDynamicActive()?2**state.solarDynamicExposure:1,frameIdentity:state.hdrFrame})){
     // A rejected producer never leaves an offscreen-only frame visible. Release
     // this owner and render the existing SDR route once; no per-paint retry loop.
     // Keep its failure until owner replacement; dispose reports only cleanup.
@@ -1956,6 +2020,13 @@ function drawBody(b, vp, eye) {
   const rEq = displayRadiusAU(b.name), rPol = rEq * (phys.polarKm / phys.radiusKm);
   const pixelDiameter=referencePixelDiameter(pos,rEq,vp,referenceViewport);
   referenceVisible.set(b.name,pixelDiameter);
+  if(b.name==='Sun'&&drawSolarDynamic(vp,eye,pos,rEq,pixelDiameter,1)){
+    queueTransparent(pos,eye,()=>{
+      gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask(false);
+      drawSolarDynamic(vp,eye,pos,rEq,pixelDiameter,2);
+      gl.depthMask(true);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    });return;
+  }
   if(b.name==='Sun'&&drawSolarReference(vp,eye,pos,rEq,pixelDiameter,1)){
     queueTransparent(pos,eye,()=>{
       gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask(false);
@@ -2339,6 +2410,7 @@ function drawRing(name, phys, pos, rEq, rot, vp) {
 }
 
 function drawSun(vp, eye, w, h) {
+  if(solarDynamicActive()&&state.solarDynamicStatus.state==='ready')return;
   if(solarEuvActive()&&state.useTextures&&solarDetail?.get('reference'))return;
   const rSun = displayRadiusAU("Sun");
   // corona: a camera-facing additive glow quad
@@ -2507,7 +2579,7 @@ function updateLabels(canvas, vp, skyVp) {
         : displayRadiusAU(name) * Math.min(1, phys.polarKm / phys.radiusKm);
       const disc = projectOpaqueDisc({id:name,position:p,radius:discRadius}, vp, {width:cw,height:ch});
       if (disc) discs.push(disc);
-      items.push({ name, p, cls: "orrery-label" });
+      if(!(name==='Sun'&&state.solarInspection))items.push({ name, p, cls: "orrery-label" });
     }
     if (state.showSmall&&!state.solarInspection) {
       for (const s of smallBodies) items.push({ name: s.name, p: s.pos, cls: s.kind === "probe" ? "orrery-label sky-pulsar" : "orrery-label sky-galaxy" });
@@ -2683,6 +2755,12 @@ function tick(now) {
   state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion:prefersReducedMotion()});
   // Wall time, not the 50ms simulation cap. A slow frame should still move the corona.
   if(solarFlowActive())solarFlowSeconds+=Math.min(1,rawDt);
+  if(!solarDynamicActive()&&state.solarDynamicClock.playing)dynamicClockAction({type:'background'});
+  if(solarDynamicActive()&&state.solarDynamicStatus.state==='ready'){
+    if(prefersReducedMotion()&&state.solarDynamicClock.playing)dynamicClockAction({type:'reduced-motion'});
+    else state.solarDynamicClock=transitionSolarClock(state.solarDynamicClock,{type:'tick'},performance.now()/1000);
+    syncSolarPlaybackControls();
+  }
   const moonNoteBefore = state.moonsHiddenReason;
   paint();
   if (state.moonsHiddenReason !== moonNoteBefore || state.spinLimitedCount !== spinBefore) updateOrreryAccuracy();
@@ -2691,7 +2769,7 @@ function tick(now) {
   // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
   // The EUV corona flow is the exception: it moves while that Sun is showing and does not
   // advance orbital time. Reduced motion holds the flow and returns to idle.
-  if (state.animate || state.freeFly || (state.solarPlayback.playing&&solarPlaybackAvailable()) || solarFlowActive()) {
+  if (state.animate || state.freeFly || (state.solarPlayback.playing&&solarPlaybackAvailable()) || solarFlowActive() || (solarDynamicActive()&&state.solarDynamicClock.playing)) {
     rafId = requestAnimationFrame(tick);
   } else {
     rafId = 0;
@@ -2712,7 +2790,7 @@ function solarFlowActive() {
   if(state.solarMode==='visible') return true;
   return solarPlaybackAvailable();
 }
-function armSolarFlow() { if(solarFlowActive())startLoop(); }
+function armSolarFlow() { if(solarFlowActive()||(solarDynamicActive()&&state.solarDynamicClock.playing))startLoop(); }
 
 // Integrate free-fly movement from held keys (WASD = move, Q/E or R/F = down/up, Shift = boost).
 function flyStep(dt) {
@@ -2740,7 +2818,7 @@ function flyStep(dt) {
 function planetGlobeExtent(name) {
   const body = BODY[name];
   if (!body) return null;
-  return displayRadiusAU(name) * Math.max(name === "Sun" ? 1.35 : 1,
+  return displayRadiusAU(name) * Math.max(name === "Sun" ? (solarDynamicActive()?2.5:1.35) : 1,
     1 + (getAtmosphereProfile(name)?.topKm || 0) / body.radiusKm,
     (body.rings?.outerKm || body.radiusKm) / body.radiusKm,
     (terrainExtentKm(name)?.maxRadiusKm || body.radiusKm) / body.radiusKm);
@@ -2795,6 +2873,7 @@ function anchorNearExtent() {
 }
 
 function setAnchor(name) {
+  if(state.solarInspection)dynamicClockAction({type:'pause'});
   state.anchor = name;
   state.solarInspection=false;
   if(name!=='Sun')state.solarPlayback.playing=false;
@@ -2845,13 +2924,16 @@ function inspectSun() {
     const input=/** @type {HTMLInputElement|null} */(document.getElementById(id));if(input)input.checked=false;
   }
   state.solarInspection=true;
+  if(solarDynamicMode()&&!state.solarDynamicStarted){
+    state.solarDynamicStarted=true;dynamicClockAction({type:prefersReducedMotion()?'reduced-motion':'loading'});
+  }
   const rot=sourceSolarRotation(),canvas=document.getElementById('orreryCanvas');
   state.az=Math.atan2(rot[9],rot[8]);state.el=Math.asin(rot[10]);
   state.radius=fitOrbitDistance(anchorDisplayExtent(),Math.max(1,canvas?.clientWidth||1)/Math.max(1,canvas?.clientHeight||1),FOVY,0);
   orbitFocusFit={anchor:'Sun',distance:state.radius};
-  // A deliberate camera-only zoom keeps the complete 1.35 R_sun envelope in frame.
-  // Retain the standard fit above so resize reconciliation preserves this zoom ratio.
-  state.radius*=.84;
+  // The dynamic model fits its complete 2.5 R_sun corona. Legacy inspection
+  // retains its prior camera-only zoom and resize reconciliation ratio.
+  if(!solarDynamicMode())state.radius*=.84;
   const anchor=/** @type {HTMLSelectElement|null} */(document.getElementById('orreryAnchor'));if(anchor)anchor.value='Sun';
   showDetail('Sun');paint();armSolarFlow();
 }
@@ -3051,6 +3133,8 @@ async function enterOrreryInner() {
 }
 export function leaveOrrery() {
   state.active = false;
+  dynamicClockAction({type:'background'});solarDynamicRenderer?.dispose();solarDynamicRenderer=null;
+  state.solarDynamicStatus={state:'deferred',reason:'View inactive.'};
   cancelPendingPrograms();
   hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
   scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
@@ -3099,6 +3183,7 @@ async function showFallback(msg) {
     updateOrreryAccuracy();
   });
   document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){dynamicClockAction({type:'background'});solarDynamicRenderer?.suspend();}
     syncIncidentDemand();
     state.keys.clear(); state.lastTick=0;
     if (document.hidden) { if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelPendingPrograms();cancelSystemWork(); }
@@ -3131,7 +3216,7 @@ async function showFallback(msg) {
   }
   const clampR = (r) => {
     const extent = !state.galaxy && state.anchor !== "Sun" ? anchorNearExtent() : null;
-    const minimum = extent ? minimumOrbitDistance(extent, Math.hypot(...anchorPos())) : .6;
+    const minimum = solarDynamicActive()?Math.max(.001,displayRadiusAU('Sun')*1.015):extent ? minimumOrbitDistance(extent, Math.hypot(...anchorPos())) : .6;
     return Math.max(minimum, Math.min(160, r));
   };
   const pointers = new Map(); let lx = 0, ly = 0, pinch = 0, downX = 0, downY = 0, moved = false;
@@ -3333,9 +3418,41 @@ async function showFallback(msg) {
   // Choosing a mode is a request to see the Sun that way, so it makes the Sun the
   // subject rather than leaving a control that appears to do nothing. The camera is
   // left alone: this selects the body, it does not reframe the view like Inspect.
-  bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;
+  bind('orrerySolarMode','change',e=>{
+    const mode=inputTarget(e).value;if(!['dynamic-euv','dynamic-visible','reconstructed-euv','visible'].includes(mode))return;
+    state.solarMode=mode;state.solarPlayback.playing=false;
+    if(solarDynamicMode()&&!state.solarInspection)inspectSun();
+    else if(!solarDynamicMode())dynamicClockAction({type:'pause'});
     if(state.anchor==='Sun'&&!solarSubject()&&!state.galaxy&&!state.selectedStar){state.selected='Sun';showDetail('Sun');}
     syncSolarPlaybackControls();paint();armSolarFlow();window.dispatchEvent(new Event('sol:presentation'));});
+  bind('solarDynamicPlay','click',()=>{
+    if(state.solarDynamicStatus.state!=='ready')return;
+    dynamicClockAction({type:state.solarDynamicClock.playing?'pause':state.solarDynamicClock.reason==='ended'?'replay':'play'});paint();armSolarFlow();
+  });
+  bind('solarDynamicTime','input',e=>{dynamicClockAction({type:'seek',seconds:Number(inputTarget(e).value)});paint();});
+  bind('solarDynamicRate','change',e=>{dynamicClockAction({type:'rate',rate:Number(inputTarget(e).value)});paint();});
+  bind('solarDynamicRestart','click',()=>{
+    dynamicClockAction({type:'seek',seconds:0});state.solarDynamicEventStart=null;
+    solarDynamicRenderer?.retry();paint();
+  });
+  const dynamicSelectors=/** @type {[string,string,string[]][]} */([['solarDynamicScenario','solarDynamicScenario',['quiet-v1','active-v1']],['solarDynamicQuality','solarDynamicQuality',['low','standard']]]);
+  for(const [id,key,allowed] of dynamicSelectors){
+    bind(id,'change',e=>{
+      const value=inputTarget(e).value;if(!allowed.includes(value))return;
+      state[key]=value;dynamicClockAction({type:state.solarDynamicClock.playing?'loading':'pause'});
+      solarDynamicRenderer?.dispose();solarDynamicRenderer=null;state.solarDynamicStatus={state:'loading',reason:'Preparing model variant.'};paint();
+    });
+  }
+  bind('solarDynamicCorona','change',e=>{state.solarDynamicCorona=inputTarget(e).checked;paint();});
+  bind('solarDynamicDiffuse','change',e=>{state.solarDynamicDiffuse=inputTarget(e).checked;paint();});
+  bind('solarDynamicBundles','change',e=>{state.solarDynamicBundles=inputTarget(e).checked;paint();});
+  bind('solarDynamicCool','change',e=>{state.solarDynamicCool=inputTarget(e).checked;paint();});
+  bind('solarDynamicExposure','change',e=>{const value=Number(inputTarget(e).value);if([0,-2,-4].includes(value)){state.solarDynamicExposure=value;paint();}});
+  bind('solarDynamicEruption','click',()=>{state.solarDynamicEventStart=state.solarDynamicClock.seconds;dynamicClockAction({type:'play'});paint();armSolarFlow();});
+  bind('solarDynamicWhole','click',inspectSun);
+  bind('solarDynamicCloseup','click',()=>{if(!solarDynamicActive())return;state.radius=displayRadiusAU('Sun')*1.07;state.solarMode='dynamic-visible';syncSolarPlaybackControls();paint();});
+  bind('solarObservedLink','click',()=>{/** @type {HTMLElement|null} */(document.querySelector('.mode-button[data-mode="today"]'))?.click();document.getElementById('exploreObservation')?.click();});
+  buildSunCutaway('solarDynamicCutaway');
   bind('orrerySolarPlay','click',()=>{
     if(!solarPlaybackAvailable())return;
     if(state.solarPlayback.seconds>=state.solarPlayback.duration)state.solarPlayback.seconds=0;
@@ -3423,6 +3540,8 @@ async function showFallback(msg) {
     terrainDetails?.dispose();terrainDetails=null;terrainDemand={};state.terrainStatus={};
     incidentFields?.dispose();incidentFields=null;incidentDemand='';state.opticsStatus={};
     solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
+    dynamicClockAction({type:'background'});solarDynamicRenderer?.dispose();solarDynamicRenderer=null;
+    state.solarDynamicStatus={state:'unavailable',reason:'Graphics context lost.'};
     shaderPrograms?.dispose();shaderPrograms=null;state.programStatus={base:'deferred',physical:'deferred'};
     scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
     hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;

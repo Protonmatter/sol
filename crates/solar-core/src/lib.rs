@@ -6,6 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 pub mod active_region;
+pub mod appearance;
 pub mod assimilation;
 pub mod constants;
 pub mod contracts;

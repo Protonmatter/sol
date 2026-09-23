@@ -393,6 +393,15 @@ jobs:
       - name: Static source validation
         run: python tools/validate_web_static.py
 
+      - name: Solar depth and transfer GPU regressions
+        shell: bash
+        run: |
+          export CHROME_BIN="$(command -v google-chrome)"
+          test -n "$CHROME_BIN"
+          node tools/solar_depth_gpu_validation.mjs
+          node tools/solar_strand_gpu_validation.mjs
+          node tools/solar_cool_gpu_validation.mjs
+
   coverage:
     name: Coverage
     needs: artifact

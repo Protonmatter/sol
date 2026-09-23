@@ -1979,3 +1979,32 @@ body:not([data-surface="today"]) .control-panel { padding: 1.3rem; background: #
   .system-jumps { inset: .6rem auto auto .6rem; max-width: calc(100% - 1.2rem); gap: .3rem; }
   .system-jumps button { font-size: .67rem; padding: .45rem .6rem; }
 }
+
+/* Sun playback stays beside its pixels, including narrow touch displays. */
+.solar-inspection-controls { grid-area: 2 / 1; position: relative; z-index: 5; padding: .9rem 1.1rem; background: #0b131d; border-top: 1px solid #33414f; color: #d7e0e8; font-size: .78rem; }
+body[data-surface="orrery"][data-solar-inspection="true"] .viewport { grid-template-rows: max(32rem, calc(100dvh - 18rem)) auto auto; }
+body[data-surface="orrery"][data-solar-inspection="true"] .destination-caption { grid-area: 3 / 1; }
+.solar-control-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .55rem; }
+.solar-control-row label { color: #b9c9d6; }
+.solar-control-row select { width: auto; max-width: 100%; min-height: 44px; flex: 1 1 8rem; }
+.solar-inspection-controls button, .solar-inspection-controls summary { min-height: 44px; }
+.solar-inspection-controls summary { cursor: pointer; display: flex; align-items: center; color: #ead4aa; }
+.solar-inspection-controls input[type="range"] { display: block; width: 100%; min-height: 32px; accent-color: #f0ba5a; }
+.solar-inspection-controls output { display: block; color: #f3d7a1; font-variant-numeric: tabular-nums; margin: .3rem 0 .6rem; }
+.solar-inspection-controls p { line-height: 1.5; color: #aebdca; margin: .5rem 0; }
+.solar-checkbox { display: flex; align-items: center; gap: .6rem; min-height: 44px; }
+.solar-inspection-controls details { border-top: 1px solid #293744; }
+#observationSequenceCanvas { display: block; width: 100%; height: 100%; object-fit: contain; }
+.observation-sequence-controls { margin: .6rem 0; padding: .65rem; border: 1px solid #334453; border-radius: .4rem; }
+.observation-sequence-controls label, .observation-sequence-controls output { display: block; margin: .35rem 0; font-size: .72rem; color: #c3d0db; }
+.observation-sequence-controls input[type="range"] { width: 100%; min-height: 32px; accent-color: #e1b76b; }
+.observation-sequence-controls p { font-size: .69rem; line-height: 1.5; color: #aebfce; }
+.explorer-overview:has(.observation-sequence-controls:not([hidden])) { max-height: calc(100% - 6rem); overflow-y: auto; }
+#solarDynamicCutaway { max-width: 40rem; margin: .5rem auto; }
+#solarDynamicCutaway svg { width: 100%; height: auto; }
+@media (max-width: 520px) {
+  body[data-surface="orrery"][data-solar-inspection="true"] .viewport { grid-template-rows: 25rem auto auto; }
+  .solar-inspection-controls { padding: .7rem .8rem; }
+  .solar-control-row button { flex: 1 1 auto; }
+  .explorer-overview:has(.observation-sequence-controls:not([hidden])) { max-height: none; overflow: visible; }
+}

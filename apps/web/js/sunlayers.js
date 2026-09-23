@@ -61,8 +61,8 @@ function listHTML() {
   return `<div class="layer-list">${rows}</div>`;
 }
 
-export function buildSunCutaway() {
-  const host = document.getElementById("sunCutaway");
+export function buildSunCutaway(hostId="sunCutaway") {
+  const host = document.getElementById(hostId);
   if (!host) return;
   host.innerHTML = cutawaySVG() + listHTML();
 }

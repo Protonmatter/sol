@@ -1,0 +1,237 @@
+{
+  "schema_version": "solar-appearance-producer.v1",
+  "build_input_sha256": "b99eeb3b6591c8afb38bd512fc4c7c78e3f34f334f40309831c5f70f65997858",
+  "binary_sha256": "b1bcc202b6f165aeaf2616b0d962fe8937f7e01fee102ca6fa86e11951c4980a",
+  "compiler": "rustc 1.96.0 (ac68faa20 2026-05-25)\nbinary: rustc\ncommit-hash: ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96\ncommit-date: 2026-05-25\nhost: aarch64-pc-windows-msvc\nrelease: 1.96.0\nLLVM version: 22.1.2",
+  "target": "aarch64-pc-windows-msvc",
+  "profile": "release",
+  "locked": true,
+  "offline": true,
+  "fresh_target_directory": true,
+  "inputs": [
+    {
+      "path": "apps/web/data/latest-state.json",
+      "sha256": "743808e119bb94400e52c59d15e5fd9871db804886e8939e3823c4eef88ffbfa"
+    },
+    {
+      "path": "assets/solar/recipes/active-v1-definition.json",
+      "sha256": "28d73c04ee871367dda18edbc03095efaf8075ac4026e5f962430585aad08787"
+    },
+    {
+      "path": "assets/solar/recipes/quiet-v1-definition.json",
+      "sha256": "8bd0922001b6a98a2ad5f5ca4b777b6a139b94cb7d05e3d2269832fa8d42a6c1"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "829ee940420d35ffbb9eccb7d5cda4fbeacd9efe0dab7a27ba5902aa209bedf8"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "98f5c3251cdc1e4f37011ead4c9bc510bd0cd36e5ccecf8f3a540109082e6b34"
+    },
+    {
+      "path": "crates/solar-cli/Cargo.toml",
+      "sha256": "d0df91048005e3e62e1fd3c21dc85bcbb050b477a6d2bd31f90f5532fa8947fb"
+    },
+    {
+      "path": "crates/solar-cli/src/appearance.rs",
+      "sha256": "8b772624f40f3f91ae2b77ad328f6e65aa82ab765869275e046d66a6a6ada8ab"
+    },
+    {
+      "path": "crates/solar-cli/src/appearance_raster.rs",
+      "sha256": "99dbf1a453415a7f882f449f5f3802f8766f9a1a1de03ebaeb6778327567aae8"
+    },
+    {
+      "path": "crates/solar-cli/src/appearance_sources.rs",
+      "sha256": "ca9930583325084403381c20a577f8ffd90d88c972eaa253e8a8a3562570ce86"
+    },
+    {
+      "path": "crates/solar-cli/src/bundle_intake.rs",
+      "sha256": "1e2bea85a2a1b51074304b5d5a1bc3d668537b13e4a8bfaf0ba07e8ca54d5f9a"
+    },
+    {
+      "path": "crates/solar-cli/src/main.rs",
+      "sha256": "2e28a6496f8a77a0719f5610e533c58e8345007d621500f097e61e259d5df1f4"
+    },
+    {
+      "path": "crates/solar-cli/src/provenance.rs",
+      "sha256": "65811aba2d84ac7cce3d27e3a2db97202e471f9041e7e75c38555ca30386c6cb"
+    },
+    {
+      "path": "crates/solar-cli/src/snapshot_validation.rs",
+      "sha256": "e5715012cd45a4a685e384036ef93bdf01d0522904225ee2c57ead0c92b8def2"
+    },
+    {
+      "path": "crates/solar-cli/src/snapshot_validation_v2.rs",
+      "sha256": "cd0cc39bbdef57e4832d25dc7d8e4db74b34159dd9917c970d5d66e4a58f4812"
+    },
+    {
+      "path": "crates/solar-core/Cargo.toml",
+      "sha256": "c533499d0a5e79f49665a62c430c0c7f08471f2ec518fc7764b16f038cd4035d"
+    },
+    {
+      "path": "crates/solar-core/src/active_region.rs",
+      "sha256": "38e22b833c64b334dfde3fd580e6eaf9cab1f477b49c9ea4dbec2905e801624b"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/derived.rs",
+      "sha256": "b17d3834396a2b1399aaca184d5b493758d50c6e7e47bc0ea4130d567221dd8e"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/evolution.rs",
+      "sha256": "74f365286ce98b18d9cb9743be7e64f6fe3a9332c4ee5a1e2f0536bb0069bdb9"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/field_lines.rs",
+      "sha256": "3c986fa3451068a7d24ef32485096130dcb1693ca4590fd1d8eb9b16e803f9d1"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/hierarchy.rs",
+      "sha256": "4d8a636dd04c11777cb939a4ff7524da0dacf6aede38721b0440115b31c6f0fb"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/mod.rs",
+      "sha256": "6b0e4056641dbf5cdabdae9fd419278f2a0ade287a34a5b8451541af2c2d9e83"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/packet.rs",
+      "sha256": "9f44610c9f45fc18edd0e15c036f499e6f767b576a4cca0c27a5e59f7db11751"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/pfss.rs",
+      "sha256": "8f347ea25dee2c76b9d9a708a32aee33c126ca2519b605112733b1ce3e9d1e7b"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/raster.rs",
+      "sha256": "564769f4df231c006cf59d94ed5744656b10113f90e874e284afe1d32f13cd6d"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/surface.rs",
+      "sha256": "1bebf368b75e4a15d56e6f05a6866c3c12c3aa91811efa338dc65ea9d88d592f"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/transfer.rs",
+      "sha256": "29abc7e7710d5646b3b851e9724a644106123dccbb8a853e42c732c84d34ef8b"
+    },
+    {
+      "path": "crates/solar-core/src/appearance/validation.rs",
+      "sha256": "b1efca5171ba87527e9b881484645280fdfcd5bb244f726f119b824e7011f539"
+    },
+    {
+      "path": "crates/solar-core/src/assimilation.rs",
+      "sha256": "8ef88b3c6c19fe80c392bd14d4d4d00ae319a22bc69a5b06205d1ab8ed2cf330"
+    },
+    {
+      "path": "crates/solar-core/src/constants.rs",
+      "sha256": "e310520a8554b763fbc54ef8c94013be3a9d2a7d4adf95a0cb88b8658450aabe"
+    },
+    {
+      "path": "crates/solar-core/src/contracts.rs",
+      "sha256": "af72c202cc1ff6daeb3bd06f66ab6017f301624be23b67c214022c0fb8fada64"
+    },
+    {
+      "path": "crates/solar-core/src/coordinates.rs",
+      "sha256": "7f5f7a55442bdb96a13080010825042ec1081c9b71768278bb55194c3c6d559b"
+    },
+    {
+      "path": "crates/solar-core/src/differential_rotation.rs",
+      "sha256": "4eb831257e68b3787229a9d5fada58c3ff3c458cc8047a4b13ac84aabeb94265"
+    },
+    {
+      "path": "crates/solar-core/src/field.rs",
+      "sha256": "1ecca76b3848903aa87d1ffda7aa12b721781fe1d2b3b95f69f763aafc1fd78a"
+    },
+    {
+      "path": "crates/solar-core/src/flux_transport.rs",
+      "sha256": "44972b4851f608ccefa4957d7295d02e51c3425a73e74c71a0c402db977f675a"
+    },
+    {
+      "path": "crates/solar-core/src/grid.rs",
+      "sha256": "c8da744f8c165b73b92ece9a1f0fd78e16b2678e5d9f0714bad3a3456906da7d"
+    },
+    {
+      "path": "crates/solar-core/src/json_read.rs",
+      "sha256": "b2d53ab4eef197ad25628607f0e78614db9c6403a35a3a19481c9bb6ab54a627"
+    },
+    {
+      "path": "crates/solar-core/src/lib.rs",
+      "sha256": "721aa64608218700a7b7ac035438702491849cc53bed484d6b25943d30ee6ac3"
+    },
+    {
+      "path": "crates/solar-core/src/provenance.rs",
+      "sha256": "903493d492a073ca2a9f9c029930c2d412eb3dfa1565a702dfbafe2c3bdab2ba"
+    },
+    {
+      "path": "crates/solar-core/src/synthetic.rs",
+      "sha256": "1e7ff8b1cf59afeb79e4d2704df9d0219e7192a94b638429d5a4da3c29a730c1"
+    },
+    {
+      "path": "crates/solar-ingest/Cargo.toml",
+      "sha256": "f0106fb21030fed6145bb1ba168456868a7344c779ca62329a59eb848d932fe0"
+    },
+    {
+      "path": "crates/solar-ingest/src/lib.rs",
+      "sha256": "05f2e1757b7f2f5242dc2aea0c1f0ccd4f3c457f73ced87c7c5145c72299e68a"
+    },
+    {
+      "path": "docs/bundle-pointer-v1.schema.json",
+      "sha256": "807e17b708d192a69c1d2694bd43f7d82419bc6c46deffb47633d2068febe1bd"
+    },
+    {
+      "path": "docs/daily-ingest-status-v2.schema.json",
+      "sha256": "97d47ea19c5a4d816e42cae9ec8605825c7df8708b3cb4cec5b4c7e147f145ad"
+    },
+    {
+      "path": "docs/public-data-cache-manifest-v2.schema.json",
+      "sha256": "07e4693ea61fe17d57a09ceb578829164f4200daed2bb638a396d54c30012c30"
+    },
+    {
+      "path": "docs/research-data-bundle-v1.schema.json",
+      "sha256": "4395b7d6106251a0e620caef305f8662f7e4b782042a0c68d5b917e678225d9e"
+    },
+    {
+      "path": "docs/solar-state-snapshot-v2.schema.json",
+      "sha256": "f17dcb155b2a5c4c22203997734232799f24348aba8b3a0a583f35546f6588ab"
+    },
+    {
+      "path": "docs/solar-state-snapshot-v3.schema.json",
+      "sha256": "53cf3491925b076ee236c311f215f9e3a57461aa22f14b9a8068420c6f0883be"
+    },
+    {
+      "path": "tests/fixtures/historical/snapshot-intake-v2.json",
+      "sha256": "d10a82bd9f750beffa5d14b566b55f0734ac80ceabd3421e12e4ee529c21b667"
+    },
+    {
+      "path": "tests/fixtures/historical/solar-v2.json",
+      "sha256": "5ebf47543242e698833a8451738906bee5ddff982b594e539cc63c6bdee79f36"
+    },
+    {
+      "path": "tests/fixtures/snapshot-intake.json",
+      "sha256": "76aff88f8b882e958f3b62620d49ceaa976c5cd5c162fb543fa8fc4d96dae9a9"
+    },
+    {
+      "path": "tests/fixtures/solar-longitude-intake.json",
+      "sha256": "3444cee6adb5e057817df48a5742bce6c345e42019860570110116dc5696c3f8"
+    },
+    {
+      "path": "tests/fixtures/strict-intake.json",
+      "sha256": "90ad5681eb89153995f39421e35c935979187df1066b8deee210bc807323a796"
+    },
+    {
+      "path": "tests/swpc_scn26_21/rtsw_mag_1m_new.json",
+      "sha256": "b26fca1e66547ad39297c0342ee51530268ef67f14da519fa8946d73c0effcf1"
+    },
+    {
+      "path": "tests/swpc_scn26_21/rtsw_wind_1m_new.json",
+      "sha256": "551ae5c1aa1e7e47ac0ec371b816ad109e7eae5c11f5e8dc35956899e6724e12"
+    },
+    {
+      "path": "tools/prepare_solar_dynamic.py",
+      "sha256": "57b9c53c84badf83f9a114e29d8740fe59b93962b3cd7ce79e72223c6f4f3bdb"
+    },
+    {
+      "path": "tools/solar_gaussian_deposition.py",
+      "sha256": "e353bea76856909135515b34a520bae63740a3b6c1780860f33a494c3a9e01c7"
+    }
+  ]
+}

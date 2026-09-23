@@ -1,0 +1,504 @@
+{
+  "schema_version": "solar-dynamic-appearance.v1",
+  "id": "quiet-v1",
+  "seed": 42,
+  "recipe_hash": "8bd0922001b6a98a2ad5f5ca4b777b6a139b94cb7d05e3d2269832fa8d42a6c1",
+  "generator_source_sha256": "b99eeb3b6591c8afb38bd512fc4c7c78e3f34f334f40309831c5f70f65997858",
+  "producer_binary_sha256": "b1bcc202b6f165aeaf2616b0d962fe8937f7e01fee102ca6fa86e11951c4980a",
+  "producer_receipt": {
+    "path": "solar-dynamic/quiet-v1/producer-receipt.json",
+    "bytes": 9062,
+    "sha256": "a1b31f8a2dde69cbd58f91ba4c3fb28d3e76836c560d7848b29224911d510ce6"
+  },
+  "authority": "illustrative",
+  "frame": "carrington_z_north_west_positive",
+  "radius_km": 695700,
+  "duration_seconds": 21600,
+  "rotation": {
+    "coefficients_deg_per_day": [
+      14.713,
+      -2.396,
+      -1.787
+    ],
+    "frame_rate_deg_per_day": 14.1844
+  },
+  "packet": {
+    "path": "solar-dynamic/quiet-v1/t00000/packet.json",
+    "bytes": 110927,
+    "sha256": "cfec82a0c36b957a38cb2047efbd2a5e9b009c37989e4dd99115b2a6406e749c"
+  },
+  "surface": {
+    "path": "solar-dynamic/quiet-v1/reference-euv-t00000.f32",
+    "bytes": 8388608,
+    "sha256": "d73ae258de0d8b00bef03d3e4f13b148873a82a062624d0b2704db9c48761b74",
+    "dimensions": [
+      2048,
+      1024
+    ],
+    "dtype": "float32-le",
+    "longitude_positive": "west",
+    "latitude_row_zero": "south",
+    "texel_centers": true,
+    "units": "relative_emission",
+    "time_s": 0,
+    "transfer_id": "hierarchical-euv-linear-v1"
+  },
+  "volumes": [
+    {
+      "path": "solar-dynamic/quiet-v1/low-emission.f32",
+      "bytes": 1048576,
+      "sha256": "d83c6dd31e997d6c6c008cab41571973c3fdef26f1027e6ec98ff8d0ddf2d9e2",
+      "background": {
+        "path": "solar-dynamic/quiet-v1/low-background.f32",
+        "bytes": 1048576,
+        "sha256": "e98190ff7d061b46cfdb6ae5850f6bd600e5793b4c3bdf25a9753f2711c60f86",
+        "dimensions": [
+          64,
+          64,
+          64
+        ],
+        "bounds": [
+          -2.5,
+          2.5
+        ],
+        "dtype": "float32-le",
+        "layout": "x-fastest-y-next-z-slowest",
+        "voxel_centers": true,
+        "units": "relative_emission_per_solar_radius",
+        "contains_strands": false,
+        "time_s": 0
+      },
+      "pulse": {
+        "path": "solar-dynamic/quiet-v1/low-pulse.f32",
+        "bytes": 4194304,
+        "sha256": "e4e562d0db422b81aa4d9d4337747ca5b179c1c266c5fab63b41b1f21a7a5373",
+        "dimensions": [
+          64,
+          64,
+          64
+        ],
+        "components": 4,
+        "dtype": "float32-le",
+        "layout": "x-fastest-y-next-z-slowest-RGBA",
+        "channels": [
+          "arc_length_R",
+          "onset_s",
+          "duration_s",
+          "support_relative"
+        ],
+        "width_R": 0.04,
+        "speed_R_per_s": 0.0002,
+        "amplitude": 0.3,
+        "window": "sin_squared_nonrepeating",
+        "selection": "strongest strand support per voxel; support-weighted arc length"
+      },
+      "id": "low",
+      "dimensions": [
+        64,
+        64,
+        64
+      ],
+      "bounds": [
+        -2.5,
+        2.5
+      ],
+      "dtype": "float32-le",
+      "layout": "x-fastest-y-next-z-slowest",
+      "voxel_centers": true,
+      "units": "relative_emission_per_solar_radius",
+      "time_s": 0,
+      "temporal_authority": "time-averaged illustrative background; rotation transform only",
+      "width_filter": "physical Gaussian voxel CDF; five sigma axis tails; no variance inflation; no clipping renormalization",
+      "deposition_mass": {
+        "target_mass": 0.0007834389047405207,
+        "retained_mass": 0.000740257195539499,
+        "tail_mass": 1.347443188576405e-09,
+        "clipped_mass": 4.318036175783393e-05,
+        "samples": 1115,
+        "units": "relative_emission_times_solar_radius_squared",
+        "scope": "strand-only before float32 accumulation; midpoint line quadrature; shell voxel-center clipping"
+      }
+    },
+    {
+      "path": "solar-dynamic/quiet-v1/standard-emission.f32",
+      "bytes": 3538944,
+      "sha256": "2d74dac2fea1f6dc271e23e4629e5641185ecc95455e99a87fa1ed4b1acba9b4",
+      "background": {
+        "path": "solar-dynamic/quiet-v1/standard-background.f32",
+        "bytes": 3538944,
+        "sha256": "875b8ad57c7fcf82405ed4598358f705ff3e71a0ff53805b5b94d0d76816f667",
+        "dimensions": [
+          96,
+          96,
+          96
+        ],
+        "bounds": [
+          -2.5,
+          2.5
+        ],
+        "dtype": "float32-le",
+        "layout": "x-fastest-y-next-z-slowest",
+        "voxel_centers": true,
+        "units": "relative_emission_per_solar_radius",
+        "contains_strands": false,
+        "time_s": 0
+      },
+      "pulse": {
+        "path": "solar-dynamic/quiet-v1/standard-pulse.f32",
+        "bytes": 14155776,
+        "sha256": "065c0dfbe408081797b2bd27d82660a1b6a7830a13947c7b8bcd78e3b0384ced",
+        "dimensions": [
+          96,
+          96,
+          96
+        ],
+        "components": 4,
+        "dtype": "float32-le",
+        "layout": "x-fastest-y-next-z-slowest-RGBA",
+        "channels": [
+          "arc_length_R",
+          "onset_s",
+          "duration_s",
+          "support_relative"
+        ],
+        "width_R": 0.04,
+        "speed_R_per_s": 0.0002,
+        "amplitude": 0.3,
+        "window": "sin_squared_nonrepeating",
+        "selection": "strongest strand support per voxel; support-weighted arc length"
+      },
+      "id": "standard",
+      "dimensions": [
+        96,
+        96,
+        96
+      ],
+      "bounds": [
+        -2.5,
+        2.5
+      ],
+      "dtype": "float32-le",
+      "layout": "x-fastest-y-next-z-slowest",
+      "voxel_centers": true,
+      "units": "relative_emission_per_solar_radius",
+      "time_s": 0,
+      "temporal_authority": "time-averaged illustrative background; rotation transform only",
+      "width_filter": "physical Gaussian voxel CDF; five sigma axis tails; no variance inflation; no clipping renormalization",
+      "deposition_mass": {
+        "target_mass": 0.0007834389047405207,
+        "retained_mass": 0.0007715822714063542,
+        "tail_mass": 1.347443188576405e-09,
+        "clipped_mass": 1.1855285890978716e-05,
+        "samples": 1115,
+        "units": "relative_emission_times_solar_radius_squared",
+        "scope": "strand-only before float32 accumulation; midpoint line quadrature; shell voxel-center clipping"
+      }
+    }
+  ],
+  "keyframes": [
+    {
+      "time_s": 0,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t00000/packet.json",
+        "bytes": 110927,
+        "sha256": "cfec82a0c36b957a38cb2047efbd2a5e9b009c37989e4dd99115b2a6406e749c"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t0"
+    },
+    {
+      "time_s": 900,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t00900/packet.json",
+        "bytes": 110896,
+        "sha256": "52a0d730dc8928da6935deae80d3d6276b7960cc56366d69e3f09f8f82556e47"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t900"
+    },
+    {
+      "time_s": 1800,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t01800/packet.json",
+        "bytes": 110934,
+        "sha256": "5f7af9372492b9e401e5044a5e8b9f8dc16d7d35210fd3bbd8b7d284f89dda33"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t1800"
+    },
+    {
+      "time_s": 2700,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t02700/packet.json",
+        "bytes": 110858,
+        "sha256": "87a1cc9161664e41543781318addb10161fea8c97b6db5dd7a9aa6e10c7bdda5"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t2700"
+    },
+    {
+      "time_s": 3600,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t03600/packet.json",
+        "bytes": 110925,
+        "sha256": "acbb0d408ea7722eedcc4c9726a4dc7c3a39f76f75bbbb29ea3ca9e297933cbb"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t3600"
+    },
+    {
+      "time_s": 4500,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t04500/packet.json",
+        "bytes": 111060,
+        "sha256": "9ead8e2cb2eb55bdc0ccda7b71e78087c5d9c293a2a8381be5a750a63ce60fca"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t4500"
+    },
+    {
+      "time_s": 5400,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t05400/packet.json",
+        "bytes": 110971,
+        "sha256": "13b17a77703a9205db34038c2133b72588e9786bf1ffd53fef1a42813914709b"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t5400"
+    },
+    {
+      "time_s": 6300,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t06300/packet.json",
+        "bytes": 110966,
+        "sha256": "e0a27ce2ab81e8340fb20ffa0ea510f0c38e424a0e8b764579010113a747e040"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t6300"
+    },
+    {
+      "time_s": 7200,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t07200/packet.json",
+        "bytes": 110932,
+        "sha256": "6265af891710efc09496d5d04e540ce61a46086bcfd11689b5c70fee4a670cf7"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t7200"
+    },
+    {
+      "time_s": 8100,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t08100/packet.json",
+        "bytes": 110863,
+        "sha256": "44fa1ff74bd8a25e85ea15641531c2300e76cb317fe9c02858184a1c72581a67"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t8100"
+    },
+    {
+      "time_s": 9000,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t09000/packet.json",
+        "bytes": 110966,
+        "sha256": "02cec7d2541855bd464e27f36ea726d723379b46fb1dc15918933cf07018042a"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t9000"
+    },
+    {
+      "time_s": 9900,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t09900/packet.json",
+        "bytes": 110941,
+        "sha256": "5aa24405cfd9d6b80fe0a9389d1f118f21e0d27dc2cc7cd5bfc0868f7151103c"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t9900"
+    },
+    {
+      "time_s": 10800,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t10800/packet.json",
+        "bytes": 110912,
+        "sha256": "0ac4368393ee59172a77c32ce5664a48db1d8d05aaa412d3e1bbf5841297b3b1"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t10800"
+    },
+    {
+      "time_s": 11700,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t11700/packet.json",
+        "bytes": 110938,
+        "sha256": "2b56dee8f3719e36b23d7db02817b9ced1435e211083c5297b0570301128c3d5"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t11700"
+    },
+    {
+      "time_s": 12600,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t12600/packet.json",
+        "bytes": 110893,
+        "sha256": "9d12e03e3789cd28341a860ecfac1ef27a563b04fc81d10e8f11d9a7a2edef02"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t12600"
+    },
+    {
+      "time_s": 13500,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t13500/packet.json",
+        "bytes": 110871,
+        "sha256": "446dc26ab0c57989b4882ea3965611d420f15f6b2f056c3bdeec8361fcdd2cd7"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t13500"
+    },
+    {
+      "time_s": 14400,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t14400/packet.json",
+        "bytes": 110980,
+        "sha256": "2b8294934b8cbadb9f107768d26b8bcbcf72f9e3683dc3459cfd94c0a290f7c6"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t14400"
+    },
+    {
+      "time_s": 15300,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t15300/packet.json",
+        "bytes": 110988,
+        "sha256": "e53b27f28f0f45dfa3aa55b69b74bb03262f8ee957c786271fb474a345b626ef"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t15300"
+    },
+    {
+      "time_s": 16200,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t16200/packet.json",
+        "bytes": 110908,
+        "sha256": "102de92120e27c1193c1659aba5126a0ebda3425d0f3c2a9f9f41fbc730c863f"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t16200"
+    },
+    {
+      "time_s": 17100,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t17100/packet.json",
+        "bytes": 110945,
+        "sha256": "59391cf36a21f479dc38a9dec33ca42ce1278d45c461e94fe71a9d763d00d421"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t17100"
+    },
+    {
+      "time_s": 18000,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t18000/packet.json",
+        "bytes": 110960,
+        "sha256": "5ec15f1c21dae2089fdf628316fce465ae6c8348124ee1450d0c2037fb579111"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t18000"
+    },
+    {
+      "time_s": 18900,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t18900/packet.json",
+        "bytes": 110955,
+        "sha256": "6d5844f1b380828e901cef2d82ae6d59f96691405051e87aaca64c9211c8197f"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t18900"
+    },
+    {
+      "time_s": 19800,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t19800/packet.json",
+        "bytes": 110905,
+        "sha256": "6b6b8f61e03507505b364ff92cce1fd4376b75567d8577352aaa8c653d7f2846"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t19800"
+    },
+    {
+      "time_s": 20700,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t20700/packet.json",
+        "bytes": 110842,
+        "sha256": "0b1d35a22678d1930f300aaa9602c9c58e3ed7557f3f1299a26738f6b3055355"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t20700"
+    },
+    {
+      "time_s": 21600,
+      "packet": {
+        "path": "solar-dynamic/quiet-v1/t21600/packet.json",
+        "bytes": 110940,
+        "sha256": "f2bf037d6c4a92565ba7c7ac0084eab82991f0c0041538eb535fa8f06593e3e9"
+      },
+      "transition_kind": "hold_geometry",
+      "topology_id": "quiet-v1-seed42-t21600"
+    }
+  ],
+  "credits": [
+    "Sol dependency-free Rust synthetic PFSS and statistical appearance model"
+  ],
+  "limits": [
+    "Normalized synthetic magnetic boundary; no measured magnetogram",
+    "PFSS potential field does not model currents, reconnection, plasma temperature or density",
+    "Relative emission, no AIA response calibration",
+    "Volume uses a fixed time-averaged background; per-strand local pulses are separate descriptors",
+    "L32 PFSS; numerical convergence checked against L16/64; no observed-topology validation",
+    "Keyframe geometry switches without topology morphing",
+    "Browser evaluates analytic attachment kernels from admitted packet; reference raster is not a browser texture",
+    "2048x1024 reference core integrals qualified for actual nonpolar anchors; polar kernels and pixel peaks not qualified",
+    "Fallback volume retains declared five-sigma tail and shell voxel-center clipping losses; no survivor renormalization"
+  ],
+  "surface_keyframes": [
+    {
+      "path": "solar-dynamic/quiet-v1/reference-euv-t00000.f32",
+      "bytes": 8388608,
+      "sha256": "d73ae258de0d8b00bef03d3e4f13b148873a82a062624d0b2704db9c48761b74",
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "dtype": "float32-le",
+      "longitude_positive": "west",
+      "latitude_row_zero": "south",
+      "texel_centers": true,
+      "units": "relative_emission",
+      "time_s": 0,
+      "recipe_hash": "8bd0922001b6a98a2ad5f5ca4b777b6a139b94cb7d05e3d2269832fa8d42a6c1",
+      "temporal_policy": "absolute-differential-unadvection-already-applied",
+      "transfer_id": "hierarchical-euv-linear-v1",
+      "resolved_visibility": 1
+    },
+    {
+      "path": "solar-dynamic/quiet-v1/reference-euv-t00900.f32",
+      "bytes": 8388608,
+      "sha256": "e2892dcb7bc95ac2dccaf291b7532b1ae0899f9db4a49510df47094538d8fad7",
+      "dimensions": [
+        2048,
+        1024
+      ],
+      "dtype": "float32-le",
+      "longitude_positive": "west",
+      "latitude_row_zero": "south",
+      "texel_centers": true,
+      "units": "relative_emission",
+      "time_s": 900,
+      "recipe_hash": "8bd0922001b6a98a2ad5f5ca4b777b6a139b94cb7d05e3d2269832fa8d42a6c1",
+      "temporal_policy": "absolute-differential-unadvection-already-applied",
+      "transfer_id": "hierarchical-euv-linear-v1",
+      "resolved_visibility": 1
+    }
+  ]
+}

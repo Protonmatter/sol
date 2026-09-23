@@ -1,6 +1,8 @@
 // The observation browser is a presentation of a preserved image, not a model frame.
 import { getSolarObservation } from './solarObservation.js';
 import { BODY } from './bodyData.js?v=dcca6290db';
+import {createSolarSequenceControls} from './solarSequenceControls.js';
+let sequenceControls=null;
 
 export function createExplorerState() {
   return {
@@ -24,10 +26,11 @@ export function observationPresentation(asset, media) {
     scope: 'Preserved NASA browse image. No model regions are registered to this image.',
   };
 }
-export const currentObservationPresentation = () => observationPresentation(getSolarObservation(), explorer.media);
+export const currentObservationPresentation = () => sequenceControls?.presentation()??observationPresentation(getSolarObservation(), explorer.media);
 
 export function renderExplorer(surface) {
   const observing = surface === 'today' && explorer.mode === 'observe';
+  sequenceControls?.setVisible(observing);
   document.body.setAttribute('data-experience', explorer.mode);
   const observation = document.getElementById('solarObservation');
   if (observation) observation.hidden = !observing;
@@ -38,15 +41,27 @@ export function renderExplorer(surface) {
   const status = document.getElementById('observationStatus');
   if (status) status.textContent = p.timeLabel;
   const unavailable = document.getElementById('observationUnavailable');
-  if (unavailable) unavailable.hidden = explorer.media !== 'failed';
+  if (unavailable) unavailable.hidden = sequenceControls?.active() || explorer.media !== 'failed';
   const loading = document.getElementById('observationLoading');
-  if (loading) loading.hidden = explorer.media !== 'loading';
+  if (loading) loading.hidden = sequenceControls?.active() ? p.availability!=='loading' : explorer.media !== 'loading';
   document.getElementById('observationMedia')?.setAttribute('aria-busy', String(explorer.media === 'loading'));
   const image = document.getElementById('observationImage');
-  if (image) image.hidden = explorer.media !== 'ready';
+  if (image) image.hidden = !!sequenceControls?.active() || explorer.media !== 'ready';
+  const story=document.querySelector('.observation-story');
+  if(story)story.textContent=sequenceControls?.active()?'Recorded evolution in the Sun’s corona. These grayscale frames retain the provider’s display processing; they are not calibrated radiance.':'Bright loops trace hot plasma in the Sun’s outer atmosphere. AIA sees this extreme ultraviolet light; gold makes its structure visible to us.';
+  const source=/** @type {HTMLAnchorElement|null} */(document.getElementById('observationSource'));
+  if(source)source.href=p.sourceUrl;
+  const credit=document.getElementById('observationCredit');
+  if(credit)credit.textContent=sequenceControls?.active()?'NASA/SDO AIA · ESA/NASA Helioviewer':getSolarObservation().credits;
 }
 
 export function initExplorer(onMode, onImage) {
+  if(document.getElementById('observationSequenceToggle')){
+    sequenceControls?.dispose();sequenceControls=null;
+    sequenceControls=createSolarSequenceControls({document,onChange:()=>{
+      renderExplorer(document.body.getAttribute('data-surface')||'today');onImage();
+    }});
+  }
   const asset = getSolarObservation();
   const img = /** @type {HTMLImageElement|null} */ (document.getElementById('observationImage'));
   if (img) {

@@ -1,0 +1,125 @@
+{
+  "schema_version": "solar-plan-validation.v1",
+  "observed_at": "2026-09-23T04:37:12.111112+00:00",
+  "scope": "Documentation, requirement traceability, existing integration paths and algebraic sanity only; no implemented solver, shader, Blender, or device validation",
+  "baseline_sha": "88bfb852a9b19a101a59c5053c53bccf60c1aea1",
+  "markdown_files": 11,
+  "requirements": [
+    "SUN-01",
+    "SUN-02",
+    "SUN-03",
+    "SUN-04",
+    "SUN-05",
+    "SUN-06",
+    "SUN-07",
+    "SUN-08",
+    "SUN-09",
+    "SUN-10",
+    "SUN-11",
+    "SUN-12",
+    "SUN-13",
+    "SUN-14",
+    "SUN-15",
+    "SUN-16",
+    "SUN-17",
+    "SUN-18"
+  ],
+  "test_rows": 18,
+  "implementation_slices": [
+    "S0",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8",
+    "S9",
+    "S10"
+  ],
+  "existing_paths_verified": [
+    "crates/solar-core/src/lib.rs",
+    "crates/solar-core/src/differential_rotation.rs",
+    "crates/solar-core/src/flux_transport.rs",
+    "crates/solar-wasm/src/lib.rs",
+    "apps/web/engine.js",
+    "apps/web/js/solarObservation.js",
+    "apps/web/js/solarAppearance.js",
+    "apps/web/js/solarVolumeShaders.js",
+    "apps/web/js/solarAssetLoader.js",
+    "apps/web/js/solarWorker.js",
+    "apps/web/js/workerClient.js",
+    "apps/web/js/hdrPresentation.js",
+    "apps/web/js/hdrPresentationShaders.js",
+    "apps/web/js/materialColor.js",
+    "apps/web/js/orrery.js",
+    "apps/web/js/orreryShaders.js",
+    "apps/web/js/destinationCards.js",
+    "apps/web/js/sunlayers.js",
+    "tools/build_web.py",
+    "tools/build_wasm.py",
+    "tools/validate_physical_assets.py",
+    "tools/solar_appearance_validation.mjs",
+    "tools/physical_rendering_validation.mjs",
+    "tools/browser_validation.mjs",
+    "tools/typecheck_web.py"
+  ],
+  "numeric_sanity": {
+    "granule_pixels_at_300px": 0.21561017680034497,
+    "scale_height_m_at_1MK": 50209244.26231885,
+    "equatorial_carrington_drift_deg_per_day": 0.5285999999999991,
+    "two_rgba16f_volumes_MiB": {
+      "64": 4.0,
+      "96": 13.5,
+      "128": 32.0
+    },
+    "pfss_boundary_harmonics_checked": 32
+  },
+  "files": {
+    "blender-pipeline.md": {
+      "bytes": 11760,
+      "sha256": "59a4d62b806886974fde7c89f4fe0be760d4b6b9708b6b6d3c1ec67908f09c2a"
+    },
+    "context-map.md": {
+      "bytes": 6748,
+      "sha256": "029bec50e564fc20d471361a73af14b59c2e289534ce59fb8bb806d84deadfc3"
+    },
+    "decision-log.md": {
+      "bytes": 5895,
+      "sha256": "abcf2b3d3d2585652bc483145bb786623a4d5669c41fab511298cc57e80ff27f"
+    },
+    "design-review.md": {
+      "bytes": 13261,
+      "sha256": "05a9283ae37643fb2f88c7430c09acea65b28a9bf09eb08c857b3f99ba003de7"
+    },
+    "devex-review.md": {
+      "bytes": 12839,
+      "sha256": "b11f774937d7994ea0f0e25dfe6706f50b30a8c0535754e3864dcec2a04d563c"
+    },
+    "engineering-plan.md": {
+      "bytes": 20924,
+      "sha256": "4ba75ee552191ca32a20630ff99acf3870766210c5928ecba7b94cadcf29eaf5"
+    },
+    "problem-and-scope.md": {
+      "bytes": 6800,
+      "sha256": "f0f8210be67c90de857f70e8fa016e8c25ebb8b02b8bacd7f4b3bdad79652df6"
+    },
+    "README.md": {
+      "bytes": 6924,
+      "sha256": "0dc72bff822121e0dcc04d81483037cfa3a2d982eed45ab8c9e68c4bdc3c629a"
+    },
+    "science-and-math.md": {
+      "bytes": 20943,
+      "sha256": "f53b449bfc62cfef6f03da55ca4ccb656076ea84001c81a8f648e6d3c2ffc5cb"
+    },
+    "sources.md": {
+      "bytes": 11005,
+      "sha256": "53a18ff222b344b49e26061ab07987450b812e51338bf529d191c6bfed8a9b9d"
+    },
+    "test-matrix.md": {
+      "bytes": 11895,
+      "sha256": "32faf31ff62184e220723363e8ce8a3100c231ba83ab8d975a5a60d6915b63dd"
+    }
+  }
+}

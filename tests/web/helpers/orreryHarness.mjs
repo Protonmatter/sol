@@ -321,6 +321,10 @@ export async function orreryHarness(t, options = {}) {
       return promise;
     },
   });
+  // A supplied solarAtlas is the retained two-frame reference fixture, not the
+  // new full-sphere model. Select that mode explicitly so its lifecycle/depth
+  // regressions continue testing the same public legacy behavior.
+  if(options.solarAtlas)bindings.store.orrery.solarMode='reconstructed-euv';
   const settle = () => new Promise(resolve => setImmediate(resolve));
   return { events, nodes, frames, requests, errors, warnings, images, textureUploads, bufferUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations,shaderQueries,programs,deletedPrograms,deletedShaders,
     completePrograms: (predicate=()=>true)=>{for(const program of programs)if(predicate(program))completedPrograms.add(program);},
