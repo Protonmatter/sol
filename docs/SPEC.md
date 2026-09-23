@@ -108,12 +108,16 @@ raises and lowers that glow so arches which would otherwise sit fully bright sti
 change. Three educational bipoles use the NSSDC latitude law
 (14.37 - 2.33 sin^2 L - 1.56 sin^4 L) deg/day, with one displayed second standing
 for two solar hours, so the higher-latitude footpoint lags. About every 22 displayed
-seconds one pair opens and a front leaves the star; that front is not a measured CME.
-The visible-light approximation draws convective cells and the same spot groups.
-Neither layer is calibrated radiance, MHD, or a magnetogram. Reduced motion holds the flow at zero.
-Neither set is fluid dynamics, PFSS, or MHD, and neither paints far-side active regions.
-The unobserved hemisphere uses the observed disk's radial median and does not receive
-invented structure. The visible-light
+seconds one pair opens and a front leaves the star; that front is not a measured CME,
+and its timing is illustrative rather than on the compressed clock (a typical CME would
+cross the modeled volume in minutes). The visible-light approximation draws convective
+cells and the same spot groups, in the same source frame as the EUV bipoles, carried by
+the same latitude law. Neither layer is calibrated radiance, fluid dynamics, PFSS, MHD,
+or a magnetogram, and neither paints far-side active regions. Reduced motion shows the
+activity clock at zero. The unobserved hemisphere uses the observed disk's radial median:
+the limb value eases to the disk-center value past the limb, so 171 limb brightening is
+not repeated on the far side, and no invented structure is added. The live lift uses a
+normalized soft shoulder rather than a linear gain, so bright observed structure is not clipped. The visible-light
 approximation and all optical limitations stay identifiable.
 The Sun inspection hides other display bodies and guides without moving any engine
 state; returning to Our system restores the scene. A source/date/band-aware observation
