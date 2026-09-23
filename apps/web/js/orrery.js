@@ -6,7 +6,8 @@
 //   • registered mission reference imagery with dated source/coverage disclosures,
 //     Lambert lighting from the Sun so every body shows its geometric phase/terminator,
 //   • Saturn / Uranus / Neptune ring systems with real radii and the Cassini Division,
-//   • registered NASA/SDO EUV reference frames with explicitly modeled elevated emission,
+//   • registered NASA/SDO EUV reference frames with explicitly modeled elevated emission;
+//     the unobserved hemisphere stays self-luminous at the observed radial median,
 //   • dimensioned reference optical transfer where qualified, disclosed halos otherwise,
 //   • the real sky as a backdrop: ~1700 catalogue-weighted stars, the Milky Way band, headline
 //     constellation figures, and the true positions of seven pulsars + eight galaxies / the
@@ -33,7 +34,7 @@ import {ATMOSPHERE_COLUMN_FIELDS} from './atmosphereColumnManifest.js';
 import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,
   SCATTERING_UNIFORMS,planAtmosphereScattering,validScatteringPlanBudget} from './atmosphereScattering.js';
 import {createScatteringTargets} from './scatteringTargets.js';
-import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,solarReferenceRotation,solarRenderUniforms,solarPlayback} from './solarAppearance.js';
+import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,SOLAR_EUV_DISPLAY_GAIN,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes,solarPhotosphereSpots,solarActivityDays} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
@@ -407,7 +408,7 @@ function updatePhysicalAppearance() {
   if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
-  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is assigned EUV color; elevated arcs are a model. Unobserved hemisphere held dark.`:'Visible-light approximation · white photosphere; unqualified surface detail held.');
+  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. The observed face stays those frames. Arches rooted in three tilted pairs drift with a compressed differential-rotation clock, and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved disk keeps the observed radial brightness.`:'Visible-light approximation. A compressed educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not an HMI observation.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
@@ -450,6 +451,38 @@ function sourceSolarRotation() {
   return solarRotation;
 }
 
+/** Column-major mat3: IAU body frame to the frame-0 source basis of the EUV model. */
+function bodyToSolarSource(bodyRotation) {
+  const source=sourceSolarRotation(),out=[];
+  for(let j=0;j<3;j++) for(let i=0;i<3;i++) {
+    out.push(source[i*4]*bodyRotation[j*4]+source[i*4+1]*bodyRotation[j*4+1]+source[i*4+2]*bodyRotation[j*4+2]);
+  }
+  return out;
+}
+
+function bitmapPixels(bitmap) {
+  const canvas=document.createElement('canvas');
+  canvas.width=bitmap.width;canvas.height=bitmap.height;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)throw new Error('Solar quiet profile unavailable');
+  ctx.drawImage(bitmap,0,0);
+  return ctx.getImageData(0,0,bitmap.width,bitmap.height).data;
+}
+
+function makeQuietTexture(context,bytes) {
+  const tex=context.createTexture(),alignment=context.getParameter(context.UNPACK_ALIGNMENT);
+  context.bindTexture(context.TEXTURE_2D,tex);
+  context.pixelStorei(context.UNPACK_ALIGNMENT,1);
+  context.pixelStorei(context.UNPACK_FLIP_Y_WEBGL,false);
+  context.texImage2D(context.TEXTURE_2D,0,context.R8,SOLAR_QUIET_BINS,2,0,context.RED,context.UNSIGNED_BYTE,bytes);
+  context.pixelStorei(context.UNPACK_ALIGNMENT,alignment);
+  context.texParameteri(context.TEXTURE_2D,context.TEXTURE_MIN_FILTER,context.LINEAR);
+  context.texParameteri(context.TEXTURE_2D,context.TEXTURE_MAG_FILTER,context.LINEAR);
+  context.texParameteri(context.TEXTURE_2D,context.TEXTURE_WRAP_S,context.CLAMP_TO_EDGE);
+  context.texParameteri(context.TEXTURE_2D,context.TEXTURE_WRAP_T,context.CLAMP_TO_EDGE);
+  return tex;
+}
+
 function initSolarResources() {
   solarDetail?.dispose();solarDetail=null;state.solarStatus='deferred';
   if(typeof createImageBitmap!=='function')return;
@@ -459,14 +492,17 @@ function initSolarResources() {
     try{
       if(signal.aborted||!state.active||gl!==context||context.isContextLost())throw new Error('Solar graphics generation changed');
       if(context.getParameter(context.MAX_TEXTURE_SIZE)<bitmap.width)throw new Error('Solar reference exceeds device texture limit');
+      const pixels=bitmapPixels(bitmap);
+      const quietBytes=solarQuietBytes(solarAtlasQuietProfiles(pixels,bitmap.width,bitmap.height));
       const tex=makeTexture(bitmap,false);
       // Atlas frames have no mip chain blending and no implicit color conversion.
       context.texParameteri(context.TEXTURE_2D,context.TEXTURE_MIN_FILTER,context.LINEAR);
-      return {tex};
+      const quiet=makeQuietTexture(context,quietBytes);
+      return {tex,quiet};
     }finally{bitmap.close();}
-  },release:value=>{if(value)context.deleteTexture(value.tex);},onChange:(_key,status)=>{
+  },release:value=>{if(value){context.deleteTexture(value.tex);context.deleteTexture(value.quiet);}},onChange:(_key,status)=>{
     state.solarStatus=status;
-    queueMicrotask(()=>{updatePhysicalAppearance();if(state.active&&gl===context){window.dispatchEvent(new Event('sol:presentation'));if(!state.animate)paint();}});
+    queueMicrotask(()=>{updatePhysicalAppearance();if(state.active&&gl===context){window.dispatchEvent(new Event('sol:presentation'));if(!state.animate)paint();armSolarFlow();}});
   }});
 }
 
@@ -475,7 +511,7 @@ function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
   if(pixels>=12)solarDetail.request('reference');
   const detail=solarDetail.get('reference');if(!detail)return false;
   const rot=sourceSolarRotation(),model=mul(translate(pos),mul(rot,scaleM([radius,radius,radius])));
-  const values=solarRenderUniforms(state.solarPlayback.seconds,{reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false});
+  const values=solarRenderUniforms(state.solarPlayback.seconds,{reducedMotion:prefersReducedMotion(),flowSeconds:solarActivitySeconds()});
   const cam=physicalCameraPosition(eye,pos,rot,radius,1);
   gl.useProgram(P.solar);gl.uniformMatrix4fv(P.solarU.u_mvp,false,new Float32Array(mul(vp,model)));
   gl.uniform1i(P.solarU.u_pass,pass);
@@ -487,7 +523,13 @@ function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
   gl.uniform4fv(P.solarU['u_loopNormal[0]'],new Float32Array(values.loopNormal));
   gl.uniform4fv(P.solarU['u_loopTangent[0]'],new Float32Array(values.loopTangent));
   gl.uniform1fv(P.solarU['u_loopGain[0]'],new Float32Array(values.loopGain));
+  gl.uniform1f(P.solarU.u_displayGain,SOLAR_EUV_DISPLAY_GAIN);
+  gl.uniform1f(P.solarU.u_coronaGlow,1);
+  gl.uniform1f(P.solarU.u_cmeProgress,values.cme.progress);
+  gl.uniform3fv(P.solarU.u_cmeAxis,new Float32Array(values.cme.axis));
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,detail.tex);gl.uniform1i(P.solarU.u_atlas,0);
+  gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,detail.quiet);gl.uniform1i(P.solarU.u_quiet,4);
+  gl.activeTexture(gl.TEXTURE0);
   bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(Math.hypot(...cam)<values.extent?gl.FRONT:gl.BACK);
   gl.drawElements(gl.TRIANGLES,sphere.count,gl.UNSIGNED_SHORT,0);gl.disable(gl.CULL_FACE);
   return true;
@@ -814,14 +856,14 @@ function finishGL(){
   // Array uniforms are queried at element 0 — the location uniform4fv() needs to upload the
   // whole array in one call. GLSL ES 3.00 accepts the bare name for that too, but "[0]" is the
   // form the WebGL spec guarantees, and a silently null location would just skip the upload.
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex",
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_activity", "u_activityFrame", "u_activityDays", "u_spot[0]", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex",
     "u_hazeRayleighTau", "u_hazeAerosol"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
   P.ptU = uloc(P.pt, ["u_vp", "u_dpr", "u_soft", "u_shearT", "u_shearK", "u_shearRc"]);
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
   Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
-  P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_frameMix','u_phase','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
+  P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_quiet','u_frameMix','u_phase','u_displayGain','u_coronaGlow','u_cmeProgress','u_cmeAxis','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
   Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear']));
   for(const name of ['sphere','line','ring','pt','glow','solar'])
     Object.assign(P[`${name}U`],uloc(P[name],['u_linearOutput']));
@@ -1154,6 +1196,7 @@ function updateOrreryPositions() {
     const focus = document.getElementById("orreryFocusSelected");
     if (focus) focus.toggleAttribute("disabled", !!state.selectedStar);
     if (!state.animate) paint();
+    armSolarFlow();
   };
   const addRow = (name, text, kind, searchName = name) => {
     if (!matchesObject({name:searchName,kind},state.objectQuery,state.objectGroup)) return;
@@ -1971,10 +2014,22 @@ function drawBody(b, vp, eye) {
   gl.uniformMatrix3fv(sphereUniforms.u_nmat, false, new Float32Array(normals));
   gl.uniform1i(sphereUniforms.u_style, -1); // unregistered surface detail stays neutral
   gl.uniform1i(sphereUniforms.u_mode, b.name === "Sun" ? 1 : 0);
+  // Only the visible Sun as the subject gets the educational photosphere. As context
+  // (the overview, or EUV mode before the Sun is selected) it stays the flat disk.
+  const showPhotosphere=b.name==='Sun'&&state.solarMode==='visible'&&solarSubject();
+  if(sphereUniforms.u_activity)gl.uniform1f(sphereUniforms.u_activity, showPhotosphere?1:0);
   gl.uniform1f(sphereUniforms.u_time, state.renderUnix * 0.0002);
+  if(showPhotosphere&&sphereUniforms['u_spot[0]']){
+    const seconds=solarActivitySeconds(),packed=[];
+    for(const region of solarPhotosphereSpots(seconds)) packed.push(...region.lead,...region.trail);
+    gl.uniform4fv(sphereUniforms['u_spot[0]'], new Float32Array(packed));
+    gl.uniformMatrix3fv(sphereUniforms.u_activityFrame, false, new Float32Array(bodyToSolarSource(rot)));
+    gl.uniform1f(sphereUniforms.u_activityDays, solarActivityDays(seconds));
+  }
   // The Sun emits white visible light (NASA SVS 13859). This slightly warm
   // display RGB is illustrative, not calibrated radiance or observed detail.
-  // Keep u_style=-1: no unregistered disk, invented spots or granulation.
+  // u_style stays -1. Spots and cells appear only through u_activity above, as a
+  // disclosed educational display for the visible Sun under inspection.
   gl.uniform3fv(sphereUniforms.u_base, b.name === "Sun" ? [1, 0.98, 0.94] : appearanceFallbackColor(b.name) || missingDetailColor(b.name));
   gl.uniform3fv(sphereUniforms.u_light, new Float32Array(light));
   gl.uniform3fv(sphereUniforms.u_cam, new Float32Array(eye));
@@ -2583,7 +2638,8 @@ function pickStar(px, py, w, h, m, project) {
 let rafId = 0;
 function tick(now) {
   if (!state.active || document.hidden) { rafId = 0; state.lastTick = 0; return; }
-  const dt = state.lastTick ? Math.min(0.05, (now - state.lastTick) / 1000) : 0.016;
+  const rawDt = state.lastTick ? (now - state.lastTick) / 1000 : 0.016;
+  const dt = Math.min(0.05, rawDt);
   state.lastTick = now;
   const spinBefore = state.spinLimitedCount;
   if (state.animate) {
@@ -2624,20 +2680,39 @@ function tick(now) {
     }
   }
   if (state.freeFly) flyStep(dt);
-  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false});
+  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion:prefersReducedMotion()});
+  // Wall time, not the 50ms simulation cap. A slow frame should still move the corona.
+  if(solarFlowActive())solarFlowSeconds+=Math.min(1,rawDt);
   const moonNoteBefore = state.moonsHiddenReason;
   paint();
   if (state.moonsHiddenReason !== moonNoteBefore || state.spinLimitedCount !== spinBefore) updateOrreryAccuracy();
   // Idle when nothing advances frame-to-frame: with Animate off (and no free-fly) the loop
   // used to keep re-tessellating and repainting the full scene at 60 fps forever. All the
   // input handlers already paint on demand in that state; they/startLoop re-arm the loop.
-  if (state.animate || state.freeFly || (state.solarPlayback.playing&&solarPlaybackAvailable())) {
+  // The EUV corona flow is the exception: it moves while that Sun is showing and does not
+  // advance orbital time. Reduced motion holds the flow and returns to idle.
+  if (state.animate || state.freeFly || (state.solarPlayback.playing&&solarPlaybackAvailable()) || solarFlowActive()) {
     rafId = requestAnimationFrame(tick);
   } else {
     rafId = 0;
   }
 }
 function startLoop() { if (!rafId && !document.hidden) { state.lastTick = 0; rafId = requestAnimationFrame(tick); } }
+let solarFlowSeconds=0;
+function prefersReducedMotion() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
+}
+// Reduced motion shows the activity clock at zero even if it was running before the
+// preference changed, so no front or sheared state stays frozen on screen.
+function solarActivitySeconds() {
+  return prefersReducedMotion()?0:solarFlowSeconds;
+}
+function solarFlowActive() {
+  if(prefersReducedMotion()||!state.active||state.galaxy||state.selectedStar||!solarSubject()) return false;
+  if(state.solarMode==='visible') return true;
+  return solarPlaybackAvailable();
+}
+function armSolarFlow() { if(solarFlowActive())startLoop(); }
 
 // Integrate free-fly movement from held keys (WASD = move, Q/E or R/F = down/up, Shift = boost).
 function flyStep(dt) {
@@ -2734,6 +2809,7 @@ function setAnchor(name) {
     state.el = OVERVIEW_EL;
     state.radius = OVERVIEW_RADIUS;
     paint();
+    armSolarFlow();
     return;
   }
   const small = smallBodies.find((s) => s.name === name);
@@ -2777,7 +2853,7 @@ function inspectSun() {
   // Retain the standard fit above so resize reconciliation preserves this zoom ratio.
   state.radius*=.84;
   const anchor=/** @type {HTMLSelectElement|null} */(document.getElementById('orreryAnchor'));if(anchor)anchor.value='Sun';
-  showDetail('Sun');paint();
+  showDetail('Sun');paint();armSolarFlow();
 }
 
 // Fill the Focus dropdown from the data rather than hard-coding it: Sun + planets (+ Earth's
@@ -3182,6 +3258,7 @@ async function showFallback(msg) {
     if ((state.selected || state.selectedStar) && typeof CustomEvent === "function") window.dispatchEvent?.(new CustomEvent("sol:object-selected", { detail: { surface: "orrery" } }));
     showDetail(state.selected);
     if (!state.animate) paint();
+    armSolarFlow();
   }
 
   const bind = (id, ev, fn) => document.getElementById(id)?.addEventListener(ev, fn);
@@ -3258,7 +3335,7 @@ async function showFallback(msg) {
   // left alone: this selects the body, it does not reframe the view like Inspect.
   bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;
     if(state.anchor==='Sun'&&!solarSubject()&&!state.galaxy&&!state.selectedStar){state.selected='Sun';showDetail('Sun');}
-    syncSolarPlaybackControls();paint();window.dispatchEvent(new Event('sol:presentation'));});
+    syncSolarPlaybackControls();paint();armSolarFlow();window.dispatchEvent(new Event('sol:presentation'));});
   bind('orrerySolarPlay','click',()=>{
     if(!solarPlaybackAvailable())return;
     if(state.solarPlayback.seconds>=state.solarPlayback.duration)state.solarPlayback.seconds=0;

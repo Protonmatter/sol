@@ -100,8 +100,25 @@ weather or dense-cloud radiative transfer; there is no qualified ocean glint mas
 The Sun's EUV source playback is finite, reproducible, and independent of orbital time;
 restarting playback retains a ready or loading atlas and retries only a failed entry.
 The source-facing coverage remains fixed to its observation frame. Gold is an assigned
-EUV color. Elevated arcs are an educational model, and the unobserved hemisphere remains
-held. The visible-light approximation and all optical limitations stay identifiable.
+EUV color. Elevated arcs are an educational model. Twelve follow source-bright anchors on
+the observed face. Twelve quieter arches continue around the whole star, and their
+brightness travels while that view is showing. The live EUV view lifts the gold map
+and adds a breathing limb glow so the star stays luminous; a shared pulse also
+raises and lowers that glow so arches which would otherwise sit fully bright still
+change. Three educational bipoles use the NSSDC latitude law
+(14.37 - 2.33 sin^2 L - 1.56 sin^4 L) deg/day, with one displayed second standing
+for two solar hours, so the higher-latitude footpoint lags. About every 22 displayed
+seconds one pair opens and a front leaves the star; that front is not a measured CME,
+and its timing is illustrative rather than on the compressed clock (a typical CME would
+cross the modeled volume in minutes). The visible-light approximation draws convective
+cells and the same spot groups, in the same source frame as the EUV bipoles, carried by
+the same latitude law. Neither layer is calibrated radiance, fluid dynamics, PFSS, MHD,
+or a magnetogram, and neither paints far-side active regions. Reduced motion shows the
+activity clock at zero. The unobserved hemisphere uses the observed disk's radial median:
+the limb value eases to the disk-center value past the limb, so 171 limb brightening is
+not repeated on the far side, and no invented structure is added. The live lift uses a
+normalized soft shoulder rather than a linear gain, so bright observed structure is not clipped. The visible-light
+approximation and all optical limitations stay identifiable.
 The Sun inspection hides other display bodies and guides without moving any engine
 state; returning to Our system restores the scene. A source/date/band-aware observation
 gallery presents Jupiter storms/aurorae, Saturn's north hexagon and south decagon, and

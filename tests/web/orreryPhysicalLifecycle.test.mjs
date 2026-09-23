@@ -147,7 +147,11 @@ test('solar restart preserves a pending atlas request and uploads its completion
   assert.equal(loads[0].signal.aborted,false);assert.equal(h.state.solarStatus,'loading');
   assert.equal(h.textureUploads.length,uploads);assert.equal(h.deletedTextures.length,releases);
   loads[0].resolve({width:2048,height:1024,close(){closed++;}});await h.settle();
-  assert.equal(h.state.solarStatus,'ready');assert.equal(closed,1);assert.equal(h.textureUploads.length,uploads+1);
+  assert.equal(h.state.solarStatus,'ready');assert.equal(closed,1);
+  const uploaded=h.textureUploads.slice(uploads);
+  assert.equal(uploaded.length,2,'the atlas and its radial quiet profile upload once');
+  const quiet=uploaded.find(args=>args[3]===32&&args[4]===2);
+  assert.equal(quiet?.[2],33321);assert.equal(quiet?.[6],6403);assert.equal(quiet.at(-1).length,32*2);
   assert.equal(h.deletedTextures.length,releases);assert.equal(h.nodes.orrerySolarPlay.disabled,false);h.leaveOrrery();
 });
 
@@ -227,7 +231,17 @@ for(const route of ['orreryGalaxy','orreryLocal','orreryTextures','orreryAnchor'
     else if(route==='context-lost')h.event('orreryCanvas','webglcontextlost');
     else h.event(route,'click');
     assert.equal(h.state.solarPlayback.playing,false);assert.equal(h.nodes.orrerySolarPlay.textContent,'Play source');
-    if(h.frames.size)h.frame(100);assert.equal(h.frames.size,0);h.leaveOrrery();
+    if(h.frames.size)h.frame(100);
+    const coronaFlow=route==='orrerySolarTime'||route==='orrerySolarRestart'||route==='orrerySolarMode';
+    assert.equal(h.frames.size,coronaFlow?1:0,coronaFlow?'the EUV flow clock stays armed after source scrubbing':'leaving the EUV Sun stops the flow clock');
+    if(coronaFlow){
+      const unix=h.state.renderUnix;
+      h.frame(h.state.lastTick+1000);
+      assert.equal(h.state.renderUnix,unix,'corona flow does not advance orbital time');
+      assert.equal(h.state.solarPlayback.playing,false);
+      assert.equal(h.frames.size,1);
+    }
+    h.leaveOrrery();
   });
 }
 
