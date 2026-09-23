@@ -69,13 +69,35 @@ test('choosing a solar source mode makes the Sun the subject instead of doing no
   const photosphere = repaint(h).visible;
   assert.equal(photosphere.length, 1, 'the visible photosphere draws');
   assert.equal(photosphere[0].uniforms.u_activity, 1, 'the visible subject shows the educational photosphere');
-  assert.equal(photosphere[0].uniforms.u_activityDays, 0, 'reduced motion shows the activity clock at zero');
   assert.equal(photosphere[0].uniforms.u_activityFrame.length, 9, 'spots and cells receive the EUV source frame');
   const frame = photosphere[0].uniforms.u_activityFrame;
   for (let j = 0; j < 3; j++) {
     const column = frame.slice(j * 3, j * 3 + 3);
     assert.ok(Math.abs(Math.hypot(...column) - 1) < 1e-5, 'body-to-source frame is a rotation');
   }
+  // Lock the multiply order: the IAU pole (body +Z) maps into the source basis, whose +X
+  // is built perpendicular to that pole and whose +Y is the pole projected off the
+  // observer axis. So the third column is (0, cos B0, sin B0) with |B0| <= 7.25 degrees.
+  // R_source * R_body, or either transpose, puts the pole somewhere else.
+  const pole = frame.slice(6, 9);
+  assert.ok(Math.abs(pole[0]) < 1e-5, 'solar pole has no source +X component');
+  assert.ok(pole[1] > Math.cos(7.25 * Math.PI / 180) - 1e-5, 'solar pole is the source +Y axis to within B0');
+  const restSpots = photosphere[0].uniforms['u_spot[0]'];
+
+  // The harness window reports no reduced motion here, so the activity clock runs.
+  const start = h.state.lastTick || 0;
+  for (let step = 1; step <= 3; step++) h.frame(start + step * 1000);
+  const running = repaint(h).visible[0].uniforms;
+  assert.ok(running.u_activityDays > 0, 'the visible Sun activity clock advances on wall time');
+  assert.ok(running['u_spot[0]'].some((value, i) => Math.abs(value - restSpots[i]) > 1e-7), 'spot groups move with it');
+
+  // Turning reduced motion on mid-session shows the clock at zero rather than freezing
+  // the state it had reached; the accumulated flow time is not what is drawn.
+  h.setWindowReducedMotion(true);
+  const held = repaint(h).visible[0].uniforms;
+  assert.equal(held.u_activityDays, 0, 'reduced motion shows the activity clock at zero');
+  assert.deepEqual(held['u_spot[0]'], restSpots, 'spots return to their rest positions');
+  h.setWindowReducedMotion(false);
 
   // Switching back to EUV governs the Sun again. The atlas itself only loads once the Sun
   // is large enough on screen, so at overview distance the honest outcome is the disclosed

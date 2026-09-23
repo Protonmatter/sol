@@ -152,7 +152,9 @@ layout(location=0) in vec2 a_pos;
 uniform vec3 u_cam;uniform vec3 u_forward;uniform vec3 u_right;uniform vec3 u_up;uniform float u_span;
 out vec3 v_obj;
 void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_span);v_obj=u_cam+dir*8.0;gl_Position=vec4(a_pos,0,1);}`;
-    const legacy=fs.replace('color=gold(mix(quiet,value,coverage))*presentation;','color=mix(vec3(.065,.039,.015),gold(value),coverage)*presentation;');
+    // The master shader before #111: a dark held hemisphere, no quiet fill, no lift.
+    const legacy=fs.replace('color=presentGold(gold(mix(quiet,value,coverage)));','color=mix(vec3(.065,.039,.015),gold(value),coverage);');
+    if(legacy===fs)throw new Error('legacy solar shader substitution matched nothing; the before image would repeat the current shader');
     const programs={current:program(viewVS,fs),legacy:program(viewVS,legacy)};
     window.renderDisk=({camera,forward,right,up,span,texture,shader,size,phase})=>{
       const target=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,target);
