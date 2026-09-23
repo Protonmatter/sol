@@ -111,16 +111,14 @@ hash or recipe, and it carries no physical provenance.
   mottling on integer-hashed flow noise, evolving with model time. Level of detail
   follows the disk's radius in pixels; close up, fine granules (bright cells with
   dark lanes) replace part of the flame texture.
-- **Dark regions.** Placement comes from the model's coronal-hole field, with
-  the lab's domain warp. A wide threshold, fibrous noise acting only near the
-  boundary and a faint dimmed surround give soft, frayed edges. Inside, the
-  network gives way to a dim wispy glow with a few surviving bright points,
-  rather than a dimmed copy of the network.
+- **Dark regions.** The look lab's torn patches: a domain-warped fbm threshold,
+  roughened at two finer scales and seeded by the packet, dims the surface to
+  about a third while keeping its texture inside. They are not placed from the
+  model's coronal-hole field.
 - **Active regions.** Each emission region's two footpoint-group centroids drive
-  a plage, clumps of elongated hot knots and a compact bundle of thin dipole loops
-  on the surface, plus thin 3-D loops in eight tilted planes that the photosphere
-  occludes. Loop lines fade out near each footpoint and along the pole axis, so
-  cores read as knots rather than starbursts.
+  the look lab's active region: a plage, uneven white-hot cores and a frayed
+  dipole fan on the surface (with thinner lines than the lab), plus thin 3-D
+  loops in eight tilted planes that the photosphere occludes.
 - **Limb and fur.** Limb brightening and an emissive rim whose strength follows
   the local surface. Off-limb radial fur reads its brightness from the surface
   directly beneath it, so coronal holes starve it and network and active regions

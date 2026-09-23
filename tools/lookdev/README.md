@@ -31,9 +31,9 @@ The port lives in `apps/web/js/solarLookShaders.js` (see "Artistic detail layer"
 in `docs/DYNAMIC_SUN.md`). It carries the surface, dark regions, active regions,
 limb, palette and bloom across, and differs from this prototype on purpose:
 
-- Placement comes from the model packet: dark regions from its coronal-hole
-  field, active regions from its footpoint groups.
-- Fans are thinner, and 3-D loops are added above each region.
+- Active regions are placed at the model packet's footpoint groups, and 3-D
+  loops are added above each region. Fan lines are thinner.
+- Dark regions use this prototype's torn patches, seeded by the packet.
 - The prominence is a thinner three-thread arch.
 - Limb fur and the limb rim take their brightness from the surface beneath them,
   so they are strong over active regions and network and nearly absent over
