@@ -172,7 +172,7 @@ const state = (store.orrery = {
   solarMode:'dynamic-euv', solarStatus:'deferred', solarInspection:false, solarPlayback:{seconds:0,duration:20,playing:false},
   solarDynamicClock:createSolarDynamicClock(),solarDynamicScenario:'active-v1',solarDynamicQuality:'low',
   solarDynamicStatus:/** @type {any} */({state:'deferred',reason:'Select the illustrative Sun.'}),
-  solarDynamicStarted:false,solarDynamicCorona:true,solarDynamicDiffuse:true,solarDynamicBundles:true,solarDynamicCool:false,solarDynamicEventStart:null,solarDynamicExposure:0,
+  solarDynamicStarted:false,solarDynamicCorona:true,solarDynamicDiffuse:true,solarDynamicBundles:true,solarDynamicCool:false,solarDynamicLook:true,solarDynamicEventStart:null,solarDynamicExposure:0,
   showSmall: false, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   moonGuideMode: "context", // advanced callers may explicitly choose all or off
   showMoons: true, // the 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune
@@ -485,7 +485,7 @@ function drawSolarDynamic(vp,eye,pos,radius,pixels,pass){
   const model=mul(translate(pos),mul(rotation,scaleM([radius,radius,radius])));
   return solarDynamicRenderer.draw({mvp:mul(vp,model),camera:physicalCameraPosition(eye,pos,rotation,radius,1),seconds,pass,
     channel:state.solarMode==='dynamic-visible'?'visible':'euv',pixelDiameter:pixels,rate:state.solarDynamicClock.rate,
-    linearOutput:linearFrame,showCorona:state.solarDynamicCorona,showDiffuse:state.solarDynamicDiffuse,showBundles:state.solarDynamicBundles,coolEnabled:state.solarDynamicCool,exposure:2**state.solarDynamicExposure,
+    linearOutput:linearFrame,showCorona:state.solarDynamicCorona,showDiffuse:state.solarDynamicDiffuse,showBundles:state.solarDynamicBundles,coolEnabled:state.solarDynamicCool,look:state.solarDynamicLook,exposure:2**state.solarDynamicExposure,
     eventSeconds:state.solarDynamicEventStart===null?-1:seconds-state.solarDynamicEventStart,bindMesh:()=>bindBodyMesh(),count:sphere.count});
 }
 
@@ -3447,6 +3447,7 @@ async function showFallback(msg) {
   bind('solarDynamicDiffuse','change',e=>{state.solarDynamicDiffuse=inputTarget(e).checked;paint();});
   bind('solarDynamicBundles','change',e=>{state.solarDynamicBundles=inputTarget(e).checked;paint();});
   bind('solarDynamicCool','change',e=>{state.solarDynamicCool=inputTarget(e).checked;paint();});
+  bind('solarDynamicLook','change',e=>{state.solarDynamicLook=inputTarget(e).checked;paint();});
   bind('solarDynamicExposure','change',e=>{const value=Number(inputTarget(e).value);if([0,-2,-4].includes(value)){state.solarDynamicExposure=value;paint();}});
   bind('solarDynamicEruption','click',()=>{state.solarDynamicEventStart=state.solarDynamicClock.seconds;dynamicClockAction({type:'play'});paint();armSolarFlow();});
   bind('solarDynamicWhole','click',inspectSun);

@@ -25,6 +25,20 @@ image. Controls cover:
 | Composition | Scalar intensity is rendered to a float target, blurred for bloom, then mapped through one palette so highlights roll off to white. |
 | Level of detail | Fine terms fade in with the disk's radius in pixels, so the overview Sun stays a clean glowing disk. |
 
+## Port status
+
+The first port lives in `apps/web/js/solarLookShaders.js` (see "Artistic detail
+layer" in `docs/DYNAMIC_SUN.md`). It differs from this prototype on purpose:
+
+- Loop fans are 3-D loops between each emission region's admitted footpoints,
+  thinner than the prototype's surface arcs.
+- The prominence is a thinner three-thread arch.
+- Limb fur takes its brightness from the surface beneath it, so it is strong over
+  active regions and network and nearly absent over coronal holes, instead of an
+  even rim around the whole circumference.
+
+This prototype has not been updated with those changes.
+
 ## Limitations
 
 - The render is illustrative. Fan arcs and prominences are artistic, not measured

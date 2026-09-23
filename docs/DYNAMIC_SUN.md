@@ -99,6 +99,35 @@ affect presentation and add no physical provenance. Visible photospheric
 granulation is a separate recipe/path. Observed, illustrative and research states
 retain their separate clocks and authority.
 
+### Artistic detail layer
+
+An optional **artistic detail** layer (`apps/web/js/solarLookShaders.js`, the
+"Artistic detail" checkbox, on by default, EUV only) ports the look-development
+target in `tools/lookdev/` into the dynamic renderer. It adds presentation
+emission only, once, in the coronal pass; it changes no packet, field, hash or
+recipe, and it carries no physical provenance.
+
+- **Loop fans.** Thin circular loops through each emission region's two
+  footpoint-group centroids (the field lines of a line dipole), drawn in eight
+  planes tilted about the pole axis with jittered separations. They are occluded
+  by the photosphere and rotate with the admitted footpoints.
+- **Limb fur.** Radial striations whose brightness is read from the shared
+  surface hierarchy directly beneath them: coronal holes starve the fur, and
+  network and emission-region envelopes feed it. Off-limb rays use their closest
+  approach; near-limb disk rays use the foreground atmosphere above the surface.
+- **Prominence.** One thin, three-thread braided arch with a faint hedgerow, in a
+  vertical sheet at an illustrative Carrington site. It is not the absorbing
+  cool-material sheet and does not replace it.
+- **Thinner strands.** While the layer is on, analytic strand cross-sections are
+  drawn at 0.45 of their admitted width at unchanged emissivity. Admitted widths
+  and every numerical validation are unchanged.
+
+With the layer off, or in the visible channel, the dynamic shader output is
+unchanged: the shader validation reproduces the same CPU/GPU hierarchy error as
+before the layer existed. Sub-pixel lines are drawn at a minimum pixel width with
+reduced gain rather than aliasing. Widths, gains and sites live in the frozen
+`LOOK_RECIPE`; they are art direction and are not accepted appearance.
+
 ### Reference rasters and resolution limits
 
 Each final scene exports 2048×1024 float32 linear surface references at t0 and

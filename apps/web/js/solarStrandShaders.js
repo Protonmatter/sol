@@ -9,7 +9,7 @@ layout(location=2) in vec4 a_pulse;
 layout(location=3) in vec4 a_arc;
 uniform mat4 u_mvp;
 uniform vec3 u_camera,u_rotation;
-uniform float u_seconds;
+uniform float u_seconds,u_thin;
 out vec3 v_plane;
 flat out vec4 v_start,v_end,v_pulse,v_arc;
 vec3 advect(vec3 p){float s=p.z/length(p);float s2=s*s;
@@ -18,12 +18,12 @@ vec3 advect(vec3 p){float s=p.z/length(p);float s2=s*s;
 void main(){
  vec3 a=advect(a_start.xyz),b=advect(a_end.xyz),center=(a+b)*.5;
  vec3 view=normalize(u_camera-center),right=normalize(cross(abs(view.z)>.95?vec3(0,1,0):vec3(0,0,1),view));
- vec3 up=cross(view,right);float radius=length(b-a)*.5+4.*a_start.w;
+ vec3 up=cross(view,right);float thin=u_thin>0.?u_thin:1.,radius=length(b-a)*.5+4.*thin*a_start.w;
  float distanceToCamera=length(u_camera-center);
  float bound=radius/sqrt(max(.01,1.-radius*radius/(distanceToCamera*distanceToCamera)));
  vec2 corner=vec2((gl_VertexID==1||gl_VertexID==2||gl_VertexID==4)?1.:-1.,(gl_VertexID==2||gl_VertexID==4||gl_VertexID==5)?1.:-1.);
  v_plane=center+bound*(right*corner.x+up*corner.y);
- v_start=vec4(a,a_start.w);v_end=vec4(b,a_end.w);v_pulse=a_pulse;v_arc=a_arc;
+ v_start=vec4(a,thin*a_start.w);v_end=vec4(b,a_end.w);v_pulse=a_pulse;v_arc=a_arc;
  gl_Position=u_mvp*vec4(v_plane,1.);
 }`;
 export const SOLAR_STRAND_FS=`#version 300 es

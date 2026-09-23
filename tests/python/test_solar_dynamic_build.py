@@ -73,7 +73,7 @@ class SolarBuildTests(unittest.TestCase):
         self.assertEqual(record['role'],'optional')
 
     def test_all_new_solar_runtime_modules_are_scientific(self):
-        names=('solarAtmosphereShaders','solarCoolPlasma','solarDynamicAssets','solarDynamicClock','solarDynamicManifest','solarDynamicRenderer','solarDynamicSampling','solarDynamicWorker','solarDynamicWorkerClient','solarEmissionComposition','solarSequenceControls','solarSequencePlayer','solarStrandRenderer','solarStrandShaders','solarSurfaceShaders')
+        names=('solarAtmosphereShaders','solarCoolPlasma','solarDynamicAssets','solarDynamicClock','solarDynamicManifest','solarDynamicRenderer','solarDynamicSampling','solarDynamicWorker','solarDynamicWorkerClient','solarEmissionComposition','solarSequenceControls','solarSequencePlayer','solarStrandRenderer','solarStrandShaders','solarSurfaceShaders','solarLookShaders')
         for name in names:self.assertIn(name+'.js',build_web.SCIENCE_MODULES)
 
 if __name__=='__main__':unittest.main()

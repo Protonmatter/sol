@@ -4,11 +4,12 @@ import {createSolarAppearanceClient} from './solarDynamicWorkerClient.js';
 import {DYNAMIC_SOLAR_VS,DYNAMIC_SOLAR_FS} from './solarAtmosphereShaders.js';
 import {createSolarStrandRenderer} from './solarStrandRenderer.js';
 import {createSolarEmissionComposition} from './solarEmissionComposition.js';
+import {lookSettings} from './solarLookShaders.js';
 
 const UNIFORMS=['u_mvp','u_camObj','u_extent','u_seconds','u_pixelDiameter','u_rate','u_eventSeconds','u_pass','u_channel','u_debug',
   'u_samples','u_hasPulse','u_linearOutput','u_regionCount','u_showCorona','u_volume','u_pulse','u_surface','u_seed','u_rotation',
   'u_surfaceRecipe','u_euvRecipe','u_regions[0]','u_regionTemperature[0]','u_domainWarp','u_coolEnabled','u_showDiffuse',
-  'u_emissionRegionCount','u_emissionCenters[0]','u_emissionAxesU[0]','u_emissionAxesV[0]','u_emissionCores[0]','u_emissionCoreGains[0]','u_emissionCoreAxes[0]'];
+  'u_emissionRegionCount','u_emissionCenters[0]','u_emissionAxesU[0]','u_emissionAxesV[0]','u_emissionCores[0]','u_emissionCoreGains[0]','u_emissionCoreAxes[0]','u_look'];
 
 /** Float field upload. WebGL2 rejects 3-D uploads from typed arrays while flip-Y
  * or premultiply is enabled, and planet maps elsewhere leave premultiply on after a
@@ -111,7 +112,7 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
       if(!disposed&&token===serial){poseClient?.dispose();poseClient=null;report={...report,pose:'unavailable',reason:`Verified precomputed model retained; live descriptor: ${error.message}`};notify();}
     }).finally(()=>{if(token===serial)posePending=false;});
   }
-  function drawFields({mvp,camera,seconds,pass=1,channel='euv',pixelDiameter=300,rate=60,linearOutput=false,showCorona=true,showDiffuse=true,coolEnabled=false,eventSeconds=-1,bindMesh,count}) {
+  function drawFields({mvp,camera,seconds,pass=1,channel='euv',pixelDiameter=300,rate=60,linearOutput=false,showCorona=true,showDiffuse=true,coolEnabled=false,look=false,eventSeconds=-1,bindMesh,count}) {
     if(disposed||report.state!=='ready'||!scene||!resources||!uniforms)return false;
     if(!Number.isFinite(seconds)||seconds<0||seconds>scene.manifest.duration_seconds)return false;
     samplePose(seconds);
@@ -128,7 +129,7 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
     gl.uniform4fv(u.u_surfaceRecipe,new Float32Array([surface.quiet_temperature_k,surface.limb_u,surface.granule_km,surface.amplitude_k]));
     gl.uniform4fv(u.u_euvRecipe,new Float32Array([euv.cell_km,euv.lifetime_s,euv.amplitude,packet.emission_model?.kind==='hierarchical_euv_v1'?2:euv.kind==='correlated_value_noise_v1'?1:0]));
     gl.uniform1i(u.u_domainWarp,euv.domain_warp?1:0);
-    gl.uniform1i(u.u_coolEnabled,coolEnabled&&channel==='euv'?1:0);
+    gl.uniform1i(u.u_coolEnabled,coolEnabled&&channel==='euv'?1:0);gl.uniform1i(u.u_look,lookSettings({look,channel}).look);
     const regions=new Float32Array(128),temperatures=new Float32Array(32);
     packet.regions.forEach((r,i)=>{regions.set([...r.center,r.radius_rad],i*4);temperatures[i]=r.temperature_k;});
     gl.uniform1i(u.u_regionCount,packet.regions.length);gl.uniform4fv(u['u_regions[0]'],regions);gl.uniform1fv(u['u_regionTemperature[0]'],temperatures);
@@ -155,7 +156,7 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
           drawFields({...args,pass:1,linearOutput:true});
           gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask(false);
           drawFields({...args,pass:2,linearOutput:true});
-          if(args.showCorona!==false&&args.showBundles!==false)strands?.draw({...args,linearOutput:true,outputMode:'transfer'});
+          if(args.showCorona!==false&&args.showBundles!==false)strands?.draw({...args,linearOutput:true,outputMode:'transfer',thin:lookSettings(args).strandWidthScale});
         }finally{composition.finish();}
       }
       return composition.composite(args);
