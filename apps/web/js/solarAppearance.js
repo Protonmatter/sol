@@ -12,9 +12,11 @@ function deepFreeze(value) {
 
 export const SOLAR_APPEARANCE = deepFreeze(solarAppearanceManifest);
 export const SOLAR_VOLUME_EXTENT = SOLAR_APPEARANCE.geometry.extent_solar_radii;
-// Presentation only. 1 is the admitted gold map used by probes; the live EUV view
-// lifts that map so the quiet disk is a luminous star, not a dim brown one.
-export const SOLAR_EUV_DISPLAY_GAIN = 3;
+// Presentation only. 0 keeps the admitted 1x gold map used by probes. The live EUV
+// view lifts that map through a normalized soft shoulder of this strength, about 4x
+// near black and exactly 1 at full scale, so the quiet disk is a luminous star and
+// bright observed structure compresses instead of clipping.
+export const SOLAR_EUV_DISPLAY_GAIN = 4;
 // Educational compression: one displayed second stands for two solar hours.
 // Equator then drifts about 14 degrees per 12 displayed seconds.
 export const SOLAR_ACTIVITY_SECONDS_PER_DAY = 12;
@@ -84,7 +86,8 @@ export function projectSolarSurface(point,frame=SOLAR_APPEARANCE.frames[0]) {
  * One brightness cycle takes four seconds. Reduced motion holds the phase at zero. */
 export function solarFlowPhase(seconds,{reducedMotion=false}={}) {
   if(!Number.isFinite(seconds)) throw new TypeError('corona flow time must be finite');
-  return reducedMotion?0:seconds*Math.PI/2;
+  // Wrapped so a long session keeps float32 precision in the shader; cos() is unchanged.
+  return reducedMotion?0:(seconds%400)*Math.PI/2;
 }
 
 /** Twenty seconds maps to the fixed source interval; callers pause/reset explicitly. */
@@ -316,8 +319,17 @@ export function solarActiveRegions(seconds=0,northAxis='y') {
   });
 }
 
+/** Days on the compressed activity clock. The photosphere shader uses the same law. */
+export function solarActivityDays(seconds=0) {
+  return activityDays(seconds);
+}
+
+/**
+ * Spot discs in the same frame-0 source basis as the EUV bipoles (+Y north). The
+ * photosphere receives a body-to-source matrix, so both modes show one set of groups.
+ */
 export function solarPhotosphereSpots(seconds=0) {
-  return solarActiveRegions(seconds,'z').map(region=>({
+  return solarActiveRegions(seconds,'y').map(region=>({
     lead:[...region.lead,region.radius],
     trail:[...region.trail,region.radius*0.72],
   }));
@@ -360,7 +372,8 @@ export function solarGlobalLoops(seconds=0) {
       const toward=footIndex===0?region.trail:region.lead;
       const tangent=leanTangent(foot,toward);
       for(let strand=0;strand<2;strand++) {
-        const opening=regionIndex===0?rise*0.12:0;
+        // Zero at both ends of the window, so the arch settles instead of snapping back.
+        const opening=regionIndex===0?0.12*Math.sin(Math.PI*rise):0;
         loops.push({normal:foot,tangent,radius:.16+.05*strand+opening,width:.01+.002*strand,gain:GLOBAL_GAIN,
           phaseOffset:(SOLAR_SOURCE_ARCS+loops.length)*.47,role:'whole-sphere-model'});
       }

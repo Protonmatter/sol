@@ -25,7 +25,7 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   assert.equal(inspected.euv[0].uniforms['u_loopGain[0]'].length, 24, 'source arches plus whole-sphere arches');
   assert.ok(inspected.euv[0].uniforms['u_loopGain[0]'].slice(12).every(gain => Math.abs(gain - 0.42) < 1e-6));
   assert.equal(inspected.euv[0].uniforms.u_phase, 0);
-  assert.equal(inspected.euv[0].uniforms.u_displayGain, 3, 'the live EUV disk is lifted above the admitted 1x gold map');
+  assert.equal(inspected.euv[0].uniforms.u_displayGain, 4, 'the live EUV disk is lifted above the admitted 1x gold map');
   assert.ok(inspected.euv.every(draw => draw.uniforms.u_coronaGlow === 1), 'the whole-limb shell is on while the EUV Sun is showing');
   assert.equal(inspected.visible.length, 0);
   const unix = h.state.renderUnix;
@@ -41,6 +41,7 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   const overview = repaint(h);
   assert.equal(overview.euv.length, 0, 'no false-colour EUV Sun in the overview');
   assert.equal(overview.visible.length, 1, 'the visible photosphere draws instead');
+  assert.equal(overview.visible[0].uniforms.u_activity, 0, 'context Sun is the flat disk: no spots or cells in the overview');
 
   // Explicitly selecting the Sun from the object list makes it the subject again.
   h.input('orrerySearch', 'Sun'); h.nodes.orreryPositions.children[0].click();
@@ -65,7 +66,16 @@ test('choosing a solar source mode makes the Sun the subject instead of doing no
   assert.equal(h.state.selected, 'Sun', 'using the control makes the Sun the subject');
   assert.equal(h.state.solarInspection, false, 'without the camera move Inspect performs');
   assert.deepEqual({az: h.state.az, el: h.state.el, radius: h.state.radius}, framing);
-  assert.equal(repaint(h).visible.length, 1, 'the visible photosphere draws');
+  const photosphere = repaint(h).visible;
+  assert.equal(photosphere.length, 1, 'the visible photosphere draws');
+  assert.equal(photosphere[0].uniforms.u_activity, 1, 'the visible subject shows the educational photosphere');
+  assert.equal(photosphere[0].uniforms.u_activityDays, 0, 'reduced motion shows the activity clock at zero');
+  assert.equal(photosphere[0].uniforms.u_activityFrame.length, 9, 'spots and cells receive the EUV source frame');
+  const frame = photosphere[0].uniforms.u_activityFrame;
+  for (let j = 0; j < 3; j++) {
+    const column = frame.slice(j * 3, j * 3 + 3);
+    assert.ok(Math.abs(Math.hypot(...column) - 1) < 1e-5, 'body-to-source frame is a rotation');
+  }
 
   // Switching back to EUV governs the Sun again. The atlas itself only loads once the Sun
   // is large enough on screen, so at overview distance the honest outcome is the disclosed
