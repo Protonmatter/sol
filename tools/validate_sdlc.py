@@ -391,6 +391,15 @@ def validate_workflows(root: Path) -> list[str]:
             "needs.verify.outputs.artifact_id", "needs.verify.outputs.manifest_sha256")):
         errors.append("Pages post-approval eligibility must be rechecked against the same master artifact")
 
+    scientific = (workflow_dir / "ephemeris-accuracy.yml").read_text(encoding="utf-8")
+    errors.extend(require_tokens("scientific evidence retention", scientific, (
+        "--report build/qualification/ephemeris-reference.json",
+        "path: build/qualification", "set -euo pipefail",
+        "tee build/qualification/moon-syzygy.log", "if: always()",
+        "steps.build.outcome == 'success'", "'qualification_accepted': False",
+        "scientific-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}",
+    )))
+
     crate = (workflow_dir / "publish-crate.yml").read_text(encoding="utf-8")
     errors.extend(require_tokens(".github/workflows/publish-crate.yml", crate, (
         "cargo publish --dry-run", "tools/release_crate.py", "--dry-run-exit 0", "Publication held:", "exit 1")))
