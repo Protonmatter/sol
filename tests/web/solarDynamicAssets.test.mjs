@@ -154,3 +154,23 @@ test('attachment group centroid and directed axis derive from actual fixed endpo
   g.center=g.center.map(v=>-v);
   assert.throws(()=>validateDynamicPacket(shifted,{requireGeometry:true}));
 });
+
+test('bounded load rejects bad timeouts, pre-aborted demand, declared-size lies, missing bodies and HTTP errors', async () => {
+  const bytes=new Uint8Array([1,2,3,4]);
+  const r={path:'solar-dynamic/a.f32',bytes:4,sha256:createHash('sha256').update(bytes).digest('hex')};
+  const digest=async b=>new Uint8Array(createHash('sha256').update(new Uint8Array(b)).digest()).buffer;
+  for(const timeoutMs of [0,-1,30001,NaN])
+    await assert.rejects(loadDynamicResource(r,{fetcher:async()=>new Response(bytes),digest,timeoutMs}),/timeout/);
+  const aborted=new AbortController();aborted.abort(new Error('user left'));
+  await assert.rejects(loadDynamicResource(r,{fetcher:async()=>new Response(bytes),digest,signal:aborted.signal}),/user left/);
+  await assert.rejects(loadDynamicResource(r,{fetcher:async()=>new Response(bytes,{headers:{'Content-Length':'9'}}),digest}),/declared resource size/);
+  // A compressed transfer may legitimately declare a different length.
+  assert.deepEqual(new Uint8Array(await loadDynamicResource(r,{fetcher:async()=>new Response(bytes,{headers:{'Content-Length':'9','Content-Encoding':'gzip'}}),digest})),bytes);
+  await assert.rejects(loadDynamicResource(r,{fetcher:async()=>new Response(null),digest}),/stream missing/);
+  await assert.rejects(loadDynamicResource(r,{fetcher:async()=>new Response(bytes,{status:500}),digest}),/HTTP failure/);
+  // Aborting mid-flight rejects with the caller's reason.
+  const live=new AbortController();
+  const pending=loadDynamicResource(r,{fetcher:()=>new Promise(()=>{}),digest,signal:live.signal});
+  live.abort(new Error('superseded'));
+  await assert.rejects(pending,/superseded/);
+});
