@@ -348,6 +348,9 @@ export async function orreryHarness(t, options = {}) {
     completeSnapshot(index = requests.length - 1) { snapshotReplies.get(index)(); },
     holdEngine() { let resolve; engineLoad = new Promise(done => { resolve = done; }); return resolve; },
     setHidden(value) { context.document.hidden = value; documentHandlers.get("visibilitychange")(); },
+    // The top-level matchMedia follows options.reducedMotion; code that reads
+    // window.matchMedia sees this instead, so a test can flip the preference mid-session.
+    setWindowReducedMotion(value) { context.window.matchMedia = () => ({ matches: value }); },
     setAnimate(value) {
       nodes.orreryAnimate.checked = value;
       nodes.orreryAnimate.handlers.get("change")({ currentTarget: nodes.orreryAnimate });
