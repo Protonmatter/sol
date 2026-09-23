@@ -25,7 +25,7 @@ test('Sun card identifies enabled source, modeled volume and explicit fallback',
   assert.equal(fact(fakeSun,'Irradiance S(r)'),'1,361 W/m² at 1 AU','photometry reads Earth.dist_au, not an invented Sun row');
   assert.match(systemCard({...ready,solarStatus:'unavailable'}).note,/simplified visible photosphere/);
   assert.match(systemCard({...ready,solarMode:'visible'}).note,/Visible-light approximation/);
-  assert.match(systemCard({...ready,solarMode:'visible'}).note,/not measured radiance/);
+  assert.match(systemCard({...ready,solarMode:'visible'}).note,/Not measured radiance/);
   assert.match(systemCard({...ready,useTextures:false}).note,/reference disabled/);
 });
 

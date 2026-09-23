@@ -70,7 +70,7 @@ export function systemCard(state = {}) {
     description: 'Open object details for its catalogue facts, source and position limits.'};
   const body = BODY[name];
   const appearance=name==='Sun'&&state.solarMode
-    ? state.solarMode==='visible'?'Visible-light approximation. An educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. not measured radiance and not an HMI observation.'
+    ? state.solarMode==='visible'?'Visible-light approximation. An educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not measured radiance and not an HMI observation.'
       :state.solarStatus==='ready'&&state.useTextures!==false?'NASA/SDO AIA 171 Å reference from 10 May 2024. Gold is an assigned EUV color, lifted so the star stays luminous. Bright arcs are modeled from the observed face. Three tilted pairs drift on a compressed differential-rotation clock, and one periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved hemisphere keeps the observed disk\'s radial brightness and does not invent active regions. Globe brightness does not use L☉ or S(r).'
         :'EUV reference '+(state.useTextures===false?'disabled':state.solarStatus||'loading')+'; a simplified visible photosphere is retained. Globe brightness does not use L☉ or S(r).'
     :appearanceReference(name)?appearanceDescription(name,state):!textureEligible(name)||state.useTextures===false?'Surface detail unavailable in this view; the 3-D appearance is simplified.':'';
