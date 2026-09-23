@@ -27,15 +27,17 @@ image. Controls cover:
 
 ## Port status
 
-The first port lives in `apps/web/js/solarLookShaders.js` (see "Artistic detail
-layer" in `docs/DYNAMIC_SUN.md`). It differs from this prototype on purpose:
+The port lives in `apps/web/js/solarLookShaders.js` (see "Artistic detail layer"
+in `docs/DYNAMIC_SUN.md`). It carries the surface, dark regions, active regions,
+limb, palette and bloom across, and differs from this prototype on purpose:
 
-- Loop fans are 3-D loops between each emission region's admitted footpoints,
-  thinner than the prototype's surface arcs.
+- Placement comes from the model packet: dark regions from its coronal-hole
+  field, active regions from its footpoint groups.
+- Fans are thinner, and 3-D loops are added above each region.
 - The prominence is a thinner three-thread arch.
-- Limb fur takes its brightness from the surface beneath it, so it is strong over
-  active regions and network and nearly absent over coronal holes, instead of an
-  even rim around the whole circumference.
+- Limb fur and the limb rim take their brightness from the surface beneath them,
+  so they are strong over active regions and network and nearly absent over
+  coronal holes, instead of an even rim around the whole circumference.
 
 This prototype has not been updated with those changes.
 

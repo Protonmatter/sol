@@ -103,30 +103,42 @@ retain their separate clocks and authority.
 
 An optional **artistic detail** layer (`apps/web/js/solarLookShaders.js`, the
 "Artistic detail" checkbox, on by default, EUV only) ports the look-development
-target in `tools/lookdev/` into the dynamic renderer. It adds presentation
-emission only, once, in the coronal pass; it changes no packet, field, hash or
-recipe, and it carries no physical provenance.
+target in `tools/lookdev/` into the dynamic renderer. It replaces the disk's
+presented EUV intensity and adds coronal emission; it changes no packet, field,
+hash or recipe, and it carries no physical provenance.
 
-- **Loop fans.** Thin circular loops through each emission region's two
-  footpoint-group centroids (the field lines of a line dipole), drawn in eight
-  planes tilted about the pole axis with jittered separations. They are occluded
-  by the photosphere and rotate with the admitted footpoints.
-- **Limb fur.** Radial striations whose brightness is read from the shared
-  surface hierarchy directly beneath them: coronal holes starve the fur, and
-  network and emission-region envelopes feed it. Off-limb rays use their closest
-  approach; near-limb disk rays use the foreground atmosphere above the surface.
+- **Surface.** A Worley network with bright points, ridged flame texture and
+  mottling on integer-hashed flow noise, evolving with model time. Level of detail
+  follows the disk's radius in pixels.
+- **Dark regions.** Placement comes from the model's coronal-hole field; the
+  lab's domain warp and two finer scales tear its edges, and texture is kept
+  inside.
+- **Active regions.** Each emission region's two footpoint-group centroids drive
+  a plage, uneven hot cores and a thin, frayed dipole fan on the surface, plus
+  thin 3-D loops in eight tilted planes that the photosphere occludes.
+- **Limb and fur.** Limb brightening and an emissive rim whose strength follows
+  the local surface. Off-limb radial fur reads its brightness from the surface
+  directly beneath it, so coronal holes starve it and network and active regions
+  feed it, instead of an even rim around the circumference.
 - **Prominence.** One thin, three-thread braided arch with a faint hedgerow, in a
   vertical sheet at an illustrative Carrington site. It is not the absorbing
   cool-material sheet and does not replace it.
+- **Presentation.** The composite adds quarter-resolution bloom and maps
+  intensity through the lab's palette. The palette is pre-inverted through the
+  existing Reinhard presentation, so it displays as designed at zero exposure
+  stops; exposure stops still apply. Bloom layers count toward the transfer
+  target's 48 MiB budget.
 - **Thinner strands.** While the layer is on, analytic strand cross-sections are
-  drawn at 0.45 of their admitted width at unchanged emissivity. Admitted widths
-  and every numerical validation are unchanged.
+  drawn at 0.45 of their admitted width at unchanged emissivity.
 
 With the layer off, or in the visible channel, the dynamic shader output is
 unchanged: the shader validation reproduces the same CPU/GPU hierarchy error as
-before the layer existed. Sub-pixel lines are drawn at a minimum pixel width with
-reduced gain rather than aliasing. Widths, gains and sites live in the frozen
+before the layer existed. Widths, gains, rates and sites live in the frozen
 `LOOK_RECIPE`; they are art direction and are not accepted appearance.
+
+The layer is expensive. Under SwiftShader (CPU rendering) the staged validation's
+median frame rose from about 0.85 s to 3.3 s. It has not been measured on a
+physical GPU or mobile device.
 
 ### Reference rasters and resolution limits
 

@@ -157,6 +157,7 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
           gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask(false);
           drawFields({...args,pass:2,linearOutput:true});
           if(args.showCorona!==false&&args.showBundles!==false)strands?.draw({...args,linearOutput:true,outputMode:'transfer',thin:lookSettings(args).strandWidthScale});
+          if(lookSettings(args).look)composition.bloom();
         }finally{composition.finish();}
       }
       return composition.composite(args);

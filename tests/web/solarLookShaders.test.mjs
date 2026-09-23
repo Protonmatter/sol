@@ -33,3 +33,21 @@ test('dynamic shader includes the layer once, after advection, gated by u_look',
   assert.match(DYNAMIC_SOLAR_FS,/if\(u_look==0\)return 0\.;/);
   assert.match(DYNAMIC_SOLAR_FS,/u_pass!=1&&u_showCorona!=0\)emission\+=lookEmission\(/);
 });
+
+test('lab palette survives the presentation tone map at zero stops',async()=>{
+  const {presentationColor}=await import('../../apps/web/js/hdrPresentation.js');
+  const {lookPalette,lookPresentationLinear}=await import('../../apps/web/js/solarLookShaders.js');
+  for(const intensity of [0,.1,.4,1,2.5]){
+    const display=lookPalette(intensity),shown=presentationColor(lookPresentationLinear(display),1);
+    // Channels at or below the .985 linear cap round-trip exactly; brighter ones clip.
+    display.forEach((value,i)=>{if(value<.99)assert.ok(Math.abs(shown[i]-value)<1e-6,`${intensity}[${i}] ${shown[i]} vs ${value}`);});
+  }
+  assert.deepEqual(lookPalette(-1),[0,0,0]);
+  assert.ok(lookPresentationLinear([2,-1,1]).every(Number.isFinite));
+});
+
+test('composition shader carries the look palette and bloom behind u_look',async()=>{
+  const {LOOK_COMPOSE_GLSL}=await import('../../apps/web/js/solarLookShaders.js');
+  assert.match(LOOK_COMPOSE_GLSL,/vec3 lookPalette\(float i\)/);
+  assert.match(LOOK_COMPOSE_GLSL,/vec3 lookPresentationLinear\(vec3 d\)/);
+});

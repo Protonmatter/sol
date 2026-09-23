@@ -119,7 +119,9 @@ void main(){
       color=vec3(value*3.);debugSurface=value;
     }else{
       float value;
-      if(u_euvRecipe.w>1.5){
+      // Artistic detail layer: lab surface in palette units (composite scales G by 3.2).
+      if(u_look==1)value=lookSurface(carried,mu)/3.2;
+      else if(u_euvRecipe.w>1.5){
         // The attachment field is evaluated directly. No lower-resolution
         // reference raster contributes to this production branch.
         value=hierarchicalEuv(carried,u_seconds,u_seed);
