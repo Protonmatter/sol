@@ -139,7 +139,7 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     "solarAtmosphereShaders.js", "solarCoolPlasma.js", "solarDynamicAssets.js", "solarDynamicClock.js",
     "solarDynamicManifest.js", "solarDynamicRenderer.js", "solarDynamicSampling.js", "solarDynamicWorker.js",
     "solarDynamicWorkerClient.js", "solarEmissionComposition.js", "solarSequenceControls.js", "solarSequencePlayer.js",
-    "solarStrandRenderer.js", "solarStrandShaders.js", "solarSurfaceShaders.js", "explorer.js", "sunlayers.js",
+    "solarStrandRenderer.js", "solarStrandShaders.js", "solarSurfaceShaders.js", "solarLookShaders.js", "explorer.js", "sunlayers.js",
     # render.js decides how an observed solar frame reaches the canvas: drawObservedBase()
     # chooses between a registered photospheric disk and a whole browse frame, and owns the
     # clip and limb treatment that go with each. That is observation rendering, so its hash

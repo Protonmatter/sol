@@ -31,6 +31,8 @@ export function buildStrandInstances(packet){
   }
   return new Float32Array(data);
 }
+/** Presentation width factor for the Gaussian cross-section: (0,1], else 1. */
+export function strandWidthScale(thin){return Number.isFinite(thin)&&thin>0&&thin<=1?thin:1;}
 export function createSolarStrandRenderer(gl,{generation=1,onChange=(_status)=>{}}={}){
   const manager=createShaderPrograms(gl,{generation,capacity:1});let disposed=false,serial=0,buffer=null,vao=null,count=0,uniforms=null;
   let report={state:'deferred',reason:'',segments:0,estimatedBytes:0};
@@ -50,11 +52,11 @@ export function createSolarStrandRenderer(gl,{generation=1,onChange=(_status)=>{
         for(let i=0;i<4;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,4,gl.FLOAT,false,64,i*16);gl.vertexAttribDivisor(i,1);}
         if(gl.getError()!==gl.NO_ERROR)throw new Error('Strand upload failed');
       }finally{gl.bindVertexArray(oldVAO);gl.bindBuffer(gl.ARRAY_BUFFER,oldBuffer);}
-      count=data.length/16;const program=manager.get('strands');uniforms=Object.fromEntries(['u_mvp','u_camera','u_rotation','u_seconds','u_channel','u_transfer','u_coolEnabled'].map(name=>[name,gl.getUniformLocation(program,name)]));
+      count=data.length/16;const program=manager.get('strands');uniforms=Object.fromEntries(['u_mvp','u_camera','u_rotation','u_seconds','u_channel','u_transfer','u_coolEnabled','u_thin'].map(name=>[name,gl.getUniformLocation(program,name)]));
       report={state:'ready',reason:'',segments:count,estimatedBytes:data.byteLength};notify();return true;
     }catch(error){if(token===serial&&!disposed){release();report={state:'unavailable',reason:error.message,segments:0,estimatedBytes:0};notify();}return false;}
   }
-  function draw({mvp,camera,seconds,channel='euv',linearOutput=true,outputMode='linear',coolEnabled=false}){
+  function draw({mvp,camera,seconds,channel='euv',linearOutput=true,outputMode='linear',coolEnabled=false,thin=1}){
     if(disposed||report.state!=='ready'||gl.isContextLost()||!Number.isFinite(seconds)||seconds<0||seconds>21600||!linearOutput)return false;
     const program=manager.get('strands');if(!program)return false;
     const oldVAO=gl.getParameter(gl.VERTEX_ARRAY_BINDING),oldProgram=gl.getParameter(gl.CURRENT_PROGRAM),cull=gl.isEnabled(gl.CULL_FACE);
@@ -62,7 +64,7 @@ export function createSolarStrandRenderer(gl,{generation=1,onChange=(_status)=>{
       gl.disable(gl.CULL_FACE);gl.useProgram(program);gl.bindVertexArray(vao);
       // Root rotates the complete Carrington frame into world space once.
       gl.uniformMatrix4fv(uniforms.u_mvp,false,new Float32Array(mvp));gl.uniform3fv(uniforms.u_camera,new Float32Array(camera));gl.uniform3f(uniforms.u_rotation,14.713-14.1844,-2.396,-1.787);
-      gl.uniform1i(uniforms.u_coolEnabled,coolEnabled&&channel==='euv'?1:0);
+      gl.uniform1i(uniforms.u_coolEnabled,coolEnabled&&channel==='euv'?1:0);gl.uniform1f(uniforms.u_thin,strandWidthScale(thin));
       gl.uniform1f(uniforms.u_seconds,seconds);gl.uniform1i(uniforms.u_channel,channel==='visible'?1:0);gl.uniform1i(uniforms.u_transfer,outputMode==='transfer'?1:0);gl.drawArraysInstanced(gl.TRIANGLES,0,6,count);return true;
     }finally{gl.bindVertexArray(oldVAO);gl.useProgram(oldProgram);if(cull)gl.enable(gl.CULL_FACE);}
   }

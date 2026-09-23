@@ -4,11 +4,40 @@ import {createSolarAppearanceClient} from './solarDynamicWorkerClient.js';
 import {DYNAMIC_SOLAR_VS,DYNAMIC_SOLAR_FS} from './solarAtmosphereShaders.js';
 import {createSolarStrandRenderer} from './solarStrandRenderer.js';
 import {createSolarEmissionComposition} from './solarEmissionComposition.js';
+import {lookSettings} from './solarLookShaders.js';
 
 const UNIFORMS=['u_mvp','u_camObj','u_extent','u_seconds','u_pixelDiameter','u_rate','u_eventSeconds','u_pass','u_channel','u_debug',
   'u_samples','u_hasPulse','u_linearOutput','u_regionCount','u_showCorona','u_volume','u_pulse','u_surface','u_seed','u_rotation',
   'u_surfaceRecipe','u_euvRecipe','u_regions[0]','u_regionTemperature[0]','u_domainWarp','u_coolEnabled','u_showDiffuse',
-  'u_emissionRegionCount','u_emissionCenters[0]','u_emissionAxesU[0]','u_emissionAxesV[0]','u_emissionCores[0]','u_emissionCoreGains[0]','u_emissionCoreAxes[0]'];
+  'u_emissionRegionCount','u_emissionCenters[0]','u_emissionAxesU[0]','u_emissionAxesV[0]','u_emissionCores[0]','u_emissionCoreGains[0]','u_emissionCoreAxes[0]','u_look'];
+
+/** Float field upload. WebGL2 rejects 3-D uploads from typed arrays while flip-Y
+ * or premultiply is enabled, and planet maps elsewhere leave premultiply on after a
+ * masked upload. Force both off here and restore the caller's unpack state. */
+export function uploadFieldTexture(gl,data,dimensions,components=1) {
+  const target=dimensions.length===3?gl.TEXTURE_3D:gl.TEXTURE_2D;
+  const handle=gl.createTexture();if(!handle)throw new Error('Solar model texture allocation failed');
+  const previous={flip:gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL),premultiply:gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL),alignment:gl.getParameter(gl.UNPACK_ALIGNMENT)};
+  try{
+    // Clear stale errors so the check below only reports this upload.
+    for(let i=0;i<8&&gl.getError()!==gl.NO_ERROR;i++);
+    gl.bindTexture(target,handle);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+    const internal=components===4?gl.RGBA16F:gl.R16F,format=components===4?gl.RGBA:gl.RED;
+    if(dimensions.length===3)gl.texImage3D(target,0,internal,dimensions[0],dimensions[1],dimensions[2],0,format,gl.FLOAT,data);
+    else gl.texImage2D(target,0,internal,dimensions[0],dimensions[1],0,format,gl.FLOAT,data);
+    gl.texParameteri(target,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(target,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(target,gl.TEXTURE_WRAP_S,dimensions.length===2?gl.REPEAT:gl.CLAMP_TO_EDGE);
+    gl.texParameteri(target,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    if(dimensions.length===3)gl.texParameteri(target,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);
+    if(gl.getError()!==gl.NO_ERROR)throw new Error('Solar model texture upload failed');
+    return handle;
+  }catch(error){gl.deleteTexture(handle);throw error;}
+  finally{
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,!!previous.flip);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,!!previous.premultiply);
+    if(Number.isInteger(previous.alignment))gl.pixelStorei(gl.UNPACK_ALIGNMENT,previous.alignment);
+  }
+}
 
 /** Context-owned renderer: independent demand, atomic resources and no mutation
  * of the scientific engine. Inputs are immutable, source-hashed model products. */
@@ -25,22 +54,6 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
     strands?.dispose();strands=null;composition?.dispose();composition=null;
   };
   const assertLive=token=>{if(disposed||token!==serial||gl.isContextLost())throw new Error('Solar model demand superseded');};
-  function texture(data,dimensions,components=1) {
-    const target=dimensions.length===3?gl.TEXTURE_3D:gl.TEXTURE_2D;
-    const handle=gl.createTexture();if(!handle)throw new Error('Solar model texture allocation failed');
-    try{
-      gl.bindTexture(target,handle);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
-      const internal=components===4?gl.RGBA16F:gl.R16F,format=components===4?gl.RGBA:gl.RED;
-      if(dimensions.length===3)gl.texImage3D(target,0,internal,dimensions[0],dimensions[1],dimensions[2],0,format,gl.FLOAT,data);
-      else gl.texImage2D(target,0,internal,dimensions[0],dimensions[1],0,format,gl.FLOAT,data);
-      gl.texParameteri(target,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(target,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-      gl.texParameteri(target,gl.TEXTURE_WRAP_S,dimensions.length===2?gl.REPEAT:gl.CLAMP_TO_EDGE);
-      gl.texParameteri(target,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-      if(dimensions.length===3)gl.texParameteri(target,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);
-      if(gl.getError()!==gl.NO_ERROR)throw new Error('Solar model texture upload failed');
-      return handle;
-    }catch(error){gl.deleteTexture(handle);throw error;}
-  }
   function ensure(record,{quality='low'}={}) {
     if(disposed)return Promise.resolve(false);
     if(report.id===record.path&&report.state==='ready')return Promise.resolve(true);
@@ -69,9 +82,9 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
       const previousAlignment=gl.getParameter(gl.UNPACK_ALIGNMENT),previousUnit=gl.getParameter(gl.ACTIVE_TEXTURE);
       try{
         gl.activeTexture(gl.TEXTURE0);
-        next.surface=loaded.surfaceData?texture(loaded.surfaceData,loaded.manifest.surface.dimensions):texture(new Float32Array([0]),[1,1]);
-        next.volume=texture(loaded.volumeData,loaded.volume.dimensions);
-        next.pulse=loaded.pulseData?texture(loaded.pulseData,loaded.volume.dimensions,4):texture(new Float32Array(4),[1,1,1],4);
+        next.surface=loaded.surfaceData?uploadFieldTexture(gl,loaded.surfaceData,loaded.manifest.surface.dimensions):uploadFieldTexture(gl,new Float32Array([0]),[1,1]);
+        next.volume=uploadFieldTexture(gl,loaded.volumeData,loaded.volume.dimensions);
+        next.pulse=loaded.pulseData?uploadFieldTexture(gl,loaded.pulseData,loaded.volume.dimensions,4):uploadFieldTexture(gl,new Float32Array(4),[1,1,1],4);
         assertLive(token);resources=next;
       }catch(error){for(const handle of Object.values(next))if(handle)gl.deleteTexture(handle);throw error;}
       finally{gl.pixelStorei(gl.UNPACK_ALIGNMENT,previousAlignment);gl.activeTexture(previousUnit);}
@@ -99,7 +112,7 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
       if(!disposed&&token===serial){poseClient?.dispose();poseClient=null;report={...report,pose:'unavailable',reason:`Verified precomputed model retained; live descriptor: ${error.message}`};notify();}
     }).finally(()=>{if(token===serial)posePending=false;});
   }
-  function drawFields({mvp,camera,seconds,pass=1,channel='euv',pixelDiameter=300,rate=60,linearOutput=false,showCorona=true,showDiffuse=true,coolEnabled=false,eventSeconds=-1,bindMesh,count}) {
+  function drawFields({mvp,camera,seconds,pass=1,channel='euv',pixelDiameter=300,rate=60,linearOutput=false,showCorona=true,showDiffuse=true,coolEnabled=false,look=false,eventSeconds=-1,bindMesh,count}) {
     if(disposed||report.state!=='ready'||!scene||!resources||!uniforms)return false;
     if(!Number.isFinite(seconds)||seconds<0||seconds>scene.manifest.duration_seconds)return false;
     samplePose(seconds);
@@ -116,7 +129,7 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
     gl.uniform4fv(u.u_surfaceRecipe,new Float32Array([surface.quiet_temperature_k,surface.limb_u,surface.granule_km,surface.amplitude_k]));
     gl.uniform4fv(u.u_euvRecipe,new Float32Array([euv.cell_km,euv.lifetime_s,euv.amplitude,packet.emission_model?.kind==='hierarchical_euv_v1'?2:euv.kind==='correlated_value_noise_v1'?1:0]));
     gl.uniform1i(u.u_domainWarp,euv.domain_warp?1:0);
-    gl.uniform1i(u.u_coolEnabled,coolEnabled&&channel==='euv'?1:0);
+    gl.uniform1i(u.u_coolEnabled,coolEnabled&&channel==='euv'?1:0);gl.uniform1i(u.u_look,lookSettings({look,channel}).look);
     const regions=new Float32Array(128),temperatures=new Float32Array(32);
     packet.regions.forEach((r,i)=>{regions.set([...r.center,r.radius_rad],i*4);temperatures[i]=r.temperature_k;});
     gl.uniform1i(u.u_regionCount,packet.regions.length);gl.uniform4fv(u['u_regions[0]'],regions);gl.uniform1fv(u['u_regionTemperature[0]'],temperatures);
@@ -143,7 +156,8 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
           drawFields({...args,pass:1,linearOutput:true});
           gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask(false);
           drawFields({...args,pass:2,linearOutput:true});
-          if(args.showCorona!==false&&args.showBundles!==false)strands?.draw({...args,linearOutput:true,outputMode:'transfer'});
+          if(args.showCorona!==false&&args.showBundles!==false)strands?.draw({...args,linearOutput:true,outputMode:'transfer',thin:lookSettings(args).strandWidthScale});
+          if(lookSettings(args).look)composition.bloom();
         }finally{composition.finish();}
       }
       return composition.composite(args);

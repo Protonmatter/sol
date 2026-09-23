@@ -22,7 +22,10 @@ const ATMOSPHERE = [
 // Outer → inner, for the leader labels (matches the visual stacking top → bottom on the right).
 const LABEL_ORDER = ["Corona", "Chromosphere", "Photosphere", "Convective zone", "Radiative zone", "Core"];
 
-function cutawaySVG() {
+// Gradient IDs are document-global. The cutaway is built in more than one host,
+// so each copy scopes its IDs; otherwise url(#...) resolves to the first copy,
+// which may sit inside a closed <details> and paint nothing.
+function cutawaySVG(prefix) {
   const W = 380, H = 330, cx = 128, cy = 165, R = 120;
   const conv = R, radz = R * 0.70, core = R * 0.25;
   const th = -42 * Math.PI / 180, ct = Math.cos(th), st = Math.sin(th); // up-right leader ray
@@ -40,13 +43,13 @@ function cutawaySVG() {
   });
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cutaway of the Sun's layers" font-family="Segoe UI, system-ui, sans-serif">
     <defs>
-      <radialGradient id="coronaGlow"><stop offset="0.7" stop-color="rgba(150,180,255,0)"/><stop offset="0.8" stop-color="rgba(160,190,255,0.5)"/><stop offset="1" stop-color="rgba(150,180,255,0)"/></radialGradient>
-      <radialGradient id="coreGlow"><stop offset="0" stop-color="#fffdf2"/><stop offset="1" stop-color="#ffe7a4"/></radialGradient>
+      <radialGradient id="${prefix}-coronaGlow"><stop offset="0.7" stop-color="rgba(150,180,255,0)"/><stop offset="0.8" stop-color="rgba(160,190,255,0.5)"/><stop offset="1" stop-color="rgba(150,180,255,0)"/></radialGradient>
+      <radialGradient id="${prefix}-coreGlow"><stop offset="0" stop-color="#fffdf2"/><stop offset="1" stop-color="#ffe7a4"/></radialGradient>
     </defs>
-    <circle cx="${cx}" cy="${cy}" r="${R + 42}" fill="url(#coronaGlow)"/>
+    <circle cx="${cx}" cy="${cy}" r="${R + 42}" fill="url(#${prefix}-coronaGlow)"/>
     <circle cx="${cx}" cy="${cy}" r="${conv}" fill="#ff9a3c"/>
     <circle cx="${cx}" cy="${cy}" r="${radz}" fill="#ffd277"/>
-    <circle cx="${cx}" cy="${cy}" r="${core}" fill="url(#coreGlow)"/>
+    <circle cx="${cx}" cy="${cy}" r="${core}" fill="url(#${prefix}-coreGlow)"/>
     <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#ffe7a0" stroke-width="2.5"/>
     <circle cx="${cx}" cy="${cy}" r="${R + 4}" fill="none" stroke="rgba(255,120,90,0.65)" stroke-width="2"/>
     ${leaders}
@@ -64,5 +67,5 @@ function listHTML() {
 export function buildSunCutaway(hostId="sunCutaway") {
   const host = document.getElementById(hostId);
   if (!host) return;
-  host.innerHTML = cutawaySVG() + listHTML();
+  host.innerHTML = cutawaySVG(hostId) + listHTML();
 }

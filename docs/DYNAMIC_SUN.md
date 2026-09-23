@@ -99,6 +99,58 @@ affect presentation and add no physical provenance. Visible photospheric
 granulation is a separate recipe/path. Observed, illustrative and research states
 retain their separate clocks and authority.
 
+### Artistic detail layer
+
+An optional **artistic detail** layer (`apps/web/js/solarLookShaders.js`, the
+"Artistic detail" checkbox, on by default, EUV only) ports the look-development
+target in `tools/lookdev/` into the dynamic renderer. It replaces the disk's
+presented EUV intensity and adds coronal emission; it changes no packet, field,
+hash or recipe, and it carries no physical provenance.
+
+- **Surface.** A Worley network with bright points, ridged flame texture and
+  mottling on integer-hashed flow noise, evolving with model time. Level of detail
+  follows the disk's radius in pixels; close up, fine granules (bright cells with
+  dark lanes) replace part of the flame texture.
+- **Dark regions.** The look lab's torn patches: a domain-warped fbm threshold,
+  roughened at two finer scales and seeded by the packet, dims the surface to
+  about a third while keeping its texture inside. They are not placed from the
+  model's coronal-hole field.
+- **Active regions.** Each emission region's two footpoint-group centroids drive
+  the look lab's active region: a plage, uneven white-hot cores and a frayed
+  dipole fan on the surface (with thinner lines than the lab), plus thin 3-D
+  loops in eight tilted planes that the photosphere occludes.
+- **Limb and fur.** Limb brightening and an emissive rim whose strength follows
+  the local surface. Off-limb radial fur reads its brightness from the surface
+  directly beneath it, so coronal holes starve it and network and active regions
+  feed it, instead of an even rim around the circumference.
+- **Streamers.** A helmet streamer rises above each emission region: a wide
+  cusp that narrows into a long stalk out to 2.4 R, rooted at the region's
+  footpoint centroid and rotating with it. Each one sways in a slow travelling
+  bend and carries density blobs outward at about 300 km/s, the slow solar-wind
+  speed, all on the model clock.
+- **Evolution rates.** Fine texture boils on a minutes scale; mottling runs at
+  0.15 of that rate and dark patches at 0.02 to 0.08, so a patch keeps its
+  outline across the six-hour scenario.
+- **Prominence.** One thin, three-thread braided arch with a faint hedgerow, in a
+  vertical sheet at an illustrative Carrington site. It is not the absorbing
+  cool-material sheet and does not replace it.
+- **Presentation.** The composite adds quarter-resolution bloom and maps
+  intensity through the lab's palette. The palette is pre-inverted through the
+  existing Reinhard presentation, so it displays as designed at zero exposure
+  stops; exposure stops still apply. Bloom layers count toward the transfer
+  target's 48 MiB budget.
+- **Thinner strands.** While the layer is on, analytic strand cross-sections are
+  drawn at 0.45 of their admitted width at unchanged emissivity.
+
+With the layer off, or in the visible channel, the dynamic shader output is
+unchanged: the shader validation reproduces the same CPU/GPU hierarchy error as
+before the layer existed. Widths, gains, rates and sites live in the frozen
+`LOOK_RECIPE`; they are art direction and are not accepted appearance.
+
+The layer is expensive. Under SwiftShader (CPU rendering) the staged validation's
+median frame rose from about 0.85 s to 3.3 s. It has not been measured on a
+physical GPU or mobile device.
+
 ### Reference rasters and resolution limits
 
 Each final scene exports 2048×1024 float32 linear surface references at t0 and

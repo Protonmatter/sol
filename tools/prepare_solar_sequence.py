@@ -265,7 +265,6 @@ def validate_manifest(manifest: dict, web_root: Path | None = None) -> None:
 
 
 def prepare(source_root: Path, out: Path) -> dict:
-    from PIL import Image
     source_bytes = (source_root / 'source.json').read_bytes()
     source = json.loads(source_bytes)
     if not 2 <= len(source['frames']) <= MAX_FRAMES: raise ValueError('frame count budget')
@@ -287,6 +286,9 @@ def prepare(source_root: Path, out: Path) -> dict:
                 data[key] = path.read_bytes()
                 if sha(data[key]) != entry[key + '_sha256']: raise ValueError('source hash mismatch')
             parsed = bind_source_records(entry, data, source['cadence_seconds'])
+            # Imported only once the source records are admitted, so every
+            # rejection path runs without the optional image dependency.
+            from PIL import Image
             with Image.open(io.BytesIO(data['source'])) as image:
                 if image.size != (4096, 4096): raise ValueError('unexpected archive geometry')
                 image.reduce = 3

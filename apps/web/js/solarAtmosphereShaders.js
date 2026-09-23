@@ -1,5 +1,6 @@
 import {SOLAR_COOL_PLASMA_GLSL} from './solarCoolPlasma.js';
 import {SOLAR_CELLULAR_GLSL} from './solarSurfaceShaders.js';
+import {SOLAR_LOOK_GLSL} from './solarLookShaders.js';
 
 export const DYNAMIC_SOLAR_VS = `#version 300 es
 layout(location=0) in vec3 a_pos;
@@ -39,6 +40,7 @@ vec2 interval(vec3 origin,vec3 dir,float radius){
   if(d<0.)return vec2(1.,-1.);float mid=-dot(origin,dir),span=sqrt(d);return vec2(mid-span,mid+span);
 }
 vec3 advected(vec3 p){return turnZ(p,-(rotationAt(p,u_rotation)-14.1844)*.017453292519943295*u_seconds/86400.);}
+${SOLAR_LOOK_GLSL}
 vec3 encode(vec3 c){return mix(12.92*c,1.055*pow(c,vec3(1./2.4))-.055,step(vec3(.0031308),c));}
 vec3 present(vec3 linear){return u_linearOutput==1?linear:encode(max(linear,vec3(0))/(vec3(1)+max(linear,vec3(0))));}
 vec3 palette(float intensity){
@@ -117,7 +119,9 @@ void main(){
       color=vec3(value*3.);debugSurface=value;
     }else{
       float value;
-      if(u_euvRecipe.w>1.5){
+      // Artistic detail layer: lab surface in palette units (composite scales G by 3.2).
+      if(u_look==1)value=lookSurface(carried,mu)/3.2;
+      else if(u_euvRecipe.w>1.5){
         // The attachment field is evaluated directly. No lower-resolution
         // reference raster contributes to this production branch.
         value=hierarchicalEuv(carried,u_seconds,u_seed);
@@ -155,6 +159,8 @@ void main(){
   }
   // Sheet source occurs exactly once, in the volume pass, even without corona.
   if(u_pass!=1&&sheet.x>0.)emission+=.004*(1.-exp(-sheet.y));
+  // Illustrative look layer (fans, fur, prominence), once, in the volume pass.
+  if(u_pass!=1&&u_showCorona!=0)emission+=lookEmission(u_camObj,direction,disk,inner.x);
   if(u_debug==1){o=vec4(emission,debugSurface,u_pass==1&&disk?1.:0.,u_pass==1?1.:0.);return;}
   color+=u_channel==1?vec3(emission*2.):palette(emission*40.);
   if(u_pass==2){if(max(color.r,max(color.g,color.b))<1e-6)discard;o=vec4(present(color),0.);}
