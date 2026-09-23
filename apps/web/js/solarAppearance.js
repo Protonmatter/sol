@@ -13,10 +13,10 @@ function deepFreeze(value) {
 export const SOLAR_APPEARANCE = deepFreeze(solarAppearanceManifest);
 export const SOLAR_VOLUME_EXTENT = SOLAR_APPEARANCE.geometry.extent_solar_radii;
 // Presentation only. 0 keeps the admitted 1x gold map used by probes. The live EUV
-// view lifts that map through a normalized soft shoulder of this strength, about 4x
+// view lifts that map through a normalized soft shoulder of this strength, about 6x
 // near black and exactly 1 at full scale, so the quiet disk is a luminous star and
 // bright observed structure compresses instead of clipping.
-export const SOLAR_EUV_DISPLAY_GAIN = 4;
+export const SOLAR_EUV_DISPLAY_GAIN = 6;
 // Educational compression: one displayed second stands for two solar hours.
 // Equator then drifts about 14 degrees per 12 displayed seconds.
 export const SOLAR_ACTIVITY_SECONDS_PER_DAY = 12;

@@ -25,7 +25,7 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   assert.equal(inspected.euv[0].uniforms['u_loopGain[0]'].length, 24, 'source arches plus whole-sphere arches');
   assert.ok(inspected.euv[0].uniforms['u_loopGain[0]'].slice(12).every(gain => Math.abs(gain - 0.42) < 1e-6));
   assert.equal(inspected.euv[0].uniforms.u_phase, 0);
-  assert.equal(inspected.euv[0].uniforms.u_displayGain, 4, 'the live EUV disk is lifted above the admitted 1x gold map');
+  assert.equal(inspected.euv[0].uniforms.u_displayGain, 6, 'the live EUV disk is lifted above the admitted 1x gold map');
   assert.ok(inspected.euv.every(draw => draw.uniforms.u_coronaGlow === 1), 'the whole-limb shell is on while the EUV Sun is showing');
   assert.equal(inspected.visible.length, 0);
   const unix = h.state.renderUnix;
@@ -98,6 +98,8 @@ test('choosing a solar source mode makes the Sun the subject instead of doing no
   assert.equal(held.u_activityDays, 0, 'reduced motion shows the activity clock at zero');
   assert.deepEqual(held['u_spot[0]'], restSpots, 'spots return to their rest positions');
   h.setWindowReducedMotion(false);
+  const resumed = repaint(h).visible[0].uniforms;
+  assert.equal(resumed.u_activityDays, running.u_activityDays, 'the clock resumes where it was');
 
   // Switching back to EUV governs the Sun again. The atlas itself only loads once the Sun
   // is large enough on screen, so at overview distance the honest outcome is the disclosed
