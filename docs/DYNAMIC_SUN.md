@@ -123,6 +123,14 @@ hash or recipe, and it carries no physical provenance.
   the local surface. Off-limb radial fur reads its brightness from the surface
   directly beneath it, so coronal holes starve it and network and active regions
   feed it, instead of an even rim around the circumference.
+- **Streamers.** A helmet streamer rises above each emission region: a wide
+  cusp that narrows into a long stalk out to 2.4 R, rooted at the region's
+  footpoint centroid and rotating with it. Each one sways in a slow travelling
+  bend and carries density blobs outward at about 300 km/s, the slow solar-wind
+  speed, all on the model clock.
+- **Evolution rates.** Fine texture boils on a minutes scale; mottling runs at
+  0.15 of that rate and dark patches at 0.02 to 0.08, so a patch keeps its
+  outline across the six-hour scenario.
 - **Prominence.** One thin, three-thread braided arch with a faint hedgerow, in a
   vertical sheet at an illustrative Carrington site. It is not the absorbing
   cool-material sheet and does not replace it.

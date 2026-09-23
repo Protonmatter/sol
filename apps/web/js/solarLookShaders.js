@@ -5,10 +5,11 @@
 // not modeled plasma. Intensities are in the lab's palette units. Requires
 // SOLAR_CELLULAR_GLSL and the dynamic uniforms.
 export const LOOK_RECIPE=Object.freeze({
-  flowRadPerS:.002,cellOrbitRadPerS:.0015,holeThresholds:[-.07,.06],
+  flowRadPerS:.002,holeFlowScale:.02,holeEdgeFlowScale:.08,mottleFlowScale:.15,cellOrbitRadPerS:.0015,holeThresholds:[-.07,.06],
   fanLineWidth:.06,loopWidthR:.0018,loopPlanes:8,loopTilt:.6,loopsPerPlane:3,strandWidthScale:.45,
   furScaleHeightsR:[.018,.085,.33],promSite:[90,20],promHalfSpanDeg:9,promHeightR:.2,promWidthR:.0022,
   bloom:1.1,bloomThreshold:.35,
+  streamerMaxR:2.4,streamerGain:.85,blobSpacingR:.35,blobSpeedRPerS:.00043,swayRadPerS:.0006,
 });
 
 /** Per-draw switches. The layer is EUV-only: the visible photosphere keeps its
@@ -55,11 +56,13 @@ float lookNoise(vec3 q,uint salt,float epochSeconds){
   uint s=u_seed^salt;return mix(correlatedNoise(q,s,n),correlatedNoise(q,s,n+1),f);
 }
 // Flow noise: integer-hashed lattice gradients rotate with model time, so the
-// field evolves in place instead of sliding.
+// field evolves in place instead of sliding. lookFlow scales the rate: large
+// structures (dark patches, mottling) evolve far slower than fine texture.
+float lookFlow=1.;
 vec3 lookGrad(ivec3 c,uint salt){
   uint h=cellHash(u_seed^salt,c,0);
   vec3 v=vec3(float(h&1023u),float((h>>10)&1023u),float((h>>20)&1023u))/511.5-1.;
-  float a=u_seconds*${g(R.flowRadPerS)}*(.6+.8*unitBits(mixBits(h)));float s=sin(a),k=cos(a);
+  float a=lookFlow*u_seconds*${g(R.flowRadPerS)}*(.6+.8*unitBits(mixBits(h)));float s=sin(a),k=cos(a);
   return vec3(k*v.x-s*v.y,s*v.x+k*v.y,v.z);
 }
 float lookGnoise(vec3 p,uint salt){
@@ -95,9 +98,11 @@ vec2 lookWorley(vec3 p){
 // Dark regions, as in the look lab: a domain-warped fbm threshold torn at two
 // finer scales, seeded by the packet. They dim the surface but keep its texture.
 vec3 lookHoleWarp(vec3 p){return .55*vec3(lookFbm(p*1.6,3,0x530u),lookFbm(p*1.6+4.,3,0x533u),lookFbm(p*1.6+9.,3,0x536u));}
-float lookHoleField(vec3 p){return lookFbm(p*1.25+lookHoleWarp(p),4,0x520u);}
+float lookHoleField(vec3 p){lookFlow=${g(R.holeFlowScale)};float m=lookFbm(p*1.25+lookHoleWarp(p),4,0x520u);lookFlow=1.;return m;}
 float lookHole(vec3 p,vec3 warp,float fine){
-  float m=lookHoleField(p)+.34*lookFbm(p*6.+warp,3,0x500u)+.18*fine*lookFbm(p*18.,2,0x510u);
+  // Edges tear on a slow clock too, so a patch keeps its outline for hours.
+  lookFlow=${g(R.holeEdgeFlowScale)};float edge=.34*lookFbm(p*6.+.5*warp,3,0x500u)+.18*fine*lookFbm(p*18.,2,0x510u);lookFlow=1.;
+  float m=lookHoleField(p)+edge;
   return smoothstep(${g(R.holeThresholds[0])},${g(R.holeThresholds[1])},m);
 }
 // Footpoint-group centroids of one emission region, in t0 Carrington frame.
@@ -133,7 +138,7 @@ float lookSurface(vec3 p,float mu){
   float px=.5*u_pixelDiameter;
   float dNet=smoothstep(40.,110.,px),dFine=smoothstep(80.,220.,px),dFan=smoothstep(28.,90.,px);
   float dGran=smoothstep(150.,420.,px),gran=0.;
-  float mott=lookFbm(p*5.,4,0x100u);
+  lookFlow=${g(R.mottleFlowScale)};float mott=lookFbm(p*5.,4,0x100u);lookFlow=1.;
   vec3 warp=vec3(lookGnoise(p*9.,0x200u),lookGnoise(p*9.+5.,0x201u),lookGnoise(p*9.+11.,0x202u));
   float quiet=.30+.24*mott;
   float bright=0.;
@@ -162,7 +167,7 @@ float lookSurface(vec3 p,float mu){
 }
 // Cheaper surface brightness under a direction, for the fur's footpoint.
 float lookFoot(vec3 n){
-  float mott=lookFbm(n*5.,3,0x100u),quiet=1.15*pow(max(.30+.24*mott,.015),1.25);
+  lookFlow=${g(R.mottleFlowScale)};float mott=lookFbm(n*5.,3,0x100u);lookFlow=1.;float quiet=1.15*pow(max(.30+.24*mott,.015),1.25);
   float hole=smoothstep(${g(R.holeThresholds[0])},${g(R.holeThresholds[1])},lookHoleField(n)+.34*lookFbm(n*6.,2,0x500u));
   float intensity=quiet*mix(1.,.18,hole);
   for(int i=0;i<10;i++){
@@ -250,11 +255,39 @@ float lookProminence(vec3 cam,vec3 dir,float tMax){
   float ends=smoothstep(1.,.75,abs(s));
   return facing*ends*smoothstep(.2,.65,grain)*(gain*rope*(1.5+max(turb,0.))+.3*hedge*threads);
 }
+// Helmet streamers above each emission region, as seen by coronagraphs and
+// Parker Solar Probe's WISPR: a wide cusp that narrows into a long stalk. They
+// rotate with the region, sway in a slow travelling bend, and carry density
+// blobs outward at about slow solar-wind speed (300 km/s). All motion follows
+// model time. Sky-plane geometry: the stalk's projected direction and the
+// pixel's closest-approach radius give the true radial distance along it.
+float lookStreamers(vec3 cam,vec3 dir){
+  float t=max(0.,-dot(cam,dir));vec3 c=cam+t*dir;float r=length(c);if(r<=1.)return 0.;
+  vec3 sky=c/r;float sum=0.;
+  for(int i=0;i<10;i++){
+    if(i>=u_emissionRegionCount)break;
+    vec3 pa,pb;float amp;if(!lookPoles(i,pa,pb,amp))continue;
+    vec3 s=lookForward(normalize(pa+pb)),sp=s-dot(s,dir)*dir;float vis=length(sp);if(vis<.15)continue;sp/=vis;
+    float R=1.+(r-1.)/vis;if(R>${g(R.streamerMaxR)})continue;
+    uint h=cellHash(u_seed^0x5f3759dfu,ivec3(i,0,0),0);float ph=6.2831853*unitBits(h);
+    vec3 side=normalize(cross(dir,sp));
+    float bend=.05*(R-1.)*sin(1.7*R-u_seconds*${g(R.swayRadPerS)}+ph)+.02*lookNoise(vec3(R*1.5,float(i),0.),0x2b1u,5400.);
+    float across=dot(sky,side)-bend,along=dot(sky,sp);if(along<=0.)continue;
+    float d=length(pa-pb),width=(1.05*d+.02)*(1.-smoothstep(1.05,1.9,R))+.03*(.6+.4*unitBits(mixBits(h)));
+    float core=exp(-across*across/(width*width));
+    float striae=.7+.3*lookNoise(vec3(across*120.,R*2.,float(i)),0x3355u,1800.);
+    float phase=(R-1.-u_seconds*${g(R.blobSpeedRPerS)})/${g(R.blobSpacingR)}+unitBits(h^3u);
+    float blob=.6+.4*pow(.5+.5*sin(6.2831853*phase),3.);
+    float fall=pow(R,-2.5)*smoothstep(${g(R.streamerMaxR)},${g(R.streamerMaxR)}-.6,R)*smoothstep(1.,1.08,R);
+    sum+=amp*vis*core*striae*blob*fall;
+  }
+  return ${g(R.streamerGain)}*sum;
+}
 // Coronal-pass intensity in lab units (the composite multiplies emission by 40).
 float lookEmission(vec3 cam,vec3 dir,bool disk,float surfaceT){
   if(u_look==0)return 0.;
   float tMax=disk?surfaceT:1e6,intensity=.7*lookLoops(cam,dir,tMax)+1.6*lookProminence(cam,dir,tMax);
-  if(!disk)intensity+=lookFur(cam,dir);
+  if(!disk)intensity+=lookFur(cam,dir)+lookStreamers(cam,dir);
   return intensity/40.;
 }
 `;
