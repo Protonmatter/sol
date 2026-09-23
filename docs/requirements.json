@@ -496,6 +496,29 @@
       "ci_gates": [
         "CI / Web, provider, and browser validation"
       ]
+    },
+    {
+      "id": "SOL-VIS-009",
+      "status": "implemented",
+      "statement": "Enhanced Earth MUST be opt-in, preserve original NASA sources and engine state, keep cloud geometry and Sun-directed shadows phase-aligned, freeze drift outside visible animation, and suspend visual edits for ground-containing swaths or scientific sea-ice palettes. Height, motion, ocean grading and cloud lighting MUST remain disclosed as illustrative.",
+      "source": "docs/rfcs/0008-enhanced-earth.md#requirements",
+      "implementation": [
+        "apps/web/js/enhancedEarth.js",
+        "apps/web/js/earthOceanMask.js",
+        "apps/web/js/orrery.js",
+        "apps/web/js/orreryShaders.js",
+        "apps/web/js/planetAppearance.js",
+        "apps/web/index.html",
+        "tools/prepare_earth_ocean_mask.py"
+      ],
+      "verification": [
+        "tests/web/enhancedEarth.test.mjs",
+        "tests/python/test_earth_ocean_mask.py",
+        "tools/render_enhanced_earth_probe.py"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
     }
   ]
 }

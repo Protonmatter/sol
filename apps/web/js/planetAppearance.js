@@ -73,7 +73,7 @@ export function appearanceSummary(body, state = {}) {
 
 export function earthLayerDescription(state = {}, compact = false) {
   const roles = /** @type {[string, boolean][]} */ ([['night-lights', state.earthNight !== false], [earthCloudRole(state), state.earthWeather !== false], ['sea-ice', state.earthIce === true]]);
-  return roles.filter(([, enabled]) => enabled).map(([role]) => {
+  const layers=roles.filter(([, enabled]) => enabled).map(([role]) => {
     const asset = appearanceReference('Earth', role);
     if (!asset) return `${role}: unavailable`;
     const status = state.appearanceStatus?.[asset.id];
@@ -82,4 +82,14 @@ export function earthLayerDescription(state = {}, compact = false) {
     return `${label} · ${asset.observation_label}${status === 'ready' ? '' : status === 'unavailable' ? ' · unavailable'
       : status === 'deferred' || !status ? ' · loads when Earth is in view at a useful scale' : status === 'queued' ? ' · queued' : ' · loading'}${limits}`;
   }).join(' · ');
+  return [layers,enhancedEarthDescription(state)].filter(Boolean).join(' · ');
+}
+
+export function enhancedEarthDescription(state){
+  if(!state.earthEnhanced)return '';
+  if(state.earthCloudSource==='daily')return 'Enhanced Earth suspended for MODIS swaths containing the ground.';
+  if(state.earthIce===true)return 'Enhanced Earth suspended to preserve the scientific sea-ice palette.';
+  if(state.useTextures===false)return 'Enhanced Earth suspended while source textures are off.';
+  const ocean=state.earthMaskStatus==='unavailable'?'Ocean grading unavailable. ':'Darker offshore oceans. ';
+  return `Enhanced Earth · illustrative: ${ocean}Cloud height (nominal 8 km), shadows and drift are display choices, not measured weather. Cloud lighting uses approximate haze. Drift follows Play time; reduced motion holds it.`;
 }

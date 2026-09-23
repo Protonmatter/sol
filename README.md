@@ -113,3 +113,13 @@ Sol is not for navigation, occultation prediction, mission safety or operational
 space-weather warnings. `space_weather_operational` remains false. Project code is
 MIT OR Apache-2.0; third-party data attribution and outstanding coefficient notice
 correspondence are documented separately and are not resolved by that project license.
+
+### Optional Enhanced Earth
+
+Solar System → View controls → Earth layers → **Enhanced Earth** adds darker
+offshore oceans and an elevated historical NASA cloud layer with Sun-directed
+shadows. Clouds drift independently during Play time and freeze when paused.
+The option is off by default; cloud height, motion and lighting are illustrative.
+MODIS swaths and the scientific sea-ice palette suspend the enhancement.
+See [RFC 0008](docs/rfcs/0008-enhanced-earth.md) and the
+[validation record](docs/validation/enhanced-earth/README.md).

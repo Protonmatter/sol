@@ -25,6 +25,8 @@
     <link rel="modulepreload" href="js/data.js?v=dcca6290db">
     <link rel="modulepreload" href="js/dataBundle.js">
     <link rel="modulepreload" href="js/illustrativeHaze.js">
+    <link rel="modulepreload" href="js/enhancedEarth.js">
+    <link rel="modulepreload" href="js/earthOceanMask.js">
     <link rel="modulepreload" href="js/sourceAttribution.js">
     <link rel="modulepreload" href="js/viewEvidence.js">
     <link rel="modulepreload" href="js/dom.js?v=dcca6290db">
@@ -455,6 +457,8 @@
               <details class="orrery-group">
                 <summary>Earth layers</summary>
                 <div class="orrery-group-body">
+                  <label class="orrery-check"><input id="orreryEarthEnhanced" type="checkbox" aria-describedby="orreryEarthEnhancedHelp"> Enhanced Earth</label>
+                  <p id="orreryEarthEnhancedHelp" class="time-frame-label">Deeper oceans and raised clouds with Sun-aligned shadows. Clouds drift independently during Play time. Color, nominal 8 km cloud height and motion are illustrative; the NASA imagery keeps its historical date. Uses the Blue Marble cloud layer; suspended for MODIS swaths and the sea-ice analysis palette.</p>
                   <div class="orrery-check-grid">
                     <label class="orrery-check"><input id="orreryEarthNight" type="checkbox" checked> Night lights</label>
                     <label class="orrery-check"><input id="orreryEarthWeather" type="checkbox" checked> Clouds</label>

@@ -213,16 +213,16 @@ vec3 atmosphereCombinedTail(float impact,float x){
   // Rationalize altitude before lookup: subtracting a rounded body-sized radius
   // quantizes a short interval's height increment and corrupts its column mass.
   float radius=length(vec2(impact,x)),height=((impact-u_atmosphereRadiusKm)*(impact+u_atmosphereRadiusKm)+x*x)/(radius+u_atmosphereRadiusKm);
-  vec3 packed;
+  vec3 columnValues;
   if(height<0.0){
     float ground=sqrt(max(0.0,u_atmosphereRadiusKm*u_atmosphereRadiusKm-impact*impact));
     float below=max(0.0,ground-x);
-    packed=atmosphereOutwardPacked(0.0,ground/u_atmosphereRadiusKm)+vec3(below,below,below*atmosphereOzoneDensity(0.0));
-  }else packed=atmosphereOutwardPacked(height,x/max(radius,1e-9));
+    columnValues=atmosphereOutwardPacked(0.0,ground/u_atmosphereRadiusKm)+vec3(below,below,below*atmosphereOzoneDensity(0.0));
+  }else columnValues=atmosphereOutwardPacked(height,x/max(radius,1e-9));
   // A uniform scale, not a literal zero, keeps the admitted sampler from being
   // constant-folded out of the generator. The runtime value stays 0.
-  packed.xy+=texelFetch(u_atmosphereColumnField,ivec2(0),0).rg*u_atmosphereColumnKeep;
-  return packed;
+  columnValues.xy+=texelFetch(u_atmosphereColumnField,ivec2(0),0).rg*u_atmosphereColumnKeep;
+  return columnValues;
 }
 vec2 atmosphereOutwardColumns(float height,float mu){return atmosphereOutwardPacked(height,mu).rg;}
 float atmosphereOzoneOutward(float height,float mu){return atmosphereOutwardPacked(height,mu).b;}

@@ -111,7 +111,7 @@ test('aerosol path radiance converges toward the limb instead of diverging', () 
 test('only the illustrative program carries the haze, and it replaces the rim rather than stacking', () => {
   for (const source of [shaders.SPHERE_FS, shaders.BASE_SPHERE_FS]) {
     assert.match(source, /uniform vec3 u_hazeRayleighTau;/);
-    assert.ok(source.includes('hazeOverSurface(surface,N,V,normalize(u_light),sunVis)'));
+    assert.ok(source.includes('hazeOverSurface(surface,N,V,normalize(u_light),hazeSunVis)'));
     assert.ok(source.includes('displayLimb=vec3(0);'), 'a haze body drops the illustrative rim');
     assert.ok(source.includes('vec3 displayLimb=u_atmo*fres*u_atmoStr'), 'other bodies keep the rim recipe');
   }

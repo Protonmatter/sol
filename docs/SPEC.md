@@ -32,6 +32,19 @@ reuse the existing view transform without moving physical bodies.
 
 Scientific and source claims remain anchored to public methods and data: NOAA/SWPC products, Helioviewer quicklook imagery and metadata, IERS Earth-orientation data, JPL Horizons/DE441 validation, published analytic ephemerides, and NASA/IAU constants. Sol does not claim proprietary JPL, NOAA, or commercial forecasting algorithms.
 
+[RFC 0008](rfcs/0008-enhanced-earth.md) adds an optional Enhanced Earth presentation,
+off by default. It retains NASA maps and their epochs, grades dark offshore ocean
+pixels, raises the historical cloud layer by a nominal 8 km, and samples that same
+shell/phase for Sun-directed display shadows. Independent drift advances only with
+visible Earth during Play time; pause, hidden/inactive views and reduced motion
+hold its phase. MODIS ground-containing swaths and the scientific sea-ice palette
+suspend enhancement. Cloud height, drift, opacity-based shadows and cloud haze
+are illustrative; they are not measured weather or volumetric optical transfer.
+The ground keeps its existing reference atmosphere. Source-qualified defaults,
+other bodies, engine snapshots and observation dates remain unchanged. See the
+[validation record](validation/enhanced-earth/README.md) for local evidence and
+outstanding browser/device qualification.
+
 Planetary appearance follows [RFC 0004](rfcs/0004-registered-planetary-appearance.md).
 Registered, dated mission display maps are separate from calibrated or complete
 observations. Earth layers distinguish land/ice, annual night lights, dated satellite

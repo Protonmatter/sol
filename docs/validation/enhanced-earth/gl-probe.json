@@ -1,0 +1,29 @@
+{
+  "renderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+  "version": "OpenGL ES 3.2 Mesa 25.2.8-0ubuntu0.24.04.2",
+  "shader_sha256": {
+    "base": [
+      "3c07618144d40f22ddc7172915f581e8d04e1467125c75010e57ac53670a2b8c",
+      "b84bb0171c0951170b6bbeb8e333bdab4a476c0121bb1cfe76aed821a3804703"
+    ],
+    "physical": [
+      "c1a6e6515c9c8d28d159e2fd08036edae0af72ddb69f57923a431a9cee8f2733",
+      "97b25bca0dfb9e0b858e390172da0f1a7004923e51205f691c254cf1fea9b767"
+    ]
+  },
+  "programs_compiled": [
+    "base",
+    "physical"
+  ],
+  "width": 768,
+  "height": 768,
+  "changed_pixels": 254959,
+  "drift_changed_pixels": 270921,
+  "shadow_changed_pixels": 63090,
+  "scope": "Controlled offscreen OpenGL ES software rendering of production shaders with original NASA maps; base haze path, no browser/native-device qualification.",
+  "source_sha256": {
+    "apps/web/textures/reference/earth-land-2004.jpg": "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5",
+    "apps/web/textures/reference/earth-blue-marble-2002-cloud-layer.png": "82005bba2cec05b41137b766985d516eaf6b66ea045191d8869d45abd05f7995",
+    "apps/web/js/earthOceanMask.js": "53fcc6ba7460e0ee701893f05b924c8fa4002fe74c31a8a6647f00a66a687e7a"
+  }
+}

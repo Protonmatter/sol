@@ -1,6 +1,6 @@
 # Sol status
 
-Updated: 2026-09-13. Scope: inspected local implementation, not production activation.
+Updated: 2026-09-23. Scope: inspected local implementation, not production activation.
 
 ## Implementation versus qualification
 
@@ -36,6 +36,14 @@ while a scoped, tested implementation can be submitted for code review.
   one coherent store publication; failure retains the prior valid bundle.
 
 ## User-visible behavior implemented locally
+
+The optional Enhanced Earth candidate (SOL-VIS-009 / Accepted RFC 0008) preserves
+the default view and adds darker ocean colors, raised historical clouds, shared-phase
+Sun-directed ground shadows and drift during Play time. Scientific sea-ice and MODIS
+views suspend it. [Candidate validation](validation/enhanced-earth/README.md) records
+renderer lifecycle checks, deterministic mask generation and an actual offscreen
+production-shader comparison. Native browser/mobile and release qualification remain
+open; this candidate does not change the deployed site.
 
 Sun, My Sky and Solar System expose selected non-canvas facts, native object controls,
 visible mode/source/epoch/limitations and bounded lists. The timeline distinguishes
