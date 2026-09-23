@@ -6,7 +6,7 @@
 // SOLAR_CELLULAR_GLSL and the dynamic uniforms.
 export const LOOK_RECIPE=Object.freeze({
   flowRadPerS:.002,cellOrbitRadPerS:.0015,holeThresholds:[-.1,.55],
-  fanLineWidth:.05,loopWidthR:.0018,loopPlanes:8,loopTilt:.9,loopsPerPlane:3,strandWidthScale:.45,
+  fanLineWidth:.05,loopWidthR:.0018,loopPlanes:8,loopTilt:.6,loopsPerPlane:3,strandWidthScale:.45,
   furScaleHeightsR:[.018,.085,.33],promSite:[90,20],promHalfSpanDeg:9,promHeightR:.2,promWidthR:.0022,
   bloom:1.1,bloomThreshold:.35,
 });
@@ -117,30 +117,41 @@ bool lookPoles(int i,out vec3 pa,out vec3 pb,out float amp){
   return min(min(c0.w,c1.w),min(c2.w,c3.w))>0.&&length(pa-pb)>1e-4;
 }
 // Surface fan: contours of the angle the two poles subtend are the arcs of a
-// line dipole, frayed by noise, over uneven hot cores and a plage.
+// line dipole, lightly frayed, over clumped hot cores and a plage. Lines fade
+// out near each pole so the cores read as bright knots, not starbursts.
 float lookFan(vec3 p,vec3 pa,vec3 pb,float amp,out float core,out float plage){
   core=0.;plage=0.;
   vec3 c=normalize(pa+pb),a=pa-pb;float d=length(a);a/=d;
-  float cd=dot(p,c),reach=3.4*d;if(cd<1.-.5*reach*reach)return 0.;
+  float cd=dot(p,c),reach=2.6*d;if(cd<1.-.5*reach*reach)return 0.;
   vec3 b=cross(c,a),q=p-c*cd;float x=dot(q,a),y=dot(q,b);
   float r1=length(vec2(x-.5*d,y)),r2=length(vec2(x+.5*d,y)),rm=length(vec2(x,y));
   float psi=atan(y,x-.5*d)-atan(y,x+.5*d);
-  psi+=.22*lookGnoise(vec3(x,y,c.x)*38.,0x600u)+.08*lookGnoise(vec3(x,y,c.y)*110.,0x601u);
-  float n=psi*9./LOOK_PI,f=fract(n);uint id=cellHash(u_seed^0x19660du,ivec3(int(floor(n)),int(1e3*c.x),int(1e3*c.y)),0);
+  // Keep compact loops only: drop the huge outer circles (small |psi|) and the
+  // axis itself (|psi| near 0 or pi), which would draw a streak through the poles.
+  float span=smoothstep(.3*LOOK_PI,.5*LOOK_PI,abs(psi))*smoothstep(.97*LOOK_PI,.88*LOOK_PI,abs(psi));
+  psi+=.10*lookGnoise(vec3(x,y,c.x)*38.,0x600u)+.04*lookGnoise(vec3(x,y,c.y)*110.,0x601u);
+  float n=psi*6./LOOK_PI,f=fract(n);uint id=cellHash(u_seed^0x19660du,ivec3(int(floor(n)),int(1e3*c.x),int(1e3*c.y)),0);
   float w=${g(R.fanLineWidth)}*(1.+smoothstep(0.,2.*d,rm)),line=exp(-pow(min(f,1.-f)/w,2.));
   float strand=(.35+1.3*unitBits(id)*unitBits(id))*(.75+.25*sin(u_seconds*(.005+.015*unitBits(mixBits(id)))+6.2831853*unitBits(id^5u)));
-  float n2=psi*23./LOOK_PI,f2=fract(n2);uint id2=cellHash(u_seed^0x3c6ef35fu,ivec3(int(floor(n2)),int(1e3*c.x),2),0);
-  float fine=.35*exp(-pow(min(f2,1.-f2)/(.7*w),2.))*(.5+unitBits(id2));
-  float env=exp(-min(r1,r2)/(d*.75))*smoothstep(d*3.2,d*1.4,rm);
-  float s=d*.09*(1.+.5*lookGnoise(vec3(x,y,1.)*80.,0x602u)),stretch=1.+.8*abs(lookGnoise(vec3(x,y,2.)*40.,0x603u));
-  core=(exp(-r1*r1/(s*s*stretch))+.7*exp(-r2*r2/(s*s*stretch)))*amp;
-  plage=exp(-rm*rm/(d*d*1.1))*amp;
-  return (line*strand+fine)*env*amp;
+  float n2=psi*15./LOOK_PI,f2=fract(n2);uint id2=cellHash(u_seed^0x3c6ef35fu,ivec3(int(floor(n2)),int(1e3*c.x),2),0);
+  float fine=.22*exp(-pow(min(f2,1.-f2)/(.7*w),2.))*(.5+unitBits(id2));
+  float env=exp(-min(r1,r2)/(d*.6))*smoothstep(d*2.4,d*1.0,rm)*smoothstep(.12*d,.4*d,min(r1,r2));
+  float s=d*.07*(1.+.5*lookGnoise(vec3(x,y,1.)*80.,0x602u));
+  for(int k=0;k<4;k++){
+    uint kh=cellHash(u_seed^0x7a3bu,ivec3(k,int(1e3*c.x),int(1e3*c.y)),0);
+    vec2 off=(vec2(unitBits(kh),unitBits(mixBits(kh)))-.5)*vec2(.35,.22)*d;
+    float g=.45+.55*unitBits(kh^9u),k1=length((vec2(x-.5*d,y)-off)*vec2(1.,1.8)),k2=length((vec2(x+.5*d,y)+off)*vec2(1.,1.8));
+    core+=g*(exp(-k1*k1/(s*s))+.7*exp(-k2*k2/(s*s)));
+  }
+  core*=.45*amp;
+  plage=exp(-rm*rm/(d*d*1.6))*amp;
+  return (line*strand+fine)*env*span*amp;
 }
 // Disk intensity for a t0 Carrington surface point at cosine mu.
 float lookSurface(vec3 p,float mu){
   float px=.5*u_pixelDiameter;
   float dNet=smoothstep(40.,110.,px),dFine=smoothstep(80.,220.,px),dFan=smoothstep(28.,90.,px);
+  float dGran=smoothstep(150.,420.,px),gran=0.;
   float mott=lookFbm(p*5.,4,0x100u);
   vec3 warp=vec3(lookGnoise(p*9.,0x200u),lookGnoise(p*9.+5.,0x201u),lookGnoise(p*9.+11.,0x202u));
   float quiet=.30+.24*mott;
@@ -151,19 +162,21 @@ float lookSurface(vec3 p,float mu){
     bright=pow(max(0.,1.-w.x*2.6),6.)*smoothstep(0.,.3,lookGnoise(p*4.+7.,0x203u));
     quiet+=dNet*(.10*lanes*(.6+.8*lookGnoise(p*12.,0x204u))+.9*bright);
   }
-  if(dFine>0.)quiet+=dFine*.62*(lookRidged(p*26.+1.6*warp,4,0x300u)-.34);
+  if(dFine>0.)quiet+=dFine*mix(.62,.4,dGran)*(lookRidged(p*26.+mix(1.6,.9,dGran)*warp,4,0x300u)-.34);
+  // Close up, fine granules: bright cell interiors with dark lanes.
+  if(dGran>0.){vec2 c=lookWorley(p*70.+.35*warp);gran=smoothstep(.55,.05,c.x)*smoothstep(0.,.18,c.y-c.x)-.25;quiet+=dGran*.2*gran;}
   quiet=1.15*pow(max(quiet,.015),1.25);
   float hole=lookHole(p,warp,dFine);
   // Inside a hole the network does not just dim: it gives way to a faint wispy
   // glow with a few surviving bright points (plume bases).
   float wisps=max(lookFbm(p*vec3(9.,9.,9.)+1.3*warp,3,0x400u),0.);
-  float interior=.05+.10*wisps+.55*dNet*bright;
+  float interior=.05+.10*wisps+.55*dNet*bright+.05*dGran*gran;
   float intensity=mix(quiet,interior,hole);
   for(int i=0;i<10;i++){
     if(i>=u_emissionRegionCount)break;
     vec3 pa,pb;float amp;if(!lookPoles(i,pa,pb,amp))continue;
     float core,plage,fan=lookFan(p,pa,pb,amp,core,plage);
-    intensity+=dFan*3.*fan+.35*plage*(.6+.8*mott)+2.2*core;
+    intensity+=dFan*3.*fan+.42*plage*(.6+.8*mott+.6*dGran*max(gran,0.))+2.2*core;
   }
   // Limb brightening, then an emissive rim fed by the local surface: bright
   // network and plage glow at the limb, dark regions do not.
@@ -263,7 +276,7 @@ float lookProminence(vec3 cam,vec3 dir,float tMax){
 // Coronal-pass intensity in lab units (the composite multiplies emission by 40).
 float lookEmission(vec3 cam,vec3 dir,bool disk,float surfaceT){
   if(u_look==0)return 0.;
-  float tMax=disk?surfaceT:1e6,intensity=1.2*lookLoops(cam,dir,tMax)+1.6*lookProminence(cam,dir,tMax);
+  float tMax=disk?surfaceT:1e6,intensity=.7*lookLoops(cam,dir,tMax)+1.6*lookProminence(cam,dir,tMax);
   if(!disk)intensity+=lookFur(cam,dir);
   return intensity/40.;
 }
