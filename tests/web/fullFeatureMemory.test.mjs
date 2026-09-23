@@ -123,7 +123,11 @@ test('page memory reader reports the actual registered manifest and fresh restor
   const manifest=new vm.SourceTextModule(fs.readFileSync(new URL('../../apps/web/js/visualAssetManifest.js',import.meta.url),'utf8'),{context});
   await manifest.link(()=>{throw new Error('Unexpected manifest dependency');});await manifest.evaluate();
   const appearance=new vm.SourceTextModule(fs.readFileSync(new URL('../../apps/web/js/planetAppearance.js',import.meta.url),'utf8'),{context});
-  await appearance.link(name=>{assert.equal(name,'./visualAssetManifest.js');return manifest;});await appearance.evaluate();
+  const illustrativeManifest=new vm.SourceTextModule(fs.readFileSync(new URL('../../apps/web/js/illustrativeAssetManifest.js',import.meta.url),'utf8'),{context});
+  await illustrativeManifest.link(()=>{throw new Error('Unexpected illustrative manifest dependency');});
+  const illustrative=new vm.SourceTextModule(fs.readFileSync(new URL('../../apps/web/js/illustrativeAppearance.js',import.meta.url),'utf8'),{context});
+  await illustrative.link(name=>{assert.equal(name,'./illustrativeAssetManifest.js');return illustrativeManifest;});
+  await appearance.link(name=>{if(name==='./illustrativeAppearance.js')return illustrative;assert.equal(name,'./visualAssetManifest.js');return manifest;});await appearance.evaluate();
   const store=new vm.SyntheticModule(['store'],function(){this.setExport('store',{orrery:state});},{context});
   await store.link(()=>{});await store.evaluate();
   const read=new vm.Script(`(${memory.readMemoryFeatureState.toString()})()`,{importModuleDynamically:async name=>{

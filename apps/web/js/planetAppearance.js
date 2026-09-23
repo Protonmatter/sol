@@ -1,5 +1,6 @@
 // Registered mission reference imagery. These epochs never follow the model clock.
 import { visualAssetManifest } from './visualAssetManifest.js';
+import { illustrativeSelected, illustrativeDescription } from './illustrativeAppearance.js';
 
 // Per-channel median of fully covered pixels in the admitted OPAL display maps.
 // A flat display color reduces the gray discontinuity at missing map coverage.
@@ -18,7 +19,7 @@ export function appearanceFallbackColor(body) {
 // Venus draws its visible-light cloud deck by default. Its registered Magellan radar
 // mosaic shows the ground beneath the clouds and appears only when explicitly chosen.
 export function surfaceReferenceShown(body, state = {}) {
-  return body !== 'Venus' || state.venusRadar === true;
+  return !illustrativeSelected(body,state) && (body !== 'Venus' || state.venusRadar === true);
 }
 
 export function appearanceReference(body, role = 'surface') {
@@ -45,6 +46,7 @@ export function appearanceUniforms(asset) {
 }
 
 export function appearanceDescription(body, state = {}, details = false) {
+  if (illustrativeSelected(body,state)) return illustrativeDescription(body,state);
   if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);
   if (!asset) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
@@ -61,6 +63,7 @@ export function appearanceDescription(body, state = {}, details = false) {
 // Keep the primary object card concise; the adjacent source disclosure carries
 // complete capture epochs, processing, coverage and interpretation limits.
 export function appearanceSummary(body, state = {}) {
+  if (illustrativeSelected(body,state)) return illustrativeDescription(body,state);
   if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);
   if (!asset || state.useTextures === false) return appearanceDescription(body, state);

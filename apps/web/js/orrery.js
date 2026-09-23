@@ -20,6 +20,7 @@ import { linearFilterReference } from './materialColor.js';
 import { createHdrPresentation } from './hdrPresentation.js';
 import { srgbToLinear } from './surfaceMapping.js';
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
+import {ILLUSTRATIVE_ASSETS,MAX_ILLUSTRATIVE_TEXTURES,illustrativeSelected,planIllustrativeDemand,decodeIllustrativeMap} from './illustrativeAppearance.js';
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
 import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.js';
 import {requestTerrainMesh} from './terrainWorkerClient.js';
@@ -160,7 +161,7 @@ const state = (store.orrery = {
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite', venusRadar: false,
-  appearanceStatus: {},
+  appearanceStatus: {}, planetLook: 'source-qualified', illustrativeStatus: {},
   terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{}, scatteringStatus:{}, scatteringFrame:null,
   programStatus:{base:'deferred',physical:'deferred'},programDiagnostics:{},
   // Qualification candidate only; default enablement requires integrated/native gates.
@@ -209,6 +210,7 @@ let textures = {}, ringTex = { ready: false, tex: null }, whiteTex = null, textu
 let referenceTextures = {}, textureGeneration = 0;
 let referenceDemand = [], referenceVisible = new Map(), referenceUseSerial = 0;
 let referenceViewport = {width:0,height:0};
+let illustrativeDetails=null,illustrativeDemand=[];
 let terrainDetails=null,terrainDemand={};
 let incidentFields=null,incidentDemand='';
 let retryTerrainFailures=false;
@@ -376,7 +378,7 @@ function initTerrainResources() {
 }
 
 function detailMesh(body,pixels) {
-  if(!state.terrainEnabled||!terrainReference(body)||!terrainDetails||state.galaxy)return null;
+  if(illustrativeSelected(body,state)||!state.terrainEnabled||!terrainReference(body)||!terrainDetails||state.galaxy)return null;
   const level=terrainDetailLevel(pixels);
   const focused=!state.selectedStar&&(state.selected===body||state.anchor===body);
   if(focused&&!level){terrainDemand[body]='';state.terrainStatus[body]='deferred';}
@@ -405,7 +407,8 @@ function updatePhysicalAppearance() {
   const galleryBody=body,opticalBody=opticalSubject();
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
-  if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
+  if(terrainReference(body)&&illustrativeSelected(body,state))notes.push('Measured terrain relief is suspended for this unregistered illustrative map.');
+  else if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
   if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. The observed face stays those frames. Arches rooted in three tilted pairs drift with a compressed differential-rotation clock, and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved disk keeps the observed radial brightness.`:'Visible-light approximation. A compressed educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not an HMI observation.');
@@ -633,7 +636,48 @@ function cancelPendingReferenceTextures(keep = []) {
   }
 }
 
+// Artistic materials have a separate cache and never enter the source-qualified inventory.
+function resetIllustrativeResources() {
+  const prior=illustrativeDetails;illustrativeDetails=null;illustrativeDemand=[];
+  prior?.dispose();state.illustrativeStatus={};
+}
+function syncIllustrativeDemand() {
+  const demand=planIllustrativeDemand(referenceVisible,state);
+  if(!gl)return;
+  if(!illustrativeDetails&&demand.length){
+    const context=gl;
+    const cache=createDetailCache({capacity:MAX_ILLUSTRATIVE_TEXTURES,load:async(body,signal)=>{
+      const asset=ILLUSTRATIVE_ASSETS.find(a=>a.body===body);
+      const image=await decodeIllustrativeMap(asset,signal);
+      try {
+        if(signal.aborted||illustrativeDetails!==cache||gl!==context||context.isContextLost()
+            ||!state.active||!illustrativeSelected(body,state)||!illustrativeDemand.includes(body))
+          throw new Error('Illustrative graphics demand changed');
+        return {tex:makeTexture(image,true)};
+      } finally {image.close();}
+    },release:value=>context.deleteTexture(value.tex),onChange:(body,status)=>{
+      queueMicrotask(()=>{
+        if(illustrativeDetails!==cache||gl!==context)return;
+        // A failed source needs an explicit mode/texture retry even after eviction.
+        if(status!=='deferred'||state.illustrativeStatus[body]!=='unavailable')state.illustrativeStatus[body]=status;
+        updateEarthLayerStatus();updateOrreryAccuracy();
+        if(state.active&&!state.animate&&(status==='ready'||status==='unavailable'))paint();
+      });
+    }});
+    illustrativeDetails=cache;
+  }
+  const next=demand.map(a=>a.body);
+  if(next.join(',')!==illustrativeDemand.join(','))illustrativeDetails?.abortPending();
+  illustrativeDemand=next;
+  for(const body of next){
+    if(state.illustrativeStatus[body]==='unavailable')continue;
+    illustrativeDetails.request(body);
+    state.illustrativeStatus[body]=illustrativeDetails.status(body);
+  }
+}
+
 function syncReferenceDemand() {
+  syncIllustrativeDemand();
   referenceDemand = planReferenceDemand(referenceVisible, state);
   const nextRequests = referenceDemand.filter(asset=>!['ready','unavailable'].includes(state.appearanceStatus[asset.id]))
     .slice(0,MAX_REFERENCE_REQUESTS);
@@ -650,6 +694,7 @@ function syncReferenceDemand() {
 
 function loadTextures() {
   if (!gl) return;
+  resetIllustrativeResources();
   // This entry point is only used for explicit re-entry, re-enable or restore.
   // Ordinary paints request new demand but never retry failed pinned imagery.
   for (const asset of appearanceReferences()) {
@@ -2042,19 +2087,21 @@ function drawBody(b, vp, eye) {
   // generate from the committed vectors, which in turn beats the procedural shader. Only the
   // generated maps can ask to MODULATE rather than replace.
   const isSun = b.name === "Sun";
+  const illustrative = illustrativeSelected(b.name,state);
+  const illustrativeTex = illustrative ? illustrativeDetails?.get(b.name) : null;
   const reference = surfaceReferenceShown(b.name, state) ? appearanceReference(b.name) : null;
   const referenceTex = state.useTextures && reference && referenceTextures[reference.id]?.ready ? referenceTextures[reference.id] : null;
   const sunTexd = isSun && textureEligible("Sun", "observed-disk") && state.useTextures && sunTex.ready;
-  const photoTexd = !isSun && textureEligible(b.name) && state.useTextures && textures[b.name] && textures[b.name].ready;
+  const photoTexd = !illustrative && !isSun && textureEligible(b.name) && state.useTextures && textures[b.name] && textures[b.name].ready;
   // NOT gated on state.useTextures. That checkbox is labelled "NASA textures" and its job is the
   // OPTIONAL photographic downloads; the generated maps are committed public-domain geography that
   // ships with the app. Gating them too meant unticking it replaced real coastlines with the
   // procedural noise continents — the exact thing this release exists to remove.
-  const gen = !isSun && textureEligible(b.name, "generated-map") && !photoTexd && genTex[b.name] && genTex[b.name].ready
+  const gen = !illustrative && !isSun && textureEligible(b.name, "generated-map") && !photoTexd && genTex[b.name] && genTex[b.name].ready
     ? genTex[b.name] : null;
-  const useTex = referenceTex || sunTexd || photoTexd || !!gen;
+  const useTex = illustrativeTex || referenceTex || sunTexd || photoTexd || !!gen;
   gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, referenceTex ? referenceTex.tex : sunTexd ? sunTex.tex : (photoTexd ? textures[b.name].tex : (gen ? gen.tex : whiteTex)));
+  gl.bindTexture(gl.TEXTURE_2D, illustrativeTex ? illustrativeTex.tex : referenceTex ? referenceTex.tex : sunTexd ? sunTex.tex : (photoTexd ? textures[b.name].tex : (gen ? gen.tex : whiteTex)));
   gl.uniform1i(sphereUniforms.u_tex, 0);
   gl.uniform1i(sphereUniforms.u_useTex, useTex ? 1 : 0);
   gl.uniform1i(sphereUniforms.u_texMode, referenceTex ? 3 : gen ? gen.texMode : 0);
@@ -3056,6 +3103,7 @@ export function leaveOrrery() {
   scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
   state.hdrStatus={state:'deferred',reason:'View inactive.'};
   cancelPendingReferenceTextures();
+  illustrativeDetails?.abortPending();illustrativeDemand=[];
   incidentFields?.dispose();incidentFields=null;incidentDemand='';
   state.solarPlayback.playing=false;
   terrainDetails?.abortPending();solarDetail?.abortPending();
@@ -3316,6 +3364,11 @@ async function showFallback(msg) {
     if (state.useTextures && !wasEnabled) loadTextures();
     updatePhysicalAppearance();updateEarthLayerStatus(); paint(); updateOrreryAccuracy();
   });
+  bind('orreryPlanetLook','change',e=>{
+    state.planetLook=inputTarget(e).value==='illustrative'?'illustrative':'source-qualified';
+    resetIllustrativeResources();terrainDetails?.abortPending();
+    paint();updatePhysicalAppearance();updateEarthLayerStatus();updateOrreryAccuracy();
+  });
   bind('orreryTerrain','change',e=>{
     retryTerrainFailures=!state.terrainEnabled&&inputTarget(e).checked;
     state.terrainEnabled=inputTarget(e).checked;
@@ -3427,6 +3480,7 @@ async function showFallback(msg) {
     scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
     hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
     state.hdrStatus={state:'deferred',reason:'Graphics context lost.'};
+    resetIllustrativeResources();
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
     cancelPendingReferenceTextures();

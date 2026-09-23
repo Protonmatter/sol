@@ -32,6 +32,12 @@ reuse the existing view transform without moving physical bodies.
 
 Scientific and source claims remain anchored to public methods and data: NOAA/SWPC products, Helioviewer quicklook imagery and metadata, IERS Earth-orientation data, JPL Horizons/DE441 validation, published analytic ephemerides, and NASA/IAU constants. Sol does not claim proprietary JPL, NOAA, or commercial forecasting algorithms.
 
+The optional illustrative appearance proposal in [RFC 0007](rfcs/0007-illustrative-planet-looks.md)
+adds a separate artistic mode for seven planets. Source-qualified remains the
+default; the artistic maps carry no geographic, color or observation qualification.
+Earth, Sun and moons retain their existing materials. This candidate requires RFC
+review and the existing CI/release gates before promotion.
+
 Planetary appearance follows [RFC 0004](rfcs/0004-registered-planetary-appearance.md).
 Registered, dated mission display maps are separate from calibrated or complete
 observations. Earth layers distinguish land/ice, annual night lights, dated satellite

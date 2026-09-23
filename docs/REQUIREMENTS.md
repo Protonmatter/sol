@@ -30,6 +30,7 @@ unrecognized status, and incomplete workflow enforcement.
 | `SOL-VIS-004` | Registered planetary maps, dated Earth layers and explicit coverage |
 | `SOL-VIS-005` | Numeric terrain datum, finite geometry, physical extents and source identity |
 | `SOL-VIS-006` | Dimensioned optical transfer with distinct reflection, scattering and emission |
+| `SOL-VIS-008` | Opt-in, attributed illustrative planet looks with separate bounded resources (proposed) |
 | `SOL-VIS-007` | Source band, frame, coverage and finite dynamic appearance playback |
 | `SOL-CI-001` | SHA-pinned actions, least privilege, and deployment of the tested SHA |
 | `SOL-DOC-001` | Documentation, plans, instructions, and traceability updated with code |

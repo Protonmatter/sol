@@ -324,7 +324,7 @@ function updateVisualSources(sources, state) {
   for (const { asset, row, description: layerText } of layers) {
     if (asset.role === "surface") {
       // The main paragraph already carries this map's full date and limits.
-      row.hidden = !enabled;
+      row.hidden = !enabled || !surface;
       continue;
     }
     const active = enabled && name === "Earth" && (
