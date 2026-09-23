@@ -5,7 +5,7 @@
 // not modeled plasma. Intensities are in the lab's palette units. Requires
 // SOLAR_CELLULAR_GLSL and the dynamic uniforms.
 export const LOOK_RECIPE=Object.freeze({
-  flowRadPerS:.002,cellOrbitRadPerS:.0015,holeThresholds:[.12,.22],
+  flowRadPerS:.002,cellOrbitRadPerS:.0015,holeThresholds:[-.1,.55],
   fanLineWidth:.05,loopWidthR:.0018,loopPlanes:8,loopTilt:.9,loopsPerPlane:3,strandWidthScale:.45,
   furScaleHeightsR:[.018,.085,.33],promSite:[90,20],promHalfSpanDeg:9,promHeightR:.2,promWidthR:.0022,
   bloom:1.1,bloomThreshold:.35,
@@ -98,12 +98,17 @@ float lookCoarse(vec3 p){
   float e=u_seconds/21600.,f=fract(e);int n=int(floor(e));f=f*f*f*(f*(f*6.-15.)+10.);
   uint s=u_seed^0xa54ff53au;return mix(correlatedNoise(q*.14,s,n),correlatedNoise(q*.14,s,n+1),f);
 }
-// Dark regions keep the model's placement; the threshold is torn at two finer
-// scales so edges are ragged instead of rounded.
+// Dark regions keep the model's placement. A wide threshold, fibrous noise that
+// only acts near the boundary, and a squared core give soft, frayed edges with
+// bright filaments reaching in, instead of a hard-edged crust.
 vec3 lookHoleWarp(vec3 p){return .22*vec3(lookFbm(p*1.6,3,0x530u),lookFbm(p*1.6+4.,3,0x533u),lookFbm(p*1.6+9.,3,0x536u));}
 float lookHole(vec3 p,vec3 warp,float fine){
   vec3 torn=normalize(p+lookHoleWarp(p))+.08*warp;float m=lookCoarse(torn)+.55*lookFbm(p*2.6,3,0x520u)+.40*lookFbm(p*6.+warp,3,0x500u)+.18*fine*lookFbm(p*18.,2,0x510u);
-  return smoothstep(${g(R.holeThresholds[0])},${g(R.holeThresholds[1])},m);
+  float h=smoothstep(${g(R.holeThresholds[0])},${g(R.holeThresholds[1])},m);
+  float fibers=lookRidged(p*vec3(22.,22.,22.)+2.*warp,3,0x540u)-.45;
+  h=clamp(h-1.8*fibers*h*(1.-h)*4.,0.,1.);
+  // A faint dimmed zone around each hole, so quiet Sun fades into it.
+  return max(h*h*(1.5-.5*h),.15*smoothstep(-.35,-.1,m));
 }
 // Footpoint-group centroids of one emission region, in t0 Carrington frame.
 bool lookPoles(int i,out vec3 pa,out vec3 pb,out float amp){
@@ -139,16 +144,21 @@ float lookSurface(vec3 p,float mu){
   float mott=lookFbm(p*5.,4,0x100u);
   vec3 warp=vec3(lookGnoise(p*9.,0x200u),lookGnoise(p*9.+5.,0x201u),lookGnoise(p*9.+11.,0x202u));
   float quiet=.30+.24*mott;
+  float bright=0.;
   if(dNet>0.){
     vec2 w=lookWorley(p*16.+.9*warp);
     float lanes=1.-smoothstep(0.,.22,w.y-w.x);
-    float bright=pow(max(0.,1.-w.x*2.6),6.)*smoothstep(0.,.3,lookGnoise(p*4.+7.,0x203u));
+    bright=pow(max(0.,1.-w.x*2.6),6.)*smoothstep(0.,.3,lookGnoise(p*4.+7.,0x203u));
     quiet+=dNet*(.10*lanes*(.6+.8*lookGnoise(p*12.,0x204u))+.9*bright);
   }
   if(dFine>0.)quiet+=dFine*.62*(lookRidged(p*26.+1.6*warp,4,0x300u)-.34);
   quiet=1.15*pow(max(quiet,.015),1.25);
   float hole=lookHole(p,warp,dFine);
-  float intensity=quiet*mix(1.,.22+.12*lookFbm(p*14.,2,0x400u),hole);
+  // Inside a hole the network does not just dim: it gives way to a faint wispy
+  // glow with a few surviving bright points (plume bases).
+  float wisps=max(lookFbm(p*vec3(9.,9.,9.)+1.3*warp,3,0x400u),0.);
+  float interior=.05+.10*wisps+.55*dNet*bright;
+  float intensity=mix(quiet,interior,hole);
   for(int i=0;i<10;i++){
     if(i>=u_emissionRegionCount)break;
     vec3 pa,pb;float amp;if(!lookPoles(i,pa,pb,amp))continue;
