@@ -10,6 +10,34 @@ const UNIFORMS=['u_mvp','u_camObj','u_extent','u_seconds','u_pixelDiameter','u_r
   'u_surfaceRecipe','u_euvRecipe','u_regions[0]','u_regionTemperature[0]','u_domainWarp','u_coolEnabled','u_showDiffuse',
   'u_emissionRegionCount','u_emissionCenters[0]','u_emissionAxesU[0]','u_emissionAxesV[0]','u_emissionCores[0]','u_emissionCoreGains[0]','u_emissionCoreAxes[0]'];
 
+/** Float field upload. WebGL2 rejects 3-D uploads from typed arrays while flip-Y
+ * or premultiply is enabled, and planet maps elsewhere leave premultiply on after a
+ * masked upload. Force both off here and restore the caller's unpack state. */
+export function uploadFieldTexture(gl,data,dimensions,components=1) {
+  const target=dimensions.length===3?gl.TEXTURE_3D:gl.TEXTURE_2D;
+  const handle=gl.createTexture();if(!handle)throw new Error('Solar model texture allocation failed');
+  const previous={flip:gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL),premultiply:gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL),alignment:gl.getParameter(gl.UNPACK_ALIGNMENT)};
+  try{
+    // Clear stale errors so the check below only reports this upload.
+    for(let i=0;i<8&&gl.getError()!==gl.NO_ERROR;i++);
+    gl.bindTexture(target,handle);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+    const internal=components===4?gl.RGBA16F:gl.R16F,format=components===4?gl.RGBA:gl.RED;
+    if(dimensions.length===3)gl.texImage3D(target,0,internal,dimensions[0],dimensions[1],dimensions[2],0,format,gl.FLOAT,data);
+    else gl.texImage2D(target,0,internal,dimensions[0],dimensions[1],0,format,gl.FLOAT,data);
+    gl.texParameteri(target,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(target,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(target,gl.TEXTURE_WRAP_S,dimensions.length===2?gl.REPEAT:gl.CLAMP_TO_EDGE);
+    gl.texParameteri(target,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    if(dimensions.length===3)gl.texParameteri(target,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);
+    if(gl.getError()!==gl.NO_ERROR)throw new Error('Solar model texture upload failed');
+    return handle;
+  }catch(error){gl.deleteTexture(handle);throw error;}
+  finally{
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,!!previous.flip);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,!!previous.premultiply);
+    if(Number.isInteger(previous.alignment))gl.pixelStorei(gl.UNPACK_ALIGNMENT,previous.alignment);
+  }
+}
+
 /** Context-owned renderer: independent demand, atomic resources and no mutation
  * of the scientific engine. Inputs are immutable, source-hashed model products. */
 export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>{}}={}) {
@@ -25,22 +53,6 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
     strands?.dispose();strands=null;composition?.dispose();composition=null;
   };
   const assertLive=token=>{if(disposed||token!==serial||gl.isContextLost())throw new Error('Solar model demand superseded');};
-  function texture(data,dimensions,components=1) {
-    const target=dimensions.length===3?gl.TEXTURE_3D:gl.TEXTURE_2D;
-    const handle=gl.createTexture();if(!handle)throw new Error('Solar model texture allocation failed');
-    try{
-      gl.bindTexture(target,handle);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
-      const internal=components===4?gl.RGBA16F:gl.R16F,format=components===4?gl.RGBA:gl.RED;
-      if(dimensions.length===3)gl.texImage3D(target,0,internal,dimensions[0],dimensions[1],dimensions[2],0,format,gl.FLOAT,data);
-      else gl.texImage2D(target,0,internal,dimensions[0],dimensions[1],0,format,gl.FLOAT,data);
-      gl.texParameteri(target,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(target,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-      gl.texParameteri(target,gl.TEXTURE_WRAP_S,dimensions.length===2?gl.REPEAT:gl.CLAMP_TO_EDGE);
-      gl.texParameteri(target,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-      if(dimensions.length===3)gl.texParameteri(target,gl.TEXTURE_WRAP_R,gl.CLAMP_TO_EDGE);
-      if(gl.getError()!==gl.NO_ERROR)throw new Error('Solar model texture upload failed');
-      return handle;
-    }catch(error){gl.deleteTexture(handle);throw error;}
-  }
   function ensure(record,{quality='low'}={}) {
     if(disposed)return Promise.resolve(false);
     if(report.id===record.path&&report.state==='ready')return Promise.resolve(true);
@@ -69,9 +81,9 @@ export function createSolarDynamicRenderer(gl,{generation=1,onChange=(_status)=>
       const previousAlignment=gl.getParameter(gl.UNPACK_ALIGNMENT),previousUnit=gl.getParameter(gl.ACTIVE_TEXTURE);
       try{
         gl.activeTexture(gl.TEXTURE0);
-        next.surface=loaded.surfaceData?texture(loaded.surfaceData,loaded.manifest.surface.dimensions):texture(new Float32Array([0]),[1,1]);
-        next.volume=texture(loaded.volumeData,loaded.volume.dimensions);
-        next.pulse=loaded.pulseData?texture(loaded.pulseData,loaded.volume.dimensions,4):texture(new Float32Array(4),[1,1,1],4);
+        next.surface=loaded.surfaceData?uploadFieldTexture(gl,loaded.surfaceData,loaded.manifest.surface.dimensions):uploadFieldTexture(gl,new Float32Array([0]),[1,1]);
+        next.volume=uploadFieldTexture(gl,loaded.volumeData,loaded.volume.dimensions);
+        next.pulse=loaded.pulseData?uploadFieldTexture(gl,loaded.pulseData,loaded.volume.dimensions,4):uploadFieldTexture(gl,new Float32Array(4),[1,1,1],4);
         assertLive(token);resources=next;
       }catch(error){for(const handle of Object.values(next))if(handle)gl.deleteTexture(handle);throw error;}
       finally{gl.pixelStorei(gl.UNPACK_ALIGNMENT,previousAlignment);gl.activeTexture(previousUnit);}
