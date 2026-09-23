@@ -216,7 +216,9 @@ async function run(){
   evidence.observed_backend=assertBrowserBackend(backend,evidence.capabilities);save();
   invariant=(await state()).invariant;
   check('Pinned staged bytes match release manifest',{assets:manifest.assets.length});
-  await page.click('#orreryInspectSun');await waitReady('Sun',{solar:true});
+  // Inspect now opens the illustrative dynamic model; these captures are of the
+  // observed AIA source, so select it explicitly before waiting for its atlas.
+  await page.click('#orreryInspectSun');await page.select('#orrerySolarMode','reconstructed-euv');await waitReady('Sun',{solar:true});
   assert.equal((await state()).anchor,'Sun');await capture('sun-source-front');
   await paintAction('opposite');await capture('sun-unobserved-back');different('sun-source-front','sun-unobserved-back');
   await page.click('#orreryInspectSun');await page.select('#orrerySolarMode','visible');await capture('sun-visible-approximation');
