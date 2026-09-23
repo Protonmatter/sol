@@ -196,3 +196,51 @@ mod tests {
         assert_eq!(validate_request(0, 0.001, 0.0, 8, 4), Ok(()));
     }
 }
+
+thread_local! { static APPEARANCE_RESULT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) }; }
+/// Additive ABI. Recipe 0 quiet-v1, 1 active-v1; LOD 0..2; time 0..21600 SI seconds.
+#[no_mangle]
+pub extern "C" fn appearance_abi_version() -> u32 {
+    1
+}
+/// Pointer remains valid until next appearance call; independent of simulate buffer.
+#[no_mangle]
+pub extern "C" fn appearance_eval_v1(
+    seed: u32,
+    time_s: f64,
+    recipe_id: u32,
+    lod: u32,
+) -> *const u8 {
+    let json = solar_core::appearance::sample_packet(seed, time_s, recipe_id, lod, false)
+        .unwrap_or_else(|code| {
+            format!(r#"{{"schema_version":"appearance-error.v1","error":{{"code":"{code}"}}}}"#)
+        });
+    APPEARANCE_RESULT.with(|cell| {
+        *cell.borrow_mut() = json.into_bytes();
+        cell.borrow().as_ptr()
+    })
+}
+#[no_mangle]
+pub extern "C" fn appearance_result_len_v1() -> usize {
+    APPEARANCE_RESULT.with(|cell| cell.borrow().len())
+}
+#[cfg(test)]
+mod appearance_tests {
+    use super::*;
+    #[test]
+    fn independent_abi_buffers_and_rejection() {
+        let engine = simulate(42, 0, 1.0, 0.5, 8, 4);
+        let length = result_len();
+        let ptr = appearance_eval_v1(42, 100.0, 1, 0);
+        assert!(!ptr.is_null());
+        assert!(appearance_result_len_v1() < 1048576);
+        assert_eq!(result_len(), length);
+        RESULT.with(|c| assert_eq!(c.borrow().as_ptr(), engine));
+        appearance_eval_v1(0, f64::NAN, 0, 0);
+        APPEARANCE_RESULT.with(|c| {
+            assert!(std::str::from_utf8(&c.borrow())
+                .unwrap()
+                .contains("appearance-error.v1"))
+        });
+    }
+}

@@ -43,3 +43,5 @@ documentation. A superseded RFC links its replacement.
 
 CI validates metadata, required sections, status vocabulary, and referenced requirement IDs.
 
+
+RFC [0007: Dynamic Sun](0007-dynamic-sun.md) records the authorized 2026-09-23 local candidate.

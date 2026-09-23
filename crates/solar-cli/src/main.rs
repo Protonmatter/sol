@@ -10,12 +10,23 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+mod appearance;
+mod appearance_raster;
+mod appearance_sources;
 mod bundle_intake;
 mod provenance;
 mod snapshot_validation;
 mod snapshot_validation_v2;
 
 fn main() {
+    let appearance_args: Vec<String> = env::args().skip(1).collect();
+    if appearance_args.first().map(String::as_str) == Some("appearance") {
+        if let Err((code, message)) = appearance::run(&appearance_args[1..]) {
+            eprintln!("solar-cli: {message}");
+            process::exit(code);
+        }
+        return;
+    }
     if let Err(err) = run() {
         eprintln!("solar-cli: {err}");
         process::exit(2);
@@ -610,6 +621,12 @@ fn escape_json(value: &str) -> String {
 fn print_help() {
     println!("Solar Maximum Engine");
     println!("Commands:");
+    println!("  solar-cli appearance prepare-sequence --sequence <local manifest> --out <new dir> [--lmax <1..64>] [--count <1..64>]");
+    println!("  solar-cli appearance prepare-rotation --out <new dir> [--seed <u32>] [--lmax <1..64>] [--count <1..64>]");
+    println!("  solar-cli appearance raster|components|references --recipe <recipe.json> --packet <prepared t0 packet> --out <path> [--time <0..21600>] [--width <1..2048>] [--height <1..1024>]");
+    println!("  solar-cli appearance background --recipe <recipe.json> --packet <prepared t0 packet> --width <32|64|96> --out <float32 file>");
+    println!("  solar-cli appearance prepare|sample --recipe <recipe.json> --out <path> [--time <0..21600>] [--seed <u32>] [--lod <0..2>] [--lmax <1..64>]");
+    println!("  solar-cli appearance validate --packet <packet.json> (offline; exit 1 validation/processing, 2 arguments)");
     println!("  solar-cli simulate --steps <n> --dt-hours <h> --seed <seed> --activity <0..1> --out <snapshot.json> [--observations <observations.json>]");
     println!("    Public dt-hours is internally subdivided to at most one-hour physics steps.");
     println!("    --observations: an observation-frame.v1 report; a usable report corrects the");

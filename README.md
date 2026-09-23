@@ -1,5 +1,7 @@
 # Sol — solar and sky research explorer
 
+Dynamic Sun local candidate (2026-09-23): [implementation and reproduction](docs/DYNAMIC_SUN.md), [accepted design](docs/rfcs/0007-dynamic-sun.md). No production promotion or physical-device qualification is implied.
+
 Sol is a local-first research and learning application: a reduced solar-surface model,
 an observer's sky, and a Solar System view. The static browser uses native ES modules
 and audited Rust engines through raw WebAssembly. No runtime framework or bundler is required.

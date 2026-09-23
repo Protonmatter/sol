@@ -1,5 +1,7 @@
 # Sol status
 
+Dynamic Sun local candidate (2026-09-23): [implementation and reproduction](DYNAMIC_SUN.md), [accepted design](rfcs/0007-dynamic-sun.md). No production promotion or physical-device qualification is implied.
+
 Updated: 2026-09-13. Scope: inspected local implementation, not production activation.
 
 ## Implementation versus qualification

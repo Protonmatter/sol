@@ -1,5 +1,7 @@
 # Operations
 
+Dynamic Sun local candidate (2026-09-23): [implementation and reproduction](DYNAMIC_SUN.md), [accepted design](rfcs/0007-dynamic-sun.md). No production promotion or physical-device qualification is implied.
+
 Updated: 2026-09-13. Scope: local research operation. No production, scheduled acquisition,
 registry publication or deployed-service qualification is asserted.
 

@@ -57,6 +57,20 @@
     <link rel="modulepreload" href="js/planetPhenomena.js">
     <link rel="modulepreload" href="js/planetPhenomenaManifest.js">
     <link rel="modulepreload" href="js/solarAppearance.js">
+    <link rel="modulepreload" href="js/solarAtmosphereShaders.js">
+    <link rel="modulepreload" href="js/solarCoolPlasma.js">
+    <link rel="modulepreload" href="js/solarDynamicAssets.js">
+    <link rel="modulepreload" href="js/solarDynamicClock.js">
+    <link rel="modulepreload" href="js/solarDynamicManifest.js">
+    <link rel="modulepreload" href="js/solarDynamicRenderer.js">
+    <link rel="modulepreload" href="js/solarDynamicSampling.js">
+    <link rel="modulepreload" href="js/solarDynamicWorkerClient.js">
+    <link rel="modulepreload" href="js/solarEmissionComposition.js">
+    <link rel="modulepreload" href="js/solarSequenceControls.js">
+    <link rel="modulepreload" href="js/solarSequencePlayer.js">
+    <link rel="modulepreload" href="js/solarStrandRenderer.js">
+    <link rel="modulepreload" href="js/solarStrandShaders.js">
+    <link rel="modulepreload" href="js/solarSurfaceShaders.js">
     <link rel="modulepreload" href="js/solarAppearanceManifest.js">
     <link rel="modulepreload" href="js/solarAssetLoader.js">
     <link rel="modulepreload" href="js/solarVolumeShaders.js">
@@ -172,6 +186,7 @@
           <section id="solarObservation" class="solar-observation" aria-label="NASA solar observation">
             <div id="observationMedia" class="observation-image-wrap" aria-busy="true">
               <img id="observationImage" width="1024" height="1024" alt="Saved NASA SDO solar observation" fetchpriority="high" hidden>
+              <canvas id="observationSequenceCanvas" width="512" height="512" aria-label="Archival SDO observation sequence" hidden></canvas>
               <p id="observationLoading" class="observation-loading" role="status">Loading the saved NASA observation…</p>
               <div id="observationUnavailable" class="observation-unavailable" role="status" hidden>
                 <h2>Observation unavailable</h2><p>The saved NASA image could not be loaded.</p>
@@ -191,6 +206,14 @@
                 <div><strong>Our nearest star</strong><span>At the heart of our system</span></div>
               </div>
               <p class="observation-story">Bright loops trace hot plasma in the Sun’s outer atmosphere. AIA sees this extreme ultraviolet light; gold makes its structure visible to us.</p>
+              <button id="observationSequenceToggle" class="time-btn" type="button" aria-pressed="false">Show archival sequence</button>
+              <div id="observationSequenceControls" class="observation-sequence-controls" hidden>
+                <div class="solar-control-row"><button id="observationSequencePlay" type="button" class="time-btn" aria-pressed="false">Play</button><button id="observationSequenceRestart" type="button" class="time-btn">Restart</button></div>
+                <label for="observationSequenceRate">Archive speed</label><select id="observationSequenceRate" class="sky-input"><option value="60">60×</option><option value="600">600×</option></select>
+                <label for="observationSequenceTime">Recorded frame</label><input id="observationSequenceTime" type="range" min="0" max="120" step="1" value="0">
+                <output id="observationSequenceTimeLabel" for="observationSequenceTime"></output>
+                <p>121 real AIA 171 Å frames · 10 May 2024. Grayscale provider imagery; original quality flags retained and unqualified. No invented in-between observations.</p>
+              </div>
               <details id="observationDetails" class="observation-details">
                 <summary>About this image <span aria-hidden="true">+</span></summary>
                 <p>NASA Solar Dynamics Observatory · AIA 171 Å. False-color extreme ultraviolet, shown in its original image plane. This saved browse image is for exploration and education.</p>
@@ -219,6 +242,51 @@
             <button type="button" data-camera-body="Earth" aria-pressed="false">Earth</button>
             <button type="button" data-camera-body="Jupiter" aria-pressed="false">Jupiter</button>
             <button type="button" data-camera-body="Saturn" aria-pressed="false">Saturn</button>
+          </div>
+          <div id="orrerySolarControls" class="solar-inspection-controls" hidden>
+            <div class="solar-control-row">
+              <label for="orrerySolarMode">Sun view</label>
+              <select id="orrerySolarMode" class="sky-input">
+                <option value="dynamic-euv">3-D corona · illustrative</option>
+                <option value="dynamic-visible">3-D photosphere · illustrative</option>
+                <option value="reconstructed-euv">Legacy AIA reference</option>
+                <option value="visible">Legacy visible approximation</option>
+              </select>
+              <button id="solarObservedLink" type="button" class="time-btn">Observed Sun ↗</button>
+            </div>
+            <div id="solarDynamicControls">
+              <div class="solar-control-row">
+                <button id="solarDynamicPlay" type="button" class="time-btn" aria-pressed="false">Play</button>
+                <button id="solarDynamicRestart" type="button" class="time-btn">Restart / retry</button>
+                <label for="solarDynamicRate">Speed</label>
+                <select id="solarDynamicRate" class="sky-input"><option value="1">1×</option><option value="60" selected>60× detail</option><option value="600">600× activity</option><option value="7200">7,200× rotation</option></select>
+              </div>
+              <label for="solarDynamicTime" class="visually-hidden">Illustrative solar time, seconds</label>
+              <input id="solarDynamicTime" type="range" min="0" max="21600" step="1" value="0">
+              <output id="solarDynamicTimeLabel" for="solarDynamicTime">00:00:00 model time · 60× · paused</output>
+              <details id="solarDynamicLayers"><summary>Layers &amp; detail</summary>
+                <div class="solar-control-row">
+                  <label for="solarDynamicScenario">Scenario</label><select id="solarDynamicScenario" class="sky-input"><option value="active-v1">Active Sun</option><option value="quiet-v1">Quiet Sun</option></select>
+                  <label for="solarDynamicQuality">Detail</label><select id="solarDynamicQuality" class="sky-input"><option value="low">Mobile · bounded</option><option value="standard">Higher detail</option></select>
+                  <label for="solarDynamicExposure">Display exposure</label><select id="solarDynamicExposure" class="sky-input"><option value="0">0 stops</option><option value="-2">−2 stops</option><option value="-4">−4 stops</option></select>
+                </div>
+                <label class="solar-checkbox"><input id="solarDynamicCorona" type="checkbox" checked> Show modeled corona</label>
+                <label class="solar-checkbox"><input id="solarDynamicDiffuse" type="checkbox" checked> Diffuse near-limb emission</label>
+                <label class="solar-checkbox"><input id="solarDynamicBundles" type="checkbox" checked> Loop bundles</label>
+                <label class="solar-checkbox"><input id="solarDynamicCool" type="checkbox"> Illustrate cool absorbing plasma · EUV only</label>
+                <div class="solar-control-row"><button id="solarDynamicCloseup" type="button" class="time-btn">Surface close-up</button><button id="solarDynamicWhole" type="button" class="time-btn">Whole Sun</button><button id="solarDynamicEruption" type="button" class="time-btn">Illustrate an eruption</button></div>
+                <p>Granules become visible only at close range. The corona follows a synthetic potential magnetic field. Eruptions are finite educational examples, not measured events or predictions.</p>
+                <details><summary>Inside the Sun · schematic cutaway</summary><div id="solarDynamicCutaway"></div><p>Atmospheric thickness is exaggerated. Interior layers are an explanation, not an observation.</p></details>
+              </details>
+              <p id="solarDynamicStatus" class="solar-dynamic-status" role="status">Illustrative full-sphere Sun · preparing model</p>
+            </div>
+            <div id="orrerySolarLegacy" hidden>
+              <p>Two archival AIA 171 Å reference frames; the unobserved hemisphere has averaged brightness. The overlaid arches are illustrative.</p>
+              <div class="physical-source-actions"><button id="orrerySolarPlay" type="button" class="time-btn" aria-pressed="false">Play source</button><button id="orrerySolarRestart" type="button" class="time-btn">Restart / retry</button></div>
+              <label for="orrerySolarTime">Source interval · independent of system time</label>
+              <input id="orrerySolarTime" type="range" min="0" max="20" step="0.05" value="0">
+              <output id="orrerySolarEpoch" for="orrerySolarTime"></output>
+            </div>
           </div>
           <div class="destination-caption"><p id="destinationCaption"></p><p id="destinationCaveat"></p><p id="orreryPhysicalStatus" hidden></p></div>
           <div class="status-strip" aria-live="polite">
@@ -274,15 +342,6 @@
           </details>
           <p id="destinationNote" class="destination-note"></p>
           <div id="orreryPlanetPhenomena" hidden></div>
-          <div id="orrerySolarControls" class="physical-source-controls" hidden>
-            <label for="orrerySolarMode">See the Sun in</label>
-            <select id="orrerySolarMode" class="sky-input"><option value="reconstructed-euv">AIA 171 Å + modeled corona</option><option value="visible">Visible-light approximation</option></select>
-            <p>Two NASA/SDO source frames, 10 May 2024. The observed face uses those frames, shown brighter than the source frame so the star stays luminous. Three tilted arch pairs drift with a compressed differential-rotation clock (one displayed second stands for two solar hours), and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. Visible light instead shows convective cells and spot groups on the same clock. The unobserved EUV disk keeps the observed radial brightness.</p>
-            <div class="physical-source-actions"><button id="orrerySolarPlay" type="button" class="time-btn" aria-pressed="false">Play source</button><button id="orrerySolarRestart" type="button" class="time-btn">Restart / retry</button></div>
-            <label for="orrerySolarTime">Source interval · independent of system time</label>
-            <input id="orrerySolarTime" type="range" min="0" max="20" step="0.05" value="0">
-            <output id="orrerySolarEpoch" for="orrerySolarTime"></output>
-          </div>
           <details id="destinationAppearance" class="destination-preview" hidden>
             <summary>Imagery sources &amp; coverage</summary>
             <p id="destinationAppearanceText"></p>
