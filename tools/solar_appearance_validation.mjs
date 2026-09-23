@@ -261,7 +261,7 @@ void main(){vec3 dir=normalize(u_forward+u_right*a_pos.x*u_span+u_up*a_pos.y*u_s
   const get=(xx,yy)=>decoded.data[(yy*decoded.width+xx)*4]/255;
   const value=(1-ty)*((1-tx)*get(x0,y0)+tx*get(x0+1,y0))+ty*((1-tx)*get(x0,y0+1)+tx*get(x0+1,y0+1));
   almost('pinned NASA atlas source-center intensity matches decoded pixels',await probe({texture:'atlas'}),rgba(value),3);
-  assert.match(SOLAR_FS,/color=gold\(mix\(quiet,value,coverage\)\)\*presentation;/);
+  assert.match(SOLAR_FS,/color=presentGold\(gold\(mix\(quiet,value,coverage\)\)\);/);
   if(checks.every(check=>check.passed)){
     const size=256;
     const side={camera:[4,0,0],forward:[-1,0,0],right:[0,0,-1],up:[0,1,0],span:.42,texture:'atlas',size};

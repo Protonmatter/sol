@@ -57,6 +57,9 @@ in float v_surfaceScale;
 in vec3 v_incidentSunBody,v_incidentSunWorld,v_incidentTransmission;
 uniform int u_style; uniform int u_mode; uniform float u_time;
 uniform float u_activity;
+// Body frame to the frame-0 source basis the EUV bipoles use (+Y is solar north there).
+uniform mat3 u_activityFrame;
+uniform float u_activityDays;
 uniform vec4 u_spot[6];
 uniform vec3 u_base; uniform vec3 u_light; uniform vec3 u_cam; uniform vec3 u_atmo; uniform float u_atmoStr;
 // u_useTex: is a surface map bound at all. u_texMode: 0 = REPLACE (a real photographic map from
@@ -205,15 +208,34 @@ float spotGroup(vec3 p,vec4 s){
   float penumbra=1.0-smoothstep(s.w*0.58,s.w,ang);
   return max(umbra,penumbra*0.5);
 }
+// One generation of cells fades in and out while the next one takes over, so the
+// pattern evolves in place. Offsets stay bounded to keep float32 noise inputs small.
+float evolvingCells(vec3 q,float scale,float age){
+  float g=floor(age),w=smoothstep(0.0,1.0,fract(age));
+  vec3 a=fract(g*vec3(0.6180339,0.4142135,0.7320508))*vec3(97.0,61.0,113.0);
+  vec3 b=fract((g+1.0)*vec3(0.6180339,0.4142135,0.7320508))*vec3(97.0,61.0,113.0);
+  // Variance-preserving blend: a plain mix of two independent fields loses about 30%
+  // of its contrast halfway through, which reads as a pulse once per generation.
+  float blended=(1.0-w)*(fbm(q*scale+a)-0.5)+w*(fbm(q*scale+b)-0.5);
+  return 0.5+blended/sqrt((1.0-w)*(1.0-w)+w*w);
+}
 vec3 solarPhotosphere(vec3 p,float limb){
-  // Supergranular scale, about 35,000 km, plus a finer grain drawn larger than a
-  // real 1,000 km granule so the cells remain visible. Both scroll on the compressed clock.
-  float cells=fbm(p*18.0+vec3(u_time*0.11,0.0,0.0));
-  float grain=fbm(p*46.0+vec3(0.0,u_time*0.48,u_time*0.07));
+  // Spots, cells and the EUV bipoles share one frame and one latitude law, so the
+  // groups sit in the same place in both modes and never glide over the pattern.
+  vec3 q=normalize(u_activityFrame*p);
+  float s2=q.y*q.y;
+  float spin=mod((14.37-2.33*s2-1.56*s2*s2)*u_activityDays,360.0)*0.01745329;
+  float cs=cos(spin),sn=sin(spin);
+  vec3 carried=vec3(q.x*cs+q.z*sn,q.y,q.z*cs-q.x*sn);
+  // Supergranular scale, about 35,000 km, renewed about once a solar day, plus a finer
+  // grain drawn larger and slower than real ~1,000 km, ~10 minute granules so it stays
+  // visible on a clock where one displayed second is two solar hours.
+  float cells=evolvingCells(carried,18.0,u_activityDays);
+  float grain=evolvingCells(carried,46.0,u_activityDays*5.0);
   vec3 c=mix(vec3(0.55,0.50,0.46),vec3(1.0,0.985,0.95),0.20+0.80*cells);
   c*=1.0+0.14*(grain-0.5);
   float spot=0.0;
-  for(int i=0;i<6;i++) spot=max(spot,spotGroup(p,u_spot[i]));
+  for(int i=0;i<6;i++) spot=max(spot,spotGroup(q,u_spot[i]));
   c=mix(c,vec3(0.16,0.12,0.10),clamp(spot,0.0,1.0));
   return c*(0.72+0.28*limb);
 }

@@ -34,7 +34,7 @@ import {ATMOSPHERE_COLUMN_FIELDS} from './atmosphereColumnManifest.js';
 import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,
   SCATTERING_UNIFORMS,planAtmosphereScattering,validScatteringPlanBudget} from './atmosphereScattering.js';
 import {createScatteringTargets} from './scatteringTargets.js';
-import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,SOLAR_EUV_DISPLAY_GAIN,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes,solarPhotosphereSpots} from './solarAppearance.js';
+import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,SOLAR_EUV_DISPLAY_GAIN,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes,solarPhotosphereSpots,solarActivityDays} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
@@ -451,6 +451,15 @@ function sourceSolarRotation() {
   return solarRotation;
 }
 
+/** Column-major mat3: IAU body frame to the frame-0 source basis of the EUV model. */
+function bodyToSolarSource(bodyRotation) {
+  const source=sourceSolarRotation(),out=[];
+  for(let j=0;j<3;j++) for(let i=0;i<3;i++) {
+    out.push(source[i*4]*bodyRotation[j*4]+source[i*4+1]*bodyRotation[j*4+1]+source[i*4+2]*bodyRotation[j*4+2]);
+  }
+  return out;
+}
+
 function bitmapPixels(bitmap) {
   const canvas=document.createElement('canvas');
   canvas.width=bitmap.width;canvas.height=bitmap.height;
@@ -502,8 +511,7 @@ function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
   if(pixels>=12)solarDetail.request('reference');
   const detail=solarDetail.get('reference');if(!detail)return false;
   const rot=sourceSolarRotation(),model=mul(translate(pos),mul(rot,scaleM([radius,radius,radius])));
-  const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
-  const values=solarRenderUniforms(state.solarPlayback.seconds,{reducedMotion,flowSeconds:solarFlowSeconds});
+  const values=solarRenderUniforms(state.solarPlayback.seconds,{reducedMotion:prefersReducedMotion(),flowSeconds:solarActivitySeconds()});
   const cam=physicalCameraPosition(eye,pos,rot,radius,1);
   gl.useProgram(P.solar);gl.uniformMatrix4fv(P.solarU.u_mvp,false,new Float32Array(mul(vp,model)));
   gl.uniform1i(P.solarU.u_pass,pass);
@@ -848,7 +856,7 @@ function finishGL(){
   // Array uniforms are queried at element 0 — the location uniform4fv() needs to upload the
   // whole array in one call. GLSL ES 3.00 accepts the bare name for that too, but "[0]" is the
   // form the WebGL spec guarantees, and a silently null location would just skip the upload.
-  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_activity", "u_spot[0]", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex",
+  P.sphereU = uloc(P.sphere, ["u_mvp", "u_model", "u_nmat", "u_style", "u_mode", "u_time", "u_activity", "u_activityFrame", "u_activityDays", "u_spot[0]", "u_base", "u_light", "u_cam", "u_atmo", "u_atmoStr", "u_useTex", "u_texMode", "u_tex", "u_sunA", "u_lightObj", "u_ringRad", "u_oblate", "u_ringTex", "u_moonShadowCount", "u_moonShadowPos[0]", "u_moonShadowAxis[0]", "u_map", "u_mapLat", "u_mapWindow", "u_mapNoData", "u_earthNight", "u_earthWeather", "u_earthIce", "u_nightTex", "u_weatherTex", "u_iceTex",
     "u_hazeRayleighTau", "u_hazeAerosol"]);
   P.lineU = uloc(P.line, ["u_vp", "u_alpha"]);
   P.ringU = uloc(P.ring, ["u_mvp", "u_model", "u_useTex", "u_tex", "u_center", "u_light", "u_prad"]);
@@ -2006,17 +2014,22 @@ function drawBody(b, vp, eye) {
   gl.uniformMatrix3fv(sphereUniforms.u_nmat, false, new Float32Array(normals));
   gl.uniform1i(sphereUniforms.u_style, -1); // unregistered surface detail stays neutral
   gl.uniform1i(sphereUniforms.u_mode, b.name === "Sun" ? 1 : 0);
-  const showPhotosphere=b.name==='Sun'&&!solarEuvActive();
+  // Only the visible Sun as the subject gets the educational photosphere. As context
+  // (the overview, or EUV mode before the Sun is selected) it stays the flat disk.
+  const showPhotosphere=b.name==='Sun'&&state.solarMode==='visible'&&solarSubject();
   if(sphereUniforms.u_activity)gl.uniform1f(sphereUniforms.u_activity, showPhotosphere?1:0);
-  gl.uniform1f(sphereUniforms.u_time, b.name==='Sun'?solarFlowSeconds:state.renderUnix * 0.0002);
+  gl.uniform1f(sphereUniforms.u_time, state.renderUnix * 0.0002);
   if(showPhotosphere&&sphereUniforms['u_spot[0]']){
-    const packed=[];
-    for(const region of solarPhotosphereSpots(solarFlowSeconds)) packed.push(...region.lead,...region.trail);
+    const seconds=solarActivitySeconds(),packed=[];
+    for(const region of solarPhotosphereSpots(seconds)) packed.push(...region.lead,...region.trail);
     gl.uniform4fv(sphereUniforms['u_spot[0]'], new Float32Array(packed));
+    gl.uniformMatrix3fv(sphereUniforms.u_activityFrame, false, new Float32Array(bodyToSolarSource(rot)));
+    gl.uniform1f(sphereUniforms.u_activityDays, solarActivityDays(seconds));
   }
   // The Sun emits white visible light (NASA SVS 13859). This slightly warm
   // display RGB is illustrative, not calibrated radiance or observed detail.
-  // Keep u_style=-1: no unregistered disk, invented spots or granulation.
+  // u_style stays -1. Spots and cells appear only through u_activity above, as a
+  // disclosed educational display for the visible Sun under inspection.
   gl.uniform3fv(sphereUniforms.u_base, b.name === "Sun" ? [1, 0.98, 0.94] : appearanceFallbackColor(b.name) || missingDetailColor(b.name));
   gl.uniform3fv(sphereUniforms.u_light, new Float32Array(light));
   gl.uniform3fv(sphereUniforms.u_cam, new Float32Array(eye));
@@ -2667,8 +2680,7 @@ function tick(now) {
     }
   }
   if (state.freeFly) flyStep(dt);
-  const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
-  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion});
+  state.solarPlayback=advanceReferencePlayback(state.solarPlayback,dt,{active:solarPlaybackAvailable(),reducedMotion:prefersReducedMotion()});
   // Wall time, not the 50ms simulation cap. A slow frame should still move the corona.
   if(solarFlowActive())solarFlowSeconds+=Math.min(1,rawDt);
   const moonNoteBefore = state.moonsHiddenReason;
@@ -2687,9 +2699,16 @@ function tick(now) {
 }
 function startLoop() { if (!rafId && !document.hidden) { state.lastTick = 0; rafId = requestAnimationFrame(tick); } }
 let solarFlowSeconds=0;
+function prefersReducedMotion() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||false;
+}
+// Reduced motion shows the activity clock at zero even if it was running before the
+// preference changed, so no front or sheared state stays frozen on screen.
+function solarActivitySeconds() {
+  return prefersReducedMotion()?0:solarFlowSeconds;
+}
 function solarFlowActive() {
-  const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  if(reduced||!state.active||state.galaxy||state.selectedStar||!solarSubject()) return false;
+  if(prefersReducedMotion()||!state.active||state.galaxy||state.selectedStar||!solarSubject()) return false;
   if(state.solarMode==='visible') return true;
   return solarPlaybackAvailable();
 }
@@ -3195,10 +3214,9 @@ async function showFallback(msg) {
         state.selectedStar = pickStar(px, py, w, h, vp,
           (s) => (s.dist == null ? null : neighbourhoodPos(s.ra, s.dec, s.dist)));
         if (state.selectedStar && typeof CustomEvent === "function") window.dispatchEvent?.(new CustomEvent("sol:object-selected", { detail: { surface: "orrery" } }));
-    showDetail(state.selected);
-    if (!state.animate) paint();
-    armSolarFlow();
-  }
+        showDetail(state.selected);
+        if (!state.animate) paint();
+      }
       return; // the galaxy disc has no per-object picking
     }
 

@@ -31,7 +31,7 @@ uniform vec4 u_projection0;
 uniform vec4 u_projection1;
 uniform vec2 u_observerRadii;
 uniform sampler2D u_quiet;
-// 0 keeps the admitted 1x gold map. The live view uploads a presentation lift.
+// 0 keeps the admitted 1x gold map. The live view uploads a soft-shoulder strength.
 uniform float u_displayGain;
 // 0 draws no whole-limb shell, so an empty off-limb probe stays transparent.
 uniform float u_coronaGlow;
@@ -79,10 +79,20 @@ float emissivity(vec3 point,vec3 normal,vec3 tangent,float arcRadius,float width
   return exp(-.5*d2)*gain*flow;
 }
 float quietIntensity(float axisZ,float distance,float row){
-  // |mu| is the same center-to-limb coordinate on both hemispheres. The Sun has
-  // no night side; the unobserved face keeps this observed radial median.
-  float mu=abs((distance*axisZ-1.0)/sqrt(max(distance*distance+1.0-2.0*distance*axisZ,1e-12)));
-  return texture(u_quiet,vec2(clamp(mu,0.0,1.0),row)).r;
+  // The observed face follows the radial median. The Sun has no night side, but
+  // mirroring that curve through |mu| would repeat 171 limb brightening as a
+  // bullseye around the anti-observer point. Past the limb, ease from the limb
+  // value to the disk-center value instead: continuous, flat, still observed.
+  float mu=(distance*axisZ-1.0)/sqrt(max(distance*distance+1.0-2.0*distance*axisZ,1e-12));
+  if(mu>=0.0)return texture(u_quiet,vec2(min(mu,1.0),row)).r;
+  float limb=texture(u_quiet,vec2(0.0,row)).r,center=texture(u_quiet,vec2(1.0,row)).r;
+  return mix(limb,center,smoothstep(0.0,0.6,-mu));
+}
+vec3 presentGold(vec3 c){
+  // Normalized shoulder: slope k/(1-exp(-k)) near black, exactly 1 at full scale.
+  // A linear gain followed by the output clamp red-clipped half the observed disk.
+  if(u_displayGain<=0.0)return c;
+  return (1.0-exp(-u_displayGain*c))/(1.0-exp(-u_displayGain));
 }
 void main(){
   if(length(u_camObj)<=1.0)discard;
@@ -106,8 +116,7 @@ void main(){
     // Whole-sphere arches are a separate educational volume, not disk imagery.
     float quiet=mix(quietIntensity(dot(point,u_sourceBasis0[2]),u_observerRadii.x,0.25),
       quietIntensity(dot(point,u_sourceBasis1[2]),u_observerRadii.y,0.75),u_frameMix);
-    float presentation=u_displayGain>0.0?u_displayGain:1.0;
-    color=gold(mix(quiet,value,coverage))*presentation;
+    color=presentGold(gold(mix(quiet,value,coverage)));
     opacity=1.0;
   }
   float emission=0.0;

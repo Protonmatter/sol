@@ -10,7 +10,9 @@ import {
   solarQuietProfile, solarAtlasQuietProfiles, solarQuietBytes,
   solarGlobalLoops, solarFlowPhase, solarRenderUniforms, SOLAR_ARCADE_COUNT,
   solarSiderealDegPerDay, solarActiveRegions, solarCme, SOLAR_ACTIVITY_SECONDS_PER_DAY,
+  solarPhotosphereSpots, solarActivityDays, SOLAR_EUV_DISPLAY_GAIN,
 } from '../../apps/web/js/solarAppearance.js';
+import {SOLAR_FS} from '../../apps/web/js/solarVolumeShaders.js';
 
 const norm = a => Math.hypot(...a);
 const dot = (a,b) => a.reduce((s,v,i)=>s+v*b[i],0);
@@ -179,6 +181,34 @@ test('tilted bipoles shear under the NSSDC differential-rotation law', () => {
   assert.equal(solarCme(10).progress,0);
   assert.ok(solarCme(4).progress>0.4&&solarCme(4).progress<0.6);
   assert.equal(solarCme(Number.NaN).progress,0);
+});
+
+test('photosphere spots share the EUV bipole frame, and the opening arch settles smoothly', () => {
+  for(const seconds of [0,5,SOLAR_ACTIVITY_SECONDS_PER_DAY*9]) {
+    const spots=solarPhotosphereSpots(seconds),regions=solarActiveRegions(seconds);
+    spots.forEach((spot,i)=>{
+      assert.deepEqual(spot.lead.slice(0,3),regions[i].lead,'visible lead spot is the EUV lead footpoint');
+      assert.deepEqual(spot.trail.slice(0,3),regions[i].trail,'visible trail spot is the EUV trail footpoint');
+    });
+  }
+  assert.equal(solarActivityDays(SOLAR_ACTIVITY_SECONDS_PER_DAY*3),3);
+  const radius=seconds=>solarGlobalLoops(seconds)[0].radius;
+  // Formerly 0.2798 at 7.99 s and 0.16 at 8 s: a one-frame snap.
+  assert.ok(Math.abs(radius(7.99)-radius(8))<0.001,'no snap when the window closes');
+  assert.ok(Math.abs(radius(0.01)-radius(0))<0.001,'no snap when the window opens');
+  assert.ok(radius(4)>radius(0)+0.1,'the arch still opens mid-window');
+  assert.ok(Math.abs(Math.cos(solarFlowPhase(1e6+1))-Math.cos(1*Math.PI/2))<1e-9,'wrapped phase keeps the same flow');
+  assert.ok(solarFlowPhase(1e6+1)<400*Math.PI/2,'phase stays bounded for float32');
+});
+
+test('live EUV lift is a soft shoulder, and the far side does not mirror limb brightening', () => {
+  assert.match(SOLAR_FS,/\(1\.0-exp\(-u_displayGain\*c\)\)\/\(1\.0-exp\(-u_displayGain\)\)/);
+  assert.match(SOLAR_FS,/mix\(limb,center,smoothstep\(0\.0,0\.6,-mu\)\)/);
+  assert.doesNotMatch(SOLAR_FS,/float mu=abs\(/);
+  const k=SOLAR_EUV_DISPLAY_GAIN,lift=c=>(1-Math.exp(-k*c))/(1-Math.exp(-k));
+  assert.ok(Math.abs(lift(1)-1)<1e-12,'full scale maps to full scale, never past it');
+  assert.ok(lift(0.32)>0.7,'the quiet disk is lifted to a luminous level');
+  for(let i=1;i<=255;i++) assert.ok(lift(i/255)>lift((i-1)/255),'every source level stays distinct');
 });
 
 test('EUV display mapping is finite and monotonic without calibrated color claims', () => {
