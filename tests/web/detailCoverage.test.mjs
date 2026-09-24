@@ -372,9 +372,11 @@ test("default Venus keeps its Magellan source link unless Illustrative look is a
   h.renderDetail("Mars", undefined, {useTextures: true, planetLook: "illustrative"});
   assert.equal(surfaceRow().hidden, true, "illustrative Mars hides the registered surface row");
   assert.equal(descendants(surfaceRow()).some(node => node.href === mars.source_url), true);
-  h.renderDetail("Venus", undefined, {useTextures: true, planetLook: "illustrative", venusRadar: true});
-  assert.equal(surfaceRow().hidden, false, "radar wins, so Magellan stays visible");
+  h.renderDetail("Venus", undefined, {useTextures: true, planetLook: "illustrative", venusRadar: true, illustrativeStatus: {Venus: "ready"}});
+  assert.equal(surfaceRow().hidden, false, "radar keeps the Magellan ground visible");
   assert.ok(sourceLink(surfaceRow()));
+  assert.ok(h.host.textContent.includes(venus.label));
+  assert.match(h.host.textContent, /Artistic Venus atmosphere drawn above the registered Magellan ground/);
 });
 
 test("a cached but deselected Venus radar layer is never reported as the ready surface", async () => {

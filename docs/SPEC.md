@@ -37,7 +37,8 @@ adds a separate artistic mode for seven planets. Source-qualified remains the
 default; the artistic maps carry no geographic, color or observation qualification.
 Measured terrain stays suspended for the whole time Illustrative look is selected,
 including loading, failure, and eviction, not only while an artistic map is shown.
-Earth, Sun and moons retain their existing materials. This candidate requires RFC
+Venus with Magellan radar keeps that registered ground and draws the artistic
+atmosphere above it. Earth, Sun and moons retain their existing materials. This candidate requires RFC
 review and the existing CI/release gates before promotion.
 
 Planetary appearance follows [RFC 0004](rfcs/0004-registered-planetary-appearance.md).

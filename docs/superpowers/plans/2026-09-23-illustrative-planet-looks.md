@@ -15,7 +15,7 @@ attributed artistic maps only to eligible planets when explicitly selected.
 
 Source-qualified remains default. Earth, Sun, moons, snapshot schemas, physical
 coordinates and current reference admission remain unchanged. Two 2K maps maximum.
-Venus radar takes precedence. Measured terrain stays suspended for the whole time Illustrative look is selected, including load, failure, and eviction, not only while an unregistered artistic map is shown.
+Venus with Magellan radar keeps the registered ground and draws the artistic atmosphere above it. Measured terrain stays suspended for the whole time Illustrative look is selected, including load, failure, and eviction, not only while an unregistered artistic map is shown.
 
 ## Review focus
 

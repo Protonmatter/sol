@@ -8,6 +8,7 @@ import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 import { RING_TRANSPORT_GLSL } from './ringTransportShaders.js';
+import { VENUS_ATMOSPHERE_SHELL_GLSL } from './illustrativeAppearance.js';
 
 const NOISE = `
 float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -251,6 +252,7 @@ void main(){
     // bright full-circumference ring that made every planet look like an annular eclipse.
     float day=smoothstep(-0.32,0.22,dot(N,normalize(u_light)));
     o=vec4(displayOutput(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4*(0.04+0.96*day)), 1.0); return; }
+${VENUS_ATMOSPHERE_SHELL_GLSL}
   if(u_mode==1){
     if(u_style<0){
       float limb=pow(clamp(dot(N,V),0.0,1.0),0.45);

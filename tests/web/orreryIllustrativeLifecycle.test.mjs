@@ -5,6 +5,7 @@ import {BODY} from '../../apps/web/js/bodyData.js';
 import {appearanceReference} from '../../apps/web/js/planetAppearance.js';
 import {terrainReference} from '../../apps/web/js/terrainAssets.js';
 import * as shaders from '../../apps/web/js/orreryShaders.js';
+import {venusAtmosphereShellScale,VENUS_ATMOSPHERE_SHELL_GLSL} from '../../apps/web/js/illustrativeAppearance.js';
 
 const bitmap=()=>({width:2048,height:1024,closed:false,close(){this.closed=true;}});
 const incidentField=async()=>({values:new Float32Array(4*257*195),width:257,height:195,
@@ -37,6 +38,10 @@ test('illustrative samples are decoded once before lighting and stay off the ref
   assert.doesNotMatch(shaders.SCATTERING_SPHERE_FS,/u_atmosphereEnabled==1&&!displayLinear/);
   assert.doesNotMatch(shaders.SCATTERING_SPHERE_FS,/u_texMode==3&&u_illustrativeLinear/);
   assert.equal(shaders.BASE_SPHERE_FS.includes('uniform int u_illustrativeLinear;'),true);
+  assert.ok(shaders.BASE_SPHERE_FS.includes(VENUS_ATMOSPHERE_SHELL_GLSL.trim()));
+  assert.match(shaders.BASE_SPHERE_FS,/if\(u_mode==4\)/);
+  assert.match(shaders.BASE_SPHERE_FS,/if\(alpha<=0\.001\) discard;/);
+  assert.doesNotMatch(shaders.SCATTERING_SPHERE_FS,/if\(u_mode==4\)/);
 });
 
 test('mode selection uploads artistic maps while preserving physical snapshots and restoring registered demand',async t=>{
@@ -142,18 +147,30 @@ test('leaving the view deletes a ready illustrative texture',async t=>{
  assert.equal(h.state.illustrativeStatus.Mars,undefined);
 });
 
-test('Venus radar wins over the illustrative selector and does not bind the artistic map',async t=>{
+test('Venus radar keeps the Magellan ground and draws the artistic atmosphere above it',async t=>{
  const arts=new Map();const h=await orreryHarness(t,{controls:true,illustrativeMap:async asset=>{const image=bitmap();arts.set(asset.body,image);return image;}});
  await h.enterOrrery();h.setAnimate(false);h.input('orreryAnchor','Venus','change');h.input('orreryPlanetLook','illustrative','change');await h.settle();
  const art=arts.get('Venus');
  assert.ok(art,'Venus artistic map was requested while the selector was on');
  const uploaded=h.textureRecords.find(record=>record.pixels===art);
  assert.ok(uploaded);
- assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_bodyRadiusKm===BODY.Venus.radiusKm&&draw.textures.get(0)===uploaded.texture&&draw.uniforms.u_illustrativeLinear===1));
- const start=h.gpuDraws.length;h.check('orreryVenusRadar',true);await h.settle();
+ assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_bodyRadiusKm===BODY.Venus.radiusKm&&draw.uniforms.u_mode===0&&draw.textures.get(0)===uploaded.texture&&draw.uniforms.u_illustrativeLinear===1));
+ assert.equal(h.gpuDraws.filter(draw=>draw.uniforms.u_mode===4).length,0);
+ const start=h.gpuDraws.length,submissionStart=h.gpuSubmissions.length;
+ h.check('orreryVenusRadar',true);await h.settle();
  const after=h.gpuDraws.slice(start);
- assert.ok(after.some(draw=>draw.uniforms.u_bodyRadiusKm===BODY.Venus.radiusKm&&draw.uniforms.u_mode===0));
- assert.ok(after.every(draw=>draw.textures.get(0)!==uploaded.texture));
- assert.ok(after.filter(draw=>draw.uniforms.u_bodyRadiusKm===BODY.Venus.radiusKm).every(draw=>draw.uniforms.u_illustrativeLinear===0));
+ const venus=after.filter(draw=>draw.uniforms.u_bodyRadiusKm===BODY.Venus.radiusKm);
+ const ground=venus.filter(draw=>draw.uniforms.u_mode===0);
+ const shell=venus.filter(draw=>draw.uniforms.u_mode===4);
+ assert.ok(ground.length>=1);
+ assert.ok(shell.length>=1);
+ assert.ok(ground.every(draw=>draw.textures.get(0)!==uploaded.texture&&draw.uniforms.u_illustrativeLinear!==1));
+ assert.ok(shell.every(draw=>draw.textures.get(0)===uploaded.texture&&draw.uniforms.u_illustrativeLinear===1&&draw.uniforms.u_texMode===0&&draw.uniforms.u_useTex===1));
+ const column=model=>Math.hypot(model[0],model[1],model[2]);
+ const scale=venusAtmosphereShellScale(BODY.Venus.radiusKm);
+ for(const draw of shell)assert.ok(Math.abs(column(draw.uniforms.u_model)/column(ground[0].uniforms.u_model)-scale)<1e-4);
+ const shells=h.gpuSubmissions.slice(submissionStart).filter(draw=>draw.uniforms.u_mode===4);
+ assert.ok(shells.length>=1);
+ assert.ok(shells.every(draw=>draw.depthWrites===false&&draw.blend[0]===h.gl.SRC_ALPHA&&draw.blend[1]===h.gl.ONE_MINUS_SRC_ALPHA&&draw.enabled.has(h.gl.CULL_FACE)));
  h.leaveOrrery();
 });

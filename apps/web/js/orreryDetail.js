@@ -7,7 +7,7 @@ import { isRetrograde } from "./moonorbits.js?v=dcca6290db";
 import { MOON_ALBEDO } from "./moonAppearance.js?v=dcca6290db";
 import { visualProvenanceText, visualBrowsePreview } from "./visualAssets.js";
 import { appearanceReference, appearanceReferences, appearanceDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
-import { illustrativeSelected } from "./illustrativeAppearance.js";
+import { illustrativeReplacesSurface } from "./illustrativeAppearance.js";
 import { earthSunDistanceAu, formatApparentV, formatIrradiance } from "./sunPhotometry.js?v=dcca6290de";
 
 // Keep mutable appearance text separate from the native disclosure and source links.
@@ -326,9 +326,10 @@ function updateVisualSources(sources, state) {
     if (asset.role === "surface") {
       // The main paragraph already carries this map's full date and limits.
       // Ordinary Venus keeps the Magellan citation while the cloud deck is drawn.
-      // Hide the registered link only when textures are off or Illustrative look
-      // is the mode actually in effect. Radar makes illustrativeSelected false.
-      row.hidden = !enabled || illustrativeSelected(name, state);
+      // Hide the registered link when textures are off or Illustrative look
+      // replaces the surface. Radar keeps the link: the mosaic is the ground
+      // under the artistic atmosphere.
+      row.hidden = !enabled || illustrativeReplacesSurface(name, state);
       continue;
     }
     const active = enabled && name === "Earth" && (

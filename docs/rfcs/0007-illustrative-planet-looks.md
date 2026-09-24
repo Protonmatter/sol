@@ -40,9 +40,13 @@ Existing ellipsoids, rotation matrices, lights and ring geometry are reused.
 Mars measured relief is suspended because the artistic map has no measured grid
 registration. Relief stays suspended for the whole time Illustrative look is
 selected, including load, failure, and eviction, not only while the artistic map
-is shown. Switching back restores the source-qualified path. Venus radar
-selection takes precedence over its illustrative cloud map. No runtime dependency
-or snapshot schema changes are introduced.
+is shown. Switching back restores the source-qualified path. Venus with
+Magellan radar keeps the registered ground and draws the artistic atmosphere
+on a translucent shell above it. Without radar, Illustrative look still
+replaces Venus with the opaque artistic cloud deck. The shell is a display
+composite: the JPEG has no alpha, coverage is derived, and it is not a
+qualified optical profile or a co-registered cloud measurement. No runtime
+dependency or snapshot schema changes are introduced.
 
 ## UX and accessibility
 
@@ -78,8 +82,10 @@ changed or waived.
 1. Default and unknown modes retain registered imagery; Earth, Sun and moons never
    select an illustrative texture (unit tests).
 2. All seven assets match pinned bytes, hashes, dimensions and license (unit tests).
-3. Offscreen, disabled, galaxy and radar-Venus demand produce no inappropriate
-   requests; anchor priority and the two-map bound hold (unit tests).
+3. Offscreen, disabled and galaxy demand produce no requests. Venus with radar
+   still requests the artistic atmosphere and the registered Magellan ground;
+   the artistic map is a shell, not a replacement. Anchor priority and the
+   two-map bound hold (unit tests).
 4. Wrong bytes/hash/dimensions, decode errors and aborts never upload (unit tests).
 5. Selection, source disclosure, cancellation and context restore remain wired
    through existing UI/render lifecycle (contract tests and browser CI).

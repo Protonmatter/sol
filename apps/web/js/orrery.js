@@ -20,7 +20,7 @@ import { linearFilterReference } from './materialColor.js';
 import { createHdrPresentation } from './hdrPresentation.js';
 import { srgbToLinear } from './surfaceMapping.js';
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
-import {ILLUSTRATIVE_ASSETS,MAX_ILLUSTRATIVE_TEXTURES,illustrativeSelected,planIllustrativeDemand,decodeIllustrativeMap} from './illustrativeAppearance.js';
+import {ILLUSTRATIVE_ASSETS,MAX_ILLUSTRATIVE_TEXTURES,illustrativeSelected,illustrativeReplacesSurface,venusAtmosphereOverlay,venusAtmosphereShellScale,planIllustrativeDemand,decodeIllustrativeMap} from './illustrativeAppearance.js';
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
 import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.js';
 import {requestTerrainMesh} from './terrainWorkerClient.js';
@@ -2091,17 +2091,21 @@ function drawBody(b, vp, eye) {
   // generate from the committed vectors, which in turn beats the procedural shader. Only the
   // generated maps can ask to MODULATE rather than replace.
   const isSun = b.name === "Sun";
-  const illustrative = illustrativeSelected(b.name,state);
-  const illustrativeTex = illustrative ? illustrativeDetails?.get(b.name) : null;
+  // A replacing artistic map owns the ground. Venus radar is the other case:
+  // Magellan stays on this pass and the artistic atmosphere is a later shell.
+  const replaces = illustrativeReplacesSurface(b.name, state);
+  const overlay = venusAtmosphereOverlay(b.name, state);
+  const illustrativeTex = replaces ? illustrativeDetails?.get(b.name) : null;
+  const atmosphereTex = overlay ? illustrativeDetails?.get('Venus') : null;
   const reference = surfaceReferenceShown(b.name, state) ? appearanceReference(b.name) : null;
   const referenceTex = state.useTextures && reference && referenceTextures[reference.id]?.ready ? referenceTextures[reference.id] : null;
   const sunTexd = isSun && textureEligible("Sun", "observed-disk") && state.useTextures && sunTex.ready;
-  const photoTexd = !illustrative && !isSun && textureEligible(b.name) && state.useTextures && textures[b.name] && textures[b.name].ready;
+  const photoTexd = !replaces && !overlay && !isSun && textureEligible(b.name) && state.useTextures && textures[b.name] && textures[b.name].ready;
   // NOT gated on state.useTextures. That checkbox is labelled "NASA textures" and its job is the
   // OPTIONAL photographic downloads; the generated maps are committed public-domain geography that
   // ships with the app. Gating them too meant unticking it replaced real coastlines with the
   // procedural noise continents — the exact thing this release exists to remove.
-  const gen = !illustrative && !isSun && textureEligible(b.name, "generated-map") && !photoTexd && genTex[b.name] && genTex[b.name].ready
+  const gen = !replaces && !overlay && !isSun && textureEligible(b.name, "generated-map") && !photoTexd && genTex[b.name] && genTex[b.name].ready
     ? genTex[b.name] : null;
   const useTex = illustrativeTex || referenceTex || sunTexd || photoTexd || !!gen;
   gl.activeTexture(gl.TEXTURE0);
@@ -2152,8 +2156,44 @@ function drawBody(b, vp, eye) {
   gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType||gl.UNSIGNED_SHORT,0);
   gl.disable(gl.CULL_FACE);
 
+  // Artistic Venus atmosphere over the Magellan ground. The JPEG has no alpha,
+  // so the shell derives coverage and stays off the physical program (mode 4
+  // lives in the span that program deletes). One atmosphere: skip the
+  // procedural limb while this shell is actually drawn.
+  if (atmosphereTex) {
+    const lift = venusAtmosphereShellScale(phys.radiusKm);
+    const sModel = mul(translate(pos), mul(rot, scaleM([rEq * lift, rEq * lift, rPol * lift])));
+    queueTransparent(pos, eye, () => {
+      gl.useProgram(P.sphere);
+      setAtmosphereUniforms(gl, P.sphereU, null);
+      gl.uniform1f(P.sphereU.u_bodyRadiusKm, phys.radiusKm);
+      gl.uniform1i(P.sphereU.u_linearOutput, linearFrame ? 1 : 0);
+      gl.uniform1i(P.sphereU.u_illustrativeLinear, 1);
+      gl.uniform1i(P.sphereU.u_mode, 4);
+      gl.uniform1i(P.sphereU.u_style, -1);
+      gl.uniform1i(P.sphereU.u_useTex, 1);
+      gl.uniform1i(P.sphereU.u_texMode, 0);
+      gl.uniform1i(P.sphereU.u_textureLinear, 0);
+      gl.uniform1i(P.sphereU.u_tex, 0);
+      gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, sModel)));
+      gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(sModel));
+      gl.uniformMatrix3fv(P.sphereU.u_nmat, false, new Float32Array(normals));
+      gl.uniform3fv(P.sphereU.u_cam, new Float32Array(eye));
+      gl.uniform3fv(P.sphereU.u_light, new Float32Array(light));
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, atmosphereTex.tex);
+      gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.depthMask(false);
+      bindBodyMesh();
+      gl.drawElements(gl.TRIANGLES, sphere.count, gl.UNSIGNED_SHORT, 0);
+      gl.depthMask(true);
+      gl.disable(gl.CULL_FACE);
+    });
+  }
+
   // atmosphere limb halo (additive shell, slightly larger, no depth write)
-  if (atmoStr > 0 && b.name !== "Sun" && b.name !== "Earth" && !profile) {
+  if (atmoStr > 0 && b.name !== "Sun" && b.name !== "Earth" && !profile && !atmosphereTex) {
     // A restrained illustrative optical limb, not an atmospheric-height measurement.
     // Earth keeps the admitted haze or the physical transfer; it does not grow a 1.015× shell.
     const sModel = mul(translate(pos), mul(rot, scaleM([rEq * 1.015, rEq * 1.015, rPol * 1.015])));

@@ -2,23 +2,38 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash,webcrypto} from 'node:crypto';
-import {ILLUSTRATIVE_ASSETS,illustrativeSelected,planIllustrativeDemand,illustrativeDescription,decodeIllustrativeMap} from '../../apps/web/js/illustrativeAppearance.js';
+import {ILLUSTRATIVE_ASSETS,illustrativeSelected,illustrativeReplacesSurface,venusAtmosphereOverlay,venusAtmosphereNote,venusAtmosphereShellScale,VENUS_ATMOSPHERE_SHELL_LIFT_KM,planIllustrativeDemand,illustrativeDescription,decodeIllustrativeMap} from '../../apps/web/js/illustrativeAppearance.js';
 import {surfaceReferenceShown,appearanceDescription} from '../../apps/web/js/planetAppearance.js';
 import {planReferenceDemand} from '../../apps/web/js/referenceDemand.js';
+import {BODY} from '../../apps/web/js/bodyData.js';
 const state={planetLook:'illustrative'};
 const names=['Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune'];
 test('opt-in catalog covers exactly seven bodies and protects the scientific default',()=>{
  assert.deepEqual(ILLUSTRATIVE_ASSETS.map(a=>a.body),names);
  for(const name of names){assert.equal(illustrativeSelected(name,{}),false);assert.equal(illustrativeSelected(name,{planetLook:'typo'}),false);assert.equal(illustrativeSelected(name,state),true);assert.equal(illustrativeSelected(name,{...state,useTextures:false}),false);}
  for(const name of ['Sun','Earth','Moon','constructor','__proto__'])assert.equal(illustrativeSelected(name,state),false);
- assert.equal(illustrativeSelected('Venus',{...state,venusRadar:true}),false);
+ assert.equal(illustrativeSelected('Venus',{...state,venusRadar:true}),true);
+ assert.equal(illustrativeReplacesSurface('Venus',state),true);
+ assert.equal(illustrativeReplacesSurface('Venus',{...state,venusRadar:true}),false);
+ assert.equal(venusAtmosphereOverlay('Venus',{...state,venusRadar:true}),true);
+ assert.equal(venusAtmosphereOverlay('Venus',state),false);
+ assert.equal(surfaceReferenceShown('Venus',{...state,venusRadar:true}),true);
+ assert.equal(venusAtmosphereShellScale(BODY.Venus.radiusKm),1+VENUS_ATMOSPHERE_SHELL_LIFT_KM/BODY.Venus.radiusKm);
 });
 test('demand is bounded, visible, deterministic, anchor-prioritized and disabled when unnecessary',()=>{
  const visible=new Map([['Mercury',9],['Venus',50],['Mars',100],['Jupiter',200],['Earth',1000],['Sun',2000],['Neptune',NaN]]);
  assert.deepEqual(planIllustrativeDemand(visible,{...state,anchor:'Mercury'}).map(a=>a.body),['Mercury','Jupiter']);
  assert.deepEqual(planIllustrativeDemand(visible,state).map(a=>a.body),['Jupiter','Mars']);
  for(const s of [{},{...state,useTextures:false},{...state,galaxy:true}])assert.deepEqual(planIllustrativeDemand(visible,s),[]);
- assert.deepEqual(planIllustrativeDemand(new Map([['Mars',7],['Venus',90]]),{...state,venusRadar:true}),[]);
+ const radar=new Map([['Mars',7],['Venus',90]]);
+ assert.deepEqual(planIllustrativeDemand(radar,{...state,venusRadar:true}).map(a=>a.body),['Venus']);
+ assert.ok(planReferenceDemand(radar,{...state,venusRadar:true}).some(a=>a.body==='Venus'&&a.role==='surface'));
+ const overlay=appearanceDescription('Venus',{...state,venusRadar:true,illustrativeStatus:{Venus:'ready'}});
+ assert.match(overlay,/Magellan/);
+ assert.match(overlay,/Artistic Venus atmosphere drawn above the registered Magellan ground/);
+ assert.doesNotMatch(overlay,/suppresses the registered surface/);
+ const displaced=venusAtmosphereNote({...state,venusRadar:true,illustrativeStatus:{Venus:'deferred'},illustrativeVisibleFocused:['Venus'],illustrativeDemandBodies:['Jupiter','Mars']});
+ assert.match(displaced,/two illustrative maps/);
 });
 test('illustrative materials suppress registered demand and source-ready claims only while selected',()=>{
  const visible=new Map([['Mars',80],['Earth',100]]);

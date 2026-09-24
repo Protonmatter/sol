@@ -1,6 +1,6 @@
 // Registered mission reference imagery. These epochs never follow the model clock.
 import { visualAssetManifest } from './visualAssetManifest.js';
-import { illustrativeSelected, illustrativeDescription } from './illustrativeAppearance.js';
+import { illustrativeReplacesSurface, illustrativeDescription, venusAtmosphereOverlay, venusAtmosphereNote } from './illustrativeAppearance.js';
 
 // Per-channel median of fully covered pixels in the admitted OPAL display maps.
 // A flat display color reduces the gray discontinuity at missing map coverage.
@@ -18,8 +18,10 @@ export function appearanceFallbackColor(body) {
 
 // Venus draws its visible-light cloud deck by default. Its registered Magellan radar
 // mosaic shows the ground beneath the clouds and appears only when explicitly chosen.
+// Illustrative look replaces that deck, unless radar is also on: then Magellan stays
+// the ground and the artistic atmosphere is a shell above it.
 export function surfaceReferenceShown(body, state = {}) {
-  return !illustrativeSelected(body,state) && (body !== 'Venus' || state.venusRadar === true);
+  return !illustrativeReplacesSurface(body,state) && (body !== 'Venus' || state.venusRadar === true);
 }
 
 export function appearanceReference(body, role = 'surface') {
@@ -45,8 +47,12 @@ export function appearanceUniforms(asset) {
   };
 }
 
+function withVenusAtmosphere(body, state, text) {
+  return venusAtmosphereOverlay(body, state) ? `${text} ${venusAtmosphereNote(state)}` : text;
+}
+
 export function appearanceDescription(body, state = {}, details = false) {
-  if (illustrativeSelected(body,state)) return illustrativeDescription(body,state);
+  if (illustrativeReplacesSurface(body,state)) return illustrativeDescription(body,state);
   if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);
   if (!asset) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
@@ -57,13 +63,13 @@ export function appearanceDescription(body, state = {}, details = false) {
     : status === 'queued' ? 'Reference imagery queued. ' : 'Loading reference imagery. ';
   const coverage = asset.nodata !== 'none' || asset.validLatitudeBounds[0] > -90 || asset.validLatitudeBounds[1] < 90
     ? ` Unmapped areas are simplified${appearanceFallbackColor(body) ? ' with a flat color derived from the reference image' : ''}.` : '';
-  return `${readiness}${asset.label} · ${asset.observation_label}. ${details ? asset.color_interpretation + ' ' + asset.limitations : 'Reference imagery; its date is separate from model time.' + coverage}`;
+  return withVenusAtmosphere(body, state, `${readiness}${asset.label} · ${asset.observation_label}. ${details ? asset.color_interpretation + ' ' + asset.limitations : 'Reference imagery; its date is separate from model time.' + coverage}`);
 }
 
 // Keep the primary object card concise; the adjacent source disclosure carries
 // complete capture epochs, processing, coverage and interpretation limits.
 export function appearanceSummary(body, state = {}) {
-  if (illustrativeSelected(body,state)) return illustrativeDescription(body,state);
+  if (illustrativeReplacesSurface(body,state)) return illustrativeDescription(body,state);
   if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);
   if (!asset || state.useTextures === false) return appearanceDescription(body, state);
@@ -71,7 +77,7 @@ export function appearanceSummary(body, state = {}) {
   const readiness = status === 'ready' ? '' : status === 'unavailable' ? 'Image unavailable; showing a simplified surface. '
     : status === 'deferred' || !status ? 'Focus or zoom in to load reference detail. '
     : status === 'queued' ? 'Reference imagery queued. ' : 'Loading reference imagery. ';
-  return `${readiness}${asset.label}. Archive imagery; open sources for dates and coverage.`;
+  return withVenusAtmosphere(body, state, `${readiness}${asset.label}. Archive imagery; open sources for dates and coverage.`);
 }
 
 export function earthLayerDescription(state = {}, compact = false) {
