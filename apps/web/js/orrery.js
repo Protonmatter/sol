@@ -17,6 +17,7 @@
 import { store } from "./store.js?v=dcca6290db";
 import { createShaderPrograms } from "./shaderPrograms.js";
 import { linearFilterReference } from './materialColor.js';
+import {EARTH_CLOUD_HEIGHT_KM,ENHANCED_EARTH_UNIFORMS,enhancedEarthSelected,advanceEarthCloudPhase,uploadOceanMask} from './enhancedEarth.js';
 import { createHdrPresentation } from './hdrPresentation.js';
 import { srgbToLinear } from './surfaceMapping.js';
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
@@ -160,6 +161,7 @@ const state = (store.orrery = {
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite', venusRadar: false,
+  earthEnhanced:false, earthCloudPhase:0, earthMaskStatus:'deferred',
   appearanceStatus: {},
   terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{}, scatteringStatus:{}, scatteringFrame:null,
   programStatus:{base:'deferred',physical:'deferred'},programDiagnostics:{},
@@ -194,6 +196,7 @@ const DRAW_LIST = ["Sun", ...PLANET_ORDER, "Moon"];
 // live in orreryMath.js; GLSL sources in orreryShaders.js — both imported above.)
 
 // ---------------------------------------------------------------- WebGL2 renderer
+let earthOceanMask=null;
 let gl, P = {}, sphere, quadBuf, cel, celBufs = {}, particles = null;
 let shaderPrograms=null,programContextGeneration=0;
 let hdrPresentation=null,hdrFailure=null,contextGeneration=0,sceneSerial=0,linearFrame=false,graphicsLifecycle=0;
@@ -864,7 +867,7 @@ function finishGL(){
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
   Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_quiet','u_frameMix','u_phase','u_displayGain','u_coronaGlow','u_cmeProgress','u_cmeAxis','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
-  Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear']));
+  Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear',...ENHANCED_EARTH_UNIFORMS]));
   for(const name of ['sphere','line','ring','pt','glow','solar'])
     Object.assign(P[`${name}U`],uloc(P[name],['u_linearOutput']));
 
@@ -1933,6 +1936,55 @@ function updateEarthLayerStatus() {
   if (caption) caption.textContent = `${ice?.label || 'Sea ice unavailable'} · ${ice?.observation_label || 'Date unavailable'}. Transparent areas have no displayed data.`;
 }
 
+function prepareEarthEnhancement(body,referenceReady) {
+  const selected=body==='Earth'&&referenceReady&&enhancedEarthSelected(state);
+  if(selected&&!earthOceanMask&&state.earthMaskStatus!=='unavailable'){
+    try{earthOceanMask=uploadOceanMask(gl);state.earthMaskStatus='ready';}
+    catch(error){state.earthMaskStatus='unavailable';console.warn('Enhanced Earth:',error.message);}
+    updateEarthLayerStatus();
+  }
+  const asset=appearanceReference('Earth','cloud-composite');
+  const clouds=selected&&state.earthWeather&&referenceTextures[asset.id]?.ready ? referenceTextures[asset.id] : null;
+  return {selected,clouds,phase:state.earthCloudPhase,scale:1+EARTH_CLOUD_HEIGHT_KM/BODY.Earth.radiusKm};
+}
+
+function bindEarthEnhancement(enhancement,locations) {
+  gl.uniform1i(locations.u_earthEnhanced,enhancement.selected&&earthOceanMask?1:0);
+  gl.uniform1i(locations.u_earthCloudShadow,enhancement.clouds?1:0);
+  gl.uniform1f(locations.u_cloudPhase,enhancement.phase);
+  gl.uniform1f(locations.u_cloudScale,enhancement.scale);
+  gl.activeTexture(gl.TEXTURE0+11);gl.bindTexture(gl.TEXTURE_2D,earthOceanMask||whiteTex);
+  gl.uniform1i(locations.u_oceanMask,11);gl.activeTexture(gl.TEXTURE0);
+  // Keep its sampler bound for the shadow, but remove the flattened cloud blend.
+  if(enhancement.clouds)gl.uniform1i(locations.u_earthWeather,0);
+}
+
+function drawEarthClouds(enhancement,pos,rot,rEq,rPol,vp,eye,light,normals,reference,shell) {
+  const u=P.sphereU,model=mul(translate(pos),mul(rot,scaleM([rEq*enhancement.scale,rEq*enhancement.scale,rPol*enhancement.scale])));
+  gl.useProgram(P.sphere);setAtmosphereUniforms(gl,u,null);
+  gl.uniform1i(u.u_linearOutput,linearFrame?1:0);
+  gl.uniformMatrix4fv(u.u_mvp,false,new Float32Array(mul(vp,model)));
+  gl.uniformMatrix4fv(u.u_model,false,new Float32Array(model));
+  gl.uniformMatrix3fv(u.u_nmat,false,new Float32Array(normals));
+  gl.uniform3fv(u.u_cam,new Float32Array(eye));gl.uniform3fv(u.u_light,new Float32Array(light));
+  gl.uniform1f(u.u_oblate,BODY.Earth.polarKm/BODY.Earth.radiusKm);
+  gl.uniform1i(u.u_mode,3);gl.uniform1i(u.u_style,-1);
+  gl.uniform1i(u.u_earthNight,0);gl.uniform1i(u.u_earthIce,0);gl.uniform1i(u.u_earthWeather,0);
+  gl.uniform1i(u.u_earthEnhanced,0);gl.uniform1i(u.u_earthCloudShadow,0);
+  gl.uniform1f(u.u_cloudPhase,enhancement.phase);gl.uniform1f(u.u_cloudScale,enhancement.scale);
+  const uniforms=appearanceUniforms(reference);
+  gl.uniform4fv(u.u_map,new Float32Array(uniforms.map));
+  gl.uniform4fv(u.u_mapLat,new Float32Array(uniforms.lat));
+  gl.uniform4fv(u.u_mapWindow,new Float32Array(uniforms.window));
+  gl.activeTexture(gl.TEXTURE0+3);gl.bindTexture(gl.TEXTURE_2D,enhancement.clouds.tex);gl.uniform1i(u.u_weatherTex,3);
+  gl.activeTexture(gl.TEXTURE0);
+  setHazeUniforms(gl,u,shell?null:getAtmosphereProfile('Earth'));
+  bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.depthMask(false);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.drawElements(gl.TRIANGLES,sphere.count,gl.UNSIGNED_SHORT,0);
+  gl.depthMask(true);gl.disable(gl.CULL_FACE);
+}
+
 function bindEarthTextures(enabled,locations=P.sphereU) {
   for (const [role, active, flag, sampler, unit] of /** @type {[string,boolean,string,string,number][]} */ ([
     ['night-lights', state.earthNight, 'u_earthNight', 'u_nightTex', 2],
@@ -2067,6 +2119,8 @@ function drawBody(b, vp, eye) {
     gl.uniform1i(sphereUniforms.u_mapNoData, uniforms.nodata);
   }
   bindEarthTextures(!!referenceTex && b.name === 'Earth',sphereUniforms);
+  const earthEnhancement=prepareEarthEnhancement(b.name,!!referenceTex);
+  bindEarthEnhancement(earthEnhancement,sphereUniforms);
   gl.uniform3fv(sphereUniforms.u_sunA, new Float32Array(sunTexd ? sunDiskBasis() : [1, 0, 0]));
   // Ring-shadow inputs: the light direction expressed in the BODY frame (Rᵀ·light — rot's
   // upper 3×3 is orthonormal, column-major), the annulus radii in equatorial-radius units, the
@@ -2096,6 +2150,9 @@ function drawBody(b, vp, eye) {
   gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
   gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType||gl.UNSIGNED_SHORT,0);
   gl.disable(gl.CULL_FACE);
+
+  const atmosphereShell=!!profile;
+  if(earthEnhancement.clouds)queueTransparent(pos,eye,()=>drawEarthClouds(earthEnhancement,pos,rot,rEq,rPol,vp,eye,light,normals,reference,atmosphereShell));
 
   // atmosphere limb halo (additive shell, slightly larger, no depth write)
   if (atmoStr > 0 && b.name !== "Sun" && b.name !== "Earth" && !profile) {
@@ -2291,6 +2348,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
       gl.uniform1i(P.sphereU.u_mapNoData, uniforms.nodata);
     }
     bindEarthTextures(false); // auxiliary layers must never leak from Earth onto moons
+    bindEarthEnhancement({selected:false,clouds:null,phase:0,scale:1},P.sphereU);
     gl.uniform1f(P.sphereU.u_oblate, 1);
     gl.uniform2fv(P.sphereU.u_ringRad, new Float32Array([0, 0])); // no ring shadow on moons — clear the parent's state
     // Nor a moon shadow ON a moon: mutual Galilean events are real but they need each moon's
@@ -2676,6 +2734,10 @@ function tick(now) {
         finishPositionUpdate();
         stepParticles(dt);
         updateRotationDisplay(dt);
+        const cloudAsset=appearanceReference('Earth','cloud-composite');
+        const drift=enhancedEarthSelected(state)&&state.earthWeather&&!prefersReducedMotion()
+          &&referenceVisible.get('Earth')>=2&&referenceTextures[cloudAsset.id]?.ready;
+        state.earthCloudPhase=advanceEarthCloudPhase(state.earthCloudPhase,dt,state.simStepSeconds,BODY.Earth.rotationHours,drift);
       }
     }
   }
@@ -3347,8 +3409,12 @@ async function showFallback(msg) {
     if(solarDetail?.status('reference')==='unavailable')solarDetail.retry('reference');
     syncSolarPlaybackControls();paint();
   });
-  for (const [id, key] of [['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
-    bind(id, 'change', e => { state[key] = inputTarget(e).checked; updateEarthLayerStatus(); paint(); updateOrreryAccuracy(); });
+  for (const [id, key] of [['orreryEarthEnhanced', 'earthEnhanced'], ['orreryEarthNight', 'earthNight'], ['orreryEarthWeather', 'earthWeather'], ['orreryEarthIce', 'earthIce']]) {
+    bind(id, 'change', e => {
+      state[key] = inputTarget(e).checked;
+      if(key==='earthEnhanced'&&state[key]&&state.earthMaskStatus==='unavailable')state.earthMaskStatus='deferred';
+      updateEarthLayerStatus(); paint(); updateOrreryAccuracy();
+    });
   }
   bind('orreryVenusRadar', 'change', e => { state.venusRadar = inputTarget(e).checked; updatePhysicalAppearance(); paint(); updateOrreryAccuracy(); });
   bind('orreryEarthCloudSource', 'change', e => {
@@ -3427,6 +3493,7 @@ async function showFallback(msg) {
     scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
     hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
     state.hdrStatus={state:'deferred',reason:'Graphics context lost.'};
+    if(earthOceanMask)gl.deleteTexture(earthOceanMask);earthOceanMask=null;state.earthMaskStatus='deferred';
     gl = null; P = {};
     textures = {}; sunTex = { ready: false, tex: null }; ringTex = { ready: false, tex: null };
     cancelPendingReferenceTextures();

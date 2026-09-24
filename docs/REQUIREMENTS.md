@@ -31,6 +31,7 @@ unrecognized status, and incomplete workflow enforcement.
 | `SOL-VIS-005` | Numeric terrain datum, finite geometry, physical extents and source identity |
 | `SOL-VIS-006` | Dimensioned optical transfer with distinct reflection, scattering and emission |
 | `SOL-VIS-007` | Source band, frame, coverage and finite dynamic appearance playback |
+| `SOL-VIS-009` | Opt-in Enhanced Earth with disclosed ocean grading, raised clouds, aligned shadows and gated drift |
 | `SOL-CI-001` | SHA-pinned actions, least privilege, and deployment of the tested SHA |
 | `SOL-DOC-001` | Documentation, plans, instructions, and traceability updated with code |
 | `SOL-SUPPLY-001` | Locked dependencies and automated ecosystem update review |

@@ -8,6 +8,8 @@ import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 import { RING_TRANSPORT_GLSL } from './ringTransportShaders.js';
+import {EARTH_CLOUD_GEOMETRY_GLSL,EARTH_CLOUD_COVER_GLSL,EARTH_OCEAN_GLSL} from './enhancedEarth.js';
+export {EARTH_CLOUD_GEOMETRY_GLSL,EARTH_CLOUD_COVER_GLSL,EARTH_OCEAN_GLSL};
 
 const NOISE = `
 float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -75,6 +77,9 @@ uniform vec4 u_map; uniform vec4 u_mapLat; uniform vec4 u_mapWindow; uniform int
 uniform int u_earthNight; uniform int u_earthWeather; uniform int u_earthIce;
 uniform sampler2D u_nightTex; uniform sampler2D u_weatherTex; uniform sampler2D u_iceTex;
 uniform int u_textureLinear;
+uniform int u_earthEnhanced,u_earthCloudShadow;
+uniform float u_cloudPhase,u_cloudScale;
+uniform sampler2D u_oceanMask;
 uniform vec3 u_hazeRayleighTau; uniform vec3 u_hazeAerosol;
 // Illustrative atmospheric haze for the distant, non-physical path. See
 // atmosphereOptics.js for the profile columns and the cited closed forms.
@@ -170,6 +175,9 @@ ${ATMOSPHERE_GLSL}
 ${TERRAIN_SHADOW_GLSL}
 ${RING_TRANSPORT_GLSL}
 ${NOISE}
+${EARTH_CLOUD_GEOMETRY_GLSL}
+${EARTH_CLOUD_COVER_GLSL}
+${EARTH_OCEAN_GLSL}
 // Every registered layer of a body shares one source grid. main computes this
 // once per fragment (u, v, source latitude) and passes it to each lookup, so the
 // same atan pair is not re-evaluated for every layer and coverage test.
@@ -200,6 +208,11 @@ float referenceCoverage(vec3 grid,vec4 sampleColor){
   if(latitude<u_mapLat.z||latitude>u_mapLat.w) return 0.0;
   if(u_mapNoData==1&&max(sampleColor.r,max(sampleColor.g,sampleColor.b))<0.00392157) return 0.0;
   return u_mapNoData==2 ? sampleColor.a : 1.0;
+}
+vec4 earthCloudSample(vec3 p){
+  vec2 uv=referenceGrid(p).xy;
+  uv.x=fract(uv.x-u_cloudPhase);
+  return referenceSample(u_weatherTex,p,uv);
 }
 float spotGroup(vec3 p,vec4 s){
   if(s.w<=0.0) return 0.0;
@@ -247,6 +260,18 @@ void main(){
     // bright full-circumference ring that made every planet look like an annular eclipse.
     float day=smoothstep(-0.32,0.22,dot(N,normalize(u_light)));
     o=vec4(displayOutput(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4*(0.04+0.96*day)), 1.0); return; }
+  if(u_mode==3){
+    // A separate, raised transparent shell. This branch is removed from the
+    // physical ground specialization; cloud haze remains explicitly illustrative.
+    vec4 clouds=earthCloudSample(p);
+    float alpha=clouds.a*earthCloudCover(dot(N,normalize(u_light)));
+    if(alpha<=0.001) discard;
+    float lambert=max(dot(N,normalize(u_light)),0.0);
+    vec3 color=decodeSRGB(coveredRGB(clouds))*(.001+.999*lambert);
+    vec3 path=hazeOverSurface(color,N,V,normalize(u_light),1.0);
+    color+=path;
+    o=vec4(u_linearOutput==1?color:encodeSRGB(color),alpha);return;
+  }
   if(u_mode==1){
     if(u_style<0){
       float limb=pow(clamp(dot(N,V),0.0,1.0),0.45);
@@ -314,6 +339,7 @@ void main(){
     vec4 mapped=referenceSample(u_tex,p,referenceGridValue.xy);
     vec3 sourceRGB=u_mapNoData==2 ? coveredRGB(mapped) : mapped.rgb;
     col=mix(decodeSRGB(u_base),u_textureLinear==1 ? sourceRGB : decodeSRGB(sourceRGB),referenceCoverage(referenceGridValue,mapped));
+    if(u_earthEnhanced==1) col=enhancedOceanColor(col,referenceSample(u_oceanMask,p,referenceGridValue.xy).r);
     // Earth auxiliaries share the documented WGS84 pixel-area grid, 180W..180E.
     // Weather is the provider's dated clouds-and-surface image, never inferred clouds.
     if(u_earthWeather==1){
@@ -493,6 +519,13 @@ void main(){
     }
   }
   sunVis*=terrainSunVisibility(surfaceBodyKm,incidentBody);
+  float hazeSunVis=sunVis;
+  if(reference&&u_earthCloudShadow==1&&dot(N,normalize(u_light))>0.0){
+    // Same ellipsoid and phase as the visible clouds. Trace straight geometric
+    // sunlight, not a fixed UV offset; alpha is a display opacity, not optical depth.
+    vec3 hit=earthCloudHit(p,normalize(u_lightObj),u_oblate,u_cloudScale);
+    sunVis*=1.0-.35*earthCloudSample(normalize(hit)).a;
+  }
   // The shadow removes DIRECT sunlight only. The 0.05 floor is the light a planet's own
   // atmosphere scatters into it, which is why Io's shadow reads as very dark grey rather than
   // as a hole in the planet.
@@ -543,7 +576,7 @@ void main(){
     // shared encode below handles it; a procedural display recipe is decoded and
     // re-encoded so its own downstream handling stays exactly as it was.
     vec3 surface=reference ? col : decodeSRGB(col);
-    vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),sunVis);
+    vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),hazeSunVis);
     col=reference ? surface+path : encodeSRGB(surface+path);
     displayLimb=vec3(0);
   }
@@ -618,7 +651,7 @@ export function physicalEnabledSource(source) {
       '  // Direct reflected sunlight sees the incident atmospheric column. The\n  // single-scattering mode has no invented diffuse-ambient weather term.\n  col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n    *u_atmosphereSolarScale*u_atmosphereExposure;'],
     ['  if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor(','  col=atmosphereSurfaceColor('],
     ['  if(u_atmosphereEnabled==0)return vec3(0);\n',''],
-    ['  if(u_atmosphereEnabled==0&&dot(u_hazeRayleighTau,vec3(1))>0.0){\n    // Path radiance is linear light. A registered map is still linear here and the\n    // shared encode below handles it; a procedural display recipe is decoded and\n    // re-encoded so its own downstream handling stays exactly as it was.\n    vec3 surface=reference ? col : decodeSRGB(col);\n    vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),sunVis);\n    col=reference ? surface+path : encodeSRGB(surface+path);\n    displayLimb=vec3(0);\n  }\n',''],
+    ['  if(u_atmosphereEnabled==0&&dot(u_hazeRayleighTau,vec3(1))>0.0){\n    // Path radiance is linear light. A registered map is still linear here and the\n    // shared encode below handles it; a procedural display recipe is decoded and\n    // re-encoded so its own downstream handling stays exactly as it was.\n    vec3 surface=reference ? col : decodeSRGB(col);\n    vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),hazeSunVis);\n    col=reference ? surface+path : encodeSRGB(surface+path);\n    displayLimb=vec3(0);\n  }\n',''],
   ];
   for(const [from,to] of rewrites){
     if(source.split(from).length!==2)throw new Error('Physical enabled-flag boundary changed');

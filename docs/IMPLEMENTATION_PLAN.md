@@ -1,7 +1,7 @@
 # Implementation plan
 
 Status: active  
-Updated: 2026-09-11
+Updated: 2026-09-23
 
 This plan describes delivery work, while `STATUS.md` describes implemented product behavior
 and `ROADMAP.md` records longer-horizon product direction.
@@ -46,6 +46,17 @@ Exit criteria:
 - no documentation claims a gate that the workflow does not enforce.
 
 ## Next product increments
+
+### Enhanced Earth review candidate
+
+The user approved the bounded optional mode in [RFC 0008](rfcs/0008-enhanced-earth.md).
+Implementation includes guarded ocean grading, a nominal 8 km cloud shell,
+Sun-directed shadows, independent rotation-gated drift, lifecycle recovery and
+release-fingerprint coverage for the new rendering modules. The default remains off.
+See [validation evidence](validation/enhanced-earth/README.md) for the comparison and
+exact scope. Next gates are draft review, CI Rust/WASM/browser and coverage checks,
+then native/mobile appearance and performance. Local source completion does not
+authorize merge or production promotion.
 
 ### Operational evidence
 

@@ -13,7 +13,7 @@ export const ATMOSPHERE_COLUMN_FIELDS=Object.freeze({
     "profile_encoding": "atmosphere-profile-binary32-v1",
     "profile_sha256": "e15e53579417f828a4f02b401d2c9ddebd78c6f956f5177d1def336ac7d7bed8",
     "generator_source_sha256": "6c7c90d4a4b72fc4d9c38bdb191889780e2f3a2cf44375cfe00f87c82c2fb48c",
-    "field_source_sha256": "26f9171d8db660af0bbe46b7631ec89b86895e143a181aaa13c2d6afce2115f1",
+    "field_source_sha256": "7da48dcd0061e244de4365de8e8ba1acbce7d27a79a42cbebcda6784ae05ed44",
     "solver_source_sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
     "profile_source_sha256": "b8ad270b14c4ef16affc7c31bd7fb5111895bc9cc6332cbe7c8c171d4582b965"
   },
@@ -30,7 +30,7 @@ export const ATMOSPHERE_COLUMN_FIELDS=Object.freeze({
     "profile_encoding": "atmosphere-profile-binary32-v1",
     "profile_sha256": "28e25e74130b1a426f07004ebdc66ca6c8f1094433f305302dab4c7338b15d7e",
     "generator_source_sha256": "6c7c90d4a4b72fc4d9c38bdb191889780e2f3a2cf44375cfe00f87c82c2fb48c",
-    "field_source_sha256": "26f9171d8db660af0bbe46b7631ec89b86895e143a181aaa13c2d6afce2115f1",
+    "field_source_sha256": "7da48dcd0061e244de4365de8e8ba1acbce7d27a79a42cbebcda6784ae05ed44",
     "solver_source_sha256": "282d74036c31b418ca8e1e43f9fdb4f975cf3ec03e3217da801d54ec945aa635",
     "profile_source_sha256": "b8ad270b14c4ef16affc7c31bd7fb5111895bc9cc6332cbe7c8c171d4582b965"
   }
