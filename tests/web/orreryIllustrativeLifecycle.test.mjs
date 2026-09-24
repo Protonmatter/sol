@@ -172,5 +172,16 @@ test('Venus radar keeps the Magellan ground and draws the artistic atmosphere ab
  const shells=h.gpuSubmissions.slice(submissionStart).filter(draw=>draw.uniforms.u_mode===4);
  assert.ok(shells.length>=1);
  assert.ok(shells.every(draw=>draw.depthWrites===false&&draw.blend[0]===h.gl.SRC_ALPHA&&draw.blend[1]===h.gl.ONE_MINUS_SRC_ALPHA&&draw.enabled.has(h.gl.CULL_FACE)));
+ const radar=appearanceReference('Venus');
+ const radarImage=h.images.findLast(image=>image.src===radar.path);
+ assert.ok(radarImage,'Magellan is requested once radar is on under Illustrative look');
+ radarImage.width=radar.dimensions[0];radarImage.height=radar.dimensions[1];
+ const loaded=h.gpuDraws.length;
+ radarImage.onload();await h.settle();
+ const stacked=h.gpuDraws.slice(loaded).filter(draw=>draw.uniforms.u_bodyRadiusKm===BODY.Venus.radiusKm);
+ const radarGround=stacked.filter(draw=>draw.uniforms.u_mode===0);
+ const radarShell=stacked.filter(draw=>draw.uniforms.u_mode===4);
+ assert.ok(radarGround.some(draw=>draw.uniforms.u_texMode===3&&draw.uniforms.u_illustrativeLinear===0&&draw.textures.get(0)!==uploaded.texture));
+ assert.ok(radarShell.every(draw=>draw.textures.get(0)===uploaded.texture&&draw.uniforms.u_illustrativeLinear===1));
  h.leaveOrrery();
 });
