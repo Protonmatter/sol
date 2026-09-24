@@ -407,7 +407,7 @@ function updatePhysicalAppearance() {
   const galleryBody=body,opticalBody=opticalSubject();
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
-  if(terrainReference(body)&&illustrativeSelected(body,state))notes.push('Measured terrain relief is suspended for this unregistered illustrative map.');
+  if(terrainReference(body)&&illustrativeSelected(body,state))notes.push('Measured terrain relief is suspended while Illustrative look is selected, including loading, failure, and when the map is not retained.');
   else if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
   if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
@@ -640,6 +640,7 @@ function cancelPendingReferenceTextures(keep = []) {
 function resetIllustrativeResources() {
   const prior=illustrativeDetails;illustrativeDetails=null;illustrativeDemand=[];
   prior?.dispose();state.illustrativeStatus={};
+  state.illustrativeDemandBodies=[];state.illustrativeVisibleFocused=[];
 }
 function syncIllustrativeDemand() {
   const demand=planIllustrativeDemand(referenceVisible,state);
@@ -674,6 +675,9 @@ function syncIllustrativeDemand() {
     illustrativeDetails.request(body);
     state.illustrativeStatus[body]=illustrativeDetails.status(body);
   }
+  state.illustrativeDemandBodies=next;
+  state.illustrativeVisibleFocused=[...referenceVisible].filter(([body,pixels])=>
+    illustrativeSelected(body,state)&&pixels>=8&&(state.selected===body||state.anchor===body)).map(([body])=>body);
 }
 
 function syncReferenceDemand() {
@@ -909,7 +913,7 @@ function finishGL(){
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
   Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_quiet','u_frameMix','u_phase','u_displayGain','u_coronaGlow','u_cmeProgress','u_cmeAxis','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
-  Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear']));
+  Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear','u_illustrativeLinear']));
   for(const name of ['sphere','line','ring','pt','glow','solar'])
     Object.assign(P[`${name}U`],uloc(P[name],['u_linearOutput']));
 
@@ -2105,6 +2109,10 @@ function drawBody(b, vp, eye) {
   gl.uniform1i(sphereUniforms.u_tex, 0);
   gl.uniform1i(sphereUniforms.u_useTex, useTex ? 1 : 0);
   gl.uniform1i(sphereUniforms.u_texMode, referenceTex ? 3 : gen ? gen.texMode : 0);
+  // Illustrative JPEGs stay on texMode 0 so they do not pick up coverage windows
+  // or Earth layers. The flag is 1 only for this draw's bound artistic map and is
+  // cleared on every other sphere draw, including moons that reuse the program.
+  gl.uniform1i(sphereUniforms.u_illustrativeLinear, illustrativeTex ? 1 : 0);
   gl.uniform1i(sphereUniforms.u_textureLinear, referenceTex?.linearFilter ? 1 : 0);
   if (referenceTex) {
     const uniforms = appearanceUniforms(reference);
@@ -2152,6 +2160,7 @@ function drawBody(b, vp, eye) {
     queueTransparent(pos,eye,()=>{
       // This callback runs after other bodies/moons: bind every uniform used by mode 2.
       gl.useProgram(P.sphere);setAtmosphereUniforms(gl,P.sphereU,null,opticalOptions);
+      gl.uniform1i(P.sphereU.u_illustrativeLinear, 0);
       gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, sModel)));
       gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(sModel));
       gl.uniformMatrix3fv(P.sphereU.u_nmat,false,new Float32Array(normals));
@@ -2330,6 +2339,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     // Registered modes retain source axes and gaps; mode 5 also retains the
     // admitted mission RGB ratios. Both keep the neutral albedo/eclipse gain.
     gl.uniform1i(P.sphereU.u_texMode, registered ? (reference.moon_color_mode === 'source-rgb' ? 5 : 4) : legacy ? 2 : 0);
+    gl.uniform1i(P.sphereU.u_illustrativeLinear, 0);
     if (registered) {
       const uniforms = appearanceUniforms(reference);
       gl.uniform4fv(P.sphereU.u_map, new Float32Array(uniforms.map));
@@ -3103,7 +3113,7 @@ export function leaveOrrery() {
   scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
   state.hdrStatus={state:'deferred',reason:'View inactive.'};
   cancelPendingReferenceTextures();
-  illustrativeDetails?.abortPending();illustrativeDemand=[];
+  resetIllustrativeResources();
   incidentFields?.dispose();incidentFields=null;incidentDemand='';
   state.solarPlayback.playing=false;
   terrainDetails?.abortPending();solarDetail?.abortPending();

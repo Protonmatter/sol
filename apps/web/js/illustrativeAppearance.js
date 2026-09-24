@@ -18,10 +18,17 @@ export function planIllustrativeDemand(visible, state = {}) {
 
 export function illustrativeDescription(body, state = {}) {
   const status = state.illustrativeStatus?.[body];
+  const visibleFocused = state.illustrativeVisibleFocused?.includes(body) === true;
+  const retained = state.illustrativeDemandBodies?.includes(body) === true;
+  // A focused body that is already large enough can still lose the two-map cache.
+  // Telling that body to focus or zoom describes a different failure.
+  const displaced = visibleFocused && !retained && status !== 'ready' && status !== 'loading' && status !== 'unavailable';
   const readiness = status === 'ready' ? '' : status === 'unavailable'
     ? 'Map unavailable; showing a simplified surface. Switch appearance mode to retry. '
-    : status === 'loading' ? 'Loading illustrative map. ' : 'Focus or zoom in to load this look. ';
-  return `${readiness}Illustrative look · Solar System Scope / INOVE · CC BY 4.0. Artistic color and reconstructed coverage; not a registered observation, calibrated color or current weather. Measured terrain is not applied to this map.`;
+    : status === 'loading' ? 'Loading illustrative map. '
+    : displaced ? 'Only two illustrative maps stay loaded, so this focused body keeps a simplified surface. '
+    : 'Focus or zoom in to load this look. ';
+  return `${readiness}Illustrative look suppresses the registered surface for this planet. Solar System Scope / INOVE · CC BY 4.0. Artistic color and reconstructed coverage; not a registered observation, calibrated color or current weather. Measured terrain relief stays suspended while this look is selected, including loading, failure, and when the map is not retained.`;
 }
 
 /** Validate source bytes before decoding; close unwanted decoded images before returning.

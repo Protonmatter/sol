@@ -56,7 +56,7 @@ never changes model time or refreshes the observations. If the selected image fa
 its layer is withheld with an unavailable status; another source date is not substituted.
 
 If a mapped planet image is unavailable after a temporary connection or GPU upload
-failure, leave Solar System and return, or turn **Source-qualified textures** off
+failure, leave Solar System and return, or turn **Texture layers** off
 and on in its inspector. Each deliberate action makes failed references eligible
 to retry when they are useful in the current view. Loaded maps remain cached
 within the bounded eight-texture budget. Turning imagery off cancels pending

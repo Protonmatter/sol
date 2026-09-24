@@ -38,7 +38,9 @@ to two maps. The largest visible maps, prioritizing the anchor, load on demand.
 Registered surface requests are suppressed for these bodies while selected.
 Existing ellipsoids, rotation matrices, lights and ring geometry are reused.
 Mars measured relief is suspended because the artistic map has no measured grid
-registration. Switching back restores the source-qualified path. Venus radar
+registration. Relief stays suspended for the whole time Illustrative look is
+selected, including load, failure, and eviction, not only while the artistic map
+is shown. Switching back restores the source-qualified path. Venus radar
 selection takes precedence over its illustrative cloud map. No runtime dependency
 or snapshot schema changes are introduced.
 

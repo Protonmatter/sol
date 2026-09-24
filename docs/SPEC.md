@@ -35,6 +35,8 @@ Scientific and source claims remain anchored to public methods and data: NOAA/SW
 The optional illustrative appearance proposal in [RFC 0007](rfcs/0007-illustrative-planet-looks.md)
 adds a separate artistic mode for seven planets. Source-qualified remains the
 default; the artistic maps carry no geographic, color or observation qualification.
+Measured terrain stays suspended for the whole time Illustrative look is selected,
+including loading, failure, and eviction, not only while an artistic map is shown.
 Earth, Sun and moons retain their existing materials. This candidate requires RFC
 review and the existing CI/release gates before promotion.
 

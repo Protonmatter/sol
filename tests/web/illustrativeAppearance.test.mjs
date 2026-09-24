@@ -27,7 +27,10 @@ test('illustrative materials suppress registered demand and source-ready claims 
  assert.ok(planReferenceDemand(visible,{}).some(a=>a.body==='Mars'));
  assert.match(appearanceDescription('Mars',state),/Illustrative/);
  assert.match(appearanceDescription('Earth',state),/Reference/);
- for(const status of ['deferred','loading','ready','unavailable']){const text=illustrativeDescription('Mars',{...state,illustrativeStatus:{Mars:status}});assert.match(text,/Solar System Scope/);assert.match(text,/not.*registered/i);if(status==='unavailable')assert.match(text,/unavailable/);}
+ for(const status of ['deferred','loading','ready','unavailable']){const text=illustrativeDescription('Mars',{...state,illustrativeStatus:{Mars:status}});assert.match(text,/Solar System Scope/);assert.match(text,/not.*registered/i);assert.match(text,/suppresses the registered surface/);assert.match(text,/suspended while this look is selected/);if(status==='unavailable')assert.match(text,/unavailable/);}
+ const displaced=illustrativeDescription('Mars',{...state,selected:'Mars',illustrativeStatus:{Mars:'deferred'},illustrativeVisibleFocused:['Mars'],illustrativeDemandBodies:['Jupiter','Venus']});
+ assert.match(displaced,/two illustrative maps/);assert.doesNotMatch(displaced,/Focus or zoom/);
+ assert.match(illustrativeDescription('Mars',{...state,illustrativeStatus:{Mars:'deferred'}}),/Focus or zoom/);
 });
 test('every local map matches provenance bytes and SHA-256',async()=>{
  for(const a of ILLUSTRATIVE_ASSETS){const b=await readFile(new URL('../../apps/web/'+a.path,import.meta.url));assert.equal(b.length,a.bytes);assert.equal(createHash('sha256').update(b).digest('hex'),a.sha256);assert.deepEqual(a.dimensions,[2048,1024]);assert.equal(a.license,'CC BY 4.0');assert.match(a.sourceUrl,/solarsystemscope.com/);}

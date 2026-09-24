@@ -507,7 +507,8 @@
         "apps/web/js/orrery.js"
       ],
       "verification": [
-        "tests/web/illustrativeAppearance.test.mjs"
+        "tests/web/illustrativeAppearance.test.mjs",
+        "tests/web/orreryIllustrativeLifecycle.test.mjs"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation"
