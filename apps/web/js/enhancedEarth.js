@@ -55,6 +55,15 @@ vec3 earthCloudHit(vec3 p,vec3 light,float oblate,float shell){
 }
 `;
 
+// 0 on the night side, and 1 only after the cloud is actually lit. The 0.05
+// start keeps a dark twilight veil from covering city lights while cloud RGB
+// is still the 0.001 night floor.
+export const EARTH_CLOUD_COVER_GLSL=`
+float earthCloudCover(float sun){
+  return smoothstep(0.05, 0.22, max(sun, 0.0));
+}
+`;
+
 // The mask excludes coarse land/ice/coastal margins. Dark-blue gating additionally
 // protects bright ice, land-like colors and islands omitted by the coarse vectors.
 export const EARTH_OCEAN_GLSL=`

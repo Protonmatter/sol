@@ -10,8 +10,10 @@ maps, protects coarse land/ice with a conservative offshore mask, and darkens
 only dark blue water colors in linear light. A homothetic cloud shell is nominally
 8 km above the equator. Ground shadows intersect that shell toward the Sun and
 use the same drifting UV phase. The cloud pass uses illustrative haze, while the
-ground retains reference optical transfer. No source image, observation epoch,
-ephemeris or other body's appearance is modified.
+ground retains reference optical transfer. Night-side coverage falls off so
+Black Marble remains on the ground pass, and a close view with the physical
+atmosphere shell does not also add illustrative cloud haze. No source image,
+observation epoch, ephemeris or other body's appearance is modified.
 
 Cloud drift follows 3% of displayed Earth rotation, capped at 0.002 turns per real
 second. Pause, hidden/inactive scenes and reduced motion freeze the phase; camera

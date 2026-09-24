@@ -8,8 +8,8 @@ import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 import { RING_TRANSPORT_GLSL } from './ringTransportShaders.js';
-import {EARTH_CLOUD_GEOMETRY_GLSL,EARTH_OCEAN_GLSL} from './enhancedEarth.js';
-export {EARTH_CLOUD_GEOMETRY_GLSL,EARTH_OCEAN_GLSL};
+import {EARTH_CLOUD_GEOMETRY_GLSL,EARTH_CLOUD_COVER_GLSL,EARTH_OCEAN_GLSL} from './enhancedEarth.js';
+export {EARTH_CLOUD_GEOMETRY_GLSL,EARTH_CLOUD_COVER_GLSL,EARTH_OCEAN_GLSL};
 
 const NOISE = `
 float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -176,6 +176,7 @@ ${TERRAIN_SHADOW_GLSL}
 ${RING_TRANSPORT_GLSL}
 ${NOISE}
 ${EARTH_CLOUD_GEOMETRY_GLSL}
+${EARTH_CLOUD_COVER_GLSL}
 ${EARTH_OCEAN_GLSL}
 // Every registered layer of a body shares one source grid. main computes this
 // once per fragment (u, v, source latitude) and passes it to each lookup, so the
@@ -263,12 +264,13 @@ void main(){
     // A separate, raised transparent shell. This branch is removed from the
     // physical ground specialization; cloud haze remains explicitly illustrative.
     vec4 clouds=earthCloudSample(p);
-    if(clouds.a<=0.001) discard;
+    float alpha=clouds.a*earthCloudCover(dot(N,normalize(u_light)));
+    if(alpha<=0.001) discard;
     float lambert=max(dot(N,normalize(u_light)),0.0);
     vec3 color=decodeSRGB(coveredRGB(clouds))*(.001+.999*lambert);
     vec3 path=hazeOverSurface(color,N,V,normalize(u_light),1.0);
     color+=path;
-    o=vec4(u_linearOutput==1?color:encodeSRGB(color),clouds.a);return;
+    o=vec4(u_linearOutput==1?color:encodeSRGB(color),alpha);return;
   }
   if(u_mode==1){
     if(u_style<0){

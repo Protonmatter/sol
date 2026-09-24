@@ -39,10 +39,12 @@ Raise the cloud ellipsoid homothetically by a nominal 8 km at the equator
 (slightly less at the poles). Reuse the sphere mesh and base program in a
 transparent cloud pass, back-face culled, depth-tested and without depth writes.
 The base program's existing haze approximation lights the cloud shell; this is
-not dense-cloud or volumetric optical transfer. The ground retains its existing
-reference atmosphere. Cloud shadows trace straight sunlight rays from the oblate
-ground to this same shell and sample the same phase, attenuating direct sunlight
-only. No fixed screen-space or longitude offset is used.
+not dense-cloud or volumetric optical transfer. Night-side coverage falls off so
+Black Marble remains on the ground pass, and a close view with the physical
+atmosphere shell does not also add illustrative cloud haze. The ground retains
+its existing reference atmosphere. Cloud shadows trace straight sunlight rays
+from the oblate ground to this same shell and sample the same phase, attenuating
+direct sunlight only. No fixed screen-space or longitude offset is used.
 
 Drift adds 3% of the visible Earth rotation, capped at 0.002 turns per real second,
 using a bounded phase advanced once per successful animation tick. The clock is

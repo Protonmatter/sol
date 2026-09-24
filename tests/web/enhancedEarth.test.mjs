@@ -45,6 +45,7 @@ test('raised cloud draw shares shadow phase, omits ground clouds and keeps trans
   assert.ok(cloud.enabled.has(h.gl.CULL_FACE));assert.deepEqual(cloud.blend,[h.gl.SRC_ALPHA,h.gl.ONE_MINUS_SRC_ALPHA]);
   assert.equal(cloud.uniforms.u_earthNight,0);assert.equal(cloud.uniforms.u_earthIce,0);
   assert.equal(cloud.textures.get(3),ground.textures.get(3));
+  assert.ok(cloud.uniforms.u_hazeRayleighTau.some(value=>value!==0),'distant clouds keep illustrative haze');
 });
 
 test('cloud off, missing maps and daily ground-containing swaths cannot lift or cast cloud shadows',async t=>{
@@ -69,6 +70,15 @@ test('drift advances only with visible animated Earth and survives paused camera
   assert.equal(cloudDraws(h).at(-1).uniforms.u_cloudPhase,moved);
   h.setWindowReducedMotion(true);h.setAnimate(true);h.frame(132);
   assert.equal(cloudDraws(h).at(-1).uniforms.u_cloudPhase,moved);
+});
+
+test('night cloud cover stays clear until the shell is actually lit',()=>{
+  const g=geometryInterpreter(shaders.EARTH_CLOUD_COVER_GLSL||'');
+  const cover=sun=>g.run('earthCloudCover',[sun]).value;
+  assert.equal(cover(-0.2),0);
+  assert.equal(cover(0),0);
+  assert.equal(cover(1),1);
+  assert.equal(cover(0.05),0);
 });
 
 test('executed shadow geometry follows the Sun and hits the elevated ellipsoid at grazing angles',()=>{
@@ -118,6 +128,7 @@ test('physical ground program gets enhancement uniforms while cloud rendering st
   assert.ok(ground,'physical atmosphere and enhanced ground coexist');
   assert.equal(ground.uniforms.u_earthCloudShadow,1);assert.equal(ground.uniforms.u_earthWeather,0);
   const cloud=cloudDraws(h).at(-1);assert.ok(cloud);assert.equal(cloud.uniforms.u_atmosphereEnabled,0);
+  assert.deepEqual(cloud.uniforms.u_hazeRayleighTau,[0,0,0]);
   assert.equal(cloud.uniforms.u_cloudPhase,ground.uniforms.u_cloudPhase);
   assert.deepEqual(h.errors,[]);
 });

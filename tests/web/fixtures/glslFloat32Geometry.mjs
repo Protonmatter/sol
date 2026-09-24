@@ -28,6 +28,10 @@ export function geometryInterpreter(glsl){
   const functions=new Map(parsed.statements.filter(ts.isFunctionDeclaration).map(node=>[node.name.text,node]));
   const builtins={...Object.fromEntries([...structs].map(([name,fields])=>[name,(...args)=>Object.fromEntries(fields.map((field,i)=>[field,args[i]]))])),vec2:(...a)=>vector(2,a),vec3:(...a)=>vector(3,a),sqrt:x=>f(Math.sqrt(x)),
     min:(a,b)=>zip(a,b,Math.min),max:(a,b)=>zip(a,b,Math.max),length:a=>f(Math.sqrt(dot(a,a))),
+    smoothstep:(edge0,edge1,x)=>{
+      const t=Math.min(1,Math.max(0,f(f(f(x)-f(edge0))/f(f(edge1)-f(edge0)))));
+      return f(f(f(t)*f(t))*f(f(3)-f(f(2)*f(t))));
+    },
     dot,abs:Math.abs,
     normalize:a=>{const n=f(Math.sqrt(dot(a,a)));return a.map(v=>f(v/n));},
     floatBitsToUint:x=>{view.setFloat32(0,x,true);return view.getUint32(0,true);},

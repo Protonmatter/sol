@@ -1959,7 +1959,7 @@ function bindEarthEnhancement(enhancement,locations) {
   if(enhancement.clouds)gl.uniform1i(locations.u_earthWeather,0);
 }
 
-function drawEarthClouds(enhancement,pos,rot,rEq,rPol,vp,eye,light,normals,reference) {
+function drawEarthClouds(enhancement,pos,rot,rEq,rPol,vp,eye,light,normals,reference,shell) {
   const u=P.sphereU,model=mul(translate(pos),mul(rot,scaleM([rEq*enhancement.scale,rEq*enhancement.scale,rPol*enhancement.scale])));
   gl.useProgram(P.sphere);setAtmosphereUniforms(gl,u,null);
   gl.uniform1i(u.u_linearOutput,linearFrame?1:0);
@@ -1978,7 +1978,7 @@ function drawEarthClouds(enhancement,pos,rot,rEq,rPol,vp,eye,light,normals,refer
   gl.uniform4fv(u.u_mapWindow,new Float32Array(uniforms.window));
   gl.activeTexture(gl.TEXTURE0+3);gl.bindTexture(gl.TEXTURE_2D,enhancement.clouds.tex);gl.uniform1i(u.u_weatherTex,3);
   gl.activeTexture(gl.TEXTURE0);
-  setHazeUniforms(gl,u,getAtmosphereProfile('Earth'));
+  setHazeUniforms(gl,u,shell?null:getAtmosphereProfile('Earth'));
   bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.depthMask(false);
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.drawElements(gl.TRIANGLES,sphere.count,gl.UNSIGNED_SHORT,0);
@@ -2151,7 +2151,8 @@ function drawBody(b, vp, eye) {
   gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType||gl.UNSIGNED_SHORT,0);
   gl.disable(gl.CULL_FACE);
 
-  if(earthEnhancement.clouds)queueTransparent(pos,eye,()=>drawEarthClouds(earthEnhancement,pos,rot,rEq,rPol,vp,eye,light,normals,reference));
+  const atmosphereShell=!!profile;
+  if(earthEnhancement.clouds)queueTransparent(pos,eye,()=>drawEarthClouds(earthEnhancement,pos,rot,rEq,rPol,vp,eye,light,normals,reference,atmosphereShell));
 
   // atmosphere limb halo (additive shell, slightly larger, no depth write)
   if (atmoStr > 0 && b.name !== "Sun" && b.name !== "Earth" && !profile) {
