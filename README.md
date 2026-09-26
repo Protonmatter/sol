@@ -4,6 +4,13 @@ Sol is a local-first research and learning application: a reduced solar-surface 
 an observer's sky, and a Solar System view. The static browser uses native ES modules
 and audited Rust engines through raw WebAssembly. No runtime framework or bundler is required.
 
+![Earth rendered in SOL's Illustrative look, with blue oceans, land, cloud layers and a thin atmospheric limb](docs/images/earth-illustrative-look.png)
+
+*Earth rendered by SOL in [PR #115](https://github.com/Protonmatter/sol/pull/115),
+captured from the GitHub-built `0c0c2a1` candidate. NASA July 2004 surface imagery
+with historical cloud/night layers and illustrative lighting and cloud depth.
+See [Earth appearance and provenance](docs/rfcs/0009-sites-earth-v7.md).*
+
 ## Current state
 
 The September 2026 correctness/experience changes are **implemented locally, not released
