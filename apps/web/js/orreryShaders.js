@@ -8,6 +8,7 @@ import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 import { RING_TRANSPORT_GLSL } from './ringTransportShaders.js';
+import { VENUS_ATMOSPHERE_SHELL_GLSL } from './illustrativeAppearance.js';
 
 const NOISE = `
 float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -75,6 +76,10 @@ uniform vec4 u_map; uniform vec4 u_mapLat; uniform vec4 u_mapWindow; uniform int
 uniform int u_earthNight; uniform int u_earthWeather; uniform int u_earthIce;
 uniform sampler2D u_nightTex; uniform sampler2D u_weatherTex; uniform sampler2D u_iceTex;
 uniform int u_textureLinear;
+// 1 only on the draw that binds an illustrative JPEG. texMode 0 is also the legacy
+// photo path, so those samples stay encoded. An illustrative sample is decoded once
+// immediately and then treated as display-linear so later stages do not decode it again.
+uniform int u_illustrativeLinear;
 uniform vec3 u_hazeRayleighTau; uniform vec3 u_hazeAerosol;
 // Illustrative atmospheric haze for the distant, non-physical path. See
 // atmosphereOptics.js for the profile columns and the cited closed forms.
@@ -247,6 +252,7 @@ void main(){
     // bright full-circumference ring that made every planet look like an annular eclipse.
     float day=smoothstep(-0.32,0.22,dot(N,normalize(u_light)));
     o=vec4(displayOutput(u_atmo*pow(1.0-clamp(dot(N,V),0.0,1.0),2.2)*u_atmoStr*1.4*(0.04+0.96*day)), 1.0); return; }
+${VENUS_ATMOSPHERE_SHELL_GLSL}
   if(u_mode==1){
     if(u_style<0){
       float limb=pow(clamp(dot(N,V),0.0,1.0),0.45);
@@ -303,6 +309,7 @@ void main(){
   float uu=0.5+atan(p.y,p.x)*0.1591549431; float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862;
   vec3 col=u_base;
   bool reference=u_useTex==1&&u_texMode==3;
+  bool displayLinear=reference||u_illustrativeLinear==1;
   vec3 referenceGridValue=referenceGrid(p);
   // How much relief the procedural moon styles are allowed to add. u_base for a moon is its
   // catalogue HUE scaled to its published geometric albedo (moonAppearance.js), so its own
@@ -344,7 +351,7 @@ void main(){
     }
     col=u_base*mix(vec3(1.0),material,referenceCoverage(referenceGridValue,mapped));
   }
-  else if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; }
+  else if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; if(u_illustrativeLinear==1) col=decodeSRGB(col); }
   else if(u_useTex==1&&u_texMode==2){ // real USGS moon mosaic
     // The mosaic is a browse rendering: contrast-stretched per product, single-band, with no
     // absolute photometry — Callisto's mean sits at 0.18 and Europa's at 0.57 for reasons of
@@ -458,7 +465,7 @@ void main(){
   // Legacy fallback/material recipes are display RGB. Only the enabled optical
   // path opts them into linear transport; historical disabled uniforms retain
   // their exact prior appearance. Registered references are already linear.
-  if(u_atmosphereEnabled==1&&!reference) col=decodeSRGB(col);
+  if(u_atmosphereEnabled==1&&!displayLinear) col=decodeSRGB(col);
   // Raster interpolation follows triangle chords, up to ~6.8 km below Earth's
   // 48x96 reference ellipsoid. That sag is not atmospheric altitude. Interpolate
   // the vertex radial scale independently, retaining real DEM displacement while
@@ -542,18 +549,18 @@ void main(){
     // Path radiance is linear light. A registered map is still linear here and the
     // shared encode below handles it; a procedural display recipe is decoded and
     // re-encoded so its own downstream handling stays exactly as it was.
-    vec3 surface=reference ? col : decodeSRGB(col);
+    vec3 surface=displayLinear ? col : decodeSRGB(col);
     vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),sunVis);
-    col=reference ? surface+path : encodeSRGB(surface+path);
+    col=displayLinear ? surface+path : encodeSRGB(surface+path);
     displayLimb=vec3(0);
   }
   if(u_linearOutput==1){
     // Reference/transport terms are already linear. The historical moon and
     // fallback lighting recipe stays a display reference and is decoded once.
-    if(!reference&&u_atmosphereEnabled==0)col=displayToLinear(col+displayLimb);
+    if(!displayLinear&&u_atmosphereEnabled==0)col=displayToLinear(col+displayLimb);
     else if(u_atmosphereEnabled==0)col+=displayToLinear(displayLimb);
   }else{
-    if(reference||u_atmosphereEnabled==1) col=encodeSRGB(col);
+    if(displayLinear||u_atmosphereEnabled==1) col=encodeSRGB(col);
     if(u_atmosphereEnabled==0) col+=displayLimb;
   }
   // The scientific palette is not a material: solar lighting must not change its
@@ -612,13 +619,13 @@ export const SCATTERING_SPHERE_VS=scatteringSphereSource(SPHERE_VS,ATMOSPHERE_LI
 // refraction-off consumer, so its Sun-transmission arm is retained.
 export function physicalEnabledSource(source) {
   const rewrites=[
-    ['  if(u_atmosphereEnabled==1&&!reference) col=decodeSRGB(col);','  if(!reference) col=decodeSRGB(col);'],
+    ['  if(u_atmosphereEnabled==1&&!displayLinear) col=decodeSRGB(col);','  if(!displayLinear) col=decodeSRGB(col);'],
     ['  bool refracted=u_atmosphereEnabled==1&&u_atmosphereRefractionEnabled==1;','  bool refracted=u_atmosphereRefractionEnabled==1;'],
     ['  float shade=reference ? 0.001+0.999*lambert*sunVis : 0.05+0.95*lambert*sunVis;\n  if(u_atmosphereEnabled==1){\n    // Direct reflected sunlight sees the incident atmospheric column. The\n    // single-scattering mode has no invented diffuse-ambient weather term.\n    col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n      *u_atmosphereSolarScale*u_atmosphereExposure;\n  } else col*=shade;',
       '  // Direct reflected sunlight sees the incident atmospheric column. The\n  // single-scattering mode has no invented diffuse-ambient weather term.\n  col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n    *u_atmosphereSolarScale*u_atmosphereExposure;'],
     ['  if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor(','  col=atmosphereSurfaceColor('],
     ['  if(u_atmosphereEnabled==0)return vec3(0);\n',''],
-    ['  if(u_atmosphereEnabled==0&&dot(u_hazeRayleighTau,vec3(1))>0.0){\n    // Path radiance is linear light. A registered map is still linear here and the\n    // shared encode below handles it; a procedural display recipe is decoded and\n    // re-encoded so its own downstream handling stays exactly as it was.\n    vec3 surface=reference ? col : decodeSRGB(col);\n    vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),sunVis);\n    col=reference ? surface+path : encodeSRGB(surface+path);\n    displayLimb=vec3(0);\n  }\n',''],
+    ['  if(u_atmosphereEnabled==0&&dot(u_hazeRayleighTau,vec3(1))>0.0){\n    // Path radiance is linear light. A registered map is still linear here and the\n    // shared encode below handles it; a procedural display recipe is decoded and\n    // re-encoded so its own downstream handling stays exactly as it was.\n    vec3 surface=displayLinear ? col : decodeSRGB(col);\n    vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),sunVis);\n    col=displayLinear ? surface+path : encodeSRGB(surface+path);\n    displayLimb=vec3(0);\n  }\n',''],
   ];
   for(const [from,to] of rewrites){
     if(source.split(from).length!==2)throw new Error('Physical enabled-flag boundary changed');

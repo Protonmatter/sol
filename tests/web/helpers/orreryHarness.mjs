@@ -201,7 +201,7 @@ export async function orreryHarness(t, options = {}) {
   if (options.controls) {
     for(const id of ['InspectSun','PhysicalStatus','SolarControls','SolarMode','SolarPlay','SolarRestart','SolarTime','SolarEpoch','Terrain','Optics'])nodes[`orrery${id}`]=node();
     if(options.phenomenonImage)nodes.orreryPlanetPhenomena=node();
-    for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
+    for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "PlanetLook", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
       nodes[`orrery${id}`] = node();
     }
     for (const id of ["Textures", "EarthNight", "EarthWeather"]) nodes[`orrery${id}`].checked = true;
@@ -304,8 +304,9 @@ export async function orreryHarness(t, options = {}) {
   const phenomenaModule=await import('../../../apps/web/js/planetPhenomena.js');
   const phenomenaBoundary={...phenomenaModule,renderPlanetPhenomena:(container,body)=>
     phenomenaModule.renderPlanetPhenomena(container,body,{loadImage:options.phenomenonImage})};
+  const illustrativeBoundary=options.illustrativeMap?{...await import('../../../apps/web/js/illustrativeAppearance.js'),decodeIllustrativeMap:options.illustrativeMap}:null;
   const [lifecycle] = await loadSourceModules(context, [moduleUrl], {
-    resolveImport: (specifier,url) => options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
+    resolveImport: (specifier,url) => illustrativeBoundary && url.pathname.endsWith('/illustrativeAppearance.js') ? illustrativeBoundary : options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
       ? {loadSolarAtlas:typeof options.solarAtlas==='function'?options.solarAtlas:async()=>({width:2048,height:1024,close(){}})}
       : options.terrainMesh && url.pathname.endsWith('/terrainWorkerClient.js')
         ? {requestTerrainMesh:options.terrainMesh}
@@ -322,6 +323,9 @@ export async function orreryHarness(t, options = {}) {
     },
   });
   const settle = () => new Promise(resolve => setImmediate(resolve));
+  // Existing scientific-material fixtures exercise the explicit Source-qualified
+  // mode. Fresh-session tests bypass this fixture to exercise the product default.
+  if (!options.useProductAppearanceDefault) bindings.store.orrery.planetLook = 'source-qualified';
   return { events, nodes, frames, requests, errors, warnings, images, textureUploads, bufferUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations,shaderQueries,programs,deletedPrograms,deletedShaders,
     completePrograms: (predicate=()=>true)=>{for(const program of programs)if(predicate(program))completedPrograms.add(program);},
     state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,

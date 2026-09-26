@@ -67,6 +67,19 @@ test('Sky overview and nonfinite measurements do not become horizon or zero-valu
   assert.match(onHorizon.description,/At or below/); assert.equal(fact(onHorizon,'Geometric altitude'),'0.00°');
 });
 
+test('System overview discloses the selected artistic mode and texture-off state',()=>{
+  const artistic=systemCard({planetLook:'illustrative'});
+  assert.match(artistic.note,/Solar System Scope/);
+  assert.match(artistic.note,/artistic/i);
+  assert.match(artistic.note,/Source-qualified/);
+  assert.doesNotMatch(artistic.note,/wherever a qualified texture is unavailable/);
+  const disabled=systemCard({planetLook:'illustrative',useTextures:false});
+  assert.match(disabled.note,/textures.*off/i);
+  assert.doesNotMatch(disabled.note,/Solar System Scope/);
+  const source=systemCard({planetLook:'source-qualified'});
+  assert.match(source.note,/qualified texture/);
+});
+
 test('System selected-body facts stay reference constants rather than stale dynamic distances',()=>{
   const card=systemCard({selected:'Earth',bodies:[{name:'Earth',dist_au:999}],trueScale:false,engineError:'stale'});
   assert.equal(card.title,'Earth'); assert.equal(card.focusBody,'Earth');

@@ -80,7 +80,7 @@ test('physical consumer folds only the admitted enabled flag and keeps refractio
   const consumer=shaders.SCATTERING_SPHERE_FS,main=consumer.slice(consumer.indexOf('void main(){'));
   assert.match(consumer,/uniform int u_atmosphereEnabled;/);assert.match(consumer,/uniform int u_atmosphereRefractionEnabled;/);
   assert.match(main,/if\(u_mode!=0\|\|u_style!=-1\|\|u_atmosphereEnabled!=1\) discard;/);
-  for(const folded of ['u_atmosphereEnabled==1&&!reference','if(u_atmosphereEnabled==1){','if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor('])
+  for(const folded of ['u_atmosphereEnabled==1&&!displayLinear','if(u_atmosphereEnabled==1){','if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor('])
     assert.ok(!main.includes(folded),`folded enabled-flag branch removed: ${folded}`);
   assert.equal(main.split('u_atmosphereRefractionEnabled').length,2,'refraction stays one live uniform read');
   assert.ok(!main.slice(0,main.indexOf('discard;')).includes('u_atmosphereRefractionEnabled'),'the guard never rejects refraction-off consumers');

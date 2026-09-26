@@ -4,6 +4,13 @@ Sol is a local-first research and learning application: a reduced solar-surface 
 an observer's sky, and a Solar System view. The static browser uses native ES modules
 and audited Rust engines through raw WebAssembly. No runtime framework or bundler is required.
 
+![Earth rendered in SOL's Illustrative look, with blue oceans, land, cloud layers and a thin atmospheric limb](docs/images/earth-illustrative-look.png)
+
+*Earth rendered by SOL in [PR #115](https://github.com/Protonmatter/sol/pull/115),
+captured from the GitHub-built `0c0c2a1` candidate. NASA July 2004 surface imagery
+with historical cloud/night layers and illustrative lighting and cloud depth.
+See [Earth appearance and provenance](docs/rfcs/0009-sites-earth-v7.md).*
+
 ## Current state
 
 The September 2026 correctness/experience changes are **implemented locally, not released
@@ -35,6 +42,17 @@ unsupported versions rather than silently relabelling data.
   time and detailed tools open on intent. Camera shortcuts use the existing physical centers;
   body selection does not open the full control panel. Verified NASA/mission archive previews
   remain separate from the 3-D appearance; unsupported sphere textures stay disabled.
+- **Planet looks (candidate):** Solar System → View → Planet appearance
+  offers attributed Solar System Scope maps for Mercury, Venus, Mars, Jupiter, Saturn,
+  Uranus and Neptune. These artistic reconstructions appear by default in fresh
+  sessions; Source-qualified remains selectable. See [RFC 0007](docs/rfcs/0007-illustrative-planet-looks.md) for review
+  status and limits, and the [rollout review](docs/PLANET_ROLLOUT_REVIEW_20260925.md)
+  for local evidence and outstanding delivery steps.
+- **Earth Look Lab appearance (candidate):** the latest published Sites Earth
+  joins Illustrative look: NASA July 2004 surface, dark-ocean grading, 1.6 display
+  exposure, and the recovered cloud-volume/texture-lighting recipe. Source-qualified
+  restores the existing Earth; daily swaths, sea ice and HDR retain that path.
+  See [RFC 0009](docs/rfcs/0009-sites-earth-v7.md) for provenance and limits.
 - **Sources and limits:** persistent presentation metadata identifies the displayed
   epoch, source/provider and degraded/unavailable state. An observed image is not a
   registered model overlay: current registration assessment never permits compositing.

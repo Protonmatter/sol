@@ -42,10 +42,14 @@ export function systemCard(state = {}) {
     : 'Bodies are enlarged for visibility; physical positions are unchanged.';
   const retained = state.engineError || state.presentation?.availability === 'last_valid'
     ? ' Showing the last validated scene; reference facts remain separate.' : '';
+  const overviewAppearance = state.useTextures === false ? 'Planet textures are switched off.'
+    : state.planetLook === 'illustrative'
+      ? 'Seven planets use artistic Solar System Scope maps, with reconstructed colors and coverage. Earth uses the Look Lab style with historical NASA imagery and illustrative cloud depth. Select Source-qualified in View for reference materials.'
+      : 'Surface detail is simplified wherever a qualified texture is unavailable.';
   const card = {eyebrow: 'OUR PLANETARY HOME', title: 'The Solar System',
     description: state.presentation?.availability === 'unavailable' ? 'Model positions are unavailable. Open tools to retry the calculation.'
       : 'Explore our star, the planets and their moons. Select an object to look closer.',
-    facts: [], note: `${scale}${retained} Surface detail is simplified wherever a qualified texture is unavailable.`, preview: null, focusBody: null};
+    facts: [], note: `${scale}${retained} ${overviewAppearance}`, preview: null, focusBody: null};
   if (state.galaxy && !state.localView) return {...card, eyebrow: 'A WIDER UNIVERSE', title: 'The Milky Way',
     description: 'An illustrative view of our galaxy and the Sun’s place within it.',
     note: 'Illustrative galaxy model; its model clock is separate from planetary time.'};

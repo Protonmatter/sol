@@ -7,6 +7,8 @@ import { isRetrograde } from "./moonorbits.js?v=dcca6290db";
 import { MOON_ALBEDO } from "./moonAppearance.js?v=dcca6290db";
 import { visualProvenanceText, visualBrowsePreview } from "./visualAssets.js";
 import { appearanceReference, appearanceReferences, appearanceDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
+import { illustrativeReplacesSurface } from "./illustrativeAppearance.js";
+import { earthLookSelected } from "./earthLook.js";
 import { earthSunDistanceAu, formatApparentV, formatIrradiance } from "./sunPhotometry.js?v=dcca6290de";
 
 // Keep mutable appearance text separate from the native disclosure and source links.
@@ -318,13 +320,20 @@ function updateVisualSources(sources, state) {
   const enabled = state.useTextures !== false;
   const surface = surfaceReferenceShown(name, state) ? appearanceReference(name) : null;
   const ready = surface && state.appearanceStatus?.[surface.id] === "ready";
+  // A ready July Earth look replaces the registered January surface; its date and
+  // source are in the main paragraph, and the cloud and night layers still render on it.
+  const earthLook = name === "Earth" && earthLookSelected(state) && state.earthLookStatus === "ready";
   const text = appearanceDescription(name, state, true);
   const description = `${enabled && ready ? "Surface reference ready. " : ""}${text}`;
   if (provenance.textContent !== description) provenance.textContent = description;
   for (const { asset, row, description: layerText } of layers) {
     if (asset.role === "surface") {
       // The main paragraph already carries this map's full date and limits.
-      row.hidden = !enabled;
+      // Ordinary Venus keeps the Magellan citation while the cloud deck is drawn.
+      // Hide the registered link when textures are off or Illustrative look
+      // replaces the surface. Radar keeps the link: the mosaic is the ground
+      // under the artistic atmosphere.
+      row.hidden = !enabled || illustrativeReplacesSurface(name, state) || earthLook;
       continue;
     }
     const active = enabled && name === "Earth" && (
@@ -338,7 +347,7 @@ function updateVisualSources(sources, state) {
       : status === "deferred" || !status ? "Reference detail loads when Earth is visible at a useful scale; layer is not rendered."
       : status === "queued" ? "Reference imagery queued; layer is not rendered."
       : status !== "ready" ? "Loading reference imagery; layer is not rendered."
-      : !ready ? "Reference ready; waiting for the surface reference before rendering."
+      : !ready && !earthLook ? "Reference ready; waiting for the surface reference before rendering."
       : "Reference layer ready.";
     const layerDescription = `${asset.label} · ${asset.observation_label}. ${readiness} ${asset.color_interpretation} ${asset.limitations}`;
     if (layerText.textContent !== layerDescription) layerText.textContent = layerDescription;
