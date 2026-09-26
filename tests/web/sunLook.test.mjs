@@ -94,3 +94,24 @@ test('mode and resolution changes keep one pending shader set until safe complet
  h.input('orrerySolarMode','illustrative','change');await h.settle();assert.equal(h.state.sunLookStatus,'ready');assert.equal(h.programs.length,9);
  h.leaveOrrery();
 });
+test('the illustrative Sun retains depth-tested wind without the legacy glow',async t=>{
+ const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true});await h.enterOrrery();h.setAnimate(false);h.setWindowReducedMotion(true);
+ h.event('orreryInspectSun','click');await h.settle();assert.equal(h.state.sunLookStatus,'ready');
+ const start=h.gpuSubmissions.length;h.resize(800,600);
+ const draws=h.gpuSubmissions.slice(start),wind=draws.filter(d=>d.kind==='arrays'&&d.uniforms.u_soft===.9);
+ assert.equal(wind.length,1,'the existing wind layer must still draw exactly once');
+ assert.equal(wind[0].depthWrites,false);assert(wind[0].enabled.has(h.gl.DEPTH_TEST));assert.deepEqual(wind[0].blend,[h.gl.SRC_ALPHA,h.gl.ONE]);
+ assert.equal(draws.filter(d=>d.uniforms.u_pow===2.8||d.uniforms.u_pow===4.2).length,0,'the approved corona replaces only the legacy glow');h.leaveOrrery();
+});
+test('Sun inspection fits the illustrative envelope while retaining the reference fit',async t=>{
+ const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true});await h.enterOrrery();await h.settleCatalogues();h.setAnimate(false);h.setWindowReducedMotion(true);
+ for(const [w,height] of [[1200,800],[390,800]]){
+  h.resize(w,height);h.input('orrerySolarMode','visible','change');h.event('orreryInspectSun','click');const reference=h.state.radius;
+  const physical=JSON.stringify([h.state.renderUnix,h.state.bodies]);
+  h.input('orrerySolarMode','illustrative','change');h.event('orreryInspectSun','click');await h.settle();
+  assert(Math.abs(h.state.radius/reference-2.1/1.35)<1e-8,`camera fit must use the selected 2.1-radius envelope: ${w}x${height} reference=${reference} illustrative=${h.state.radius}`);
+  assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),physical);
+  const framing=h.state.radius;h.input('orrerySunResolution','4096','change');assert.equal(h.state.radius,framing,'resolution cannot change framing');
+ }
+ h.leaveOrrery();
+});

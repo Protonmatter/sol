@@ -22,11 +22,11 @@ test('parallel startup performs no blocking shader status or uniform query befor
   assert.ok(h.draws>0);assert.deepEqual(h.errors,[]);h.leaveOrrery();
 });
 
-test('leaving pending parallel startup deletes its programs and ignores stale completion',async t=>{
+test('leaving pending parallel startup retains its programs and ignores stale completion',async t=>{
   const h=await orreryHarness(t,{controls:true,parallelPrograms:true});
   const entering=h.enterOrrery();await h.settle();const original=[...h.programs];
   h.leaveOrrery();await entering;h.completePrograms();await h.settle();
-  assert.ok(original.length>0);assert.ok(original.every(p=>h.deletedPrograms.includes(p)));
+  assert.ok(original.length>0);assert.ok(original.every(p=>!h.deletedPrograms.includes(p)));
   assert.equal(h.draws,0);assert.equal(h.frames.size,0);assert.deepEqual(h.errors,[]);
   const renewed=h.enterOrrery();await h.settle();h.completePrograms();h.frame(100);await renewed;
   assert.ok(h.draws>0);h.leaveOrrery();
@@ -56,29 +56,34 @@ for(const failure of ['link','timeout'])test(`physical ${failure} failure keeps 
   const h=await boot(t);h.input('orreryAnchor','Earth','change');await h.settle();const failed=h.programs.slice(6);
   if(failure==='link'){h.setGraphicsFailure('link');h.completePrograms();}else h.advanceMonotonicTime(30100);
   await poll(h);assert.equal(h.state.opticsStatus.Earth,'unavailable');assert.equal(physicalDraws(h).length,0);
-  assert.ok(failed.every(program=>h.deletedPrograms.includes(program)));
+  assert.ok(failed.every(program=>h.deletedPrograms.includes(program)===(failure==='link')));
   assert.match(h.state.programDiagnostics.physicalSphere.error,failure==='link'?/link failure/i:/30000 ms/);
   const count=h.programs.length,draws=h.draws;h.resize(900,600);await h.settle();
   assert.equal(h.programs.length,count,'a failed program does not recompile on repaint');assert.ok(h.draws>draws);
   h.setGraphicsFailure('');h.check('orreryOptics',false);h.check('orreryOptics',true);await h.settle();
-  assert.equal(h.programs.length,count+3);assert.equal(h.state.opticsStatus.Earth,'loading');
+  assert.equal(h.programs.length,count+(failure==='link'?3:0));assert.equal(h.state.opticsStatus.Earth,'loading');
   h.completePrograms();await poll(h);assert.equal(h.state.opticsStatus.Earth,'ready');assert.ok(physicalDraws(h).length>0);
   h.leaveOrrery();
 });
 
-for(const reset of ['leave','hidden','optics','context'])test(`${reset} cancels pending physical programs and never admits their stale completion`,async t=>{
+for(const reset of ['leave','hidden','optics','context'])test(`${reset} cancels demand and only an explicit resume admits completion`,async t=>{
   const h=await boot(t);h.input('orreryAnchor','Earth','change');await h.settle();const pending=h.programs.slice(6);
-  if(reset==='leave'){h.leaveOrrery();await h.enterOrrery();}
-  else if(reset==='hidden'){h.setHidden(true);h.setHidden(false);h.resize(800,600);}
-  else if(reset==='optics'){h.check('orreryOptics',false);h.check('orreryOptics',true);}
-  else{h.event('orreryCanvas','webglcontextlost');h.event('orreryCanvas','webglcontextrestored');
-    h.completePrograms(program=>!pending.includes(program));await poll(h);}
-  await h.settle();assert.ok(pending.every(program=>h.deletedPrograms.includes(program)));
+  if(reset==='leave')h.leaveOrrery();
+  else if(reset==='hidden')h.setHidden(true);
+  else if(reset==='optics')h.check('orreryOptics',false);
+  else{h.gl.isContextLost=()=>true;h.event('orreryCanvas','webglcontextlost');}
+  await h.settle();assert.ok(pending.every(program=>h.deletedPrograms.includes(program)===(reset==='context')));
   h.completePrograms(program=>pending.includes(program));await poll(h);
-  assert.equal(h.state.opticsStatus.Earth,'loading');assert.equal(physicalDraws(h).length,0);
+  assert.equal(physicalDraws(h).length,0,'withdrawn demand must not publish a stale draw');
   assert.equal(h.shaderQueries.filter(query=>query.method==='getUniformLocation'&&pending.includes(query.program)).length,0);
-  h.completePrograms();await poll(h);assert.equal(h.state.opticsStatus.Earth,'ready');
-  assert.ok(physicalDraws(h).every(draw=>!pending.includes(draw.program)));assert.deepEqual(h.errors,[]);h.leaveOrrery();
+  if(reset==='leave')await h.enterOrrery();
+  else if(reset==='hidden'){h.setHidden(false);h.resize(800,600);}
+  else if(reset==='optics')h.check('orreryOptics',true);
+  else{h.gl.isContextLost=()=>false;h.event('orreryCanvas','webglcontextrestored');}
+  await h.settle();h.completePrograms();await poll(h);h.completePrograms();await poll(h);
+  assert.equal(h.state.opticsStatus.Earth,'ready');
+  assert.ok(physicalDraws(h).every(draw=>pending.includes(draw.program)===(reset!=='context')));
+  assert.deepEqual(h.errors,[]);h.leaveOrrery();
 });
 
 test('a queued failed-program notification cannot cancel a newer explicit retry in the same context',async t=>{
@@ -145,7 +150,7 @@ test('mandatory startup timeout preserves the 30 second deadline and discloses f
   h.advanceMonotonicTime(30100);h.frame(100);await entering;
   assert.equal(h.state.programStatus.base,'unavailable');assert.equal(h.draws,0);
   assert.match(h.state.programDiagnostics.sphere.error,/30000 ms/);
-  assert.ok(h.programs.every(program=>h.deletedPrograms.includes(program)));assert.equal(h.frames.size,0);h.leaveOrrery();
+  assert.ok(h.programs.every(program=>!h.deletedPrograms.includes(program)));assert.equal(h.frames.size,0);h.leaveOrrery();
 });
 
 test('parallel context restoration failure remains visible and cannot restart the frame loop',async t=>{

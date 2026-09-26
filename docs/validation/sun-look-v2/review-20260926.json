@@ -1,0 +1,401 @@
+{
+  "scope": "PR 121 review follow-up; local native and software rendering, not deployment or physical-mobile qualification",
+  "starting_head": "d368e6e84acbf192f4c6cd3c538427fbb127f148",
+  "runtime_source_sha256_lf": {
+    "apps/web/js/orrery.js": "75acb94ac7f7e45d16209c6e36f5f7743ac4808e1470dc01fcdb48a71fbd190a",
+    "apps/web/js/shaderPrograms.js": "20022bf1897746c86effd71cac20707168d0b3a77f7237904c44dce74f2ae786",
+    "apps/web/js/sunLook.js": "f3d92179aa3285acba05741ee0b617b18e3fd91cd70d0ecc749f43430a9d5940"
+  },
+  "checks": {
+    "node_tests": 1369,
+    "native_browser": "passed",
+    "swiftshader_browser": "passed",
+    "browser_smoke": "passed",
+    "combined_web_line_coverage_percent": 97.46,
+    "typecheck": "122 files passed",
+    "static_ux_docs_governance_body_constants": "passed",
+    "python_tests": 407
+  },
+  "native_transition_and_angles": {
+    "url": "http://127.0.0.1:8897/releases/pr121-review-a/index.html",
+    "cases": [
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "deferred",
+        "optics": "deferred",
+        "camera": [
+          -0.35872829884961766,
+          0.62,
+          4.741739185611378
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          0,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          0.7853981633974483,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          1.5707963267948966,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          2.356194490192345,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          3.141592653589793,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          3.9269908169872414,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          4.71238898038469,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          5.497787143782138,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          0,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          0.7853981633974483,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          1.5707963267948966,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          2.356194490192345,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          3.141592653589793,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          3.9269908169872414,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          4.71238898038469,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          5.497787143782138,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      }
+    ],
+    "warnings": [],
+    "errors": [],
+    "capabilities": {
+      "basis": "Read from the existing application WebGL2 context; launch flags alone do not establish hardware execution",
+      "observed_ms": 21644.199999928474,
+      "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (Qualcomm)",
+      "unmasked_identity": true,
+      "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+      "shading_language_version": "WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)",
+      "max_texture_size": 16384,
+      "max_renderbuffer_size": 16384,
+      "max_viewport_dimensions": [
+        32767,
+        32767
+      ],
+      "max_texture_units": 32,
+      "context_attributes": {
+        "alpha": false,
+        "antialias": true,
+        "depth": true,
+        "desynchronized": false,
+        "failIfMajorPerformanceCaveat": false,
+        "powerPreference": "default",
+        "premultipliedAlpha": false,
+        "preserveDrawingBuffer": false,
+        "stencil": false,
+        "xrCompatible": false
+      },
+      "drawing_buffer_color_space": "srgb",
+      "unpack_color_space": "srgb",
+      "extensions": [
+        "EXT_clip_control",
+        "EXT_color_buffer_float",
+        "EXT_color_buffer_half_float",
+        "EXT_conservative_depth",
+        "EXT_depth_clamp",
+        "EXT_disjoint_timer_query_webgl2",
+        "EXT_float_blend",
+        "EXT_polygon_offset_clamp",
+        "EXT_render_snorm",
+        "EXT_texture_compression_bptc",
+        "EXT_texture_compression_rgtc",
+        "EXT_texture_filter_anisotropic",
+        "EXT_texture_mirror_clamp_to_edge",
+        "EXT_texture_norm16",
+        "KHR_parallel_shader_compile",
+        "NV_shader_noperspective_interpolation",
+        "OES_draw_buffers_indexed",
+        "OES_sample_variables",
+        "OES_shader_multisample_interpolation",
+        "OES_texture_float_linear",
+        "OVR_multiview2",
+        "WEBGL_blend_func_extended",
+        "WEBGL_clip_cull_distance",
+        "WEBGL_compressed_texture_s3tc",
+        "WEBGL_compressed_texture_s3tc_srgb",
+        "WEBGL_debug_renderer_info",
+        "WEBGL_debug_shaders",
+        "WEBGL_lose_context",
+        "WEBGL_multi_draw",
+        "WEBGL_polygon_mode",
+        "WEBGL_provoking_vertex",
+        "WEBGL_stencil_texturing"
+      ],
+      "canvas": {
+        "width": 796,
+        "height": 612
+      }
+    },
+    "pending": [
+      "physicalSphere",
+      "atmosphere",
+      "scatteringGenerator"
+    ],
+    "marsPrograms": {
+      "sphere": {
+        "key": "sphere",
+        "generation": 1,
+        "status": "ready",
+        "error": "",
+        "notificationError": "",
+        "parallel": true
+      },
+      "line": {
+        "key": "line",
+        "generation": 1,
+        "status": "ready",
+        "error": "",
+        "notificationError": "",
+        "parallel": true
+      },
+      "ring": {
+        "key": "ring",
+        "generation": 1,
+        "status": "ready",
+        "error": "",
+        "notificationError": "",
+        "parallel": true
+      },
+      "pt": {
+        "key": "pt",
+        "generation": 1,
+        "status": "ready",
+        "error": "",
+        "notificationError": "",
+        "parallel": true
+      },
+      "glow": {
+        "key": "glow",
+        "generation": 1,
+        "status": "ready",
+        "error": "",
+        "notificationError": "",
+        "parallel": true
+      },
+      "solar": {
+        "key": "solar",
+        "generation": 1,
+        "status": "ready",
+        "error": "",
+        "notificationError": "",
+        "parallel": true
+      },
+      "physicalSphere": {
+        "key": "physicalSphere",
+        "generation": 1,
+        "status": "unavailable",
+        "error": "Shader completion exceeded 30000 ms",
+        "notificationError": "",
+        "parallel": true
+      },
+      "atmosphere": {
+        "key": "atmosphere",
+        "generation": 1,
+        "status": "ready",
+        "error": "",
+        "notificationError": "",
+        "parallel": true
+      },
+      "scatteringGenerator": {
+        "key": "scatteringGenerator",
+        "generation": 1,
+        "status": "unavailable",
+        "error": "Shader completion exceeded 30000 ms",
+        "notificationError": "",
+        "parallel": true
+      }
+    },
+    "passed": true
+  },
+  "limitations": [
+    "The optional Mars physical-atmosphere programs reached the unchanged 30000 ms deadline on this native Adreno/ANGLE GPU. The upgraded surface texture remained renderable.",
+    "The original reported angle-specific Mars disappearance was not independently reproduced; the tested angle sweep retained the map.",
+    "The earlier hosted coverage-job smoke readiness timeout was not reproduced locally; hosted checks must be verified on the pushed commit.",
+    "No physical mobile, sustained cross-device performance or deployment qualification is claimed."
+  ]
+}

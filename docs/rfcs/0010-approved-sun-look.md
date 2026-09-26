@@ -68,6 +68,18 @@ ANGLE/D3D11 delayed graphics error after cancellation. Context loss disposes the
 owner; context restoration creates a new one. Late callbacks check
 owner and context identity before affecting the scene.
 
+Review follow-up also applies safe retirement to the shared planet shader manager.
+Cancellation and timeout settle the request immediately and stop its polling, while
+unfinished GPU allocations remain reusable. Disposed owners return those jobs to a
+context-owned pool; a source-identical request can claim them, and completed unused
+jobs are deleted before new allocation. Active and retired managed programs share
+a 32-program ceiling per context. Context loss invalidates the entire pool. The
+30-second readiness deadline and explicit retry requirement remain unchanged.
+
+The illustrative Sun retains the existing depth-tested solar-wind particle layer.
+Sun inspection frames its 2.1-radius visual envelope without changing physical
+positions, display radii or the minimum camera distance.
+
 Failure retains the existing simplified visible Sun with an explicit status. A mode
 or resolution change, or Restart / retry Sun, retries. Existing AIA source playback
 retains its own controls and source identity. It is never used as attribution for
@@ -140,6 +152,8 @@ contracts and the staged browser validation. `tools/sun_look_probe.mjs` is invok
 by the existing browser gate. Native qualification invokes that same probe with
 all three resolutions; hosted software rendering verifies the default 1K path.
 Keep actual GPU uniforms, captures, artifact identity and test logs as evidence.
+The [review follow-up](../validation/sun-look-v2/review-20260926.md) records the
+native Mars-to-Jupiter cancellation regression and remaining qualification limits.
 
 ## Documentation
 

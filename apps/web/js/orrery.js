@@ -39,7 +39,7 @@ import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTE
 import {createScatteringTargets} from './scatteringTargets.js';
 import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,SOLAR_EUV_DISPLAY_GAIN,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes,solarPhotosphereSpots,solarActivityDays} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
-import {sunLookResolution,sunLookDescription,sunLookRotation,planSunLook} from './sunLook.js';
+import {SUN_LOOK_EXTENT,sunLookResolution,sunLookDescription,sunLookRotation,planSunLook} from './sunLook.js';
 import {createSunLookRenderer} from './sunLookRenderer.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
@@ -2583,8 +2583,14 @@ function drawRing(name, phys, pos, rEq, rot, vp) {
   gl.disableVertexAttribArray(1); gl.disableVertexAttribArray(2);
 }
 
+function drawSolarWind(vp) {
+  gl.enable(gl.DEPTH_TEST);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);gl.depthMask(false);
+  if(particles)drawPoints(celBufs.wind,particles.N,vp,Math.min(window.devicePixelRatio||1,2),.9);
+  gl.depthMask(true);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+}
+
 function drawSun(vp, eye, w, h) {
-  if(sunLookDrawn)return;
+  if(sunLookDrawn){drawSolarWind(vp);return;}
   if(solarEuvActive()&&state.useTextures&&solarDetail?.get('reference'))return;
   const rSun = displayRadiusAU("Sun");
   // corona: a camera-facing additive glow quad
@@ -2607,8 +2613,8 @@ function drawSun(vp, eye, w, h) {
   gl.uniform3fv(P.glowU.u_color, new Float32Array([1.0, 0.55, 0.2])); gl.uniform1f(P.glowU.u_size, rSun * 3.4); gl.uniform1f(P.glowU.u_pow, 4.2);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-  // solar wind particles
-  if (particles) drawPoints(celBufs.wind, particles.N, vp, Math.min(window.devicePixelRatio || 1, 2), 0.9);
+  // Wind is independent of which renderer owns the disk and corona.
+  drawSolarWind(vp);
 
   gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
@@ -2996,6 +3002,9 @@ function planetGlobeExtent(name) {
 function planetSystemExtent(name) {
   const globe = planetGlobeExtent(name);
   if (globe == null) return null;
+  // Fit the visible envelope without changing the near limit or display radius.
+  if(name==='Sun'&&state.solarMode==='illustrative'&&state.useTextures)
+    return Math.max(globe,displayRadiusAU(name)*SUN_LOOK_EXTENT);
   // Earth's Moon is a DRAW_LIST body, not a catalog moon. Frame the same
   // inflated clearance moonDisplayPos uses so the name and disc stay in view.
   if (name === "Earth" && !state.trueScale) {
@@ -3096,7 +3105,7 @@ function inspectSun() {
   state.az=Math.atan2(rot[9],rot[8]);state.el=Math.asin(rot[10]);
   state.radius=fitOrbitDistance(anchorDisplayExtent(),Math.max(1,canvas?.clientWidth||1)/Math.max(1,canvas?.clientHeight||1),FOVY,0);
   orbitFocusFit={anchor:'Sun',distance:state.radius};
-  // A deliberate camera-only zoom keeps the complete 1.35 R_sun envelope in frame.
+  // A deliberate camera-only zoom retains the margin for the selected Sun envelope.
   // Retain the standard fit above so resize reconciliation preserves this zoom ratio.
   state.radius*=.84;
   const anchor=/** @type {HTMLSelectElement|null} */(document.getElementById('orreryAnchor'));if(anchor)anchor.value='Sun';

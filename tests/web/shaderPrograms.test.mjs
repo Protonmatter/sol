@@ -23,7 +23,7 @@ async function harness(options={}){
     schedule:fn=>{frames.set(++frameId,fn);return frameId;},cancel:id=>frames.delete(id),onChange:(key,status)=>{
       events.push([key,status]);if(throwNotification&&status==='cancelled')throw notificationValue;
     }});
-  return {manager,programs,shaders,deletedPrograms,deletedShaders,detachedShaders,queries,events,frames,
+  return {gl,manager,programs,shaders,deletedPrograms,deletedShaders,detachedShaders,queries,events,frames,
     complete:()=>programs.forEach(p=>{p.done=true;}),time:value=>{clock=value;},lose:()=>{lost=true;},
     tick:()=>{const [id,fn]=frames.entries().next().value;frames.delete(id);fn();}};
 }
@@ -39,13 +39,36 @@ test('parallel programs poll completion before compile/link queries and release 
   assert.equal(h.manager.diagnostic('base').status,'cancelled');assert.equal(h.manager.diagnostic('never-requested').status,'cancelled');
 });
 
+test('cancellation and timeout retain unfinished native programs and retry the same allocation',async()=>{
+  for(const action of ['cancel','timeout']){
+    const h=await harness({capacity:1}),ticket=h.manager.request('physical','v','f');
+    if(action==='cancel')h.manager.cancelPending();else{h.time(30000);h.tick();}
+    assert.equal((await ticket.done).status,action==='cancel'?'cancelled':'unavailable');
+    assert.equal(h.deletedPrograms.length,0,'deleting a KHR-pending program corrupts native ANGLE state');
+    assert.equal(h.deletedShaders.length,0);assert.equal(h.frames.size,0);assert.equal(h.manager.get('physical'),null);
+    if(action==='timeout')h.manager.retry('physical');
+    const next=h.manager.request('physical','v','f');assert.equal(h.programs.length,1);assert.notEqual(next,ticket);
+    h.complete();h.tick();assert.equal((await next.done).status,'ready');h.manager.dispose();assert.equal(h.deletedPrograms.length,1);
+  }
+});
+
+test('disposed owners retain pending work for a new owner without publishing stale readiness',async()=>{
+  const h=await harness(),ticket=h.manager.request('physical','v','f');h.manager.dispose();
+  assert.equal((await ticket.done).status,'cancelled');assert.equal(h.frames.size,0);assert.equal(h.deletedPrograms.length,0);
+  const {createShaderPrograms}=await import('../../apps/web/js/shaderPrograms.js');
+  const frames=[];const next=createShaderPrograms(h.gl,{schedule:fn=>{frames.push(fn);return frames.length;},cancel:()=>{}});
+  const resumed=next.request('new-owner','v','f');assert.equal(h.programs.length,1);
+  h.complete();frames.shift()();assert.equal((await resumed.done).status,'ready');assert.equal(h.manager.get('physical'),null);
+  next.dispose();assert.equal(h.deletedPrograms.length,1);
+});
+
 test('resource/source identity is bounded and cancelled entries can be explicitly re-requested',async()=>{
   const h=await harness({capacity:1}),entry=h.manager.request('base','v','f');
   assert.equal(h.manager.request('base','v','f'),entry);
   assert.throws(()=>h.manager.request('base','v','changed'),/identity/i);
   assert.throws(()=>h.manager.request('other','v','f'),/capacity/i);
   const late=h.frames.values().next().value;h.manager.cancelPending();
-  assert.equal((await entry.done).status,'cancelled');assert.equal(h.deletedPrograms.length,1);assert.equal(h.frames.size,0);
+  assert.equal((await entry.done).status,'cancelled');assert.equal(h.deletedPrograms.length,0);assert.equal(h.frames.size,0);
   late();assert.deepEqual(h.queries,[]);
   const next=h.manager.request('base','v','f');assert.notEqual(next,entry);h.complete();h.tick();
   assert.equal((await next.done).status,'ready');h.manager.dispose();
@@ -66,7 +89,7 @@ test('parallel timeout and context loss never publish ready programs or leave sc
     const h=await harness(),entry=h.manager.request('base','v','f');
     if(failure==='timeout')h.time(30000);else h.lose();h.tick();
     assert.notEqual((await entry.done).status,'ready');assert.equal(h.manager.get('base'),null);assert.equal(h.frames.size,0);
-    assert.equal(h.deletedPrograms.length,1);assert.equal(h.deletedShaders.length,2);h.manager.dispose();
+    assert.equal(h.deletedPrograms.length,failure==='context'?1:0);assert.equal(h.deletedShaders.length,failure==='context'?2:0);h.manager.dispose();
   }
 });
 
@@ -91,6 +114,29 @@ test('a throwing status observer cannot interrupt cancellation or leave disposed
     assert.doesNotThrow(()=>h.manager[action]());
     assert.deepEqual((await Promise.all([first.done,second.done])).map(result=>result.status),['cancelled','cancelled']);
     assert.match(h.manager.diagnostic('first').notificationError,/observer failed|null|undefined/);
-    assert.equal(h.deletedPrograms.length,2);assert.equal(h.deletedShaders.length,4);assert.equal(h.frames.size,0);h.manager.dispose();
+    assert.equal(h.deletedPrograms.length,0);assert.equal(h.deletedShaders.length,0);assert.equal(h.frames.size,0);h.manager.dispose();
   }
+});
+
+test('retirement is bounded across owners and reaps completed jobs before new allocations',async()=>{
+  const h=await harness();const {createShaderPrograms}=await import('../../apps/web/js/shaderPrograms.js');
+  for(let i=0;i<32;i++){
+    const owner=createShaderPrograms(h.gl,{schedule:()=>1,cancel:()=>{}});
+    const ticket=owner.request('job','v',`fragment-${i}`);owner.dispose();assert.equal((await ticket.done).status,'cancelled');
+  }
+  assert.equal(h.programs.length,32);assert.equal(h.deletedPrograms.length,0);
+  const next=createShaderPrograms(h.gl,{schedule:()=>1,cancel:()=>{}});
+  assert.equal((await next.request('over-budget','v','new').done).status,'unavailable');assert.equal(h.programs.length,32);
+  assert.match(next.diagnostic('over-budget').error,/capacity/);
+  h.complete();next.retry('over-budget');next.request('over-budget','v','new');
+  assert.equal(h.deletedPrograms.length,32);assert.equal(h.deletedShaders.length,64);assert.equal(h.programs.length,33);next.dispose();
+});
+
+test('context loss invalidates retired allocations before a restored owner requests identical sources',async()=>{
+  const h=await harness();h.manager.request('first','v','f');h.manager.dispose();
+  const {createShaderPrograms}=await import('../../apps/web/js/shaderPrograms.js');
+  const losing=createShaderPrograms(h.gl,{schedule:()=>1,cancel:()=>{}});h.lose();losing.dispose();
+  h.gl.isContextLost=()=>false;
+  const restored=createShaderPrograms(h.gl,{schedule:()=>1,cancel:()=>{}});restored.request('first','v','f');
+  assert.equal(h.programs.length,2,'restoration must not reuse the invalid object from the lost context');restored.dispose();
 });
