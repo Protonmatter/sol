@@ -316,9 +316,12 @@ def serve(directory: Path, base_path: str = "/", namespace: str = ""):
             thread.join(timeout=2)
 
 
-def dump_dom(browser: str, url: str) -> tuple[str, str]:
+def dump_dom(browser: str, url: str, *, screenshot_path: Path | None = None) -> tuple[str, str]:
+    command = ["node", str(ROOT / "tools/browser_smoke_driver.mjs"), browser, url]
+    if screenshot_path is not None:
+        command.append(str(screenshot_path))
     result = subprocess.run(
-        ["node", str(ROOT / "tools/browser_smoke_driver.mjs"), browser, url],
+        command,
         cwd=ROOT, text=True, encoding="utf-8", stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, timeout=100, check=False,
     )
@@ -435,7 +438,12 @@ def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot
     )
     # The real-time driver waits for core initialization AND the product-loaded
     # orbital knots. A failed deterministic assertion is never retried away.
-    orrery_dom, orrery_stderr = dump_dom(browser, orrery_url)
+    # The driver captures only after readiness succeeds. Validate the DOM and PNG
+    # from that exact page, rather than launching a second cold rendering session.
+    with tempfile.TemporaryDirectory(prefix="sol-browser-") as capture_directory:
+        screenshot_path = Path(capture_directory) / "orrery.png"
+        orrery_dom, orrery_stderr = dump_dom(browser, orrery_url, screenshot_path=screenshot_path)
+        screenshot = screenshot_path.read_bytes() if screenshot_path.is_file() else b""
     assert_no_runtime_failure(orrery_dom, orrery_stderr, "Solar System")
     missing = [m for m in expected if m not in orrery_dom]
     if missing:
@@ -451,7 +459,6 @@ def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot
             + "\n  accuracy: " + (acc.group(1)[:300] if acc else "<none>")
         )
         raise AssertionError(detail)
-    screenshot = capture_screenshot(browser, orrery_url)
     if not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or len(screenshot) < 20_000:
         raise AssertionError(
             f"Solar System: rendered screenshot is missing or implausibly blank ({len(screenshot)} bytes)"
