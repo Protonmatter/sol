@@ -379,6 +379,24 @@ test("default Venus keeps its Magellan source link unless Illustrative look is a
   assert.match(h.host.textContent, /Artistic Venus atmosphere drawn above the registered Magellan ground/);
 });
 
+test("a ready Earth look hides the superseded January surface link but keeps its rendered layers", async () => {
+  const h = await harness(), surface = appearanceReference("Earth"), clouds = appearanceReference("Earth", "cloud-composite");
+  const state = {...readyAppearance("Earth"), planetLook: "illustrative", earthLookStatus: "loading",
+    earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: "composite"};
+  const layer = role => descendants(h.host).find(node => node.dataset.appearanceRole === role);
+  h.renderDetail("Earth", undefined, state);
+  assert.equal(layer("surface").hidden, false, "the registered fallback is cited while it is drawn");
+  state.appearanceStatus[clouds.id] = "ready"; state.earthLookStatus = "ready"; h.updateDetailAppearance(state);
+  assert.equal(layer("surface").hidden, true, "the January link is not presented as active under the July look");
+  assert.match(h.host.textContent, /NASA July 2004 surface/);
+  assert.equal(layer("cloud-composite").hidden, false);
+  assert.match(layer("cloud-composite").textContent, /Reference layer ready/);
+  assert.doesNotMatch(layer("cloud-composite").textContent, /waiting for the surface reference/);
+  h.updateDetailAppearance({...state, planetLook: "source-qualified"});
+  assert.equal(layer("surface").hidden, false);
+  assert.ok(descendants(layer("surface")).some(node => node.href === surface.source_url));
+});
+
 test("a cached but deselected Venus radar layer is never reported as the ready surface", async () => {
   // The Magellan texture stays resident after the radar control is switched off, so the
   // readiness line has to follow what is drawn rather than what is still in the cache;
