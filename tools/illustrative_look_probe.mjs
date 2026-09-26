@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {assertFrameChanged} from './visual_assertions.mjs';
+import {waitForReferenceReadiness} from './reference_readiness.mjs';
 
 // Observe the actual app draws after the existing scientific scene assertions.
 export async function verifyIllustrativeLooks(page,directory,capture){
@@ -63,6 +64,8 @@ export async function verifyIllustrativeLooks(page,directory,capture){
     await page.select('#orreryAnchor','Venus');
     await page.$eval('#orreryVenusRadar',node=>{node.checked=true;node.dispatchEvent(new Event('change',{bubbles:true}));});
     await page.waitForFunction(()=>globalThis.__solIllustrativeProbe.state.illustrativeStatus.Venus==='ready',{timeout:30000});
+    // Radar was just enabled: the Magellan ground loads separately from the shell map.
+    await waitForReferenceReadiness(page,'Venus');
     await repaint();const layered=await capture(page,path.join(directory,'venus-radar-illustrative-shell.png'));
     evidence.venus=await read();
     const grounds=evidence.venus.draws.filter(draw=>draw.mode===0&&draw.useTex===1&&draw.texMode===3&&draw.illustrativeLinear===0);
