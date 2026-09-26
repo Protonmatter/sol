@@ -25,7 +25,11 @@ async function readiness(orrery){
       assert.equal(specifier,'./js/store.js?v=startup-test');return storeModule;
     }});
   await module.link(()=>{});await module.evaluate();
-  await module.namespace.wait({async waitForFunction(fn,opts){predicate=fn;options=opts;}});
+  const selections=[];
+  await module.namespace.wait({async waitForFunction(fn,opts){predicate=fn;options=opts;},
+    async select(selector,value){assert.ok(predicate,'Select the physical-reference mode after startup readiness');selections.push([selector,value]);}});
+  assert.deepEqual(selections,[['#orreryPlanetLook','source-qualified']],
+    'The physical validator must select its scientific baseline explicitly');
   assert.equal(options.timeout,40000,'Existing startup wait must not gain more time');
   return {poll:()=>predicate(),store};
 }
