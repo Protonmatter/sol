@@ -19,8 +19,10 @@ export function sunLookResolution(value){
 
 export function sunLookDescription(state){
   const status=state.sunLookStatus||'deferred',size=sunLookResolution(state.sunLookResolution)/1024;
+  const detail=state.useTextures===false?'Detail disabled because Texture layers is off'
+    :status==='ready'?'':status==='deferred'?'Detail deferred at this distance':`Sun look ${status}`;
   return `Illustrative Sun Surface Lab v2 \u00b7 ${size}K. Procedural boiling cells, textured dark regions, dipole fans and feathery corona; not an observation, measured radiance or a magnetic-field solution.`
-    +(status==='ready'?'':` ${status==='deferred'?'Detail deferred at this distance':`Sun look ${status}`}; simplified visible Sun retained.`);
+    +(detail?` ${detail}; simplified visible Sun retained.`:'');
 }
 
 const dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);

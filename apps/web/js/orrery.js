@@ -1453,7 +1453,8 @@ function buildDropLines() {
 
 let displayRadiusCache = null;
 function displayRadiusAU(name) {
-  const key = `${state.renderUnix}:${state.trueScale}:${state.exaggeration}:${moonElementsReady}`;
+  const sunExtent=state.solarMode==='illustrative'&&state.useTextures?SUN_LOOK_EXTENT:1.35;
+  const key = `${state.renderUnix}:${state.trueScale}:${state.exaggeration}:${moonElementsReady}:${sunExtent}`;
   if (!displayRadiusCache || displayRadiusCache.key !== key || displayRadiusCache.bodies !== state.bodies) {
     const records = [{ name: "Sun", x_au: 0, y_au: 0, z_au: 0 }, ...state.bodies.filter(b => b.name !== "Sun" && b.name !== "Moon")];
     const inputs = records.filter(b => BODY[b.name]).map(b => {
@@ -1462,7 +1463,7 @@ function displayRadiusAU(name) {
       const terrain=terrainExtentKm(b.name);
       if(terrain)extentRatio=Math.max(extentRatio,terrain.maxRadiusKm/phys.radiusKm);
       const optical=getAtmosphereProfile(b.name);if(optical)extentRatio=Math.max(extentRatio,1+optical.topKm/phys.radiusKm);
-      if(b.name==='Sun')extentRatio=Math.max(extentRatio,1.35);
+      if(b.name==='Sun')extentRatio=Math.max(extentRatio,sunExtent);
       // Bound the whole displayed system envelope before computing uniform moon scaling.
       if (b.name === "Earth") extentRatio = Math.max(extentRatio, 3.4);
       if (moonElementsReady) {
@@ -1622,7 +1623,7 @@ function drawSmallBodies(vp, dpr) {
 
 // Transparent objects do not write depth. Opaque bodies/moons are submitted first, then
 // these callbacks from far to near. Display clearance separates the body envelopes
-// (including the 1.35 R_sun reference volume), so another body cannot lie inside the corona.
+// (including the selected Sun envelope), so another body cannot lie inside the corona.
 let transparentPasses=[];
 function queueTransparent(pos,eye,draw) {
   transparentPasses.push({distance:Math.hypot(...sub(pos,eye)),draw});

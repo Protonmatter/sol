@@ -81,8 +81,12 @@ a 32-program ceiling per context. Context loss invalidates the entire pool. The
 30-second readiness deadline and explicit retry requirement remain unchanged.
 
 The illustrative Sun retains the existing depth-tested solar-wind particle layer.
-Sun inspection frames its 2.1-radius visual envelope without changing physical
-positions, display radii or the minimum camera distance.
+Sun inspection frames its 2.1-radius visual envelope. In enlarged-scale views,
+the display-clearance solver includes that envelope so Mercury cannot be placed
+inside the corona. The selected envelope participates in the sizing cache key;
+mode and Texture layers changes refresh sizes even while the scene is paused.
+Physical positions and physical-scale radii remain unchanged. Camera framing
+follows the solved display radius while retaining the existing near-limit rule.
 
 Failure retains the existing simplified visible Sun with an explicit status. A mode
 or resolution change, or Restart / retry Sun, retries. Existing AIA source playback
@@ -98,6 +102,8 @@ and Visible-light approximation. The illustrative controls expose native 1K/2K/4
 selection, optional prominences, Pause Sun and Restart / retry Sun. The frame size
 can make the difference subtle in a narrow panel; higher quality does not zoom the
 camera. Body cards disclose the actual selected appearance and fallback state.
+Turning Texture layers off explicitly reports disabled detail; distance deferral
+is reserved for an enabled layer that is too small or offscreen.
 
 The README image is an unmodified 4096-square WebGL export from the approved lab,
 not a screenshot claiming an already-deployed SOL release. Its camera/time and hash

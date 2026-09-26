@@ -152,9 +152,13 @@ test('Sun inspection fits the illustrative envelope while retaining the referenc
  const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true});await h.enterOrrery();await h.settleCatalogues();h.setAnimate(false);h.setWindowReducedMotion(true);
  for(const [w,height] of [[1200,800],[390,800]]){
   h.resize(w,height);h.input('orrerySolarMode','visible','change');h.event('orreryInspectSun','click');const reference=h.state.radius;
+  const referenceRadius=Math.hypot(...h.uniformDraws.findLast(u=>u.u_mode===1).u_model.slice(0,3));
   const physical=JSON.stringify([h.state.renderUnix,h.state.bodies]);
   h.input('orrerySolarMode','illustrative','change');h.event('orreryInspectSun','click');await h.settle();
-  assert(Math.abs(h.state.radius/reference-2.1/1.35)<1e-8,`camera fit must use the selected 2.1-radius envelope: ${w}x${height} reference=${reference} illustrative=${h.state.radius}`);
+  // The display-clearance solver may choose different radii for the two modes.
+  // Compare framing in units of each actually submitted Sun radius.
+  const illustrativeDistance=Math.hypot(...sunDraws(h).at(-1).uniforms.u_camera);
+  assert(Math.abs(illustrativeDistance/(reference/referenceRadius)-2.1/1.35)<1e-6,`camera fit must use the selected 2.1-radius envelope: ${w}x${height}`);
   assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),physical);
   const framing=h.state.radius;h.input('orrerySunResolution','4096','change');assert.equal(h.state.radius,framing,'resolution cannot change framing');
  }
