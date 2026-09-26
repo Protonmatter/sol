@@ -216,9 +216,9 @@ assert.equal(ready(input),false,'empty knots are not loaded');
             self.assertEqual(dump.call_count, 3, "one bounded condition wait per surface; no retry hides a failure")
             screenshot.assert_not_called()
 
-    def test_each_of_the_eleven_system_markers_is_still_mandatory(self):
+    def test_each_of_the_twelve_system_markers_is_still_mandatory(self):
         markers = [f'data-smoke-{name}="yes"' for name in (
-            "mode", "ready", "default-speed", "sun-detail", "speed", "paused",
+            "mode", "ready", "default-speed", "sun-detail", "speed", "paused", "sun-paused",
             "aliasing", "reset", "validity", "done")]
         markers.append('data-smoke-moon-rows="22"')
         for absent in markers:

@@ -64,7 +64,7 @@ localStorage.setItem("sol-surface", "orrery");
 // No reliance on animation speed: a synchronous state machine is advanced by BOTH
 // a setInterval(50) and a rAF pump. The external driver waits on the final marker
 // with a bounded real-time deadline, allowing digest and worker promises to settle.
-//   (either driver alone suffices). Once ready, Animate is UNTICKED and every subsequent
+//   (either driver alone suffices). Once ready, both animation clocks are paused and every subsequent
 //   check runs a synchronous repaint with an INJECTED simStepSeconds — the real paint path,
 //   the real guards, zero scheduler dependence. The Nyquist boundary itself is additionally
 //   unit-tested in tests/web/moons.test.mjs.
@@ -200,6 +200,16 @@ const advance = () => {
       } else {
         smokeErr("pause: animate=" + o.animate + " step=" + o.simStepSeconds);
         body.dataset.smokePaused = "no";
+      }
+      // The approved Sun has an independent clock. Pausing orbital Animate alone
+      // leaves a costly continuous prepass running on the hosted software GPU.
+      // Use the real control before deterministic, manually repainted moon checks.
+      document.getElementById("orrerySunLookPlay")?.click();
+      if (o.sunLookPlaying === false) {
+        body.dataset.smokeSunPaused = "yes";
+      } else {
+        smokeErr("Sun pause: independent animation did not stop");
+        body.dataset.smokeSunPaused = "no";
       }
       phase = "alias";
     }
@@ -417,6 +427,7 @@ def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot
         'data-smoke-sun-detail="yes"',
         'data-smoke-speed="yes"',
         'data-smoke-paused="yes"',
+        'data-smoke-sun-paused="yes"',
         'data-smoke-aliasing="yes"',
         'data-smoke-reset="yes"',
         'data-smoke-validity="yes"',
