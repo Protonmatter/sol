@@ -39,6 +39,10 @@
     <link rel="modulepreload" href="js/planetAppearance.js">
     <link rel="modulepreload" href="js/illustrativeAppearance.js">
     <link rel="modulepreload" href="js/illustrativeAssetManifest.js">
+    <link rel="modulepreload" href="js/earthLook.js">
+    <link rel="modulepreload" href="js/earthLookClouds.js">
+    <link rel="modulepreload" href="js/earthLookShaders.js">
+    <link rel="modulepreload" href="js/earthOceanMask.js">
     <link rel="modulepreload" href="js/atmosphereOptics.js">
     <link rel="modulepreload" href="js/atmosphereShaders.js">
     <link rel="modulepreload" href="js/atmosphereIncident.js">
@@ -447,16 +451,16 @@
                     <label class="orrery-check"><input id="orreryAnimate" type="checkbox" checked> Play time</label>
                     <label class="orrery-check"><input id="orreryTextures" type="checkbox" checked> Texture layers</label>
                     <label class="orrery-check"><input id="orreryTerrain" type="checkbox" checked> Measured terrain relief</label>
-                    <label class="orrery-check"><input id="orreryOptics" type="checkbox" checked> Reference atmospheric scattering</label>
+                    <label class="orrery-check"><input id="orreryOptics" type="checkbox" checked> Atmosphere (reference or illustrative)</label>
                     <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> Physical scale</label>
                   </div>
                   <label class="orrery-field">Planet appearance
                     <select id="orreryPlanetLook" class="sky-input" aria-describedby="orreryPlanetLookHelp">
-                      <option value="source-qualified" selected>Source-qualified</option>
-                      <option value="illustrative">Illustrative look</option>
+                      <option value="illustrative" selected>Illustrative look</option>
+                      <option value="source-qualified">Source-qualified</option>
                     </select>
                   </label>
-                  <p id="orreryPlanetLookHelp" class="time-frame-label">Illustrative look adds artistic maps for Mercury, Venus, Mars, Jupiter, Saturn, Uranus and Neptune. It replaces their registered surfaces, except Venus with Magellan radar on: the radar mosaic stays the ground and the artistic atmosphere is drawn above it. Colors and coverage are reconstructed. Earth, Sun and moons keep their existing views. Maps: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener noreferrer">Solar System Scope / INOVE</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>.</p>
+                  <p id="orreryPlanetLookHelp" class="time-frame-label">Illustrative look adds artistic maps for Mercury, Venus, Mars, Jupiter, Saturn, Uranus and Neptune. It replaces their registered surfaces, except Venus with Magellan radar on: the radar mosaic stays the ground and the artistic atmosphere is drawn above it. Colors and coverage are reconstructed. Earth uses the latest Look Lab style: NASA July 2004 land, 2002 clouds, 2016 night lights and illustrative cloud depth. Daily satellite swaths, sea ice and HDR retain the Source-qualified Earth path. Sun and moons keep their existing views. Maps: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener noreferrer">Solar System Scope / INOVE</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Earth: <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/" target="_blank" rel="noopener noreferrer">NASA Earth Observatory</a>.</p>
                   <p id="orreryScaleStatus" class="time-frame-label">Enlarged for visibility — body sizes and moon spacing are exaggerated.</p>
                 </div>
               </details>

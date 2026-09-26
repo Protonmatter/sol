@@ -32,13 +32,18 @@ reuse the existing view transform without moving physical bodies.
 
 Scientific and source claims remain anchored to public methods and data: NOAA/SWPC products, Helioviewer quicklook imagery and metadata, IERS Earth-orientation data, JPL Horizons/DE441 validation, published analytic ephemerides, and NASA/IAU constants. Sol does not claim proprietary JPL, NOAA, or commercial forecasting algorithms.
 
-The optional illustrative appearance proposal in [RFC 0007](rfcs/0007-illustrative-planet-looks.md)
-adds a separate artistic mode for seven planets. Source-qualified remains the
-default; the artistic maps carry no geographic, color or observation qualification.
+The illustrative appearance proposal in [RFC 0007](rfcs/0007-illustrative-planet-looks.md)
+adds the default fresh-session artistic mode for seven planets. Source-qualified
+remains selectable; the artistic maps carry no geographic, color or observation qualification.
 Measured terrain stays suspended for the whole time Illustrative look is selected,
 including loading, failure, and eviction, not only while an artistic map is shown.
 Venus with Magellan radar keeps that registered ground and draws the artistic
-atmosphere above it. Earth, Sun and moons retain their existing materials. This candidate requires RFC
+atmosphere above it. Sun and moons retain their existing materials. Earth now follows
+[RFC 0009](rfcs/0009-sites-earth-v7.md): Illustrative look uses the recovered Sites v7
+July 2004 surface, selective ocean grading, 1.6 display exposure, cloud volume and
+local cloud shading. The volume's height/density and 35-percent relative display
+drift are illustrative. Source-qualified retains the prior Earth, and remains the
+path for daily swaths, sea-ice analysis and HDR. This candidate requires RFC
 review and the existing CI/release gates before promotion.
 
 Planetary appearance follows [RFC 0004](rfcs/0004-registered-planetary-appearance.md).

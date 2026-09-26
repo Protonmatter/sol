@@ -21,6 +21,7 @@ import {memoryRequested,runFullFeatureMemoryCheckpoints} from './full_feature_me
 import { assertCaptionLayouts } from "./caption_layout.mjs";
 import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
 import { waitForReferenceReadiness } from "./reference_readiness.mjs";
+import {verifyEarthLook} from './earth_look_probe.mjs';
 import {
   ROOT,
   WEB,
@@ -1084,6 +1085,17 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
     throw new Error(`3-D readiness timed out: ${JSON.stringify(state)}`, { cause: error });
   }
   await observeContext('initial');
+  const initialAppearance = await page.evaluate(async () => {
+    const entry = document.querySelector('script[type="module"][src^="app.js"]');
+    const {store} = await import(`./js/store.js${new URL(entry.src).search}`);
+    return {mode:store.orrery.planetLook,selected:document.getElementById('orreryPlanetLook').value};
+  });
+  if(initialAppearance.mode!=='illustrative'||initialAppearance.selected!=='illustrative') {
+    throw new Error(`Fresh-session appearance is inconsistent: ${JSON.stringify(initialAppearance)}`);
+  }
+  // The existing source-image, terrain and moon-shadow baselines qualify the
+  // Source-qualified option; select it explicitly after checking the product default.
+  await page.select('#orreryPlanetLook','source-qualified');
   await setChecked(page, "#orreryAnimate", false);
   // Settle the current visible demand; distant and disabled maps remain deferred.
   const appearance = await waitForReferenceReadiness(page);
@@ -1197,6 +1209,8 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   await page.$eval("#orreryLocal", (button) => button.click());
   await page.$eval("#orreryLocal", (button) => button.click());
   await page.$eval("#orreryGalaxy", (button) => button.click());
+  console.log('Browser validation: recovered Sites Earth look');
+  await verifyEarthLook(page,visualDirectory,canvasScreenshot);
 }
 
 function coverageLocalPath(entryUrl, webRoot, basePath = "/") {

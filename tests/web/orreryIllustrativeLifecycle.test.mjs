@@ -24,6 +24,25 @@ const paired=h=>{
 const marsSphere=draw=>draw.uniforms.u_bodyRadiusKm===BODY.Mars.radiusKm&&draw.uniforms.u_mode===0;
 const terrainDraws=rows=>rows.filter(({draw,count})=>marsSphere(draw)&&draw.uniforms.u_terrainShadowEnabled===1&&count===3);
 
+test('a fresh session draws all seven illustrative maps without selecting an appearance mode',async t=>{
+ const h=await orreryHarness(t,{controls:true,useProductAppearanceDefault:true,illustrativeMap:async()=>bitmap()});
+ await h.enterOrrery();h.setAnimate(false);
+ for(const name of ['Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune']){
+   const before=h.gpuDraws.length;
+   h.input('orreryAnchor',name,'change');await h.settle();await h.settle();
+   assert.equal(h.state.illustrativeStatus[name],'ready',`${name} loads in the fresh-session mode`);
+   assert.ok(h.gpuDraws.slice(before).some(draw=>draw.uniforms.u_bodyRadiusKm===BODY[name].radiusKm
+     &&draw.uniforms.u_mode===0&&draw.uniforms.u_illustrativeLinear===1),`${name} draws its artistic map`);
+   assert.ok(h.state.illustrativeDemandBodies.length<=2,'default demand remains bounded');
+ }
+ const coordinates=JSON.stringify(h.state.bodies),epoch=h.state.renderUnix;
+ h.input('orreryPlanetLook','source-qualified','change');await h.settle();
+ assert.equal(h.state.planetLook,'source-qualified');
+ assert.equal(h.state.illustrativeDemandBodies.length,0);
+ assert.equal(JSON.stringify(h.state.bodies),coordinates);assert.equal(h.state.renderUnix,epoch);
+ h.leaveOrrery();
+});
+
 test('illustrative samples are decoded once before lighting and stay off the reference texMode',()=>{
   assert.match(shaders.SPHERE_FS,/uniform int u_illustrativeLinear;/);
   assert.match(shaders.SPHERE_FS,/u_texMode==0\)\{ col=texture\(u_tex,vec2\(uu,vv\)\)\.rgb; if\(u_illustrativeLinear==1\) col=decodeSRGB\(col\); \}/);

@@ -323,6 +323,9 @@ export async function orreryHarness(t, options = {}) {
     },
   });
   const settle = () => new Promise(resolve => setImmediate(resolve));
+  // Existing scientific-material fixtures exercise the explicit Source-qualified
+  // mode. Fresh-session tests bypass this fixture to exercise the product default.
+  if (!options.useProductAppearanceDefault) bindings.store.orrery.planetLook = 'source-qualified';
   return { events, nodes, frames, requests, errors, warnings, images, textureUploads, bufferUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations,shaderQueries,programs,deletedPrograms,deletedShaders,
     completePrograms: (predicate=()=>true)=>{for(const program of programs)if(predicate(program))completedPrograms.add(program);},
     state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,

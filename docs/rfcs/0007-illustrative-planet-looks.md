@@ -1,4 +1,4 @@
-# RFC 0007: Optional illustrative planet looks
+# RFC 0007: Illustrative planet looks
 
 - Status: Draft
 - Authors: Codex for Protonmatter
@@ -9,21 +9,27 @@
 ## Summary
 
 Offer the Planet Look Lab maps for Mercury, Venus, Mars, Jupiter, Saturn, Uranus,
-and Neptune through an explicit Illustrative look selector. Source-qualified is the
-initial mode. This draft accompanies a reviewable implementation; acceptance and
+and Neptune through an explicit Illustrative look selector. Illustrative look is the
+initial mode, as requested by the owner on 2026-09-25; Source-qualified remains selectable.
+This draft accompanies a reviewable implementation; appearance acceptance and
 required CI remain prerequisites for merge.
 
 ## Context
 
 The user requested these seven looks in SOL. Their Solar System Scope maps include
 artistic color and reconstructed coverage. RFC 0004's source-qualified requirements
-remain in force for the default mode. Earth, Sun, moons, physics and reference
+remain in force for the Source-qualified option. Earth, Sun, moons, physics and reference
 inventories are outside this change.
+
+The subsequent [Sites Earth integration](0009-sites-earth-v7.md) adds Earth to
+the same selector under `SOL-VIS-010`. This RFC's seven-map inventory and its
+two-texture cache remain unchanged; the Earth resource budget is separate.
 
 ## Requirements
 
-`SOL-VIS-008`: An illustrative appearance mode MUST be opt-in, limited to the seven
+`SOL-VIS-008`: Fresh sessions MUST start in Illustrative look, limited to the seven
 named planets, visibly attributed, and separate from registered source imagery.
+Source-qualified MUST remain selectable for immediate visual rollback.
 It MUST NOT change engine outputs or claim registered terrain, calibrated colors,
 current weather or observation epochs for the artistic maps. Map failures MUST
 show simplified surfaces with explicit status. Resources MUST be bounded and
@@ -53,7 +59,8 @@ dependency or snapshot schema changes are introduced.
 Solar System > View > Planet appearance uses a labelled native select with
 Source-qualified and Illustrative look options. An adjacent explanation includes
 credit/license links and scope. Body cards show loading/failure/ready status and
-artistic limits. The existing texture checkbox controls both modes. Keyboard and
+artistic limits. Before body selection, the overview discloses the active artistic
+mode and attribution, or that textures are switched off. The existing texture checkbox controls both modes. Keyboard and
 touch interaction use existing native controls. No new animation is added.
 
 ## Security and privacy
@@ -65,7 +72,9 @@ cache bounds retained image/GPU allocations; no maps load at page startup.
 
 ## Alternatives
 
-Replacing scientific defaults would misrepresent these maps. Porting the lab's
+Presenting artistic maps as scientific observations would misrepresent them. The
+default artistic mode retains explicit attribution and the source-qualified alternative.
+Porting the lab's
 standalone renderer would duplicate geometry and physics. Reuse SOL's renderer
 with an explicitly labelled material mode instead.
 
@@ -79,8 +88,9 @@ changed or waived.
 
 ## Acceptance criteria
 
-1. Default and unknown modes retain registered imagery; Earth, Sun and moons never
-   select an illustrative texture (unit tests).
+1. Fresh sessions show the seven illustrative maps without a mode-selection action.
+   Source-qualified and unknown modes retain registered imagery; Earth, Sun and moons
+   never select an illustrative texture (unit tests).
 2. All seven assets match pinned bytes, hashes, dimensions and license (unit tests).
 3. Offscreen, disabled and galaxy demand produce no requests. Venus with radar
    still requests the artistic atmosphere and the registered Magellan ground;
@@ -100,7 +110,7 @@ textures but does not qualify SOL's GPU integration.
 
 ## Rollout and rollback
 
-Submit as a draft PR with default source-qualified. Merge/release only after RFC
+Submit as a draft PR with the owner-requested illustrative default. Merge/release only after RFC
 review and required CI. Select Source-qualified for immediate user rollback;
 revert the commit for complete removal. No data or user-state migration.
 

@@ -8,7 +8,7 @@ import {planReferenceDemand} from '../../apps/web/js/referenceDemand.js';
 import {BODY} from '../../apps/web/js/bodyData.js';
 const state={planetLook:'illustrative'};
 const names=['Mercury','Venus','Mars','Jupiter','Saturn','Uranus','Neptune'];
-test('opt-in catalog covers exactly seven bodies and protects the scientific default',()=>{
+test('artistic catalog covers exactly seven bodies and rejects unknown modes',()=>{
  assert.deepEqual(ILLUSTRATIVE_ASSETS.map(a=>a.body),names);
  for(const name of names){assert.equal(illustrativeSelected(name,{}),false);assert.equal(illustrativeSelected(name,{planetLook:'typo'}),false);assert.equal(illustrativeSelected(name,state),true);assert.equal(illustrativeSelected(name,{...state,useTextures:false}),false);}
  for(const name of ['Sun','Earth','Moon','constructor','__proto__'])assert.equal(illustrativeSelected(name,state),false);
@@ -41,7 +41,8 @@ test('illustrative materials suppress registered demand and source-ready claims 
  assert.ok(planReferenceDemand(visible,state).every(a=>a.body==='Earth'));
  assert.ok(planReferenceDemand(visible,{}).some(a=>a.body==='Mars'));
  assert.match(appearanceDescription('Mars',state),/Illustrative/);
- assert.match(appearanceDescription('Earth',state),/Reference/);
+ assert.match(appearanceDescription('Earth',state),/Look Lab v7/);
+ assert.match(appearanceDescription('Earth',{...state,planetLook:'source-qualified'}),/Reference/);
  for(const status of ['deferred','loading','ready','unavailable']){const text=illustrativeDescription('Mars',{...state,illustrativeStatus:{Mars:status}});assert.match(text,/Solar System Scope/);assert.match(text,/not.*registered/i);assert.match(text,/suppresses the registered surface/);assert.match(text,/suspended while this look is selected/);if(status==='unavailable')assert.match(text,/unavailable/);}
  const displaced=illustrativeDescription('Mars',{...state,selected:'Mars',illustrativeStatus:{Mars:'deferred'},illustrativeVisibleFocused:['Mars'],illustrativeDemandBodies:['Jupiter','Venus']});
  assert.match(displaced,/two illustrative maps/);assert.doesNotMatch(displaced,/Focus or zoom/);

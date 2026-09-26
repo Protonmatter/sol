@@ -168,7 +168,7 @@ export const BODY = {
       { name: "Le Verrier", innerKm: 53192.5, outerKm: 53207.5, opacity: .16 },
       { name: "Adams", innerKm: 62910, outerKm: 62950, opacity: .16 },
     ] },
-    blurb: "An ice giant with the strongest winds in the solar system (~2,000 km/h) and changing cloud systems. Its magnetic field is tilted 47° and offset. This view uses a contrast-enhanced Hubble reference.",
+    blurb: "An ice giant with the strongest winds in the solar system (~2,000 km/h) and changing cloud systems. Its magnetic field is tilted 47° and offset.",
   },
   Moon: {
     radiusKm: 1737.4, polarKm: 1736.0, massKg: 7.346e22, densityGcm3: 3.344,

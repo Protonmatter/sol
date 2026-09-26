@@ -35,11 +35,17 @@ unsupported versions rather than silently relabelling data.
   time and detailed tools open on intent. Camera shortcuts use the existing physical centers;
   body selection does not open the full control panel. Verified NASA/mission archive previews
   remain separate from the 3-D appearance; unsupported sphere textures stay disabled.
-- **Optional planet looks (candidate):** Solar System → View → Planet appearance
+- **Planet looks (candidate):** Solar System → View → Planet appearance
   offers attributed Solar System Scope maps for Mercury, Venus, Mars, Jupiter, Saturn,
-  Uranus and Neptune. These are artistic reconstructions; Source-qualified stays
-  the default. See [RFC 0007](docs/rfcs/0007-illustrative-planet-looks.md) for review
-  status and limits.
+  Uranus and Neptune. These artistic reconstructions appear by default in fresh
+  sessions; Source-qualified remains selectable. See [RFC 0007](docs/rfcs/0007-illustrative-planet-looks.md) for review
+  status and limits, and the [rollout review](docs/PLANET_ROLLOUT_REVIEW_20260925.md)
+  for local evidence and outstanding delivery steps.
+- **Earth Look Lab appearance (candidate):** the latest published Sites Earth
+  joins Illustrative look: NASA July 2004 surface, dark-ocean grading, 1.6 display
+  exposure, and the recovered cloud-volume/texture-lighting recipe. Source-qualified
+  restores the existing Earth; daily swaths, sea ice and HDR retain that path.
+  See [RFC 0009](docs/rfcs/0009-sites-earth-v7.md) for provenance and limits.
 - **Sources and limits:** persistent presentation metadata identifies the displayed
   epoch, source/provider and degraded/unavailable state. An observed image is not a
   registered model overlay: current registration assessment never permits compositing.

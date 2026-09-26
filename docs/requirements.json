@@ -500,7 +500,7 @@
     {
       "id": "SOL-VIS-008",
       "status": "planned",
-      "statement": "Illustrative planetary looks MUST be explicitly selected, attributed, resource-bounded and separate from registered imagery and physical computations.",
+      "statement": "Fresh sessions MUST default to attributed, resource-bounded Illustrative look for the seven supported planets, with Source-qualified selectable and registered imagery and physical computations kept separate.",
       "source": "docs/rfcs/0007-illustrative-planet-looks.md#requirements",
       "implementation": [
         "apps/web/js/illustrativeAppearance.js",
@@ -508,7 +508,30 @@
       ],
       "verification": [
         "tests/web/illustrativeAppearance.test.mjs",
+        "tests/web/destinationCards.test.mjs",
         "tests/web/orreryIllustrativeLifecycle.test.mjs"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
+    },
+    {
+      "id": "SOL-VIS-010",
+      "status": "planned",
+      "statement": "Illustrative Earth MUST retain the recovered Sites v7 July surface and display recipe with bounded resources, truthful attribution and unchanged physical scene state, while preserving Source-qualified and scientific layer options.",
+      "source": "docs/rfcs/0009-sites-earth-v7.md#requirements",
+      "implementation": [
+        "apps/web/js/earthLook.js",
+        "apps/web/js/earthLookClouds.js",
+        "apps/web/js/earthLookShaders.js",
+        "apps/web/js/orrery.js"
+      ],
+      "verification": [
+        "tests/web/earthLook.test.mjs",
+        "tests/web/earthLookLifecycle.test.mjs",
+        "tests/web/sites-earth-geometry.test.mjs",
+        "tests/web/sites-cloud-volume.test.mjs",
+        "tools/earth_look_probe.mjs"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation"

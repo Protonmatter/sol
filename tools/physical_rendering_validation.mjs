@@ -211,6 +211,9 @@ async function run(){
     // finishes, within this existing wait and the original total deadline.
     return s?.active===true&&s.entering===false&&s.bodies?.length===9&&s.engineError==='';
   },{timeout:40000});
+  // Physical-reference checks deliberately exercise the source-qualified path.
+  // The default illustrative look is validated by browser_validation.mjs.
+  await page.select('#orreryPlanetLook','source-qualified');
   await paintAction('checkbox',{id:'orreryAnimate',checked:false});
   evidence.capabilities=await page.evaluate(captureBrowserCapabilities);
   evidence.observed_backend=assertBrowserBackend(backend,evidence.capabilities);save();

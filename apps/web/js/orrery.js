@@ -21,6 +21,8 @@ import { createHdrPresentation } from './hdrPresentation.js';
 import { srgbToLinear } from './surfaceMapping.js';
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
 import {ILLUSTRATIVE_ASSETS,MAX_ILLUSTRATIVE_TEXTURES,illustrativeSelected,illustrativeReplacesSurface,venusAtmosphereOverlay,venusAtmosphereShellScale,planIllustrativeDemand,decodeIllustrativeMap} from './illustrativeAppearance.js';
+import {EARTH_LOOK_ASSET,EARTH_LOOK_EXPOSURE,earthLookSelected,earthLookDescription,advanceSolEarthCloudPhase,uploadEarthOceanMask} from './earthLook.js';
+import {EARTH_LOOK_VS,EARTH_LOOK_FS} from './earthLookShaders.js';
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
 import {terrainReference,terrainExtentKm,terrainSummary} from './terrainAssets.js';
 import {requestTerrainMesh} from './terrainWorkerClient.js';
@@ -116,7 +118,7 @@ function updateOrreryAccuracy() {
     : `${state.selected || "No selection"} · ${renderedEpochLabel(state.renderUnix)}${moonSet.MOONS.some(m=>m.n===state.selected) && !withinMoonValidity(state.renderUnix,moonSet.MOON_VALID_MIN_JD,moonSet.MOON_VALID_MAX_JD) ? " · position unavailable outside the moon table interval" : ""}`;
 }
 
-const SYSTEM_VIEW_HINT = "Planet positions follow VSOP2013. Source-qualified detail appears where available; other surfaces use low-detail fallbacks. Sizes are enlarged for visibility or shown at physical scale. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
+const SYSTEM_VIEW_HINT = "Planet positions follow VSOP2013. Choose Illustrative look or Source-qualified in View; body cards identify imagery, its limits and any low-detail fallback. Sizes are enlarged for visibility or shown at physical scale. Drag to orbit, scroll to zoom, click a body to inspect it. Keyboard: arrows orbit, +/− zoom.";
 
 const FOVY = (42 * Math.PI) / 180;
 const YR = DAYS_PER_YEAR * 86400;
@@ -161,7 +163,10 @@ const state = (store.orrery = {
   galSpeed: 2,      // galaxy-view rate (millions of years per real second), decoupled from the planetary rate
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite', venusRadar: false,
-  appearanceStatus: {}, planetLook: 'source-qualified', illustrativeStatus: {},
+  appearanceStatus: {}, planetLook: 'illustrative', illustrativeStatus: {},
+  illustrativeDemandBodies: /** @type {string[]} */ ([]),
+  illustrativeVisibleFocused: /** @type {string[]} */ ([]),
+  earthLookStatus: 'deferred', earthLookPhase: 0,
   terrainEnabled:true, opticsEnabled:true, terrainStatus:{}, terrainRendered:{}, opticsStatus:{}, scatteringStatus:{}, scatteringFrame:null,
   programStatus:{base:'deferred',physical:'deferred'},programDiagnostics:{},
   // Qualification candidate only; default enablement requires integrated/native gates.
@@ -211,6 +216,7 @@ let referenceTextures = {}, textureGeneration = 0;
 let referenceDemand = [], referenceVisible = new Map(), referenceUseSerial = 0;
 let referenceViewport = {width:0,height:0};
 let illustrativeDetails=null,illustrativeDemand=[];
+let earthLookDetails=null,earthLookWanted=false;
 let terrainDetails=null,terrainDemand={};
 let incidentFields=null,incidentDemand='';
 let retryTerrainFailures=false;
@@ -323,6 +329,7 @@ function opticalSubject(){
 
 function incidentBodyDemand(){
   if(!state.opticsEnabled||document.hidden)return '';
+  if(opticalSubject()==='Earth'&&earthLookSelected(state))return '';
   return opticalSubject();
 }
 
@@ -409,7 +416,8 @@ function updatePhysicalAppearance() {
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
   if(terrainReference(body)&&illustrativeSelected(body,state))notes.push('Measured terrain relief is suspended while Illustrative look is selected, including loading, failure, and when the map is not retained.');
   else if(terrainReference(body))notes.push(state.terrainEnabled?terrainSummary(body,state.terrainStatus[body]==='ready'&&!state.terrainRendered[body]?'deferred':state.terrainStatus[body],!!state.terrainRendered[body]):'Terrain relief disabled.');
-  if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
+  if(opticalBody==='Earth'&&earthLookSelected(state))notes.push('Look Lab Earth: illustrative atmosphere and cloud density at nominal 1–12 km; Sun-directed shadows and 35% relative display drift. Not measured weather or qualified optical transfer.');
+  else if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
   if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. The observed face stays those frames. Arches rooted in three tilted pairs drift with a compressed differential-rotation clock, and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved disk keeps the observed radial brightness.`:'Visible-light approximation. A compressed educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not an HMI observation.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
@@ -638,9 +646,54 @@ function cancelPendingReferenceTextures(keep = []) {
 
 // Artistic materials have a separate cache and never enter the source-qualified inventory.
 function resetIllustrativeResources() {
+  resetEarthLookResources();
+  shaderPrograms?.retry('earthLook');
   const prior=illustrativeDetails;illustrativeDetails=null;illustrativeDemand=[];
   prior?.dispose();state.illustrativeStatus={};
   state.illustrativeDemandBodies=[];state.illustrativeVisibleFocused=[];
+}
+function resetEarthLookResources(){
+  const prior=earthLookDetails;earthLookDetails=null;earthLookWanted=false;
+  prior?.dispose();state.earthLookStatus='deferred';
+}
+function admitEarthLookProgram(){
+  if(shaderPrograms?.status('earthLook')==='ready'&&!P.earthLook){
+    P.earthLook=shaderPrograms.get('earthLook');
+    P.earthLookU=uloc(P.earthLook,['u_mvp','u_camObj','u_lightObj','u_oblate','uCloudPhase','u_pixelDiameter',
+      'u_earthLookExposure','u_earthLookPass','u_earthWeather','u_earthNight','u_earthAtmosphere',
+      'u_tex','uCloudMap','u_nightTex','u_oceanMask','u_linearOutput']);
+  }
+}
+function syncEarthLookDemand(){
+  const wanted=state.active&&!document.hidden&&earthLookSelected(state)&&(referenceVisible.get('Earth')||0)>=8;
+  if(!wanted){if(earthLookDetails)resetEarthLookResources();return;}
+  earthLookWanted=true;
+  if(!gl||!shaderPrograms)return;
+  shaderPrograms.request('earthLook',EARTH_LOOK_VS,EARTH_LOOK_FS);admitEarthLookProgram();
+  if(!earthLookDetails){
+    const context=gl;
+    const cache=createDetailCache({capacity:1,load:async(_key,signal)=>{
+      const image=await decodeIllustrativeMap(EARTH_LOOK_ASSET,signal);let tex=null,mask=null;
+      try{
+        if(signal.aborted||earthLookDetails!==cache||gl!==context||context.isContextLost()
+          ||!earthLookWanted||!state.active||!earthLookSelected(state))throw new Error('Earth look demand changed');
+        context.activeTexture(context.TEXTURE0);tex=makeTexture(image,true);mask=uploadEarthOceanMask(context);
+        return {tex,mask};
+      }catch(error){if(tex)context.deleteTexture(tex);if(mask)context.deleteTexture(mask);throw error;}
+      finally{image.close();}
+    },release:value=>{context.deleteTexture(value.tex);context.deleteTexture(value.mask);},onChange:()=>{
+      queueMicrotask(()=>{if(earthLookDetails!==cache||gl!==context)return;
+        updateEarthLookReadiness();updateEarthLayerStatus();updateOrreryAccuracy();
+        if(state.active&&!document.hidden&&!state.animate)paint();});
+    }});
+    earthLookDetails=cache;
+  }
+  earthLookDetails.request('Earth');updateEarthLookReadiness();
+}
+function updateEarthLookReadiness(){
+  const asset=earthLookDetails?.status('Earth'),program=shaderPrograms?.status('earthLook');
+  state.earthLookStatus=asset==='unavailable'||program==='unavailable'?'unavailable'
+    :asset==='ready'&&program==='ready'?'ready':earthLookWanted?'loading':'deferred';
 }
 function syncIllustrativeDemand() {
   const demand=planIllustrativeDemand(referenceVisible,state);
@@ -682,6 +735,7 @@ function syncIllustrativeDemand() {
 
 function syncReferenceDemand() {
   syncIllustrativeDemand();
+  syncEarthLookDemand();
   referenceDemand = planReferenceDemand(referenceVisible, state);
   const nextRequests = referenceDemand.filter(asset=>!['ready','unavailable'].includes(state.appearanceStatus[asset.id]))
     .slice(0,MAX_REFERENCE_REQUESTS);
@@ -864,7 +918,7 @@ function initGL(canvas) {
   scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
   shaderPrograms?.dispose();P={};state.programStatus={base:'loading',physical:'deferred'};state.programDiagnostics={};
   const context=gl;
-  const manager=createShaderPrograms(context,{generation:++programContextGeneration,capacity:9,
+  const manager=createShaderPrograms(context,{generation:++programContextGeneration,capacity:10,
     now:()=>performance.now(),schedule:callback=>requestAnimationFrame(callback),cancel:handle=>cancelAnimationFrame(handle),
     onChange:(key,status)=>{
       if(shaderPrograms!==manager||gl!==context)return;
@@ -874,7 +928,10 @@ function initGL(canvas) {
       if(!manager.parallel||status==='loading')return;
       queueMicrotask(()=>{
         if(shaderPrograms!==manager||gl!==context)return;
-        if(PHYSICAL_PROGRAMS.includes(key)){
+        if(key==='earthLook'){
+          admitEarthLookProgram();updateEarthLookReadiness();updateOrreryAccuracy();
+          if(state.active&&!document.hidden&&P.sphereU)paint();
+        }else if(PHYSICAL_PROGRAMS.includes(key)){
           // Read current state: an explicit retry may precede this notification.
           if(manager.status(key)==='unavailable')manager.cancelPending();
           admitPhysicalPrograms();updatePhysicalAppearance();
@@ -1845,6 +1902,9 @@ function resetRotationDisplay() {
 }
 
 function updateRotationDisplay(realStepSeconds) {
+  state.earthLookPhase=advanceSolEarthCloudPhase(state.earthLookPhase,realStepSeconds,state.simStepSeconds,
+    BODY.Earth.rotationHours,state.animate&&state.earthWeather&&earthLookSelected(state)
+      &&!document.hidden&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   rotationLimitedBodies.clear();
   const simulatedSecondsPerRealSecond = state.yearsPerSec * DAYS_PER_YEAR * 86400;
   for (const name of DRAW_LIST) {
@@ -1999,6 +2059,40 @@ function bindEarthTextures(enabled,locations=P.sphereU) {
   gl.activeTexture(gl.TEXTURE0);
 }
 
+function drawEarthLook(pos,rEq,rPol,rot,vp,eye,lightObj,pixels){
+  const detail=earthLookDetails?.get('Earth');
+  if(!earthLookSelected(state)||!detail||!P.earthLook)return false;
+  const uniforms=P.earthLookU,model=mul(translate(pos),mul(rot,scaleM([rEq,rEq,rPol])));
+  const camera=physicalCameraPosition(eye,pos,rot,rEq,1);camera[2]/=BODY.Earth.polarKm/BODY.Earth.radiusKm;
+  const cloud=referenceTextures[appearanceReference('Earth','cloud-composite').id];
+  const night=referenceTextures[appearanceReference('Earth','night-lights').id];
+  const draw=pass=>{
+    gl.useProgram(P.earthLook);
+    gl.uniformMatrix4fv(uniforms.u_mvp,false,new Float32Array(mul(vp,model)));
+    gl.uniform3fv(uniforms.u_camObj,new Float32Array(camera));
+    gl.uniform3fv(uniforms.u_lightObj,new Float32Array(lightObj));
+    gl.uniform1f(uniforms.u_oblate,BODY.Earth.polarKm/BODY.Earth.radiusKm);
+    gl.uniform1f(uniforms.uCloudPhase,state.earthLookPhase);
+    gl.uniform1f(uniforms.u_pixelDiameter,pixels);
+    gl.uniform1f(uniforms.u_earthLookExposure,EARTH_LOOK_EXPOSURE);
+    gl.uniform1i(uniforms.u_earthLookPass,pass);gl.uniform1i(uniforms.u_linearOutput,linearFrame?1:0);
+    gl.uniform1i(uniforms.u_earthWeather,state.earthWeather&&cloud?.ready?1:0);
+    gl.uniform1i(uniforms.u_earthNight,state.earthNight&&night?.ready?1:0);
+    gl.uniform1i(uniforms.u_earthAtmosphere,state.opticsEnabled?1:0);
+    for(const [unit,sampler,texture] of [[0,'u_tex',detail.tex],[2,'u_nightTex',night?.ready?night.tex:whiteTex],
+      [3,'uCloudMap',cloud?.ready?cloud.tex:whiteTex],[11,'u_oceanMask',detail.mask]]){
+      gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(uniforms[sampler],unit);
+    }
+    gl.activeTexture(gl.TEXTURE0);bindBodyMesh();gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);
+    gl.drawElements(gl.TRIANGLES,sphere.count,gl.UNSIGNED_SHORT,0);gl.disable(gl.CULL_FACE);
+  };
+  draw(0);
+  queueTransparent(pos,eye,()=>{gl.depthMask(false);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);draw(1);
+    gl.depthMask(true);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);});
+  state.opticsStatus.Earth='deferred';state.terrainRendered.Earth=false;
+  return true;
+}
+
 function drawBody(b, vp, eye) {
   const phys = BODY[b.name]; if (!phys) return;
   const pos = bodyWorldPos(b);
@@ -2023,6 +2117,9 @@ function drawBody(b, vp, eye) {
   const mvp = mul(vp, model);
   const light = b.name === "Sun" ? [0, 0, 1] : norm([-b.x_au, -b.y_au, -b.z_au]);
   const lightObj=[dot(rot.slice(0,3),light),dot(rot.slice(4,7),light),dot(rot.slice(8,11),light)];
+  if(b.name==='Earth'&&drawEarthLook(pos,rEq,rPol,rot,vp,eye,lightObj,pixelDiameter)){
+    drawMoons(b.name,pos,rEq,vp,eye,drawnMoonsFor(b.name,pos,rEq,eye));return;
+  }
   const requestedProfile=state.opticsEnabled&&pixelDiameter>=64?getAtmosphereProfile(b.name):null;
   if(requestedProfile&&b.name===incidentDemand)requestPhysicalPrograms();
   if(requestedProfile&&b.name===incidentDemand)incidentFields?.request(b.name);
@@ -3199,7 +3296,7 @@ async function showFallback(msg) {
   document.addEventListener("visibilitychange",()=>{
     syncIncidentDemand();
     state.keys.clear(); state.lastTick=0;
-    if (document.hidden) { if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelPendingPrograms();cancelSystemWork(); }
+    if (document.hidden) { earthLookWanted=false;earthLookDetails?.abortPending();if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelPendingPrograms();cancelSystemWork(); }
     else if (state.active) {
       // requestAnimationFrame never ran while the tab was hidden, so any compile still
       // pending has been charged wall-clock time no poll could observe. Renew its

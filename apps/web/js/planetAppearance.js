@@ -1,6 +1,7 @@
 // Registered mission reference imagery. These epochs never follow the model clock.
 import { visualAssetManifest } from './visualAssetManifest.js';
 import { illustrativeReplacesSurface, illustrativeDescription, venusAtmosphereOverlay, venusAtmosphereNote } from './illustrativeAppearance.js';
+import {earthLookSelected,earthLookDescription} from './earthLook.js';
 
 // Per-channel median of fully covered pixels in the admitted OPAL display maps.
 // A flat display color reduces the gray discontinuity at missing map coverage.
@@ -21,6 +22,7 @@ export function appearanceFallbackColor(body) {
 // Illustrative look replaces that deck, unless radar is also on: then Magellan stays
 // the ground and the artistic atmosphere is a shell above it.
 export function surfaceReferenceShown(body, state = {}) {
+  if(body==='Earth'&&earthLookSelected(state))return false;
   return !illustrativeReplacesSurface(body,state) && (body !== 'Venus' || state.venusRadar === true);
 }
 
@@ -52,6 +54,7 @@ function withVenusAtmosphere(body, state, text) {
 }
 
 export function appearanceDescription(body, state = {}, details = false) {
+  if(body==='Earth'&&earthLookSelected(state))return earthLookDescription(state);
   if (illustrativeReplacesSurface(body,state)) return illustrativeDescription(body,state);
   if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);
@@ -69,6 +72,7 @@ export function appearanceDescription(body, state = {}, details = false) {
 // Keep the primary object card concise; the adjacent source disclosure carries
 // complete capture epochs, processing, coverage and interpretation limits.
 export function appearanceSummary(body, state = {}) {
+  if(body==='Earth'&&earthLookSelected(state))return earthLookDescription(state);
   if (illustrativeReplacesSurface(body,state)) return illustrativeDescription(body,state);
   if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);

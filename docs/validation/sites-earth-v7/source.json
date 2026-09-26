@@ -1,0 +1,55 @@
+{
+  "site": "https://sol-planet-look-lab.protonmatter.chatgpt.site",
+  "version": 7,
+  "commit": "12f633b27e435479f4b2322b613f8dd204847d2e",
+  "assets": [
+    {
+      "file": "earth-blue-marble-2002-cloud-layer.png",
+      "kind": "texture",
+      "label": "NASA Blue Marble cloud layer · Blue Marble 2002 cloud composite (constituent days unstated)",
+      "sourcePage": "https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/",
+      "sourceUrl": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg",
+      "credit": "NASA Goddard / Reto Stockli (clouds) and Robert Simmon (compositing)",
+      "license": "NASA imagery; source attribution retained",
+      "licenseUrl": "https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/",
+      "bytes": 1911552,
+      "sha256": "82005bba2cec05b41137b766985d516eaf6b66ea045191d8869d45abd05f7995",
+      "limitations": "Historical visual reference published in 2002. NASA describes the clouds as two days of visible imagery and a third day of thermal-infrared imagery over the poles; exact dates and instruments are unstated, and an earlier review recorded manually filled regions. The layer contains no surface: land, ocean and land ice come from the separately dated July 2004 land map, so clouds and surface are not simultaneous observations. Opacity reproduces NASA's 2002 composite within the documented residual; it is not a physical cloud transmission. No current weather, cloud height, optical depth or feature-position measurement may be inferred. The source JPEG has no geotags or ICC profile; registration is reviewed for display, not measurement. Night lights remain a separately dated annual reference.",
+      "derivation": "tools/prepare_earth_clouds.py with Pillow 12.2.0: the NASA JPEG decodes to identical R, G and B in every pixel; each output pixel is white RGB with alpha from the tool's pinned 256-entry opacity curve applied to that source byte, encoded as a deterministic RGBA PNG without resampling, filling or colour change. Opacity curve: over dark-ocean 24-pixel blocks with a cloud-free base in NASA's 2002 land/ocean/ice/cloud composite (record 57735), the linear-light opacity each grey value implies is taken as a median, interpolated and made monotone; --fit-opacity reproduces it from both pinned originals. On 490 held-out blocks the curve fitted on the other blocks gives mean encoded error 11.48/255 over ocean, 13.69/255 over land and 17.35/255 in thin haze, against 14.64, 17.76 and 22.81 for alpha equal to grey. Display registration (reviewed): after a 9-pixel high-pass, source brightness between about 70 degrees north and south correlates with the darkest channel of the coastline-registered composite at r=0.823 at zero offset, 0.572 one pixel east or west, 0.485 one pixel north or south and 0.031 half a map away, so it shares that composite's north-up, eastward, Greenwich u=0.5, full-latitude grid. This is display-registration and display-opacity evidence, not a geotag or a scientific cloud retrieval. The source PNG is unchanged. Cloud depth mode applies an artistic display remap: 0.9 * max(0, (alpha - 0.08) / 0.92)^1.5 before converting to optical density. This reduces thin haze; it is not a retrieved optical depth."
+    },
+    {
+      "file": "earth-lights-2016.jpg",
+      "kind": "texture",
+      "label": "NASA Black Marble night lights · 2016",
+      "sourcePage": "https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/",
+      "sourceUrl": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_01deg_gray.jpg",
+      "credit": "NASA Earth Observatory; Black Marble 2016",
+      "license": "NASA imagery; source attribution retained",
+      "licenseUrl": "https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/",
+      "bytes": 365655,
+      "sha256": "4d2158f59123dadf0696a1cf8909c45018a1de8d0daab40da04122a5aa7f27c6",
+      "limitations": "Cloud-free nights selected over each land mass A display composite, not instantaneous city lights or an outage measurement No radiometric interpretation of display intensities.",
+      "derivation": "Original source bytes preserved. RGB is treated as sRGB display imagery; illumination is a visualization convention, not photometric calibration."
+    },
+    {
+      "file": "earth-land-2004-july.jpg",
+      "kind": "texture",
+      "label": "NASA Blue Marble land and ice · July 2004",
+      "sourcePage": "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/",
+      "sourceUrl": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x5400x2700.jpg",
+      "credit": "NASA Earth Observatory / Reto Stockli",
+      "license": "NASA imagery; source attribution retained",
+      "licenseUrl": "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/",
+      "bytes": 1617810,
+      "sha256": "f55226d46d27e05511f2118dc6aa24f5dbf9b6b2cddc87cc6e0e7dd067c00b11",
+      "limitations": "Historical July 2004 monthly composite, chosen for the default surface view; not a simulation of the current season. Deep ocean uses assigned uniform blue. Temporal and spatial gaps are filled by the provider. Arctic ocean is blue in this original; no synthetic polar cap is added.",
+      "derivation": "Original source bytes preserved. RGB is treated as sRGB display imagery; illumination is a visualization convention, not photometric calibration."
+    }
+  ],
+  "sources": {
+    "lib/earth-clouds.ts": "e418bc8231fbc8ce90cc151c2afb11d4e1cabe321852974a8ff4e08a9fd99c66",
+    "lib/earth-ocean-mask.ts": "7c5401771a4beab47ced277bffc2073e7e3f6c716ef33397c842a3da4df9f29a",
+    "lib/planet-shader.ts": "a0ce6f57f26b08878ca4ead393243fab61e2196a56c2634e22b0e0b55810e199",
+    "lib/bodies.ts": "5c92f6d0a002f8822ee30543aa4f1ad6bc8d0aefb4d5fdb3e6adf4591173e958"
+  }
+}
