@@ -14,7 +14,9 @@ const repaint = h => {
 test('the Sun draws in visible light when it is context, and EUV only as the subject', async t => {
   const h = await orreryHarness(t, {controls: true, catalogues: 'ready', reducedMotion: true, solarAtlas: true});
   await h.enterOrrery(); await h.settleCatalogues(); h.setAnimate(false);
-  assert.equal(h.state.solarMode, 'reconstructed-euv', 'EUV stays the default science mode');
+  assert.equal(h.state.solarMode, 'illustrative', 'approved look is the default');
+  h.input('orrerySolarMode','reconstructed-euv','change');
+  assert.equal(h.state.solarMode, 'reconstructed-euv', 'EUV remains explicitly selectable');
 
   // Inspecting loads the atlas and makes the Sun the subject.
   h.event('orreryInspectSun', 'click'); await h.settleCatalogues();

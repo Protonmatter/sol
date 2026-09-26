@@ -1,0 +1,166 @@
+{
+  "scope": "Local validation of the approved Sun integration; not a deployment or physical-mobile qualification",
+  "base_commit": "d6a4a1a989330de3dca3d889168bf71a6f60a7d1",
+  "checks": {
+    "node_tests": 1363,
+    "python_tests": 407,
+    "rust_workspace_tests": "passed",
+    "rust_fmt_clippy": "passed",
+    "typecheck_static_ux_docs_governance": "passed",
+    "native_staged_browser": "passed",
+    "swiftshader_staged_browser": "passed",
+    "combined_web_line_coverage_percent": 97.46,
+    "native_resolution_probe": [
+      1024,
+      2048,
+      4096
+    ],
+    "native_pending_disposal": "three loading shader sets retired with zero graphics errors and no GL_INVALID warnings"
+  },
+  "runtime_source_sha256_lf": {
+    "apps/web/js/sunLook.js": "f69d3d44c5717c5d6b851e179f1e731ad7feca87132af7cb9666b3e6802ae1b7",
+    "apps/web/js/sunLookRecipe.js": "26ae3dbfc45094687013207fa9a0c072881eb6769ed48317a514fa95428767a6",
+    "apps/web/js/sunLookShaders.js": "fae2505102dd4750f8ccb82a0d0d6f49f2092c98986231f0932743d11b176bcb",
+    "apps/web/js/sunLookRenderer.js": "7fd836673bbc2e92fb88dc099ff0483a451c52d116659e2a43e8c91dc3b93b0b",
+    "apps/web/js/orrery.js": "18d74dc6a1417e95a6c18f4ca7f565d444e0e53b2b7aada5182d06a2157b64b3",
+    "apps/web/js/destinationCards.js": "deb5ea918764bd5030d071948ff92304d0d0841dc2f8487d899270e70121ec66"
+  },
+  "native_sun_probe": {
+    "scope": "Staged SOL render, actual target size, pixels, controls and unchanged physical state",
+    "scene": {
+      "epoch": 1790446873.998,
+      "camera": [
+        -2.2692084632178684,
+        4.376126023906106e-05,
+        0.8098208857346324
+      ],
+      "physical_state_sha256": "765787ce2563a8d1171d6ce213512f8e912021cc4b17a8350b3fdbc1ae78d5ed"
+    },
+    "resolutions": {
+      "1024": {
+        "status": "ready",
+        "scene_draw": {
+          "kind": "scene",
+          "resolution": [
+            1024,
+            1024
+          ],
+          "detail": 0.75,
+          "time": 0,
+          "prom": 0,
+          "pass": null,
+          "linear": null,
+          "error": 0
+        },
+        "unchanged_scene_sha256": "765787ce2563a8d1171d6ce213512f8e912021cc4b17a8350b3fdbc1ae78d5ed",
+        "pixel_change": null
+      },
+      "2048": {
+        "status": "ready",
+        "scene_draw": {
+          "kind": "scene",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "detail": 0.75,
+          "time": 0,
+          "prom": 0,
+          "pass": null,
+          "linear": null,
+          "error": 0
+        },
+        "unchanged_scene_sha256": "765787ce2563a8d1171d6ce213512f8e912021cc4b17a8350b3fdbc1ae78d5ed",
+        "pixel_change": {
+          "changedPixels": 69877,
+          "totalPixels": 679960
+        }
+      },
+      "4096": {
+        "status": "ready",
+        "scene_draw": {
+          "kind": "scene",
+          "resolution": [
+            4096,
+            4096
+          ],
+          "detail": 0.75,
+          "time": 0,
+          "prom": 0,
+          "pass": null,
+          "linear": null,
+          "error": 0
+        },
+        "unchanged_scene_sha256": "765787ce2563a8d1171d6ce213512f8e912021cc4b17a8350b3fdbc1ae78d5ed",
+        "pixel_change": {
+          "changedPixels": 25832,
+          "totalPixels": 679960
+        }
+      }
+    },
+    "prominences": {
+      "scene_draw": {
+        "kind": "scene",
+        "resolution": [
+          4096,
+          4096
+        ],
+        "detail": 0.75,
+        "time": 0,
+        "prom": 1,
+        "pass": null,
+        "linear": null,
+        "error": 0
+      },
+      "pixel_change": {
+        "changedPixels": 3253,
+        "totalPixels": 679960
+      }
+    },
+    "visible_mode": {
+      "mode": "visible",
+      "sun_look_status": "deferred"
+    },
+    "depth": {
+      "nearCenter": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "farCenter": [
+        199,
+        81,
+        9,
+        255
+      ],
+      "halo": [
+        48,
+        6,
+        255,
+        255
+      ],
+      "expectedDepth": 0.9759841301137931,
+      "justFront": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "justBehind": [
+        199,
+        81,
+        9,
+        255
+      ],
+      "error": 0
+    },
+    "result": "passed"
+  },
+  "notes": [
+    "Runtime source hashes use repository LF normalization from .gitattributes.",
+    "4K README image is the approved standalone render, not a deployed screenshot.",
+    "AIA and visible-light checks explicitly select their retained modes.",
+    "One shader set is retained per context; high-resolution targets are released when demand is withdrawn."
+  ]
+}

@@ -22,6 +22,7 @@ import { assertCaptionLayouts } from "./caption_layout.mjs";
 import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
 import { waitForReferenceReadiness } from "./reference_readiness.mjs";
 import {verifyEarthLook} from './earth_look_probe.mjs';
+import {verifySunLook} from './sun_look_probe.mjs';
 import {verifyIllustrativeLooks} from './illustrative_look_probe.mjs';
 import {
   ROOT,
@@ -862,6 +863,7 @@ async function visualAssertions(page, visualDirectory, observeContext, systemBud
     });
     if(hdr.state!=='ready')throw new Error(`HDR candidate unavailable: ${hdr.reason}`);
   }
+  await page.select("#orrerySolarMode","visible");
   await focusBody(page, "Sun");
   // The visible-light contract is separate from the new explicitly assigned EUV colors.
   await page.select('#orrerySolarMode','visible');
@@ -1212,6 +1214,7 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   await page.$eval("#orreryGalaxy", (button) => button.click());
   console.log('Browser validation: recovered Sites Earth look');
   await verifyEarthLook(page,visualDirectory,canvasScreenshot);
+  await verifySunLook(page,visualDirectory,canvasScreenshot);
   console.log('Browser validation: illustrative Mercury and layered Venus');
   await verifyIllustrativeLooks(page,visualDirectory,canvasScreenshot);
 }

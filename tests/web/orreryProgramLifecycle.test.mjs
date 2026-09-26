@@ -6,6 +6,7 @@ const field=()=>({values:new Float32Array(4*257*195),width:257,height:195,
   domain:{minHeightKm:0,maxHeightKm:16,quadratic:true}});
 async function boot(t,options={}){
   const h=await orreryHarness(t,{controls:true,parallelPrograms:true,incidentField:async()=>field(),...options});
+  h.state.solarMode='visible'; // This suite isolates physical-program ownership.
   const entering=h.enterOrrery();await h.settle();h.completePrograms();h.frame(100);await entering;
   h.setAnimate(false);return h;
 }

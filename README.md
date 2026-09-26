@@ -11,6 +11,14 @@ captured from the GitHub-built `0c0c2a1` candidate. NASA July 2004 surface image
 with historical cloud/night layers and illustrative lighting and cloud depth.
 See [Earth appearance and provenance](docs/rfcs/0009-sites-earth-v7.md).*
 
+![Approved illustrative Sun at 4K, with boiling surface cells, textured dark regions, bright active regions and a feathery corona](docs/images/sun-approved-look-4k.png)
+
+*Actual 4096 × 4096 WebGL export from the approved Sun Surface Lab v2, at time zero
+with optional prominences off. The Solar System integration defaults to **1K**, with
+**2K** and **4K** selectable in the Sun controls. This image records the approved
+appearance reference; it does not claim a deployed release. See
+[Sun appearance, controls and provenance](docs/rfcs/0010-approved-sun-look.md).*
+
 ## Current state
 
 The September 2026 correctness/experience changes are **implemented locally, not released
@@ -53,6 +61,10 @@ unsupported versions rather than silently relabelling data.
   exposure, and the recovered cloud-volume/texture-lighting recipe. Source-qualified
   restores the existing Earth; daily swaths, sea ice and HDR retain that path.
   See [RFC 0009](docs/rfcs/0009-sites-earth-v7.md) for provenance and limits.
+- **Sun appearance (candidate):** Solar System uses the approved illustrative Sun
+  at 1K by default. Select The Sun to choose 2K/4K, pause surface evolution or
+  enable optional moving prominences. AIA 171 and Visible-light approximation remain
+  selectable; the separate Sun observation/research workspace is unchanged.
 - **Sources and limits:** persistent presentation metadata identifies the displayed
   epoch, source/provider and degraded/unavailable state. An observed image is not a
   registered model overlay: current registration assessment never permits compositing.

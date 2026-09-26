@@ -108,12 +108,12 @@ test('leaving retains ready terrain and atlas resources and preserves the paused
   let terrainLoads=0,solarLoads=0;
   const h=await orreryHarness(t,{controls:true,terrainMesh:async()=>{terrainLoads++;return mesh();},
     solarAtlas:async()=>{solarLoads++;return {width:2048,height:1024,close(){}};}});
-  await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');await h.settle();
+  await h.enterOrrery();h.setAnimate(false);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');await h.settle();
   h.input('orreryAnchor','Moon','change');await h.settle();assert.equal(terrainLoads,1);assert.equal(solarLoads,1);
   const bodies=JSON.stringify(h.state.bodies),epoch=h.state.renderUnix;
   h.leaveOrrery();await h.enterOrrery();await h.settle();
   assert.equal(h.state.terrainStatus.Moon,'ready');assert.equal(h.state.solarStatus,'ready');
-  h.event('orreryInspectSun','click');await h.settle();assert.equal(terrainLoads,1);assert.equal(solarLoads,1);
+  h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');await h.settle();assert.equal(terrainLoads,1);assert.equal(solarLoads,1);
   assert.equal(h.state.renderUnix,epoch);assert.equal(JSON.stringify(h.state.bodies),bodies);h.leaveOrrery();
 });
 
@@ -122,7 +122,7 @@ test('solar restart retains a ready atlas without another transfer, release or G
   const h=await orreryHarness(t,{controls:true,solarAtlas:async()=>{
     loads++;if(loads>1)throw Error('source is now offline');return {width:2048,height:1024,close(){}};
   }});
-  await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');await h.settle();
+  await h.enterOrrery();h.setAnimate(false);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');await h.settle();
   assert.equal(h.state.solarStatus,'ready');assert.equal(loads,1);
   h.event('orrerySolarPlay','click');h.frame(100);assert.ok(h.state.solarPlayback.seconds>0);
   const uploads=h.textureUploads.length,releases=h.deletedTextures.length,epoch=h.state.renderUnix,bodies=JSON.stringify(h.state.bodies);
@@ -138,7 +138,7 @@ test('solar restart retains a ready atlas without another transfer, release or G
 test('solar restart preserves a pending atlas request and uploads its completion once',async t=>{
   const loads=[];let closed=0;
   const h=await orreryHarness(t,{controls:true,solarAtlas:({signal})=>new Promise(resolve=>loads.push({signal,resolve}))});
-  await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');
+  await h.enterOrrery();h.setAnimate(false);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');
   assert.equal(h.state.solarStatus,'loading');assert.equal(loads.length,1);
   h.input('orrerySolarTime','4');const uploads=h.textureUploads.length,releases=h.deletedTextures.length;
   h.event('orrerySolarRestart','click');h.event('orrerySolarRestart','click');
@@ -158,7 +158,7 @@ test('solar restart preserves a pending atlas request and uploads its completion
 test('solar restart explicitly retries an unavailable atlas and retains the recovered entry',async t=>{
   const loads=[];
   const h=await orreryHarness(t,{controls:true,solarAtlas:({signal})=>new Promise((resolve,reject)=>loads.push({signal,resolve,reject}))});
-  await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');
+  await h.enterOrrery();h.setAnimate(false);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');
   loads[0].reject(Error('transient solar transfer'));await h.settle();assert.equal(h.state.solarStatus,'unavailable');
   h.resize(800,600);await h.settle();assert.equal(loads.length,1,'ordinary paint must not retry a failed source');
   h.input('orrerySolarTime','4');h.event('orrerySolarRestart','click');
@@ -177,7 +177,7 @@ test('leaving cancels pending terrain and atlas work before GPU upload and reent
     terrainMesh:(body,level,_shape,{signal})=>new Promise(resolve=>terrain.push({body,level,signal,resolve})),
     solarAtlas:({signal})=>new Promise(resolve=>solar.push({signal,resolve})),
   });
-  await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');h.input('orreryAnchor','Moon','change');
+  await h.enterOrrery();h.setAnimate(false);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');h.input('orreryAnchor','Moon','change');
   assert.equal(solar.length,1);assert.equal(terrain.length,1);
   const oldTerrain=terrain[0],oldSolar=solar[0];h.leaveOrrery();
   assert.equal(oldTerrain.signal.aborted,true);assert.equal(oldSolar.signal.aborted,true);
@@ -186,9 +186,9 @@ test('leaving cancels pending terrain and atlas work before GPU upload and reent
   assert.equal(closed,1);assert.equal(h.textureUploads.length,uploads,'late hidden completions cannot upload buffers or images');
   assert.equal(h.bufferUploads.length,buffers,'late terrain geometry cannot upload while hidden');
   assert.equal(h.frames.size,0);assert.equal(h.state.terrainStatus.Moon,'deferred');assert.equal(h.state.solarStatus,'deferred');
-  await h.enterOrrery();h.event('orreryInspectSun','click');h.input('orreryAnchor','Moon','change');
+  await h.enterOrrery();h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');h.input('orreryAnchor','Moon','change');
   assert.equal(terrain.length,2);assert.equal(solar.length,2);assert.equal(terrain[1].signal.aborted,false);assert.equal(solar[1].signal.aborted,false);
-  h.leaveOrrery();await h.enterOrrery();h.event('orreryInspectSun','click');h.input('orreryAnchor','Moon','change');
+  h.leaveOrrery();await h.enterOrrery();h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');h.input('orreryAnchor','Moon','change');
   const reentryUploads=h.textureUploads.length,reentryBuffers=h.bufferUploads.length;
   terrain[1].resolve(mesh());solar[1].resolve({width:2048,height:1024,close(){closed++;}});await h.settle();
   assert.equal(closed,2);assert.equal(h.textureUploads.length,reentryUploads);assert.equal(h.bufferUploads.length,reentryBuffers);
@@ -199,7 +199,7 @@ test('leaving cancels pending terrain and atlas work before GPU upload and reent
 for(const route of ['orreryGalaxy','orreryLocal','orreryTextures','leave']){
   test(`source playback pauses through ${route} and returning requires an explicit restart`,async t=>{
     const h=await orreryHarness(t,{controls:true,solarAtlas:true});
-    await h.enterOrrery();h.setAnimate(false);h.event('orreryInspectSun','click');await h.settle();
+    await h.enterOrrery();h.setAnimate(false);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');await h.settle();
     h.event('orrerySolarPlay','click');assert.equal(h.state.solarPlayback.playing,true);
     h.frame(100);const seconds=h.state.solarPlayback.seconds,epoch=h.state.renderUnix,bodies=JSON.stringify(h.state.bodies);
     if(route==='leave')h.leaveOrrery();else if(route==='orreryTextures')h.check(route,false);else h.event(route,'click');
@@ -218,7 +218,7 @@ for(const route of ['orreryGalaxy','orreryLocal','orreryTextures','leave']){
 for(const route of ['orreryGalaxy','orreryLocal','orreryTextures','orreryAnchor','body-row','star-row','orrerySolarMode','orrerySolarTime','orrerySolarRestart','context-lost']){
   test(`source pause and controls do not depend on a drawable canvas through ${route}`,async t=>{
     const h=await orreryHarness(t,{controls:true,solarAtlas:true,catalogues:'ready'});
-    await h.enterOrrery();await h.settleCatalogues();h.setAnimate(false);h.event('orreryInspectSun','click');await h.settle();
+    await h.enterOrrery();await h.settleCatalogues();h.setAnimate(false);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');await h.settle();
     h.event('orrerySolarPlay','click');assert.equal(h.state.solarPlayback.playing,true);
     h.nodes.orreryCanvas.clientWidth=0;
     if(route==='orreryTextures')h.check(route,false);

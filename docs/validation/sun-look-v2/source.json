@@ -1,0 +1,34 @@
+{
+  "schema_version": "sun-look-source.v1",
+  "approval": "Owner accepted Sun Surface Lab v2 in this task on 2026-09-26, then requested SOL integration and a PR.",
+  "source": {
+    "path": "tools/lookdev/sun-surface-lab-v2.html",
+    "sha256": "7cc33aae070dd48ad26efdd166be91c8e6b75d59b085399e7d9a693610e33a18",
+    "bytes": 278400
+  },
+  "image": {
+    "path": "docs/images/sun-approved-look-4k.png",
+    "sha256": "5ba73ded190da3f3ff2e51d31954264bf8481665d89e211b13bc004ea84b14d0",
+    "bytes": 14787430,
+    "dimensions": [
+      4096,
+      4096
+    ],
+    "source": "Actual approved lab WebGL canvas export; not a deployed SOL screenshot"
+  },
+  "capture": {
+    "time": 0,
+    "rotation_radians": -0.25,
+    "tilt_degrees": 7,
+    "zoom": 745,
+    "palette": "orange",
+    "detail": 0.75,
+    "wisps": 0.65,
+    "prominences": false
+  },
+  "limitations": [
+    "Illustrative, not observed data or a magnetic-field solution",
+    "Physical mobile and sustained GPU performance unqualified",
+    "Integration and hosted deployment must be validated separately"
+  ]
+}

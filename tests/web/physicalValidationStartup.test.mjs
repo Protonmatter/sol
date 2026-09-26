@@ -50,7 +50,7 @@ test('validator waits through real entry until rounded snapshot coordinates prom
   assert.notEqual(JSON.stringify([epoch,h.state.bodies]),bootstrap,'Actual entry promotes raw-f64 coordinates');
   assert.equal(await wait.poll(),true);
   const invariant=JSON.stringify([h.state.renderUnix,h.state.bodies]);
-  h.event('orreryInspectSun','click');await h.settle();
+  h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');await h.settle();
   assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),invariant,'Exact post-readiness invariant survives inspection');
   h.leaveOrrery();
 });

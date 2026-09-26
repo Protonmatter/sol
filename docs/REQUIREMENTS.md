@@ -33,6 +33,7 @@ unrecognized status, and incomplete workflow enforcement.
 | `SOL-VIS-007` | Source band, frame, coverage and finite dynamic appearance playback |
 | `SOL-VIS-008` | Default attributed illustrative planet looks, selectable Source-qualified mode and separate bounded resources (proposed) |
 | `SOL-VIS-010` | Recovered Sites v7 Earth appearance with unchanged physical state and preserved scientific layer options (proposed) |
+| `SOL-VIS-011` | Approved illustrative Sun, default 1K and selectable 2K/4K with bounded resources and unchanged physical state (proposed) |
 | `SOL-CI-001` | SHA-pinned actions, least privilege, and deployment of the tested SHA |
 | `SOL-DOC-001` | Documentation, plans, instructions, and traceability updated with code |
 | `SOL-SUPPLY-001` | Locked dependencies and automated ecosystem update review |

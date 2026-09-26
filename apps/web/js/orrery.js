@@ -39,6 +39,8 @@ import {ATMOSPHERE_SCATTERING_FS as ATMOSPHERE_FS,SCATTERING_GENERATOR_VS,SCATTE
 import {createScatteringTargets} from './scatteringTargets.js';
 import {SOLAR_APPEARANCE,SOLAR_SOURCE_UNIX,SOLAR_QUIET_BINS,SOLAR_EUV_DISPLAY_GAIN,solarReferenceRotation,solarRenderUniforms,solarPlayback,solarAtlasQuietProfiles,solarQuietBytes,solarPhotosphereSpots,solarActivityDays} from './solarAppearance.js';
 import {SOLAR_VS,SOLAR_FS} from './solarVolumeShaders.js';
+import {sunLookResolution,sunLookDescription,sunLookRotation,planSunLook} from './sunLook.js';
+import {createSunLookRenderer} from './sunLookRenderer.js';
 import {loadSolarAtlas} from './solarAssetLoader.js';
 import {renderPlanetPhenomena} from './planetPhenomena.js';
 import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
@@ -171,7 +173,7 @@ const state = (store.orrery = {
   programStatus:{base:'deferred',physical:'deferred'},programDiagnostics:{},
   // Qualification candidate only; default enablement requires integrated/native gates.
   hdrEnabled:false, hdrStatus:{state:'deferred',reason:'HDR candidate disabled.'}, hdrFrame:null,
-  solarMode:'reconstructed-euv', solarStatus:'deferred', solarInspection:false, solarPlayback:{seconds:0,duration:20,playing:false},
+  solarMode:'illustrative',sunLookResolution:1024,sunLookStatus:'deferred',sunLookReason:'',sunLookPlaying:true,sunLookProminences:false, solarStatus:'deferred', solarInspection:false, solarPlayback:{seconds:0,duration:20,playing:false},
   showSmall: false, // belts + dwarf planets + comets + spacecraft (the illustrative small-body layer)
   moonGuideMode: "context", // advanced callers may explicitly choose all or off
   showMoons: true, // the 21 major moons of Mars, Jupiter, Saturn, Uranus and Neptune
@@ -223,6 +225,7 @@ let retryTerrainFailures=false;
 let solarDetail=null,solarRotation=null;
 let phenomenonBody='',disposePhenomena=()=>{};
 let ringShadowTex = {}; // per-planet 1-D radial ring-opacity profiles for the ring-shadow lookup
+let sunLook=null,sunLookDrawn=false;
 let sunTex = { ready: false, tex: null }; // the latest real SDO disk, for the 3-D Sun's surface
 let galaxy = null;
 let smallBodies = []; // per-frame small-body markers: {name, pos, col, kind, note}
@@ -419,7 +422,7 @@ function updatePhysicalAppearance() {
   if(opticalBody==='Earth'&&earthLookSelected(state))notes.push('Look Lab Earth: illustrative atmosphere and cloud density at nominal 1–12 km; Sun-directed shadows and 35% relative display drift. Not measured weather or qualified optical transfer.');
   else if(getAtmosphereProfile(opticalBody))notes.push((opticalBody!==body?`${opticalBody} · `:'')+(!state.opticsEnabled?'Reference optical transfer disabled.':state.opticsStatus[opticalBody]==='ready'?`Reference atmosphere: molecular + aerosol scattering${opticalBody==='Earth'?' and Chappuis ozone absorption':''} and cached incident refraction; physical km, ${linearFrame?'fixed presentation exposure':'adaptive display exposure'}. Not current weather.`:state.opticsStatus[opticalBody]==='loading'?'Reference optical programs and fields loading; haze columns shown until ready.':state.opticsStatus[opticalBody]==='unavailable'?'Reference optical programs or fields unavailable; haze columns shown. Toggle optical transfer to retry.':'Reference optical transfer appears in close views; distant limb uses admitted haze columns.'));
   if(state.hdrEnabled)notes.push(state.hdrStatus.state==='ready'?'Linear display composition candidate; fixed exposure and SDR output. Source images remain display references. The visible Sun uses a fixed display emission scale.':`${state.hdrStatus.reason} Existing SDR display retained.`);
-  if(body==='Sun')notes.push(solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. The observed face stays those frames. Arches rooted in three tilted pairs drift with a compressed differential-rotation clock, and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved disk keeps the observed radial brightness.`:'Visible-light approximation. A compressed educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not an HMI observation.');
+  if(body==='Sun')notes.push(state.solarMode==='illustrative'?sunLookDescription(state):solarEuvActive()?`SDO / AIA 171 Å · 10 May 2024 · ${state.solarStatus}. Gold is an assigned EUV color, lifted so the star stays luminous. The observed face stays those frames. Arches rooted in three tilted pairs drift with a compressed differential-rotation clock, and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. The unobserved disk keeps the observed radial brightness.`:'Visible-light approximation. A compressed educational photosphere: convective cells and three spot groups that drift faster at the equator. One displayed second stands for two solar hours. Not an HMI observation.');
   if(body&&state.solarInspection)notes.push('Sun inspection · other bodies and orbit guides hidden. Our system restores the complete scene.');
   const inspect=document.getElementById('orreryInspectSun');if(inspect)inspect.setAttribute('aria-pressed',String(state.solarInspection));
   const node=document.getElementById('orreryPhysicalStatus');
@@ -431,6 +434,13 @@ function syncSolarPlaybackControls() {
   const body=state.selected||state.anchor,playbackAvailable=solarPlaybackAvailable();
   if(!playbackAvailable)state.solarPlayback.playing=false;
   const controls=document.getElementById('orrerySolarControls');if(controls)controls.hidden=body!=='Sun'||!!state.selectedStar||state.galaxy||!state.active;
+  const look=state.solarMode==='illustrative';
+  const lookControls=document.getElementById('orrerySunLookControls');if(lookControls)lookControls.hidden=!look;
+  const archiveControls=document.getElementById('orrerySolarArchiveControls');if(archiveControls)archiveControls.hidden=state.solarMode!=='reconstructed-euv';
+  const lookPlay=document.getElementById('orrerySunLookPlay');if(lookPlay){lookPlay.textContent=state.sunLookPlaying?'Pause Sun':'Play Sun';lookPlay.setAttribute('aria-pressed',String(state.sunLookPlaying));}
+  const detail=/** @type {HTMLSelectElement|null} */(document.getElementById('orrerySunResolution'));if(detail)detail.value=String(state.sunLookResolution);
+  const lookStatus=document.getElementById('orrerySunLookStatus');if(lookStatus)lookStatus.textContent=state.sunLookReason||sunLookDescription(state);
+  const mode=/** @type {HTMLSelectElement|null} */(document.getElementById('orrerySolarMode'));if(mode)mode.value=state.solarMode;
   const play=/** @type {HTMLButtonElement|null} */(document.getElementById('orrerySolarPlay'));if(play){play.textContent=state.solarPlayback.playing?'Pause source':'Play source';play.setAttribute('aria-pressed',String(state.solarPlayback.playing));play.disabled=!playbackAvailable;}
   const range=/** @type {HTMLInputElement|null} */(document.getElementById('orrerySolarTime'));if(range)range.value=String(state.solarPlayback.seconds);
   const epoch=document.getElementById('orrerySolarEpoch');if(epoch)epoch.textContent=solarPlayback(state.solarPlayback.seconds).sourceTime.replace('T',' ').replace('Z',' UTC');
@@ -438,8 +448,8 @@ function syncSolarPlaybackControls() {
 
 // Reconstructed EUV is a science view of the Sun as the subject: it applies while the
 // Sun is inspected or explicitly selected. The default overview anchors on the Sun, and
-// every other scene shows it only as context, so those draw the visible photosphere and a
-// false-colour coronal image never stands in for sunlight beside ordinary planets.
+// In reference modes, context draws the visible photosphere. The independently
+// disclosed illustrative mode also applies to the ordinary Solar System overview.
 function solarSubject() {
   return (state.selected||state.anchor)==='Sun'&&(state.solarInspection||state.selected==='Sun');
 }
@@ -515,6 +525,43 @@ function initSolarResources() {
     state.solarStatus=status;
     queueMicrotask(()=>{updatePhysicalAppearance();if(state.active&&gl===context){window.dispatchEvent(new Event('sol:presentation'));if(!state.animate)paint();armSolarFlow();}});
   }});
+}
+
+function resetSunLook(contextLost=false){
+  if(contextLost){const old=sunLook;sunLook=null;old?.dispose();}
+  else sunLook?.suspend({retry:true});
+  sunLookDrawn=false;
+  state.sunLookStatus='deferred';state.sunLookReason='';
+}
+function drawApprovedSun(vp,eye,pos,radius,pixels){
+  if(state.solarMode!=='illustrative'||!state.useTextures||state.galaxy)return false;
+  const rotation=sunLookRotation(iauRotation(BODY.Sun,rotationDisplayUnix.Sun??state.renderUnix));
+  const plan=planSunLook({vp,rotation,position:pos,radius,eye,resolution:state.sunLookResolution,pixels});
+  if(!plan){sunLook?.suspend();state.sunLookStatus='deferred';return false;}
+  if(!sunLook){
+    const context=gl;
+    const owner=createSunLookRenderer(context,{shaderOptions:{now:()=>performance.now(),
+      schedule:callback=>requestAnimationFrame(callback),cancel:handle=>cancelAnimationFrame(handle)},onChange:(status,reason)=>{
+      queueMicrotask(()=>{
+        if(sunLook!==owner||gl!==context||!state.active)return;
+        state.sunLookStatus=status;state.sunLookReason=reason;
+        updatePhysicalAppearance();updateOrreryAccuracy();
+        if(!document.hidden){paint();armSolarFlow();}
+      });
+    }});
+    sunLook=owner;
+  }
+  const owner=sunLook;
+  if(!owner.render(plan,{seconds:solarActivitySeconds(),prominences:state.sunLookProminences,
+    framebuffer:sceneFramebuffer,viewport:sceneViewport}))return false;
+  state.sunLookStatus='ready';sunLookDrawn=true;
+  owner.draw(plan,1,{linear:linearFrame});
+  queueTransparent(pos,eye,()=>{
+    if(sunLook!==owner)return;
+    gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask(false);owner.draw(plan,2,{linear:linearFrame});
+    gl.depthMask(true);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  });
+  return true;
 }
 
 function drawSolarReference(vp,eye,pos,radius,pixels,pass=0) {
@@ -915,7 +962,7 @@ function initGL(canvas) {
   // a full-framebuffer copy per composite on many GPUs.
   gl = canvas.getContext("webgl2", { antialias: true, depth: true, alpha: false, premultipliedAlpha: false });
   if (!gl) return null;
-  contextGeneration++;sceneSerial=0;
+  resetSunLook();contextGeneration++;sceneSerial=0;
   scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
   shaderPrograms?.dispose();P={};state.programStatus={base:'loading',physical:'deferred'};state.programDiagnostics={};
   const context=gl;
@@ -1579,6 +1626,8 @@ function queueTransparent(pos,eye,draw) {
 }
 
 function beginSceneFrame(width,height){
+  if(sunLook&&(state.galaxy||state.solarMode!=='illustrative'||!state.useTextures))sunLook.suspend();
+  sunLookDrawn=false;
   linearFrame=false;state.hdrFrame=null;
   scatteringFrame={contextGeneration,sceneSerial:++sceneSerial,epoch:state.renderUnix};
   state.scatteringFrame={...scatteringFrame};
@@ -1707,6 +1756,7 @@ function paint() {
   if (!state.active || !gl || !P.sphereU || gl.isContextLost()) return;
   const canvas = document.getElementById("orreryCanvas");
   if (!canvas || canvas.clientWidth === 0 || canvas.clientHeight === 0) {
+    sunLook?.suspend();
     hdrPresentation?.dispose();hdrPresentation=null;state.hdrFrame=null;linearFrame=false;
     scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
     state.hdrStatus={state:'deferred',reason:'No visible frame.'};return;
@@ -2099,6 +2149,7 @@ function drawBody(b, vp, eye) {
   const rEq = displayRadiusAU(b.name), rPol = rEq * (phys.polarKm / phys.radiusKm);
   const pixelDiameter=referencePixelDiameter(pos,rEq,vp,referenceViewport);
   referenceVisible.set(b.name,pixelDiameter);
+  if(b.name==='Sun'&&drawApprovedSun(vp,eye,pos,rEq,pixelDiameter))return;
   if(b.name==='Sun'&&drawSolarReference(vp,eye,pos,rEq,pixelDiameter,1)){
     queueTransparent(pos,eye,()=>{
       gl.blendFunc(gl.ONE,gl.ONE);gl.depthMask(false);
@@ -2533,6 +2584,7 @@ function drawRing(name, phys, pos, rEq, rot, vp) {
 }
 
 function drawSun(vp, eye, w, h) {
+  if(sunLookDrawn)return;
   if(solarEuvActive()&&state.useTextures&&solarDetail?.get('reference'))return;
   const rSun = displayRadiusAU("Sun");
   // corona: a camera-facing additive glow quad
@@ -2903,6 +2955,7 @@ function solarActivitySeconds() {
 }
 function solarFlowActive() {
   if(prefersReducedMotion()||!state.active||state.galaxy||state.selectedStar||!solarSubject()) return false;
+  if(state.solarMode==='illustrative')return state.useTextures&&state.sunLookPlaying&&state.sunLookStatus==='ready';
   if(state.solarMode==='visible') return true;
   return solarPlaybackAvailable();
 }
@@ -3244,7 +3297,7 @@ async function enterOrreryInner() {
   } catch (e) { if(state.active&&generation===systemGeneration&&!document.hidden) {showFallback("3-D view failed to initialise: " + e.message);console.error(e);} }
 }
 export function leaveOrrery() {
-  state.active = false;
+  state.active = false;resetSunLook();
   cancelPendingPrograms();
   hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
   scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
@@ -3296,14 +3349,14 @@ async function showFallback(msg) {
   document.addEventListener("visibilitychange",()=>{
     syncIncidentDemand();
     state.keys.clear(); state.lastTick=0;
-    if (document.hidden) { earthLookWanted=false;earthLookDetails?.abortPending();if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelPendingPrograms();cancelSystemWork(); }
+    if (document.hidden) { sunLook?.suspend();earthLookWanted=false;earthLookDetails?.abortPending();if (rafId) cancelAnimationFrame(rafId); rafId=0;cancelPendingPrograms();cancelSystemWork(); }
     else if (state.active) {
       // requestAnimationFrame never ran while the tab was hidden, so any compile still
       // pending has been charged wall-clock time no poll could observe. Renew its
       // deadline now that polling resumes; otherwise the first visible poll expires
       // every mandatory program and reports WebGL2 as unavailable on a browser that
       // supports it. A tab that loads hidden reaches here before its first frame.
-      shaderPrograms?.renewDeadlines();
+      shaderPrograms?.renewDeadlines();sunLook?.renewDeadlines();
       if(!gl||!state.bodies.length)void enterOrrery();else startLoop();
     }
   });
@@ -3507,7 +3560,7 @@ async function showFallback(msg) {
   bind("orreryDeepSky", "change", (e) => { state.galDeepSky = inputTarget(e).checked; paint(); });
   bind("orreryTextures", "change", (e) => {
     const wasEnabled = state.useTextures;
-    state.useTextures = inputTarget(e).checked;
+    state.useTextures = inputTarget(e).checked;resetSunLook();
     if (state.useTextures && !wasEnabled) loadTextures();
     updatePhysicalAppearance();updateEarthLayerStatus(); paint(); updateOrreryAccuracy();
   });
@@ -3528,14 +3581,18 @@ async function showFallback(msg) {
     else cancelPendingPrograms();
     if(state.opticsEnabled&&gl)initIncidentResources();updatePhysicalAppearance();paint();
   });
-  // The default overview anchors on the Sun without selecting it, so the Sun is only
-  // context there and draws its visible photosphere whatever this selector says.
+  // The default overview anchors on the Sun without selecting it. Reference modes
+  // still distinguish that context from an explicitly selected solar subject.
   // Choosing a mode is a request to see the Sun that way, so it makes the Sun the
   // subject rather than leaving a control that appears to do nothing. The camera is
   // left alone: this selects the body, it does not reframe the view like Inspect.
-  bind('orrerySolarMode','change',e=>{state.solarMode=inputTarget(e).value;state.solarPlayback.playing=false;
+  bind('orrerySolarMode','change',e=>{state.solarMode=['illustrative','reconstructed-euv','visible'].includes(inputTarget(e).value)?inputTarget(e).value:'illustrative';state.solarPlayback.playing=false;resetSunLook();
     if(state.anchor==='Sun'&&!solarSubject()&&!state.galaxy&&!state.selectedStar){state.selected='Sun';showDetail('Sun');}
     syncSolarPlaybackControls();paint();armSolarFlow();window.dispatchEvent(new Event('sol:presentation'));});
+  bind('orrerySunResolution','change',e=>{state.sunLookResolution=sunLookResolution(inputTarget(e).value);resetSunLook();syncSolarPlaybackControls();paint();armSolarFlow();});
+  bind('orrerySunProminences','change',e=>{state.sunLookProminences=inputTarget(e).checked;paint();});
+  bind('orrerySunLookPlay','click',()=>{state.sunLookPlaying=!state.sunLookPlaying;syncSolarPlaybackControls();armSolarFlow();});
+  bind('orrerySunLookRestart','click',()=>{solarFlowSeconds=0;resetSunLook();paint();armSolarFlow();});
   bind('orrerySolarPlay','click',()=>{
     if(!solarPlaybackAvailable())return;
     if(state.solarPlayback.seconds>=state.solarPlayback.duration)state.solarPlayback.seconds=0;
@@ -3622,7 +3679,7 @@ async function showFallback(msg) {
     // texturesStarted=true meant loadTextures() never re-fetched for the life of the tab.
     terrainDetails?.dispose();terrainDetails=null;terrainDemand={};state.terrainStatus={};
     incidentFields?.dispose();incidentFields=null;incidentDemand='';state.opticsStatus={};
-    solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
+    resetSunLook(true);solarDetail?.dispose();solarDetail=null;state.solarStatus='unavailable';state.solarPlayback.playing=false;
     shaderPrograms?.dispose();shaderPrograms=null;state.programStatus={base:'deferred',physical:'deferred'};
     scatteringTargets?.dispose();scatteringTargets=null;scatteringFrame=null;state.scatteringFrame=null;state.scatteringStatus={};
     hdrPresentation?.dispose();hdrPresentation=null;linearFrame=false;state.hdrFrame=null;
