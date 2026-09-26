@@ -366,7 +366,11 @@ def assert_no_runtime_failure(dom: str, stderr: str, surface: str) -> None:
     combined = dom + "\n" + stderr
     found = [marker for marker in failures if marker in combined]
     if found:
-        raise AssertionError(f"{surface}: runtime failure markers present: {found}\n{stderr[-2000:]}")
+        # A readiness timeout otherwise discards the phase/knots diagnostics which
+        # the fixture already put in its captured DOM. Keep the failure and deadline.
+        body_tag = re.search(r"<body\b[^>]*>", dom)
+        diagnostic = body_tag.group(0)[:2000] if body_tag else "<no body captured>"
+        raise AssertionError(f"{surface}: runtime failure markers present: {found}\n{stderr[-2000:]}\n{diagnostic}")
     console_errors = [
         line
         for line in stderr.splitlines()

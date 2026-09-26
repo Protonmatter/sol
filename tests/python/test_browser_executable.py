@@ -168,6 +168,14 @@ for(const stage of ['new-page','setup','cdp','goto','readiness','observation-rea
             browser_smoke.assert_no_runtime_failure("<body></body>",
                 "Smoke readiness failed: Runtime.callFunctionOn timed out", "Solar System")
 
+    def test_runtime_timeout_reports_the_existing_fixture_phase_and_readiness_markers(self):
+        dom = '<body data-smoke-sim="phase=ready" data-smoke-moon-rows="22" data-smoke-moon-knots="0"><main></main></body>'
+        with self.assertRaises(AssertionError) as caught:
+            browser_smoke.assert_no_runtime_failure(dom, "Smoke readiness failed: Waiting failed: 45000ms exceeded", "Solar System")
+        self.assertIn('data-smoke-sim="phase=ready"', str(caught.exception))
+        self.assertIn('data-smoke-moon-knots="0"', str(caught.exception))
+        self.assertNotIn('<main>', str(caught.exception))
+
     def test_system_readiness_requires_lifecycle_and_actual_loaded_moon_knots(self):
         predicate = browser_smoke.MOON_READINESS_JS
         script = f"""
