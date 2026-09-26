@@ -22,6 +22,7 @@ import { assertCaptionLayouts } from "./caption_layout.mjs";
 import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
 import { waitForReferenceReadiness } from "./reference_readiness.mjs";
 import {verifyEarthLook} from './earth_look_probe.mjs';
+import {verifyIllustrativeLooks} from './illustrative_look_probe.mjs';
 import {
   ROOT,
   WEB,
@@ -1211,6 +1212,8 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   await page.$eval("#orreryGalaxy", (button) => button.click());
   console.log('Browser validation: recovered Sites Earth look');
   await verifyEarthLook(page,visualDirectory,canvasScreenshot);
+  console.log('Browser validation: illustrative Mercury and layered Venus');
+  await verifyIllustrativeLooks(page,visualDirectory,canvasScreenshot);
 }
 
 function coverageLocalPath(entryUrl, webRoot, basePath = "/") {

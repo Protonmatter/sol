@@ -58,6 +58,11 @@ ocean mask. Both release on appearance change, loss of demand, view exit and
 context loss. Source bytes and dimensions are verified before upload. The existing
 reference cache still owns cloud/night layers. An optional-program failure does
 not invalidate mandatory scene programs; switching appearance retries it.
+While the July map or program is loading or unavailable, the registered Earth
+surface remains demanded and the source card identifies that fallback. Once the
+look is ready, registered-surface demand is withdrawn through the existing bounded
+reference cache. The shader adapter requires one exact cloud-footprint substitution
+and rejects any remaining lab camera uniforms before GPU compilation.
 
 ## UX and accessibility
 
@@ -111,7 +116,10 @@ The previous reference map may remain in the existing bounded warm cache.
 Run the Earth recipe/lifecycle tests, full Node suite, typecheck, source/UX/SDLC
 validators, release-artifact Python tests, staged build and native browser suite.
 `tools/earth_look_probe.mjs` retains actual GPU uniform readbacks and paired
-screenshots after the existing scientific scene gates. Run combined Node/browser
+screenshots after the existing scientific scene gates. The additional
+`tools/illustrative_look_probe.mjs` checks actual illustrative Mercury draws and the
+Venus radar ground plus mode-4 shell, including GL errors, depth writes and a
+same-camera/epoch pixel comparison against Source-qualified. Run combined Node/browser
 coverage with the same staged artifact. Desktop checks do not qualify mobile,
 Safari, manual accessibility, hosted CI or production delivery.
 

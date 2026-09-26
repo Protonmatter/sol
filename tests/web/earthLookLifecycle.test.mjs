@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {orreryHarness} from './helpers/orreryHarness.mjs';
 import {appearanceReference} from '../../apps/web/js/planetAppearance.js';
+import {BODY} from '../../apps/web/js/bodyData.js';
 
 async function settleEarthLayers(h) {
   for (const role of ['surface','cloud-composite','night-lights']) {
@@ -20,6 +21,7 @@ test('default Earth loads the recovered July map and draws the Sites recipe with
   h.input('orreryAnchor','Earth','change');await h.settle();await settleEarthLayers(h);
   assert.ok(loads.some(asset=>asset.path.endsWith('earth-land-2004-july.jpg')),'default Earth requests the recovered July surface');
   assert.equal(h.state.earthLookStatus,'ready');
+  assert.equal(h.state.opticsStatus.Earth,'deferred');assert.equal(h.state.terrainRendered.Earth,false);
   assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_earthLookExposure===1.6),'the Sites display exposure reaches the renderer');
   const positions=JSON.stringify(h.state.bodies),epoch=h.state.renderUnix;
   h.input('orreryPlanetLook','source-qualified','change');await h.settle();
@@ -47,9 +49,33 @@ test('Earth shader failure stays isolated and the appearance selector retries it
   await h.enterOrrery();h.setAnimate(false);h.setGraphicsFailure('shader');
   h.input('orreryAnchor','Earth','change');await h.settle();
   assert.equal(h.state.earthLookStatus,'unavailable');assert.equal(h.state.programStatus.base,'ready');
+  await settleEarthLayers(h);
+  assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_bodyRadiusKm===BODY.Earth.radiusKm&&draw.uniforms.u_texMode===3),
+    'A failed optional shader still draws the registered Earth surface');
   h.setGraphicsFailure('');
   h.input('orreryPlanetLook','source-qualified','change');h.input('orreryPlanetLook','illustrative','change');await h.settle();
   assert.equal(h.state.earthLookStatus,'ready');h.leaveOrrery();
+});
+
+test('Earth draws its registered fallback during July loading and decode failure, then recovers',async t=>{
+  let finish,fail;
+  const h=await orreryHarness(t,{controls:true,useProductAppearanceDefault:true,
+    illustrativeMap:asset=>asset.body==='Earth'?new Promise((resolve,reject)=>{finish=resolve;fail=reject;})
+      :Promise.resolve({width:2048,height:1024,close(){}})});
+  t.after(()=>h.leaveOrrery());
+  await h.enterOrrery();h.setAnimate(false);h.input('orreryAnchor','Earth','change');await h.settle();
+  assert.equal(h.state.earthLookStatus,'loading');
+  const reference=appearanceReference('Earth');let start=h.gpuDraws.length;
+  await settleEarthLayers(h);
+  assert.equal(h.state.appearanceStatus[reference.id],'ready');
+  const fallback=()=>h.gpuDraws.slice(start).some(draw=>draw.uniforms.u_bodyRadiusKm===BODY.Earth.radiusKm&&draw.uniforms.u_texMode===3);
+  assert.ok(fallback(),'Loading the July image must not withhold the registered surface');
+  start=h.gpuDraws.length;fail(Error('July decode failed'));await h.settle();await h.settle();
+  assert.equal(h.state.earthLookStatus,'unavailable');assert.ok(fallback());
+  h.input('orreryPlanetLook','source-qualified','change');h.input('orreryPlanetLook','illustrative','change');await h.settle();
+  finish({width:5400,height:2700,close(){}});await h.settle();await h.settle();
+  assert.equal(h.state.earthLookStatus,'ready');
+  assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_earthLookExposure===1.6));
 });
 
 test('cloud toggles reach both passes and context loss deletes the exact Earth resources',async t=>{

@@ -509,7 +509,8 @@
       "verification": [
         "tests/web/illustrativeAppearance.test.mjs",
         "tests/web/destinationCards.test.mjs",
-        "tests/web/orreryIllustrativeLifecycle.test.mjs"
+        "tests/web/orreryIllustrativeLifecycle.test.mjs",
+        "tools/illustrative_look_probe.mjs"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation"
@@ -529,6 +530,7 @@
       "verification": [
         "tests/web/earthLook.test.mjs",
         "tests/web/earthLookLifecycle.test.mjs",
+        "tests/web/earthLookShaders.test.mjs",
         "tests/web/sites-earth-geometry.test.mjs",
         "tests/web/sites-cloud-volume.test.mjs",
         "tools/earth_look_probe.mjs"

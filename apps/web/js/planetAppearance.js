@@ -22,7 +22,8 @@ export function appearanceFallbackColor(body) {
 // Illustrative look replaces that deck, unless radar is also on: then Magellan stays
 // the ground and the artistic atmosphere is a shell above it.
 export function surfaceReferenceShown(body, state = {}) {
-  if(body==='Earth'&&earthLookSelected(state))return false;
+  // Keep a registered fallback during loading and optional-program/asset failure.
+  if(body==='Earth'&&earthLookSelected(state)&&state.earthLookStatus==='ready')return false;
   return !illustrativeReplacesSurface(body,state) && (body !== 'Venus' || state.venusRadar === true);
 }
 
@@ -54,7 +55,8 @@ function withVenusAtmosphere(body, state, text) {
 }
 
 export function appearanceDescription(body, state = {}, details = false) {
-  if(body==='Earth'&&earthLookSelected(state))return earthLookDescription(state);
+  if(body==='Earth'&&earthLookSelected(state))return earthLookDescription(state)
+    +(state.earthLookStatus==='ready'?'':' Registered surface fallback: '+appearanceDescription(body,{...state,planetLook:'source-qualified'},details));
   if (illustrativeReplacesSurface(body,state)) return illustrativeDescription(body,state);
   if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);
@@ -72,7 +74,8 @@ export function appearanceDescription(body, state = {}, details = false) {
 // Keep the primary object card concise; the adjacent source disclosure carries
 // complete capture epochs, processing, coverage and interpretation limits.
 export function appearanceSummary(body, state = {}) {
-  if(body==='Earth'&&earthLookSelected(state))return earthLookDescription(state);
+  if(body==='Earth'&&earthLookSelected(state))return earthLookDescription(state)
+    +(state.earthLookStatus==='ready'?'':' Registered surface fallback: '+appearanceSummary(body,{...state,planetLook:'source-qualified'}));
   if (illustrativeReplacesSurface(body,state)) return illustrativeDescription(body,state);
   if (!surfaceReferenceShown(body, state)) return visualAssetManifest.fallbacks?.[body]?.label || 'Surface detail unavailable in this view; the 3-D appearance is simplified.';
   const asset = appearanceReference(body);

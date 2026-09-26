@@ -689,6 +689,7 @@ function syncEarthLookDemand(){
     earthLookDetails=cache;
   }
   earthLookDetails.request('Earth');updateEarthLookReadiness();
+  if(state.earthLookStatus==='ready')state.opticsStatus.Earth='deferred';
 }
 function updateEarthLookReadiness(){
   const asset=earthLookDetails?.status('Earth'),program=shaderPrograms?.status('earthLook');
@@ -2089,7 +2090,6 @@ function drawEarthLook(pos,rEq,rPol,rot,vp,eye,lightObj,pixels){
   draw(0);
   queueTransparent(pos,eye,()=>{gl.depthMask(false);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);draw(1);
     gl.depthMask(true);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);});
-  state.opticsStatus.Earth='deferred';state.terrainRendered.Earth=false;
   return true;
 }
 

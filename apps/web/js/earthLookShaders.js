@@ -12,7 +12,10 @@ void main(){v_obj=a_pos*${EARTH_LOOK_EXTENT};gl_Position=u_mvp*vec4(v_obj,1.);}`
 
 // The reference cloud/shadow/texture-lighting equations are shared verbatim.
 // A footprint of 2/pixelDiameter equals the lab's 3.6/(resolution*zoom).
-const volume=EARTH_VOLUME_GLSL.replace('3.6/(min(uResolution.x,uResolution.y)*uZoom)','2./max(u_pixelDiameter,1.)');
+const footprint='3.6/(min(uResolution.x,uResolution.y)*uZoom)';
+if(EARTH_VOLUME_GLSL.split(footprint).length!==2)throw new Error('Earth cloud footprint boundary changed');
+const volume=EARTH_VOLUME_GLSL.replace(footprint,'2./max(u_pixelDiameter,1.)');
+if(/\buResolution\b|\buZoom\b/.test(volume))throw new Error('Earth cloud camera uniform boundary changed');
 export const EARTH_LOOK_FS=`#version 300 es
 precision highp float;
 in vec3 v_obj;out vec4 o;

@@ -4,7 +4,8 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {EARTH_LOOK_ASSET,earthLookSelected,earthLookDescription,advanceSolEarthCloudPhase} from '../../apps/web/js/earthLook.js';
 import {oceanMaskPixels,OCEAN_MASK_SHA256} from '../../apps/web/js/earthOceanMask.js';
-import {appearanceReference} from '../../apps/web/js/planetAppearance.js';
+import {appearanceReference,surfaceReferenceShown,appearanceDescription,appearanceSummary} from '../../apps/web/js/planetAppearance.js';
+import {planReferenceDemand} from '../../apps/web/js/referenceDemand.js';
 
 test('recovered Earth assets retain the deployed v7 identities',async()=>{
   const bytes=await readFile(new URL('../../apps/web/'+EARTH_LOOK_ASSET.path,import.meta.url));
@@ -27,4 +28,18 @@ test('SOL drift retains the lab 35-percent ratio at capped spin and after suspen
   assert.ok(advanceSolEarthCloudPhase(.1,100,86400000,24,true)-.1<=.007+1e-12);
   assert.equal(advanceSolEarthCloudPhase(.1,.1,86400,24,false),.1);
   assert.equal(advanceSolEarthCloudPhase(.1,0,86400,24,true),.1);
+});
+
+test('Earth keeps its registered surface demanded and disclosed until the look is ready',()=>{
+  const reference=appearanceReference('Earth'),visible=new Map([['Earth',100]]);
+  for(const earthLookStatus of ['deferred','loading','unavailable','ready']){
+    const state={planetLook:'illustrative',earthLookStatus,appearanceStatus:{[reference.id]:'ready'}};
+    assert.equal(surfaceReferenceShown('Earth',state),earthLookStatus!=='ready');
+    assert.equal(planReferenceDemand(visible,state).some(asset=>asset.id===reference.id),earthLookStatus!=='ready');
+    for(const describe of [appearanceDescription,appearanceSummary]){
+      const text=describe('Earth',state);
+      if(earthLookStatus!=='ready')assert.ok(text.includes(reference.label),'Fallback identifies its actual registered source');
+      else assert.doesNotMatch(text,/Registered surface fallback/);
+    }
+  }
 });
