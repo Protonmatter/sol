@@ -57,6 +57,10 @@ objects. The off-limb recipe is an illustrative thin layer at closest approach t
 the Sun. Wisps and optional arches do not claim volumetric transport, magnetic
 geometry, or calibrated emission. SOL's camera, scene depth, transparent ordering,
 IAU transform, display radii, epoch and existing animation owner remain authoritative.
+The planner measures each projected disk radius in target pixels, independently of
+the conservative corona rectangle. Bloom follows those per-axis measurements;
+small-screen detail clamping does not change its width. All four Sun runtime
+modules contribute to the release science fingerprint.
 
 No new animation loop is added. The Sun display clock evolves while the Sun is the
 subject, the look is ready, motion is enabled and the view is visible. Reduced
@@ -84,6 +88,8 @@ Failure retains the existing simplified visible Sun with an explicit status. A m
 or resolution change, or Restart / retry Sun, retries. Existing AIA source playback
 retains its own controls and source identity. It is never used as attribution for
 the procedural appearance.
+The unavailable state and its reason remain visible after offscreen demand
+withdrawal and return, until an explicit retry or context replacement.
 
 ## UX and accessibility
 

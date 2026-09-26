@@ -104,7 +104,7 @@ export function createSunLookRenderer(gl,{onChange=(_status,_reason)=>{},shaderO
       const s=programs.scene,u=s.u;
       gl.useProgram(s.program);uploadRays(u,plan);gl.uniform2fv(u.u_res,[plan.size,plan.size]);
       gl.uniformMatrix3fv(u.u_viewBasis,false,new Float32Array(plan.viewBasis));
-      gl.uniform1f(u.u_radiusPx,plan.radiusPx);gl.uniform1f(u.u_time,seconds);gl.uniform1f(u.u_flow,seconds*.12);
+      gl.uniform1f(u.u_radiusPx,plan.detailRadiusPx);gl.uniform1f(u.u_time,seconds);gl.uniform1f(u.u_flow,seconds*.12);
       for(const name of ['net','dark','fans','corona'])gl.uniform1f(u['u_'+name],1);
       gl.uniform1f(u.u_prom,prominences?1:0);gl.uniform1f(u.u_detail,.75);gl.uniform1f(u.u_wisps,.65);
       gl.uniform1i(u.u_pal,0);gl.uniform1i(u.u_direct,0);gl.uniform4fv(u['u_ar[0]'],regions);gl.uniform1fv(u['u_arAmp[0]'],amplitudes);
@@ -113,11 +113,11 @@ export function createSunLookRenderer(gl,{onChange=(_status,_reason)=>{},shaderO
       const blur=programs.blur,q=plan.size/4;
       gl.useProgram(blur.program);gl.uniform1i(blur.u.u_src,0);gl.uniform2fv(blur.u.u_texel,[1/q,1/q]);
       // Preserve the lab's blur width relative to the disk, independent of target size.
-      const stride=(4/631)*(plan.radiusPx/plan.size)/.37351265;
+      const stride=plan.bloomRadiiPx.map(radius=>(4/631)*(radius/plan.size)/.37351265);
       for(let i=1;i<=2;i++){
         gl.bindFramebuffer(gl.FRAMEBUFFER,targets[i].framebuffer);gl.viewport(0,0,q,q);
         gl.bindTexture(gl.TEXTURE_2D,targets[i-1].texture);
-        gl.uniform2fv(blur.u.u_dir,i===1?[stride,0]:[0,stride]);gl.uniform1f(blur.u.u_threshold,i===1?.35:0);
+        gl.uniform2fv(blur.u.u_dir,i===1?[stride[0],0]:[0,stride[1]]);gl.uniform1f(blur.u.u_threshold,i===1?.35:0);
         gl.drawArrays(gl.TRIANGLES,0,3);
       }
       key=nextKey;notify('ready');return true;

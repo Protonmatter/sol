@@ -537,7 +537,10 @@ function drawApprovedSun(vp,eye,pos,radius,pixels){
   if(state.solarMode!=='illustrative'||!state.useTextures||state.galaxy)return false;
   const rotation=sunLookRotation(iauRotation(BODY.Sun,rotationDisplayUnix.Sun??state.renderUnix));
   const plan=planSunLook({vp,rotation,position:pos,radius,eye,resolution:state.sunLookResolution,pixels});
-  if(!plan){sunLook?.suspend();state.sunLookStatus='deferred';return false;}
+  if(!plan){
+    sunLook?.suspend();const status=sunLook?.status();
+    state.sunLookStatus=status?.state||'deferred';state.sunLookReason=status?.reason||'';return false;
+  }
   if(!sunLook){
     const context=gl;
     const owner=createSunLookRenderer(context,{shaderOptions:{now:()=>performance.now(),

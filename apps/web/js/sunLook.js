@@ -60,7 +60,21 @@ export function planSunLook({vp,rotation,position,radius,eye,resolution=1024,pix
   const rect=behind?[-1,-1,1,1]:[Math.max(-1,xmin),Math.max(-1,ymin),Math.min(1,xmax),Math.min(1,ymax)];
   if(rect[0]>=rect[2]||rect[1]>=rect[3])return null;
   const size=sunLookResolution(resolution);
+  const w=[mvp[3],mvp[7],mvp[11]],w0=mvp[15],a=w0*w0-dot(w,w);
+  const bloomRadiiPx=[0,1].map(axis=>{
+    // Tangency to the unit sphere: (row0 - ndc*w0)^2 = |row - ndc*w|^2.
+    // The two quadratic roots bound the actual disk, including off-axis views.
+    // A disk crossing the view plane has unbounded image extent; cap its display
+    // footprint to the target there rather than admitting an infinite blur stride.
+    if(a<=1e-12)return size;
+    const row=[mvp[axis],mvp[axis+4],mvp[axis+8]],row0=mvp[axis+12];
+    const b=2*(dot(row,w)-row0*w0),c=row0*row0-dot(row,row);
+    const span=Math.sqrt(Math.max(0,b*b-4*a*c))/a;
+    return span*size/(2*(rect[axis+2]-rect[axis]));
+  });
+  const radiusPx=Math.min(...bloomRadiiPx);
+  // Screen-size LOD controls detail only; bloom remains in target-pixel units.
+  const detailRadiusPx=pixels<64?Math.min(radiusPx,pixels/2):radiusPx;
   return {size,bytes:size*size*9,camera,rayX,rayY,rayZ,viewBasis:[...right,...up,...front],mvp,rect,
-    // Use render sampling for detail, but fade the expensive recipe in tiny views.
-    radiusPx:Math.min(size/2,pixels<64?pixels/2:size/2)};
+    radiusPx,bloomRadiiPx,detailRadiusPx};
 }

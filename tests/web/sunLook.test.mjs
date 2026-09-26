@@ -19,6 +19,42 @@ test('perspective rays and body rotation preserve center ray and handedness',()=
  assert.match(sunLookDescription({sunLookStatus:'unavailable'}),/simplified visible Sun retained/);
  assert.match(sunLookDescription({}),/v2 \u00b7 1K/,'appearance label retains readable Unicode across Windows extraction');
 });
+
+test('disk sampling and bloom radii follow the sphere projection into the target rectangle',()=>{
+ for(const position of [[0,0,0],[1.7,.4,0]])for(const size of [1024,2048,4096]){
+  const p=planSunLook({...input(),position,resolution:size}),c=p.camera,d=Math.hypot(...c),n=c.map(x=>x/d);
+  const right=[n[2],0,-n[0]],rl=Math.hypot(...right),r=right.map(x=>x/rl);
+  const u=[n[1]*r[2]-n[2]*r[1],n[2]*r[0]-n[0]*r[2],n[0]*r[1]-n[1]*r[0]];
+  const bounds=[Infinity,Infinity,-Infinity,-Infinity],radius=Math.sqrt(1-1/d**2);
+  // Independent geometric oracle: sample the true sphere/camera tangent circle.
+  for(let i=0;i<4096;i++){
+   const a=i*Math.PI/2048,q=n.map((x,j)=>x/d+radius*(r[j]*Math.cos(a)+u[j]*Math.sin(a))).concat(1);
+   const clip=[0,1,3].map(row=>q.reduce((sum,v,j)=>sum+v*p.mvp[j*4+row],0));
+   const x=clip[0]/clip[2],y=clip[1]/clip[2];bounds[0]=Math.min(bounds[0],x);bounds[1]=Math.min(bounds[1],y);bounds[2]=Math.max(bounds[2],x);bounds[3]=Math.max(bounds[3],y);
+  }
+  const expected=[0,1].map(j=>(bounds[j+2]-bounds[j])*size/(2*(p.rect[j+2]-p.rect[j])));
+  assert(Math.abs(p.radiusPx-Math.min(...expected))<.01,`disk radius ${p.radiusPx} does not match projected samples ${expected}`);
+  for(let j=0;j<2;j++)assert(Math.abs(p.bloomRadiiPx[j]-expected[j])<.01,`axis ${j}: ${p.bloomRadiiPx[j]} vs ${expected[j]}`);
+  assert.equal(p.radiusPx,Math.min(...p.bloomRadiiPx));assert.equal(p.detailRadiusPx,p.radiusPx);
+  const tiny=planSunLook({...input(),position,resolution:size,pixels:20});
+  assert.deepEqual(tiny.bloomRadiiPx,p.bloomRadiiPx,'screen LOD cannot change the target-space bloom width');assert.equal(tiny.detailRadiusPx,10);
+ }
+ const crossing=planSunLook({...input(),position:[1.2,0,5]});assert.deepEqual(crossing.bloomRadiiPx,[1024,1024]);
+});
+
+test('the renderer separates screen detail from the two target-space bloom strides',async t=>{
+ const {createSunLookRenderer}=await import('../../apps/web/js/sunLookRenderer.js');
+ const h=await orreryHarness(t,{controls:true,reducedMotion:true});h.state.solarMode='visible';await h.enterOrrery();h.setAnimate(false);
+ const owner=createSunLookRenderer(h.gl),sample=p=>{
+  const start=h.gpuSubmissions.length;assert.equal(owner.render(p),true);
+  const draws=h.gpuSubmissions.slice(start);return {scene:draws.find(d=>d.uniforms.u_detail===.75),blur:draws.filter(d=>d.uniforms.u_dir).map(d=>d.uniforms.u_dir)};
+ };
+ const plan=planSunLook({...input(),position:[1.7,.4,0]}),normal=sample(plan);
+ assert.equal(normal.scene.uniforms.u_radiusPx,plan.radiusPx);
+ assert(Math.abs(normal.blur[0][0]/normal.blur[1][1]-plan.bloomRadiiPx[0]/plan.bloomRadiiPx[1])<1e-7);
+ const small=sample(planSunLook({...input(),position:[1.7,.4,0],pixels:20}));
+ assert.equal(small.scene.uniforms.u_radiusPx,10);assert.deepEqual(small.blur,normal.blur);owner.dispose();h.leaveOrrery();
+});
 const sunDraws=h=>h.gpuSubmissions.filter(d=>d.uniforms.u_scene!==undefined&&d.uniforms.u_mvp);
 test('default approved Sun renders at 1K; detail controls preserve engine time and camera',async t=>{
  const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true});
@@ -73,6 +109,15 @@ test('an unsupported requested size is held until an explicit lower-resolution r
  const h=await orreryHarness(t,{controls:true,reducedMotion:true,maxTextureSize:2048});await h.enterOrrery();h.setAnimate(false);
  h.event('orreryInspectSun','click');await h.settle();h.input('orrerySunResolution','4096','change');await h.settle();
  assert.equal(h.state.sunLookStatus,'unavailable');assert.match(h.state.sunLookReason,/device limits/);
+ h.input('orrerySunResolution','1024','change');await h.settle();assert.equal(h.state.sunLookStatus,'ready');h.leaveOrrery();
+});
+
+test('a terminal Sun failure remains disclosed when demand goes offscreen and returns',async t=>{
+ const h=await orreryHarness(t,{controls:true,reducedMotion:true,maxTextureSize:2048});await h.enterOrrery();h.setAnimate(false);
+ h.event('orreryInspectSun','click');await h.settle();h.input('orrerySunResolution','4096','change');await h.settle();
+ assert.equal(h.state.sunLookStatus,'unavailable');const reason=h.state.sunLookReason;
+ h.state.radius=1e6;h.resize(800,600);await h.settle();assert.equal(h.state.sunLookStatus,'unavailable');assert.equal(h.state.sunLookReason,reason);
+ h.event('orreryInspectSun','click');await h.settle();assert.equal(h.state.sunLookStatus,'unavailable');assert.equal(h.state.sunLookReason,reason);
  h.input('orrerySunResolution','1024','change');await h.settle();assert.equal(h.state.sunLookStatus,'ready');h.leaveOrrery();
 });
 test('a collapsed canvas and a galaxy view withdraw Sun target demand',async t=>{

@@ -70,6 +70,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             "terrainResources.js", "shaderPrograms.js", "referenceDemand.js",
             "hdrPresentation.js", "hdrPresentationShaders.js",
             "earthLook.js", "earthLookClouds.js", "earthLookShaders.js", "earthOceanMask.js",
+            "sunLook.js", "sunLookRenderer.js", "sunLookShaders.js", "sunLookRecipe.js",
         )
         actual_web = Path(__file__).resolve().parents[2] / "apps/web/js"
         folder = self.source / "js"

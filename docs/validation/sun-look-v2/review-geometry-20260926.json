@@ -1,0 +1,366 @@
+{
+  "scope": "Local qualification of the late PR 121 review fixes. Runtime source hashes identify the tested tree; starting_head is its Git parent, not a claim that the parent already contains these edits.",
+  "starting_head": "0e9691acfbc9a6088d91eb8c42da9779b5d21214",
+  "source_sha256_lf": {
+    "apps/web/js/orrery.js": "f385d0e780f61c3a0f95afca217bbb08c3a56d396a1592021b1f895cc215cd19",
+    "apps/web/js/shaderPrograms.js": "20022bf1897746c86effd71cac20707168d0b3a77f7237904c44dce74f2ae786",
+    "apps/web/js/sunLook.js": "c2a22e7930dbb77230c45a92af4546766f3f56c18cc8bc79eae384c33321bbd8",
+    "apps/web/js/sunLookRenderer.js": "8ecc89284008b24732b7da6a41accafa623becc6146c73eda62f0d08d53e3daf",
+    "apps/web/js/sunLookShaders.js": "fae2505102dd4750f8ccb82a0d0d6f49f2092c98986231f0932743d11b176bcb",
+    "apps/web/js/sunLookRecipe.js": "26ae3dbfc45094687013207fa9a0c072881eb6769ed48317a514fa95428767a6",
+    "tools/build_web.py": "53cedd79d2c6ec910998e2843825a40c8af39cf1db0c177e94bf007072c35965"
+  },
+  "checks": {
+    "node_tests": 1372,
+    "python_tests": 409,
+    "typecheck_files": 122,
+    "native_browser": "passed",
+    "swiftshader_browser": "passed",
+    "staged_smoke": "passed",
+    "combined_runtime_line_coverage_percent": 97.46,
+    "science_fingerprint": "Every individual Sun module mutation changes the staged science digest and is classified scientific",
+    "projection_oracle": "4096 tangent-circle samples per centered/off-axis view at 1K, 2K and 4K; target radius agreement within 0.01 pixel",
+    "terminal_failure": "Unsupported 4K remains unavailable offscreen and after return; explicit 1K retry succeeds"
+  },
+  "sun": {
+    "result": "passed",
+    "resolutions": {
+      "1024": {
+        "status": "ready",
+        "scene_draw": {
+          "kind": "scene",
+          "resolution": [
+            1024,
+            1024
+          ],
+          "detail": 0.75,
+          "time": 0,
+          "prom": 0,
+          "pass": null,
+          "linear": null,
+          "error": 0
+        },
+        "pixel_change": null,
+        "physical_state_sha256": "b17c6103a11552641882e0e691c9259bc617c1e7e3cea398f9a456953094923c",
+        "capture_sha256": "d205289f5836eec70c2c56e30e4e4da35ccb124e6242c07cf757dd1c4f99db1e"
+      },
+      "2048": {
+        "status": "ready",
+        "scene_draw": {
+          "kind": "scene",
+          "resolution": [
+            2048,
+            2048
+          ],
+          "detail": 0.75,
+          "time": 0,
+          "prom": 0,
+          "pass": null,
+          "linear": null,
+          "error": 0
+        },
+        "pixel_change": {
+          "changedPixels": 76927,
+          "totalPixels": 679960
+        },
+        "physical_state_sha256": "b17c6103a11552641882e0e691c9259bc617c1e7e3cea398f9a456953094923c",
+        "capture_sha256": "75848d4ab548b9488a5a7d412958800677ace02d5a4d457e4d36044e233d9fb0"
+      },
+      "4096": {
+        "status": "ready",
+        "scene_draw": {
+          "kind": "scene",
+          "resolution": [
+            4096,
+            4096
+          ],
+          "detail": 0.75,
+          "time": 0,
+          "prom": 0,
+          "pass": null,
+          "linear": null,
+          "error": 0
+        },
+        "pixel_change": {
+          "changedPixels": 33285,
+          "totalPixels": 679960
+        },
+        "physical_state_sha256": "b17c6103a11552641882e0e691c9259bc617c1e7e3cea398f9a456953094923c",
+        "capture_sha256": "86fa29ea6af60c65b106a1d3da834533e23be6dbdce00aca70fad645e69dd5a3"
+      }
+    },
+    "depth": {
+      "nearCenter": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "farCenter": [
+        186,
+        67,
+        6,
+        255
+      ],
+      "halo": [
+        17,
+        1,
+        255,
+        255
+      ],
+      "expectedDepth": 0.9759841301137931,
+      "justFront": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "justBehind": [
+        186,
+        67,
+        6,
+        255
+      ],
+      "error": 0
+    }
+  },
+  "planets": {
+    "result": true,
+    "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "pending_programs_exercised": [
+      "physicalSphere",
+      "atmosphere",
+      "scatteringGenerator"
+    ],
+    "cases": [
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "deferred",
+        "optics": "deferred",
+        "camera": [
+          -0.3586713391002122,
+          0.62,
+          4.741739185611378
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          0,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          0.7853981633974483,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          1.5707963267948966,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          2.356194490192345,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          3.141592653589793,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          3.9269908169872414,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          4.71238898038469,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Mars",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "unavailable",
+        "camera": [
+          5.497787143782138,
+          0.2,
+          0.23
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          0,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          0.7853981633974483,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          1.5707963267948966,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          2.356194490192345,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          3.141592653589793,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          3.9269908169872414,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          4.71238898038469,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      },
+      {
+        "body": "Jupiter",
+        "texture": "ready",
+        "physical": "unavailable",
+        "optics": "deferred",
+        "camera": [
+          5.497787143782138,
+          0.2,
+          0.8
+        ],
+        "error": 0,
+        "engineError": ""
+      }
+    ],
+    "warnings": [],
+    "errors": []
+  },
+  "limits": [
+    "Mars physical-atmosphere compilation still reaches its 30000 ms deadline on the tested native GPU; both upgraded planet surface maps remain ready.",
+    "One native browser validation used its existing bounded forced-close fallback after a 10 second cleanup wait. Rendering assertions passed.",
+    "No physical-mobile, sustained cross-device performance, merge, or deployment qualification."
+  ]
+}
