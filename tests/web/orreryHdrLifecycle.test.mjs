@@ -28,7 +28,7 @@ test('candidate dispatches every pass to linear composition and palettes restore
   assert.match(h.state.hdrStatus.reason,/palette/);
   assert.equal(h.state.hdrFrame,null);assert.ok(h.deletedTextures.length>released);
   const afterPalette=h.gpuSubmissions.length;h.check('orreryTextures',true);
-  assert.ok(h.gpuSubmissions.slice(afterPalette).every(draw=>draw.uniforms.u_linearOutput===0));
+  assert.ok(h.gpuSubmissions.slice(afterPalette).filter(draw=>draw.framebuffer===null).every(draw=>draw.uniforms.u_linearOutput===0));
   h.check('orreryEarthIce',false);assert.equal(h.state.hdrStatus.state,'ready');
   h.leaveOrrery();assert.equal(h.state.hdrFrame,null);
   await h.enterOrrery();assert.equal(h.state.hdrStatus.state,'ready');

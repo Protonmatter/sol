@@ -64,7 +64,7 @@ localStorage.setItem("sol-surface", "orrery");
 // No reliance on animation speed: a synchronous state machine is advanced by BOTH
 // a setInterval(50) and a rAF pump. The external driver waits on the final marker
 // with a bounded real-time deadline, allowing digest and worker promises to settle.
-//   (either driver alone suffices). Once ready, Animate is UNTICKED and every subsequent
+//   (either driver alone suffices). Once ready, both animation clocks are paused and every subsequent
 //   check runs a synchronous repaint with an INJECTED simStepSeconds — the real paint path,
 //   the real guards, zero scheduler dependence. The Nyquist boundary itself is additionally
 //   unit-tested in tests/web/moons.test.mjs.
@@ -201,6 +201,16 @@ const advance = () => {
         smokeErr("pause: animate=" + o.animate + " step=" + o.simStepSeconds);
         body.dataset.smokePaused = "no";
       }
+      // The approved Sun has an independent clock. Pausing orbital Animate alone
+      // leaves a costly continuous prepass running on the hosted software GPU.
+      // Use the real control before deterministic, manually repainted moon checks.
+      document.getElementById("orrerySunLookPlay")?.click();
+      if (o.sunLookPlaying === false) {
+        body.dataset.smokeSunPaused = "yes";
+      } else {
+        smokeErr("Sun pause: independent animation did not stop");
+        body.dataset.smokeSunPaused = "no";
+      }
       phase = "alias";
     }
   } else if (phase === "alias") {
@@ -306,9 +316,12 @@ def serve(directory: Path, base_path: str = "/", namespace: str = ""):
             thread.join(timeout=2)
 
 
-def dump_dom(browser: str, url: str) -> tuple[str, str]:
+def dump_dom(browser: str, url: str, *, screenshot_path: Path | None = None) -> tuple[str, str]:
+    command = ["node", str(ROOT / "tools/browser_smoke_driver.mjs"), browser, url]
+    if screenshot_path is not None:
+        command.append(str(screenshot_path))
     result = subprocess.run(
-        ["node", str(ROOT / "tools/browser_smoke_driver.mjs"), browser, url],
+        command,
         cwd=ROOT, text=True, encoding="utf-8", stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, timeout=100, check=False,
     )
@@ -366,7 +379,11 @@ def assert_no_runtime_failure(dom: str, stderr: str, surface: str) -> None:
     combined = dom + "\n" + stderr
     found = [marker for marker in failures if marker in combined]
     if found:
-        raise AssertionError(f"{surface}: runtime failure markers present: {found}\n{stderr[-2000:]}")
+        # A readiness timeout otherwise discards the phase/knots diagnostics which
+        # the fixture already put in its captured DOM. Keep the failure and deadline.
+        body_tag = re.search(r"<body\b[^>]*>", dom)
+        diagnostic = body_tag.group(0)[:2000] if body_tag else "<no body captured>"
+        raise AssertionError(f"{surface}: runtime failure markers present: {found}\n{stderr[-2000:]}\n{diagnostic}")
     console_errors = [
         line
         for line in stderr.splitlines()
@@ -413,6 +430,7 @@ def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot
         'data-smoke-sun-detail="yes"',
         'data-smoke-speed="yes"',
         'data-smoke-paused="yes"',
+        'data-smoke-sun-paused="yes"',
         'data-smoke-aliasing="yes"',
         'data-smoke-reset="yes"',
         'data-smoke-validity="yes"',
@@ -420,7 +438,12 @@ def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot
     )
     # The real-time driver waits for core initialization AND the product-loaded
     # orbital knots. A failed deterministic assertion is never retried away.
-    orrery_dom, orrery_stderr = dump_dom(browser, orrery_url)
+    # The driver captures only after readiness succeeds. Validate the DOM and PNG
+    # from that exact page, rather than launching a second cold rendering session.
+    with tempfile.TemporaryDirectory(prefix="sol-browser-") as capture_directory:
+        screenshot_path = Path(capture_directory) / "orrery.png"
+        orrery_dom, orrery_stderr = dump_dom(browser, orrery_url, screenshot_path=screenshot_path)
+        screenshot = screenshot_path.read_bytes() if screenshot_path.is_file() else b""
     assert_no_runtime_failure(orrery_dom, orrery_stderr, "Solar System")
     missing = [m for m in expected if m not in orrery_dom]
     if missing:
@@ -436,7 +459,6 @@ def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot
             + "\n  accuracy: " + (acc.group(1)[:300] if acc else "<none>")
         )
         raise AssertionError(detail)
-    screenshot = capture_screenshot(browser, orrery_url)
     if not screenshot.startswith(b"\x89PNG\r\n\x1a\n") or len(screenshot) < 20_000:
         raise AssertionError(
             f"Solar System: rendered screenshot is missing or implausibly blank ({len(screenshot)} bytes)"

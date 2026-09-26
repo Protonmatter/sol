@@ -98,7 +98,10 @@ async function capture() {
           ||!base.startsWith("Base: ")||base.includes("loading"))return false;
       }
       return document.getElementById("schemaVersion")?.textContent?.startsWith("solar-state-snapshot.v")&&document.querySelectorAll("#regionList [data-object-id]").length>0;
-    },{timeout:45000,polling:100},sunTarget);
+    // The fixture publishes readiness as a DOM mutation. Observe it immediately:
+    // a timer poll can miss completion while software-GL work fills the task queue.
+    // The same wall-clock deadline and failure predicate remain authoritative.
+    },{timeout:45000,polling:target.pathname.endsWith('__smoke_orrery.html')?'mutation':100},sunTarget);
     const failure=await page.evaluate(()=>document.body.dataset.smokeErrs || "");
     if(failure)throw new Error(failure);
     phase="fonts";

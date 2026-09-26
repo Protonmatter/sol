@@ -181,3 +181,9 @@ device-specific evidence; the whole-app deadlines remain unchanged.
 Use the commands in `INSTRUCTIONS.md`. A developer without Rust or Chromium can run the
 governance, docs, Python, Node unit, type, static-web, and deterministic generator checks,
 but MUST state which toolchain-dependent gates were left to CI.
+
+## Approved Solar System Sun
+
+`SOL-VIS-011` is covered by `tests/web/sunLook.test.mjs`, `tests/python/test_sun_look_extraction.py` and the staged `tools/sun_look_probe.mjs` invoked by browser validation. The default 1K path runs in hosted browser checks; native 2K/4K captures separately verify real target uniforms and unchanged physical state. Existing AIA/visible checks explicitly select their reference modes. Physical mobile and sustained performance remain unqualified.
+
+The native cancellation regression runs with `node tools/sun_pending_validation.mjs --url=<local-staged-SOL-URL>` and the existing `CHROME_BIN` override. It retires three pending sets sequentially and rejects graphics errors or GL_INVALID driver warnings.

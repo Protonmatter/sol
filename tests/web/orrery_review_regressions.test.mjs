@@ -12,6 +12,7 @@ import { appearanceReferences } from '../../apps/web/js/planetAppearance.js';
 test("Sun submits an emissive white display while held solar texture detail stays disabled", async t => {
   const h = await harness(t, { controls: true, reducedMotion: true });
   await h.enterOrrery();
+  h.input("orrerySolarMode", "visible", "change");
   const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
   for (const enabled of [false, true]) {
     const first = h.uniformDraws.length;

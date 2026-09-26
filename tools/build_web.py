@@ -57,6 +57,7 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     "planetPhenomena.js", "planetPhenomenaManifest.js", "solarAssetLoader.js", "physicalRendering.js",
     "illustrativeHaze.js", "illustrativeAppearance.js", "illustrativeAssetManifest.js",
     "earthLook.js", "earthLookClouds.js", "earthLookShaders.js", "earthOceanMask.js",
+    "sunLook.js", "sunLookRenderer.js", "sunLookShaders.js", "sunLookRecipe.js",
     # render.js decides how an observed solar frame reaches the canvas: drawObservedBase()
     # chooses between a registered photospheric disk and a whole browse frame, and owns the
     # clip and limb treatment that go with each. That is observation rendering, so its hash

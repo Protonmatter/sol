@@ -43,3 +43,5 @@ documentation. A superseded RFC links its replacement.
 
 CI validates metadata, required sections, status vocabulary, and referenced requirement IDs.
 
+
+- [RFC 0010: Approved Sun Surface Lab v2](0010-approved-sun-look.md) — Draft integration; owner-approved visual reference, 1K default and 2K/4K controls.

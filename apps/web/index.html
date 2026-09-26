@@ -63,6 +63,10 @@
     <link rel="modulepreload" href="js/planetPhenomena.js">
     <link rel="modulepreload" href="js/planetPhenomenaManifest.js">
     <link rel="modulepreload" href="js/solarAppearance.js">
+    <link rel="modulepreload" href="js/sunLook.js">
+    <link rel="modulepreload" href="js/sunLookRenderer.js">
+    <link rel="modulepreload" href="js/sunLookShaders.js">
+    <link rel="modulepreload" href="js/sunLookRecipe.js">
     <link rel="modulepreload" href="js/solarAppearanceManifest.js">
     <link rel="modulepreload" href="js/solarAssetLoader.js">
     <link rel="modulepreload" href="js/solarVolumeShaders.js">
@@ -282,12 +286,22 @@
           <div id="orreryPlanetPhenomena" hidden></div>
           <div id="orrerySolarControls" class="physical-source-controls" hidden>
             <label for="orrerySolarMode">See the Sun in</label>
-            <select id="orrerySolarMode" class="sky-input"><option value="reconstructed-euv">AIA 171 Å + modeled corona</option><option value="visible">Visible-light approximation</option></select>
-            <p>Two NASA/SDO source frames, 10 May 2024. The observed face uses those frames, shown brighter than the source frame so the star stays luminous. Three tilted arch pairs drift with a compressed differential-rotation clock (one displayed second stands for two solar hours), and one pair periodically opens into a front. That is an educational display, not fluid dynamics, a magnetogram, or a measured CME. Visible light instead shows convective cells and spot groups on the same clock. The unobserved EUV disk keeps the observed radial brightness.</p>
+            <select id="orrerySolarMode" class="sky-input"><option value="illustrative" selected>Illustrative Sun · approved look</option><option value="reconstructed-euv">AIA 171 Å + modeled corona</option><option value="visible">Visible-light approximation</option></select>
+            <div id="orrerySunLookControls">
+              <label for="orrerySunResolution">Sun rendering resolution</label>
+              <select id="orrerySunResolution" class="sky-input"><option value="1024" selected>1K · default</option><option value="2048">2K</option><option value="4096">4K</option></select>
+              <label><input id="orrerySunProminences" type="checkbox"> Optional moving prominences</label>
+              <div class="physical-source-actions"><button id="orrerySunLookPlay" type="button" class="time-btn" aria-pressed="true">Pause Sun</button><button id="orrerySunLookRestart" type="button" class="time-btn">Restart / retry Sun</button></div>
+              <p id="orrerySunLookStatus" role="status">Illustrative Sun Surface Lab v2 · 1K. Procedural appearance, not observed imagery. Sun evolution is independent of orbital time.</p>
+              <p>1K, 2K and 4K select the actual Sun render target. Higher resolutions cost more GPU memory and time. Prominences are optional and start hidden. Reduced motion holds surface evolution.</p>
+            </div>
+            <div id="orrerySolarArchiveControls" hidden>
+            <p>Two NASA/SDO source frames, 10 May 2024. Assigned EUV gold and modeled elevated emission; not a fluid-dynamics or magnetic-field solution. The unobserved hemisphere keeps the observed radial brightness. This source playback remains separate from the illustrative look and orbital time.</p>
             <div class="physical-source-actions"><button id="orrerySolarPlay" type="button" class="time-btn" aria-pressed="false">Play source</button><button id="orrerySolarRestart" type="button" class="time-btn">Restart / retry</button></div>
             <label for="orrerySolarTime">Source interval · independent of system time</label>
             <input id="orrerySolarTime" type="range" min="0" max="20" step="0.05" value="0">
             <output id="orrerySolarEpoch" for="orrerySolarTime"></output>
+            </div>
           </div>
           <details id="destinationAppearance" class="destination-preview" hidden>
             <summary>Imagery sources &amp; coverage</summary>
@@ -460,7 +474,7 @@
                       <option value="source-qualified">Source-qualified</option>
                     </select>
                   </label>
-                  <p id="orreryPlanetLookHelp" class="time-frame-label">Illustrative look adds artistic maps for Mercury, Venus, Mars, Jupiter, Saturn, Uranus and Neptune. It replaces their registered surfaces, except Venus with Magellan radar on: the radar mosaic stays the ground and the artistic atmosphere is drawn above it. Colors and coverage are reconstructed. Earth uses the latest Look Lab style: NASA July 2004 land, 2002 clouds, 2016 night lights and illustrative cloud depth. Daily satellite swaths, sea ice and HDR retain the Source-qualified Earth path. Sun and moons keep their existing views. Maps: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener noreferrer">Solar System Scope / INOVE</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Earth: <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/" target="_blank" rel="noopener noreferrer">NASA Earth Observatory</a>.</p>
+                  <p id="orreryPlanetLookHelp" class="time-frame-label">Illustrative look adds artistic maps for Mercury, Venus, Mars, Jupiter, Saturn, Uranus and Neptune. It replaces their registered surfaces, except Venus with Magellan radar on: the radar mosaic stays the ground and the artistic atmosphere is drawn above it. Colors and coverage are reconstructed. Earth uses the latest Look Lab style: NASA July 2004 land, 2002 clouds, 2016 night lights and illustrative cloud depth. Daily satellite swaths, sea ice and HDR retain the Source-qualified Earth path. The Sun has its own Illustrative, AIA and visible-light selector; moons keep their existing views. Maps: <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener noreferrer">Solar System Scope / INOVE</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Earth: <a href="https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/" target="_blank" rel="noopener noreferrer">NASA Earth Observatory</a>.</p>
                   <p id="orreryScaleStatus" class="time-frame-label">Enlarged for visibility — body sizes and moon spacing are exaggerated.</p>
                 </div>
               </details>

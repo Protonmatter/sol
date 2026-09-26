@@ -538,6 +538,28 @@
       "ci_gates": [
         "CI / Web, provider, and browser validation"
       ]
+    },
+    {
+      "id": "SOL-VIS-011",
+      "status": "planned",
+      "statement": "Solar System MUST default to the approved illustrative Sun at 1K with selectable 2K and 4K, preserve the approved surface and wisps, keep prominences optional and preserve physical state and reference modes with bounded resources.",
+      "source": "docs/rfcs/0010-approved-sun-look.md#requirements",
+      "implementation": [
+        "apps/web/js/sunLook.js",
+        "apps/web/js/sunLookRecipe.js",
+        "apps/web/js/sunLookShaders.js",
+        "apps/web/js/sunLookRenderer.js",
+        "apps/web/js/orrery.js"
+      ],
+      "verification": [
+        "tests/web/sunLook.test.mjs",
+        "tests/python/test_sun_look_extraction.py",
+        "tools/sun_look_probe.mjs",
+        "tools/browser_validation.mjs"
+      ],
+      "ci_gates": [
+        "CI / Web, provider, and browser validation"
+      ]
     }
   ]
 }

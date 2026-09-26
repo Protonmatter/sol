@@ -1,0 +1,117 @@
+{
+  "scope": "PR 121 corona-clearance and disabled-detail fixes; local qualification, not merge or deployment. The starting head is lineage for the edited tree, which is identified by the source hashes.",
+  "starting_head": "b02f8445dc6f9b213a2a28bbe375f5729e4bc852",
+  "source_sha256_lf": {
+    "apps/web/js/orrery.js": "0d936626d939695f1ea8d3d6e05122c728b932aa4ea9fb93d4ae3024d86fb490",
+    "apps/web/js/sunLook.js": "25268dc56f4601994f19bec41202f20b5836793ad2ec9997b8220f4da47d7433",
+    "tests/web/sunLookClearance.test.mjs": "297b1d987b10d26f26b207e0c640c2ccceb4fd2ba454be07a1543c418078bddc",
+    "tests/web/sunLook.test.mjs": "2fed6e11d8d34faac01fb14770ac1a206468e6e35d320117437ce568aa175825"
+  },
+  "checks": {
+    "node_tests": 1374,
+    "python_tests": 409,
+    "web_typecheck_files": 122,
+    "native_browser": "passed",
+    "swiftshader_browser": "passed",
+    "staged_smoke": "passed",
+    "combined_runtime_line_coverage_percent": 97.46,
+    "static_docs_ux_sdlc_body_constants": "passed"
+  },
+  "regressions": {
+    "held_pair_distances_au": [
+      0.307,
+      0.387,
+      0.467
+    ],
+    "exaggeration_factors": [
+      1,
+      10
+    ],
+    "observations": [
+      "Actual submitted Sun/Mercury radii obey the 0.95 clearance factor for the 2.1-radius envelope.",
+      "Paused appearance and Texture layers toggles refresh cached sizing and restore the reference envelope.",
+      "Physical-scale radii, positions and epoch are preserved.",
+      "All three Sun disclosures distinguish disabled textures from enabled distance deferral."
+    ]
+  },
+  "native": {
+    "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "epoch_and_positions_unchanged": true,
+    "passed": true,
+    "errors": [],
+    "warnings": [],
+    "cases": [
+      {
+        "label": "visible",
+        "solarMode": "visible",
+        "textures": true,
+        "physical": false,
+        "sunRadius": 0.19999999555744657,
+        "mercuryRadius": 0.04499999958462467,
+        "distance": 0.4666751922693361,
+        "error": 0,
+        "extent_ratio": 1.35,
+        "envelope_sum_au": 0.31499999358717756,
+        "clearance_limit_au": 0.4433414326558693
+      },
+      {
+        "label": "illustrative",
+        "solarMode": "illustrative",
+        "textures": true,
+        "physical": false,
+        "sunRadius": 0.19070556989221113,
+        "mercuryRadius": 0.04285974499288613,
+        "distance": 0.4666751922693361,
+        "error": 0,
+        "extent_ratio": 2.1,
+        "envelope_sum_au": 0.4433414417665295,
+        "clearance_limit_au": 0.4433414326558693
+      },
+      {
+        "label": "textures-off",
+        "solarMode": "illustrative",
+        "textures": false,
+        "physical": false,
+        "sunRadius": 0.19999999555744657,
+        "mercuryRadius": 0.04499999958462467,
+        "distance": 0.4666751922693361,
+        "error": 0,
+        "extent_ratio": 1.35,
+        "envelope_sum_au": 0.31499999358717756,
+        "clearance_limit_au": 0.4433414326558693
+      },
+      {
+        "label": "textures-on",
+        "solarMode": "illustrative",
+        "textures": true,
+        "physical": false,
+        "sunRadius": 0.19070556989221113,
+        "mercuryRadius": 0.04285974499288613,
+        "distance": 0.4666751922693361,
+        "error": 0,
+        "extent_ratio": 2.1,
+        "envelope_sum_au": 0.4433414417665295,
+        "clearance_limit_au": 0.4433414326558693
+      },
+      {
+        "label": "visible-restored",
+        "solarMode": "visible",
+        "textures": true,
+        "physical": false,
+        "sunRadius": 0.19999999555744657,
+        "mercuryRadius": 0.04499999958462467,
+        "distance": 0.4666751922693361,
+        "error": 0,
+        "extent_ratio": 1.35,
+        "envelope_sum_au": 0.31499999358717756,
+        "clearance_limit_au": 0.4433414326558693
+      }
+    ],
+    "capture_sha256": "81d373fb278435489d1b4e7705759a9fbc0a71c9aeb29aa64fe5cd89ac11f799"
+  },
+  "limitations": [
+    "Clearance separates displayed volumes in 3-D; a legitimate line-of-sight transit can still overlap in the image.",
+    "The software browser suite passed its assertions, then used the existing bounded forced-close fallback during cleanup.",
+    "Physical-mobile and sustained cross-device performance remain unqualified."
+  ]
+}

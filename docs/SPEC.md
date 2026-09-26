@@ -38,7 +38,11 @@ remains selectable; the artistic maps carry no geographic, color or observation 
 Measured terrain stays suspended for the whole time Illustrative look is selected,
 including loading, failure, and eviction, not only while an artistic map is shown.
 Venus with Magellan radar keeps that registered ground and draws the artistic
-atmosphere above it. Sun and moons retain their existing materials. Earth now follows
+atmosphere above it. Moons retain their existing materials. The Solar System Sun follows
+[RFC 0010](rfcs/0010-approved-sun-look.md): the approved illustrative v2 recipe
+defaults to a 1K render target with 2K/4K options, separate motion controls and
+optional prominences off. Existing AIA and visible-light modes remain available;
+this display recipe does not modify the Sun observation/research workspace. Earth now follows
 [RFC 0009](rfcs/0009-sites-earth-v7.md): Illustrative look uses the recovered Sites v7
 July 2004 surface, selective ocean grading, 1.6 display exposure, cloud volume and
 local cloud shading. The volume's height/density and 35-percent relative display

@@ -586,7 +586,9 @@ test('leaving cancels only pending mapped images and reentry rejects their queue
     assert.equal(h.state.appearanceStatus[asset.id],'deferred');
   }
   assert.equal(h.state.appearanceStatus[ready.asset.id],'ready');
-  assert.equal(h.deletedTextures.length,releases,'ready textures stay in the bounded cache');
+  const released=h.deletedTextures.slice(releases);
+  assert.ok(h.textureRecords.filter(record=>record.args.length===6).every(record=>!released.includes(record.texture)),
+    'ready mapped textures stay cached; separate Sun render targets may be released');
   for(const callback of late){callback.load();callback.error();}
   assert.equal(h.textureRecords.length,uploads,'departed callbacks cannot upload');
   await h.enterOrrery();

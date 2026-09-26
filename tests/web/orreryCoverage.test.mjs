@@ -19,7 +19,7 @@ function assertOnlyRegisteredImages(h) {
 test('ready Sun writes only photosphere depth, then composites emission in front of distant and behind nearer rings',async t=>{
   const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true,solarAtlas:true});
   await h.enterOrrery();await h.settleCatalogues();
-  h.event('orreryInspectSun','click');await h.settleCatalogues();
+  h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');await h.settleCatalogues();
   assert.equal(h.state.solarStatus,'ready');
   h.input('orreryAnchor','Sun','change');
   const saturn=h.state.bodies.find(b=>b.name==='Saturn'),p=[saturn.x_au,saturn.y_au,saturn.z_au];
@@ -39,12 +39,12 @@ test('ready Sun writes only photosphere depth, then composites emission in front
     assert.equal(draws.indexOf(ring)>corona,side===1,'near ring attenuates emission; far ring remains behind it');
     assert.ok(!draws.some(draw=>draw.uniforms.u_mode===1),'no fallback sphere may cover the source');
   }
-  h.check('orreryTopDown',true);h.check('orreryFreeFly',true);h.event('orreryInspectSun','click');
+  h.check('orreryTopDown',true);h.check('orreryFreeFly',true);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');
   assert.equal(h.state.topDown,false,'inspection must use the source-facing orbit camera');
   assert.equal(h.nodes.orreryTopDown.checked,false,'the top-down control agrees with the camera');
   assert.equal(h.state.freeFly,false);assert.equal(h.nodes.orreryFreeFly.checked,false);
   for(const [width,height] of [[800,600],[320,540]]){
-    h.resize(width,height);h.event('orreryInspectSun','click');
+    h.resize(width,height);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');
     const solar=h.gpuDraws.findLast(draw=>draw.uniforms.u_pass===1).uniforms;
     const occupied=solar.u_extent/Math.sqrt(Math.hypot(...solar.u_camObj)**2-solar.u_extent**2)/(Math.tan(21*Math.PI/180)*Math.min(1,width/height));
     assert.ok(occupied>.9&&occupied<.97,`source inspection fills ${occupied} without clipping the corona envelope`);
@@ -69,7 +69,7 @@ test('deferred atmospheric halos rebind their own body lighting and normals afte
 test('Sun inspection omits surrounding bodies and restores the overview without moving physical state',async t=>{
   const h=await orreryHarness(t,{controls:true,catalogues:'ready',reducedMotion:true});await h.enterOrrery();await h.settleCatalogues();
   const identity=JSON.stringify([h.state.renderUnix,h.state.bodies]),guides=h.state.showOrbits;
-  let from=h.gpuDraws.length;h.event('orreryInspectSun','click');
+  h.input('orrerySolarMode','reconstructed-euv','change');let from=h.gpuDraws.length;h.event('orreryInspectSun','click');
   const draws=h.gpuDraws.slice(from).filter(({uniforms:u})=>u.u_mode===0||u.u_mode===1);
   assert.equal(h.state.solarInspection,true);assert.ok(h.state.radius<2);assert.equal(draws.length,1);
   assert.equal(draws[0].uniforms.u_mode,1);assert.equal(h.state.showOrbits,guides);
@@ -82,7 +82,7 @@ test('Sun inspection omits surrounding bodies and restores the overview without 
     .filter(node=>node.style.display==='block').map(node=>node.textContent));
   assert.ok(overviewLabels.has('Mercury'),'Mercury keeps a readable overview label');
   assert.ok(overviewLabels.has('Venus'),'Venus keeps a readable overview label');
-  h.event('orreryInspectSun','click');h.input('orreryAnchor','Earth','change');assert.equal(h.state.solarInspection,false);
+  h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');h.input('orreryAnchor','Earth','change');assert.equal(h.state.solarInspection,false);
   assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),identity);assert.deepEqual(h.errors,[]);
 });
 

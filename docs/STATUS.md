@@ -97,3 +97,7 @@ meridional circulation is not implemented, and no operational warning, navigatio
 mission-safety use is supported. Research/learning intent does not itself establish a
 qualified release. See [SPEC](SPEC.md), [validation](VALIDATION_PLAN.md) and
 [RFC alignment](RFC_ALIGNMENT.md).
+
+## Approved Sun integration candidate
+
+The owner-approved Sun Surface Lab v2 is integrated in a PR candidate with a 1K default, 2K/4K controls, optional prominences off and a 4K README reference capture. It preserves the separate AIA and visible modes. See [RFC 0010](rfcs/0010-approved-sun-look.md). This entry does not establish merge, deployment, or physical mobile qualification.

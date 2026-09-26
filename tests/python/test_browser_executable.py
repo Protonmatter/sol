@@ -168,6 +168,14 @@ for(const stage of ['new-page','setup','cdp','goto','readiness','observation-rea
             browser_smoke.assert_no_runtime_failure("<body></body>",
                 "Smoke readiness failed: Runtime.callFunctionOn timed out", "Solar System")
 
+    def test_runtime_timeout_reports_the_existing_fixture_phase_and_readiness_markers(self):
+        dom = '<body data-smoke-sim="phase=ready" data-smoke-moon-rows="22" data-smoke-moon-knots="0"><main></main></body>'
+        with self.assertRaises(AssertionError) as caught:
+            browser_smoke.assert_no_runtime_failure(dom, "Smoke readiness failed: Waiting failed: 45000ms exceeded", "Solar System")
+        self.assertIn('data-smoke-sim="phase=ready"', str(caught.exception))
+        self.assertIn('data-smoke-moon-knots="0"', str(caught.exception))
+        self.assertNotIn('<main>', str(caught.exception))
+
     def test_system_readiness_requires_lifecycle_and_actual_loaded_moon_knots(self):
         predicate = browser_smoke.MOON_READINESS_JS
         script = f"""
@@ -196,7 +204,7 @@ assert.equal(ready(input),false,'empty knots are not loaded');
                 browser_smoke.capture_screenshot("browser", "http://127.0.0.1/fixture")
 
     def test_deterministic_system_failure_is_not_retried_or_screenshotted(self):
-        def captured(_browser, url):
+        def captured(_browser, url, **_kwargs):
             if "__smoke_orrery" in url:
                 return '<body data-smoke-ready="yes"></body>', ""
             if "#sky=" in url:
@@ -208,14 +216,14 @@ assert.equal(ready(input),false,'empty knots are not loaded');
             self.assertEqual(dump.call_count, 3, "one bounded condition wait per surface; no retry hides a failure")
             screenshot.assert_not_called()
 
-    def test_each_of_the_eleven_system_markers_is_still_mandatory(self):
+    def test_each_of_the_twelve_system_markers_is_still_mandatory(self):
         markers = [f'data-smoke-{name}="yes"' for name in (
-            "mode", "ready", "default-speed", "sun-detail", "speed", "paused",
+            "mode", "ready", "default-speed", "sun-detail", "speed", "paused", "sun-paused",
             "aliasing", "reset", "validity", "done")]
         markers.append('data-smoke-moon-rows="22"')
         for absent in markers:
             with self.subTest(absent=absent):
-                def captured(_browser, url):
+                def captured(_browser, url, **_kwargs):
                     if "__smoke_orrery" in url:
                         return "<body " + " ".join(m for m in markers if m != absent) + "></body>", ""
                     if "#sky=" in url:
@@ -225,6 +233,31 @@ assert.equal(ready(input),false,'empty knots are not loaded');
                     with self.assertRaisesRegex(AssertionError, absent):
                         browser_smoke.run_smoke("http://127.0.0.1", "browser")
                     screenshot.assert_not_called()
+
+    def test_system_screenshot_is_from_the_same_capture_as_its_assertions(self):
+        markers = [f'data-smoke-{name}="yes"' for name in (
+            "mode", "ready", "default-speed", "sun-detail", "speed", "paused", "sun-paused",
+            "aliasing", "reset", "validity", "done")]
+        markers.append('data-smoke-moon-rows="22"')
+        system = '<body ' + ' '.join(markers) + '></body>'
+        calls = []
+        def capture(command, **_kwargs):
+            url = command[3]
+            calls.append(url)
+            if '__smoke_orrery' in url:
+                self.assertEqual(len(command), 5, 'the assertion capture must request its own screenshot')
+                self.assertEqual(calls.count(url), 1, 'a second cold renderer cannot substitute for the validated scene')
+                png = b'\x89PNG\r\n\x1a\n' + bytes(8) + (1280).to_bytes(4, 'big') + (900).to_bytes(4, 'big') + bytes(20000)
+                Path(command[4]).write_bytes(png)
+                dom = system
+            elif '#sky=' in url:
+                dom = '<button data-mode="sky" aria-pressed="true"></button><div id="skyList" class="sky-row">device civil timezone, not observer timezone</div>'
+            else:
+                dom = READY_SUN
+            return subprocess.CompletedProcess([], 0, json.dumps({'dom':dom, 'observationDom':'<body data-experience="observe"><img id="observationImage"></body>', 'stderr':''}), '')
+        with patch.object(browser_smoke.subprocess, 'run', side_effect=capture):
+            browser_smoke.run_smoke('http://127.0.0.1', 'browser')
+        self.assertEqual(len(calls), 3)
 
     def test_driver_rejects_nonfixture_and_credential_urls_before_launch(self):
         for url in ("https://127.0.0.1/", "http://example.invalid/", "file:///tmp/index.html", "http://fixture:dummy@127.0.0.1/"):
