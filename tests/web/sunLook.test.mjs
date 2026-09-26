@@ -17,6 +17,7 @@ test('perspective rays and body rotation preserve center ray and handedness',()=
  const invisible=planSunLook({...a,position:[1000,0,0]});assert.equal(invisible,null);
  assert.match(sunLookDescription({sunLookResolution:2048,sunLookStatus:'ready'}),/2K/);
  assert.match(sunLookDescription({sunLookStatus:'unavailable'}),/simplified visible Sun retained/);
+ assert.match(sunLookDescription({}),/v2 \u00b7 1K/,'appearance label retains readable Unicode across Windows extraction');
 });
 const sunDraws=h=>h.gpuSubmissions.filter(d=>d.uniforms.u_scene!==undefined&&d.uniforms.u_mvp);
 test('default approved Sun renders at 1K; detail controls preserve engine time and camera',async t=>{

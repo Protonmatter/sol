@@ -18,7 +18,7 @@
     "native_pending_disposal": "three loading shader sets retired with zero graphics errors and no GL_INVALID warnings"
   },
   "runtime_source_sha256_lf": {
-    "apps/web/js/sunLook.js": "f69d3d44c5717c5d6b851e179f1e731ad7feca87132af7cb9666b3e6802ae1b7",
+    "apps/web/js/sunLook.js": "f3d92179aa3285acba05741ee0b617b18e3fd91cd70d0ecc749f43430a9d5940",
     "apps/web/js/sunLookRecipe.js": "26ae3dbfc45094687013207fa9a0c072881eb6769ed48317a514fa95428767a6",
     "apps/web/js/sunLookShaders.js": "fae2505102dd4750f8ccb82a0d0d6f49f2092c98986231f0932743d11b176bcb",
     "apps/web/js/sunLookRenderer.js": "7fd836673bbc2e92fb88dc099ff0483a451c52d116659e2a43e8c91dc3b93b0b",
@@ -161,6 +161,7 @@
     "Runtime source hashes use repository LF normalization from .gitattributes.",
     "4K README image is the approved standalone render, not a deployed screenshot.",
     "AIA and visible-light checks explicitly select their retained modes.",
-    "One shader set is retained per context; high-resolution targets are released when demand is withdrawn."
+    "One shader set is retained per context; high-resolution targets are released when demand is withdrawn.",
+    "Follow-up corrects label encoding only; shader/renderer source hashes and image bytes are unchanged."
   ]
 }
