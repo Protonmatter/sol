@@ -8,7 +8,7 @@ import { INCIDENT_FIELD_GLSL } from './atmosphereIncident.js';
 import { TERRAIN_SHADOW_GLSL } from './terrainShadowShaders.js';
 import { DISPLAY_COMPOSITION_GLSL } from './materialColor.js';
 import { RING_TRANSPORT_GLSL } from './ringTransportShaders.js';
-import { VENUS_ATMOSPHERE_SHELL_GLSL } from './illustrativeAppearance.js';
+import { VENUS_ATMOSPHERE_SHELL_GLSL, SATURN_LOOK_GLSL } from './illustrativeAppearance.js';
 
 const NOISE = `
 float h31(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
@@ -80,6 +80,7 @@ uniform int u_textureLinear;
 // photo path, so those samples stay encoded. An illustrative sample is decoded once
 // immediately and then treated as display-linear so later stages do not decode it again.
 uniform int u_illustrativeLinear;
+${SATURN_LOOK_GLSL}
 uniform vec3 u_hazeRayleighTau; uniform vec3 u_hazeAerosol;
 // Illustrative atmospheric haze for the distant, non-physical path. See
 // atmosphereOptics.js for the profile columns and the cited closed forms.
@@ -351,7 +352,10 @@ ${VENUS_ATMOSPHERE_SHELL_GLSL}
     }
     col=u_base*mix(vec3(1.0),material,referenceCoverage(referenceGridValue,mapped));
   }
-  else if(u_useTex==1&&u_texMode==0){ col=texture(u_tex,vec2(uu,vv)).rgb; if(u_illustrativeLinear==1) col=decodeSRGB(col); }
+  else if(u_useTex==1&&u_texMode==0){
+    col=texture(u_tex,vec2(uu,vv)).rgb;
+    if(u_illustrativeLinear==1) col=u_saturnLook==1 ? pow(col,vec3(2.2)) : decodeSRGB(col);
+  }
   else if(u_useTex==1&&u_texMode==2){ // real USGS moon mosaic
     // The mosaic is a browse rendering: contrast-stretched per product, single-band, with no
     // absolute photometry — Callisto's mean sits at 0.18 and Europa's at 0.57 for reasons of
@@ -504,6 +508,7 @@ ${VENUS_ATMOSPHERE_SHELL_GLSL}
   // atmosphere scatters into it, which is why Io's shadow reads as very dark grey rather than
   // as a hole in the planet.
   float shade=reference ? 0.001+0.999*lambert*sunVis : 0.05+0.95*lambert*sunVis;
+  if(u_saturnLook==1) shade=0.018+0.95*lambert*sunVis;
   if(u_atmosphereEnabled==1){
     // Direct reflected sunlight sees the incident atmospheric column. The
     // single-scattering mode has no invented diffuse-ambient weather term.
@@ -553,6 +558,12 @@ ${VENUS_ATMOSPHERE_SHELL_GLSL}
     vec3 path=hazeOverSurface(surface,N,V,normalize(u_light),sunVis);
     col=displayLinear ? surface+path : encodeSRGB(surface+path);
     displayLimb=vec3(0);
+  }
+  if(u_saturnLook==1){
+    // Apply the lab's display curve exactly once, including when the scene uses
+    // a linear intermediate target. Geometric illumination and shadows stay intact.
+    o=vec4(displayOutput(saturnLookTone(col+displayToLinear(displayLimb))),1.0);
+    return;
   }
   if(u_linearOutput==1){
     // Reference/transport terms are already linear. The historical moon and
@@ -621,7 +632,7 @@ export function physicalEnabledSource(source) {
   const rewrites=[
     ['  if(u_atmosphereEnabled==1&&!displayLinear) col=decodeSRGB(col);','  if(!displayLinear) col=decodeSRGB(col);'],
     ['  bool refracted=u_atmosphereEnabled==1&&u_atmosphereRefractionEnabled==1;','  bool refracted=u_atmosphereRefractionEnabled==1;'],
-    ['  float shade=reference ? 0.001+0.999*lambert*sunVis : 0.05+0.95*lambert*sunVis;\n  if(u_atmosphereEnabled==1){\n    // Direct reflected sunlight sees the incident atmospheric column. The\n    // single-scattering mode has no invented diffuse-ambient weather term.\n    col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n      *u_atmosphereSolarScale*u_atmosphereExposure;\n  } else col*=shade;',
+    ['  float shade=reference ? 0.001+0.999*lambert*sunVis : 0.05+0.95*lambert*sunVis;\n  if(u_saturnLook==1) shade=0.018+0.95*lambert*sunVis;\n  if(u_atmosphereEnabled==1){\n    // Direct reflected sunlight sees the incident atmospheric column. The\n    // single-scattering mode has no invented diffuse-ambient weather term.\n    col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n      *u_atmosphereSolarScale*u_atmosphereExposure;\n  } else col*=shade;',
       '  // Direct reflected sunlight sees the incident atmospheric column. The\n  // single-scattering mode has no invented diffuse-ambient weather term.\n  col*=lambert*sunVis*(refracted ? v_incidentTransmission : atmosphereSunTransmission(surfaceBodyKm))\n    *u_atmosphereSolarScale*u_atmosphereExposure;'],
     ['  if(u_atmosphereEnabled==1) col=atmosphereSurfaceColor(','  col=atmosphereSurfaceColor('],
     ['  if(u_atmosphereEnabled==0)return vec3(0);\n',''],

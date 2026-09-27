@@ -20,7 +20,7 @@ import { linearFilterReference } from './materialColor.js';
 import { createHdrPresentation } from './hdrPresentation.js';
 import { srgbToLinear } from './surfaceMapping.js';
 import { appearanceReference, appearanceReferences, appearanceUniforms, appearanceFallbackColor, earthLayerDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
-import {ILLUSTRATIVE_ASSETS,MAX_ILLUSTRATIVE_TEXTURES,illustrativeSelected,illustrativeReplacesSurface,venusAtmosphereOverlay,venusAtmosphereShellScale,planIllustrativeDemand,decodeIllustrativeMap} from './illustrativeAppearance.js';
+import {ILLUSTRATIVE_ASSETS,MAX_ILLUSTRATIVE_TEXTURES,illustrativeSelected,illustrativeReplacesSurface,venusAtmosphereOverlay,venusAtmosphereShellScale,planIllustrativeDemand,decodeIllustrativeMap,saturnLookLight} from './illustrativeAppearance.js';
 import {EARTH_LOOK_ASSET,EARTH_LOOK_EXPOSURE,earthLookSelected,earthLookDescription,advanceSolEarthCloudPhase,uploadEarthOceanMask} from './earthLook.js';
 import {EARTH_LOOK_VS,EARTH_LOOK_FS} from './earthLookShaders.js';
 import { referencePixelDiameter, planReferenceDemand, MAX_REFERENCE_TEXTURES, MAX_REFERENCE_REQUESTS } from "./referenceDemand.js";
@@ -166,6 +166,7 @@ const state = (store.orrery = {
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite', venusRadar: false,
   appearanceStatus: {}, planetLook: 'illustrative', illustrativeStatus: {},
+  saturnLighting: 'look-lab',
   illustrativeDemandBodies: /** @type {string[]} */ ([]),
   illustrativeVisibleFocused: /** @type {string[]} */ ([]),
   earthLookStatus: 'deferred', earthLookPhase: 0,
@@ -414,6 +415,10 @@ function bindBodyMesh(mesh=sphere) {
 
 function updatePhysicalAppearance() {
   const body=state.active&&!state.galaxy&&!state.selectedStar?(state.selected||state.anchor):'',notes=[];
+  const saturnControls=document.getElementById('orrerySaturnControls');
+  if(saturnControls)saturnControls.hidden=body!=='Saturn'||!illustrativeSelected('Saturn',state);
+  const saturnLighting=/** @type {HTMLSelectElement|null} */(document.getElementById('orrerySaturnLighting'));
+  if(saturnLighting)saturnLighting.value=state.saturnLighting;
   const galleryBody=body,opticalBody=opticalSubject();
   const host=document.getElementById('orreryPlanetPhenomena');
   if(host&&phenomenonBody!==galleryBody){disposePhenomena();phenomenonBody=galleryBody;disposePhenomena=renderPlanetPhenomena(host,galleryBody);}
@@ -1021,7 +1026,7 @@ function finishGL(){
   P.glowU = uloc(P.glow, ["u_vp", "u_center", "u_right", "u_up", "u_size", "u_color", "u_pow"]);
   Object.assign(P.sphereU,uloc(P.sphere,[...ATMOSPHERE_UNIFORMS,...INCIDENT_FIELD_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_bodyRadiusKm','u_terrainHeight','u_terrainShadowEnabled','u_terrainShape','u_terrainPoles']));
   P.solarU=uloc(P.solar,['u_mvp','u_camObj','u_pass','u_extent','u_atlas','u_quiet','u_frameMix','u_phase','u_displayGain','u_coronaGlow','u_cmeProgress','u_cmeAxis','u_sourceBasis0','u_sourceBasis1','u_projection0','u_projection1','u_observerRadii','u_loopNormal[0]','u_loopTangent[0]','u_loopGain[0]']);
-  Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear','u_illustrativeLinear']));
+  Object.assign(P.sphereU,uloc(P.sphere,['u_textureLinear','u_illustrativeLinear','u_saturnLook']));
   for(const name of ['sphere','line','ring','pt','glow','solar'])
     Object.assign(P[`${name}U`],uloc(P[name],['u_linearOutput']));
 
@@ -2170,7 +2175,9 @@ function drawBody(b, vp, eye) {
   const rot = iauRotation(phys, rotUnix);
   const model = mul(translate(pos), mul(rot, scaleM([rEq, rEq, rPol])));
   const mvp = mul(vp, model);
-  const light = b.name === "Sun" ? [0, 0, 1] : norm([-b.x_au, -b.y_au, -b.z_au]);
+  const inspectionLight=b.name==='Saturn'&&state.saturnLighting==='look-lab'
+    &&illustrativeSelected(b.name,state)&&illustrativeDetails?.get(b.name)?saturnLookLight(eye,pos):null;
+  const light = inspectionLight || (b.name === "Sun" ? [0, 0, 1] : norm([-b.x_au, -b.y_au, -b.z_au]));
   const lightObj=[dot(rot.slice(0,3),light),dot(rot.slice(4,7),light),dot(rot.slice(8,11),light)];
   if(b.name==='Earth'&&drawEarthLook(pos,rEq,rPol,rot,vp,eye,lightObj,pixelDiameter)){
     drawMoons(b.name,pos,rEq,vp,eye,drawnMoonsFor(b.name,pos,rEq,eye));return;
@@ -2269,6 +2276,7 @@ function drawBody(b, vp, eye) {
   // or Earth layers. The flag is 1 only for this draw's bound artistic map and is
   // cleared on every other sphere draw, including moons that reuse the program.
   gl.uniform1i(sphereUniforms.u_illustrativeLinear, illustrativeTex ? 1 : 0);
+  gl.uniform1i(sphereUniforms.u_saturnLook, illustrativeTex && b.name==='Saturn' ? 1 : 0);
   gl.uniform1i(sphereUniforms.u_textureLinear, referenceTex?.linearFilter ? 1 : 0);
   if (referenceTex) {
     const uniforms = appearanceUniforms(reference);
@@ -2295,7 +2303,8 @@ function drawBody(b, vp, eye) {
   // Transit shadows. count is 0 on all but a handful of frames per decade, and the shader skips
   // the whole block then — but the arrays are still uploaded so a stale caster from the previous
   // planet can never be read if the count is ever raised without them.
-  gl.uniform1i(sphereUniforms.u_moonShadowCount, shadows.count);
+  // Real-Sun moon transits do not describe a camera-lit inspection material.
+  gl.uniform1i(sphereUniforms.u_moonShadowCount, inspectionLight ? 0 : shadows.count);
   gl.uniform4fv(sphereUniforms["u_moonShadowPos[0]"], shadows.pos);
   gl.uniform4fv(sphereUniforms["u_moonShadowAxis[0]"], shadows.axis);
   gl.activeTexture(gl.TEXTURE1);
@@ -2353,6 +2362,7 @@ function drawBody(b, vp, eye) {
       // This callback runs after other bodies/moons: bind every uniform used by mode 2.
       gl.useProgram(P.sphere);setAtmosphereUniforms(gl,P.sphereU,null,opticalOptions);
       gl.uniform1i(P.sphereU.u_illustrativeLinear, 0);
+      gl.uniform1i(P.sphereU.u_saturnLook, 0);
       gl.uniformMatrix4fv(P.sphereU.u_mvp, false, new Float32Array(mul(vp, sModel)));
       gl.uniformMatrix4fv(P.sphereU.u_model, false, new Float32Array(sModel));
       gl.uniformMatrix3fv(P.sphereU.u_nmat,false,new Float32Array(normals));
@@ -2385,7 +2395,7 @@ function drawBody(b, vp, eye) {
 
   // All opaque moons join the depth pass; transparent rings are deferred with the atmosphere.
   drawMoons(b.name, pos, rEq, vp, eye, drawn);
-  if (phys.rings) queueTransparent(pos,eye,()=>drawRing(b.name,phys,pos,rEq,rot,vp));
+  if (phys.rings) queueTransparent(pos,eye,()=>drawRing(b.name,phys,pos,rEq,rot,vp,light));
 }
 
 // A moon's drawn radius. Planets in this view are already enlarged so the small ones stay
@@ -2532,6 +2542,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
     // admitted mission RGB ratios. Both keep the neutral albedo/eclipse gain.
     gl.uniform1i(P.sphereU.u_texMode, registered ? (reference.moon_color_mode === 'source-rgb' ? 5 : 4) : legacy ? 2 : 0);
     gl.uniform1i(P.sphereU.u_illustrativeLinear, 0);
+    gl.uniform1i(P.sphereU.u_saturnLook, 0);
     if (registered) {
       const uniforms = appearanceUniforms(reference);
       gl.uniform4fv(P.sphereU.u_map, new Float32Array(uniforms.map));
@@ -2560,7 +2571,7 @@ function drawMoons(parentName, parentPos, parentDisplayAU, vp, eye, drawn) {
   }
 }
 
-function drawRing(name, phys, pos, rEq, rot, vp) {
+function drawRing(name, phys, pos, rEq, rot, vp, light) {
   if (!ringBufs[name] || ringBufs[name].rEq !== rEq) {
     const data = buildRing(phys.rings, rEq, phys.radiusKm, true);
     const buf = ringBufs[name] ? ringBufs[name].buf : gl.createBuffer();
@@ -2574,7 +2585,7 @@ function drawRing(name, phys, pos, rEq, rot, vp) {
   gl.uniformMatrix4fv(P.ringU.u_model, false, new Float32Array(model));
   // Planet-shadow inputs: world centre, unit direction toward the Sun, display radius.
   gl.uniform3fv(P.ringU.u_center, new Float32Array(pos));
-  gl.uniform3fv(P.ringU.u_light, new Float32Array(norm([-pos[0], -pos[1], -pos[2]])));
+  gl.uniform3fv(P.ringU.u_light, new Float32Array(light));
   gl.uniform1f(P.ringU.u_prad, rEq);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, useTex ? ringTex.tex : whiteTex);
   gl.uniform1i(P.ringU.u_tex, 0); gl.uniform1i(P.ringU.u_useTex, useTex ? 1 : 0);
@@ -3581,6 +3592,10 @@ async function showFallback(msg) {
     state.planetLook=inputTarget(e).value==='illustrative'?'illustrative':'source-qualified';
     resetIllustrativeResources();terrainDetails?.abortPending();
     paint();updatePhysicalAppearance();updateEarthLayerStatus();updateOrreryAccuracy();
+  });
+  bind('orrerySaturnLighting','change',e=>{
+    state.saturnLighting=inputTarget(e).value==='look-lab'?'look-lab':'sun-directed';
+    paint();updatePhysicalAppearance();updateOrreryAccuracy();
   });
   bind('orreryTerrain','change',e=>{
     retryTerrainFailures=!state.terrainEnabled&&inputTarget(e).checked;

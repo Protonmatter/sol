@@ -24,6 +24,7 @@ import { waitForReferenceReadiness } from "./reference_readiness.mjs";
 import {verifyEarthLook} from './earth_look_probe.mjs';
 import {verifySunLook} from './sun_look_probe.mjs';
 import {verifyIllustrativeLooks} from './illustrative_look_probe.mjs';
+import {verifySaturnMaterial,verifySaturnScene} from './saturn_look_probe.mjs';
 import {
   ROOT,
   WEB,
@@ -1217,6 +1218,8 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   await verifySunLook(page,visualDirectory,canvasScreenshot);
   console.log('Browser validation: illustrative Mercury and layered Venus');
   await verifyIllustrativeLooks(page,visualDirectory,canvasScreenshot);
+  fs.writeFileSync(path.join(visualDirectory,'saturn-material.json'),JSON.stringify(await verifySaturnMaterial(page),null,2)+'\n');
+  await verifySaturnScene(page,visualDirectory,canvasScreenshot);
 }
 
 function coverageLocalPath(entryUrl, webRoot, basePath = "/") {

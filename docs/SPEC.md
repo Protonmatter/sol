@@ -37,6 +37,11 @@ adds the default fresh-session artistic mode for seven planets. Source-qualified
 remains selectable; the artistic maps carry no geographic, color or observation qualification.
 Measured terrain stays suspended for the whole time Illustrative look is selected,
 including loading, failure, and eviction, not only while an artistic map is shown.
+Saturn's artistic material uses the recovered Look Lab color response. Its default
+inspection light follows the camera to reveal polar detail; Sun-directed lighting
+remains selectable without changing positions, epoch, scale or IAU orientation.
+Inspection ring shading uses the same light as the globe; real-Sun moon transit
+shadows are shown only in Sun-directed mode. Source-qualified keeps Sun lighting.
 Venus with Magellan radar keeps that registered ground and draws the artistic
 atmosphere above it. Moons retain their existing materials. The Solar System Sun follows
 [RFC 0010](rfcs/0010-approved-sun-look.md): the approved illustrative v2 recipe

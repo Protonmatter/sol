@@ -56,6 +56,34 @@ dependency or snapshot schema changes are introduced.
 
 ## UX and accessibility
 
+### Saturn color and inspection lighting correction
+
+The recovered Sites v7 Saturn renderer uses a 2.2-power image decode, a
+0.018 ambient plus 0.95 diffuse display term, and its filmic tone curve.
+The initial SOL integration copied the JPEG but omitted that material response.
+It also retained astronomical sunlight, whereas the lab used a 22-degree
+camera-relative key light. At dates when the north pole is unlit, those views
+cannot show comparable polar colors even with identical image bytes.
+
+Saturn now uses the recovered material in Illustrative look. Its body card offers
+Look Lab inspection lighting (default) and Sun-directed lighting. The inspection
+light illuminates both globe and rings consistently. It does not reuse real-Sun
+moon-transit shadows; those return with Sun-directed lighting. No positions,
+rotation, physical/display sizes or simulation time change. Other planets and
+Saturn's Source-qualified path retain their existing materials and lighting.
+Map loading/failure retains the original fallback. No texture bytes, new polar
+imagery, or synthetic weather features are added. The lab's arbitrary light does
+not establish physically correct night-side illumination or current weather.
+
+The recovered source is recorded in
+[the Sites v7 provenance](../validation/sites-earth-v7/source.json).
+`tools/saturn_look_probe.mjs` checks literal lab color samples through the real
+GPU sphere shader, including linear composition, and checks both poles at four
+viewing angles plus Sun-directed rollback. Runtime tests verify the material
+cannot leak to moons, pending maps, disabled textures or Source-qualified.
+
+### Existing appearance controls
+
 Solar System > View > Planet appearance uses a labelled native select with
 Source-qualified and Illustrative look options. An adjacent explanation includes
 credit/license links and scope. Body cards show loading/failure/ready status and
