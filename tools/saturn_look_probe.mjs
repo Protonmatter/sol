@@ -1,13 +1,24 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import {decodePng} from './visual_assertions.mjs';
+
+export function countSaturnPolarPixels(png){
+  const image=decodePng(png);
+  let count=0;
+  for(let i=0;i<image.data.length;i+=4){
+    const r=image.data[i],g=image.data[i+1],b=image.data[i+2];
+    if(g>65&&g>r+2&&b>r*.88)count++;
+  }
+  return count;
+}
 
 // Literal RGB targets evaluated from the recovered Sites v7 Saturn recipe.
 // These exercise the real compiled sphere fragment shader, not a JS substitute.
 export async function verifySaturnMaterial(page){
   const samples=await page.evaluate(async()=>{
     const token=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
-    const {BASE_SPHERE_FS}=await import(`./js/orreryShaders.js${token}`);
+    const {BASE_SPHERE_FS,SCATTERING_SPHERE_FS}=await import(`./js/orreryShaders.js${token}`);
     const canvas=document.createElement('canvas');canvas.width=4;canvas.height=4;
     const gl=canvas.getContext('webgl2',{antialias:false,alpha:false});
     if(!gl)throw Error('Saturn material probe requires WebGL2');
@@ -19,7 +30,7 @@ export async function verifySaturnMaterial(page){
         gl_Position=vec4(p*2.-1.,0,1);v_obj=vec3(.1,0,.995);v_world=vec3(0);
         v_nrm=vec3(0,0,1);v_surfaceScale=1.;v_incidentSunBody=vec3(0,0,1);
         v_incidentSunWorld=vec3(0,0,1);v_incidentTransmission=vec3(1);}`;
-    const shaders=[];let program,texture;
+    const shaders=[];let program,physicalProgram,texture;
     try{
       const compile=(type,source)=>{const s=gl.createShader(type);shaders.push(s);gl.shaderSource(s,source);gl.compileShader(s);
         if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
@@ -37,13 +48,21 @@ export async function verifySaturnMaterial(page){
         {name:'ochre-band',rgb:[224,208,164],mu:.35,look:1},
         {name:'ordinary-material',rgb:[112,132,128],mu:1,look:0},
         {name:'linear-composition',rgb:[112,132,128],mu:1,look:1,linear:1}];
-      return cases.map(c=>{
+      const colors=cases.map(c=>{
         gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([...c.rgb,255]));
         i('u_saturnLook',c.look);i('u_linearOutput',c.linear||0);v('u_light',[Math.sqrt(1-c.mu*c.mu),0,c.mu]);
         gl.drawArrays(gl.TRIANGLES,0,3);const pixels=new Uint8Array(4);gl.readPixels(1,1,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
         return {name:c.name,rgb:Array.from(pixels.slice(0,3)),error:gl.getError()};
       });
-    }finally{if(texture)gl.deleteTexture(texture);if(program)gl.deleteProgram(program);shaders.forEach(s=>gl.deleteShader(s));gl.getExtension('WEBGL_lose_context')?.loseContext();}
+      physicalProgram=gl.createProgram();gl.attachShader(physicalProgram,compile(gl.VERTEX_SHADER,vertex));
+      gl.attachShader(physicalProgram,compile(gl.FRAGMENT_SHADER,SCATTERING_SPHERE_FS));gl.linkProgram(physicalProgram);
+      if(!gl.getProgramParameter(physicalProgram,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(physicalProgram));
+      // Saturn never enters the admitted Earth/Mars transfer program. A dynamic
+      // Saturn branch here increases work on software backends despite uploading 0.
+      if(gl.getUniformLocation(physicalProgram,'u_saturnLook')!==null)
+        throw Error('Physical Earth/Mars shader retains the unused Saturn material branch');
+      return colors;
+    }finally{if(texture)gl.deleteTexture(texture);if(program)gl.deleteProgram(program);if(physicalProgram)gl.deleteProgram(physicalProgram);shaders.forEach(s=>gl.deleteShader(s));gl.getExtension('WEBGL_lose_context')?.loseContext();}
   });
   const expected=[[131,157,152],[10,12,12],[167,155,118],[112,132,128],[58,85,80]];
   for(const [index,sample] of samples.entries()){
@@ -98,10 +117,9 @@ export async function verifySaturnScene(page,directory,capture){
         assert.ok(surfaces.length&&rings.length,'Saturn surface and rings must both be drawn');
         assert.ok(surfaces.every(d=>d.material===1&&d.texture===1&&d.moonShadows===0));
         assert.deepEqual(surfaces.at(-1).light,rings.at(-1).light,'sphere, ring illumination and shadows share one direction');
-        let polarPixels=0;
         // The source's polar color is muted teal/green, not saturated blue.
         // Its green-dominant pixels distinguish it from the ochre cloud bands.
-        for(let i=0;i<image.data.length;i+=4){const r=image.data[i],g=image.data[i+1],b=image.data[i+2];if(g>65&&g>r+2&&b>r*.88)polarPixels++;}
+        const polarPixels=countSaturnPolarPixels(image);
         if(name==='north')assert.ok(polarPixels>100,`north polar color must remain visible (${polarPixels} pixels)`);
         evidence.cases.push({name,angle,polarPixels,...result});
       }

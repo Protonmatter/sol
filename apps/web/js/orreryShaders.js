@@ -616,7 +616,11 @@ function physicalMaterialSource(source) {
     if(last<=first)throw new Error('Physical material source boundary order changed');
     source=source.slice(0,first)+replacement+source.slice(last);
   }
-  return source;
+  // Only Earth/Mars enter this program. Compile out Saturn's display material;
+  // a zero uniform still leaves its branches live on software GPU backends.
+  const saturnSelector='uniform int u_saturnLook;';
+  if(source.split(saturnSelector).length!==2)throw new Error('Saturn material selector boundary changed');
+  return source.replace(saturnSelector,'const int u_saturnLook=0;');
 }
 export const SCATTERING_SPHERE_VS=scatteringSphereSource(SPHERE_VS,ATMOSPHERE_LIGHT_GLSL);
 // The physical program is bound only with an admitted profile, and

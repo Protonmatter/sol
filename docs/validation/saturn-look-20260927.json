@@ -1,5 +1,5 @@
 {
-  "scope": "Local validation of the Saturn appearance correction; this evidence does not attest hosted CI, merge or deployment.",
+  "scope": "Initial local validation of Saturn commit eb0859c; this evidence does not attest hosted CI, merge or deployment.",
   "base_sha": "a5b293e3aa8a6868335ded01e6dd23bb95507235",
   "source_sha256_lf": {
     "apps/web/index.html": "60670e868a9ceec8e766999fdaa184483959cf22c11799d05b81d122ee029d25",
@@ -58,5 +58,6 @@
     "The existing 2K map is unchanged; no new measured polar imagery or current weather is added.",
     "Physical mobile, Safari and sustained device performance were not qualified.",
     "The complete historical browser/physical-atmosphere suite was not rerun; focused native/software GPU checks and the full JavaScript suite were run."
-  ]
+  ],
+  "follow_up": "saturn-ci-fix-20260927.json"
 }
