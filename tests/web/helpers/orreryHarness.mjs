@@ -199,6 +199,7 @@ export async function orreryHarness(t, options = {}) {
     orreryAnimate: node({ checked: true }), orreryNow: node(),
   };
   if (options.controls) {
+    nodes.orrerySaturnControls=node();nodes.orrerySaturnLighting=node({value:'look-lab'},'select');
     for(const id of ['InspectSun','PhysicalStatus','SolarControls','SolarMode','SolarPlay','SolarRestart','SolarTime','SolarEpoch','SunLookControls','SolarArchiveControls','SunResolution','SunProminences','SunLookPlay','SunLookRestart','SunLookStatus','Terrain','Optics'])nodes[`orrery${id}`]=node();
     if(options.phenomenonImage)nodes.orreryPlanetPhenomena=node();
     for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "PlanetLook", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {

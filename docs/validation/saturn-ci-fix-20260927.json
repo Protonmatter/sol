@@ -1,0 +1,48 @@
+{
+  "scope": "Local verification of PR 122 CI corrections; hosted checks and deployment are separate.",
+  "starting_head": "eb0859ce65e8bcd3d29877b56747a8c06aa2d508",
+  "source_sha256_lf": {
+    "apps/web/js/orreryShaders.js": "79229a4d5b05ca3bf9c21ad34858ce24a3d77378873d9a6c39406f151eae1e6e",
+    "tools/saturn_look_probe.mjs": "083169002d4b95a1e2962918f3e57d82a0a123af74dc80d9f49c8c9dea98e678",
+    "tests/web/saturnLookProbe.test.mjs": "a78a80932221906cfd4bda4c329850ed20ff5b6bdab0815b929924889b50b26c",
+    "tests/web/orreryScatteringShaders.test.mjs": "68a27bf64a6bca38e43352496b6f439bf94d7b673b621b7eb0f3cde2b804bb6b"
+  },
+  "failures": {
+    "saturn": "The shared screenshot helper returns PNG bytes. The probe read .data on that Buffer; its separate local harness had returned decoded pixels.",
+    "earth": "CI run 36343668709 admitted two Earth draws in its 5000 ms window. The post-failure GPU diagnostic measured physical-surface draws near 1000 ms and retained a dynamic Saturn material selector."
+  },
+  "corrections": [
+    "Decode the shared screenshot PNG using the existing decoder before counting polar pixels.",
+    "Compile the unused Saturn material selector to zero in the Earth/Mars physical program. The generated physical fragment differs only in that declaration.",
+    "Add a PNG-byte regression and require the compiled physical program to expose no active Saturn selector."
+  ],
+  "unchanged": {
+    "earth_spin_window_ms": 5000,
+    "minimum_earth_draws": 3,
+    "frozen_rotation_negative_control": true,
+    "saturn_base_fragment_sha256": "d35afffd333fbcb0731b0700bf51365773c104fa0be3fdd72e67fd933600edde"
+  },
+  "validation": {
+    "node_tests": 1377,
+    "web_typecheck_files": 122,
+    "full_chromium_browser": "passed on SwiftShader",
+    "physical_material_parity": "266/266 passed on SwiftShader",
+    "combined_runtime_line_coverage_percent": 97.47,
+    "saturn_views": 8,
+    "saturn_scene": "passed",
+    "earth_draws": 4,
+    "earth_draw_elapsed_ms": [
+      227.29999995231628,
+      468.7999999523163,
+      703.7999999523163,
+      939.3999999761581
+    ],
+    "frozen_rotation_rejected": true,
+    "static_ux_sdlc_diff": "passed"
+  },
+  "limits": [
+    "Host timing varies; local completion times are not a cross-device performance guarantee.",
+    "The complete separate numerical-atmosphere qualification suite was not rerun locally.",
+    "Mobile, Safari and sustained native-device performance remain unqualified."
+  ]
+}

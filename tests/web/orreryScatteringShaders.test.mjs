@@ -37,8 +37,9 @@ test('bounded physical material admits only the observable runtime mode and neut
   }
 });
 
-test('material specialization preserves every source lookup and the complete lighting tail verbatim',()=>{
+test('material specialization preserves source lookups and lighting while excluding Saturn from the physical domain',()=>{
   const reference=shaders.physicalEnabledSource(shaders.SPHERE_FS.replace(ATMOSPHERE_RENDER_GLSL,ATMOSPHERE_SCATTERING_GLSL)
+    .replace('uniform int u_saturnLook;','const int u_saturnLook=0;')
     .replace('uniform float u_bodyRadiusKm;','uniform float u_bodyRadiusKm;\nuniform float u_scatteringReferenceHeightKm;')
     .replace('atmosphereSurfaceColor(col,surfaceBodyKm)',
       'atmosphereSurfaceColor(col,surfaceBodyKm,(v_surfaceScale-1.0)*u_bodyRadiusKm+u_scatteringReferenceHeightKm)'));
@@ -64,7 +65,7 @@ test('source specialization refuses missing, duplicated, and reversed section bo
   const start=moduleSource.indexOf('function physicalMaterialSource('),end=moduleSource.indexOf('export const SCATTERING_SPHERE_VS');
   assert.ok(start>=0&&end>start);
   const specialize=Function(`${moduleSource.slice(start,end)};return physicalMaterialSource;`)();
-  for(const boundary of ['  if(u_mode==2){','  // Equirectangular lookup:','  else if(u_style==1){','  // Real IAU albedo units']){
+  for(const boundary of ['  if(u_mode==2){','  // Equirectangular lookup:','  else if(u_style==1){','  // Real IAU albedo units','uniform int u_saturnLook;']){
     assert.throws(()=>specialize(shaders.SPHERE_FS.replace(boundary,'')),/boundary changed/);
     assert.throws(()=>specialize(shaders.SPHERE_FS+boundary),/boundary changed/);
   }

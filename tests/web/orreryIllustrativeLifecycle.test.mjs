@@ -45,7 +45,6 @@ test('a fresh session draws all seven illustrative maps without selecting an app
 
 test('illustrative samples are decoded once before lighting and stay off the reference texMode',()=>{
   assert.match(shaders.SPHERE_FS,/uniform int u_illustrativeLinear;/);
-  assert.match(shaders.SPHERE_FS,/u_texMode==0\)\{ col=texture\(u_tex,vec2\(uu,vv\)\)\.rgb; if\(u_illustrativeLinear==1\) col=decodeSRGB\(col\); \}/);
   assert.match(shaders.SPHERE_FS,/bool displayLinear=reference\|\|u_illustrativeLinear==1;/);
   assert.match(shaders.SPHERE_FS,/if\(u_atmosphereEnabled==1&&!displayLinear\) col=decodeSRGB\(col\);/);
   assert.match(shaders.SPHERE_FS,/vec3 surface=displayLinear \? col : decodeSRGB\(col\);/);

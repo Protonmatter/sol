@@ -1,7 +1,28 @@
 // Optional display materials. This module never owns or changes ephemeris state.
 import {ILLUSTRATIVE_ASSETS} from './illustrativeAssetManifest.js';
+import {norm,sub,cross} from './orreryMath.js';
 export {ILLUSTRATIVE_ASSETS};
 export const MAX_ILLUSTRATIVE_TEXTURES = 2;
+
+// Recovered Sites v7 Saturn display response (lib/planet-shader.ts).
+// This is an artistic material, not calibrated reflectance or atmospheric transfer.
+export const SATURN_LOOK_GLSL = `
+uniform int u_saturnLook;
+vec3 saturnLookTone(vec3 color){
+  vec3 v=max(color,vec3(0));
+  return pow(clamp((v*(2.51*v+.03))/(v*(2.43*v+.59)+.14),0.,1.),vec3(1./2.2));
+}
+`;
+
+// The lab's 22-degree key light in the orbit camera's world basis.
+// A degenerate camera retains Sun lighting; no ephemeris or orientation changes.
+export function saturnLookLight(eye,position){
+  const delta=sub(eye,position);
+  if(!delta.every(Number.isFinite)||Math.hypot(...delta)<1e-12)return null;
+  const forward=norm(delta),seed=Math.abs(forward[2])>.999?[0,1,0]:[0,0,1];
+  const right=norm(cross(seed,forward)),up=cross(forward,right),angle=22*Math.PI/180;
+  return norm(forward.map((v,i)=>v*Math.cos(angle)+right[i]*Math.sin(angle)+up[i]*.15));
+}
 
 // Display lift so the artistic cloud deck clears the radar sphere.
 // Venus cloud tops are higher; this is not that measurement.
@@ -61,7 +82,10 @@ export function illustrativeDescription(body, state = {}) {
     : status === 'loading' ? 'Loading illustrative map. '
     : displaced ? 'Only two illustrative maps stay loaded, so this focused body keeps a simplified surface. '
     : 'Focus or zoom in to load this look. ';
-  return `${readiness}Illustrative look suppresses the registered surface for this planet. Solar System Scope / INOVE · CC BY 4.0. Artistic color and reconstructed coverage; not a registered observation, calibrated color or current weather. Measured terrain relief stays suspended while this look is selected, including loading, failure, and when the map is not retained.`;
+  const light=body==='Saturn'&&status==='ready'?(state.saturnLighting==='look-lab'
+    ? 'Look Lab inspection lighting reveals surface color and polar detail. Lighting and ring shadows are illustrative; Sun-directed restores illumination and moon shadows for the modeled date. '
+    : 'Saturn uses Sun-directed lighting with the Look Lab color response; an unlit pole remains dark. '):'';
+  return `${readiness}${light}Illustrative look suppresses the registered surface for this planet. Solar System Scope / INOVE · CC BY 4.0. Artistic color and reconstructed coverage; not a registered observation, calibrated color or current weather. Measured terrain relief stays suspended while this look is selected, including loading, failure, and when the map is not retained.`;
 }
 
 export function venusAtmosphereNote(state = {}) {

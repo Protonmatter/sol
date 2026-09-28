@@ -126,7 +126,11 @@ test('page memory reader reports the actual registered manifest and fresh restor
   const illustrativeManifest=new vm.SourceTextModule(fs.readFileSync(new URL('../../apps/web/js/illustrativeAssetManifest.js',import.meta.url),'utf8'),{context});
   await illustrativeManifest.link(()=>{throw new Error('Unexpected illustrative manifest dependency');});
   const illustrative=new vm.SourceTextModule(fs.readFileSync(new URL('../../apps/web/js/illustrativeAppearance.js',import.meta.url),'utf8'),{context});
-  await illustrative.link(name=>{assert.equal(name,'./illustrativeAssetManifest.js');return illustrativeManifest;});
+  const mathNamespace=await import('../../apps/web/js/orreryMath.js');
+  const math=new vm.SyntheticModule(Object.keys(mathNamespace),function(){
+    for(const [name,value] of Object.entries(mathNamespace))this.setExport(name,value);
+  },{context});
+  await illustrative.link(name=>{if(name==='./orreryMath.js')return math;assert.equal(name,'./illustrativeAssetManifest.js');return illustrativeManifest;});
   const earthNamespace=await import('../../apps/web/js/earthLook.js');
   const earthLook=new vm.SyntheticModule(['earthLookSelected','earthLookDescription'],function(){
     this.setExport('earthLookSelected',earthNamespace.earthLookSelected);this.setExport('earthLookDescription',earthNamespace.earthLookDescription);
