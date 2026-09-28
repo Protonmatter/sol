@@ -84,7 +84,7 @@ export function illustrativeDescription(body, state = {}) {
     : 'Focus or zoom in to load this look. ';
   const light=body==='Saturn'&&status==='ready'?(state.saturnLighting==='look-lab'
     ? 'Look Lab inspection lighting reveals surface color and polar detail. Lighting and ring shadows are illustrative; Sun-directed restores illumination and moon shadows for the modeled date. '
-    : 'Saturn uses Sun-directed lighting with the Look Lab color response; an unlit pole remains dark. '):'';
+    : 'The Sun lights Saturn, its rings and moons at the modeled date. The Look Lab color response is retained; shadows follow the Sun and an unlit pole remains dark. '):'';
   return `${readiness}${light}Illustrative look suppresses the registered surface for this planet. Solar System Scope / INOVE · CC BY 4.0. Artistic color and reconstructed coverage; not a registered observation, calibrated color or current weather. Measured terrain relief stays suspended while this look is selected, including loading, failure, and when the map is not retained.`;
 }
 

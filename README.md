@@ -56,9 +56,10 @@ unsupported versions rather than silently relabelling data.
   sessions; Source-qualified remains selectable. See [RFC 0007](docs/rfcs/0007-illustrative-planet-looks.md) for review
   status and limits, and the [rollout review](docs/PLANET_ROLLOUT_REVIEW_20260925.md)
   for local evidence and outstanding delivery steps.
-  Saturn's Illustrative look also uses the recovered Look Lab color response and
-  inspection lighting to reveal polar colors. Its body card offers Sun-directed
-  lighting for seasonal illumination and moon shadows at the modeled date.
+  Saturn's Illustrative look keeps the recovered Look Lab color response and defaults
+  to sunlight shared with its rings and moons. Shadows follow the modeled Sun as the
+  camera moves. Its body card also offers an explicit Look Lab inspection light to
+  reveal polar colors, with moon-transit shadows disabled in that mode.
 - **Earth Look Lab appearance (candidate):** the latest published Sites Earth
   joins Illustrative look: NASA July 2004 surface, dark-ocean grading, 1.6 display
   exposure, and the recovered cloud-volume/texture-lighting recipe. Source-qualified

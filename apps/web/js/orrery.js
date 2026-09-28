@@ -166,7 +166,7 @@ const state = (store.orrery = {
   showOrbits: true, showSky: true, showConst: false, showLabels: true, showSunEq: false, useTextures: true, galaxy: false,
   earthNight: true, earthWeather: true, earthIce: false, earthCloudSource: 'composite', venusRadar: false,
   appearanceStatus: {}, planetLook: 'illustrative', illustrativeStatus: {},
-  saturnLighting: 'look-lab',
+  saturnLighting: 'sun-directed',
   illustrativeDemandBodies: /** @type {string[]} */ ([]),
   illustrativeVisibleFocused: /** @type {string[]} */ ([]),
   earthLookStatus: 'deferred', earthLookPhase: 0,
