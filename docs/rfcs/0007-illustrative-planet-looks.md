@@ -65,10 +65,13 @@ It also retained astronomical sunlight, whereas the lab used a 22-degree
 camera-relative key light. At dates when the north pole is unlit, those views
 cannot show comparable polar colors even with identical image bytes.
 
-Saturn now uses the recovered material in Illustrative look. Its body card offers
-Look Lab inspection lighting (default) and Sun-directed lighting. The inspection
-light illuminates both globe and rings consistently. It does not reuse real-Sun
-moon-transit shadows; those return with Sun-directed lighting. No positions,
+Saturn uses the recovered material in Illustrative look. Sun-directed lighting is
+the default: the globe, rings and moons share the modeled Sun as their light source.
+Orbiting the camera changes the view of the shadows, not their direction. Moon
+lighting uses physical offsets rather than the enlarged display positions.
+The body card retains optional Look Lab inspection lighting. That light follows
+the camera for both globe and rings and disables real-Sun moon-transit shadows.
+It is an explicit appearance inspection mode, not the solar-system default. No positions,
 rotation, physical/display sizes or simulation time change. Other planets and
 Saturn's Source-qualified path retain their existing materials and lighting.
 Map loading/failure retains the original fallback. No texture bytes, new polar
@@ -79,8 +82,10 @@ The recovered source is recorded in
 [the Sites v7 provenance](../validation/sites-earth-v7/source.json).
 `tools/saturn_look_probe.mjs` checks literal lab color samples through the real
 GPU sphere shader, including linear composition, and checks both poles at four
-viewing angles plus Sun-directed rollback. Runtime tests verify the material
-cannot leak to moons, pending maps, disabled textures or Source-qualified.
+viewing angles plus the default Sun-directed mode. Runtime tests verify solar
+illumination stays fixed while the camera moves and that a synthetic moon transit
+is preserved. They also verify the material cannot leak to moons, pending maps,
+disabled textures or Source-qualified.
 
 ### Existing appearance controls
 
