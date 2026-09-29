@@ -42,6 +42,21 @@ def reference(raw=None):
 
 
 class MappedReferenceTests(unittest.TestCase):
+    def test_machine_refresh_never_claims_human_review_and_is_earth_weather_only(self):
+        item = reference(); item.update(role="weather", nodata="alpha", reviewed_at=None,
+            path="textures/reference/earth-weather-daily.png", dimensions=[2048, 1024],
+            automated_refresh={"recipe_id": "earth-modis-terra-aqua.v1", "validated_at": "2026-09-13T01:00:00Z",
+                               "data_date": "2026-09-12", "source_manifest_sha256": "a" * 64, "semantic_id": "b" * 64})
+        self.validate(item, earth_base=True)
+        for updates in ({"body": "Mars"}, {"role": "cloud-composite"}, {"reviewed_at": "2026-09-13T01:00:00Z"},
+                        {"path": "textures/reference/synthetic.png"}, {"dimensions": [4, 2]}):
+            bad = deepcopy(item); bad.update(updates)
+            with self.subTest(updates=updates), self.assertRaises(ValueError): self.validate(bad, earth_base=True)
+        for key, value in (("recipe_id", "other"), ("validated_at", None), ("data_date", "2026-09-13"),
+                           ("semantic_id", "bad"), ("source_manifest_sha256", "bad")):
+            bad = deepcopy(item); bad["automated_refresh"][key] = value
+            with self.subTest(key=key), self.assertRaises(ValueError): self.validate(bad, earth_base=True)
+
     def validate(self, entry=None, web_root=None, *, earth_base=False):
         entries = [reference() if entry is None else entry]
         if earth_base:

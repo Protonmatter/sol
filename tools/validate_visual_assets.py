@@ -5,7 +5,7 @@ No network access. --write-js regenerates only the browser copy after validation
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
+from datetime import date, datetime, timezone
 import hashlib
 import json
 import math
@@ -322,7 +322,7 @@ def validate_mapped_references(data: dict, web_root: Path | None = None) -> tupl
         raise ValueError("invalid mapped reference collection")
     ids, paths, roles = set(), set(), set()
     for reference in references:
-        if not isinstance(reference, dict) or not MAPPED_REFERENCE_FIELDS.issubset(reference) or set(reference) - MAPPED_REFERENCE_FIELDS - {"derivation_inputs", "legend", "moon_color_mode"}:
+        if not isinstance(reference, dict) or not MAPPED_REFERENCE_FIELDS.issubset(reference) or set(reference) - MAPPED_REFERENCE_FIELDS - {"derivation_inputs", "legend", "moon_color_mode", "automated_refresh"}:
             raise ValueError("invalid mapped reference fields")
         for field in ("id", "body", "label", "credits", "observation_label", "color_interpretation", "limitations", "derivation"):
             if not isinstance(reference[field], str) or not reference[field].strip():
@@ -364,13 +364,32 @@ def validate_mapped_references(data: dict, web_root: Path | None = None) -> tupl
         if not isinstance(dimensions, list) or len(dimensions) != 2 or any(type(number) is not int or number <= 0 for number in dimensions):
             raise ValueError("invalid mapped reference dimensions")
         stamps = []
-        for field in ("source_retrieved_at", "reviewed_at"):
-            if not isinstance(reference[field], str) or not reference[field]:
+        refresh = reference.get("automated_refresh")
+        if "automated_refresh" in reference:
+            if (not isinstance(refresh, dict) or set(refresh) != {"recipe_id", "validated_at", "data_date", "source_manifest_sha256", "semantic_id"}
+                    or refresh.get("recipe_id") != "earth-modis-terra-aqua.v1"
+                    or reference["body"] != "Earth" or reference["role"] != "weather" or reference["reviewed_at"] is not None
+                    or reference["path"] != "textures/reference/earth-weather-daily.png" or dimensions != [2048, 1024]):
+                raise ValueError("invalid automated Earth weather refresh")
+            for field in ("source_manifest_sha256", "semantic_id"):
+                if not isinstance(refresh[field], str) or not re.fullmatch(r"[0-9a-f]{64}", refresh[field]):
+                    raise ValueError("invalid automated refresh hash")
+            try:
+                if not isinstance(refresh["data_date"], str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", refresh["data_date"]):
+                    raise ValueError("invalid date")
+                day = date.fromisoformat(refresh["data_date"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError("invalid automated refresh data date") from exc
+        for value in (reference["source_retrieved_at"], refresh["validated_at"] if refresh is not None else reference["reviewed_at"]):
+            if not isinstance(value, str) or not value:
                 raise ValueError("mapped reference timestamp requires an explicit timezone")
-            validate_time(reference[field])
-            stamps.append(datetime.fromisoformat(reference[field]))
+            validate_time(value)
+            stamps.append(datetime.fromisoformat(value))
         if stamps[1] < stamps[0]:
             raise ValueError("mapped reference review precedes source retrieval")
+        if refresh is not None and (not 1 <= (stamps[1].astimezone(timezone.utc).date() - day).days <= 3
+                                    or day >= stamps[0].astimezone(timezone.utc).date()):
+            raise ValueError("automated refresh requires a recent prior UTC date")
         if not re.search(r"\b[12]\d{3}\b", reference["observation_label"]):
             raise ValueError("mapped reference observation label requires a source date or range")
         if re.search(r"\b(?:live|real[ -]?time|current|today|now)\b", reference["label"] + " " + reference["observation_label"], re.I):

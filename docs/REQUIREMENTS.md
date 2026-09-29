@@ -16,6 +16,7 @@ unrecognized status, and incomplete workflow enforcement.
 | `SOL-CONTRACT-001` | Atomic versioning of schema, producers, consumers, fixtures, and tests |
 | `SOL-SCI-001` | Accurate provenance, calibration, uncertainty, and operational claims |
 | `SOL-DATA-001` | Source, time, freshness, quality, finite values, and visible degradation |
+| `SOL-DATA-002` | Validated daily Earth reference changes through one owned draft PR; explicit opt-in publication |
 | `SOL-DET-001` | Reproducible generated data and cross-platform deterministic snapshots |
 | `SOL-UX-001` | Primary task first; advanced and research depth disclosed on request |
 | `SOL-UX-002` | Accessible names, keyboard parity, focus, and non-canvas alternatives |

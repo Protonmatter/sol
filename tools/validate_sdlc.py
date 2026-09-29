@@ -20,6 +20,7 @@ ACTION_USE = re.compile(
 )
 WORKFLOW_WRITE_SCOPE_ALLOWLIST = {
     "deploy-pages.yml": {"id-token", "pages"},
+    "orrery-refresh.yml": {"contents", "pull-requests"},
 }
 
 REQUIRED_DOCS = (
@@ -200,9 +201,53 @@ def validate_rfc(path: Path, known_ids: set[str], root: Path) -> list[str]:
     return errors
 
 
+def validate_orrery_workflow(text: str) -> list[str]:
+    """Admit only the two-job, same-run Earth candidate publication boundary."""
+    errors: list[str] = []
+    job_matches = list(re.finditer(r"^  ([a-zA-Z0-9_-]+):\s*$", text.split('\njobs:\n')[-1], re.MULTILINE))
+    job_text = text.split('\njobs:\n')[-1]
+    jobs = {match.group(1): job_text[match.end():job_matches[index + 1].start()
+            if index + 1 < len(job_matches) else len(job_text)] for index, match in enumerate(job_matches)}
+    if len(job_matches) != 2 or set(jobs) != {'candidate', 'publish'}:
+        errors.append('Orrery refresh must have exactly candidate and publish jobs')
+    candidate, publisher = jobs.get('candidate', ''), jobs.get('publish', '')
+    preamble = text.split('\njobs:\n')[0]
+    required = (
+        (preamble, "permissions:\n  contents: read\n"),
+        (preamble, "on:\n  schedule:\n    - cron: '20 6 * * *'\n  workflow_dispatch:\n"),
+        (preamble, "concurrency:\n  group: daily-orrery-refresh\n  cancel-in-progress: false\n"),
+        (candidate, "    if: github.ref == 'refs/heads/master'\n"),
+        (publisher, "    if: github.ref == 'refs/heads/master' && vars.ORRERY_REFRESH_PUBLISH_ENABLED == 'true'\n"),
+        (publisher, '    needs: candidate\n'),
+        (publisher, '    permissions:\n      contents: write\n      pull-requests: write\n'),
+        (publisher, '          fetch-depth: 0\n'),
+        (publisher, '          GH_TOKEN: ${{ github.token }}\n'),
+        (publisher, '          CANDIDATE_MANIFEST_SHA256: ${{ needs.candidate.outputs.manifest_sha256 }}\n'),
+        (publisher, '          --expected-base "$GITHUB_SHA" --expected-manifest-sha256 "$CANDIDATE_MANIFEST_SHA256"\n'),
+        (publisher, '          --repository "$GITHUB_REPOSITORY" --publish --out build/orrery-delivery.json\n'),
+    )
+    for section, token in required:
+        if section.count(token) != 1:
+            errors.append('Orrery refresh boundary missing or altered: ' + token.strip())
+    for label, section in [('candidate', candidate), ('publish', publisher)]:
+        for token in ('          ref: ${{ github.sha }}\n', '          persist-credentials: false\n',
+                      '          name: orrery-candidate-${{ github.run_id }}-${{ github.run_attempt }}\n'):
+            if section.count(token) != 1:
+                errors.append(f'Orrery {label} must bind its checkout and candidate artifact to this run')
+    if (re.search(r'^\s*(?:permissions:|[a-z-]+: write)', candidate, re.MULTILINE)
+            or len(re.findall(r'^\s*permissions:', text, re.MULTILINE)) != 2
+            or len(re.findall(r'^\s*[a-z-]+: write\s*$', text, re.MULTILINE)) != 2
+            or re.search(r'^\s*(?:continue-on-error|pull_request_target|pull_request|workflow_run|push):', text, re.MULTILINE)
+            or re.search(r'^          (?:run-id|repository|github-token|artifact-ids):', text, re.MULTILINE)):
+        errors.append('Orrery refresh cannot expand permissions, triggers, artifacts or tolerate failures')
+    return errors
+
+
 def validate_action_pins(path: Path, text: str, root: Path) -> list[str]:
     errors: list[str] = []
     relative = path.relative_to(root)
+    if path.name == 'orrery-refresh.yml':
+        errors.extend(validate_orrery_workflow(text))
     if not re.search(r"^permissions:", text, re.MULTILINE):
         errors.append(f"{relative}: workflow must declare permissions")
     if re.search(r"^\s*permissions:\s+write-all\s*$", text, re.MULTILINE):
