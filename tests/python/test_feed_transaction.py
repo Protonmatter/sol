@@ -22,7 +22,7 @@ class FeedTransactionTests(unittest.TestCase):
 
     def test_fetch_fallback_preserves_original_time_and_payload(self):
         endpoint=acquisition.Endpoint("rtsw_mag_1m.json","https://example.invalid/fixture","NOAA fixture","daily","observed",True,"fixture")
-        with mock.patch.object(acquisition,"build_endpoints",return_value=[endpoint]), mock.patch.object(acquisition,"fetch",return_value=b'[{"time_tag":"2026-09-10T01:00:00Z","source":"NOAA","active":true}]'):
+        with mock.patch.object(acquisition,"build_endpoints",return_value=[endpoint]), mock.patch.object(acquisition,"fetch",return_value=b'[{"time_tag":"2026-09-10T01:00:00Z","source":"NOAA","active":true,"bz_gsm":-2}]'):
             first=acquisition.acquire_bundle(self.root,bundle_id="first",stamp=date(2026,9,11),acquired_at_utc="2026-09-11T00:00:00Z")
         with mock.patch.object(acquisition,"build_endpoints",return_value=[endpoint]), mock.patch.object(acquisition,"fetch",side_effect=OSError("offline")):
             second=acquisition.acquire_bundle(self.root,bundle_id="second",stamp=date(2026,9,12),acquired_at_utc="2026-09-12T00:00:00Z")

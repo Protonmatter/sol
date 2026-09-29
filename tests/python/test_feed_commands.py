@@ -72,8 +72,8 @@ class FeedCommandTests(unittest.TestCase):
             with self.assertRaises(Exception):fetch.fetch("https://example.invalid/",timeout_seconds=1,attempts=1)
         for raw in (b"{}",b"[]",b"null",b"not JSON",b"[NaN]"):
             with self.subTest(raw=raw),self.assertRaises(ValueError):fetch.validate_payload("x.json",raw)
-        self.assertEqual(fetch.display_path(ROOT/"tools/x.json"),"tools/x.json")
-        self.assertEqual(fetch.display_path(self.root/"x.json"),"x.json")
+        self.assertEqual(generate.display_path(ROOT/"tools/x.json"),"tools/x.json")
+        self.assertEqual(generate.display_path(self.root/"x.json"),"x.json")
 
     def test_critical_fetch_failure_keeps_old_pointer_and_records_failure(self):
         source=self.source();before=(self.root/"source/current.json").read_bytes()

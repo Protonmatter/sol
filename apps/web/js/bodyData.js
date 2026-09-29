@@ -33,7 +33,7 @@ export const AU_KM = 149597870.7;
 /** @type {Record<string, BodyPhys>} */
 export const BODY = {
   Sun: {
-    radiusKm: 695700, polarKm: 695700, massKg: 1.9885e30, densityGcm3: 1.408,
+    radiusKm: SUN_RADIUS_KM, polarKm: SUN_RADIUS_KM, massKg: 1.9885e30, densityGcm3: 1.408,
     gravity: 274.0, escapeKms: 617.5, rotationHours: 609.12 /* 25.38 d Carrington sidereal */, tiltDeg: 7.25,
     poleRaDeg: 286.13, poleDecDeg: 63.87, poleRaDotDegPerCty: 0.0, poleDecDotDegPerCty: 0.0, w0Deg: 84.176, wDotDegPerDay: 14.1844,
     magDipoleEarth: 0, magnetosphere: true,

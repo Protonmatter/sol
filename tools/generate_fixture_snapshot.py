@@ -312,7 +312,7 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
         "uncertainty": illustrative_uncertainty(),
         "active_regions": [region_snapshot(region, 0.0) for region in active_regions],
         "learning": {
-            "cycle_stage": "solar maximum",
+            "cycle_stage": stage_from_activity(activity_index),
             "plain_language_insight": insight_from_context(observed_context),
         },
         "observed_context": observed_context,
@@ -342,6 +342,15 @@ def build_snapshot(seed: int, lon_count: int, lat_count: int, observations: dict
             "Research and learning use only; not operational space-weather forecasting.",
         ],
     }
+
+
+def stage_from_activity(activity_index: float) -> str:
+    """Instantaneous illustrative stage; cycle-series phase labels remain separate."""
+    if activity_index >= 0.75:
+        return "solar maximum"
+    if activity_index >= 0.45:
+        return "rising or declining phase"
+    return "solar minimum"
 
 
 def illustrative_uncertainty(time_seconds: float = 0.0) -> dict[str, Any]:
@@ -493,7 +502,7 @@ def build_bundle_observation_report(source, *, evaluated_at_utc: str) -> dict[st
             selected = latest_numeric_observation(
                 data,
                 *context_keys,
-                reject_inactive=descriptor.get("id") == "swpc-f107-cm-flux",
+                reject_inactive=descriptor.get("id") in ("swpc-f107-cm-flux", "swpc-observed-cycle-indices"),
             ) if context_keys else None
             if selected is not None:
                 row = selected[1]
@@ -515,6 +524,16 @@ def build_bundle_observation_report(source, *, evaluated_at_utc: str) -> dict[st
 
 def report_from_candidates(mag: dict[str, Any], wind: dict[str, Any], optional_candidates: list[dict[str, Any]]) -> dict[str, Any]:
     all_candidates = [mag, wind, *optional_candidates]
+    supplied = next((item["evaluated_at_utc"] for item in all_candidates if "evaluated_at_utc" in item), None)
+    now = dt.datetime.fromisoformat(supplied.replace("Z", "+00:00")) if supplied else dt.datetime.now(dt.timezone.utc)
+    for candidate in optional_candidates:
+        if candidate["id"] in ("swpc-solar-regions", "swpc-sunspot-report", "swpc-goes-xray-flares-7-day"):
+            contributing_rows = fresh_activity_rows(candidate, now)
+            if contributing_rows:
+                # Evidence and freshness describe the same admitted count rows.
+                # Retain the immutable payload; select one actual contributing row.
+                candidate["row"] = max(contributing_rows, key=lambda row: parse_time_tag(row_time(row)))
+                candidate["freshness_rows"] = contributing_rows
     source_mode = "cached" if any(candidate["source_mode"] == "cached" for candidate in all_candidates) else "fixture"
     observed_context = build_observed_context(all_candidates)
     return {
@@ -723,7 +742,7 @@ def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     )
     latest_f107 = latest_direct_f107
     if latest_f107 is None:
-        latest_f107 = latest_numeric(cycle_rows, *CONTEXT_NUMERIC_KEYS["swpc-observed-cycle-indices"])
+        latest_f107 = latest_numeric(cycle_rows, *CONTEXT_NUMERIC_KEYS["swpc-observed-cycle-indices"], reject_inactive=True)
     latest_kp = latest_numeric(kp_rows, *CONTEXT_NUMERIC_KEYS["swpc-planetary-k-index-1m"])
     latest_xray_flux = latest_numeric(xray_rows, *CONTEXT_NUMERIC_KEYS["swpc-goes-xrays-1-day"])
     latest_wind_speed = latest_numeric(rtsw_wind, *CONTEXT_NUMERIC_KEYS["rtsw_wind_1m.json"])
@@ -745,6 +764,7 @@ def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "schema_version": "observed-context.v1",
         "activity_index": activity_index,
+        "activity_observation": build_activity_observation(candidates, freshness),
         "signal_freshness": freshness,
         "stale_feeds": stale_feeds,
         "activity_proxy_sources": {
@@ -768,6 +788,56 @@ def build_observed_context(candidates: list[dict[str, Any]]) -> dict[str, Any]:
         "synthetic_region_count": synthetic_region_count,
         "note": "Observed public context tunes research fixture density only; magnetic fields remain normalized and not operationally calibrated.",
     }
+
+
+def fresh_activity_rows(candidate: dict[str, Any], now: dt.datetime) -> list[dict[str, Any]]:
+    """Actual rows eligible to supply a fresh scalar activity observation."""
+    if candidate.get("source_mode") != "cached":
+        return []
+    admitted = []
+    for row in context_rows(candidate.get("data")):
+        observed = parse_time_tag(row_time(row))
+        source = row.get("source", candidate.get("manifest_source"))
+        if (observed is not None and attributable_source(source) and row.get("active") is not False
+                and 0 <= (now - observed).total_seconds() / 3600 <= FRESHNESS_LIMITS_HOURS.get(candidate["id"], 48.0)):
+            admitted.append(row)
+    return admitted
+
+
+def build_activity_observation(candidates: list[dict[str, Any]], freshness: dict[str, Any]) -> dict[str, Any]:
+    """Separate a fresh attributable activity observation from fixture defaults.
+
+    Wind, magnetic, Kp and X-ray flux context are not contributors to this proxy.
+    Unknown clocks, fixture-only inputs and inactive/unattributable rows cannot
+    reduce uncertainty. Count proxies use only fresh rows, not the feed's history.
+    """
+    supplied = next((item["evaluated_at_utc"] for item in candidates if "evaluated_at_utc" in item), None)
+    now = dt.datetime.fromisoformat(supplied.replace("Z", "+00:00")) if supplied else dt.datetime.now(dt.timezone.utc)
+    by_id = {candidate["id"]: candidate for candidate in candidates}
+    contributors: list[dict[str, Any]] = []
+
+    def eligible_rows(identity: str) -> list[dict[str, Any]]:
+        candidate = by_id.get(identity, {})
+        if candidate.get("source_mode") != "cached" or freshness.get(identity, {}).get("stale") is not False:
+            return []
+        return fresh_activity_rows(candidate, now)
+
+    for identity, divisor, offset in (
+        ("swpc-solar-regions", 14.0, 0.0),
+        ("swpc-sunspot-report", 18.0, 0.0),
+        ("swpc-goes-xray-flares-7-day", 24.0, 0.45),
+    ):
+        count = len(eligible_rows(identity))
+        if count:
+            contributors.append({"id": identity, "value": round(clamp_float(offset + count / divisor, 0.25, 1.0), 6)})
+    for identity in ("swpc-f107-cm-flux", "swpc-observed-cycle-indices"):
+        value = latest_numeric(eligible_rows(identity), *CONTEXT_NUMERIC_KEYS[identity], reject_inactive=True)
+        if value is not None:
+            contributors.append({"id": identity, "value": round(clamp_float((value - 65.0) / 170.0, 0.25, 1.0), 6)})
+            break  # Daily F10.7 takes precedence over the monthly fallback.
+    return {"status": "available" if contributors else "unavailable",
+            "value": round(sum(item["value"] for item in contributors) / len(contributors), 6) if contributors else None,
+            "contributors": contributors}
 
 
 def rows(value: Any) -> list[dict[str, Any]]:

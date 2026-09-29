@@ -12,13 +12,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import shutil
 import tempfile
 import time
 import urllib.parse
 import urllib.request
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -72,15 +71,6 @@ def acquire_bundle(cache: Path, *, bundle_id: str, stamp: date, acquired_at_utc:
     except BaseException as exc:
         bundles._write_new(cache / "attempts" / (uuid.uuid4().hex + ".json"), bundles.json_bytes({"bundle_id":bundle_id,**bundles.failure_outcome(exc)}))
         raise
-
-
-def display_path(path: Path) -> str:
-    """Repo-relative POSIX path (or basename outside the repo) for manifest records that
-    end up committed/deployed via feed-status.json — never absolute local paths."""
-    try:
-        return path.resolve().relative_to(REPO_ROOT).as_posix()
-    except (ValueError, OSError):
-        return path.name
 
 
 @dataclass(frozen=True)
@@ -267,14 +257,53 @@ def fetch(url: str, *, timeout_seconds: int, attempts: int = 3) -> bytes:
 
 
 def validate_payload(file_name: str, raw: bytes) -> None:
-    """Refuse to poison the cache with a non-JSON body served under HTTP 200 (SWPC
-    maintenance pages do this) — the old code cached it, recorded ok=true, and the
-    failure surfaced later as a confusing parse error in the fixture generator."""
-    if file_name.endswith(".json"):
-        from data_bundles import loads_strict, LIMIT
-        if len(raw) > LIMIT: raise ValueError("source payload exceeds size limit")
-        value = loads_strict(raw.decode("utf-8"))
-        if not isinstance(value, (dict,list)) or not value: raise ValueError("source JSON must be nonempty")
+    """Admit provider bytes before transport success can become source health.
+
+    Empty optional event catalogues are legitimate. Critical RTSW feeds instead
+    need an eligible stamped numeric observation, using the same clock/numeric
+    grammar as their consumer. This checks availability, not scientific accuracy
+    or present-day freshness; original source bytes and clocks remain unchanged.
+    """
+    if not file_name.endswith(".json"):
+        return
+    from data_bundles import attributable_source, loads_strict, LIMIT
+    from generate_fixture_snapshot import CONTEXT_NUMERIC_KEYS, numeric, parse_time_tag, row_time
+
+    if len(raw) > LIMIT:
+        raise ValueError("source payload exceeds size limit")
+    value = loads_strict(raw.decode("utf-8"))
+    if not isinstance(value, (dict, list)):
+        raise ValueError("source JSON must be an object or row array")
+    records = value if isinstance(value, list) else [value]
+    if any(isinstance(row, dict) and any(row.get(key) for key in ("error", "errors")) for row in records):
+        raise ValueError("provider returned an error envelope")
+
+    empty_event_products = {"solar_regions.json", "sunspot_report.json", "goes_xray_flares_7_day.json"}
+    object_products = {"helioviewer_datasources.json", "jpl_horizons_sun_earth.json"}
+    row_products = {endpoint.file for endpoint in build_endpoints(include_jpl=False, start_date=date(2000, 1, 1))} - object_products
+    if file_name in row_products:
+        if not isinstance(value, list) or any(not isinstance(row, dict) for row in value):
+            raise ValueError("source product requires an array of observation objects")
+        if not value and file_name in empty_event_products:
+            return
+    elif file_name in object_products and not isinstance(value, dict):
+        raise ValueError("source metadata product requires an object")
+    if not value or not any(records):
+        raise ValueError("source JSON must contain observations or metadata")
+
+    if file_name in {"rtsw_mag_1m.json", "rtsw_wind_1m.json"}:
+        keys = CONTEXT_NUMERIC_KEYS[file_name]
+        if not any(
+            row.get("active") is not False
+            and ("source" not in row or attributable_source(row["source"]))
+            and parse_time_tag(row_time(row)) is not None
+            and any(numeric(row.get(key)) is not None for key in keys)
+            for row in value
+        ):
+            raise ValueError("critical source has no eligible timestamped numeric observation")
+    elif file_name == "jpl_horizons_sun_earth.json":
+        if not isinstance(value.get("result"), str) or not value["result"].strip():
+            raise ValueError("Horizons source requires its result text")
 
 
 def horizons_url(start: date) -> str:
@@ -294,14 +323,6 @@ def horizons_url(start: date) -> str:
 
 def parse_date(value: str) -> date:
     return datetime.strptime(value, "%Y-%m-%d").date()
-
-
-def atomic_write_bytes(path: Path, raw: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(delete=False, dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp") as handle:
-        tmp = Path(handle.name)
-        handle.write(raw)
-    tmp.replace(path)
 
 
 def write_json(path: Path, value: Any) -> None:

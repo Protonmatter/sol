@@ -234,6 +234,11 @@
   "generated_by": "tools/generate_fixture_snapshot.py",
   "observed_context": {
     "activity_index": 0.9,
+    "activity_observation": {
+      "contributors": [],
+      "status": "unavailable",
+      "value": null
+    },
     "activity_proxy_sources": {
       "f107_cm_flux_rows": 0,
       "goes_xray_flares_7_day_rows": 0,

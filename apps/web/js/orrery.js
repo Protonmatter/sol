@@ -68,7 +68,7 @@ import {
   galShear, sunGalacticPos, buildGalaxyModel, buildGalObjectList,
   buildCatalogStarsGalactic, buildNeighbourhoodModel, neighbourhoodPos,
 } from "./orreryGalaxy.js?v=dcca6290db";
-import { renderDetail, renderMoonDetail, renderSmallDetail, updateLiveDetailFacts, updateDetailAppearance } from "./orreryDetail.js?v=dcca6290de";
+import { renderDetail, renderMoonDetail, renderSmallDetail, updateSmallDetailFacts, updateLiveDetailFacts, updateDetailAppearance } from "./orreryDetail.js?v=dcca6290de";
 import { renderStarDetail } from "./starDetail.js?v=dcca6290db";
 import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js?v=dcca6290db";
 import { resolveDisplayRadii, moonGuideVisible } from "./displayGeometry.js?v=dcca6290db";
@@ -1212,13 +1212,14 @@ function buildSmallBuffers() {
 
 // Recompute every small-body marker for the current `renderUnix`, and upload them as one point buffer.
 function rebuildSmallBodies() {
-  if (!gl) return; // context lost — keep the previous CPU-side list until restore
   smallBodies = [];
   const jy2k = timeJy2k(state.renderUnix);
   // `el` carries the source record so the detail card can show the orbit (a, e, i, period).
   for (const b of DWARFS) smallBodies.push({ name: b.n, pos: bodyXYZ(b, jy2k), col: b.col, kind: "dwarf", note: b.note, el: b });
   for (const c of COMETS) smallBodies.push({ name: c.n, pos: bodyXYZ(c, jy2k), col: c.col, kind: "comet", note: c.note, el: c });
   for (const p of PROBES) smallBodies.push({ name: p.n, pos: probeXYZ(p), col: p.col, kind: "probe", note: p.note, el: p });
+  updateSmallDetailFacts(smallBodies.find(body=>body.name===state.selected));
+  if (!gl) return; // CPU facts still follow explicit time changes during context loss.
   // The CPU-side list above is ALWAYS built: the Focus dropdown and the detail panel resolve
   // small bodies through it even while the drawn layer is hidden. Only the GPU markers are
   // gated on the checkbox (drawSmallBodies/pick/labels each gate themselves).
@@ -3269,7 +3270,9 @@ async function enterOrreryInner() {
   // frame corrupting the Sun surface's layout for the rest of the session.
   canvas.style.display = "";
   try {
-    const {unix}=validateSystemRequest({unix:effectiveBaseUnix() + state.simElapsed});
+    // Leaving suspends the scene clock. Reentry/Retry refreshes its metadata, not
+    // its accepted time; only first entry and explicit Now/time inputs use wall time.
+    const {unix}=validateSystemRequest({unix:state.bodies.length===9 ? state.renderUnix : effectiveBaseUnix() + state.simElapsed});
     const [,snapshot]=await Promise.all([loadSkyEngine(),requestSystemSnapshot(unix)]);
     if(!state.active||generation!==systemGeneration)return;
     state.bodies=snapshot.bodies.map(body=>({...body}));state.renderUnix=unix;state.metadataUnix=unix;state.engineError="";lastFullSnapshot=performance.now();

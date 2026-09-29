@@ -40,6 +40,13 @@ rewriting its original raw files; review provenance gaps before use.
 selection only; failure returns 1 and retains the last derived pointer. Argument errors
 can return 2. Failure-attempt evidence remains distinct from healthy feed status.
 
+Critical provider JSON must contain eligible timestamped numeric observations;
+an HTTP-success error object is rejected. Empty optional event catalogues remain
+valid. `--fail-on-degraded` checks acquisition failure/fallback, while observation
+age is assessed separately. An illustrative default activity is not an observation
+and cannot authorize assimilation or shrink variance. Inspect
+`observed_context.activity_observation` for contributor availability in new reports.
+
 Omitting `--skip-fetch` performs network acquisition and requires separate authorization.
 Do not infer permission from scheduling examples or use a demonstration fixture as a
 live observation. See the separately maintained [data update playbook](DATA_UPDATE_PLAYBOOK.md)

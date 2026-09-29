@@ -343,6 +343,13 @@ in illustrative fixture context; all-stale reports do not create a scalar analys
 Ingestion MUST reject unattributable records before selecting the newest usable row
 or deriving observed activity. Valid magnetic or wind evidence cannot authorize an
 activity value derived from an unattributable F10.7 row.
+New report producers MUST distinguish unavailable activity observations from the
+illustrative fixture default. An explicit activity-observation descriptor binds its
+value to named, fresh, attributable activity contributors and matching evidence.
+Wind/magnetic freshness MUST NOT authorize a missing activity observation or reduce
+its uncertainty. Explicit malformed/unavailable descriptors MUST NOT fall back to
+legacy admission. Existing snapshots remain readable; legacy Python proxy blends
+require identifiable fresh contributors before a new analysis.
 Explicitly malformed clocks MUST be excluded from count-based region, sunspot and flare
 proxies as well as numeric signals. Python row-time parsing retains only native-supported
 calendar date/whole-second legacy forms and full explicit-UTC `Z`/`+00:00` forms with
