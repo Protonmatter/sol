@@ -11,10 +11,21 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 import data_bundles as bundles
 import generate_fixture_snapshot as generator
+from validate_operational_readiness import validate_readiness
+from validate_snapshot import loads_strict, validate
 
 NOW = '2026-09-28T12:00:00Z'
 
 class ActivityObservationTests(unittest.TestCase):
+    def cli_binary(self):
+        binary = ROOT / 'target/debug' / ('solar-cli.exe' if os.name == 'nt' else 'solar-cli')
+        if not binary.is_file():
+            message = 'build solar-cli with cargo build -p solar-cli --locked first'
+            if os.environ.get('SOL_REQUIRE_CLI') == '1':
+                self.fail(message)
+            self.skipTest(message)
+        return binary
+
     def report(self, optional_rows=None):
         with tempfile.TemporaryDirectory(prefix='sol-activity-') as directory:
             payloads = {
@@ -77,9 +88,7 @@ class ActivityObservationTests(unittest.TestCase):
         self.assertIs(frame['provenance']['active'], True)
 
     def test_produced_count_proxy_reaches_cli_analysis(self):
-        binary = ROOT / 'target/debug' / ('solar-cli.exe' if os.name == 'nt' else 'solar-cli')
-        if not binary.is_file():
-            self.skipTest('build solar-cli with cargo build -p solar-cli --locked first')
+        binary = self.cli_binary()
         report = self.report({'solar_regions.json': [
             {'time_tag': NOW, 'region': 1, 'active': False},
             {'time_tag': NOW, 'region': 2, 'active': True},
@@ -91,9 +100,38 @@ class ActivityObservationTests(unittest.TestCase):
             result = subprocess.run([str(binary), 'simulate', '--steps', '0', '--activity', '0.9',
                 '--observations', str(report_path), '--out', str(output)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            snapshot = json.loads(output.read_bytes())
+            snapshot = loads_strict(output.read_text(encoding='utf-8'))
             self.assertEqual(snapshot['run']['mode'], 'Assimilation')
             self.assertEqual(snapshot['run']['activity_index'], 0.38)
+
+    def test_producer_cli_roundtrip_validates_analysis_and_withheld_modes(self):
+        binary = self.cli_binary()
+        # Literal expectations: K=.04/(.04+.01)=.8. Fresh F10.7=150 yields
+        # activity .5, so prior .2 becomes .44 with variance .008. Missing or
+        # stale activity must leave both prior values unchanged, even after 48h.
+        cases = (
+            ('fresh', {'f107_cm_flux.json': [{'time_tag': NOW, 'flux': 150}]}, 'Assimilation', 0.44, 0.008),
+            ('missing', {}, 'Synthetic', 0.2, 0.04),
+            ('stale', {'f107_cm_flux.json': [{'time_tag': '2026-01-01T00:00:00Z', 'flux': 150}]}, 'Synthetic', 0.2, 0.04),
+        )
+        with tempfile.TemporaryDirectory(prefix='sol-activity-roundtrip-') as directory:
+            for name, payloads, mode, activity, variance in cases:
+                with self.subTest(case=name):
+                    report = self.report(payloads)
+                    report_path = Path(directory) / f'{name}-observations.json'
+                    output = Path(directory) / f'{name}-snapshot.json'
+                    report_path.write_text(json.dumps(report), encoding='utf-8')
+                    result = subprocess.run([str(binary), 'simulate', '--steps', '48',
+                        '--dt-hours', '1', '--seed', '42', '--activity', '0.2',
+                        '--observations', str(report_path), '--out', str(output)],
+                        capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    snapshot = loads_strict(output.read_text(encoding='utf-8'))
+                    self.assertEqual(snapshot['run']['mode'], mode)
+                    self.assertEqual(snapshot['run']['activity_index'], activity)
+                    self.assertAlmostEqual(snapshot['uncertainty']['activity']['variance'], variance, places=7)
+                    self.assertEqual(validate(snapshot), [])
+                    self.assertEqual(validate_readiness(snapshot['operational_readiness'], False), [])
 
     def test_monthly_fallback_evidence_uses_the_active_numeric_contributor(self):
         report = self.report({'observed-solar-cycle-indices.json': [

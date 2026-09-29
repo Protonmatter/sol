@@ -246,18 +246,17 @@ jobs:
       - name: Operational-readiness gate
         run: python tools/validate_operational_readiness.py apps/web/data/latest-state.json
 
-      # ADR 0005 round-trip: the Rust CLI reads a real observation report, corrects the
-      # activity forecast through the Kalman primitive, and the emitted Assimilation-mode
-      # snapshot must pass the shared Python validators — Rust reading, Rust writing,
-      # Python judging, one contract.
+      # Use deterministic synthetic reports from the actual Python producer:
+      # fresh activity must assimilate, while missing/stale activity must retain
+      # the prior. The app's historical report is not guaranteed to admit analysis.
+      # Both modes must pass shared schema/readiness validators after Rust transport.
       - name: Assimilation round-trip (Rust -> shared validators)
         shell: bash
+        env:
+          SOL_REQUIRE_CLI: "1"
         run: |
-          cargo run --quiet --locked -p solar-cli -- simulate --steps 48 --dt-hours 1 --seed 42 \
-            --observations apps/web/data/latest-observations.json --out /tmp/assimilated.json
-          grep -q '"mode": "Assimilation"' /tmp/assimilated.json
-          python tools/validate_snapshot.py /tmp/assimilated.json
-          python tools/validate_operational_readiness.py /tmp/assimilated.json
+          cargo build --quiet --locked -p solar-cli
+          PYTHONPATH=tools python -m unittest discover -s tests/python -p test_activity_observation.py -v
 
       - name: Regenerate deterministic solar-cycle series
         run: python tools/generate_series.py

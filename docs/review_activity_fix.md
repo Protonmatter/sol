@@ -45,6 +45,13 @@ python -m unittest discover -s tests/python -p test_future_freshness.py -v
 cargo test -p solar-cli --locked
 ```
 
+CI builds the native CLI and sets `SOL_REQUIRE_CLI=1` before the Python activity
+suite, so its producer-to-CLI checks cannot silently skip. The round-trip uses
+explicit fresh, missing and stale synthetic activity reports; it checks mode,
+activity, variance, shared snapshot admission and research-only readiness after
+48 transport steps. It does not require the app's historical report to qualify
+for new assimilation.
+
 The missing-proxy end-to-end reproduction now keeps a 0.2 prior at 0.2 with variance
 0.04 and mode Synthetic, where the earlier implementation emitted 0.76, variance
 approximately 0.008, and mode Assimilation. These are offline synthetic regression
