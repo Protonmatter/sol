@@ -66,47 +66,53 @@ Patched after reviewing NWS Service Change Notice 26-21:
 - Extended cached snapshots with `observed-context.v1` so SWPC solar regions, sunspot rows, GOES flare rows, and cycle indices can tune the research fixture while preserving provenance and normalized-unit caveats.
 - Updated the web UI to show daily feed status separately from snapshot readiness.
 
-## Publishing `solar-ephemeris` to crates.io
+## Registry history and current package qualification
 
-> **Status:** `solar-ephemeris` is live on crates.io —
-> <https://crates.io/crates/solar-ephemeris>. **0.1.1** was the first publish
-> (2026-07-20); **0.2.0** (2026-07-20) is current and carries the 108-star
-> bright-star catalogue. The steps below drive subsequent version bumps; the
-> guard skips any version already on crates.io, so a scheduled run is a no-op
-> until the workspace version changes.
+Reviewed: 2026-09-28. The historical registry publications remain valid:
+[0.1.1](https://docs.rs/solar-ephemeris/0.1.1/solar_ephemeris/) was first published
+on 2026-07-20, followed by
+[0.2.0](https://docs.rs/solar-ephemeris/0.2.0/solar_ephemeris/) that day with the
+108-star bright-star catalogue. The
+[crates.io API record](https://crates.io/api/v1/crates/solar-ephemeris) confirms
+both versions exist and are not yanked as of this review. The crates.io browser
+pages returned HTTP 404 during the review; that does not establish registry absence.
+The links above open the versioned API documentation. Published versions and the
+current checkout's v3 contract are separate artifacts.
 
-The `solar-ephemeris` crate is released to crates.io by the
-`.github/workflows/publish-crate.yml` workflow. It runs on a weekly schedule
-(Mondays 07:30 UTC) and on demand via **workflow_dispatch**. A guard step queries
-crates.io and skips the publish when the current workspace version is already
-live, so scheduled runs stay green between releases — publishing is driven by
-version bumps, not by the clock.
+The current [package workflow](.github/workflows/publish-crate.yml) runs only on
+**workflow_dispatch**, with a required exact 40-character `source_sha`. Its retained
+name is "Publish solar-ephemeris to crates.io", but its implemented action is
+**package qualification with publication held**. There is no weekly schedule,
+registry credential input or registry publication step. A version bump does not
+authorize publication.
 
-### One-time setup: the `CARGO_REGISTRY_TOKEN` secret
+### Qualify an exact source candidate
 
-The publish step authenticates with a crates.io API token stored in the repository
-secret `CARGO_REGISTRY_TOKEN`. Without it the workflow still runs, but the publish
-step fails to authenticate.
+Use a clean checkout of the reviewed commit. The local package checks are:
 
-1. On crates.io, go to **Account Settings -> API Tokens -> New Token**.
-   - Scopes: `publish-new` (needed for the first-ever publish of the crate name)
-     and `publish-update` (later version bumps).
-   - Crate scope: restrict the token to `solar-ephemeris` (least privilege).
-   - Optionally set an expiry, and copy the token (shown only once).
-2. Add it to the repo at **Settings -> Secrets and variables -> Actions ->
-   New repository secret**: name it exactly `CARGO_REGISTRY_TOKEN`, value = the
-   token. (Or locally: `gh secret set CARGO_REGISTRY_TOKEN --repo Protonmatter/sol`.)
+```bash
+cargo test -p solar-ephemeris --locked
+cargo package --list -p solar-ephemeris --locked
+cargo publish --dry-run -p solar-ephemeris --locked
+```
 
-The token owner must be an owner of the `solar-ephemeris` crate on crates.io once
-it is published, or later version-bump publishes return 403.
+The dry run can access the registry index; it does not upload the crate. Retain its
+log and the resulting `.crate` bytes for package-content and notice review. For a
+separately authorized hosted qualification, supply the reviewed commit explicitly:
 
-### Cutting a release
+```bash
+gh workflow run publish-crate.yml --repo Protonmatter/sol -f source_sha=REVIEWED_40_CHARACTER_COMMIT_SHA
+```
 
-1. Bump `version` in the workspace `[workspace.package]` table in the root
-   `Cargo.toml` (the crate inherits it via `version.workspace = true`), and update
-   `Cargo.lock`.
-2. Land it on `master` through the normal CI-gated PR flow.
-3. Either wait for the next weekly run or trigger it now: **Actions -> "Publish
-   solar-ephemeris to crates.io" -> Run workflow**. The guard detects the new
-   version is not yet on crates.io and publishes it with `cargo publish -p
-   solar-ephemeris --locked`.
+The workflow checks out that SHA, tests/packages it, records exact-source package
+evidence with `tools/release_crate.py`, and uploads
+`qualified-crate-candidate-RUN_ID-RUN_ATTEMPT` with 90-day retention. After successful
+qualification/upload, its final hold step deliberately exits **1** to make the
+publication boundary visible. Earlier failures may prevent candidate creation;
+inspect the exact run's steps and artifacts before claiming qualification.
+
+Actual publication remains held pending exact-source CI, accepted package
+digest/contents/notices and separately protected registry authority. Do not add a
+registry secret to bypass this hold. Any future publication path also needs
+post-publication checksum verification, because publishing can repackage source.
+See [release delivery](docs/RELEASE_DELIVERY.md) for the governing evidence boundaries.

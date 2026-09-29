@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import importlib.util
+import copy
 import io
 import json
 import math
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -215,15 +217,16 @@ class ServerContractTests(unittest.TestCase):
     def test_cache_round_trip_bad_entry_and_eviction(self):
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch.object(server, "CACHE_DIR", tmp), \
-                 mock.patch.object(server, "build_snapshot", return_value={"schema_version": server.SCHEMA_VERSION, "value": 1}) as build:
+                 mock.patch.object(server, "definitive_positions", side_effect=fake_positions) as provider:
                 first = server.snapshot_cached(123.9, 1, 2, 3)
                 second = server.snapshot_cached(123.9, 1, 2, 3)
                 self.assertEqual(first, second)
-                self.assertEqual(build.call_count, 1)
+                self.assertEqual(validator.validate(first), [])
+                self.assertEqual(provider.call_count, 1)
                 path = server.cache_path(123.9, 1, 2, 3)
                 Path(path).write_text("{bad", encoding="utf-8")
                 server.snapshot_cached(123.9, 1, 2, 3)
-                self.assertEqual(build.call_count, 2)
+                self.assertEqual(provider.call_count, 2)
 
                 for index in range(4):
                     p = Path(tmp) / f"{index}.json"
@@ -235,9 +238,159 @@ class ServerContractTests(unittest.TestCase):
     def test_cache_preserves_exact_epoch_and_observer(self):
         self.assertNotEqual(server.cache_path(123.1,1,2,3), server.cache_path(123.9,1,2,3))
         self.assertNotEqual(server.cache_path(123,1.00001,2,3), server.cache_path(123,1.00002,2,3))
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(server,"CACHE_DIR",tmp), mock.patch.object(server,"build_snapshot",return_value={"schema_version":server.SCHEMA_VERSION}) as build:
-            server.snapshot_cached(123.9,1.00001,2,3)
-            build.assert_called_once_with(123.9,1.00001,2,3)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(server,"CACHE_DIR",tmp), mock.patch.object(server,"definitive_positions",side_effect=fake_positions):
+            snapshot = server.snapshot_cached(123.9,1.00001,2,3)
+            self.assertEqual(snapshot["observer"]["terrestrial_lat_deg"], 1.00001)
+            self.assertEqual(snapshot["observer"]["terrestrial_lon_deg_east"], 2)
+            self.assertEqual(snapshot["observer"]["elev_m"], 3)
+            self.assertEqual(validator.validate(snapshot), [])
+
+    def test_corrupt_cache_is_replaced_once_with_a_complete_valid_snapshot(self):
+        args = (1_783_569_600.0, 40.71, -74.01, 12.0)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(server, "CACHE_DIR", tmp):
+            with mock.patch.object(server, "definitive_positions", side_effect=fake_positions):
+                healthy = server.snapshot_cached(*args)
+            path = Path(server.cache_path(*args))
+            stored = json.loads(path.read_bytes())
+
+            def changed_snapshot(edit):
+                document = copy.deepcopy(stored)
+                # Exercise both the legacy file and the replacement envelope during migration.
+                snapshot = document.get("snapshot", document)
+                edit(snapshot)
+                return json.dumps(document).encode()
+
+            corruptions = {
+                "parseable truncated contract": changed_snapshot(lambda snapshot: snapshot.pop("bodies")),
+                "wrong version": changed_snapshot(lambda snapshot: snapshot.update(schema_version="ephemeris-snapshot.v2")),
+                "wrong epoch": changed_snapshot(lambda snapshot: snapshot["time"].update(jd_utc=2_461_234.5)),
+                "wrong latitude": changed_snapshot(lambda snapshot: snapshot["observer"].update(terrestrial_lat_deg=40.72)),
+                "wrong longitude": changed_snapshot(lambda snapshot: snapshot["observer"].update(terrestrial_lon_deg_east=-74.02)),
+                "wrong elevation": changed_snapshot(lambda snapshot: snapshot["observer"].update(elev_m=13.0)),
+                "nonfinite": changed_snapshot(lambda snapshot: snapshot["observer"].update(elev_m=float("nan"))),
+                "duplicate key": json.dumps(stored).encode().replace(b'"elev_m": 12.0', b'"elev_m": 13.0, "elev_m": 12.0'),
+                "overflow number": json.dumps(stored).encode().replace(b'"elev_m": 12.0', b'"elev_m": 1e999'),
+                "integer exceeds binary64": changed_snapshot(lambda snapshot: snapshot["time"].update(jd_tt=10 ** 400)),
+                "wrong time container": changed_snapshot(lambda snapshot: snapshot.update(time=[])),
+                "wrong observer container": changed_snapshot(lambda snapshot: snapshot.update(observer=None)),
+                "oversized": json.dumps(stored).encode() + b" " * (server.MAX_RESPONSE_BYTES + 1),
+                "invalid utf8": b"\xff",
+                "invalid json": b'{"schema_version":',
+                "excessive nesting": b"[" * 2000 + b"]" * 2000,
+            }
+            for reason, raw in corruptions.items():
+                with self.subTest(reason=reason):
+                    path.write_bytes(raw)
+                    with mock.patch.object(server, "definitive_positions", side_effect=fake_positions) as provider:
+                        repaired = server.snapshot_cached(*args)
+                        self.assertEqual(repaired, healthy)
+                        self.assertEqual(provider.call_count, 1, "corrupt entry must rebuild exactly once")
+                    with mock.patch.object(server, "definitive_positions", side_effect=AssertionError("repaired cache missed")):
+                        self.assertEqual(server.snapshot_cached(*args), healthy)
+
+    def test_cache_copied_between_exact_requests_is_not_reused(self):
+        unix = 1_783_569_600.0
+        nearby = math.nextafter(unix, math.inf)
+        self.assertEqual(unix / 86400 + 2440587.5, nearby / 86400 + 2440587.5)
+        for original, requested in [
+            ((unix, 40.71, -74.01, 12.0), (nearby, 40.71, -74.01, 12.0)),
+            ((unix, 40.71, -74.01, 12.0), (unix, 40.71, -74.01, 13.0)),
+        ]:
+            with self.subTest(requested=requested), tempfile.TemporaryDirectory() as tmp, mock.patch.object(server, "CACHE_DIR", tmp):
+                with mock.patch.object(server, "definitive_positions", side_effect=fake_positions):
+                    server.snapshot_cached(*original)
+                source = Path(server.cache_path(*original))
+                target = Path(server.cache_path(*requested))
+                target.write_bytes(source.read_bytes())
+                with mock.patch.object(server, "definitive_positions", side_effect=fake_positions) as provider:
+                    actual = server.snapshot_cached(*requested)
+                    self.assertEqual(provider.call_count, 1, "exact request identity must match, even when JD rounds identically")
+                    self.assertEqual(actual["observer"]["elev_m"], requested[3])
+                with mock.patch.object(server, "definitive_positions", side_effect=AssertionError("healthy cache missed")):
+                    self.assertEqual(server.snapshot_cached(*requested), actual)
+
+    def test_corrupt_cache_rebuild_failure_does_not_return_corrupt_data(self):
+        args = (1_783_569_600.0, 40.71, -74.01, 12.0)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(server, "CACHE_DIR", tmp):
+            path = Path(server.cache_path(*args))
+            path.write_text('{"schema_version":"ephemeris-snapshot.v3","corrupt":true}', encoding="utf-8")
+            with mock.patch.object(server, "definitive_positions", side_effect=server.ProviderError("upstream_failed", "offline")) as provider:
+                with self.assertRaises(server.ProviderError):
+                    server.snapshot_cached(*args)
+                self.assertEqual(provider.call_count, 1)
+
+    def test_cache_read_is_bounded_before_parsing(self):
+        args = (1_783_569_600.0, 40.71, -74.01, 12.0)
+        reads = []
+
+        class BoundedReader(io.BytesIO):
+            def read(self, size=-1):
+                reads.append(size)
+                if size < 0 or size > server.MAX_RESPONSE_BYTES + 1:
+                    raise AssertionError("cache read must have a finite byte budget")
+                return super().read(size)
+
+        original_open = open
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(server, "CACHE_DIR", tmp):
+            path = Path(server.cache_path(*args))
+            path.write_bytes(b" ")
+
+            def open_cache(filename, *open_args, **kwargs):
+                if os.fspath(filename) == str(path):
+                    return BoundedReader(b" " * (server.MAX_RESPONSE_BYTES + 1))
+                return original_open(filename, *open_args, **kwargs)
+
+            with mock.patch("builtins.open", side_effect=open_cache), mock.patch.object(server, "definitive_positions", side_effect=fake_positions):
+                rebuilt = server.snapshot_cached(*args)
+            self.assertEqual(reads, [server.MAX_RESPONSE_BYTES + 1])
+            self.assertEqual(validator.validate(rebuilt), [])
+
+    def test_invalid_rebuild_is_not_published_or_cached(self):
+        args = (1_783_569_600.0, 40.71, -74.01, 12.0)
+        healthy = self.build()
+        invalid = copy.deepcopy(healthy)
+        invalid["observer"]["elev_m"] = 13.0
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(server, "CACHE_DIR", tmp):
+            with mock.patch.object(server, "build_snapshot", return_value=invalid):
+                with self.assertRaisesRegex(server.ProviderError, "contract or request"):
+                    server.snapshot_cached(*args)
+            self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_repository_provider_imports_shared_contract_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [sys.executable, "-I", str(Path(__file__).with_name("server.py")), "--help"],
+                cwd=tmp, capture_output=True, text=True, timeout=15, check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--port", result.stdout)
+
+    def test_malformed_rebuild_reports_invalid_snapshot_without_raw_validation_errors(self):
+        args = (1_783_569_600.0, 40.71, -74.01, 12.0)
+        deep_container = []
+        for _ in range(2000):
+            deep_container = [deep_container]
+        corruptions = {
+            "integer exceeds binary64": lambda snapshot: snapshot["time"].update(jd_tt=10 ** 400),
+            "wrong time container": lambda snapshot: snapshot.update(time=[]),
+            "wrong observer container": lambda snapshot: snapshot.update(observer=None),
+            "excessive nesting": lambda snapshot: snapshot.update(warnings=deep_container),
+        }
+        healthy = self.build()
+        for reason, corrupt in corruptions.items():
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as tmp, mock.patch.object(server, "CACHE_DIR", tmp):
+                invalid = copy.deepcopy(healthy)
+                corrupt(invalid)
+                with mock.patch.object(server, "build_snapshot", return_value=invalid):
+                    with self.assertRaises(server.ProviderError) as raised:
+                        server.snapshot_cached(*args)
+                self.assertEqual(raised.exception.code, "invalid_snapshot")
+                self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_contract_resource_io_errors_are_not_classified_as_malformed_snapshot(self):
+        with mock.patch.object(server, "validate_snapshot", side_effect=OSError("schema unavailable")):
+            with self.assertRaisesRegex(OSError, "schema unavailable"):
+                server.snapshot_matches_request(self.build(), 1_783_569_600.0, 40.71, -74.01, 12.0)
 
     def test_request_retries_transient_errors_and_raises_permanent_errors(self):
         response = mock.MagicMock()

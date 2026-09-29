@@ -10,15 +10,10 @@ No publication or remote git action.
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import subprocess
-import sys
-import tempfile
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 LOGGER = logging.getLogger("run_daily_ingest")
 REPO_ROOT = Path(__file__).resolve().parents[1]

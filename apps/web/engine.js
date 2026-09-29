@@ -40,7 +40,7 @@ export function engineReady() {
 // Read the bytes immediately and copy them out before any further wasm call.
 export function simulateSnapshot({ seed = 42, steps = 24, dtHours = 1, activity = 0.9, lon = 72, lat = 36 } = {}) {
   validateSolarRequest({seed,steps,dtHours,activity,lon,lat});
-  if (!wasmExports) throw new Error("engine not loaded");
+  if (!engineReady()) throw new Error("engine not loaded");
   const ptr = wasmExports.simulate(seed, steps, dtHours, activity, lon, lat);
   const len = wasmExports.result_len();
   const view = new Uint8Array(wasmExports.memory.buffer, ptr, len);

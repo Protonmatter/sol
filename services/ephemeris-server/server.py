@@ -35,6 +35,7 @@ import os
 import re
 import select
 import socket
+import sys
 import tempfile
 import time
 import threading
@@ -43,13 +44,22 @@ import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, Callable
+
+# The documented provider runs from the repository, sharing its authoritative
+# stdlib-only validator and schema instead of maintaining another v3 contract.
+TOOLS = Path(__file__).resolve().parents[2] / "tools"
+if str(TOOLS) not in sys.path:
+    sys.path.insert(0, str(TOOLS))
+from validate_ephemeris_snapshot import parse_snapshot, validate as validate_snapshot
 
 AU_KM = 149_597_870.7
 EARTH_R_KM = 6378.14
 HORIZONS = "https://ssd.jpl.nasa.gov/api/horizons.api"
 SCHEMA_VERSION = "ephemeris-snapshot.v3"
-CACHE_VERSION = "v6"  # Invalidate responses predating normalized azimuth/compass pairs.
+CACHE_VERSION = "v7"  # Exact-request envelope; older unbound snapshots are not reused.
+CACHE_SCHEMA_VERSION = "ephemeris-cache.v1"
 CACHE_MAX_ENTRIES = 4096
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 USER_AGENT = "Protonmatter-Sol/0.3 (+https://github.com/Protonmatter/sol)"
@@ -607,13 +617,21 @@ def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict[st
     if problem:
         raise ValueError(problem)
     path = cache_path(unix, lat, lon, elev)
+    request_identity = [float(value).hex() for value in (unix, lat, lon, elev)]
     if os.path.isfile(path):
         try:
-            with open(path, encoding="utf-8") as handle:
-                cached = json.load(handle)
-            if cached.get("schema_version") == SCHEMA_VERSION:
-                return cached
-        except (json.JSONDecodeError, OSError, AttributeError):
+            with open(path, "rb") as handle:
+                raw = handle.read(MAX_RESPONSE_BYTES + 1)
+            if len(raw) > MAX_RESPONSE_BYTES:
+                raise ValueError("cache entry exceeds byte limit")
+            cached = parse_snapshot(raw.decode("utf-8"))
+            if (isinstance(cached, dict)
+                    and set(cached) == {"schema_version", "request", "snapshot"}
+                    and cached["schema_version"] == CACHE_SCHEMA_VERSION
+                    and cached["request"] == request_identity
+                    and snapshot_matches_request(cached["snapshot"], unix, lat, lon, elev)):
+                return cached["snapshot"]
+        except (ValueError, OSError, RecursionError):
             pass
         try:
             os.remove(path)
@@ -621,11 +639,17 @@ def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict[st
             pass
 
     snapshot = build_snapshot(unix, lat, lon, elev)
+    if not snapshot_matches_request(snapshot, unix, lat, lon, elev):
+        raise ProviderError("invalid_snapshot", "Ephemeris snapshot failed contract or request validation")
+    cached = {"schema_version": CACHE_SCHEMA_VERSION, "request": request_identity, "snapshot": snapshot}
+    raw = json.dumps(cached, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise ProviderError("response_too_large", "Ephemeris snapshot exceeds cache byte limit")
     os.makedirs(CACHE_DIR, exist_ok=True)
     fd, temporary = tempfile.mkstemp(dir=CACHE_DIR, suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(snapshot, handle, separators=(",", ":"), allow_nan=False)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(raw)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, path)
@@ -636,6 +660,28 @@ def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict[st
             pass
     evict_cache()
     return snapshot
+
+
+def snapshot_matches_request(snapshot: Any, unix: float, lat: float, lon: float, elev: float) -> bool:
+    """Validate all v3 fields, then bind its epoch and observer to this request.
+
+    The envelope additionally preserves the exact Unix float because conversion
+    to a Julian day can round distinct instants to the same representable value.
+    """
+    try:
+        errors = validate_snapshot(snapshot)
+    except (OverflowError, RecursionError):
+        # JSON can contain integers beyond binary64 and excessively nested
+        # containers. These are invalid payloads, not reusable cache entries.
+        # Leave contract-resource I/O and other unexpected failures visible.
+        return False
+    if errors:
+        return False
+    observer = snapshot["observer"]
+    return (snapshot["time"]["jd_utc"] == unix / 86_400.0 + 2_440_587.5
+            and observer["terrestrial_lat_deg"] == lat
+            and observer["terrestrial_lon_deg_east"] == lon
+            and observer["elev_m"] == elev)
 
 
 def validate_params(unix: float, lat: float, lon: float, elev: float) -> str | None:

@@ -10,7 +10,7 @@ test('restoring a paused graphics context reuses retained physical metadata with
   const requests=h.requests.length,positionComputations=h.positionEpochs.length,contexts=h.contexts,draws=h.draws;
   // Model a tab which has remained paused far longer than the ordinary metadata
   // refresh cadence. Restoring its graphics is not a new scientific time intent.
-  h.advanceMonotonicTime(20000);h.holdSnapshots();
+  h.advanceMonotonicTime(20000);h.setWallUnix(1800007200);h.holdSnapshots();
   h.event('orreryCanvas','webglcontextlost');
   h.event('orreryCanvas','webglcontextrestored');await h.settleCatalogues();
   assert.equal(h.requests.length,requests,'graphics restoration must not queue a deadline-bound metadata request');

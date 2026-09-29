@@ -288,6 +288,117 @@ pub(crate) fn assess_observed_context(
     })
 }
 
+/// New producers distinguish observed activity from the illustrative fixture default.
+/// Historical snapshots remain readable; legacy Python reports can be assimilated
+/// only when every contributing proxy (rather than unrelated wind/magnetic feeds)
+/// has attributable evidence and known fresh age.
+pub(crate) fn assess_activity_observation(
+    context: &JsonValue,
+    legacy: ObservedContextAssessment,
+    evidence: &[JsonValue],
+) -> Option<ObservedContextAssessment> {
+    const IDS: [&str; 5] = [
+        "swpc-solar-regions",
+        "swpc-sunspot-report",
+        "swpc-goes-xray-flares-7-day",
+        "swpc-f107-cm-flux",
+        "swpc-observed-cycle-indices",
+    ];
+    let freshness = context.get("signal_freshness")?;
+    let eligible = |id: &str| {
+        IDS.contains(&id)
+            && freshness.get(id).is_some_and(|entry| {
+                entry.get("stale").and_then(JsonValue::as_bool) == Some(false)
+                    && entry
+                        .get("age_hours")
+                        .and_then(JsonValue::as_f64)
+                        .is_some_and(|age| age.is_finite() && (0.0..=48.0).contains(&age))
+            })
+            && evidence.iter().any(|frame| {
+                frame.get("id").and_then(JsonValue::as_str) == Some(id)
+                    && frame
+                        .get("provenance")
+                        .and_then(|p| p.get("active"))
+                        .and_then(JsonValue::as_bool)
+                        != Some(false)
+            })
+    };
+    if let Some(observation) = context.get("activity_observation") {
+        if observation.get("status").and_then(JsonValue::as_str) != Some("available") {
+            return None;
+        }
+        let value = observation.get("value")?.as_f64()?;
+        let contributors = observation.get("contributors")?.as_array()?;
+        if !value.is_finite()
+            || !(0.0..=1.0).contains(&value)
+            || contributors.is_empty()
+            || contributors.len() > IDS.len()
+        {
+            return None;
+        }
+        let mut ids = std::collections::BTreeSet::new();
+        let mut sum = 0.0;
+        for contributor in contributors {
+            let id = contributor.get("id")?.as_str()?;
+            let contribution = contributor.get("value")?.as_f64()?;
+            if !eligible(id)
+                || !ids.insert(id)
+                || !contribution.is_finite()
+                || !(0.0..=1.0).contains(&contribution)
+            {
+                return None;
+            }
+            sum += contribution;
+        }
+        // Producers round the mean to six decimal places; no unbound alternative
+        // activity value may be substituted into the accepted descriptor.
+        if (value - sum / contributors.len() as f64).abs() > 0.000_000_51 {
+            return None;
+        }
+        return Some(ObservedContextAssessment {
+            activity_index: value,
+            fresh: contributors.len(),
+            total: contributors.len(),
+        });
+    }
+    if let Some(proxies) = context.get("activity_proxy_sources") {
+        let mut contributors = Vec::new();
+        for (key, id) in [
+            ("solar_region_rows", IDS[0]),
+            ("sunspot_rows", IDS[1]),
+            ("goes_xray_flares_7_day_rows", IDS[2]),
+        ] {
+            let count = proxies.get(key)?.as_f64()?;
+            if !count.is_finite() || count < 0.0 || count.fract() != 0.0 {
+                return None;
+            }
+            if count > 0.0 {
+                contributors.push(id);
+            }
+        }
+        if !matches!(proxies.get("latest_f107")?, JsonValue::Null) {
+            let flux = proxies.get("latest_f107")?.as_f64()?;
+            if !flux.is_finite() {
+                return None;
+            }
+            // Legacy metadata cannot bind a mixed daily/monthly fallback safely.
+            // Require the daily signal and its exact provenance to be fresh.
+            contributors.push(IDS[3]);
+        }
+        if contributors.is_empty() || !contributors.iter().all(|id| eligible(id)) {
+            return None;
+        }
+        return Some(ObservedContextAssessment {
+            activity_index: legacy.activity_index,
+            fresh: contributors.len(),
+            total: contributors.len(),
+        });
+    }
+    // Existing native F10.7 and historical simple reports retain their explicit
+    // observation contract. They never carry Python's default/count envelope.
+    Some(legacy)
+}
+
 pub fn validate(raw: &str) -> Result<(), String> {
     let value = parse_json(raw).map_err(|err| format!("snapshot JSON: {err}"))?;
     if value.get("schema_version").and_then(JsonValue::as_str) != Some("solar-state-snapshot.v3") {

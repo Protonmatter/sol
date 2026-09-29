@@ -1,7 +1,7 @@
 # solar-ephemeris
 
-[![crates.io](https://img.shields.io/crates/v/solar-ephemeris.svg)](https://crates.io/crates/solar-ephemeris)
-[![docs.rs](https://docs.rs/solar-ephemeris/badge.svg)](https://docs.rs/solar-ephemeris)
+[![Published crate version](https://img.shields.io/crates/v/solar-ephemeris.svg)](https://docs.rs/solar-ephemeris/0.2.0/solar_ephemeris/)
+[![docs.rs](https://docs.rs/solar-ephemeris/badge.svg)](https://docs.rs/solar-ephemeris/0.2.0/solar_ephemeris/)
 
 A **zero-dependency** Rust ephemeris and topocentric sky engine:
 
@@ -28,9 +28,13 @@ the current v3 evidence records are explicitly source-theory parity, not indepen
 solar-ephemeris = { path = "path/to/sol/crates/solar-ephemeris" }
 ```
 
-V3 is a local preview; published releases may retain a different contract. Releases are listed on
-[crates.io](https://crates.io/crates/solar-ephemeris); rendered API docs on
-[docs.rs](https://docs.rs/solar-ephemeris). Zero dependencies — it pulls in nothing else.
+The current v3 source and published crate releases are separate artifacts. Versioned
+API documentation is available for published
+[0.2.0](https://docs.rs/solar-ephemeris/0.2.0/solar_ephemeris/) and
+[0.1.1](https://docs.rs/solar-ephemeris/0.1.1/solar_ephemeris/); consult the selected
+version's contract before using it. The current repository workflow qualifies exact
+source packages but holds further publication; see [build notes](../../BUILD_NOTES.md).
+Zero dependencies — it pulls in nothing else.
 
 The engine emits a versioned `ephemeris-snapshot.v3` JSON document for a given time and
 observer. The runnable `snapshot` example shows end-to-end usage:

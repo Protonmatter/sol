@@ -106,10 +106,9 @@ export function renderSmallDetail(s) {
   const add = (k, v) => {
     if (v == null) return;
     const dt = document.createElement("dt"); dt.textContent = k;
-    const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd);
+    const dd = document.createElement("dd"); dd.textContent = v; dd.dataset.metric = k; dl.append(dt, dd);
   };
-  const distAU = Math.hypot(s.pos[0], s.pos[1], s.pos[2]);
-  add("Distance from Sun", `${distAU.toFixed(2)} AU · light ${(distAU * 8.317 / 60).toFixed(1)} h`);
+  add("Distance from Sun", smallBodyDistanceLabel(s));
   const el = s.el || {};
   if (s.kind !== "probe" && el.a != null) {
     add("Semi-major axis", `${el.a.toFixed(2)} AU`);
@@ -130,6 +129,23 @@ export function renderSmallDetail(s) {
   card.appendChild(note);
   appendVisualSources(card, s.name);
   host.appendChild(card);
+}
+
+function smallBodyDistanceLabel(body) {
+  const distAU = Math.hypot(...body.pos);
+  return `${distAU.toFixed(2)} AU · light ${(distAU * 8.317 / 60).toFixed(1)} h`;
+}
+
+// Called when current-epoch markers are rebuilt, including animation frames.
+// Updating only the metric retains open source disclosures and keyboard focus.
+export function updateSmallDetailFacts(body) {
+  if (!body) return;
+  const host = document.getElementById("orreryDetail");
+  if (host?.querySelector(".system-detail > strong")?.textContent !== body.name) return;
+  const value = smallBodyDistanceLabel(body);
+  for (const node of host.querySelectorAll("[data-metric]")) {
+    if (node.getAttribute("data-metric") === "Distance from Sun" && node.textContent !== value) node.textContent = value;
+  }
 }
 
 // Render the facts card for `name` into #orreryDetail. `live` is the body's row from the

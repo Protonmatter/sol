@@ -15,7 +15,6 @@ import json
 import os
 import re
 import shutil
-import socketserver
 import struct
 import subprocess
 import tempfile
@@ -38,6 +37,10 @@ MOON_READINESS_JS = """({state,time,moons,lifecycleReady,rows,backend}) => Boole
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    # Chromium can open a speculative socket before sending a request. Bound its
+    # idle lifetime; other requests are served on separate daemon threads.
+    timeout = 10
+
     def __init__(self, *args, base_path="/", namespace="", **kwargs):
         self.base_path = base_path
         self.namespace = namespace
@@ -294,7 +297,7 @@ def serve(directory: Path, base_path: str = "/", namespace: str = ""):
     handler = lambda *args, **kwargs: QuietHandler(  # noqa: E731
         *args, directory=str(directory), base_path=base_path, namespace=namespace, **kwargs
     )
-    with socketserver.TCPServer(("127.0.0.1", 0), handler) as server:
+    with http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         port = server.server_address[1]
@@ -302,9 +305,10 @@ def serve(directory: Path, base_path: str = "/", namespace: str = ""):
             deadline = time.monotonic() + 5.0
             while True:
                 try:
-                    urllib.request.urlopen(
+                    with urllib.request.urlopen(
                         f"http://127.0.0.1:{port}{base_path}{namespace}index.html", timeout=1
-                    ).read(1)
+                    ) as response:
+                        response.read()
                     break
                 except OSError:
                     if time.monotonic() >= deadline:

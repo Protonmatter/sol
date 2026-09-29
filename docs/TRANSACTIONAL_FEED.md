@@ -17,6 +17,15 @@ Reusing a fixture after a failed refresh keeps its `fixture` origin, original cl
 and bytes; the new acquisition records the failure/degradation separately. Reuse cannot
 promote fixture data to observed cached data.
 
+HTTP success is not observation availability. Acquisition rejects provider error
+envelopes and non-object rows in known tabular products. Each critical RTSW product
+must contain at least one finite numeric measurement with an admitted source clock
+and `active` not explicitly false. Empty region, sunspot and flare-event catalogues
+are legitimate optional absences. Rejected current bytes cannot become healthy
+source products: attributable fallback is labelled degraded, and `--fail-on-degraded`
+retains the last derived pointer. These checks do not establish scientific accuracy
+or replace the separate observation-age assessment.
+
 Native source-pointer intake and Python daily derivation carry the validated product
 source into row selection and normalized-frame provenance.
 When an F10.7 row omits `source`, the manifest attribution is used without changing
@@ -28,6 +37,15 @@ proxy counts, not only from snapshot evidence. Numeric context and its evidence 
 select the same newest eligible numeric row; signal freshness follows that selected
 row rather than a newer nonnumeric record. Invalid-only inputs retain raw report/source
 metadata but cannot supply a numeric signal or activity proxy.
+
+New Python reports distinguish their illustrative `activity_index` default from
+`activity_observation`: the latter has an availability status, nullable value and
+explicit contributing source IDs/values. Only fresh attributable activity contributors
+can authorize scalar assimilation; fresh wind/magnetic context cannot authorize a
+missing or stale activity proxy. An unavailable descriptor retains the simulation's
+prior activity and variance. Older reports remain readable, while legacy Python
+activity blends with ambiguous contributor freshness are withheld from new analysis.
+See [activity admission corrections](review_activity_fix.md) for compatibility and tests.
 
 `research-data-bundle.v1` binds its source manifest digest and all snapshot,
 normalized-observation, feed-status, series-manifest, and available-series-frame

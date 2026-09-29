@@ -25,6 +25,11 @@ python services/ephemeris-server/server.py --host 127.0.0.1 --port 8787
 `ssd.jpl.nasa.gov`** (JPL Horizons); there are no Python dependencies and no kernel files
 to download.
 
+Run from a complete repository checkout: cache admission imports the existing
+`tools/validate_ephemeris_snapshot.py` validator and its `docs/` schema by paths
+relative to this script, independent of the current working directory. Copying
+`server.py` alone is not a supported standalone installation.
+
 - `GET /health` → `{ "status": "ok", "provider": "horizons-de441", ... }`
 - `GET /v3/sky?unix=<sec>&lat=<deg>&lon=<deg east+>&elev=<m>` → `ephemeris-snapshot.v3`
 - `GET /v1/sky?...` and `/v2/sky?...` → HTTP 409 with an explicit v3 upgrade explanation
@@ -34,6 +39,19 @@ for an instant is subject to the 20-second overall deadline; no current live lat
 (`Access-Control-Allow-Origin: *`) so the static web app on another port can call it. Override
 the URL the frontend uses with `window.SOL_EPHEMERIS_SERVER`. There is no default remote
 endpoint; the user explicitly consents to sending the selected location/time to the displayed recipient.
+
+Cache reads are bounded to 1 MiB and admitted through the full strict v3 contract,
+including the requested epoch and observer. The internal `ephemeris-cache.v1`
+envelope also binds all four exact hexadecimal float request values, because
+different Unix floats can round to the same Julian day. The public HTTP response
+is still the unwrapped `ephemeris-snapshot.v3` object.
+
+Malformed, oversized or mismatched entries are discarded and rebuilt once through
+the bounded provider path; a failed or invalid rebuild is an error, not a cache hit.
+The cache namespace is `v7`; older `v6` entries are ignored and rebuilt lazily.
+There is no bulk cache deletion. Rollback to an earlier server revision restores
+that revision's cache namespace and its older admission behavior; it does not
+change observed-source data or browser-selected snapshots.
 
 ## Contract notes
 

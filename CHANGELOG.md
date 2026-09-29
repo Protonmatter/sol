@@ -244,7 +244,7 @@ Review round (all findings from the Codex PR reviewer, each verified before acti
 
 ### Published
 
-- First [crates.io](https://crates.io/crates/solar-ephemeris) release of the
+- First crates.io release ([versioned API documentation](https://docs.rs/solar-ephemeris/0.1.1/solar_ephemeris/)) of the
   **`solar-ephemeris`** crate — a zero-dependency VSOP2013 + ELP-MPP02 + TOP2013
   ephemeris and topocentric sky engine, validated against JPL Horizons to arcsecond
   class. Install with `cargo add solar-ephemeris`.
@@ -253,7 +253,9 @@ Review round (all findings from the Codex PR reviewer, each verified before acti
 
 - Add `.github/workflows/publish-crate.yml` — scheduled (weekly) and on-demand
   `cargo publish -p solar-ephemeris`, guarded to skip versions already on crates.io so
-  scheduled runs stay green between releases.
+  scheduled runs stay green between releases. This describes the workflow at that
+  release; the current workflow performs manual exact-source qualification with
+  publication held, as documented in [build notes](BUILD_NOTES.md).
 - Harden `.github/workflows/ephemeris-accuracy.yml` — SHA-pin all actions, add a job
   timeout, and build with `--locked`, matching the repo's other workflows.
 - Add `.github/workflows/docs.yml` + `tools/validate_docs.py` — offline Markdown
@@ -264,5 +266,5 @@ Review round (all findings from the Codex PR reviewer, each verified before acti
 - Document the crates.io release process in `BUILD_NOTES.md`.
 
 [Unreleased]: https://github.com/Protonmatter/sol/compare/master...HEAD
-[0.2.0]: https://crates.io/crates/solar-ephemeris/0.2.0
-[0.1.1]: https://crates.io/crates/solar-ephemeris/0.1.1
+[0.2.0]: https://docs.rs/solar-ephemeris/0.2.0/solar_ephemeris/
+[0.1.1]: https://docs.rs/solar-ephemeris/0.1.1/solar_ephemeris/

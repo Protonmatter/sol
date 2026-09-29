@@ -190,12 +190,15 @@ fn assess_observations(
             .ok()
             .map(|assessment| (value, assessment))
     });
-    let observed_activity = context.map(|(_, assessment)| assessment.activity_index);
-    // Freshness is judged from the report's own generation-time evaluation (age vs the
-    // per-feed limits), so the run is reproducible from the file alone: the gain is the
-    // fraction of feeds that were fresh when the report was written.
-    let (fresh, total) = context
-        .map(|(_, assessment)| (assessment.fresh, assessment.total))
+    let activity = context.and_then(|(value, assessment)| {
+        snapshot_validation::assess_activity_observation(value, assessment, &evidence)
+    });
+    let observed_activity = activity.map(|assessment| assessment.activity_index);
+    // Evaluate the report's recorded ages, never the wall clock. New descriptors
+    // include only fresh activity contributors; unrelated feed freshness cannot
+    // admit a missing/stale signal. Historical simple reports retain their gain.
+    let (fresh, total) = activity
+        .map(|assessment| (assessment.fresh, assessment.total))
         .unwrap_or((0, 0));
     let freshness_gain = if total == 0 {
         0.0
@@ -213,7 +216,7 @@ fn assess_observations(
         && report_source_mode.is_some();
     if !usable {
         let reason = if observed_activity.is_none() {
-            "no valid observed_context activity/freshness values"
+            "no attributable fresh activity observation; fixture defaults cannot be assimilated"
         } else if evidence.is_empty() {
             "no complete observation frames with attributable provenance"
         } else if report_source_mode.is_none() {
