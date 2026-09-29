@@ -208,6 +208,13 @@ change schema versions to bypass validation.
 
 ## Scientific and operational limits
 
+The separate [daily Orrery updater runbook](ORRERY_REFRESH.md) describes prior-day
+NASA Earth acquisition, offline validation, one owned draft PR, opt-in write
+permissions, failure holds and rollback. Its first increment refreshes only the
+Source-qualified Earth daily composite; it also checks the bundled EOP horizon.
+The default Illustrative Earth and static numerical products retain their existing
+sources. Installing the workflow does not enable its publisher.
+
 The [physical rendering ledger](plans/2026-09-13-physical-rendering/IMPLEMENTATION.md)
 records RFC 0005 products. In Solar System, **The Sun** enters a source-facing inspection;
 **Our system** restores the complete scene. The source selector distinguishes assigned

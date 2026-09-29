@@ -1,7 +1,32 @@
 {
   "schema_version": "sol-requirements.v1",
-  "updated": "2026-09-23",
+  "updated": "2026-09-29",
   "requirements": [
+    {
+      "id": "SOL-DATA-002",
+      "status": "implemented",
+      "statement": "Daily Earth reference candidates MUST retain source and derivation evidence, reject stale or regressing data, and publish only meaningful bounded changes through one owned draft PR with explicit opt-in and no automatic merge.",
+      "source": "docs/rfcs/0011-daily-orrery-refresh.md#requirements",
+      "implementation": [
+        "tools/orrery_earth.py",
+        "tools/orrery_refresh.py",
+        "tools/orrery_delivery.py",
+        "tools/validate_visual_assets.py",
+        ".github/workflows/orrery-refresh.yml"
+      ],
+      "verification": [
+        "tests/python/test_orrery_earth.py",
+        "tests/python/test_orrery_refresh.py",
+        "tests/python/test_orrery_delivery.py",
+        "tests/python/test_orrery_workflow.py",
+        "tests/python/test_mapped_references.py"
+      ],
+      "ci_gates": [
+        "CI / Governance and specification contracts",
+        "CI / Web, provider, and browser validation",
+        "Coverage / Python coverage (>= 90%)"
+      ]
+    },
     {
       "id": "SOL-ARCH-001",
       "status": "implemented",

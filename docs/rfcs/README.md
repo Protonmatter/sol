@@ -45,3 +45,4 @@ CI validates metadata, required sections, status vocabulary, and referenced requ
 
 
 - [RFC 0010: Approved Sun Surface Lab v2](0010-approved-sun-look.md) — Draft integration; owner-approved visual reference, 1K default and 2K/4K controls.
+- [RFC 0011: Daily Orrery reference refresh](0011-daily-orrery-refresh.md) — Draft implementation; bounded Earth data proposals with opt-in publication.

@@ -1,0 +1,99 @@
+name: Daily Orrery reference refresh
+
+on:
+  schedule:
+    - cron: '20 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-orrery-refresh
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: Acquire and validate Earth reference
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      manifest_sha256: ${{ steps.proof.outputs.manifest_sha256 }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Check bundled Earth orientation prediction horizon
+        run: python tools/check_eop_freshness.py
+      - name: Acquire prior-day Terra and Aqua source evidence
+        run: python tools/fetch_earth_reference.py --latest-prior-day --aqua-fill --out build/orrery-candidate
+      - name: Revalidate provenance and pixels without changing repository data
+        run: python tools/orrery_refresh.py --candidate-dir build/orrery-candidate --expected-base "$GITHUB_SHA" --out build/orrery-plan.json
+      - name: Bind immutable acquisition evidence
+        id: proof
+        shell: python
+        run: |
+          import json, os, re
+          from pathlib import Path
+          proof = json.loads(Path('build/orrery-plan.json').read_text())
+          digest = proof['manifest_sha256']
+          if not re.fullmatch('[0-9a-f]{64}', digest) or proof['generation_base_sha'] != os.environ['GITHUB_SHA']:
+              raise SystemExit('Candidate evidence identity mismatch')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('manifest_sha256=' + digest + '\n')
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: orrery-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/orrery-candidate
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: orrery-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/orrery-plan.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+  publish:
+    name: Propose one owned draft PR
+    needs: candidate
+    if: github.ref == 'refs/heads/master' && vars.ORRERY_REFRESH_PUBLISH_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: orrery-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/orrery-candidate
+      - name: Revalidate, commit exact data changes and propose draft PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_MANIFEST_SHA256: ${{ needs.candidate.outputs.manifest_sha256 }}
+        run: >-
+          python tools/orrery_refresh.py --candidate-dir build/orrery-candidate
+          --expected-base "$GITHUB_SHA" --expected-manifest-sha256 "$CANDIDATE_MANIFEST_SHA256"
+          --repository "$GITHUB_REPOSITORY" --publish --out build/orrery-delivery.json
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: orrery-delivery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/orrery-delivery.json
+          if-no-files-found: ignore
+          retention-days: 90
