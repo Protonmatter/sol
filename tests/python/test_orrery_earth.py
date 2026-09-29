@@ -9,6 +9,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +18,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 from tools import fetch_earth_reference as fetch
 from tools import validate_visual_assets as visual
 from test_fetch_earth_reference import PALETTE, capabilities
+from test_mapped_references import reference
 
 NOW = datetime(2026, 9, 28, 12, tzinfo=timezone.utc)
 
@@ -59,7 +61,16 @@ class DailyEarthTests(unittest.TestCase):
         data = json.loads((ROOT / "apps/web/visual-assets.v1.json").read_text(encoding="utf-8"))
         old = next(r for r in data["mapped_references"] if r["body"] == "Earth" and r["role"] == "weather")
         raw = b"previous raster fixture"
-        old.update(sha256=hashlib.sha256(raw).hexdigest(), bytes=len(raw))
+        # Daily data changes must not move the synthetic migration's baseline.
+        # Start from a historical manual record; the tests below explicitly
+        # stage once when they need an existing automated daily reference.
+        baseline = reference(raw)
+        baseline.update(id="synthetic-earth-weather", role="weather", nodata="alpha",
+            path="textures/reference/earth-weather-20260912.png", dimensions=[2048, 1024],
+            source_url=fetch.BASE + "?TIME=2026-09-12",
+            observation_label="12 September 2026 synthetic reference")
+        data["mapped_references"][data["mapped_references"].index(old)] = baseline
+        old = baseline
         target = web / old["path"]; target.parent.mkdir(parents=True); target.write_bytes(raw)
         (web / "visual-assets.v1.json").write_text(json.dumps(data), encoding="utf-8")
         (web / "js/visualAssetManifest.js").write_text(visual.browser_module(data), encoding="utf-8")
@@ -72,6 +83,34 @@ class DailyEarthTests(unittest.TestCase):
         self.assertEqual(result.data_date, "2026-09-27")
         self.assertEqual(result.sha256, hashlib.sha256(before["weather-rgba.png"]).hexdigest())
         self.assertEqual(before, {p.name: p.read_bytes() for p in self.candidate.iterdir()})
+
+    def test_fixture_migration_is_independent_of_newer_live_weather(self):
+        source = json.loads((ROOT / "apps/web/visual-assets.v1.json").read_text(encoding="utf-8"))
+        for daily in (False, True):
+            with self.subTest(daily=daily), tempfile.TemporaryDirectory() as current, tempfile.TemporaryDirectory() as work:
+                data = deepcopy(source)
+                weather = self.mod.get_weather(data)
+                weather.pop("automated_refresh", None)
+                weather.update(source_url=fetch.BASE + "?TIME=2030-01-01",
+                    source_retrieved_at="2030-01-02T00:00:00Z", reviewed_at="2030-01-02T01:00:00Z",
+                    observation_label="1 January 2030 synthetic accepted reference",
+                    path="textures/reference/earth-weather-20300101.png")
+                weather["derivation_inputs"][0]["url"] = weather["source_url"]
+                if daily:
+                    weather.update(path="textures/reference/earth-weather-daily.png", reviewed_at=None,
+                        automated_refresh={"recipe_id": "earth-modis-terra-aqua.v1",
+                            "data_date": "2030-01-01", "validated_at": "2030-01-02T01:00:00Z",
+                            "source_manifest_sha256": "a" * 64, "semantic_id": "b" * 64})
+                visual.validate_inventory(data)
+                path = Path(current) / "apps/web/visual-assets.v1.json"
+                path.parent.mkdir(parents=True); path.write_text(json.dumps(data), encoding="utf-8")
+                with patch.dict(globals(), ROOT=Path(current)), patch.object(self.temp, "name", work):
+                    root, _ = self.checkout()
+                result = self.mod.stage_candidate(root, self.candidate, NOW, apply=True)
+                self.assertEqual(result["state"], "validated")
+                self.assertIn("apps/web/textures/reference/earth-weather-20260912.png", result["changed_paths"])
+                self.assertFalse((root / "apps/web/textures/reference/earth-weather-20260912.png").exists())
+                self.assertEqual(self.mod.stage_candidate(root, self.candidate, NOW)["state"], "no-op")
 
     def test_candidate_json_rejects_overflow_nested_duplicates_and_depth_without_echoing_payload(self):
         manifest = self.candidate / "earth-reference.json"
@@ -145,8 +184,9 @@ class DailyEarthTests(unittest.TestCase):
         self.assertEqual(result["state"], "no-op"); self.assertEqual(result["changed_paths"], [])
 
     def test_inventory_transition_rejects_unrelated_edits(self):
-        root, _ = self.checkout(); self.mod.stage_candidate(root, self.candidate, NOW, apply=True)
-        base = (ROOT / "apps/web/visual-assets.v1.json").read_bytes()
+        root, _ = self.checkout()
+        base = (root / "apps/web/visual-assets.v1.json").read_bytes()
+        self.mod.stage_candidate(root, self.candidate, NOW, apply=True)
         web = root / "apps/web"; candidate = (web / "visual-assets.v1.json").read_bytes()
         png = (web / "textures/reference/earth-weather-daily.png").read_bytes()
         module = (web / "js/visualAssetManifest.js").read_bytes()
@@ -155,8 +195,9 @@ class DailyEarthTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.mod.validate_inventory_transition(base, json.dumps(data).encode(), png, visual.browser_module(data).encode())
 
     def test_transition_rejects_relabelled_machine_recipe_provenance(self):
-        root, _ = self.checkout(); self.mod.stage_candidate(root, self.candidate, NOW, apply=True)
-        base = (ROOT / "apps/web/visual-assets.v1.json").read_bytes()
+        root, _ = self.checkout()
+        base = (root / "apps/web/visual-assets.v1.json").read_bytes()
+        self.mod.stage_candidate(root, self.candidate, NOW, apply=True)
         web = root / "apps/web"; original = json.loads((web / "visual-assets.v1.json").read_text(encoding="utf-8"))
         png = (web / "textures/reference/earth-weather-daily.png").read_bytes()
         changes = [lambda r: r["automated_refresh"].update(semantic_id="a" * 64),
