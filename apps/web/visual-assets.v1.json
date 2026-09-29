@@ -10,7 +10,7 @@
       "sha256": "5a5c80607f643496bac9a631e71957def35ed788895f18b678ac849c2b38e48a",
       "bytes": 872555,
       "label": "Mercury retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/MESSENGER",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/MESSENGER",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_mercury.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -40,7 +40,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/MESSENGER",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/MESSENGER",
       "metadata_evidence": []
     },
     {
@@ -50,7 +50,7 @@
       "sha256": "225012ad4911730605c4e189ca2a3bf674fce50cc48aab4102b936b47d6991ac",
       "bytes": 229696,
       "label": "Venus retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Magellan + Pioneer Venus",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/Magellan + Pioneer Venus",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_venus_atmosphere.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -80,7 +80,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Magellan + Pioneer Venus",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/Magellan + Pioneer Venus",
       "metadata_evidence": []
     },
     {
@@ -129,7 +129,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "NASA Visible Earth \u2014 Blue Marble (public domain)",
+      "legacy_source_label": "NASA Visible Earth — Blue Marble (public domain)",
       "metadata_evidence": [
         {
           "url": "https://visibleearth.nasa.gov/images/57752/blue-marble-land-surface-shallow-water-and-shaded-topography",
@@ -145,7 +145,7 @@
       "sha256": "2d187f3e77a98eaa8cea5f4cc722f633c122ef170b9e94ace6b5fb6cbc3f8e01",
       "bytes": 750547,
       "label": "Mars retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Viking + MGS/MOLA",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/Viking + MGS/MOLA",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_mars.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -175,7 +175,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Viking + MGS/MOLA",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/Viking + MGS/MOLA",
       "metadata_evidence": []
     },
     {
@@ -185,7 +185,7 @@
       "sha256": "b0f04d005350252636b0e3396fc592548cbd9e9126b269d32d5c6abd4b0e4f2b",
       "bytes": 498976,
       "label": "Jupiter retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini + Juno",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/Cassini + Juno",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -215,7 +215,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini + Juno",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/Cassini + Juno",
       "metadata_evidence": []
     },
     {
@@ -225,7 +225,7 @@
       "sha256": "54a900ca9bf7ab62e70f862852759abdf342e6d6436a95a2fe9ebdb6bcd3bbac",
       "bytes": 199916,
       "label": "Saturn retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/Cassini",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_saturn.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -255,7 +255,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/Cassini",
       "metadata_evidence": []
     },
     {
@@ -265,7 +265,7 @@
       "sha256": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d",
       "bytes": 77751,
       "label": "Uranus retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/Voyager 2",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_uranus.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -295,7 +295,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/Voyager 2",
       "metadata_evidence": []
     },
     {
@@ -305,7 +305,7 @@
       "sha256": "cb42ea82709741d28b0af44d8b283cbc6dbd0c521a7f0e1e1e010ade00977df6",
       "bytes": 241580,
       "label": "Neptune retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/Voyager 2",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_neptune.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -335,7 +335,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Voyager 2",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/Voyager 2",
       "metadata_evidence": []
     },
     {
@@ -345,7 +345,7 @@
       "sha256": "2764ba6535ea0481a062846ee033cc7a909dae05b31a8fd13f3e98f3a7fd92bd",
       "bytes": 1053869,
       "label": "Moon retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/LRO + Clementine",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/LRO + Clementine",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_moon.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -375,7 +375,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/LRO + Clementine",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/LRO + Clementine",
       "metadata_evidence": []
     },
     {
@@ -385,7 +385,7 @@
       "sha256": "4b0644b2f3ef259fd0bfaedd9dc52f9e7d9738f65f50363e8c4dd19f650d7334",
       "bytes": 12119,
       "label": "Saturn rings retained browse raster",
-      "credits": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini ring photometry",
+      "credits": "Solar System Scope (CC-BY 4.0) · NASA/Cassini ring photometry",
       "source_url": "https://www.solarsystemscope.com/textures/download/2k_saturn_ring_alpha.png",
       "product_id": "unknown",
       "mission": "unknown",
@@ -415,7 +415,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "Solar System Scope (CC-BY 4.0) \u00b7 NASA/Cassini ring photometry",
+      "legacy_source_label": "Solar System Scope (CC-BY 4.0) · NASA/Cassini ring photometry",
       "metadata_evidence": []
     },
     {
@@ -425,7 +425,7 @@
       "sha256": "eb299e3eae0a93bf1b53c4531e7d3e0edd258bd4ee539b2de5630f8f398b268c",
       "bytes": 200751,
       "label": "Sun retained browse raster",
-      "credits": "NASA SDO/HMI continuum \u2014 today's real Sun (public domain, NASA/SDO)",
+      "credits": "NASA SDO/HMI continuum — today's real Sun (public domain, NASA/SDO)",
       "source_url": "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_1024_HMIIC.jpg",
       "product_id": "unknown",
       "mission": "unknown",
@@ -455,7 +455,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "NASA SDO/HMI continuum \u2014 undated retained solar disk (public domain, NASA/SDO)",
+      "legacy_source_label": "NASA SDO/HMI continuum — undated retained solar disk (public domain, NASA/SDO)",
       "metadata_evidence": []
     },
     {
@@ -504,7 +504,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Io Voyager/Galileo SSI Global Mosaic 1 km, browse rendering (public domain, NASA/JPL/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Io Voyager/Galileo SSI Global Mosaic 1 km, browse rendering (public domain, NASA/JPL/USGS)",
       "metadata_evidence": []
     },
     {
@@ -553,7 +553,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Europa Voyager/Galileo SSI Global Mosaic 500 m, browse rendering (public domain, NASA/JPL/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Europa Voyager/Galileo SSI Global Mosaic 500 m, browse rendering (public domain, NASA/JPL/USGS)",
       "metadata_evidence": [
         {
           "url": "https://astrogeology.usgs.gov/search/map/europa_voyager_galileo_ssi_global_mosaic_500m",
@@ -608,7 +608,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Ganymede Voyager/Galileo Simple Cylindrical global mosaic, browse rendering (public domain, NASA/JPL/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Ganymede Voyager/Galileo Simple Cylindrical global mosaic, browse rendering (public domain, NASA/JPL/USGS)",
       "metadata_evidence": []
     },
     {
@@ -657,7 +657,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, cropped browse rendering; exact latitude bounds unverified (public domain, NASA/JPL/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Callisto Galileo/Voyager Simple Cylindrical Global Map 1 km, cropped browse rendering; exact latitude bounds unverified (public domain, NASA/JPL/USGS)",
       "metadata_evidence": []
     },
     {
@@ -706,7 +706,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Enceladus Cassini Global Mosaic 110 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Enceladus Cassini Global Mosaic 110 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
       "metadata_evidence": []
     },
     {
@@ -755,7 +755,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Tethys Cassini Global Mosaic 293 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Tethys Cassini Global Mosaic 293 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
       "metadata_evidence": []
     },
     {
@@ -804,7 +804,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Dione Cassini/Voyager Global Mosaic 154 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Dione Cassini/Voyager Global Mosaic 154 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
       "metadata_evidence": []
     },
     {
@@ -853,7 +853,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Rhea Cassini/Voyager Global Mosaic 417 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Rhea Cassini/Voyager Global Mosaic 417 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
       "metadata_evidence": []
     },
     {
@@ -902,7 +902,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Iapetus Cassini/Voyager Global Mosaic 803 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Iapetus Cassini/Voyager Global Mosaic 803 m, browse rendering (public domain, NASA/JPL/SSI/USGS)",
       "metadata_evidence": []
     },
     {
@@ -951,7 +951,7 @@
         ],
         "label": "Neutral missing-detail display; no measured color claim."
       },
-      "legacy_source_label": "USGS Astrogeology \u2014 Phobos Viking Global Mosaic (DLR control), browse rendering (public domain, NASA/JPL/DLR/USGS)",
+      "legacy_source_label": "USGS Astrogeology — Phobos Viking Global Mosaic (DLR control), browse rendering (public domain, NASA/JPL/DLR/USGS)",
       "metadata_evidence": []
     }
   ],
@@ -1567,25 +1567,26 @@
       }
     },
     {
-      "id": "earth-modis-weather-20260912",
+      "id": "earth-modis-weather-daily",
       "body": "Earth",
       "role": "weather",
-      "path": "textures/reference/earth-weather-20260912.png",
-      "sha256": "4b26e448151fe0ce83cbf34d865c8804a500aa4ff95190fc625585ea4fd70918",
-      "bytes": 4836310,
+      "path": "textures/reference/earth-weather-daily.png",
+      "sha256": "8700bdb091bcb4ccc0bc1763193e8ced51e018fde928d35400052b9884688003",
+      "bytes": 4957006,
       "dimensions": [
         2048,
         1024
       ],
       "label": "NASA satellite clouds and surface",
       "credits": "NASA Terra/Aqua MODIS / EOSDIS GIBS",
-      "source_url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
-      "source_sha256": "a1452574ed01213f960580171c5fee39b13460f630522ea344a3aa33f7ce6ade",
-      "source_bytes": 4813063,
-      "source_retrieved_at": "2026-09-13T07:43:02.452978+00:00",
-      "observation_label": "12 September 2026 daily composite",
+      "source_url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
+      "source_sha256": "7ca9bf88e93ac12e1a5b9005e2d0273fc67a730a51c748b844e66cc2f313d4a6",
+      "source_bytes": 4695427,
+      "source_retrieved_at": "2026-09-29T19:06:37.330873+00:00",
+      "reviewed_at": null,
+      "observation_label": "2026-09-28 daily composite",
       "color_interpretation": "MODIS corrected-reflectance display RGB; not a cloud-only layer or calibrated albedo.",
-      "limitations": "Dated Terra-priority/Aqua-fallback MODIS corrected-reflectance composite; different overpass times on the same UTC day. Surface and clouds, not simultaneous or live weather. Seams and remaining gaps are retained; no global completeness claim. Missing areas show the historical land map. Night lights are a separate annual cloud-free reference, not cloud-attenuated live emissions.",
+      "limitations": "Dated Terra-priority/Aqua-fallback surface and cloud mosaic; overpasses differ within the same UTC day. Seams and missing observations remain. No simultaneous observation, global completeness or live weather claim. Missing areas show historical land; night lights are a separately dated annual reference.",
       "projection": "equirectangular",
       "mapping": {
         "primeMeridianU": 0.5,
@@ -1601,24 +1602,17 @@
         90
       ],
       "nodata": "alpha",
-      "derivation": "Preserve each original decoded RGB value. Set alpha255 for published mask Data(0,0,0,0), alpha0 for NoData(202,170,86,255). Reject other classes. No inferred cloud pixels or black-color threshold. Same-date Aqua fills only pixels where Terra's published mask is NoData and Aqua's mask is Data. Retain Terra at overlap, including valid black RGB. No averaging, cloud motion extrapolation or interpolation. Both missing stays transparent. Coverage: {\"valid_pixels\": 1909254, \"no_data_pixels\": 187898, \"total_pixels\": 2097152, \"terra_pixels\": 1848641, \"aqua_fill_pixels\": 60613}",
-      "metadata_urls": [
-        "https://gis.earthdata.nasa.gov/portal/home/item.html?id=780c03ffe3dc42e8bb03ca3b07bb283e",
-        "https://nasa-gibs.github.io/gibs-api-docs/python-usage/#using-a-mask",
-        "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml",
-        "https://gibs.earthdata.nasa.gov/layer-metadata/v1.0/MODIS_Aqua_Data_No_Data.json"
-      ],
-      "reviewed_at": "2026-09-13T07:45:12.162127+00:00",
+      "derivation": "Preserve original RGB; published MODIS Data mask becomes alpha 255 and NoData becomes alpha 0. Terra has priority; same-date Aqua fills only missing Terra pixels. No interpolation, averaging or invented pixels. Coverage: {\"aqua_fill_pixels\": 118704, \"no_data_pixels\": 141745, \"terra_pixels\": 1836703, \"total_pixels\": 2097152, \"valid_pixels\": 1955407}",
       "derivation_inputs": [
         {
-          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
-          "sha256": "a1452574ed01213f960580171c5fee39b13460f630522ea344a3aa33f7ce6ade",
-          "bytes": 4813063
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
+          "sha256": "7ca9bf88e93ac12e1a5b9005e2d0273fc67a730a51c748b844e66cc2f313d4a6",
+          "bytes": 4695427
         },
         {
-          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Terra_Data_No_Data",
-          "sha256": "bd4d4d26c3e65c406a42289c8d14fbdcd36dfad5e6288e4c1f8ec1dded0544df",
-          "bytes": 22190
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Terra_Data_No_Data",
+          "sha256": "89ba10fa8329c4caf98083eb531f793e3a29d2b7db5deca5dbec6c1bde203d79",
+          "bytes": 25074
         },
         {
           "url": "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml",
@@ -1626,16 +1620,28 @@
           "bytes": 638
         },
         {
-          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Aqua_CorrectedReflectance_TrueColor",
-          "sha256": "67e2583fd6630d8476d47a1db7dfed12f086383b8b460206d3cec77cbd8c2371",
-          "bytes": 4736399
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Aqua_CorrectedReflectance_TrueColor",
+          "sha256": "b0282979572f5e199ca2f8843bb1024fceba2b0ac8233260ad260739894e7617",
+          "bytes": 4834344
         },
         {
-          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-12&LAYERS=MODIS_Aqua_Data_No_Data",
-          "sha256": "6fe08aa520499a3e4b4679984d9854daaf3b73a5454e4b52fcfcfe104d938896",
-          "bytes": 23368
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Aqua_Data_No_Data",
+          "sha256": "f970c62966c40b3851c3c36d244450af37eb1af140641edbf0c5d6de36cf711c",
+          "bytes": 22250
         }
-      ]
+      ],
+      "metadata_urls": [
+        "https://nasa-gibs.github.io/gibs-api-docs/python-usage/#using-a-mask",
+        "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml",
+        "https://gibs.earthdata.nasa.gov/layer-metadata/v1.0/MODIS_Aqua_Data_No_Data.json"
+      ],
+      "automated_refresh": {
+        "recipe_id": "earth-modis-terra-aqua.v1",
+        "validated_at": "2026-09-29T19:07:04.410782+00:00",
+        "data_date": "2026-09-28",
+        "source_manifest_sha256": "64a0de7761c13ce3ddccc1a86f8bded47c18788b8891adc8e0be3d13b2b6ef04",
+        "semantic_id": "c7dd4249b083d58d614884914aa8c45a78602918a92ac2c530cd0d86666e8b68"
+      }
     },
     {
       "id": "mercury-mission-reference",
@@ -1851,7 +1857,7 @@
         2048,
         1024
       ],
-      "label": "LRO surface reference \u00b7 2025 map",
+      "label": "LRO surface reference · 2025 map",
       "credits": "NASA's Scientific Visualization Studio / LRO camera and laser altimeter teams",
       "source_url": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg",
       "source_sha256": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170",
@@ -2055,7 +2061,7 @@
         2048,
         1024
       ],
-      "label": "Cassini monochrome reference \u00b7 2017 map",
+      "label": "Cassini monochrome reference · 2017 map",
       "credits": "NASA/JPL-Caltech/Space Science Institute",
       "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/solar/2023/09/p/i/a/1/PIA17214_unlabeled.png",
       "source_sha256": "f8ffa667b2c35ec890973ea3300a33d3ee506f596b53d3818cdfee56943e038b",
@@ -2105,7 +2111,7 @@
         2048,
         1024
       ],
-      "label": "Cassini monochrome reference \u00b7 2008 map",
+      "label": "Cassini monochrome reference · 2008 map",
       "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
       "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia11/pia11116/PIA11116.jpg",
       "source_sha256": "c054d5927ca1f3b42914fef82cd700c8bbfd28c6890b5410faaf79e3368d0887",
@@ -2154,7 +2160,7 @@
         2048,
         1024
       ],
-      "label": "Cassini monochrome reference \u00b7 2010 map",
+      "label": "Cassini monochrome reference · 2010 map",
       "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
       "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia12/pia12564/PIA12564.jpg",
       "source_sha256": "52bf59db9a98cce6073139fb649282113e0dde92d39b84bb029636ca9671537b",
@@ -2205,7 +2211,7 @@
         2048,
         1024
       ],
-      "label": "Cassini monochrome reference \u00b7 2012 map",
+      "label": "Cassini monochrome reference · 2012 map",
       "credits": "NASA/JPL-Caltech/Space Science Institute",
       "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia14/pia14931/PIA14931.jpg",
       "source_sha256": "08f6fed39325fa7532be01eebc85c0b2a55bf0b9fdcfbf85c878db5bbac45ae5",
@@ -2255,7 +2261,7 @@
         2048,
         1024
       ],
-      "label": "Cassini monochrome reference \u00b7 2010 map",
+      "label": "Cassini monochrome reference · 2010 map",
       "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
       "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia12/pia12577/PIA12577.jpg",
       "source_sha256": "de59158e9d9b5b00d717bb0d2750e960dc3eb68f5aed36a3b214ce6db46660ec",
@@ -2305,7 +2311,7 @@
         2048,
         1024
       ],
-      "label": "Cassini monochrome reference \u00b7 2012 map",
+      "label": "Cassini monochrome reference · 2012 map",
       "credits": "NASA/JPL-Caltech/Space Science Institute / Voyager image contributors",
       "source_url": "https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia14/pia14928/PIA14928.jpg",
       "source_sha256": "dd17563a8cd20fb057af7f4f0df465855f895e61cf29ec0a27e3e8862d14bd5e",
@@ -2355,7 +2361,7 @@
         1024,
         512
       ],
-      "label": "Viking structural reference \u00b7 2012 mosaic",
+      "label": "Viking structural reference · 2012 mosaic",
       "credits": "NASA/Viking imagery / Phil Stooke / USGS Astrogeology / DLR control",
       "source_url": "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg",
       "source_sha256": "d8a00068ac8e13821528d546b2e1d2c613e5225a22da04ad7d05bf3b727f3ce4",
