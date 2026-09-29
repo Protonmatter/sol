@@ -142,11 +142,11 @@ test("Earth defaults to the complete historical composite; swaths require an exp
   const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);
   assert.equal(bodyDraw(h, paint(h)).textures.get(3), reference.texture);
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /2002/);
-  assert.doesNotMatch(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026/);
+  assert.ok(!h.nodes.orreryEarthLayerStatus.textContent.includes(appearanceReference('Earth','weather').observation_label));
   h.input("orreryEarthCloudSource", "daily", "change");
   const daily = complete(h, "Earth", "weather");
   assert.equal(bodyDraw(h, paint(h)).textures.get(3), daily.texture);
-  assert.match(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026/);
+  assert.ok(h.nodes.orreryEarthLayerStatus.textContent.includes(appearanceReference('Earth','weather').observation_label));
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /swath.*gaps|gaps.*swath/i);
   h.input("orreryEarthCloudSource", "composite", "change");
   assert.equal(bodyDraw(h, paint(h)).textures.get(3), reference.texture);
@@ -192,7 +192,7 @@ test("explicit daily imagery rejects a late cancelled composite without substitu
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0, "late completion of an unselected source cannot replace the selection");
   daily.image.onerror();
   assert.equal(bodyDraw(h, paint(h)).uniforms.u_earthWeather, 0);
-  assert.match(h.nodes.orreryEarthLayerStatus.textContent, /12 September 2026.*unavailable/);
+  assert.ok(h.nodes.orreryEarthLayerStatus.textContent.includes(`${appearanceReference('Earth','weather').observation_label} · unavailable`));
   assert.doesNotMatch(h.nodes.orreryEarthLayerStatus.textContent, /2002/);
   h.input("orreryEarthCloudSource", "composite", "change");
   complete(h,'Earth','cloud-composite');
