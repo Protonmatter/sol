@@ -1571,20 +1571,20 @@
       "body": "Earth",
       "role": "weather",
       "path": "textures/reference/earth-weather-daily.png",
-      "sha256": "8700bdb091bcb4ccc0bc1763193e8ced51e018fde928d35400052b9884688003",
-      "bytes": 4957006,
+      "sha256": "01e26751896ae3f66f08384dd006040e0a4ef35d05328473f35f47e499fd2cf5",
+      "bytes": 4954952,
       "dimensions": [
         2048,
         1024
       ],
       "label": "NASA satellite clouds and surface",
       "credits": "NASA Terra/Aqua MODIS / EOSDIS GIBS",
-      "source_url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
-      "source_sha256": "7ca9bf88e93ac12e1a5b9005e2d0273fc67a730a51c748b844e66cc2f313d4a6",
-      "source_bytes": 4695427,
-      "source_retrieved_at": "2026-09-29T19:06:37.330873+00:00",
+      "source_url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-10-02&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
+      "source_sha256": "d1eaae1ac3460f0ecd4c787651a5829fa6c78cdc4c9f643239c46b7ba4985900",
+      "source_bytes": 4827112,
+      "source_retrieved_at": "2026-10-03T06:51:06.260359+00:00",
       "reviewed_at": null,
-      "observation_label": "2026-09-28 daily composite",
+      "observation_label": "2026-10-02 daily composite",
       "color_interpretation": "MODIS corrected-reflectance display RGB; not a cloud-only layer or calibrated albedo.",
       "limitations": "Dated Terra-priority/Aqua-fallback surface and cloud mosaic; overpasses differ within the same UTC day. Seams and missing observations remain. No simultaneous observation, global completeness or live weather claim. Missing areas show historical land; night lights are a separately dated annual reference.",
       "projection": "equirectangular",
@@ -1602,17 +1602,17 @@
         90
       ],
       "nodata": "alpha",
-      "derivation": "Preserve original RGB; published MODIS Data mask becomes alpha 255 and NoData becomes alpha 0. Terra has priority; same-date Aqua fills only missing Terra pixels. No interpolation, averaging or invented pixels. Coverage: {\"aqua_fill_pixels\": 118704, \"no_data_pixels\": 141745, \"terra_pixels\": 1836703, \"total_pixels\": 2097152, \"valid_pixels\": 1955407}",
+      "derivation": "Preserve original RGB; published MODIS Data mask becomes alpha 255 and NoData becomes alpha 0. Terra has priority; same-date Aqua fills only missing Terra pixels. No interpolation, averaging or invented pixels. Coverage: {\"aqua_fill_pixels\": 71573, \"no_data_pixels\": 124411, \"terra_pixels\": 1901168, \"total_pixels\": 2097152, \"valid_pixels\": 1972741}",
       "derivation_inputs": [
         {
-          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
-          "sha256": "7ca9bf88e93ac12e1a5b9005e2d0273fc67a730a51c748b844e66cc2f313d4a6",
-          "bytes": 4695427
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-10-02&LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor",
+          "sha256": "d1eaae1ac3460f0ecd4c787651a5829fa6c78cdc4c9f643239c46b7ba4985900",
+          "bytes": 4827112
         },
         {
-          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Terra_Data_No_Data",
-          "sha256": "89ba10fa8329c4caf98083eb531f793e3a29d2b7db5deca5dbec6c1bde203d79",
-          "bytes": 25074
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-10-02&LAYERS=MODIS_Terra_Data_No_Data",
+          "sha256": "3c129d2800807c4f9e4592bcd3f25757f4b236fa10733d5d5ae21b95c6621195",
+          "bytes": 22094
         },
         {
           "url": "https://gibs.earthdata.nasa.gov/colormaps/v1.3/MODIS_Data_No_Data.xml",
@@ -1620,14 +1620,14 @@
           "bytes": 638
         },
         {
-          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Aqua_CorrectedReflectance_TrueColor",
-          "sha256": "b0282979572f5e199ca2f8843bb1024fceba2b0ac8233260ad260739894e7617",
-          "bytes": 4834344
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-10-02&LAYERS=MODIS_Aqua_CorrectedReflectance_TrueColor",
+          "sha256": "6538aecd380d4bec9d0834ec937f053b0d6e19ffc6d567b001ed77fb6dd539d4",
+          "bytes": 4824668
         },
         {
-          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-09-28&LAYERS=MODIS_Aqua_Data_No_Data",
-          "sha256": "f970c62966c40b3851c3c36d244450af37eb1af140641edbf0c5d6de36cf711c",
-          "bytes": 22250
+          "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=TRUE&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&TIME=2026-10-02&LAYERS=MODIS_Aqua_Data_No_Data",
+          "sha256": "d820f6489e338cae3fb2850faa886fdd596aa3186ed78f23bade9d696fb4a103",
+          "bytes": 22644
         }
       ],
       "metadata_urls": [
@@ -1637,10 +1637,10 @@
       ],
       "automated_refresh": {
         "recipe_id": "earth-modis-terra-aqua.v1",
-        "validated_at": "2026-09-29T19:07:04.410782+00:00",
-        "data_date": "2026-09-28",
-        "source_manifest_sha256": "64a0de7761c13ce3ddccc1a86f8bded47c18788b8891adc8e0be3d13b2b6ef04",
-        "semantic_id": "c7dd4249b083d58d614884914aa8c45a78602918a92ac2c530cd0d86666e8b68"
+        "validated_at": "2026-10-03T06:51:39.928603+00:00",
+        "data_date": "2026-10-02",
+        "source_manifest_sha256": "c6d0ae2a77951b625b6a5a6a1c333b4a5f7597538783b2d34e3fc8b4f7c2adf6",
+        "semantic_id": "53cf069ef74557ddc62225a958bac95b63a7426a412f0e2edd4f24da25a4e366"
       }
     },
     {
