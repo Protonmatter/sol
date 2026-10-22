@@ -81,10 +81,60 @@ output files must be new and are never overwritten.
 The tool holds on stale/regressing dates, bad source/mask/grid/hash evidence,
 zero observed pixels, a changed master or automation head, unknown ownership,
 mixed/unexpected file changes, a ready-for-review PR, or a closed unmerged PR.
+After an acknowledged push to an existing owned draft, separately read PR and
+branch responses may briefly disagree. Only a mismatch between the exact previous
+head and candidate head, on the same owned draft and generation base, permits
+another read. A complete observation identical to the verified pre-write state
+also permits another read. Reconciliation makes at most four full observations,
+two seconds apart, within a 20-second monotonic budget. Production Git/GitHub CLI
+read timeouts are capped to the remaining budget; no command starts after expiry
+and a late read cannot claim success. The attempt cap also bounds frozen-clock
+behavior. Injected transports must bound their own I/O; the publisher still checks
+the deadline before and after their observations.
+
+Each successful observation repeats the original ownership, parent, tree, blob,
+allowlist, inventory and semantic-identity proof. A changed master, unrelated head,
+different PR number, changed owner or draft status, invalid data, malformed response,
+or transport failure holds immediately. Pre-write mismatches never enter polling.
+Neither a push nor PR creation is repeated. First-cycle PR discovery is still
+observed once; the bounded transition handling applies to existing owned drafts.
+
 For an uncertain push/create outcome, inspect GitHub and the local commit before
-another run. The tool never automatically repeats a write whose outcome is unknown.
+another run. A failed push receives one readback and always holds, without trying
+PR creation, even if its readback also fails. An uncertain PR creation can be
+confirmed by the normal exact readback, but creation is never repeated. The tool
+never automatically repeats a write whose outcome is unknown.
 A failure can leave a local staged change/commit; preserve it for diagnosis and
 start a fresh disposable checkout when regenerating.
+
+### Publication diagnostics
+
+Delivery results add fields without changing the existing state/action/exit-code
+contract. These diagnostics distinguish a pre-write hold from a branch update that
+was acknowledged but not fully confirmed:
+
+| Field | Meaning |
+|---|---|
+| `phase` | Input/candidate verification, initial/pre-write observation, planning, push, push reconciliation, PR creation, post-write observation, or complete. |
+| `reason_code` | Controlled failure/decision code; arbitrary exception messages and command output are never included. |
+| `write_attempted`, `write_outcome` | Branch push status: `not-attempted`, `unknown`, `acknowledged`, or `confirmed`. A command exception remains `unknown`. |
+| `pr_creation_attempted`, `pr_creation_outcome` | Separate PR-creation status with the same outcome vocabulary. |
+| `candidate_sha`, `expected_head_sha` | Verified candidate and lease identities, when candidate verification has succeeded. |
+| `observed_ref_sha`, `observed_pr_head_sha`, `observed_base_sha` | Last available syntactically valid full SHAs; invalid values are omitted as null. |
+| `observation_attempt` | Post-write read count; zero before the write and one for an uncertain push's single readback. |
+
+Examples of safe codes are `pr-head-ref-mismatch`, `remote-blob-identity-mismatch`,
+`commit-ownership-or-parent-invalid`, `remote-data-proof-invalid`,
+`pre-write-state-changed`, `post-write-state-mismatch`, `push-outcome-uncertain`,
+and `reconciliation-exhausted`. Unclassified failures use a phase-specific
+`*-failed` code and an exception type without echoing its message. A failed
+uncertain-push readback also records `observation_error_type` and, for a PR/ref
+mismatch, `observation_reason_code`, while retaining the primary push diagnosis.
+
+On `reconciliation-exhausted`, retain the delivery artifact and inspect the exact
+candidate, branch, owned draft and required checks before another attempt. A
+`confirmed` write plus `awaiting-approval` means source publication was read back;
+it does not mean CI ran or passed, a human reviewed it, or a release was deployed.
 
 Retrieval time and capabilities-only changes are ignored for meaningful identity.
 Changed source bytes on the same date produce a revision even if the final visible

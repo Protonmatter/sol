@@ -10,6 +10,7 @@ import base64
 import hashlib
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Callable, Protocol
 
@@ -23,6 +24,49 @@ INVENTORY = 'apps/web/visual-assets.v1.json'
 MODULE = 'apps/web/js/visualAssetManifest.js'
 RASTER = 'apps/web/textures/reference/earth-weather-daily.png'
 FAILURES = (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, RuntimeError, subprocess.SubprocessError)
+POST_WRITE_ATTEMPTS = 4
+POST_WRITE_SECONDS = 20.0
+POST_WRITE_INTERVAL = 2.0
+
+
+class EvidenceError(ValueError):
+    """A controlled diagnostic code, never arbitrary exception text."""
+
+    def __init__(self, reason_code: str):
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
+class ObservationMismatch(EvidenceError):
+    """A validated PR identity whose separately read ref does not yet agree."""
+
+    def __init__(self, observed: dict):
+        super().__init__('pr-head-ref-mismatch')
+        self.observed = observed
+
+
+def _observation_evidence(observed: dict) -> dict:
+    """Only bounded immutable identities may reach diagnostic output."""
+    result = {}
+    for source, target in (('head_sha', 'observed_ref_sha'), ('pr_head_sha', 'observed_pr_head_sha'),
+                           ('base_sha', 'observed_base_sha')):
+        value = observed.get(source)
+        result[target] = value if isinstance(value, str) and SHA.fullmatch(value) else None
+    return result
+
+
+def _known_transition(policy: Policy, candidate: dict, before: dict, observed: dict) -> bool:
+    """Retry reads only for the same owned draft and the two known commit SHAs."""
+    previous = candidate['expected_head_sha']
+    return (previous is not None and before.get('pr_state') == 'OPEN'
+            and observed.get('repository') == policy.repository and observed.get('branch') == BRANCH
+            and observed.get('base_sha') == candidate['generation_base_sha']
+            and observed.get('pr_number') == before.get('pr_number')
+            and observed.get('pr_owner') == policy.owner and observed.get('pr_state') == 'OPEN'
+            and observed.get('pr_draft') is True
+            and observed.get('head_sha') in (previous, candidate['commit_sha'])
+            and observed.get('pr_head_sha') in (previous, candidate['commit_sha'])
+            and observed.get('head_sha') != observed.get('pr_head_sha'))
 
 
 @dataclass(frozen=True)
@@ -88,44 +132,115 @@ def publish(checkout: Path, repository: str, owner: str, candidate: dict, *,
             execute: bool = False, transport: Transport | None = None) -> dict:
     """Verify actual commit, discover current state, then optionally publish once.
 
-    No network write occurs unless execute=True. Unknown write outcomes are
-    re-observed once; neither push nor PR creation is retried automatically.
+    No network write occurs unless execute=True. Only known post-push read
+    transitions are polled; neither push nor PR creation is ever retried.
     """
+    phase = 'input-validation'
+    evidence = {'write_attempted': False, 'write_outcome': 'not-attempted',
+                'pr_creation_attempted': False, 'pr_creation_outcome': 'not-attempted',
+                'observation_attempt': 0}
+
+    def finish(result: dict, code: str) -> dict:
+        return {**result, **evidence, 'phase': phase, 'reason_code': code}
+
+    def exhausted() -> dict:
+        return finish(hold('post-write observation budget exhausted; inspect before retry'),
+                      'reconciliation-exhausted')
+
     try:
         if type(execute) is not bool:
             raise ValueError('execution requires an explicit boolean opt-in')
         policy = Policy(repository, owner)
+        phase = 'candidate-verification'
         verified = verify_candidate(checkout, candidate)
+        evidence.update(candidate_sha=verified['commit_sha'], expected_head_sha=verified['expected_head_sha'])
         adapter = transport if transport is not None else GitHubTransport(policy, checkout)
+        phase = 'initial-observation'
         before = adapter.observe()
+        evidence.update(_observation_evidence(before))
+        phase = 'planning'
         decision = plan(policy, before, verified)
         if decision['action'] in ('hold', 'none') or not execute:
-            return decision
+            return finish(decision, 'policy-hold' if decision['action'] == 'hold' else decision['state'])
         # Re-observe immediately before the lease-protected write. Even an owned
         # newly opened PR or changed draft status invalidates this attempt.
+        phase = 'pre-write-observation'
         latest = adapter.observe()
+        evidence.update(_observation_evidence(latest))
         if latest != before:
-            return hold('remote state changed before write; re-observe and regenerate')
+            return finish(hold('remote state changed before write; re-observe and regenerate'),
+                          'pre-write-state-changed')
+        phase = 'push'
+        evidence.update(write_attempted=True, write_outcome='unknown')
         try:
             adapter.compare_and_push(verified, expected_head=before.get('head_sha'))
         except FAILURES as exc:
-            adapter.observe()
-            return hold('push outcome uncertain; no PR creation attempted', error_type=type(exc).__name__)
+            # Preserve the primary uncertain-write diagnostic even if its one
+            # readback also fails. Never create a PR following a failed push.
+            phase = 'push-reconciliation'
+            evidence['observation_attempt'] = 1
+            try:
+                evidence.update(_observation_evidence(adapter.observe()))
+            except FAILURES as observation_error:
+                evidence['observation_error_type'] = type(observation_error).__name__
+                if isinstance(observation_error, ObservationMismatch):
+                    evidence.update(_observation_evidence(observation_error.observed))
+                    evidence['observation_reason_code'] = 'pr-head-ref-mismatch'
+            return finish(hold('push outcome uncertain; no PR creation attempted',
+                               error_type=type(exc).__name__), 'push-outcome-uncertain')
+        evidence['write_outcome'] = 'acknowledged'
         creation_uncertain = False
         if decision['action'] == 'create':
+            phase = 'pr-creation'
+            evidence.update(pr_creation_attempted=True, pr_creation_outcome='unknown')
             try:
                 adapter.open_pr(verified)
+                evidence['pr_creation_outcome'] = 'acknowledged'
             except FAILURES:
                 creation_uncertain = True
-        after = adapter.observe()
-        if not _confirmed(policy, verified, after):
-            return hold('post-write state is not confirmed; inspect before retry', uncertain_creation=creation_uncertain)
-        return {'state': 'awaiting-approval', 'action': decision['action'],
-                'head_sha': after['head_sha'], 'pr_number': after['pr_number'],
-                'semantic_id': verified['semantic_id'], 'url': after.get('pr_url'),
-                'creation_reconciled': creation_uncertain}
+        phase = 'post-write-observation'
+        deadline = time.monotonic() + POST_WRITE_SECONDS
+        for attempt in range(1, POST_WRITE_ATTEMPTS + 1):
+            if time.monotonic() >= deadline:
+                return exhausted()
+            evidence['observation_attempt'] = attempt
+            try:
+                after = (adapter.observe_until(deadline) if isinstance(adapter, GitHubTransport)
+                         else adapter.observe())
+            except ObservationMismatch as exc:
+                evidence.update(_observation_evidence(exc.observed))
+                if not _known_transition(policy, verified, before, exc.observed):
+                    raise
+            else:
+                evidence.update(_observation_evidence(after))
+                if time.monotonic() >= deadline:
+                    return exhausted()
+                same_pr = decision['action'] == 'create' or after.get('pr_number') == before.get('pr_number')
+                if _confirmed(policy, verified, after) and same_pr:
+                    phase = 'complete'
+                    evidence['write_outcome'] = 'confirmed'
+                    if evidence['pr_creation_attempted']:
+                        evidence['pr_creation_outcome'] = 'confirmed'
+                    return finish({'state': 'awaiting-approval', 'action': decision['action'],
+                                   'head_sha': after['head_sha'], 'pr_number': after['pr_number'],
+                                   'semantic_id': verified['semantic_id'], 'url': after.get('pr_url'),
+                                   'creation_reconciled': creation_uncertain}, 'post-write-confirmed')
+                # A completely unchanged, previously verified owned draft is
+                # also a known stale read. Every other inconsistency holds.
+                if decision['action'] != 'update' or after != before:
+                    return finish(hold('post-write state is not confirmed; inspect before retry',
+                                       uncertain_creation=creation_uncertain), 'post-write-state-mismatch')
+            remaining = deadline - time.monotonic()
+            if attempt == POST_WRITE_ATTEMPTS or remaining <= POST_WRITE_INTERVAL:
+                return exhausted()
+            time.sleep(POST_WRITE_INTERVAL)
+        return exhausted()
     except FAILURES as exc:
-        return hold('candidate or remote evidence failed; no success claimed', error_type=type(exc).__name__)
+        code = exc.reason_code if isinstance(exc, EvidenceError) else phase + '-failed'
+        if isinstance(exc, ObservationMismatch):
+            evidence.update(_observation_evidence(exc.observed))
+        return finish(hold('candidate or remote evidence failed; no success claimed',
+                           error_type=type(exc).__name__), code)
 
 
 def verify_candidate(checkout: Path, candidate: dict, *, run: Callable = command) -> dict:
@@ -187,9 +302,36 @@ class GitHubTransport:
 
     def __init__(self, policy: Policy, checkout: Path, *, run: Callable = command):
         self.policy, self.checkout, self.run = policy, Path(checkout), run
+        self._read_deadline: float | None = None
 
     def _run(self, args: list[str]) -> str:
-        return self.run(args, cwd=self.checkout)
+        if self._read_deadline is None:
+            return self.run(args, cwd=self.checkout)
+        remaining = self._read_deadline - time.monotonic()
+        if remaining <= 0:
+            raise EvidenceError('reconciliation-exhausted')
+        # The production runner enforces the remaining total budget on every
+        # command, including all API requests within one full observation.
+        if self.run is command:
+            try:
+                result = subprocess.run(args, cwd=self.checkout, check=True, capture_output=True,
+                                        text=True, timeout=min(120, remaining)).stdout.strip()
+            except subprocess.TimeoutExpired as exc:
+                raise EvidenceError('reconciliation-exhausted') from exc
+        else:
+            result = self.run(args, cwd=self.checkout)
+        if time.monotonic() >= self._read_deadline:
+            raise EvidenceError('reconciliation-exhausted')
+        return result
+
+    def observe_until(self, deadline: float) -> dict:
+        """Bound the normal read path; preserve observe() and injected runners."""
+        previous = self._read_deadline
+        try:
+            self._read_deadline = deadline
+            return self.observe()
+        finally:
+            self._read_deadline = previous
 
     def _api(self, endpoint: str) -> object:
         return loads_strict(self._run(['gh', 'api', '--hostname', 'github.com', endpoint]))
@@ -202,33 +344,33 @@ class GitHubTransport:
         for direction in ([], ['--push']):
             values = self._run(['git', 'remote', 'get-url', '--all', *direction, 'origin']).splitlines()
             if len(values) != 1 or values[0] not in expected:
-                raise ValueError('origin must be the exact explicit GitHub.com repository')
+                raise EvidenceError('origin-identity-mismatch')
 
     def _tree(self, tree_sha: str) -> dict:
         if not SHA.fullmatch(tree_sha):
-            raise ValueError('invalid Git tree SHA')
+            raise EvidenceError('remote-tree-sha-invalid')
         value = self._api(f'repos/{self.policy.repository}/git/trees/{tree_sha}?recursive=1')
         if value.get('truncated') is not False or not isinstance(value.get('tree'), list):
-            raise ValueError('complete remote tree required')
+            raise EvidenceError('remote-tree-incomplete')
         result = {}
         for item in value['tree']:
             if item['type'] == 'tree':
                 continue
             path = item['path']
             if path in result:
-                raise ValueError('duplicate remote tree path')
+                raise EvidenceError('remote-tree-path-duplicate')
             result[path] = (item['mode'], item['type'], item['sha'])
         return result
 
     def _blob(self, sha: str) -> bytes:
         if not SHA.fullmatch(sha):
-            raise ValueError('invalid Git blob SHA')
+            raise EvidenceError('remote-blob-sha-invalid')
         value = self._api(f'repos/{self.policy.repository}/git/blobs/{sha}')
         if value.get('encoding') != 'base64' or type(value.get('size')) is not int or not 0 < value['size'] <= 32 * 1024 * 1024:
-            raise ValueError('invalid or oversized remote blob')
+            raise EvidenceError('remote-blob-shape-invalid')
         raw = base64.b64decode(''.join(value['content'].splitlines()), validate=True)
         if len(raw) != value['size'] or hashlib.sha1(b'blob ' + str(len(raw)).encode('ascii') + b'\0' + raw).hexdigest() != sha:
-            raise ValueError('remote blob differs from immutable tree identity')
+            raise EvidenceError('remote-blob-identity-mismatch')
         return raw
 
     def observe(self) -> dict:
@@ -236,18 +378,18 @@ class GitHubTransport:
         repo = self.policy.repository
         info = self._api(f'repos/{repo}')
         if info.get('full_name') != repo or info.get('default_branch') != 'master':
-            raise ValueError('repository identity or default branch differs')
+            raise EvidenceError('repository-identity-mismatch')
         query = f'head={repo.split("/")[0]}:{BRANCH}&base=master'
         # Only current ownership and the latest completed cycle authorize the
         # next action. Historical PR count must never impose a lifetime limit.
         prs = self._api(f'repos/{repo}/pulls?state=open&{query}&per_page=2')
         if not isinstance(prs, list) or len(prs) > 1:
-            raise ValueError('multiple or malformed open rolling PRs')
+            raise EvidenceError('open-pr-discovery-invalid')
         expected_state = 'open'
         if not prs:
             prs = self._api(f'repos/{repo}/pulls?state=closed&{query}&sort=created&direction=desc&per_page=1')
             if not isinstance(prs, list) or len(prs) > 1:
-                raise ValueError('latest closed rolling PR is ambiguous')
+                raise EvidenceError('closed-pr-discovery-invalid')
             expected_state = 'closed'
         for pr in prs:
             if (pr['user']['login'] != self.policy.owner or MARKER not in (pr.get('body') or '')
@@ -255,17 +397,18 @@ class GitHubTransport:
                     or pr['base']['ref'] != 'master' or pr['base']['repo']['full_name'] != repo
                     or type(pr['number']) is not int or pr['number'] <= 0
                     or pr['state'] != expected_state):
-                raise ValueError('rolling PR has unknown owner or identity')
+                raise EvidenceError('pr-ownership-or-identity-mismatch')
         pr = prs[0] if prs else None
         refs = self._api(f'repos/{repo}/git/matching-refs/heads/{BRANCH}')
         refs = [item for item in refs if item['ref'] == f'refs/heads/{BRANCH}']
         if len(refs) > 1:
-            raise ValueError('ambiguous rolling branch')
+            raise EvidenceError('rolling-ref-ambiguous')
         head = refs[0]['object']['sha'] if refs else None
         base = self._api(f'repos/{repo}/git/ref/heads/master')['object']['sha']
         if not SHA.fullmatch(base) or (head is not None and not SHA.fullmatch(head)):
-            raise ValueError('invalid observed SHA')
+            raise EvidenceError('observed-sha-invalid')
         result = dict(repository=repo, branch=BRANCH, base_sha=base, head_sha=head,
+                      pr_head_sha=pr['head']['sha'] if pr else None,
                       branch_owner=None, pr_number=pr['number'] if pr else None,
                       pr_owner=pr['user']['login'] if pr else None,
                       pr_state=('OPEN' if pr['state'] == 'open' else 'MERGED' if pr.get('merged_at') else 'CLOSED') if pr else None,
@@ -273,17 +416,22 @@ class GitHubTransport:
                       head_validated=False, generation_base_sha=None, semantic_id=None)
         if head:
             if pr is None or pr['head']['sha'] != head:
-                raise ValueError('branch is not bound to its owned PR head')
+                raise ObservationMismatch(result)
             commit = self._api(f'repos/{repo}/commits/{head}')
             if commit.get('sha') != head or (commit.get('author') or {}).get('login') != self.policy.owner or len(commit['parents']) != 1:
-                raise ValueError('branch commit ownership or single-parent proof missing')
+                raise EvidenceError('commit-ownership-or-parent-invalid')
             parent = commit['parents'][0]['sha']
             if not isinstance(parent, str) or not SHA.fullmatch(parent):
-                raise ValueError('invalid remote commit parent')
+                raise EvidenceError('remote-parent-sha-invalid')
             parent_commit = self._api(f'repos/{repo}/git/commits/{parent}')
             old = self._tree(parent_commit['tree']['sha'])
             new = self._tree(commit['commit']['tree']['sha'])
-            proof = verify_trees(old, new, self._blob)
+            try:
+                proof = verify_trees(old, new, self._blob)
+            except EvidenceError:
+                raise
+            except ValueError as exc:
+                raise EvidenceError('remote-data-proof-invalid') from exc
             result.update(branch_owner=self.policy.owner, head_validated=True,
                           generation_base_sha=parent, semantic_id=proof['semantic_id'])
         return result

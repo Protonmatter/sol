@@ -54,7 +54,15 @@ uses the fixed `automation/daily-orrery` branch. It proves the committed diff, G
 bot/PR ownership and current base/head before a lease-protected push, then reads
 back the resulting draft PR. A merged previous cycle permits a new proposal; a
 closed unmerged PR, unknown branch, changed ownership or non-draft PR holds.
-Uncertain writes are inspected once, not blindly retried. There is no merge operation.
+An uncertain push is inspected once and holds without PR creation. Writes are
+never retried. After an acknowledged update of an existing owned draft, known
+previous-head/candidate read transitions may be reconciled with at most four
+observations, two seconds apart, within a 20-second monotonic budget. Every
+successful observation retains the complete ownership/base/parent/tree/blob and
+data proof; unrelated identities or invalid evidence hold immediately. Pre-write
+mismatches never poll. Safe phase/reason/write-outcome diagnostics identify the
+failing boundary without recording arbitrary exception text. There is no merge
+operation.
 
 The existing EOP prediction-horizon check runs daily as a separate prerequisite.
 New IERS numerical-table ingestion requires a separate source/edition validation

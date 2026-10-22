@@ -161,6 +161,26 @@ class RefreshTests(unittest.TestCase):
                 self.assertEqual(refresh.main(['--candidate-dir', str(self.candidate)]), 1)
             self.assertNotIn('secret payload', str(logs.output))
 
+    def test_publish_diagnostics_survive_run_refresh_cli_and_saved_evidence(self):
+        self.publish.return_value = {'state': 'blocked', 'action': 'hold',
+                                    'phase': 'post-write-observation',
+                                    'reason_code': 'reconciliation-exhausted',
+                                    'write_attempted': True, 'write_outcome': 'acknowledged',
+                                    'observation_attempt': 4, 'observed_ref_sha': 'd' * 40,
+                                    'observed_pr_head_sha': 'e' * 40}
+        out = self.root / 'delivery.json'
+        with patch.object(refresh, 'GitHubTransport', return_value=self.adapter), contextlib.redirect_stdout(io.StringIO()) as stdout:
+            code = refresh.main(['--candidate-dir', str(self.candidate), '--checkout', str(self.root),
+                                 '--publish', '--repository', 'owner/repo', '--expected-base', self.base,
+                                 '--expected-manifest-sha256', self.digest, '--out', str(out)])
+        self.assertEqual(code, 1)
+        saved = json.loads(out.read_text(encoding='utf-8'))
+        self.assertEqual(saved, json.loads(stdout.getvalue()))
+        for key, value in self.publish.return_value.items():
+            self.assertEqual(saved[key], value)
+        self.assertEqual(saved['generation_base_sha'], 'a' * 40)
+        self.assertEqual(saved['commit_sha'], 'd' * 40)
+
     def test_real_script_entrypoint_imports_and_fails_cleanly_for_missing_candidate(self):
         script = Path(__file__).resolve().parents[2] / 'tools/orrery_refresh.py'
         env = {key: value for key, value in os.environ.items() if key != 'PYTHONPATH'}
