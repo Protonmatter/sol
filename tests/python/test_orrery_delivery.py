@@ -159,6 +159,280 @@ class GitHubBoundaryTests(unittest.TestCase):
         self.assertEqual(args[args.index('--base') + 1], 'master')
         self.assertNotIn('--auto', args)
 
+
+class ReconciliationTests(PublisherFixture):
+    """Known stale API reads may converge; writes and authority never retry."""
+
+    def setUp(self):
+        super().setUp()
+        self.candidate['expected_head_sha'] = 'a' * 40
+        self.before = self.owned()
+        self.sleep = mock.patch('time.sleep').start()
+        self.clock = mock.patch('time.monotonic', return_value=100.0).start()
+        self.addCleanup(mock.patch.stopall)
+
+    def invoke(self, transport):
+        with mock.patch.object(delivery, 'verify_candidate', return_value=self.candidate):
+            return delivery.publish(ROOT, self.policy.repository, self.policy.owner, self.candidate,
+                                    execute=True, transport=transport)
+
+    def after(self, **changes):
+        return self.owned(**{'head_sha': 'c' * 40, 'semantic_id': 'd' * 64, **changes})
+
+    def mismatch(self, pr_head='a' * 40, ref_head='c' * 40, **changes):
+        import json
+        pr = {'number': 7, 'state': 'open', 'draft': True, 'merged_at': None,
+              'body': delivery.MARKER, 'user': {'login': self.policy.owner},
+              'head': {'ref': delivery.BRANCH, 'sha': pr_head, 'repo': {'full_name': self.policy.repository}},
+              'base': {'ref': 'master', 'repo': {'full_name': self.policy.repository}}}
+        pr.update(changes)
+
+        def run(args, **kwargs):
+            if args[0] == 'git':
+                return 'https://github.com/owner/repo.git'
+            endpoint = args[-1]
+            if endpoint == 'repos/owner/repo':
+                value = {'full_name': self.policy.repository, 'default_branch': 'master'}
+            elif '/pulls?' in endpoint:
+                value = [pr]
+            elif '/matching-refs/' in endpoint:
+                value = [{'ref': 'refs/heads/' + delivery.BRANCH, 'object': {'sha': ref_head}}]
+            elif endpoint.endswith('/git/ref/heads/master'):
+                value = {'object': {'sha': 'b' * 40}}
+            else:
+                raise AssertionError('Mismatch must fail before commit/blob reads: ' + endpoint)
+            return json.dumps(value)
+
+        try:
+            delivery.GitHubTransport(self.policy, ROOT, run=run).observe()
+        except ValueError as exc:
+            return exc
+        self.fail('Inconsistent PR/ref identities must never pass observation')
+
+    def adapter(self, *after):
+        adapter = mock.Mock()
+        adapter.observe.side_effect = [self.before, self.before, *after]
+        return adapter
+
+    def test_stale_pr_head_converges_without_repeating_push_or_creating_pr(self):
+        adapter = self.adapter(self.mismatch(), self.after())
+        result = self.invoke(adapter)
+        self.assertEqual(result['state'], 'awaiting-approval')
+        self.assertEqual(result.get('phase'), 'complete')
+        self.assertEqual(result.get('observation_attempt'), 2)
+        self.assertEqual(result.get('write_outcome'), 'confirmed')
+        adapter.compare_and_push.assert_called_once_with(self.candidate, expected_head='a' * 40)
+        adapter.open_pr.assert_not_called()
+
+    def test_prior_complete_observation_can_converge(self):
+        adapter = self.adapter(self.before, self.after())
+        self.assertEqual(self.invoke(adapter)['state'], 'awaiting-approval')
+        adapter.compare_and_push.assert_called_once()
+
+    def test_frozen_clock_still_exhausts_finite_observation_budget(self):
+        adapter = self.adapter(*[self.mismatch() for _ in range(8)])
+        result = self.invoke(adapter)
+        self.assertEqual(result['state'], 'blocked')
+        self.assertEqual(result.get('reason_code'), 'reconciliation-exhausted')
+        self.assertEqual(result.get('phase'), 'post-write-observation')
+        self.assertLessEqual(adapter.observe.call_count, 6)
+        self.assertEqual(result.get('observed_ref_sha'), 'c' * 40)
+        self.assertEqual(result.get('observed_pr_head_sha'), 'a' * 40)
+        adapter.compare_and_push.assert_called_once()
+        adapter.open_pr.assert_not_called()
+
+    def test_elapsed_budget_stops_even_if_attempts_remain(self):
+        self.clock.side_effect = [100.0, 100.0, 121.0]
+        adapter = self.adapter(self.mismatch())
+        result = self.invoke(adapter)
+        self.assertEqual(result.get('reason_code'), 'reconciliation-exhausted')
+        self.assertEqual(result.get('observation_attempt'), 1)
+        self.sleep.assert_not_called()
+
+    def test_read_finishing_after_deadline_cannot_claim_success(self):
+        self.clock.side_effect = [100.0, 100.0, 121.0]
+        result = self.invoke(self.adapter(self.after()))
+        self.assertEqual(result['state'], 'blocked')
+        self.assertEqual(result.get('reason_code'), 'reconciliation-exhausted')
+
+    def test_unknown_third_head_never_retries(self):
+        adapter = self.adapter(self.mismatch(ref_head='f' * 40), self.after())
+        result = self.invoke(adapter)
+        self.assertEqual(result.get('reason_code'), 'pr-head-ref-mismatch')
+        self.assertEqual(adapter.observe.call_count, 3)
+        self.sleep.assert_not_called()
+
+    def test_ownership_draft_base_parent_semantic_and_pr_replacement_hold_immediately(self):
+        for change in ({'pr_owner': 'human'}, {'branch_owner': 'human'}, {'pr_draft': False},
+                       {'base_sha': 'f' * 40}, {'generation_base_sha': 'f' * 40},
+                       {'semantic_id': 'f' * 64}, {'head_validated': False}, {'pr_number': 8}):
+            with self.subTest(change=change):
+                adapter = self.adapter(self.after(**change), self.after())
+                result = self.invoke(adapter)
+                self.assertEqual(result['state'], 'blocked')
+                self.assertEqual(adapter.observe.call_count, 3)
+                adapter.compare_and_push.assert_called_once()
+                adapter.open_pr.assert_not_called()
+
+    def test_stale_mismatch_with_ready_pr_or_replaced_pr_is_terminal(self):
+        for change in ({'draft': False}, {'number': 8}):
+            with self.subTest(change=change):
+                adapter = self.adapter(self.mismatch(**change), self.after())
+                result = self.invoke(adapter)
+                self.assertEqual(result['state'], 'blocked')
+                self.assertEqual(adapter.observe.call_count, 3)
+
+    def test_untyped_validation_or_transport_failure_is_not_retried_or_echoed(self):
+        import json
+        for exc in (ValueError('secret payload'), RuntimeError('secret payload')):
+            with self.subTest(kind=type(exc).__name__):
+                adapter = self.adapter(exc, self.after())
+                result = self.invoke(adapter)
+                self.assertEqual(result['state'], 'blocked')
+                self.assertEqual(result.get('phase'), 'post-write-observation')
+                self.assertEqual(result.get('write_outcome'), 'acknowledged')
+                self.assertNotIn('secret payload', json.dumps(result))
+                self.assertEqual(adapter.observe.call_count, 3)
+
+    def test_candidate_failure_is_diagnosed_before_any_remote_read(self):
+        adapter = mock.Mock()
+        with mock.patch.object(delivery, 'verify_candidate', side_effect=ValueError('secret payload')):
+            result = delivery.publish(ROOT, self.policy.repository, self.policy.owner, self.candidate,
+                                      execute=True, transport=adapter)
+        self.assertEqual(result.get('phase'), 'candidate-verification')
+        self.assertEqual(result.get('reason_code'), 'candidate-verification-failed')
+        self.assertIs(result.get('write_attempted'), False)
+        adapter.observe.assert_not_called()
+        adapter.compare_and_push.assert_not_called()
+
+    def test_push_exception_and_failed_readback_preserve_unknown_write_outcome(self):
+        adapter = self.adapter(RuntimeError('secret read payload'))
+        adapter.compare_and_push.side_effect = RuntimeError('secret push payload')
+        result = self.invoke(adapter)
+        self.assertEqual(result['state'], 'blocked')
+        self.assertEqual(result.get('reason_code'), 'push-outcome-uncertain')
+        self.assertEqual(result.get('write_outcome'), 'unknown')
+        self.assertIs(result.get('write_attempted'), True)
+        self.assertNotIn('secret', str(result))
+        adapter.compare_and_push.assert_called_once()
+        adapter.open_pr.assert_not_called()
+
+    def test_corrupt_remote_blob_has_specific_safe_failure_code(self):
+        import json
+        transport = delivery.GitHubTransport(self.policy, ROOT, run=mock.Mock(return_value=json.dumps(
+            {'encoding': 'base64', 'size': 4, 'content': 'ZXZpbA=='})))
+        try:
+            transport._blob('a' * 40)
+        except ValueError as exc:
+            failure = exc
+        else:
+            self.fail('Corrupt blob must be rejected')
+        adapter = self.adapter(failure, self.after())
+        result = self.invoke(adapter)
+        self.assertEqual(result.get('reason_code'), 'remote-blob-identity-mismatch')
+        self.assertEqual(result.get('phase'), 'post-write-observation')
+        self.assertEqual(adapter.observe.call_count, 3)
+
+    def test_prewrite_stale_read_holds_without_entering_reconciliation(self):
+        adapter = mock.Mock()
+        adapter.observe.side_effect = [self.before, self.mismatch(), self.after()]
+        result = self.invoke(adapter)
+        self.assertEqual(result.get('phase'), 'pre-write-observation')
+        self.assertEqual(result.get('reason_code'), 'pr-head-ref-mismatch')
+        self.assertIs(result.get('write_attempted'), False)
+        adapter.compare_and_push.assert_not_called()
+        self.sleep.assert_not_called()
+
+    def test_production_transport_caps_each_read_to_remaining_budget_and_restores_scope(self):
+        import subprocess
+        adapter = delivery.GitHubTransport(self.policy, ROOT)
+        self.clock.return_value = 107.0
+        with mock.patch.object(adapter, 'observe', side_effect=lambda: adapter._run(['gh', 'api', 'example'])), \
+                mock.patch.object(subprocess, 'run', return_value=mock.Mock(stdout='read result\n')) as run:
+            self.assertEqual(adapter.observe_until(110.0), 'read result')
+            self.assertEqual(run.call_args.kwargs['timeout'], 3.0)
+            run.reset_mock()
+            # The deadline must not leak into a later ordinary operation.
+            self.clock.return_value = 200.0
+            adapter.observe()
+            self.assertEqual(run.call_args.kwargs['timeout'], 120)
+
+    def test_production_transport_expired_deadline_issues_no_command(self):
+        adapter = delivery.GitHubTransport(self.policy, ROOT)
+        with mock.patch.object(delivery.subprocess, 'run') as run:
+            with self.assertRaises(ValueError) as raised:
+                adapter.observe_until(100.0)
+            self.assertEqual(getattr(raised.exception, 'reason_code', None), 'reconciliation-exhausted')
+            run.assert_not_called()
+
+    def test_deadline_expiring_between_attempts_prevents_another_read(self):
+        self.clock.side_effect = [100.0, 100.0, 100.0, 120.0]
+        adapter = self.adapter(self.mismatch(), self.after())
+        result = self.invoke(adapter)
+        self.assertEqual(result['reason_code'], 'reconciliation-exhausted')
+        self.assertEqual(result['observation_attempt'], 1)
+        self.assertEqual(adapter.observe.call_count, 3)
+
+    def test_production_command_timeout_is_safe_and_restores_deadline(self):
+        adapter = delivery.GitHubTransport(self.policy, ROOT)
+        self.clock.return_value = 107.0
+        failure = delivery.subprocess.TimeoutExpired(['secret command'], 3, output='secret output')
+        with mock.patch.object(adapter, 'observe', side_effect=lambda: adapter._run(['gh', 'api', 'example'])), \
+                mock.patch.object(delivery.subprocess, 'run', side_effect=failure) as run:
+            with self.assertRaises(ValueError) as raised:
+                adapter.observe_until(110.0)
+            self.assertEqual(getattr(raised.exception, 'reason_code', None), 'reconciliation-exhausted')
+            self.assertNotIn('secret', str(raised.exception))
+            run.side_effect = None
+            run.return_value = mock.Mock(stdout='ordinary read')
+            self.clock.return_value = 200.0
+            self.assertEqual(adapter.observe(), 'ordinary read')
+            self.assertEqual(run.call_args.kwargs['timeout'], 120)
+
+    def test_injected_runner_cannot_claim_an_overdue_read(self):
+        adapter = delivery.GitHubTransport(self.policy, ROOT, run=mock.Mock(return_value='late result'))
+        self.clock.side_effect = [107.0, 111.0]
+        with mock.patch.object(adapter, 'observe', side_effect=lambda: adapter._run(['gh', 'api', 'example'])):
+            with self.assertRaises(ValueError) as raised:
+                adapter.observe_until(110.0)
+        self.assertEqual(getattr(raised.exception, 'reason_code', None), 'reconciliation-exhausted')
+
+    def test_uncertain_push_with_stale_readback_keeps_both_diagnostics_without_retry(self):
+        adapter = self.adapter(self.mismatch(), self.after())
+        adapter.compare_and_push.side_effect = RuntimeError('secret payload')
+        result = self.invoke(adapter)
+        self.assertEqual(result['reason_code'], 'push-outcome-uncertain')
+        self.assertEqual(result['observation_reason_code'], 'pr-head-ref-mismatch')
+        self.assertEqual(result['observed_ref_sha'], 'c' * 40)
+        self.assertEqual(result['observed_pr_head_sha'], 'a' * 40)
+        self.assertEqual(result['write_outcome'], 'unknown')
+        self.assertEqual(adapter.observe.call_count, 3)
+        adapter.open_pr.assert_not_called()
+        self.sleep.assert_not_called()
+
+    def test_invalid_observed_identity_is_not_echoed_in_diagnostics(self):
+        adapter = self.adapter(self.after(head_sha='secret payload', pr_head_sha='secret payload'))
+        result = self.invoke(adapter)
+        self.assertEqual(result['state'], 'blocked')
+        self.assertIsNone(result['observed_ref_sha'])
+        self.assertIsNone(result['observed_pr_head_sha'])
+        self.assertNotIn('secret payload', str(result))
+
+    def test_uncertain_creation_and_failed_read_keep_separate_write_outcomes(self):
+        self.candidate['expected_head_sha'] = None
+        adapter = mock.Mock()
+        adapter.observe.side_effect = [self.state, self.state, RuntimeError('secret read')]
+        adapter.open_pr.side_effect = RuntimeError('secret create')
+        result = self.invoke(adapter)
+        self.assertEqual(result['state'], 'blocked')
+        self.assertEqual(result['write_outcome'], 'acknowledged')
+        self.assertEqual(result['pr_creation_outcome'], 'unknown')
+        self.assertIs(result['pr_creation_attempted'], True)
+        self.assertNotIn('secret', str(result))
+        adapter.compare_and_push.assert_called_once()
+        adapter.open_pr.assert_called_once()
+
+
 class GitCandidateFixture(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -305,6 +579,89 @@ class RemoteHistoryTests(GitCandidateFixture):
                     self.assertEqual((queries[-1]['sort'], queries[-1]['direction']), ('created', 'desc'))
                 candidate = {**self.candidate, 'expected_head_sha': head}
                 self.assertEqual(delivery.plan(policy, observed, candidate)['action'], want)
+
+class ReconciledTreeTests(GitCandidateFixture):
+    def test_reconciliation_repeats_full_committed_proof_and_rejects_corrupt_blob(self):
+        import base64
+        import json
+        import subprocess
+        policy = delivery.Policy('owner/repo', 'github-actions[bot]')
+        head, parent, prior = self.candidate['commit_sha'], self.base, 'a' * 40
+        candidate = {**self.candidate, 'expected_head_sha': prior}
+        trees = {}
+        blobs = {}
+        for commit in (parent, head):
+            tree_sha = self.git('rev-parse', commit + '^{tree}')
+            entries = []
+            for entry in self.git('ls-tree', '-r', '-z', commit).split('\0'):
+                if not entry:
+                    continue
+                meta, path = entry.split('\t', 1)
+                mode, kind, oid = meta.split(' ')
+                entries.append({'path': path, 'mode': mode, 'type': kind, 'sha': oid})
+                blobs[oid] = subprocess.run(['git', 'cat-file', 'blob', oid], cwd=self.checkout,
+                                            capture_output=True, check=True, timeout=30).stdout
+            trees[tree_sha] = {'truncated': False, 'tree': entries}
+        for corrupt in (False, True):
+            with self.subTest(corrupt=corrupt):
+                calls, pushes, blob_reads = [], [], []
+                pr = {'number': 7, 'state': 'open', 'draft': True, 'body': delivery.MARKER,
+                      'user': {'login': policy.owner}, 'merged_at': None,
+                      'head': {'ref': delivery.BRANCH, 'sha': head, 'repo': {'full_name': policy.repository}},
+                      'base': {'ref': 'master', 'repo': {'full_name': policy.repository}}}
+
+                def run(args, **kwargs):
+                    if args[0] == 'git':
+                        if 'push' in args:
+                            pushes.append(args)
+                            return ''
+                        return 'https://github.com/owner/repo.git'
+                    endpoint = args[-1]
+                    if endpoint == 'repos/owner/repo':
+                        value = {'full_name': policy.repository, 'default_branch': 'master'}
+                    elif '/pulls?' in endpoint:
+                        value = [{**pr, 'head': {**pr['head'], 'sha': prior if len(calls) == 3 else head}}]
+                    elif '/matching-refs/' in endpoint:
+                        value = [{'ref': 'refs/heads/' + delivery.BRANCH, 'object': {'sha': head}}]
+                    elif endpoint.endswith('/git/ref/heads/master'):
+                        value = {'object': {'sha': parent}}
+                    elif endpoint.endswith('/commits/' + head):
+                        value = {'sha': head, 'author': {'login': policy.owner}, 'parents': [{'sha': parent}],
+                                 'commit': {'tree': {'sha': self.git('rev-parse', head + '^{tree}')}}}
+                    elif endpoint.endswith('/git/commits/' + parent):
+                        value = {'tree': {'sha': self.git('rev-parse', parent + '^{tree}')}}
+                    elif '/git/trees/' in endpoint:
+                        value = trees[endpoint.rsplit('/', 1)[1].split('?')[0]]
+                    elif '/git/blobs/' in endpoint:
+                        oid = endpoint.rsplit('/', 1)[1]
+                        blob_reads.append(oid)
+                        raw = b'evil' if corrupt else blobs[oid]
+                        value = {'size': len(raw), 'encoding': 'base64', 'content': base64.b64encode(raw).decode()}
+                    else:
+                        raise AssertionError(endpoint)
+                    return json.dumps(value)
+
+                adapter = delivery.GitHubTransport(policy, self.checkout, run=run)
+                real_observe = adapter.observe
+                before = dict(repository=policy.repository, branch=delivery.BRANCH, base_sha=parent,
+                              head_sha=prior, branch_owner=policy.owner, pr_number=7, pr_owner=policy.owner,
+                              pr_state='OPEN', pr_draft=True, head_validated=True,
+                              generation_base_sha=parent, semantic_id='e' * 64)
+
+                def observe():
+                    calls.append('read')
+                    return before.copy() if len(calls) <= 2 else real_observe()
+
+                with mock.patch.object(adapter, 'observe', side_effect=observe), \
+                        mock.patch('time.monotonic', return_value=100.0), mock.patch('time.sleep'):
+                    result = delivery.publish(self.checkout, policy.repository, policy.owner, candidate,
+                                              execute=True, transport=adapter)
+                self.assertEqual(len(pushes), 1)
+                self.assertEqual(len(calls), 4)
+                self.assertTrue(blob_reads, 'Convergence must run remote blob validation')
+                self.assertEqual(result['state'], 'blocked' if corrupt else 'awaiting-approval')
+                self.assertEqual(result['reason_code'], 'remote-blob-identity-mismatch' if corrupt else 'post-write-confirmed')
+
 
 class InputAndIntegrityTests(unittest.TestCase):
     def test_repository_path_segments_cannot_select_another_api_target(self):
