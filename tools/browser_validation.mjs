@@ -1092,7 +1092,7 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   const initialAppearance = await page.evaluate(async () => {
     const entry = document.querySelector('script[type="module"][src^="app.js"]');
     const {store} = await import(`./js/store.js${new URL(entry.src).search}`);
-    const {visualAssetManifest} = await import(`./js/visualAssetManifest.js${new URL(entry.src).search}`);
+    const {visualAssetManifest} = await import('./js/visualAssetManifest.js');
     const weather = visualAssetManifest.mapped_references.find(asset => asset.body === 'Earth' && asset.role === 'weather');
     return {mode:store.orrery.planetLook,selected:document.getElementById('orreryPlanetLook').value,
       dailyLabel:document.querySelector('#orreryEarthCloudSource option[value="daily"]').textContent,
