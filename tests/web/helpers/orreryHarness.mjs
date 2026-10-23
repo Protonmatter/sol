@@ -209,6 +209,8 @@ export async function orreryHarness(t, options = {}) {
     nodes.orreryEarthIce.checked = false;
     nodes.orreryVenusRadar = node({ checked: false });
     nodes.orreryEarthCloudSource = node({ value: "composite" }, "select");
+    nodes.orreryEarthDailyOption = node({ value: "daily", textContent: "MODIS dated swaths (clouds and surface)" }, "option");
+    nodes.orreryEarthCloudSource.appendChild(nodes.orreryEarthDailyOption);
     nodes.orrerySpeedUnit.value = "1";
     for (const dps of ["0.041666666666666664", "1", "30", "365.25"]) {
       const button = node({}, "button"); button.dataset.dps = dps; nodes.orrerySpeedPresets.appendChild(button);
@@ -307,7 +309,12 @@ export async function orreryHarness(t, options = {}) {
     phenomenaModule.renderPlanetPhenomena(container,body,{loadImage:options.phenomenonImage})};
   const illustrativeBoundary=options.illustrativeMap?{...await import('../../../apps/web/js/illustrativeAppearance.js'),decodeIllustrativeMap:options.illustrativeMap}:null;
   const [lifecycle] = await loadSourceModules(context, [moduleUrl], {
-    resolveImport: (specifier,url) => illustrativeBoundary && url.pathname.endsWith('/illustrativeAppearance.js') ? illustrativeBoundary : options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
+    // Alternate admitted metadata exercises the real presenter without mutating
+    // the shared, frozen production inventory or replacing its date logic.
+    resolveImport: (specifier,url) => options.referenceInventory && url.pathname.endsWith('/visualAssetManifest.js')
+      ? {visualAssetManifest:options.referenceInventory}
+      : options.referenceInventory && url.pathname.endsWith('/planetAppearance.js') ? undefined
+      : illustrativeBoundary && url.pathname.endsWith('/illustrativeAppearance.js') ? illustrativeBoundary : options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
       ? {loadSolarAtlas:typeof options.solarAtlas==='function'?options.solarAtlas:async()=>({width:2048,height:1024,close(){}})}
       : options.terrainMesh && url.pathname.endsWith('/terrainWorkerClient.js')
         ? {requestTerrainMesh:options.terrainMesh}

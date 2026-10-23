@@ -1092,10 +1092,17 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   const initialAppearance = await page.evaluate(async () => {
     const entry = document.querySelector('script[type="module"][src^="app.js"]');
     const {store} = await import(`./js/store.js${new URL(entry.src).search}`);
-    return {mode:store.orrery.planetLook,selected:document.getElementById('orreryPlanetLook').value};
+    const {visualAssetManifest} = await import('./js/visualAssetManifest.js');
+    const weather = visualAssetManifest.mapped_references.find(asset => asset.body === 'Earth' && asset.role === 'weather');
+    return {mode:store.orrery.planetLook,selected:document.getElementById('orreryPlanetLook').value,
+      dailyLabel:document.querySelector('#orreryEarthCloudSource option[value="daily"]').textContent,
+      weatherObservation:weather.observation_label};
   });
   if(initialAppearance.mode!=='illustrative'||initialAppearance.selected!=='illustrative') {
     throw new Error(`Fresh-session appearance is inconsistent: ${JSON.stringify(initialAppearance)}`);
+  }
+  if(!initialAppearance.weatherObservation || !initialAppearance.dailyLabel.includes(initialAppearance.weatherObservation)) {
+    throw new Error(`Earth source selector date differs from reference metadata: ${JSON.stringify(initialAppearance)}`);
   }
   // The existing source-image, terrain and moon-shadow baselines qualify the
   // Source-qualified option; select it explicitly after checking the product default.

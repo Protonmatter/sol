@@ -3,6 +3,7 @@ import test from "node:test";
 import { orreryHarness } from "./helpers/orreryHarness.mjs";
 import { isMoonDraw } from "./helpers/moonDraws.mjs";
 import { appearanceReference, appearanceReferences } from "../../apps/web/js/planetAppearance.js";
+import { visualAssetManifest } from "../../apps/web/js/visualAssetManifest.js";
 import { BODY } from "../../apps/web/js/bodyData.js";
 import { MOONS } from "../../apps/web/js/moons.js";
 
@@ -131,6 +132,40 @@ test("failed catalogue moon imagery retries explicitly and cannot be replaced by
   assert.notEqual(recovered.image, image);
   assert.ok(paint(h).some(draw => draw.uniforms.u_texMode === 4 && draw.textures.get(0) === recovered.texture));
   assert.equal(h.state.engineError, '');
+});
+
+test("daily Earth selector follows refreshed reference metadata independently of model time", async t => {
+  for (const date of ['2026-10-20', '2026-10-21']) await t.test(date, async t => {
+    const referenceInventory = structuredClone(visualAssetManifest);
+    const weather = referenceInventory.mapped_references.find(asset => asset.body === 'Earth' && asset.role === 'weather');
+    weather.observation_label = `${date} daily composite`;
+    weather.automated_refresh.data_date = date;
+    const h = await start(t, { source: "default", referenceInventory });
+    const option = h.nodes.orreryEarthDailyOption;
+    assert.ok(option.textContent.includes(`${date} daily composite`), 'selector identifies the fixture source epoch');
+    assert.equal(h.nodes.orreryEarthCloudSource.value, 'composite', 'label refresh preserves the selected source');
+    h.input('orreryEarthCloudSource', 'daily', 'change');
+    assert.ok(h.nodes.orreryEarthLayerStatus.textContent.includes(`${date} daily composite`));
+
+    h.setWallUnix(Date.UTC(2030, 0, 1) / 1000);
+    h.now();
+    await h.settle();
+    h.check('orreryEarthWeather', false);
+    assert.ok(option.textContent.includes(`${date} daily composite`));
+    assert.doesNotMatch(option.textContent, /2030/);
+    assert.equal(option.value, 'daily');
+  });
+});
+
+test("daily Earth selector reports missing source date instead of retaining an old date", async t => {
+  const referenceInventory = structuredClone(visualAssetManifest);
+  const weather = referenceInventory.mapped_references.find(asset => asset.body === 'Earth' && asset.role === 'weather');
+  weather.observation_label = '';
+  const h = await start(t, { referenceInventory });
+  h.nodes.orreryEarthDailyOption.textContent = 'MODIS 1999-01-01';
+  h.input('orreryEarthCloudSource', 'daily', 'change');
+  assert.match(h.nodes.orreryEarthDailyOption.textContent, /date unavailable/i);
+  assert.doesNotMatch(h.nodes.orreryEarthDailyOption.textContent, /\d{4}-\d{2}-\d{2}/);
 });
 
 test("Earth defaults to the complete historical composite; swaths require an explicit source choice", async t => {
