@@ -27,10 +27,61 @@ jobs:
           python-version: "3.12"
 
       - name: Build the sky CLI
+        id: build
         run: cargo build --release --locked -p solar-ephemeris --bin sky
 
       - name: Apparent alt/az vs Horizons (4-site envelope)
-        run: python tools/validate_ephemeris.py
+        id: reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/qualification
+          python tools/validate_ephemeris.py --report build/qualification/ephemeris-reference.json 2>&1 | tee build/qualification/ephemeris-reference.log
 
       - name: Moon apparent place at new/full moon (syzygy stress)
-        run: python tools/stress_moon_syzygy.py
+        id: syzygy
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/qualification
+          python tools/stress_moon_syzygy.py 2>&1 | tee build/qualification/moon-syzygy.log
+
+      - name: Retain source, run, binary and result identities
+        if: always()
+        env:
+          BUILD_RESULT: ${{ steps.build.outcome }}
+          REFERENCE_RESULT: ${{ steps.reference.outcome }}
+          SYZYGY_RESULT: ${{ steps.syzygy.outcome }}
+        shell: python
+        run: |
+          import datetime, hashlib, json, os
+          from pathlib import Path
+          root = Path('build/qualification')
+          root.mkdir(parents=True, exist_ok=True)
+          binary = Path('target/release/sky')
+          def digest(path):
+              with path.open('rb') as stream:
+                  return hashlib.file_digest(stream, 'sha256').hexdigest()
+          evidence = {
+              'schema_version': 'scientific-run-evidence.v1',
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'source_sha': os.environ['GITHUB_SHA'],
+              'run_id': int(os.environ['GITHUB_RUN_ID']),
+              'run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'recorded_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'outcomes': {key: os.environ[key] for key in ('BUILD_RESULT', 'REFERENCE_RESULT', 'SYZYGY_RESULT')},
+              'binary_sha256': digest(binary) if binary.is_file() else None,
+              'files': {path.name: digest(path) for path in sorted(root.iterdir()) if path.is_file()},
+              'qualification_accepted': False,
+              'limitations': ['Native CLI results; not browser-WASM qualification, raw reference archive, or maintainer acceptance.'],
+          }
+          (root / 'run.json').write_text(json.dumps(evidence, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: always()
+        with:
+          name: scientific-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/qualification
+          if-no-files-found: error
+          retention-days: 90

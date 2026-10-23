@@ -86,6 +86,15 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertFalse(result.promotion_eligible)
         self.assertIn("qualification-missing:manual", result.reasons)
 
+    def test_missing_master_observation_is_not_reported_as_superseded(self) -> None:
+        trusted = dict(self.trusted)
+        trusted.pop("current_master_sha")
+        result = policy.evaluate(self.candidate, trusted, [], self.today)
+        self.assertTrue(result.candidate_verified)
+        self.assertFalse(result.promotion_eligible)
+        self.assertIn("master-identity-missing", result.reasons)
+        self.assertNotIn("superseded-candidate", result.reasons)
+
     def test_every_non_success_gate_is_rejected(self) -> None:
         for job in policy.REQUIRED_JOBS:
             for outcome in (None, "failure", "skipped", "cancelled", "absent"):

@@ -31,6 +31,21 @@ jobs:
         run: python tools/run_daily_ingest.py --fail-on-degraded
       - name: Record validated candidate and explicit approval hold
         run: python tools/delivery_lifecycle.py --pointer apps/web/data/current.json --out build/feed-candidate-lifecycle.json
+      - name: Explain the publication hold
+        if: success()
+        shell: bash
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## Research feed candidate retained; not published
+
+          Acquisition and validation succeeded. This workflow does not open or merge
+          a PR, update master, or deploy GitHub Pages. Download the candidate artifact
+          and inspect build/feed-candidate-lifecycle.json for its exact bundle identity.
+
+          Publication requires the owned rolling-PR procedure in
+          docs/TRANSACTIONAL_FEED.md and the release qualification in
+          docs/RELEASE_SETUP.md. A green run means candidate generation only.
+          EOF
       - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:

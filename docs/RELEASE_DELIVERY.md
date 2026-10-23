@@ -67,6 +67,10 @@ files and is merged with Chromium coverage at the existing 90 percent floor.
 
 ## Qualification and trusted promotion
 
+Use the [release setup handoff](RELEASE_SETUP.md) to complete the initial protected
+configuration. The checked-in policy is an unaccepted proposal until its acceptance
+and settings review are complete; an empty qualification array grants no authority.
+
 CI's always-run `Release gate` requires every substantive same-run job, including
 reusable Coverage and Docs. Missing, skipped, cancelled, or failed jobs are not success.
 The protected `WASM build (wasm32-unknown-unknown)` identity depends on `Build immutable
