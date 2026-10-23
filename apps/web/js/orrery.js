@@ -2095,6 +2095,9 @@ function moonShadowUniforms(phys, planetPos, rot, drawn) {
 }
 
 function updateEarthLayerStatus() {
+  const dailyOption = document.getElementById('orreryEarthDailyOption');
+  const weather = appearanceReference('Earth', 'weather');
+  if (dailyOption) dailyOption.textContent = `MODIS ${weather?.observation_label || 'date unavailable'} (swaths with surface)`;
   const node = document.getElementById('orreryEarthLayerStatus');
   if (node) node.textContent = state.useTextures ? earthLayerDescription(state) : 'Reference imagery is switched off.';
   const legend = document.getElementById('orreryIceLegend');

@@ -5,6 +5,12 @@ composite. It does not refresh the default Illustrative appearance, model state,
 lunar coefficients, or EOP numerical tables. The daily workflow separately checks
 the existing EOP prediction horizon. The design is [RFC 0011](rfcs/0011-daily-orrery-refresh.md).
 
+In Solar System, the daily MODIS option under **Earth layers → Cloud imagery**
+reads its observation date from the same generated reference metadata as the
+layer status. A refreshed release updates both labels without editing HTML;
+changing model time does not change the observation date. Before initialization
+the option is undated, and missing date metadata is shown as `date unavailable`.
+
 ## Preconditions and permissions
 
 Use Python 3.12 or later and a dedicated clean Git checkout. Preview and staging
