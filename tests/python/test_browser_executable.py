@@ -1,8 +1,10 @@
 import os
 import json
+import re
 import subprocess
 import tempfile
 import unittest
+import urllib.request
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,12 +15,50 @@ READY_SUN = ('<body data-experience="research"><div id="baseLabel">Base: synthet
 
 
 class BrowserExecutableTests(unittest.TestCase):
+    def test_actual_system_fixture_joins_modules_without_startup_preloads(self):
+        with browser_smoke.serve(browser_smoke.WEB) as base:
+            with urllib.request.urlopen(base + '/__smoke_orrery.html', timeout=5) as response:
+                html = response.read().decode('utf-8')
+        match = re.search(r'<script>(.*?)</script>', html, re.S)
+        self.assertIsNotNone(match)
+        with tempfile.TemporaryDirectory() as temp:
+            fixture = Path(temp) / 'fixture.js'
+            fixture.write_text(match.group(1), encoding='utf-8')
+            script = r"""
+import fs from 'node:fs';import assert from 'node:assert/strict';
+const source=fs.readFileSync(process.argv[1],'utf8').replaceAll('import(', 'mockImport(');
+const callbacks=new Map(),calls=[],origin='http://127.0.0.1:8123';
+const app=origin+'/sol/releases/fixture/app.js?v=fixture';
+const moduleUrls=JSON.parse(source.match(/const smokeModuleUrls = (\[[^;]+\]);/)[1]);
+const entries=moduleUrls.map(url=>({name:new URL(url,origin+'/sol/releases/fixture/__smoke_orrery.html').href}));
+const body={dataset:{surface:'today',viewCode:'ready',viewCodeName:'observe'}};
+const tab={click(){calls.push('native-orrery-click');body.dataset.surface='orrery';body.dataset.viewCodeName='orrery';},getAttribute(){return body.dataset.surface==='orrery'?'true':'false';}};
+const document={body,querySelector(selector){
+  if(selector.startsWith('link['))return null;
+  if(selector.includes('script'))return {src:app};
+  if(selector.includes('data-mode="orrery"'))return tab;
+  return null;
+}};
+const modules={'store.js':{store:{orrery:{}}},'orreryTime.js':{},'orrery.js':{enterOrrery:async()=>{}},'moons.js':{MOONS:[{el:[[1]]}]}};
+const mockImport=async url=>{calls.push(url);assert.ok(entries.some(entry=>entry.name===url),'join the URL actually fetched by the app');return modules[new URL(url).pathname.split('/').at(-1)];};
+const run=new Function('document','location','performance','localStorage','addEventListener','setInterval','requestAnimationFrame','mockImport',source);
+run(document,{origin,href:origin+'/sol/releases/fixture/__smoke_orrery.html'},
+  {now:()=>0,getEntriesByType:()=>entries},{setItem(){}},(type,fn)=>callbacks.set(type,fn),()=>{},()=>{},mockImport);
+await callbacks.get('load')();for(let i=0;i<20;i++)await Promise.resolve();
+assert.equal(calls[0],'native-orrery-click','deferred System must enter through its actual control');
+assert.deepEqual(calls.slice(1),entries.map(entry=>entry.name),'reuse all four actual loaded module identities');
+assert.equal(body.dataset.smokeMode,'yes');assert.equal(body.dataset.smokeErrs,undefined);
+"""
+            result = subprocess.run(['node', '--input-type=module', '-e', script, str(fixture)],
+                text=True, capture_output=True, timeout=10, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_actual_driver_verifies_observe_before_native_research_entry(self):
         script = r"""
 import fs from 'node:fs'; import assert from 'node:assert/strict';
 const source=fs.readFileSync(process.argv[1],'utf8').replace('import puppeteer from "puppeteer-core";','');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
-for(const broken of ['', 'image', 'observation-hidden', 'capture-time', 'source', 'research-entry', 'model-base', 'canvas', 'regions', 'schema']) {
+for(const broken of ['', 'legacy-schema', 'image', 'observation-hidden', 'capture-time', 'source', 'research-entry', 'model-base', 'canvas', 'regions', 'schema', 'fallback-schema', 'older-schema', 'future-schema']) {
   const calls=[]; let output='';
   const node=(text='')=>({textContent:text,hidden:false,getClientRects(){return this.hidden?[]:[{}];},getAttribute(){return 'true';}});
   const elements={solarObservation:node(), observationImage:{...node(),complete:true,naturalWidth:1024},
@@ -33,6 +73,10 @@ for(const broken of ['', 'image', 'observation-hidden', 'capture-time', 'source'
   if(broken==='source')elements.observationSource.href='';
   if(broken==='canvas')elements.solarCanvas.hidden=true;
   if(broken==='schema')elements.schemaVersion.textContent='Loading snapshot.';
+  if(broken==='fallback-schema')elements.schemaVersion.textContent='solar-state-snapshot.v1';
+  if(broken==='older-schema')elements.schemaVersion.textContent='solar-state-snapshot.v2';
+  if(broken==='future-schema')elements.schemaVersion.textContent='solar-state-snapshot.v4';
+  if(broken==='legacy-schema')elements.schemaVersion.textContent='solar-state-snapshot.v2';
   const page={setViewport:async()=>{},setBypassServiceWorker:async()=>{},on(){},
     createCDPSession:async()=>({send:async()=>{}}),goto:async()=>{},
     async waitForFunction(predicate,options,...args){
@@ -50,11 +94,12 @@ for(const broken of ['', 'image', 'observation-hidden', 'capture-time', 'source'
   };
   const browser={newPage:async()=>page,close:async()=>{calls.push('close');},disconnect(){},process(){throw new Error('unexpected kill');}};
   const processMock={argv:['node','driver','fixture-browser','http://127.0.0.1/sol/releases/fixture/index.html'],stdout:{write(value){output+=value;}}};
+  if(broken==='legacy-schema')processMock.argv.push('', 'solar-state-snapshot.v2');
   await new AsyncFunction('puppeteer','process','document','location','getComputedStyle',source)(
     {launch:async()=>browser},processMock,document,{pathname:'/sol/releases/fixture/index.html',hash:''},()=>({visibility:'visible'}));
   const result=JSON.parse(output);
   assert.ok(calls.includes('close'),'browser ownership and cleanup are retained');
-  if(!broken){
+  if(!broken||broken==='legacy-schema'){
     assert.equal(result.stderr,'');
     assert.match(result.observationDom,/data-experience="observe"/);
     assert.match(result.observationDom,/Base: loading/,'hidden model placeholder is allowed before native Research entry');
@@ -83,6 +128,20 @@ for(const broken of ['', 'image', 'observation-hidden', 'capture-time', 'source'
                 with patch.object(browser_smoke.subprocess, "run", return_value=completed):
                     with self.assertRaisesRegex(AssertionError, "initial Observe capture"):
                         browser_smoke.dump_dom("browser", "http://127.0.0.1/sol/releases/fixture/index.html")
+
+    def test_declared_legacy_schema_reaches_the_driver_and_python_assertion(self):
+        legacy = READY_SUN.replace('solar-state-snapshot.v3', 'solar-state-snapshot.v2')
+        payload = {"dom": legacy, "stderr": "", "observationDom":
+            '<body data-experience="observe"><img id="observationImage"></body>'}
+        completed = subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+        with patch.object(browser_smoke.subprocess, "run", return_value=completed) as transport:
+            self.assertEqual(browser_smoke.dump_dom("browser", "http://127.0.0.1/index.html",
+                solar_schema="solar-state-snapshot.v2"), (legacy, ""))
+            self.assertEqual(transport.call_args.args[0][-2:], ["", "solar-state-snapshot.v2"])
+        with patch.object(browser_smoke, "dump_dom", side_effect=[(legacy, ""), RuntimeError("next surface")]) as dump:
+            with self.assertRaisesRegex(RuntimeError, "next surface"):
+                browser_smoke.run_smoke("http://127.0.0.1", "browser", "solar-state-snapshot.v2")
+            self.assertEqual(dump.call_args_list[0].kwargs, {"solar_schema": "solar-state-snapshot.v2"})
 
     def test_sun_transport_allows_hidden_model_placeholder_only_in_observe(self):
         payload = {"dom": READY_SUN, "stderr": "", "observationDom":

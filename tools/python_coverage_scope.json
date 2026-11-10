@@ -3,6 +3,7 @@
   "minimum_coverage": 90,
   "modules": [
     "services/ephemeris-server/server.py",
+    "tools/browser_smoke.py",
     "tools/build_wasm.py",
     "tools/build_web.py",
     "tools/collect_moon_evidence.py",
@@ -61,7 +62,6 @@
   "legacy_exclusions_reason": "Unchanged legacy tooling outside the existing governed runtime/affected-module import closure. New or changed files require explicit scope reconciliation; enroll changed code unless the accepted scope is explicitly amended.",
   "legacy_exclusions": {
     "tools/atmosphere_reference.py": "e86875eab625947ac8849196e64d6371cb3cd7ea83fba155e0cc10dd591371fe",
-    "tools/browser_smoke.py": "e8e48a4fe9a78f464c7922c9eb2cc764bc2e4d551facf8779786812e1f8b76c4",
     "tools/check_eop_freshness.py": "7007b9a07855faf31d4daa4fbdccee93f4c21337bf4ec4920d83e51677dc87f9",
     "tools/check_external_links.py": "1889282c432c44825b846fb0d809c00d234af86dfea5feb43947f4e5da694211",
     "tools/compare_scattering_physical_reference.py": "7a8866ddc9bde77402c3fce2a2b47441551ce9411ad9771982079bf6794b0486",

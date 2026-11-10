@@ -70,3 +70,31 @@ exact-byte hash check. A regression copies the real startup sources as an LF
 checkout and validates the shipped descriptor. It reproduces the original
 failure and passes after correction. The first failed hosted run remains
 historical evidence, not a successful publication check.
+
+## Smoke transport correction and resumed response investigation
+
+The next hosted run passed web/WASM construction and all Rust, Python and
+cross-OS determinism checks. Its coverage smoke caught an early capture: the
+driver accepted the v1 fallback schema while the declared v3 bundle was still
+loading. The transport now waits for the exact declared schema, including an
+explicit legacy schema when requested. The original 45-second readiness and
+75-second overall driver deadlines remain unchanged.
+
+A real browser run then exposed the System fixture's obsolete assumption that
+all System modules are startup preloads. Its native destination entry now joins
+the exact module URLs parsed from the owning application/System imports. It
+retains the product's own initialization and optional Moon-knot loading. Bare
+and versioned imports can share a pathname, so resource timing pathnames alone
+cannot identify the correct module instance. Parser regressions reject missing
+or ambiguous identities and ignore comments/string lookalikes. The corrected
+Sun, Sky and interactive System smoke passes against the staged app, with the
+enclosing owned job retired to zero active processes.
+
+The resumed paint-attribution screen retains cold Inspector at 436/404 ms in
+two baseline brackets, 452 ms with the Solar canvas hidden, and 220 ms with
+Inspector child content hidden. All 48 action observations are conclusive and
+all four owned jobs retire cleanly. This points further work toward Inspector
+content painting; hidden-content controls are not product fixes, quality passes
+or p95 qualification. The 200 ms hold remains. The diagnostic source, raw
+receipts and analysis remain under
+`build/inspector-paint-attribution-20261109-03/`.

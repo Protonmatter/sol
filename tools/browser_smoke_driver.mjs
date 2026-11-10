@@ -1,7 +1,8 @@
 // Condition-based transport for the existing Python smoke assertions. No virtual clock:
 // hash validation and worker WASM must get real event-loop time before DOM capture.
 import puppeteer from "puppeteer-core";
-const [browserPath,url,screenshotPath]=process.argv.slice(2);
+const [browserPath,url,screenshotPath,expectedSolarSchema='solar-state-snapshot.v3']=process.argv.slice(2);
+if(!/^solar-state-snapshot\.v[1-9][0-9]*$/.test(expectedSolarSchema))throw new Error('Smoke driver requires an exact solar schema');
 const target=new URL(url);
 if(target.protocol!=="http:"||target.hostname!=="127.0.0.1"||target.username||target.password)throw new Error("Smoke driver requires a credential-free loopback HTTP fixture");
 const sunTarget=target.pathname.endsWith("/index.html")&&!target.hash.startsWith("#sky=");
@@ -87,7 +88,7 @@ async function capture() {
       await page.click("#exploreResearch");
     }
     phase="readiness";
-    await page.waitForFunction(isSun=>{
+    await page.waitForFunction((isSun,solarSchema)=>{
       if(location.pathname.endsWith("__smoke_orrery.html"))return document.body.dataset.smokeDone==="yes"||Boolean(document.body.dataset.smokeErrs);
       if(location.hash.startsWith("#sky="))return document.querySelectorAll("#skyList [data-object-id]").length>0;
       if(isSun) {
@@ -97,11 +98,11 @@ async function capture() {
           ||!canvas?.getClientRects().length||getComputedStyle(canvas).visibility==="hidden"
           ||!base.startsWith("Base: ")||base.includes("loading"))return false;
       }
-      return document.getElementById("schemaVersion")?.textContent?.startsWith("solar-state-snapshot.v")&&document.querySelectorAll("#regionList [data-object-id]").length>0;
+      return document.getElementById("schemaVersion")?.textContent===solarSchema&&document.querySelectorAll("#regionList [data-object-id]").length>0;
     // The fixture publishes readiness as a DOM mutation. Observe it immediately:
     // a timer poll can miss completion while software-GL work fills the task queue.
     // The same wall-clock deadline and failure predicate remain authoritative.
-    },{timeout:45000,polling:target.pathname.endsWith('__smoke_orrery.html')?'mutation':100},sunTarget);
+    },{timeout:45000,polling:target.pathname.endsWith('__smoke_orrery.html')?'mutation':100},sunTarget,expectedSolarSchema);
     const failure=await page.evaluate(()=>document.body.dataset.smokeErrs || "");
     if(failure)throw new Error(failure);
     phase="fonts";

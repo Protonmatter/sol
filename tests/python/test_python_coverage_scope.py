@@ -46,7 +46,8 @@ class PythonCoverageScopeTests(unittest.TestCase):
         source=(ROOT/'.github/workflows/coverage.yml').read_text(encoding='utf-8')
         self.assertEqual(checker(ROOT,source),[])
         policy=json.loads((ROOT/'tools/python_coverage_scope.json').read_bytes())
-        self.assertEqual(len(policy['modules']),55)
+        self.assertEqual(len(policy['modules']),56)
+        self.assertIn('tools/browser_smoke.py',policy['modules'])
         self.assertIn('tools/startup_contract.py',policy['modules'])
         self.assertIn('tools/validate_web_static.py',policy['modules'])
         self.assertTrue({'tools/horizons_events.py','tools/horizons_observer_seasonal.py',

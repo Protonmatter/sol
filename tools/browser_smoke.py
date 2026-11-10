@@ -62,6 +62,11 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
             return
         index = (Path(self.directory) / self.namespace / "index.html").read_text(encoding="utf-8")
+        module_result = subprocess.run(
+            ["node", str(ROOT / "tools/smoke_module_urls.mjs"), str(Path(self.directory) / self.namespace)],
+            cwd=ROOT, text=True, encoding="utf-8", capture_output=True, timeout=10, check=True,
+        )
+        module_urls = json.loads(module_result.stdout)
         setup = """<script>
 localStorage.setItem("sol-surface", "orrery");
 // No reliance on animation speed: a synchronous state machine is advanced by BOTH
@@ -86,41 +91,37 @@ let smokeTime = null;
 let smokeMoons = null;
 let smokeLifecycleReady = false;
 const smokeMoonReady = __SOL_SMOKE_READY__;
-addEventListener("load", () => {
-  const storeLink = document.querySelector('link[href^="js/store.js"]');
-  const timeLink = document.querySelector('link[href^="js/orreryTime.js"]');
-  const orreryLink = document.querySelector('link[href^="js/orrery.js"]');
-  const moonsLink = document.querySelector('link[href^="js/moons.js"]');
-  if (storeLink && timeLink && orreryLink && moonsLink) {
-    Promise.all([
-      import("./" + storeLink.getAttribute("href")),
-      import("./" + timeLink.getAttribute("href")),
-      import("./" + orreryLink.getAttribute("href")),
-      import("./" + moonsLink.getAttribute("href")),
-    ])
-      .then(async ([storeModule, timeModule, orreryModule, moonsModule]) => {
-        smokeStore = storeModule.store;
-        smokeTime = timeModule;
-        smokeMoons = moonsModule.MOONS;
-        // Exercise the real destination control. The previous localStorage-only setup could
-        // initialize the renderer through this harness while leaving the application tab in
-        // its default state, which made the aggregate assertion both brittle and incomplete.
-        const tab = document.querySelector('.mode-button[data-mode="orrery"]');
-        tab?.click();
-        // Join core WASM/WebGL initialization. The separate readiness predicate waits
-        // for the product's optional knot loader to populate this shared catalogue;
-        // the harness never imports or merges the knots itself.
-        await orreryModule.enterOrrery();
-        if (tab?.getAttribute("aria-pressed") === "true"
-            && document.body.dataset.surface === "orrery") {
-          document.body.dataset.smokeMode = "yes";
-          smokeLifecycleReady = true;
-        } else {
-          smokeErr("orrery destination did not activate");
-          document.body.dataset.smokeMode = "no";
-        }
-      })
-      .catch(e => smokeErr("smoke module import: " + e.message));
+const smokeModuleUrls = __SOL_SMOKE_MODULE_URLS__;
+addEventListener("load", async () => {
+  try {
+    const tab = document.querySelector('.mode-button[data-mode="orrery"]');
+    if (!tab) throw new Error("orrery destination control missing");
+    tab.click();
+    const deadline = performance.now() + 45000;
+    while (document.body.dataset.viewCodeName !== "orrery"
+        || document.body.dataset.viewCode !== "ready") {
+      if (document.body.dataset.viewCodeName === "orrery"
+          && document.body.dataset.viewCode === "failed") throw new Error("orrery initialization failed");
+      if (performance.now() >= deadline) throw new Error("orrery lifecycle readiness deadline");
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    // These exact identities are parsed from the owning app/System sources.
+    // A bare import and a versioned import can share a pathname, so a resource
+    // timing pathname alone is insufficient to identify the correct instance.
+    const urls = smokeModuleUrls.map(url => new URL(url, location.href).href);
+    const [storeModule, timeModule, , moonsModule] = await Promise.all(urls.map(url => import(url)));
+    smokeStore = storeModule.store;
+    smokeTime = timeModule;
+    smokeMoons = moonsModule.MOONS;
+    if (tab.getAttribute("aria-pressed") === "true"
+        && document.body.dataset.surface === "orrery") {
+      document.body.dataset.smokeMode = "yes";
+      smokeLifecycleReady = true;
+    } else {
+      throw new Error("orrery destination did not activate");
+    }
+  } catch (error) {
+    smokeErr("smoke module join: " + error.message);
   }
 });
 
@@ -264,6 +265,7 @@ const rafPump = () => { advance(); requestAnimationFrame(rafPump); };
 requestAnimationFrame(rafPump);
 </script>"""
         setup = setup.replace("__SOL_SMOKE_READY__", MOON_READINESS_JS)
+        setup = setup.replace("__SOL_SMOKE_MODULE_URLS__", json.dumps(module_urls))
         index = index.replace('<script type="module" src="app.js', setup + '\n    <script type="module" src="app.js')
         payload = index.encode("utf-8")
         self.send_response(200)
@@ -320,10 +322,15 @@ def serve(directory: Path, base_path: str = "/", namespace: str = ""):
             thread.join(timeout=2)
 
 
-def dump_dom(browser: str, url: str, *, screenshot_path: Path | None = None) -> tuple[str, str]:
+def dump_dom(browser: str, url: str, *, screenshot_path: Path | None = None,
+             solar_schema: str = "solar-state-snapshot.v3") -> tuple[str, str]:
     command = ["node", str(ROOT / "tools/browser_smoke_driver.mjs"), browser, url]
     if screenshot_path is not None:
         command.append(str(screenshot_path))
+    if solar_schema != "solar-state-snapshot.v3":
+        if screenshot_path is None:
+            command.append("")
+        command.append(solar_schema)
     result = subprocess.run(
         command,
         cwd=ROOT, text=True, encoding="utf-8", stdout=subprocess.PIPE,
@@ -400,7 +407,8 @@ def assert_no_runtime_failure(dom: str, stderr: str, surface: str) -> None:
 
 
 def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot.v3") -> None:
-    sun_dom, sun_stderr = dump_dom(browser, f"{base}/index.html")
+    sun_options = {} if solar_schema == "solar-state-snapshot.v3" else {"solar_schema": solar_schema}
+    sun_dom, sun_stderr = dump_dom(browser, f"{base}/index.html", **sun_options)
     assert_no_runtime_failure(sun_dom, sun_stderr, "Sun")
     # The initial Observe surface intentionally leaves this hidden model label
     # uninitialized. It must resolve only after the driver's native Research entry.
