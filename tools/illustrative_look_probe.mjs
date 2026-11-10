@@ -4,6 +4,21 @@ import path from 'node:path';
 import {assertFrameChanged} from './visual_assertions.mjs';
 import {waitForReferenceReadiness} from './reference_readiness.mjs';
 
+// Compare the samplers of qualifying body draws, not the historical cache size.
+export function assertDistinctIllustrativeSamplers(mercury,venus){
+  const ids=(sample,body,mode)=>{
+    const draws=sample.draws.filter(d=>d.mode===mode&&d.useTex===1&&d.texMode===0&&d.illustrativeLinear===1);
+    assert.ok(draws.length,`${body} must submit an illustrative sampler`);
+    const result=[...new Set(draws.map(d=>d.texture))];
+    assert.ok(result.every(id=>Number.isSafeInteger(id)&&id>0&&sample.textures.some(t=>t.id===id&&t.live)),
+      `${body} must sample only live illustrative textures`);
+    return result;
+  };
+  const mercuryIds=ids(mercury,'Mercury',0),venusIds=ids(venus,'Venus',4);
+  assert.ok(venusIds.every(id=>!mercuryIds.includes(id)),'Venus illustrative samplers must not reuse Mercury textures');
+  return {mercury:mercuryIds,venus:venusIds};
+}
+
 // Observe the actual app draws after the existing scientific scene assertions.
 export async function verifyIllustrativeLooks(page,directory,capture){
   const evidence={status:'failed'};
@@ -12,7 +27,7 @@ export async function verifyIllustrativeLooks(page,directory,capture){
     const {store}=await import(`./js/store.js${token}`);
     const state=store.orrery,gl=document.getElementById('orreryCanvas').getContext('webgl2');
     const original=gl.drawElements,priorHdr=state.hdrEnabled,priorRadar=state.venusRadar;
-    const textures=new WeakMap();let nextTexture=0;
+    const textures=new WeakMap(),illustrativeTextures=new Map();let nextTexture=0;
     state.hdrEnabled=false;
     const probe={state,body:'Mercury',draws:[],errors:[]};
     globalThis.__solIllustrativeProbe=probe;
@@ -28,6 +43,7 @@ export async function verifyIllustrativeLooks(page,directory,capture){
         const unit=uniform('u_tex'),active=this.getParameter(this.ACTIVE_TEXTURE);
         this.activeTexture(this.TEXTURE0+unit);const texture=this.getParameter(this.TEXTURE_BINDING_2D);this.activeTexture(active);
         if(texture&&!textures.has(texture))textures.set(texture,++nextTexture);
+        if(texture&&uniform('u_illustrativeLinear')===1)illustrativeTextures.set(texture,textures.get(texture));
         probe.draws.push({body:probe.body,center:Array.from(model.slice(12,15)),mode:uniform('u_mode'),useTex:uniform('u_useTex'),texMode:uniform('u_texMode'),
           illustrativeLinear:uniform('u_illustrativeLinear'),texture:texture?textures.get(texture):null,
           depthWrites:this.getParameter(this.DEPTH_WRITEMASK)});
@@ -36,14 +52,15 @@ export async function verifyIllustrativeLooks(page,directory,capture){
       }
       return result;
     };
-    probe.cleanup=()=>{gl.drawElements=original;state.hdrEnabled=priorHdr;
+    probe.textures=()=>[...illustrativeTextures].map(([texture,id])=>({id,live:gl.isTexture(texture)}));
+    probe.cleanup=()=>{gl.drawElements=original;state.hdrEnabled=priorHdr;illustrativeTextures.clear();
       const radar=document.getElementById('orreryVenusRadar');radar.checked=priorRadar;radar.dispatchEvent(new Event('change',{bubbles:true}));
       window.dispatchEvent(new Event('resize'));};
   });
   const read=()=>page.evaluate(()=>{
-    const {state,draws,errors}=globalThis.__solIllustrativeProbe;
+    const {state,draws,errors,textures}=globalThis.__solIllustrativeProbe;
     return {epoch:state.renderUnix,positions:state.bodies.map(({name,x_au,y_au,z_au})=>({name,x_au,y_au,z_au})),
-      camera:[state.az,state.el,state.radius],draws,errors};
+      camera:[state.az,state.el,state.radius],draws,errors,textures:textures()};
   });
   // A synthetic window resize does not notify the canvas ResizeObserver. Submit
   // the unchanged size control through its real input handler to repaint paused scenes.
@@ -74,6 +91,7 @@ export async function verifyIllustrativeLooks(page,directory,capture){
     assert.ok(shells.every(draw=>!draw.depthWrites&&draw.texture&&draw.texture!==grounds.at(-1).texture),
       'The transparent shell must use a separate texture without writing depth');
     assert.deepEqual(evidence.venus.errors,[],'Layered Venus must draw without GL errors');
+    evidence.sampler_identity=assertDistinctIllustrativeSamplers(evidence.mercury,evidence.venus);
 
     await page.select('#orreryPlanetLook','source-qualified');await repaint();
     const reference=await capture(page,path.join(directory,'venus-radar-source-qualified.png'));
@@ -82,6 +100,9 @@ export async function verifyIllustrativeLooks(page,directory,capture){
     assert.ok(evidence.reference.draws.every(draw=>draw.mode!==4),'Source-qualified must remove the illustrative shell');
     for(const key of ['epoch','positions','camera'])assert.deepEqual(evidence.reference[key],evidence.venus[key],`Venus look toggle preserves ${key}`);
     assert.deepEqual(evidence.reference.errors,[]);
+    assert.deepEqual(evidence.reference.textures.map(t=>t.id),evidence.venus.textures.map(t=>t.id));
+    assert.ok(evidence.reference.textures.every(t=>!t.live),'Source-qualified must delete the sampled Mercury and Venus maps');
+    evidence.texture_release={status:'passed',ids:evidence.reference.textures.map(t=>t.id),basis:'Actual illustrative sampler handles are live before switching and invalid after Source-qualified selection.'};
     evidence.venusPixelChange=assertFrameChanged(layered,reference);
     evidence.status='passed';
     return evidence;

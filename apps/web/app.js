@@ -2,32 +2,103 @@
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
 import { store } from "./js/store.js?v=dcca6290db";
-import { TOUR_STEPS } from "./js/config.js?v=dcca6290db";
-import { controls } from "./js/dom.js?v=dcca6290db";
-import { clamp } from "./js/format.js?v=dcca6290db";
 import { renderAll, updateTaskHeader, currentViewPresentation } from "./js/view.js?v=dcca6290de";
-import { updateModeButtons } from "./js/panels.js?v=dcca6290db";
-import { loadState } from "./js/data.js?v=dcca6290db";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay, cancelLiveEngine, stepTimeline } from "./js/timeline.js?v=dcca6290db";
-import { startTour, endTour, showTourStep } from "./js/tour.js?v=dcca6290db";
+import { updateModeButtons } from "./js/surfaceNavigation.js";
 import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=dcca6290db";
-import { enterSky, leaveSky, resizeSky } from "./js/sky.js?v=dcca6290db";
-import { enterOrrery, leaveOrrery } from "./js/orrery.js?v=dcca6290e0";
-import { buildWavelengthBar, setWavelength } from "./js/wavelength.js?v=dcca6290db";
-import { buildSunCutaway } from "./js/sunlayers.js?v=dcca6290db";
-import { nearestSeriesFrame } from "./js/seriesModel.js?v=dcca6290db";
 import { registerOfflineRelease } from "./js/releaseClient.js?v=dcca6290db";
 import { createViewEvidence } from "./js/viewEvidence.js?v=dcca6290db";
 import { workspace, renderWorkspace, openInspector, revealWorkspaceControl } from "./js/workspace.js?v=dcca6290db";
 import { explorer, initExplorer } from "./js/explorer.js?v=dcca6290db";
+import {createViewLoader} from './js/viewLoader.js';
+import {registerDestinationRenderer} from './js/viewRegistry.js';
+import {initObservationMedia} from './js/observationMedia.js';
+import {afterObservationPaint} from './js/offlineBoot.js';
+
+// Resolves after the native offline attempt captures its original DOM owners,
+// or when this preview cannot register. UI fixtures await this before cloning.
+let markOfflineStartup=(_status)=>{};
+export const offlineStartup=new Promise(resolve=>{markOfflineStartup=resolve;});
+
+const loadedViews={research:null,sky:null,orrery:null};
+const viewNames={research:'Solar research',sky:'My Sky',orrery:'Solar System'};
+let activeView='observe',retryFocus=false;
+const viewCode=createViewLoader({
+  loaders:{
+    research:()=>import('./js/research.js'),
+    sky:async()=>{const [view,overview]=await Promise.all([import('./js/sky.js?v=dcca6290db'),import('./js/destinationOverview.js?v=dcca6290de')]);return {...view,overview};},
+    orrery:async()=>{const [view,overview]=await Promise.all([import('./js/orrery.js?v=dcca6290e0'),import('./js/destinationOverview.js?v=dcca6290de')]);return {...view,overview};},
+  },
+  onState(state){
+    document.body.setAttribute('data-view-code',state.status);
+    document.body.setAttribute('data-view-code-name',state.name);
+    document.body.setAttribute('data-view-initialized',String(state.name==='observe'||state.initialized===true));
+    const busy=['loading','activating','paused'].includes(state.status),failed=state.status==='failed';
+    const panel=document.getElementById('viewCodePanel'),status=document.getElementById('viewCodeStatus'),retry=document.getElementById('viewCodeRetry');
+    if(panel)panel.hidden=!busy&&!failed;
+    if(status)status.textContent=failed?`${viewNames[state.name]} could not be prepared. Retry when this view is available.`:busy?`Preparing ${viewNames[state.name]}…`:'';
+    if(retry)retry.hidden=!failed;
+    for(const [name,selector]of [['research','.sun-section, #timeline, .context-card'],['sky','.sky-panel'],['orrery','.orrery-panel, #systemJumps']]){
+      for(const node of document.querySelectorAll(selector)){
+        const ready=state.name===name&&state.status==='ready';
+        node.toggleAttribute('inert',!ready);node.setAttribute('aria-busy',String(state.name===name&&busy));
+      }
+    }
+    if(state.status==='ready'&&retryFocus&&document.activeElement===status&&!document.hidden)document.getElementById('viewTitle')?.focus();
+    if(!failed&&!busy)retryFocus=false;
+    updateTaskHeader();
+  },
+  async onReady(name,module,owner){
+    if(!owner.isCurrent())return;
+    if(document.hidden){viewCode.pauseLoading();return;}
+    loadedViews[name]=module;
+    if(module.overview)registerDestinationRenderer(module.overview.renderDestinationOverview);
+    if(name==='research')module.enterResearch();
+    else {
+      renderAll();
+      if(name==='sky')module.enterSky();
+      else await module.enterOrrery();
+    }
+    if(!owner.isCurrent())return;
+    if(document.hidden){viewCode.pauseLoading();return;}
+    // Research entry owns its complete render; other views need this final refresh.
+    if(name!=='research')renderAll();
+  },
+});
+// All activation rejections have an observer; the controller renders recoverable
+// failure. Cancellation resolves null and never starts an inactive view.
+const observeActivation=task=>task.catch(()=>null);
+function selectView(){
+  const name=store.activeMode==='today'?(explorer.mode==='observe'?'observe':'research'):store.activeMode;
+  if(name!==activeView){
+    loadedViews.research?.leaveResearch();loadedViews.sky?.leaveSky();loadedViews.orrery?.leaveOrrery();
+    activeView=name;retryFocus=false;
+  }
+  updateModeButtons();
+  const activation=observeActivation(viewCode.activate(name));
+  renderAll();
+  return activation;
+}
+document.getElementById('viewCodeRetry')?.addEventListener('click',()=>{
+  retryFocus=document.activeElement===document.getElementById('viewCodeRetry');
+  if(retryFocus)document.getElementById('viewCodeStatus')?.focus();
+  observeActivation(viewCode.retry());
+});
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){retryFocus=false;viewCode.pauseLoading();}
+  else observeActivation(viewCode.resumeLoading());
+});
+document.addEventListener('focusin',event=>{if(event.target!==document.getElementById('viewCodeStatus'))retryFocus=false;});
+document.addEventListener('pointerdown',()=>{retryFocus=false;},true);
+if(document.hidden)viewCode.pauseLoading();
 function chooseExperience(mode, tools = false) {
   explorer.choose(mode);
-  if (mode === 'observe') { cancelLiveEngine(); stopPlay(); workspace.setInspector('today', false); workspace.timelineOpen = false; }
-  else setWavelength('model');
-  if (tools) openInspector('today');
-  renderAll();
-  if (tools) document.getElementById('inspectorClose')?.focus();
+  if(mode==='research')loadedViews.research?.selectResearchModel();
+  if(mode==='observe'){workspace.setInspector('today',false);workspace.timelineOpen=false;}
+  if(tools)openInspector('today');
+  const activation=selectView();
+  if(tools)document.getElementById('inspectorClose')?.focus();
   window.dispatchEvent(new Event('resize'));
+  return activation;
 }
 window.addEventListener("sol:presentation", updateTaskHeader);
 let previewEvidence=null;
@@ -47,100 +118,19 @@ document.getElementById("viewEvidenceDownload")?.addEventListener("click",()=>{
   link.href=url;link.download="sol-view-evidence.v1.json";link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 
-// --- Layer toggles ---
-for (const input of Object.values(controls)) {
-  input.addEventListener("change", renderAll);
-}
-
 // --- Surface tabs ---
 document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => {
     store.activeMode = /** @type {HTMLElement} */ (button).dataset.mode;
-    if(store.activeMode!=="today") { cancelLiveEngine(); stopPlay(); }
+
     // The onboarding tour is about the Sun; don't let it linger over the sky / solar-system
     // surfaces. Guard on an OPEN tour (like the Escape handler below): calling endTour()
     // unconditionally wrote sol-tour-seen and stole focus to the (about-to-hide) tour CTA
     // on every tab click — first-time visitors who clicked a tab never saw the tour at all.
-    if ((store.activeMode === "sky" || store.activeMode === "orrery") && store.tourIndex >= 0) endTour();
-    updateModeButtons();
-    renderAll();
-    leaveSky();
-    leaveOrrery();
-    if (store.activeMode === "sky") enterSky();
-    else if (store.activeMode === "orrery") enterOrrery();
+    if ((store.activeMode === "sky" || store.activeMode === "orrery") && store.tourIndex >= 0) loadedViews.research?.endResearchTour();
+    selectView();
     try { localStorage.setItem("sol-surface", store.activeMode); } catch (_) { /* session-only */ }
   });
-});
-
-// --- Click a region on the solar disk ---
-document.getElementById("solarCanvas")?.addEventListener("click", (event) => {
-  const canvas = /** @type {HTMLCanvasElement} */ (event.currentTarget);
-  const rect = canvas.getBoundingClientRect();
-  const x = (event.clientX - rect.left) * (canvas.width / rect.width);
-  const y = (event.clientY - rect.top) * (canvas.height / rect.height);
-  let best = null;
-  for (const item of store.projectedRegions) {
-    const distance = Math.hypot(item.x - x, item.y - y);
-    if (distance < 34 && (!best || distance < best.distance)) best = { distance, item };
-  }
-  if (best) {
-    openInspector("today");
-    store.selectedRegionId = best.item.region.id;
-    store.activeMode = "today";
-    const exp = /** @type {HTMLDetailsElement|null} */ (document.getElementById("sunExplore"));
-    if (exp) exp.open = true; // reveal the selection in the Explore drawer
-    updateModeButtons();
-    renderAll();
-  }
-});
-
-// --- Keyboard/AT path to select a region (mirrors clicking a marker on the disk) ---
-window.addEventListener("sol:region-selected", (event) => {
-  const id = /** @type {CustomEvent} */ (event).detail;
-  const region = (store.state.active_regions || []).find((r) => r.id === id);
-  if (!region) return;
-  openInspector("today");
-  store.selectedRegionId = region.id; // keep the original id type so selectors match
-  store.activeMode = "today";
-  updateModeButtons();
-  renderAll();
-});
-document.getElementById("regionSearch")?.addEventListener("input", renderAll);
-document.getElementById("retrySnapshot")?.addEventListener("click", async event=>{
-  const button = /** @type {HTMLButtonElement} */ (event.currentTarget);
-  if(button.disabled) return;
-  button.disabled = true;
-  try { await loadState(); } finally { button.disabled = false; }
-});
-
-// --- Click the butterfly: scrub time when a series is loaded, else select a region ---
-document.getElementById("butterflyCanvas")?.addEventListener("click", (event) => {
-  const canvas = /** @type {HTMLCanvasElement} */ (event.currentTarget);
-  const rect = canvas.getBoundingClientRect();
-  const x = (event.clientX - rect.left) * (canvas.width / rect.width);
-  if (store.seriesFrames.length) {
-    const usable = canvas.width - 38 - 14;
-    const frac = clamp((x - 38) / usable, 0, 1);
-    stopPlay();
-    const index = nearestSeriesFrame(store.seriesRecords, frac);
-    if (index !== null) setTimelineFrame(index);
-    return;
-  }
-  const y = (event.clientY - rect.top) * (canvas.height / rect.height);
-  let best = null;
-  for (const item of store.projectedButterflyRegions) {
-    const distance = Math.hypot(item.x - x, item.y - y);
-    if (distance < 28 && (!best || distance < best.distance)) best = { distance, item };
-  }
-  if (best) {
-    store.selectedRegionId = best.item.region.id;
-    store.activeMode = "today";
-    openInspector("today");
-    const exp = /** @type {HTMLDetailsElement|null} */ (document.getElementById("sunExplore"));
-    if (exp) exp.open = true; // reveal the selection in the Explore drawer
-    updateModeButtons();
-    renderAll();
-  }
 });
 
 // --- Responsive re-render ---
@@ -148,9 +138,9 @@ let resizeTimer = 0;
 window.addEventListener("resize", () => {
   window.clearTimeout(resizeTimer);
   resizeTimer = window.setTimeout(() => {
-    renderAll();
-    resizeSky(); // the sky dome sizes its backing store on draw; frozen time never redraws otherwise
-    if (store.tourIndex >= 0) showTourStep();
+    renderAll("resize");
+    loadedViews.sky?.resizeSky(); // the sky dome sizes its backing store on draw; frozen time never redraws otherwise
+    if (store.tourIndex >= 0) loadedViews.research?.showResearchTourStep();
   }, 120);
 });
 
@@ -184,7 +174,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     hideTip();
-    if (store.tourIndex >= 0) endTour();
+    if (store.tourIndex >= 0) loadedViews.research?.endResearchTour();
     return;
   }
   // Enter/Space activates the role="button" spans (stage steps, legend/signal chips):
@@ -199,44 +189,16 @@ document.addEventListener("keydown", (event) => {
 });
 
 // --- Onboarding tour controls ---
-document.getElementById("tourStart")?.addEventListener("click", () => { chooseExperience('research'); startTour(); });
+document.getElementById("tourStart")?.addEventListener("click", async () => {
+  explorer.choose('research');store.activeMode='today';
+  loadedViews.research?.selectResearchModel();
+  const module=await selectView();
+  if(module&&viewCode.state.name==='research'&&viewCode.state.status==='ready'&&!document.hidden)module.startResearchTour();
+});
 document.getElementById("sourcesLink")?.addEventListener("click", () => {
   const details = /** @type {HTMLDetailsElement|null} */ (document.getElementById("sourcesAndLimits"));
   if (details) details.open = true;
 });
-document.getElementById("tourSkip")?.addEventListener("click", endTour);
-document.getElementById("tourBack")?.addEventListener("click", () => {
-  if (store.tourIndex > 0) { store.tourIndex -= 1; showTourStep(); }
-});
-document.getElementById("tourNext")?.addEventListener("click", () => {
-  if (store.tourIndex >= TOUR_STEPS.length - 1) { endTour(); return; }
-  store.tourIndex += 1;
-  showTourStep();
-});
-
-// --- Timeline scrubber / playback / live engine ---
-document.getElementById("timeScrubber")?.addEventListener("input", (event) => {
-  stopPlay();
-  setTimelineFrame(Number(/** @type {HTMLInputElement} */ (event.target).value));
-});
-document.getElementById("playToggle")?.addEventListener("click", togglePlay);
-document.getElementById("previousFrame")?.addEventListener("click",()=>{ stopPlay();stepTimeline(-1); });
-document.getElementById("nextFrame")?.addEventListener("click",()=>{ stopPlay();stepTimeline(1); });
-window.addEventListener("sol:frame-selected",event=>{stopPlay();setTimelineFrame(/** @type {CustomEvent} */ (event).detail);});
-document.getElementById("solarExport")?.addEventListener("click",()=>{
-  if (store.state.schema_version !== "solar-state-snapshot.v3") return;
-  const blob=new Blob([JSON.stringify(store.state,null,2)+"\n"],{type:"application/json"});
-  const url=URL.createObjectURL(blob),link=document.createElement("a");
-  link.href=url;link.download="solar-state-snapshot.v3.json";link.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-});
-document.getElementById("nowBtn")?.addEventListener("click", goLive);
-document.getElementById("liveRun")?.addEventListener("click", runLiveEngine);
-document.getElementById("liveCancel")?.addEventListener("click", cancelLiveEngine);
-document.addEventListener("visibilitychange",()=>{if(document.hidden) {cancelLiveEngine();stopPlay();}});
-window.addEventListener("pagehide",cancelLiveEngine);
-document.getElementById("liveActivity")?.addEventListener("change", runLiveEngine);
-
 // --- Collapsible / pinned control panel (for an unobstructed full-bleed 3-D view) ---
 document.getElementById("panelToggle")?.addEventListener("click", () => {
   const open = !workspace.inspectorVisible(store.activeMode);
@@ -258,9 +220,17 @@ const revealTime = () => {
   if (store.activeMode === "today") workspace.timelineOpen = !workspace.timelineOpen;
   else openInspector(store.activeMode);
   renderWorkspace(store.activeMode);
-  if (store.activeMode !== "today") revealWorkspaceControl(store.activeMode, store.activeMode === 'sky' ? 'skyTime' : 'orreryTime');
+  if (store.activeMode === "today" && workspace.timelineOpen) {
+    document.getElementById('timeline')?.scrollIntoView({block:'nearest',behavior:'auto'});
+    document.getElementById('journeyTitle')?.focus({preventScroll:true});
+  } else if (store.activeMode !== "today") revealWorkspaceControl(store.activeMode, store.activeMode === 'sky' ? 'skyTime' : 'orreryTime');
 };
 document.getElementById("timelineToggle")?.addEventListener("click", revealTime);
+document.getElementById('timelineClose')?.addEventListener('click',()=>{
+  if(store.activeMode!=='today'||!workspace.timelineOpen||workspace.focus)return;
+  workspace.timelineOpen=false;renderWorkspace(store.activeMode);
+  document.getElementById('timelineToggle')?.focus();
+});
 document.querySelectorAll('a[href="#timeline"]').forEach(link => link.addEventListener("click", () => {
   workspace.timelineOpen = true; workspace.focus = false; renderWorkspace(store.activeMode);
 }));
@@ -311,8 +281,6 @@ document.addEventListener("keydown", event => {
 
 // --- Boot ---
 initExplorer(chooseExperience, updateTaskHeader);
-buildWavelengthBar();
-buildSunCutaway();
 // Route the initial surface: a #sky= share link outranks the remembered surface, which
 // outranks the default. Share-link recipients used to land on the Sun surface with no
 // hint their link encoded a sky view; everyone else lost their place on every reload.
@@ -329,10 +297,19 @@ buildSunCutaway();
     /** @type {HTMLElement|null} */ (document.querySelector(`.mode-button[data-mode="${target}"]`))?.click();
   }
 })();
-loadState();
+selectView();
+document.body.setAttribute('data-app-ready','true');
 
 // Source preview has no release manifest, so only staged builds register an offline worker.
 const releaseBasePath = "__SOL_BASE_PATH__";
 if ("serviceWorker" in navigator && !releaseBasePath.startsWith("__")) {
-  registerOfflineRelease({serviceWorker:navigator.serviceWorker,location,document,basePath:releaseBasePath,releaseId:"__SOL_RELEASE_ID__"});
-}
+  const status=document.getElementById('releaseStatus');
+  if(status)status.textContent='Offline copy waits for the saved observation.';
+  afterObservationPaint({media:initObservationMedia(document),
+    install:()=>{
+      const pending=registerOfflineRelease({serviceWorker:navigator.serviceWorker,location,document,basePath:releaseBasePath,releaseId:"__SOL_RELEASE_ID__"});
+      markOfflineStartup('requested');return pending;
+    },
+    onError:()=>{markOfflineStartup('unavailable');if(status)status.textContent='Offline installation unavailable; this tab retains its current release.';},
+  });
+}else markOfflineStartup('skipped');

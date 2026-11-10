@@ -284,14 +284,17 @@ test("Earth dispatches registered land, night lights, weather and ice only to it
     assert.equal(h.state.appearanceStatus[loaded.get(layer.role).asset.id], "ready");
   }
   for (const name of ["Sun", "Mercury", "Venus", "Mars", "Moon", "Jupiter", "Saturn", "Uranus", "Neptune"]) {
-    assertFlags(bodyDraw(h, draws, name), []);
+    h.input('orreryAnchor', name, 'change');
+    assertFlags(bodyDraw(h, paint(h), name), []);
   }
-  const marsDraw = bodyDraw(h, draws, "Mars");
+  h.input('orreryAnchor', 'Mars', 'change');
+  const marsDraw = bodyDraw(h, paint(h), "Mars");
   assert.equal(marsDraw.textures.get(0), mars.texture);
   assert.equal(marsDraw.uniforms.u_mapNoData, 2, "the source's admitted coverage mask reaches its shader");
   h.input("orreryAnchor", "Jupiter", "change");
+  h.check("orreryTrueScale", true);
   h.state.radius = 0.1;
-  const close = paint(h, () => h.check("orreryTrueScale", true));
+  const close = paint(h);
   const moonDraws = close.filter(({ uniforms: u }) => isMoonDraw(h, "Jupiter", u));
   assert.ok(moonDraws.length >= 4, "real loaded Galilean moon draws exercise shared-program cleanup");
   for (const moon of moonDraws) assertFlags(moon, []);

@@ -9,6 +9,7 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
+from startup_contract import validate_startup_contract
 
 LOGGER = logging.getLogger("validate_web_static")
 
@@ -105,7 +106,15 @@ def validate(root: Path) -> list[str]:
         name for name, path in all_js.items()
         if "@lazy-module" in "\n".join(path.read_text(encoding="utf-8").splitlines()[:6])
     }
+    try:
+        startup_contract = validate_startup_contract(root)
+    except (ValueError, OSError) as error:
+        errors.append(str(error))
+        startup_contract = None
     expected_modules = ({"engine.js"} | set(all_js)) - lazy_modules
+    if startup_contract is not None:
+        expected_modules = {record['path'] for record in startup_contract['modules']
+                            if record['url'] not in startup_contract['roots']}
     missing_preloads = sorted(expected_modules - parser.modulepreloads)
     if missing_preloads:
         errors.append(f"index.html missing modulepreload for: {', '.join(missing_preloads)}")

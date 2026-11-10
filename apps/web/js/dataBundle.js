@@ -5,6 +5,7 @@ import { attributableSource } from "./sourceAttribution.js?v=dcca6290db";
 
 export const BUNDLE_SCHEMAS = {"research-data-bundle.v1":{"type":"object","additionalProperties":false,"required":["schema_version","bundle_id","source_bundle_id","source_manifest_sha256","generated_at_utc","components"],"properties":{"schema_version":{"const":"research-data-bundle.v1"},"bundle_id":{"type":"string","minLength":1},"source_bundle_id":{"type":"string","minLength":1},"source_manifest_sha256":{"type":"string","minLength":64,"maxLength":64},"generated_at_utc":{"type":"string","minLength":1},"components":{"type":"array","minItems":5,"maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["role","path","schema_version","size_bytes","sha256"],"properties":{"role":{"type":"string","minLength":1},"path":{"type":"string","minLength":1},"schema_version":{"type":"string","minLength":1},"size_bytes":{"type":"integer","minimum":0,"maximum":16777216},"sha256":{"type":"string","minLength":64,"maxLength":64}}}}},"$schema":"https://json-schema.org/draft/2020-12/schema"},"daily-ingest-status.v2":{"type":"object","additionalProperties":false,"required":["schema_version","bundle_id","source_bundle_id","status","generated_at_utc","observation_time_utc","delivery_state","warnings"],"properties":{"schema_version":{"const":"daily-ingest-status.v2"},"bundle_id":{"type":"string","minLength":1},"source_bundle_id":{"type":"string","minLength":1},"status":{"enum":["ok","degraded"]},"generated_at_utc":{"type":"string","minLength":1},"observation_time_utc":{"type":["string","null"]},"delivery_state":{"const":"validated"},"warnings":{"type":"array","items":{"type":"string","minLength":1}},"last_run_utc":{"type":"string","minLength":1},"next_recommended_run_utc":{"type":"string","minLength":1},"sources":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["file","source","ok","origin","observation_time_utc","retrieved_at_utc"],"properties":{"file":{"type":"string","minLength":1},"source":{"type":"string","minLength":1},"ok":{"type":"boolean"},"origin":{"enum":["current-fetch","cached-fallback","fixture"]},"observation_time_utc":{"type":["string","null"]},"retrieved_at_utc":{"type":["string","null"]}}}}},"$schema":"https://json-schema.org/draft/2020-12/schema"},"bundle-pointer.v1":{"type":"object","additionalProperties":false,"required":["schema_version","bundle_id","manifest_path","manifest_sha256"],"properties":{"schema_version":{"const":"bundle-pointer.v1"},"bundle_id":{"type":"string","minLength":1},"manifest_path":{"type":"string","minLength":1},"manifest_sha256":{"type":"string","minLength":64,"maxLength":64}},"$schema":"https://json-schema.org/draft/2020-12/schema"},"public-data-cache-manifest.v2":{"type":"object","additionalProperties":false,"required":["schema_version","bundle_id","acquired_at_utc","products","failures"],"properties":{"schema_version":{"const":"public-data-cache-manifest.v2"},"bundle_id":{"type":"string","minLength":1},"acquired_at_utc":{"type":"string","minLength":1},"products":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["product_id","source","origin","observation_time_utc","retrieved_at_utc","quality","failure","license","critical","path","size_bytes","sha256"],"properties":{"product_id":{"type":"string","minLength":1},"source":{"type":"string","minLength":1},"origin":{"enum":["current-fetch","cached-fallback","fixture"]},"observation_time_utc":{"type":["string","null"]},"retrieved_at_utc":{"type":["string","null"]},"quality":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"failure":{"type":["string","null"]},"license":{"type":"string","minLength":1},"critical":{"type":"boolean"},"path":{"type":"string","minLength":1},"size_bytes":{"type":"integer","minimum":1,"maximum":16777216},"sha256":{"type":"string","minLength":64,"maxLength":64}}}},"failures":{"type":"array","maxItems":64,"items":{"type":"object","additionalProperties":false,"required":["product_id","critical","error_type"],"properties":{"product_id":{"type":"string","minLength":1},"critical":{"type":"boolean"},"error_type":{"type":"string","minLength":1}}}}},"$schema":"https://json-schema.org/draft/2020-12/schema"}};
 const LIMIT = 16 * 1024 * 1024;
+export const BUNDLE_TIMEOUT_MS = 30000;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/;
 const HASH = /^[a-f0-9]{64}$/;
 function fail(message) { throw new Error(message); }
@@ -50,23 +51,70 @@ function observationCoherence(snapshot,report){
   if(!sameJson(snapshot.observations,[{...report,frames}]))fail("Snapshot embedded observations disagree with normalized observations");
   if(!Object.hasOwn(snapshot,"observed_context")||!sameJson(snapshot.observed_context,report.observed_context??{}))fail("Snapshot observation context disagrees with normalized observations");
 }
-async function read(url,fetcher){
-  const response=await fetcher(url,{cache:"no-cache"});
-  if(!response.ok)fail(`Bundle HTTP ${response.status}`);
-  const reader=response.body.getReader(),chunks=[];let size=0;
-  try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>LIMIT){await reader.cancel();fail("Bundle exceeds byte limit");}chunks.push(value);}}
-  finally{reader.releaseLock();}
+function bundleTransfer(signal,timeoutMs){
+  if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>BUNDLE_TIMEOUT_MS)throw new RangeError('Invalid bundle deadline');
+  if(signal?.aborted)throw new DOMException('Data bundle request cancelled','AbortError');
+  const controller=new AbortController(),deadline=performance.now()+timeoutMs;
+  let reason=null,cancelReader=null,rejectAbort;
+  const interrupted=new Promise((_,reject)=>{rejectAbort=reject;});
+  // A cancellation can precede the first I/O race; keep its rejection observed.
+  void interrupted.catch(()=>{});
+  const abort=failure=>{
+    if(reason)return;
+    reason=failure;controller.abort(failure);cancelReader?.();rejectAbort(failure);
+  };
+  const timedOut=()=>abort(new DOMException(`Model data loading timed out after ${timeoutMs/1000} seconds`,'TimeoutError'));
+  const externalAbort=()=>abort(new DOMException('Data bundle request cancelled','AbortError'));
+  signal?.addEventListener('abort',externalAbort,{once:true});
+  const timer=setTimeout(timedOut,timeoutMs);
+  const check=()=>{if(!reason&&performance.now()>=deadline)timedOut();if(reason)throw reason;};
+  return {signal:controller.signal,check,
+    async wait(operation){const value=await Promise.race([operation,interrupted]);check();return value;},
+    ownReader(cancel){check();cancelReader=cancel;},
+    releaseReader(cancel){if(cancelReader===cancel)cancelReader=null;},
+    finish(){clearTimeout(timer);signal?.removeEventListener('abort',externalAbort);cancelReader?.();cancelReader=null;},
+  };
+}
+async function read(url,fetcher,transfer){
+  transfer.check();
+  let received=null,responseCancelled=false;
+  const cancelResponse=()=>{if(!received||responseCancelled)return;responseCancelled=true;
+    try{void Promise.resolve(received.body?.cancel()).catch(()=>{});}catch{/* The original failure retains priority. */}};
+  const request=Promise.resolve(fetcher(url,{cache:"no-cache",signal:transfer.signal})).then(response=>{
+    received=response;
+    try{transfer.check();}catch(error){cancelResponse();throw error;}
+    return response;
+  });
+  let response;
+  try{response=await transfer.wait(request);}catch(error){cancelResponse();throw error;}
+  if(!response.ok){cancelResponse();fail(`Bundle HTTP ${response.status}`);}
+  const reader=response.body.getReader(),chunks=[];let size=0,cancelled=false,failed=false;
+  const cancel=()=>{if(cancelled)return;cancelled=true;try{void Promise.resolve(reader.cancel()).catch(()=>{});}catch{/* Cancellation cannot delay failure. */}};
+  try{
+    transfer.ownReader(cancel);
+    for(;;){const {done,value}=await transfer.wait(reader.read());if(done)break;size+=value.length;
+      if(size>LIMIT){cancel();fail("Bundle exceeds byte limit");}chunks.push(value);}
+  }catch(error){failed=true;cancel();throw error;}
+  finally{transfer.releaseReader(cancel);try{reader.releaseLock();}catch(error){if(!failed)throw error;}}
   const raw=new Uint8Array(size);let offset=0;for(const chunk of chunks){raw.set(chunk,offset);offset+=chunk.length;}return raw;
 }
 function parse(raw){return parseStrictJson(new TextDecoder("utf-8",{fatal:true}).decode(raw));}
-async function hash(raw,crypto){return [...new Uint8Array(await crypto.subtle.digest("SHA-256",raw))].map(v=>v.toString(16).padStart(2,"0")).join("");}
+async function hash(raw,crypto,transfer){transfer.check();return [...new Uint8Array(await transfer.wait(crypto.subtle.digest("SHA-256",raw)))].map(v=>v.toString(16).padStart(2,"0")).join("");}
 
 /** Local preview resolves pointer once. Built clients resolve their immutable
- * release manifest, never the mutable root manifest or fixed data aliases. */
-export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedReleaseId=null,fetcher=fetch,crypto=globalThis.crypto}) {
+ * release manifest, never the mutable root manifest or fixed data aliases.
+ * One deadline covers the entire bundle transaction. Optional signal cancellation
+ * settles promptly even when a transport/hash provider ignores abort. Synchronous
+ * validation is checked when execution resumes, before a result can be published. */
+export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedReleaseId=null,fetcher=fetch,crypto=globalThis.crypto,signal=null,timeoutMs=BUNDLE_TIMEOUT_MS}) {
+  const transfer=bundleTransfer(signal,timeoutMs);
+  try{return await transfer.wait(readBundle({pointerUrl,releaseUrl,expectedReleaseId,fetcher,crypto},transfer));}
+  finally{transfer.finish();}
+}
+async function readBundle({pointerUrl,releaseUrl,expectedReleaseId,fetcher,crypto},transfer) {
   let descriptor, manifestUrl, release=null;
   if(releaseUrl){
-    release=parse(await read(releaseUrl,fetcher));
+    release=parse(await read(releaseUrl,fetcher,transfer));
     if(release.schema_version!=="web-release-manifest.v1"||release.release_id!==expectedReleaseId||release.namespace!==`releases/${expectedReleaseId}/`)fail("Release identity mismatch");
     descriptor=release.data_bundle;
     if(!descriptor||descriptor.bundle_id!==release.data_bundle_id)fail("Missing release-bound data bundle");
@@ -78,12 +126,12 @@ export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedRe
     if(!asset||asset.sha256!==descriptor.manifest_sha256||asset.role!=="critical")fail("Bundle manifest is not release-bound");
   } else {
     if(!pointerUrl)fail("Missing bundle selection");
-    descriptor=parse(await read(pointerUrl,fetcher));contract(descriptor,"bundle-pointer.v1");
+    descriptor=parse(await read(pointerUrl,fetcher,transfer));contract(descriptor,"bundle-pointer.v1");
     manifestUrl=new URL(relative(descriptor.manifest_path),pointerUrl).href;
   }
   if(!ID.test(descriptor.bundle_id)||!HASH.test(descriptor.manifest_sha256))fail("Invalid bundle identity/hash");
-  const manifestRaw=await read(manifestUrl,fetcher);
-  if(await hash(manifestRaw,crypto)!==descriptor.manifest_sha256)fail("Bundle manifest hash mismatch");
+  const manifestRaw=await read(manifestUrl,fetcher,transfer);
+  if(await hash(manifestRaw,crypto,transfer)!==descriptor.manifest_sha256)fail("Bundle manifest hash mismatch");
   const manifest=parse(manifestRaw);contract(manifest,"research-data-bundle.v1");
   if(manifest.bundle_id!==descriptor.bundle_id||!ID.test(manifest.source_bundle_id)||!HASH.test(manifest.source_manifest_sha256))fail("Bundle identity mismatch");
   utc(manifest.generated_at_utc);
@@ -95,8 +143,8 @@ export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedRe
     roles.add(role);paths.add(path.toLowerCase());
     const url=new URL(path,manifestUrl).href;
     if(release){const asset=release.assets.find(a=>a.path===new URL(url).pathname.slice(release.base_path.length));if(!asset||asset.sha256!==component.sha256||asset.size!==component.size_bytes||asset.role!=="critical")fail("Component not bound to release asset");}
-    const raw=await read(url,fetcher);
-    if(raw.length!==component.size_bytes||await hash(raw,crypto)!==component.sha256)fail("Component hash/size mismatch: "+role);
+    const raw=await read(url,fetcher,transfer);
+    if(raw.length!==component.size_bytes||await hash(raw,crypto,transfer)!==component.sha256)fail("Component hash/size mismatch: "+role);
     raws[role]=raw;data[role]=parse(raw);
     if(data[role]?.schema_version!==component.schema_version)fail("Component schema mismatch");
   }
@@ -104,7 +152,7 @@ export async function readDataBundle({pointerUrl=null,releaseUrl=null,expectedRe
   if([...roles].some(r=>!["snapshot","observations","feed_status","series_manifest","source_manifest"].includes(r)&&!/^series_frame:\d+$/.test(r)))fail("Unknown bundle role");
   const source=data.source_manifest,status=data.feed_status;
   contract(source,"public-data-cache-manifest.v2");contract(status,"daily-ingest-status.v2");
-  if(source.bundle_id!==manifest.source_bundle_id||await hash(raws.source_manifest,crypto)!==manifest.source_manifest_sha256||status.bundle_id!==manifest.bundle_id||status.source_bundle_id!==source.bundle_id||status.generated_at_utc!==manifest.generated_at_utc)fail("Source/status bundle identity mismatch");
+  if(source.bundle_id!==manifest.source_bundle_id||await hash(raws.source_manifest,crypto,transfer)!==manifest.source_manifest_sha256||status.bundle_id!==manifest.bundle_id||status.source_bundle_id!==source.bundle_id||status.generated_at_utc!==manifest.generated_at_utc)fail("Source/status bundle identity mismatch");
   utc(source.acquired_at_utc);utc(status.observation_time_utc,true);
   const degraded=source.failures.length>0||source.products.some(p=>p.origin!=="current-fetch"||p.failure!==null);
   if(status.status!==(degraded?"degraded":"ok"))fail("Feed status must preserve source degradation");

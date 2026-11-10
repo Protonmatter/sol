@@ -72,6 +72,9 @@ location-transmission consent are primary at the moment they affect a decision.
   restore focus to the invoker.
 - Dynamic status uses appropriately scoped `aria-live` regions without flooding users.
 - Respect reduced motion; essential state changes must not depend on animation.
+  Scene coordinates must apply immediately in that mode. A positive universal
+  transition duration can animate properties that otherwise change immediately;
+  the browser regression checks actual placement rather than stylesheet wording.
 - Responsive variants must preserve content, task completion, focus order, and labels.
 
 ## Feedback, errors, and user control

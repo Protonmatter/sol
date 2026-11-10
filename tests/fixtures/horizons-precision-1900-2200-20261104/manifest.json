@@ -1,0 +1,58 @@
+{
+  "schema_version": "precision-window-reference.v1",
+  "source": "NASA/JPL Horizons API",
+  "scope": "Owner-approved1900\u20132200 numerical precision target; padded3925-epoch geometric and geocentric apparent/range matrix",
+  "limitations": "Qualification pending native correspondence, strict-admission tests and review. Discrete model comparisons do not prove a continuous error bound or physical futureUTC/EOP/event accuracy. Older full-calendar failures remain approximation evidence.",
+  "acceptance": {
+    "vector_metric": "relative_vector_norm_arcsec",
+    "vector_maximum": 10.0,
+    "pointing_metric": "great_circle_arcsec",
+    "sun_planet_arcsec": 10.0,
+    "moon_arcsec": 12.0,
+    "range_metric": "absolute_km",
+    "range_floor_km": 1.0,
+    "range_relative": 1e-05
+  },
+  "files": {
+    "plan": {
+      "path": "predeclared-plan.txt",
+      "bytes": 3459,
+      "sha256": "e18f2b66cb60fd06d4f8a9ed15c4ddc0b44a28602af803bb204be5d81e4ab8c1"
+    },
+    "initial_spec": {
+      "path": "query-spec.json",
+      "bytes": 335730,
+      "sha256": "66a7aeb73abbee6b27c81e0f2d1ade82a19beeca6dabbe7fcb73d55bdfcc2a84"
+    },
+    "initial_builder": {
+      "path": "query-builder.py.txt",
+      "bytes": 6161,
+      "sha256": "1d9c3b380897eda869943c4132cc4d43ba14ea670beffdd087e79d61d6ec1505"
+    },
+    "initial_progress": {
+      "path": "initial-progress.json",
+      "bytes": 1035,
+      "sha256": "9c78d1118349345b007bf15575451a4c27bb8fd4603c036de69a75574f71eb54"
+    },
+    "amendment": {
+      "path": "transport-amendment.json",
+      "bytes": 2927,
+      "sha256": "205bc9b97967e759dfac0e6dc79fb7e35441be4393c6fde73c48bc1e29fa56dd"
+    },
+    "query_spec": {
+      "path": "query-spec-32.json",
+      "bytes": 381298,
+      "sha256": "e8443fbd99755cfb59355069292fdea054747a3dbb71d4904e6d36478d61bb6c"
+    },
+    "query_builder": {
+      "path": "query-builder-32.py.txt",
+      "bytes": 7193,
+      "sha256": "f23b4e476e618f068b3fa0b5f4b7aa224d535dd4cdf552e32ee095475f6e582f"
+    },
+    "acquisition": {
+      "path": "acquisition.json",
+      "bytes": 300213,
+      "sha256": "f199c51d5a9abdf334b23eaee17fb40168be2951898d68327851aff7e3a19bd9"
+    }
+  }
+}

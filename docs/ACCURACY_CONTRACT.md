@@ -13,10 +13,55 @@ provenance comments the pins carry. The procedure for intentional changes is in
 
 ## 1. Governed quantities, sources, tolerances, gates
 
+The approved precision target is complete UTC years **1900–2200**,
+`1900-01-01T00:00:00Z <= input < 2201-01-01T00:00:00Z`. Years1–9999 remain
+supported; dates outside that target are approximate exploration. The
+[dense reference report](PRECISION_WINDOW_20261104.md) records 109,900 passing
+sampled model checks at 3,925 padded/irregular model epochs after a VSOP-only
+coefficient increase. This does not prove a continuous error bound or promote
+the current unvalidated UI/registry status. Earth rotation and physical
+observer/event accuracy retain their separate limits.
+
+The later [TOP2013 08-big follow-up](TOP2013_PRECISION_20261106.md) renews
+all 109,900 sampled checks through its actual staged WASM and reduces the worst
+System full-vector residual to 1.5650″-equivalent. Current source-parity records
+identify the exact immutable upstream TOP08 source/function and independently
+reduced literals; the normal-tier catalogue remains historical. The source-parity
+0.5″ gate, the 10″-equivalent geometric-vector budget and original computational/performance
+limits are unchanged; apparent pointing budgets remain 10″ for the Sun/planets and 12″
+for the Moon.
+Sky's separate VSOP path, observer/event limits and unvalidated UI status remain.
+Neither coefficient growth nor sampled maxima establish a sub-0.1″ or continuous
+1900–2200 guarantee; years 1–9999 outside the target remain approximate.
+
+Unit-vector coordinate transforms bound inverse-sine inputs to `[-1, 1]` so
+floating-point roundoff at a pole or zenith cannot invalidate a supported Sky
+snapshot. Nonfinite angular inputs remain invalid. The
+[coordinate-pole correction](COORDINATE_POLES_20261106.md) reproduces the original
+native/WASM failure, verifies actual browser recovery and renews all 109,900
+sampled checks on the corrected binary. It changes no orbital coefficients,
+error budget or UI qualification status, and establishes no tighter error bound.
+
+The [initial nutation characterization](NUTATION_CHARACTERIZATION_20261107.md)
+compares the four-term approximation with an isolated full-IAU1980 prototype
+against the actual Horizons frame convention. That original prototype cohort's
+three unit-test failures remain retained. The later
+[model-independent regression oracles](NUTATION_REGRESSIONS_20261107.md) and
+[ERFA source candidate](NUTATION_ERFA_CANDIDATE_20261107.md) pass separate native,
+WASM and source-delivery checks. Sampled residuals remain mixed. These private
+candidate results do not apply a product algorithm change, tighten any budget
+or promote the scientific/UI registry's qualification status.
+
 | Quantity | Source of truth | Tolerance | Enforced by | When |
 | --- | --- | --- | --- | --- |
-| Heliocentric planet positions | VSOP2013 (inner) / TOP2013 (giants) vs JPL Horizons **DE441** | **Enforced gate 10″** for sampled network comparisons; the eight committed deep-time records establish source-theory parity only, not independent accuracy throughout ±5000 years | `cargo test --workspace`; `tools/validate_ephemeris.py` | every PR (cargo); weekly + manual (Horizons, networked) |
-| Moon (Luna) topocentric position | ELP-MPP02 vs JPL Horizons DE441 | **Enforced gates 12″ (general) / 10″ (syzygy)** for sampled network comparisons; no immutable v3 range reference is yet recorded | `tools/validate_ephemeris.py`, `tools/stress_moon_syzygy.py` | weekly + manual (networked) |
+| Heliocentric planet positions | VSOP2013 (inner) / TOP2013 (giants); independent JPL vector qualification remains held | Intended independent 10″ budget is **not qualified** by the observer gate. Eight deep-time samples enforce TOP2013 source-theory parity at relative vector-norm error < 0.5″; they do not establish independent accuracy throughout ±5000 years | `cargo test --workspace`; `tools/validate_accuracy_evidence.py` | every PR (cargo); parity validator manual |
+| Independent geometric-vector characterization | Captured DE441 geometric ecliptic-J2000/TDB vectors, explicit origins and planetary system identities | The earlier normal-profile baseline fails29/160 full-calendar samples at10-arcsecond-equivalent **full-vector** error. The current approved-window sweep keeps that budget; angular/radial diagnostics are separate. Passing samples qualify no continuous interval | `tools/validate_vectors.py` (full-calendar characterization); `tools/validate_precision_window.py` (approved-window samples); [measured limits](GEOMETRIC_VECTORS_20261104.md) | manual scientific gate; raw-admission and interface tests every PR |
+| Geocentric apparent directions at matched TT | Captured Horizons Q2 true-equator/equinox-of-date directions; explicit DE441 targets, Earth geocenter and JD/TT | The earlier normal-profile baseline fails27/144 full-calendar samples. Fixed10″ Sun/planet and12″ Moon budgets remain in the current approved-window sweep. Q30/Q45 are separate diagnostics; matched TT qualifies no historical UTC/UT1 or continuous interval | `tools/validate_apparent.py` (full-calendar characterization); `tools/validate_precision_window.py`; [apparent limits and model paths](APPARENT_EPOCHS_20261104.md) | manual scientific gate; raw/native admission and metric tests every PR |
+| Sun/planet apparent topocentric pointing and DUT1 | JPL Horizons observer quantities 2/4/49; per-target source identity retained in the raw responses | **Enforced gates 10″ pointing / 3 ms DUT1** at sampled instants/sites; the raw 2026-11-03 corpus covers four instants on one day, not a continuous orbit span | native captured-matrix regression; `tools/validate_ephemeris.py --reference-dir tests/fixtures/horizons-observer-20261103` (offline), default helper (live) | every PR (cargo); weekly + manual (live) |
+| Moon (Luna) topocentric position | ELP-MPP02 vs JPL Horizons observer quantities; captured Moon responses identify DE441 | **Enforced gates 12″ (general) / 10″ (syzygy)** at sampled instants/sites; range regression is separately scoped below | captured-matrix regression; `tools/validate_ephemeris.py` (live/offline), `tools/stress_moon_syzygy.py` (live) | every PR (captured matrix); weekly + manual (live) |
+| Geocentric and observer apparent ranges | Retained JPL Horizons Q20 tables at Earth center and the terrestrial site | **Enforced sampled gate max(1 km, 10 ppm × reference range)**, declared before acquisition; four instants on one day do not qualify continuous ranges. Native observer range retains apparent-direction geometry; see [range report](LUNAR_RANGE_20261103.md) | native captured-range matrix; `tools/validate_ranges.py` (offline) | every PR (cargo); manual (offline CLI) |
+| Rise/altitude-peak/set numerical search (`events.transit` retains its v3 key) | Retained native standard-threshold model and analytic crossing/boundary regressions | Half-open mean-solar-day membership, sign-changing grazing roots, earliest event per direction and genuine altitude maxima; these are numerical tests, **not independent physical event accuracy** | `cargo test --workspace`; [grazing-event report](GRAZING_EVENTS_20261104.md); [event quantity semantics](EPHEMERIS_V3.md#event-window-and-availability) | every PR (cargo) |
+| Selected Sun/Moon configured-model event characterization | Retained DE441 airless elevation and Q20 observer range,32 fine windows in12 selected March/June2026 cases | Fixed10s maximum distance from native time to both reference endpoints;1s crossing and2s conditional sampled-unimodal peak intervals. All32 pass. This establishes no continuous, whole-day absence, earliest-event or physical visibility guarantee | Native captured-event regression; `tests/python/test_horizons_events.py` admits all raw replies and exact derived CSV; [fine reference scope](FINE_EVENTS_20261104.md) | every PR (Cargo/Python) |
 | The 21 major-moon orbits | JPL Horizons osculating elements, weekly knots (3.5-day for Mimas/Enceladus) | validated against committed Horizons state vectors between knots; positions honest to “which side of the planet”, never occultation-grade | `tools/validate_moons.py` (regen-stable + byte-identity + interpolation check, offline) | every PR |
 | Moon validity window | elements are only trusted where validated | outside the window moons are hidden, never guessed | `MOON_VALID_MIN_JD`/`MAX_JD` runtime guard + browser smoke `data-smoke-validity` | every PR |
 | Rotational elements (pole α₀/δ₀ + rates, W₀, Ẇ, periodic terms) | **IAU WGCCRE 2015** (Archinal et al. 2018 + 2019 correction), as distributed in NAIF `pck00011.tpc` | exact transcription (rel. 1e-12) of everything the renderer applies — including Neptune's and the Moon's single-term `poleNut` corrections and Earth's rendered `precession` model; a `poleNut`/`precession` object present in code but absent from the pin fails | `tools/validate_body_constants.py` | every PR |
@@ -30,7 +75,7 @@ provenance comments the pins carry. The procedure for intentional changes is in
 | Ring radii + Cassini Division | NASA/Cassini ring structure | exact transcription; gap strictly inside the annulus; drawn edges land on the true radii (midpoint-coloured breakpoint bands) | `tools/validate_body_constants.py` (radii); geometry by construction in `orreryMath.buildRing` | every PR |
 | Star catalogue (positions, distances, physics) | Hipparcos; literature spot values | regen byte-identity + physics spot-checks | `tools/validate_star_catalog.py` | every PR |
 | Surface geography (coastlines, maria) | committed pristine sources | regen byte-identity | `tools/generate_geography.py --check` | every PR |
-| Earth orientation (ΔT / EOP) | measured IERS knots + plateau | prediction coverage ≥ 90 days | `tools/check_eop_freshness.py` | every PR |
+| Earth orientation (ΔT / EOP) | Pinned USNO Bulletin A daily history,1973-01-02–2027-11-05; observed through2026-10-29, then explicitly predicted | Exact source/blob correspondence, leap-safe bounded four-point interpolation and explicit degraded status outside coverage; DUT1 formal error excludes interpolation/subdaily terms. Prediction coverage ≥90 days is a freshness control, not an accuracy bound | `tools/generate_eop.py --check`; native knot/leap/quality regressions; `tools/check_eop_freshness.py`; [measured evidence and limits](EOP_HISTORY_20261104.md) | every PR |
 | GLSL hygiene | GLSL ES 3.00 spec | `smoothstep` literal edges strictly increasing (reversed edges are undefined and have shipped visible bugs) | `tools/validate_body_constants.py` | every PR |
 | True-scale unit | IAU 2012 AU definition (149,597,870.7 km) | `AU_KM` pinned exactly — true-scale mode divides real radii by it | `tools/validate_body_constants.py` | every PR |
 | Sun surface imagery epoch | SDO/HMI frame + `sun.jpg.json` `fetched_unix` | the disk basis is computed for the recorded FETCH epoch — an upper bound on capture time; SDO's "latest" endpoint lags by up to ~1 h (≤ ~0.6° of solar rotation), which is the accepted error. If the metadata is absent (pre-metadata builds), the load time is the documented fallback | code path (`sunDiskBasis`); metadata written by `tools/fetch_textures.py` | every deploy |
@@ -76,6 +121,14 @@ protected by a comment in the code and (where applicable) by the constants gate.
   must be bounded to the exact body, quantity, epoch and observer evidence in
   `apps/web/data/accuracy-evidence.json`; a source-theory parity test is not independent
   JPL accuracy. Unmatched selections remain unvalidated. See [EPHEMERIS_V3.md](EPHEMERIS_V3.md).
+- Catalogue-moon knots and validity bounds use TDB. The renderer converts the UTC
+  scene epoch to TT using the engine's latest known TAI−UTC offset (37 seconds)
+  plus TT−TAI (32.184 seconds). TT approximates TDB within 2 milliseconds, below
+  the interpolation budget. This conversion is scoped to the 2021–2030 moon
+  tables; future leap seconds remain unknown and require the same update as the
+  engine. Held-out vectors must be compared at the corresponding UTC instant,
+  rather than treating their TDB date as UTC. See the
+  [Horizons time-scale definitions](https://ssd.jpl.nasa.gov/horizons/manual.html#time-scales).
 
 ## 4. Amendment procedure
 

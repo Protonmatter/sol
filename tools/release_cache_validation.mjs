@@ -5,21 +5,24 @@ import path from "node:path";
 import http from "node:http";
 import crypto from "node:crypto";
 import puppeteer from "puppeteer-core";
+import {classifyReleaseCacheErrors} from './release_cache_errors.mjs';
+import {createWorkerExceptionObserver} from './worker_exception_observer.mjs';
 const option=(key,fallback)=>process.argv.find(v=>v.startsWith(`--${key}=`))?.slice(key.length+3)||fallback;
 const roots=["a","b","c"].map(key=>path.resolve(option(key,`build/cache-${key}`)));
 const manifests=roots.map(root=>JSON.parse(fs.readFileSync(path.join(root,"web-release-manifest.json"),"utf8")));
 assert.ok(manifests.every(m=>m.base_path==="/"),"this local harness requires root-path artifacts");
 const out=path.resolve(option("out","coverage/release-cache"));fs.mkdirSync(out,{recursive:true});
-const evidence={browser:"",releases:manifests.map(m=>m.release_id),checks:[],requests:[],workerErrors:[]};
-let active=0,offline=false,corrupt=false,browser;
+const evidence={browser:"",releases:manifests.map(m=>m.release_id),checks:[],requests:[],workerErrors:[],workerErrorEvents:[],pageErrors:[],workerObserverMessages:[],workerObservationErrors:[],workerTargets:[]};
+let active=0,offline=false,corrupt=false,corruptEnrichment=false,browser,workerObservation,completed=false,criticalFaultConfirmed=false;
 const server=http.createServer((req,res)=>{
   const name=decodeURIComponent(new URL(req.url,"http://localhost").pathname);
-  evidence.requests.push({name,active,offline,corrupt});
+  evidence.requests.push({name,active,offline,corrupt,corruptEnrichment});
   if(offline){res.destroy();return;}
   const file=path.resolve(roots[active],`.${name.endsWith("/")?name+"index.html":name}`);
   if(!file.startsWith(roots[active]+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404).end();return;}
   let bytes=fs.readFileSync(file);
   if(corrupt&&name===`/${manifests[2].namespace}pkg/solar_wasm.wasm`){bytes=Buffer.from(bytes);bytes[0]^=1;}
+  if(corruptEnrichment&&name===`/${manifests[2].namespace}js/starcatalog.js`)bytes=Buffer.concat([bytes,Buffer.from('\n// deliberate byte-integrity fault\n')]);
   res.setHeader("Content-Type",({".js":"text/javascript",".html":"text/html",".json":"application/json",".wasm":"application/wasm",".css":"text/css",".jpg":"image/jpeg"})[path.extname(file)]||"application/octet-stream");
   res.setHeader("Cache-Control","no-store");res.end(bytes);
 });
@@ -33,13 +36,27 @@ const fetchHash=(page,url)=>page.evaluate(async url=>{
   const response=await fetch(url);if(!response.ok)throw Error(`HTTP ${response.status}`);
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",await response.arrayBuffer())),v=>v.toString(16).padStart(2,"0")).join("");
 },url);
+const ownedPage=async owner=>{const page=await owner.newPage();page.on('pageerror',error=>evidence.pageErrors.push(error.stack||error.message));await page.setViewport({width:1440,height:900});await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);return page;};
+const catalogueFiles=['js/moonelements.js','js/starcatalog.js'];
+const systemState=(page,manifest)=>page.evaluate(async({url})=>{
+  const s=(await import(url)).store.orrery;
+  return s?{phase:{...s.catalogueStatus},bodies:s.bodies.map(body=>[body.name,body.x_au,body.y_au,body.z_au]),error:s.engineError,
+    status:document.getElementById('orreryCatalogueStatus').textContent,retry:document.getElementById('orreryCatalogueRetry').checkVisibility()}:null;
+},{url:`/${manifest.namespace}js/store.js?v=${manifest.release_id}`});
+const waitCatalogues=(page,manifest,stars,moons)=>page.waitForFunction(async({url,stars,moons})=>{
+  const s=(await import(url)).store.orrery;
+  return s?.catalogueStatus.stars===stars&&s?.catalogueStatus.moons===moons;
+},{timeout:90000,polling:100},{url:`/${manifest.namespace}js/store.js?v=${manifest.release_id}`,stars,moons});
+const cachedCatalogues=(page,manifest)=>page.evaluate(async({cache,paths})=>{
+  const stored=await caches.open(cache);return await Promise.all(paths.map(async url=>!!(await stored.match(url))));
+},{cache:`sol-release-${manifest.release_id}`,paths:catalogueFiles.map(file=>`/${manifest.namespace}${file}`)});
 try {
   browser=await puppeteer.launch({executablePath:process.env.CHROME_BIN,headless:true,args:["--no-sandbox","--use-angle=swiftshader","--enable-unsafe-swiftshader","--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"]});
   evidence.browser=await browser.version();
-  browser.on("targetcreated",async target=>{
-    if(target.type()!=="service_worker")return;
-    try{const session=await target.createCDPSession();await session.send("Runtime.enable");session.on("Runtime.exceptionThrown",event=>evidence.workerErrors.push(event.exceptionDetails.exception?.description||event.exceptionDetails.text));}catch{}
-  });
+  workerObservation=createWorkerExceptionObserver(browser,{ownerForTarget:()=>({name:'release-cache',errors:evidence.workerObserverMessages}),
+    errors:evidence.workerObservationErrors,targets:evidence.workerTargets,
+    onException:({message,target})=>{evidence.workerErrors.push(message);evidence.workerErrorEvents.push({message,active,offline,corrupt,corruptEnrichment,target:target.url()});},
+    onSetupError:({error,target})=>evidence.workerObservationErrors.push(`worker setup ${target.url()}: ${String(error)}`)});
   // The initial page is intentionally never claimed by the installing worker. Its
   // already-loaded image therefore cannot rely on a later cache-on-fetch request.
   // Use fresh storage and a new renderer on return so neither a prior tab nor the
@@ -53,7 +70,8 @@ try {
     assert.equal(typeof observationPath,'string','candidate must declare its default archived observation');
     const observationAsset=manifest.assets.find(asset=>asset.path===manifest.namespace+observationPath);
     assert.ok(observationAsset,'candidate must inventory the default archived observation');
-    const first=await firstVisitContext.newPage();await first.setCacheEnabled(false);
+    const requestStart=evidence.requests.length;
+    const first=await ownedPage(firstVisitContext);await first.setCacheEnabled(false);
     await first.goto(origin,{waitUntil:'domcontentloaded'});
     await first.waitForFunction(()=>{const image=document.getElementById('observationImage');return image?.complete&&image.naturalWidth>0;},{timeout:20000});
     const online=await first.evaluate(()=>({
@@ -68,9 +86,12 @@ try {
     assert.match(online.source,/observed.*NASA/);assert.match(online.time,/archival/);
     assert.equal(new URL(online.imageUrl).pathname,'/'+observationAsset.path);
     await ready(first);
+    assert.deepEqual(await cachedCatalogues(first,manifest),[false,false],'core installation must omit full enrichment tables');
+    assert.ok(!evidence.requests.slice(requestStart).some(row=>catalogueFiles.some(file=>row.name===`/${manifest.namespace}${file}`)),
+      'initial Sun and completed SW installation must not request full Moon/star tables');
     const installedImage=await first.evaluate(async({cache,url})=>!!(await(await caches.open(cache)).match(url)),{cache:`sol-release-${manifest.release_id}`,url:online.imageUrl});
     await first.close();offline=true;
-    const returned=await firstVisitContext.newPage();await returned.setCacheEnabled(false);
+    const returned=await ownedPage(firstVisitContext);await returned.setCacheEnabled(false);
     await returned.goto(origin,{waitUntil:'domcontentloaded',timeout:30000});
     await returned.waitForFunction(()=>{
       const image=document.getElementById('observationImage'),unavailable=document.getElementById('observationUnavailable');
@@ -97,11 +118,44 @@ try {
     for(const key of ['source','time','caption','imageUrl'])assert.equal(offlineReturn[key],online[key],`offline observation retains its original ${key}`);
     firstOffline.sha256=await fetchHash(returned,online.imageUrl);
     assert.equal(firstOffline.sha256,observationAsset.sha256,'offline image bytes match the immutable release manifest');
+    await returned.click('[data-mode="orrery"]');
+    await waitCatalogues(returned,manifest,'failed','failed');
+    const missing=await systemState(returned,manifest);assert.equal(missing.error,'');assert.equal(missing.bodies.length,9);
+    assert.equal(missing.retry,true);assert.match(missing.status,/unavailable|failed|could not/i);
+    assert.deepEqual(await cachedCatalogues(returned,manifest),[false,false]);
+    evidence.checks.push({firstOfflineEnrichmentUnavailable:missing});
+    offline=false;corruptEnrichment=true;
+    await returned.click('#orreryCatalogueRetry');await waitCatalogues(returned,manifest,'failed','ready');
+    assert.deepEqual(await cachedCatalogues(returned,manifest),[true,false],'corrupt optional bytes must not enter the verified cache');
+    evidence.checks.push({controlledCorruptStarRejected:await systemState(returned,manifest)});
+    corruptEnrichment=false;await returned.click('#orreryCatalogueRetry');await waitCatalogues(returned,manifest,'ready','ready');
+    for(const file of catalogueFiles){
+      const asset=manifest.assets.find(item=>item.path===manifest.namespace+file);assert.equal(asset.role,'optional');
+      assert.equal(await fetchHash(returned,'/'+asset.path),asset.sha256,'on-use admission retains exact enrichment bytes');
+    }
+    assert.deepEqual((await systemState(returned,manifest)).bodies,missing.bodies,'recovery must preserve accepted planetary positions');
+    await returned.evaluate(()=>localStorage.removeItem('sol-surface'));await returned.close();offline=true;
+    const enrichedReturn=await ownedPage(firstVisitContext);await enrichedReturn.setCacheEnabled(false);
+    await enrichedReturn.goto(origin,{waitUntil:'domcontentloaded',timeout:30000});
+    await enrichedReturn.waitForFunction(()=>document.body.dataset.appReady==='true');await enrichedReturn.click('[data-mode="orrery"]');
+    await waitCatalogues(enrichedReturn,manifest,'ready','ready');const enriched=await systemState(enrichedReturn,manifest);
+    assert.equal(enriched.error,'');assert.equal(enriched.bodies.length,9);evidence.checks.push({verifiedEnrichmentOfflineReturn:enriched});
   } finally {await firstVisitContext.close();offline=false;active=0;}
-  const page=await browser.newPage();await page.setViewport({width:1440,height:900});await page.emulateMediaFeatures([{name:"prefers-reduced-motion",value:"reduce"}]);
+  // An installed worker does not claim the initial document. Its online module
+  // use remains distinct from controlled on-use cache admission.
+  const uncontrolledContext=await browser.createBrowserContext();
+  try{
+    active=2;const manifest=manifests[2],page=await ownedPage(uncontrolledContext);await page.setCacheEnabled(false);
+    await page.goto(origin,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.body.dataset.appReady==='true');await ready(page);
+    assert.equal(await page.evaluate(()=>!!navigator.serviceWorker.controller),false);
+    await page.click('[data-mode="orrery"]');await waitCatalogues(page,manifest,'ready','ready');
+    assert.deepEqual(await cachedCatalogues(page,manifest),[false,false],'uncontrolled online use is not verified cache admission');
+    evidence.checks.push({uncontrolledOnlineEnrichment:await systemState(page,manifest),cacheAdmission:false});
+  }finally{await uncontrolledContext.close();active=0;}
+  const page=await ownedPage(browser);await page.setViewport({width:1440,height:900});await page.emulateMediaFeatures([{name:"prefers-reduced-motion",value:"reduce"}]);
   await page.goto(origin,{waitUntil:"domcontentloaded"});await ready(page);await page.reload({waitUntil:"domcontentloaded"});
   await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
-  const old=await browser.newPage();await old.goto(`${origin}/${manifests[0].namespace}index.html`,{waitUntil:"domcontentloaded"});
+  const old=await ownedPage(browser);await old.goto(`${origin}/${manifests[0].namespace}index.html`,{waitUntil:"domcontentloaded"});
   await old.waitForFunction(()=>!!navigator.serviceWorker.controller);
   const oldUrl=old.url();
   await page.bringToFront();
@@ -150,12 +204,23 @@ try {
   assert.equal(await fetchHash(page,`/${bApp.path}`),bApp.sha256);
   assert.equal(await page.evaluate(async()=> (await fetch("/releases/unknown/app.js")).status),409);
   evidence.checks.push("corrupt critical WASM rejects C, removes only incomplete C stage, preserves A/B and denies unknown release");
-  evidence.result="passed";evidence.manifest_sha256=roots.map(root=>hash(fs.readFileSync(path.join(root,"web-release-manifest.json"))));
-  process.stdout.write(`PASS: actual-browser release cache ${out}\n`);
-} finally {
+  criticalFaultConfirmed=true;
+  completed=true;evidence.manifest_sha256=roots.map(root=>hash(fs.readFileSync(path.join(root,"web-release-manifest.json"))));
+ } catch(error) {evidence.failure=error.stack||String(error);throw error;} finally {
   if(browser)for(const page of await browser.pages())try{evidence.checks.push(await page.evaluate(async()=>{
     const reg=await navigator.serviceWorker?.getRegistration();return {url:location.href,status:document.getElementById("releaseStatus")?.textContent,active:reg?.active?.scriptURL,waiting:reg?.waiting?.state,caches:await caches.keys()};
   }));}catch{}
+  evidence.cleanupErrors=[];
+  try{if(browser)await browser.close();}catch(error){evidence.cleanupErrors.push(String(error));}
+  try{if(workerObservation){await workerObservation.settle();workerObservation.dispose();evidence.workerObservationSettled=true;}}
+  catch(error){evidence.cleanupErrors.push('worker observation settlement: '+String(error));}
+  try{await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}catch(error){evidence.cleanupErrors.push(String(error));}
+  const faultDelivered=evidence.requests.some(row=>row.active===2&&row.corrupt&&row.name===`/${manifests[2].namespace}pkg/solar_wasm.wasm`);
+  const classified=classifyReleaseCacheErrors(evidence.workerErrorEvents,{faultConfirmed:criticalFaultConfirmed,faultDelivered,
+    workerURLs:manifests.slice(0,2).map(manifest=>`${origin}/sw.js?v=${manifest.release_id}`)});
+  evidence.expectedWorkerErrors=classified.expected;evidence.unexpectedWorkerErrors=classified.unexpected;
+  evidence.result=completed&&evidence.workerObservationSettled===true&&!evidence.workerObservationErrors.length&&!evidence.pageErrors.length&&!evidence.unexpectedWorkerErrors.length&&!evidence.cleanupErrors.length?'passed':'failed';
+  if(evidence.result==='passed')process.stdout.write(`PASS: actual-browser release cache ${out}\n`);
+  else process.exitCode=1;
   fs.writeFileSync(path.join(out,"evidence.json"),JSON.stringify(evidence,null,2)+"\n");
-  if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));
 }

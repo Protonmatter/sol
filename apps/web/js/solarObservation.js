@@ -1,8 +1,8 @@
-import { visualAssetManifest } from "./visualAssetManifest.js";
+import { defaultObservationRecord } from "./sourceRecords.js";
 
 // Build validation binds original NASA bytes, caption and archive identity. This
 // separate record never enters surface-texture eligibility or model registration.
-const source = visualAssetManifest.observed_images[0];
+const source = defaultObservationRecord;
 const observation = Object.freeze({
   id: source.id,
   path: source.path,

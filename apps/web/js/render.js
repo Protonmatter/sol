@@ -9,8 +9,96 @@ import { projectSolarPoint, regionAnchor, confidenceEncoding } from "./solarProj
 import { seriesPosition } from "./seriesModel.js?v=dcca6290db";
 import { updateWavelengthCaption } from "./wavelength.js?v=dcca6290db";
 
-export function drawSolarDisk() {
+
+// Resize may retain the canvas's own pixels; it never copies or resamples them.
+// Full source/control renders remain unconditional. Mutable or unsupported
+// snapshots, observed images and uncertain draw/context state render fully.
+/** @type {WeakMap<object,any>} */
+const solarFrames=new WeakMap();
+/** @type {WeakMap<object,boolean>} */
+const immutableInputs=new WeakMap();
+
+function canvasDisplaySize(canvas,maxSize){
+  const rect=canvas.getBoundingClientRect();
+  if(rect.width<=0||rect.height<=0)return null;
+  const scale=Math.min(window.devicePixelRatio||1,2,maxSize/Math.max(rect.width,1));
+  return {width:Math.max(1,Math.round(rect.width*scale)),height:Math.max(1,Math.round(rect.height*scale))};
+}
+
+function immutableSnapshot(root){
+  if(!root||typeof root!=='object')return false;
+  if(immutableInputs.has(root))return immutableInputs.get(root);
+  let valid=true,budget=0;
+  const pending=[root],seen=new WeakSet();
+  try{
+    while(pending.length&&valid){
+      const value=pending.pop(),proto=Object.getPrototypeOf(value);
+      if(seen.has(value)||!Object.isFrozen(value)||(Array.isArray(value)?proto!==Array.prototype:proto!==Object.prototype&&proto!==null)){valid=false;break;}
+      seen.add(value);
+      for(const key of Reflect.ownKeys(value)){
+        const descriptor=Object.getOwnPropertyDescriptor(value,key);
+        if(++budget>100000||!descriptor||!('value'in descriptor)||typeof descriptor.value==='function'){valid=false;break;}
+        if(descriptor.value&&typeof descriptor.value==='object')pending.push(descriptor.value);
+      }
+    }
+  }catch{valid=false;}
+  immutableInputs.set(root,valid);return valid;
+}
+
+function solarFrameState(canvas){
+  let frame=solarFrames.get(canvas);
+  if(frame)return frame;
+  frame={valid:false,trackable:false};solarFrames.set(canvas,frame);
+  if(typeof canvas.addEventListener==='function'){
+    const invalidate=()=>{frame.valid=false;};
+    try{canvas.addEventListener('contextlost',invalidate);canvas.addEventListener('contextrestored',invalidate);frame.trackable=true;}
+    catch{frame.trackable=false;}
+  }
+  return frame;
+}
+
+function solarDrawInputs(base){
+  if(base||!immutableSnapshot(store.state))return null;
+  return [store.state,store.activeMode,store.timelineIndex,store.liveEngineRun,store.wavelength,store.selectedRegionId,
+    controls?.regions?.checked,controls?.confidence?.checked];
+}
+
+function contextUsable(ctx){
+  try{return typeof ctx?.isContextLost==='function'&&ctx.isContextLost()===false;}
+  catch{return false;}
+}
+
+function rememberSolarFrame(canvas,ctx,base,frame){
+  const inputs=solarDrawInputs(base);
+  // A procedural Sun always ends with a nondefault rim/region stroke.
+  // Native width/height and context resets restore lineWidth to1, so equal
+  // backing dimensions alone cannot qualify a frame after such a reset.
+  frame.lineWidth=ctx.lineWidth;frame.strokeStyle=ctx.strokeStyle;
+  frame.valid=Boolean(frame.trackable&&inputs&&contextUsable(ctx)&&Number.isFinite(frame.lineWidth)&&frame.lineWidth>=1.5&&typeof frame.strokeStyle==='string');
+  frame.inputs=inputs;frame.ctx=ctx;frame.width=canvas.width;frame.height=canvas.height;
+  frame.projected=store.projectedRegions;frame.kind=store.activeBaseKind;frame.label=store.activeBaseLabel;
+}
+
+function reuseSolarFrame(canvas){
+  const frame=solarFrames.get(canvas);
+  if(!frame?.valid)return false;
+  const size=canvasDisplaySize(canvas,720);
+  if(!size||size.width!==canvas.width||size.height!==canvas.height||frame.width!==canvas.width||frame.height!==canvas.height)return false;
+  const ctx=canvas.getContext('2d');
+  if(ctx!==frame.ctx||!contextUsable(ctx)||!Object.is(ctx.lineWidth,frame.lineWidth)||ctx.strokeStyle!==frame.strokeStyle){frame.valid=false;return false;}
+  const inputs=solarDrawInputs(currentBaseImage());
+  if(!inputs||inputs.some((value,index)=>!Object.is(value,frame.inputs[index]))||frame.projected!==store.projectedRegions
+    ||frame.kind!==store.activeBaseKind||frame.label!==store.activeBaseLabel)return false;
+  try{updateWavelengthCaption();}catch(error){frame.valid=false;throw error;}
+  return true;
+}
+
+/** @param {any} [options] */
+export function drawSolarDisk(options=null) {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("solarCanvas"));
+  if(options?.resizeOnly===true&&reuseSolarFrame(canvas))return;
+  const frame=solarFrameState(canvas);
+  frame.valid=false;
   resizeCanvasToDisplaySize(canvas, 720);
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
@@ -65,6 +153,7 @@ export function drawSolarDisk() {
   // Timeline/local-model transitions can reuse a ready image without a load event.
   // Refresh its source disclosure whenever the displayed disk changes.
   updateWavelengthCaption();
+  rememberSolarFrame(canvas,ctx,base,frame);
 }
 
 function drawObservedBase(ctx, entry, width, height) {
@@ -335,11 +424,9 @@ function drawButterflySnapshot(ctx, width, height) {
 }
 
 function resizeCanvasToDisplaySize(canvas, maxSize) {
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
-  const scale = Math.min(window.devicePixelRatio || 1, 2, maxSize / Math.max(rect.width, 1));
-  const width = Math.max(1, Math.round(rect.width * scale));
-  const height = Math.max(1, Math.round(rect.height * scale));
+  const size=canvasDisplaySize(canvas,maxSize);
+  if(!size)return;
+  const {width,height}=size;
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;

@@ -194,16 +194,22 @@ test('focused planets and moons fit desktop and portrait views without changing 
   const before = capture(() => h.check('orreryTextures', h.state.useTextures));
   const models = new Map(before.map(value => [JSON.stringify(JSON.parse(value).slice(12, 15)), value]));
   // Camera distance intentionally admits previously sub-pixel moon systems.
-  // Compare every reappearing model and require every core rotating body to remain. Catalogue
-  // moons carry their own spin frame and may leave the view with camera distance, so they are
-  // recognised by that frame rather than counted as core bodies.
+  // Compare every reappearing model. Off-camera unit spheres can omit their
+  // draw, so explicitly focus every core body as well as the selected moon.
+  // Camera changes must retain every submitted radius and physical transform.
   const core = before.filter(value => JSON.parse(value)[1] !== 0 && !moonModels.has(value));
   assert.equal(core.length, 10);
   for (const [width, height] of [[800, 600], [320, 540]]) {
     h.resize(width, height);
-    for (const name of ['Earth', 'Moon', 'Saturn', 'Io']) {
+    for (const name of ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Moon', 'Io']) {
       const after = capture(() => h.input('orreryAnchor', name, 'change'));
-      for (const value of core) assert.ok(after.includes(value), `${name}: every core model remains unchanged`);
+      assert.ok(after.length, `${name}: focusing the body actually submits its geometry`);
+      const body = h.state.bodies.find(b=>b.name===name), moon = h.moons.find(m=>m.n===name);
+      const position = body && [body.x_au,body.y_au,body.z_au];
+      const selected = h.gpuDraws.findLast(({uniforms:u}) => u.u_model && u.u_mode===0
+        && (position ? u.u_model.slice(12,15).every((v,i)=>Math.abs(v-position[i])<1e-6)
+          : matchesMoonNormal(h,moon,u.u_nmat)));
+      assert.ok(selected && after.includes(JSON.stringify(selected.uniforms.u_model)), `${name}: selected physical model reaches this frame`);
       for (const value of after) {
         const key = JSON.stringify(JSON.parse(value).slice(12, 15));
         if (models.has(key)) assert.equal(value, models.get(key), `${name}: a reappearing body retains its radius and transform`);
@@ -389,6 +395,41 @@ test("Orrery orbit gestures clamp zoom and preserve the surviving pinch origin",
   assert.equal(h.state.radius, 160);
   assert.ok(h.draws > 0);
   assert.equal(h.errors.length, 0);
+});
+
+test('stationary two-finger contacts suppress even transient selection intents in either release order',async t=>{
+  const h=await orreryHarness(t,{controls:true,reducedMotion:true});await h.enterOrrery();h.setAnimate(false);
+  const label=h.nodes.orreryLabels.children.find(n=>n.textContent==='Sun'&&n.style.display==='block');assert.ok(label);
+  const p={clientX:Number(label.dataset.projectionX),clientY:Number(label.dataset.projectionY),pointerType:'touch'};
+  const intents=()=>h.events.filter(e=>e.type==='sol:object-selected').length;
+  const physical=JSON.stringify([h.state.renderUnix,h.state.bodies]);
+  for(const order of [[1,2],[2,1]]){
+    const before=intents(),selected=h.state.selected;
+    h.event('orreryCanvas','pointerdown',{...p,pointerId:1});
+    h.event('orreryCanvas','pointerdown',{...p,pointerId:2,clientX:p.clientX+80});
+    for(const pointerId of order)h.event('orreryCanvas','pointerup',{...p,pointerId,clientX:p.clientX+(pointerId===2?80:0)});
+    assert.equal(intents(),before,'two contacts must never dispatch an object-selection intent');
+    assert.equal(h.state.selected,selected);
+  }
+  const before=intents();h.event('orreryCanvas','pointerdown',{...p,pointerId:3});h.event('orreryCanvas','pointerup',{...p,pointerId:3});
+  assert.equal(h.state.selected,'Sun','a fresh single-finger tap still selects the projected body');assert.equal(intents(),before+1);
+  assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),physical);h.leaveOrrery();
+});
+
+test('adding a contact after a drag or pinch never rearms object selection',async t=>{
+  const h=await orreryHarness(t,{controls:true,reducedMotion:true});await h.enterOrrery();h.setAnimate(false);
+  const label=h.nodes.orreryLabels.children.find(n=>n.textContent==='Sun'&&n.style.display==='block');assert.ok(label);
+  const p={clientX:Number(label.dataset.projectionX),clientY:Number(label.dataset.projectionY),pointerType:'touch'};
+  const intents=()=>h.events.filter(e=>e.type==='sol:object-selected').length;
+  const before=intents();
+  h.event('orreryCanvas','pointerdown',{...p,pointerId:1});h.event('orreryCanvas','pointermove',{...p,pointerId:1,clientX:p.clientX+10});
+  h.event('orreryCanvas','pointerdown',{...p,pointerId:2});h.event('orreryCanvas','pointerup',{...p,pointerId:2});
+  assert.equal(intents(),before,'the second finger must not reset an existing drag to a tap');
+  h.event('orreryCanvas','pointerdown',{...p,pointerId:2,clientX:p.clientX+80});
+  h.event('orreryCanvas','pointermove',{...p,pointerId:2,clientX:p.clientX+90});
+  h.event('orreryCanvas','pointerdown',{...p,pointerId:3});h.event('orreryCanvas','pointerup',{...p,pointerId:3});
+  assert.equal(intents(),before,'a third contact must not reset an existing pinch to a tap');
+  h.event('orreryCanvas','pointercancel',{pointerId:1});h.event('orreryCanvas','pointercancel',{pointerId:2});h.leaveOrrery();
 });
 
 test("Orrery free flight integrates held controls while paused and releases them deterministically", async t => {

@@ -68,7 +68,7 @@ for (const initialFailure of [true, false]) {
       activeMode: "today", seriesFrames: [], seriesRecords: [], timelineIndex: -1, playTimer: 0 };
     const nodes = new Map(["liveStatus", "snapshotStatus", "retrySnapshot"].map(id => [id, { hidden: false, textContent: "" }]));
     let bundleAvailable = false;
-    const context = vm.createContext({ store, URL, Image: class {}, FALLBACK_STATE: fallback, BASE_IMAGES: {},
+    const context = vm.createContext({ store, URL, AbortController, Image: class {}, FALLBACK_STATE: fallback, BASE_IMAGES: {},
       document: { getElementById: id => nodes.get(id) || null, querySelector: () => null, body: { setAttribute() {} } },
       window: {}, performance: { now: () => 0 },
       updateText() {}, drawSolarDisk() {}, drawButterfly() {}, maybeAutoStartTour() {}, cancelSolarSimulation() {},
@@ -89,7 +89,7 @@ for (const initialFailure of [true, false]) {
       "solarWorkerClient.js": { requestSolarSimulation: context.requestSolarSimulation, cancelSolarSimulation: context.cancelSolarSimulation },
       "dataBundle.js": { readDataBundle: context.readDataBundle },
     };
-    Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "explorer"].map(moduleURL), {
+    Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "researchView", "explorer"].map(moduleURL), {
       resolveImport: (_specifier, url) => boundaries[url.pathname.split("/").at(-1)],
       initializeImportMeta: meta => { meta.url = "https://example.invalid/js/data.js"; },
     }));

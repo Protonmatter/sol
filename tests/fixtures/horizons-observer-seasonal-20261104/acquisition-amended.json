@@ -1,0 +1,4800 @@
+{
+  "schema_version": "observer-seasonal-amended-acquisition.v1",
+  "status": "captured_not_qualified",
+  "pid": 67376,
+  "started_at_utc": "2026-11-04T18:20:11.786924+00:00",
+  "resumed_at_utc": "2026-11-04T18:23:23.927458+00:00",
+  "plan_sha256": "7d5c6df57cf8994aecef9867848ecda36964a800cf360c2e8369d76c14a05bf3",
+  "amendment_sha256": "a07ddeacc639bbb98d0f9a4105404c5726f17be4e0d502d1c04138efe3c68fa3",
+  "records": [
+    {
+      "id": "boston-sun",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-sun.txt",
+      "bytes": 9840,
+      "sha256": "b3bafb5bcc2437622102e9df4eb6275f5bc03685e4793c172f07fcfc4c1ff438",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:20:12.280594+00:00",
+      "capture_finished_utc": "2026-11-04T18:20:12.280594+00:00",
+      "capture_phase": "original",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 296.863938237,
+          "dec_deg": -21.144669355,
+          "az_deg": 289.79003584,
+          "alt_deg": -50.495259875,
+          "observer_range_km": 147161711.87829646,
+          "range_rate_km_s": 0.3118943,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 328.629947,
+          "dec_deg": -12.718512798,
+          "az_deg": 297.379378171,
+          "alt_deg": -43.726260655,
+          "observer_range_km": 147764813.8737645,
+          "range_rate_km_s": 0.5640199,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 354.952411302,
+          "dec_deg": -2.185591016,
+          "az_deg": 307.343116265,
+          "alt_deg": -36.334113104,
+          "observer_range_km": 148762309.95956722,
+          "range_rate_km_s": 0.6975557,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 23.285966081,
+          "dec_deg": 9.723765404,
+          "az_deg": 317.230435337,
+          "alt_deg": -27.576371632,
+          "observer_range_km": 150073768.29942274,
+          "range_rate_km_s": 0.6977691,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 51.91228198,
+          "dec_deg": 18.83889225,
+          "az_deg": 322.978106106,
+          "alt_deg": -20.070431057,
+          "observer_range_km": 151212841.20763946,
+          "range_rate_km_s": 0.5731581,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 83.489118757,
+          "dec_deg": 23.301099934,
+          "az_deg": 324.296198397,
+          "alt_deg": -15.683351555,
+          "observer_range_km": 151950548.4223143,
+          "range_rate_km_s": 0.3571224,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 114.447486099,
+          "dec_deg": 21.534867897,
+          "az_deg": 322.243530546,
+          "alt_deg": -16.621233574,
+          "observer_range_km": 152062005.1741274,
+          "range_rate_km_s": 0.1200554,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 144.656786302,
+          "dec_deg": 14.0762101,
+          "az_deg": 318.622460213,
+          "alt_deg": -23.267428597,
+          "observer_range_km": 151526508.54608658,
+          "range_rate_km_s": -0.1080248,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 172.905804662,
+          "dec_deg": 3.062444681,
+          "az_deg": 314.381352201,
+          "alt_deg": -33.882940753,
+          "observer_range_km": 150466554.62348655,
+          "range_rate_km_s": -0.2663262,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 200.10262134,
+          "dec_deg": -8.47694343,
+          "az_deg": 308.636581062,
+          "alt_deg": -44.800890893,
+          "observer_range_km": 149203874.02103588,
+          "range_rate_km_s": -0.3086536,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 230.320516567,
+          "dec_deg": -18.452751861,
+          "az_deg": 299.454884792,
+          "alt_deg": -52.760307378,
+          "observer_range_km": 148000944.4895989,
+          "range_rate_km_s": -0.2134055,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 262.490580132,
+          "dec_deg": -23.259048933,
+          "az_deg": 290.79826999,
+          "alt_deg": -54.378061619,
+          "observer_range_km": 147259806.32414424,
+          "range_rate_km_s": 0.0036114,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "boston-moon",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-moon.txt",
+      "bytes": 9842,
+      "sha256": "1b728fdf836812c4bf67c8d45010bfa91df1042bafe1a0e6499535e7204bf7ee",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:20:13.014287+00:00",
+      "capture_finished_utc": "2026-11-04T18:20:13.014287+00:00",
+      "capture_phase": "original",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 251.151323652,
+          "dec_deg": -27.685909517,
+          "az_deg": 19.636467074,
+          "alt_deg": -74.589494362,
+          "observer_range_km": 410757.3587578912,
+          "range_rate_km_s": -0.04353,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 300.553187777,
+          "dec_deg": -24.270909367,
+          "az_deg": 325.040659443,
+          "alt_deg": -68.93204152,
+          "observer_range_km": 400180.82484535134,
+          "range_rate_km_s": 0.0212253,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 308.961057613,
+          "dec_deg": -21.955464392,
+          "az_deg": 16.017735468,
+          "alt_deg": -68.960624869,
+          "observer_range_km": 398069.0031139877,
+          "range_rate_km_s": -0.0900462,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 353.07192063,
+          "dec_deg": -2.127588362,
+          "az_deg": 348.596713914,
+          "alt_deg": -49.221443443,
+          "observer_range_km": 379407.5613497778,
+          "range_rate_km_s": -0.0259446,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 26.11051319,
+          "dec_deg": 14.384099415,
+          "az_deg": 347.480942004,
+          "alt_deg": -32.376489209,
+          "observer_range_km": 367048.59806470294,
+          "range_rate_km_s": 0.0045436,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 82.286887932,
+          "dec_deg": 27.085904556,
+          "az_deg": 327.089808113,
+          "alt_deg": -12.823591538,
+          "observer_range_km": 358587.4914225912,
+          "range_rate_km_s": 0.1761826,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 124.504929169,
+          "dec_deg": 21.219601629,
+          "az_deg": 313.877515562,
+          "alt_deg": -11.920637361,
+          "observer_range_km": 363162.35260408814,
+          "range_rate_km_s": 0.2730151,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 172.2534554,
+          "dec_deg": 0.127513218,
+          "az_deg": 286.529603459,
+          "alt_deg": -17.148106508,
+          "observer_range_km": 379355.8635375302,
+          "range_rate_km_s": 0.3728677,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 215.496696325,
+          "dec_deg": -20.120636209,
+          "az_deg": 261.732096258,
+          "alt_deg": -21.323688861,
+          "observer_range_km": 396873.2031275725,
+          "range_rate_km_s": 0.3594679,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 249.836506341,
+          "dec_deg": -27.726057773,
+          "az_deg": 252.378280852,
+          "alt_deg": -22.577904847,
+          "observer_range_km": 405031.2065034779,
+          "range_rate_km_s": 0.3169357,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 298.273661934,
+          "dec_deg": -23.847123818,
+          "az_deg": 244.682775949,
+          "alt_deg": -7.780858249,
+          "observer_range_km": 405452.7128775385,
+          "range_rate_km_s": 0.2773214,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 330.073445521,
+          "dec_deg": -11.969019416,
+          "az_deg": 251.815480374,
+          "alt_deg": 1.963390522,
+          "observer_range_km": 399685.341586712,
+          "range_rate_km_s": 0.2705044,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "boston-mercury",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-mercury.txt",
+      "bytes": 9840,
+      "sha256": "9ba2b834dc23549b3741e0232a2e0c8bd316a8285d6fe17ff7420ee3befb328c",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:20:13.742427+00:00",
+      "capture_finished_utc": "2026-11-04T18:20:13.742427+00:00",
+      "capture_phase": "original",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 292.766594656,
+          "dec_deg": -23.600312773,
+          "az_deg": 290.894899345,
+          "alt_deg": -54.960200067,
+          "observer_range_km": 213989792.7104009,
+          "range_rate_km_s": 0.0625741,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 344.674807718,
+          "dec_deg": -6.463160096,
+          "az_deg": 288.518068339,
+          "alt_deg": -28.280919733,
+          "observer_range_km": 159523775.78353396,
+          "range_rate_km_s": -45.2733864,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 340.794907649,
+          "dec_deg": -5.536832967,
+          "az_deg": 320.995825857,
+          "alt_deg": -46.695588607,
+          "observer_range_km": 95002521.91719237,
+          "range_rate_km_s": 11.9864308,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 0.970145447,
+          "dec_deg": -2.405115996,
+          "az_deg": 336.87500449,
+          "alt_deg": -47.757485197,
+          "observer_range_km": 156447619.88345167,
+          "range_rate_km_s": 24.55808,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 52.466692138,
+          "dec_deg": 19.214441128,
+          "az_deg": 322.675638834,
+          "alt_deg": -19.491871575,
+          "observer_range_km": 197698938.06035107,
+          "range_rate_km_s": -4.7782893,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 110.201770617,
+          "dec_deg": 23.275984607,
+          "az_deg": 304.010322293,
+          "alt_deg": -1.531194958,
+          "observer_range_km": 124906203.46822962,
+          "range_rate_km_s": -29.9941106,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 110.288334246,
+          "dec_deg": 17.15181932,
+          "az_deg": 323.719665552,
+          "alt_deg": -22.336678057,
+          "observer_range_km": 87152237.9888363,
+          "range_rate_km_s": 10.3398462,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 132.146068785,
+          "dec_deg": 18.8517553,
+          "az_deg": 332.692145665,
+          "alt_deg": -24.171124627,
+          "observer_range_km": 178883977.85883465,
+          "range_rate_km_s": 36.7361936,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 186.777501485,
+          "dec_deg": -2.679215177,
+          "az_deg": 297.201034569,
+          "alt_deg": -30.180574477,
+          "observer_range_km": 199486454.91965938,
+          "range_rate_km_s": -11.3956889,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 223.1551406,
+          "dec_deg": -19.725540823,
+          "az_deg": 276.836510184,
+          "alt_deg": -37.220038475,
+          "observer_range_km": 142953037.32403576,
+          "range_rate_km_s": -30.9809239,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 213.684132003,
+          "dec_deg": -11.170212138,
+          "az_deg": 329.43197338,
+          "alt_deg": -55.424512564,
+          "observer_range_km": 126830859.03799412,
+          "range_rate_km_s": 44.1406349,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 251.951939889,
+          "dec_deg": -22.533422956,
+          "az_deg": 304.573013888,
+          "alt_deg": -60.768868245,
+          "observer_range_km": 208465067.38259074,
+          "range_rate_km_s": 13.394951,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "boston-venus",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-venus.txt",
+      "bytes": 9840,
+      "sha256": "ae4c4f6dd074ed67237dcd36da89f0b3855e07d35e92242b5dfa7b81f98724f8",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:20:14.496551+00:00",
+      "capture_finished_utc": "2026-11-04T18:20:14.496551+00:00",
+      "capture_phase": "original",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 299.180086248,
+          "dec_deg": -21.733205559,
+          "az_deg": 286.902017345,
+          "alt_deg": -49.257781715,
+          "observer_range_km": 255824998.6395128,
+          "range_rate_km_s": -0.2496351,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 338.177224067,
+          "dec_deg": -10.733101392,
+          "az_deg": 290.344022319,
+          "alt_deg": -35.837295644,
+          "observer_range_km": 251707863.4899195,
+          "range_rate_km_s": -2.3625541,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 10.2816824,
+          "dec_deg": 3.289198879,
+          "az_deg": 297.483684845,
+          "alt_deg": -22.487109843,
+          "observer_range_km": 242776540.4727382,
+          "range_rate_km_s": -4.5052554,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 46.424878844,
+          "dec_deg": 17.618102988,
+          "az_deg": 302.853934181,
+          "alt_deg": -8.041320006,
+          "observer_range_km": 226395346.6069157,
+          "range_rate_km_s": -7.176233,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 84.785617904,
+          "dec_deg": 24.816514651,
+          "az_deg": 301.617300822,
+          "alt_deg": 2.789933743,
+          "observer_range_km": 203614518.79289913,
+          "range_rate_km_s": -9.7690968,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 124.65470122,
+          "dec_deg": 21.713426254,
+          "az_deg": 293.378080488,
+          "alt_deg": 6.713740349,
+          "observer_range_km": 173517934.63056904,
+          "range_rate_km_s": -11.9595219,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 158.16694238,
+          "dec_deg": 10.423629041,
+          "az_deg": 282.507127547,
+          "alt_deg": 1.784313357,
+          "observer_range_km": 139804085.22226456,
+          "range_rate_km_s": -13.2305834,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 186.957585985,
+          "dec_deg": -4.518388296,
+          "az_deg": 272.683827404,
+          "alt_deg": -9.645127366,
+          "observer_range_km": 102842088.27664262,
+          "range_rate_km_s": -13.4781489,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 208.818485256,
+          "dec_deg": -17.381152224,
+          "az_deg": 268.365632106,
+          "alt_deg": -24.512759352,
+          "observer_range_km": 67291942.98325217,
+          "range_rate_km_s": -11.9461471,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 210.815706577,
+          "dec_deg": -20.505903693,
+          "az_deg": 285.981243006,
+          "alt_deg": -46.649799728,
+          "observer_range_km": 42955033.39751204,
+          "range_rate_km_s": -4.605505,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 200.639135315,
+          "dec_deg": -10.214486497,
+          "az_deg": 352.510133205,
+          "alt_deg": -57.658190381,
+          "observer_range_km": 49525338.566960655,
+          "range_rate_km_s": 8.7135055,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 216.489345092,
+          "dec_deg": -11.479353854,
+          "az_deg": 18.067403149,
+          "alt_deg": -57.992478243,
+          "observer_range_km": 78748862.21599914,
+          "range_rate_km_s": 12.6757187,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "boston-mars",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-mars.txt",
+      "bytes": 9841,
+      "sha256": "f87bda92e113a0beaae6766ad8c39e7269f400533ac97718f54bbecd36a9df76",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:20:15.221232+00:00",
+      "capture_finished_utc": "2026-11-04T18:20:15.221232+00:00",
+      "capture_phase": "original",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 295.59090478,
+          "dec_deg": -22.341600273,
+          "az_deg": 289.609076178,
+          "alt_deg": -52.173949948,
+          "observer_range_km": 358734628.7490169,
+          "range_rate_km_s": -1.5641175,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 320.575810876,
+          "dec_deg": -16.528284018,
+          "az_deg": 302.317165598,
+          "alt_deg": -51.743354885,
+          "observer_range_km": 353150943.6755603,
+          "range_rate_km_s": -2.1463343,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 341.802873478,
+          "dec_deg": -8.883602727,
+          "az_deg": 317.258528002,
+          "alt_deg": -49.131052557,
+          "observer_range_km": 347192182.6896832,
+          "range_rate_km_s": -2.4159911,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 4.154586259,
+          "dec_deg": 0.727920443,
+          "az_deg": 333.913276688,
+          "alt_deg": -43.796115639,
+          "observer_range_km": 339974297.0388329,
+          "range_rate_km_s": -2.7298581,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 25.436224504,
+          "dec_deg": 9.712341518,
+          "az_deg": 347.335479986,
+          "alt_deg": -37.09301684,
+          "observer_range_km": 332008808.0505017,
+          "range_rate_km_s": -3.3122537,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 47.804300965,
+          "dec_deg": 17.306333343,
+          "az_deg": 357.752445726,
+          "alt_deg": -30.30421164,
+          "observer_range_km": 321709978.6886716,
+          "range_rate_km_s": -4.4090741,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 69.955596899,
+          "dec_deg": 22.029532428,
+          "az_deg": 5.528563375,
+          "alt_deg": -25.418451126,
+          "observer_range_km": 308357458.5567714,
+          "range_rate_km_s": -6.0190773,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 92.696577045,
+          "dec_deg": 23.701438138,
+          "az_deg": 13.112129009,
+          "alt_deg": -22.822597317,
+          "observer_range_km": 289578808.04691136,
+          "range_rate_km_s": -8.2010936,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 114.090317834,
+          "dec_deg": 22.353419017,
+          "az_deg": 22.31410171,
+          "alt_deg": -22.071034808,
+          "observer_range_km": 264573509.163233,
+          "range_rate_km_s": -10.7150151,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 132.487550644,
+          "dec_deg": 19.042971749,
+          "az_deg": 34.074823123,
+          "alt_deg": -21.247236958,
+          "observer_range_km": 234036726.05961943,
+          "range_rate_km_s": -13.1248497,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 148.298919839,
+          "dec_deg": 14.864737928,
+          "az_deg": 49.186773756,
+          "alt_deg": -17.605869657,
+          "observer_range_km": 196732542.89789444,
+          "range_rate_km_s": -15.001579,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 159.291366282,
+          "dec_deg": 11.644589596,
+          "az_deg": 65.599049619,
+          "alt_deg": -8.538604925,
+          "observer_range_km": 157778905.93445313,
+          "range_rate_km_s": -15.2447276,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "boston-jupiter",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-jupiter.txt",
+      "bytes": 9864,
+      "sha256": "b03347a71e238517e43db70d51160f10ef4b6816e5aa9f2464d2912ab37a2caf",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:20:11.786924+00:00",
+      "capture_finished_utc": "2026-11-04T18:20:15.935895+00:00",
+      "capture_phase": "original",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 111.116400722,
+          "dec_deg": 22.293760385,
+          "az_deg": 114.36970985,
+          "alt_deg": 55.20769743,
+          "observer_range_km": 633835104.9114712,
+          "range_rate_km_s": 2.9937073,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 107.422093836,
+          "dec_deg": 22.801634622,
+          "az_deg": 180.199463298,
+          "alt_deg": 70.441541456,
+          "observer_range_km": 663691946.4049368,
+          "range_rate_km_s": 18.3117631,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 106.445028057,
+          "dec_deg": 22.937765968,
+          "az_deg": 239.838524271,
+          "alt_deg": 59.293154322,
+          "observer_range_km": 718813673.0632019,
+          "range_rate_km_s": 26.3322394,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 108.452657678,
+          "dec_deg": 22.737911281,
+          "az_deg": 266.230639015,
+          "alt_deg": 39.024844158,
+          "observer_range_km": 792411986.5679611,
+          "range_rate_km_s": 27.891607,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 112.839606959,
+          "dec_deg": 22.182919494,
+          "az_deg": 282.068206157,
+          "alt_deg": 20.191896266,
+          "observer_range_km": 859468596.4169425,
+          "range_rate_km_s": 23.7078882,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 118.958638704,
+          "dec_deg": 21.204248767,
+          "az_deg": 296.705789779,
+          "alt_deg": 2.546936715,
+          "observer_range_km": 911877950.4515357,
+          "range_rate_km_s": 15.5883263,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 125.634281937,
+          "dec_deg": 19.87699337,
+          "az_deg": 312.201669779,
+          "alt_deg": -12.407553657,
+          "observer_range_km": 939001624.305053,
+          "range_rate_km_s": 5.6851074,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 132.653992972,
+          "dec_deg": 18.201923589,
+          "az_deg": 331.9409191,
+          "alt_deg": -24.602507028,
+          "observer_range_km": 939021030.7167709,
+          "range_rate_km_s": -5.2931739,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 139.211811554,
+          "dec_deg": 16.398017239,
+          "az_deg": 356.904661819,
+          "alt_deg": -31.186893567,
+          "observer_range_km": 910449230.7202355,
+          "range_rate_km_s": -15.6655805,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 144.542085854,
+          "dec_deg": 14.78885494,
+          "az_deg": 24.008535948,
+          "alt_deg": -29.527554418,
+          "observer_range_km": 859129279.146487,
+          "range_rate_km_s": -23.5613921,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 148.30347753,
+          "dec_deg": 13.618561724,
+          "az_deg": 49.943822414,
+          "alt_deg": -18.623354173,
+          "observer_range_km": 790127396.2858455,
+          "range_rate_km_s": -27.4311217,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 149.532004645,
+          "dec_deg": 13.313573315,
+          "az_deg": 71.217204396,
+          "alt_deg": -0.648401705,
+          "observer_range_km": 721644231.7033994,
+          "range_rate_km_s": -24.7813651,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "boston-saturn",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-saturn.txt",
+      "bytes": 9842,
+      "sha256": "c47eda3a8a9c1917d4550791e87542aa2ef4d4673b7e14fb7be7650d68b400ac",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:23.946986+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:24.377711+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 358.252819475,
+          "dec_deg": -3.172111907,
+          "az_deg": 259.986747038,
+          "alt_deg": 6.16865134,
+          "observer_range_km": 1485906235.858955,
+          "range_rate_km_s": 25.7395724,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 0.964150745,
+          "dec_deg": -1.922495241,
+          "az_deg": 279.876252884,
+          "alt_deg": -13.457702963,
+          "observer_range_km": 1542311742.6868167,
+          "range_rate_km_s": 16.2560429,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 4.000770686,
+          "dec_deg": -0.581344957,
+          "az_deg": 300.013386744,
+          "alt_deg": -29.503883319,
+          "observer_range_km": 1567237960.8548815,
+          "range_rate_km_s": 4.690469,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 7.532694254,
+          "dec_deg": 0.920345005,
+          "az_deg": 329.668989745,
+          "alt_deg": -42.435594823,
+          "observer_range_km": 1561147392.0152636,
+          "range_rate_km_s": -8.721004,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 10.666430645,
+          "dec_deg": 2.189778297,
+          "az_deg": 6.466476651,
+          "alt_deg": -45.260476928,
+          "observer_range_km": 1523310364.6413772,
+          "range_rate_km_s": -19.889713,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 13.148987745,
+          "dec_deg": 3.121584877,
+          "az_deg": 41.573143003,
+          "alt_deg": -35.784336381,
+          "observer_range_km": 1459209040.923448,
+          "range_rate_km_s": -27.3418622,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 14.419643075,
+          "dec_deg": 3.509387993,
+          "az_deg": 66.900070714,
+          "alt_deg": -18.493583452,
+          "observer_range_km": 1385748719.4961705,
+          "range_rate_km_s": -28.7815366,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 14.292834367,
+          "dec_deg": 3.303890352,
+          "az_deg": 88.63641794,
+          "alt_deg": 3.410143036,
+          "observer_range_km": 1315546280.6032581,
+          "range_rate_km_s": -23.0487068,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 12.802524687,
+          "dec_deg": 2.568680076,
+          "az_deg": 112.228679532,
+          "alt_deg": 26.054772126,
+          "observer_range_km": 1270342217.6583085,
+          "range_rate_km_s": -10.3667458,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 10.694094637,
+          "dec_deg": 1.653503528,
+          "az_deg": 144.762576249,
+          "alt_deg": 43.679779823,
+          "observer_range_km": 1264288224.2427158,
+          "range_rate_km_s": 5.4540202,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 8.871259667,
+          "dec_deg": 0.947928353,
+          "az_deg": 191.559475361,
+          "alt_deg": 48.01344254,
+          "observer_range_km": 1299591701.9041822,
+          "range_rate_km_s": 20.062589,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 8.295342479,
+          "dec_deg": 0.828792866,
+          "az_deg": 229.647163905,
+          "alt_deg": 36.381119022,
+          "observer_range_km": 1363114905.654117,
+          "range_rate_km_s": 27.9721001,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "boston-uranus",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-uranus.txt",
+      "bytes": 9848,
+      "sha256": "5a6e829ea9b2ea335cd626eaf40321ca0ad210d4fae3c7181892f9a1398449e8",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:24.679849+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:25.118098+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 55.409136988,
+          "dec_deg": 19.442457864,
+          "az_deg": 225.081980456,
+          "alt_deg": 60.744347808,
+          "observer_range_km": 2833183722.2038593,
+          "range_rate_km_s": 24.956208,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 55.283308507,
+          "dec_deg": 19.42497026,
+          "az_deg": 259.092838052,
+          "alt_deg": 40.623691166,
+          "observer_range_km": 2907875707.840493,
+          "range_rate_km_s": 29.7599266,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 55.902994482,
+          "dec_deg": 19.568409468,
+          "az_deg": 277.899171665,
+          "alt_deg": 20.870799736,
+          "observer_range_km": 2976817139.9575014,
+          "range_rate_km_s": 26.7517995,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 57.258832458,
+          "dec_deg": 19.86305029,
+          "az_deg": 296.807455972,
+          "alt_deg": 0.555958628,
+          "observer_range_km": 3035676827.9092207,
+          "range_rate_km_s": 16.9418906,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 58.978358272,
+          "dec_deg": 20.215888655,
+          "az_deg": 317.647443069,
+          "alt_deg": -15.542901845,
+          "observer_range_km": 3062211645.720467,
+          "range_rate_km_s": 3.7369699,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 60.845969909,
+          "dec_deg": 20.575976849,
+          "az_deg": 344.344643409,
+          "alt_deg": -25.542586203,
+          "observer_range_km": 3052476959.497735,
+          "range_rate_km_s": -10.5352755,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 62.421463834,
+          "dec_deg": 20.861769601,
+          "az_deg": 13.403153934,
+          "alt_deg": -25.661693362,
+          "observer_range_km": 3009466441.837456,
+          "range_rate_km_s": -22.0540031,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 63.506569567,
+          "dec_deg": 21.049207696,
+          "az_deg": 40.764885639,
+          "alt_deg": -15.505253537,
+          "observer_range_km": 2940226268.0894127,
+          "range_rate_km_s": -28.9091119,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 63.814626991,
+          "dec_deg": 21.101389806,
+          "az_deg": 63.004174941,
+          "alt_deg": 2.111900668,
+          "observer_range_km": 2862257418.107436,
+          "range_rate_km_s": -28.5368362,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 63.315947624,
+          "dec_deg": 21.018819426,
+          "az_deg": 82.078375509,
+          "alt_deg": 23.164320149,
+          "observer_range_km": 2797878699.5645833,
+          "range_rate_km_s": -20.5714856,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 62.16911076,
+          "dec_deg": 20.823264934,
+          "az_deg": 104.927105402,
+          "alt_deg": 46.287019856,
+          "observer_range_km": 2761920631.4068704,
+          "range_rate_km_s": -6.037286,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 60.871565306,
+          "dec_deg": 20.593962873,
+          "az_deg": 145.797214965,
+          "alt_deg": 64.956285138,
+          "observer_range_km": 2767707849.4187546,
+          "range_rate_km_s": 10.1172776,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "boston-neptune",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272461055.592905092519%27%20%272461086.592905092519%27%20%272461114.592905092519%27%20%272461145.592905092519%27%20%272461175.592905092519%27%20%272461206.592905092519%27%20%272461236.592905092519%27%20%272461267.592905092519%27%20%272461298.592905092519%27%20%272461328.592905092519%27%20%272461359.592905092519%27%20%272461389.592905092519%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/boston-neptune.txt",
+      "bytes": 9864,
+      "sha256": "a56cb331c33f807fc4cd9a801c8ae0d72d451a56a24a16fe0ab1f48407e1675b",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:25.420876+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:25.843623+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.592905093,
+          "ra_deg": 0.283879754,
+          "dec_deg": -1.319929012,
+          "az_deg": 259.94430535,
+          "alt_deg": 8.915890054,
+          "observer_range_km": 4531294687.080868,
+          "range_rate_km_s": 27.5686594,
+          "dut1_seconds": 0.07192
+        },
+        {
+          "jd_utc": 2461086.592905093,
+          "ra_deg": 1.039977324,
+          "dec_deg": -0.976945187,
+          "az_deg": 280.529120396,
+          "alt_deg": -12.753788282,
+          "observer_range_km": 4591987224.908324,
+          "range_rate_km_s": 17.4054516,
+          "dut1_seconds": 0.06947
+        },
+        {
+          "jd_utc": 2461114.592905093,
+          "ra_deg": 1.954747961,
+          "dec_deg": -0.575878406,
+          "az_deg": 301.847447098,
+          "alt_deg": -30.796514705,
+          "observer_range_km": 4617983257.365229,
+          "range_rate_km_s": 4.3413638,
+          "dut1_seconds": 0.06192
+        },
+        {
+          "jd_utc": 2461145.592905093,
+          "ra_deg": 3.018608625,
+          "dec_deg": -0.121771461,
+          "az_deg": 335.041452005,
+          "alt_deg": -44.963287859,
+          "observer_range_km": 4608648659.9700165,
+          "range_rate_km_s": -10.7348639,
+          "dut1_seconds": 0.04373
+        },
+        {
+          "jd_utc": 2461175.592905093,
+          "ra_deg": 3.896148412,
+          "dec_deg": 0.240390468,
+          "az_deg": 16.474193647,
+          "alt_deg": -46.196398547,
+          "observer_range_km": 4564601575.96542,
+          "range_rate_km_s": -22.5013964,
+          "dut1_seconds": 0.02684
+        },
+        {
+          "jd_utc": 2461206.592905093,
+          "ra_deg": 4.466410293,
+          "dec_deg": 0.460394857,
+          "az_deg": 52.195633108,
+          "alt_deg": -33.342968859,
+          "observer_range_km": 4494627776.36661,
+          "range_rate_km_s": -28.9157809,
+          "dut1_seconds": 0.01169
+        },
+        {
+          "jd_utc": 2461236.592905093,
+          "ra_deg": 4.587661468,
+          "dec_deg": 0.483991554,
+          "az_deg": 76.403902096,
+          "alt_deg": -13.760620089,
+          "observer_range_km": 4420043252.253083,
+          "range_rate_km_s": -27.9961457,
+          "dut1_seconds": 0.01151
+        },
+        {
+          "jd_utc": 2461267.592905093,
+          "ra_deg": 4.260294971,
+          "dec_deg": 0.316196656,
+          "az_deg": 97.665663614,
+          "alt_deg": 8.787003792,
+          "observer_range_km": 4355669417.238682,
+          "range_rate_km_s": -19.590644,
+          "dut1_seconds": 0.00912
+        },
+        {
+          "jd_utc": 2461298.592905093,
+          "ra_deg": 3.592069424,
+          "dec_deg": 0.011129436,
+          "az_deg": 122.007175754,
+          "alt_deg": 30.182278079,
+          "observer_range_km": 4322006707.658312,
+          "range_rate_km_s": -5.4525624,
+          "dut1_seconds": -0.00745
+        },
+        {
+          "jd_utc": 2461328.592905093,
+          "ra_deg": 2.842390399,
+          "dec_deg": -0.315058808,
+          "az_deg": 155.968422196,
+          "alt_deg": 44.715934137,
+          "observer_range_km": 4328575029.92102,
+          "range_rate_km_s": 10.1282388,
+          "dut1_seconds": -0.03702
+        },
+        {
+          "jd_utc": 2461359.592905093,
+          "ra_deg": 2.237739084,
+          "dec_deg": -0.564710336,
+          "az_deg": 200.564745831,
+          "alt_deg": 45.172579977,
+          "observer_range_km": 4374752021.179749,
+          "range_rate_km_s": 23.5118074,
+          "dut1_seconds": -0.06838
+        },
+        {
+          "jd_utc": 2461389.592905093,
+          "ra_deg": 2.033465148,
+          "dec_deg": -0.632686043,
+          "az_deg": 234.750299075,
+          "alt_deg": 31.537788061,
+          "observer_range_km": 4445284536.568328,
+          "range_rate_km_s": 29.9651535,
+          "dut1_seconds": -0.09816
+        }
+      ]
+    },
+    {
+      "id": "sydney-sun",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-sun.txt",
+      "bytes": 9840,
+      "sha256": "5d2f239c452e499bd57c9c51abea3d5709d3fce55b330a98b1fe818e8a88d65d",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:26.149388+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:26.611714+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 297.144686751,
+          "dec_deg": -21.094019548,
+          "az_deg": 248.792454724,
+          "alt_deg": 6.321656689,
+          "observer_range_km": 147158533.4443945,
+          "range_rate_km_s": 0.4656733,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 328.884491812,
+          "dec_deg": -12.625719799,
+          "az_deg": 256.464690316,
+          "alt_deg": 2.513432274,
+          "observer_range_km": 147767934.23400044,
+          "range_rate_km_s": 0.7198173,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 355.191716042,
+          "dec_deg": -2.079047398,
+          "az_deg": 264.463308268,
+          "alt_deg": -4.485632064,
+          "observer_range_km": 148769857.40315756,
+          "range_rate_km_s": 0.8612068,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 23.527717227,
+          "dec_deg": 9.820652291,
+          "az_deg": 273.259448104,
+          "alt_deg": -12.913724665,
+          "observer_range_km": 150083349.81045532,
+          "range_rate_km_s": 0.8658804,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 52.170602331,
+          "dec_deg": 18.903948384,
+          "az_deg": 280.804663549,
+          "alt_deg": -18.444884006,
+          "observer_range_km": 151221219.25136235,
+          "range_rate_km_s": 0.7365327,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 83.760777394,
+          "dec_deg": 23.315310663,
+          "az_deg": 285.361913408,
+          "alt_deg": -19.806676773,
+          "observer_range_km": 151954654.34368053,
+          "range_rate_km_s": 0.5112463,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 114.711850829,
+          "dec_deg": 21.496623989,
+          "az_deg": 284.363509164,
+          "alt_deg": -17.795515343,
+          "observer_range_km": 152060230.72009414,
+          "range_rate_km_s": 0.271118,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 144.901548885,
+          "dec_deg": 13.997473638,
+          "az_deg": 277.494836165,
+          "alt_deg": -14.219366684,
+          "observer_range_km": 151518337.63333747,
+          "range_rate_km_s": 0.0512821,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 173.139997897,
+          "dec_deg": 2.964593664,
+          "az_deg": 266.747989929,
+          "alt_deg": -10.136681938,
+          "observer_range_km": 150453444.5379679,
+          "range_rate_km_s": -0.0928679,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 200.345446222,
+          "dec_deg": -8.571119209,
+          "az_deg": 255.819918559,
+          "alt_deg": -5.501070859,
+          "observer_range_km": 149188683.20427448,
+          "range_rate_km_s": -0.1274103,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 230.588874306,
+          "dec_deg": -18.517094702,
+          "az_deg": 247.563292048,
+          "alt_deg": 0.071116094,
+          "observer_range_km": 147986946.2997379,
+          "range_rate_km_s": -0.0371102,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 262.779540045,
+          "dec_deg": -23.270297802,
+          "az_deg": 245.110764555,
+          "alt_deg": 4.823313419,
+          "observer_range_km": 147249967.6522372,
+          "range_rate_km_s": 0.1669928,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "sydney-moon",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-moon.txt",
+      "bytes": 9842,
+      "sha256": "b34e1b202e1519b6501113da54e07050f69588e4229d80b23301fd4ad1d6b40d",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:26.913734+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:27.329136+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 254.026365145,
+          "dec_deg": -27.097172119,
+          "az_deg": 217.176111898,
+          "alt_deg": -18.114790435,
+          "observer_range_km": 406209.1267483603,
+          "range_rate_km_s": 0.1955345,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 303.453871438,
+          "dec_deg": -22.421527358,
+          "az_deg": 233.731884733,
+          "alt_deg": -10.497686139,
+          "observer_range_km": 394315.0978807974,
+          "range_rate_km_s": 0.2520032,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 311.709215604,
+          "dec_deg": -19.834163591,
+          "az_deg": 221.257780845,
+          "alt_deg": -24.318042539,
+          "observer_range_km": 393448.9857927803,
+          "range_rate_km_s": 0.1715692,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 355.729925646,
+          "dec_deg": 0.763624659,
+          "az_deg": 248.024113813,
+          "alt_deg": -30.337490749,
+          "observer_range_km": 376363.1193988,
+          "range_rate_km_s": 0.2421048,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 29.217870614,
+          "dec_deg": 17.155069642,
+          "az_deg": 266.830142949,
+          "alt_deg": -36.544024528,
+          "observer_range_km": 366342.0178565902,
+          "range_rate_km_s": 0.2554861,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 86.372059189,
+          "dec_deg": 28.427902968,
+          "az_deg": 291.333862822,
+          "alt_deg": -20.217415133,
+          "observer_range_km": 359487.34389066085,
+          "range_rate_km_s": 0.3303628,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 128.187943173,
+          "dec_deg": 21.342738794,
+          "az_deg": 291.012451774,
+          "alt_deg": -7.058035877,
+          "observer_range_km": 363472.7113969429,
+          "range_rate_km_s": 0.3804227,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 175.316037476,
+          "dec_deg": -0.371836877,
+          "az_deg": 282.685565652,
+          "alt_deg": 18.750666733,
+          "observer_range_km": 376851.36720233713,
+          "range_rate_km_s": 0.4044672,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 218.807964325,
+          "dec_deg": -20.371389361,
+          "az_deg": 271.046075708,
+          "alt_deg": 40.194947211,
+          "observer_range_km": 391568.41028376756,
+          "range_rate_km_s": 0.3309966,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 253.457153301,
+          "dec_deg": -27.301643513,
+          "az_deg": 265.00340394,
+          "alt_deg": 47.310098656,
+          "observer_range_km": 398446.4490375504,
+          "range_rate_km_s": 0.2724061,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 301.794405037,
+          "dec_deg": -22.149873718,
+          "az_deg": 284.534302939,
+          "alt_deg": 59.822021023,
+          "observer_range_km": 398685.5367434576,
+          "range_rate_km_s": 0.1615551,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 333.277134655,
+          "dec_deg": -9.567099809,
+          "az_deg": 304.688395819,
+          "alt_deg": 53.442050945,
+          "observer_range_km": 393840.6972735504,
+          "range_rate_km_s": 0.1417217,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "sydney-mercury",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-mercury.txt",
+      "bytes": 9840,
+      "sha256": "a340cc485dfc195ec1f125308d7675746bcb21186209612f2697952cd8cf216a",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:27.631594+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:28.042996+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 293.226634283,
+          "dec_deg": -23.547411369,
+          "az_deg": 244.699981523,
+          "alt_deg": 4.721610977,
+          "observer_range_km": 213978428.40424845,
+          "range_rate_km_s": -0.0293557,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 345.003243272,
+          "dec_deg": -6.261769968,
+          "az_deg": 270.663475762,
+          "alt_deg": 12.272839472,
+          "observer_range_km": 158483340.76159054,
+          "range_rate_km_s": -45.5206121,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 340.674902044,
+          "dec_deg": -5.64661613,
+          "az_deg": 252.999184738,
+          "alt_deg": -14.223504933,
+          "observer_range_km": 95273564.88599658,
+          "range_rate_km_s": 12.7227292,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 1.310552192,
+          "dec_deg": -2.261737862,
+          "az_deg": 249.367563779,
+          "alt_deg": -24.103795203,
+          "observer_range_km": 156999225.10479987,
+          "range_rate_km_s": 24.7569857,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 53.043172304,
+          "dec_deg": 19.399225875,
+          "az_deg": 281.693936135,
+          "alt_deg": -17.985324823,
+          "observer_range_km": 197578809.06963977,
+          "range_rate_km_s": -5.2597286,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 110.47682298,
+          "dec_deg": 23.20224791,
+          "az_deg": 298.927030805,
+          "alt_deg": 0.781257628,
+          "observer_range_km": 124221664.98093599,
+          "range_rate_km_s": -29.7900972,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 110.123496305,
+          "dec_deg": 17.176117628,
+          "az_deg": 278.122406384,
+          "alt_deg": -19.346017908,
+          "observer_range_km": 87388305.16334483,
+          "range_rate_km_s": 11.0834909,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 132.660214216,
+          "dec_deg": 18.758736716,
+          "az_deg": 275.477390556,
+          "alt_deg": -26.745815532,
+          "observer_range_km": 179707299.92697793,
+          "range_rate_km_s": 36.4295909,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 187.152459736,
+          "dec_deg": -2.872352505,
+          "az_deg": 269.722503621,
+          "alt_deg": 4.7452115,
+          "observer_range_km": 199216361.14634684,
+          "range_rate_km_s": -11.4724061,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 223.373394191,
+          "dec_deg": -19.799421379,
+          "az_deg": 258.620879079,
+          "alt_deg": 19.289881431,
+          "observer_range_km": 142237708.1755382,
+          "range_rate_km_s": -31.0131571,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 213.760775215,
+          "dec_deg": -11.168204432,
+          "az_deg": 243.11499284,
+          "alt_deg": -17.216218621,
+          "observer_range_km": 127828079.69641496,
+          "range_rate_km_s": 44.6416315,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 252.382393568,
+          "dec_deg": -22.610971391,
+          "az_deg": 239.889498209,
+          "alt_deg": -3.230302933,
+          "observer_range_km": 208756996.8105833,
+          "range_rate_km_s": 13.3107411,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "sydney-venus",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-venus.txt",
+      "bytes": 9840,
+      "sha256": "ef0060771aa7d1471bb61b096ffc095e56282c70119f025a4cc1603d947881f3",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:28.345652+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:28.790022+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 299.529257768,
+          "dec_deg": -21.675101528,
+          "az_deg": 249.541548609,
+          "alt_deg": 8.493279309,
+          "observer_range_km": 255808525.95806876,
+          "range_rate_km_s": -0.124792,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 338.487023176,
+          "dec_deg": -10.61012564,
+          "az_deg": 263.373392109,
+          "alt_deg": 9.24696503,
+          "observer_range_km": 251643467.759949,
+          "range_rate_km_s": -2.2644896,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 10.578202338,
+          "dec_deg": 3.425355209,
+          "az_deg": 277.648231392,
+          "alt_deg": 5.178948786,
+          "observer_range_km": 242664852.17109683,
+          "range_rate_km_s": -4.4271255,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 46.744767075,
+          "dec_deg": 17.71943136,
+          "az_deg": 292.514608054,
+          "alt_deg": 1.387005331,
+          "observer_range_km": 226224992.0375981,
+          "range_rate_km_s": -7.1287925,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 85.131167468,
+          "dec_deg": 24.839199602,
+          "az_deg": 303.190369846,
+          "alt_deg": 3.459122607,
+          "observer_range_km": 203386260.04786205,
+          "range_rate_km_s": -9.7607683,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 124.973822065,
+          "dec_deg": 21.646290983,
+          "az_deg": 306.574642398,
+          "alt_deg": 11.928747248,
+          "observer_range_km": 173239137.74257702,
+          "range_rate_km_s": -11.9858785,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 158.433920819,
+          "dec_deg": 10.30692045,
+          "az_deg": 300.738435616,
+          "alt_deg": 22.490345459,
+          "observer_range_km": 139494416.13464147,
+          "range_rate_km_s": -13.2677742,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 187.178184674,
+          "dec_deg": -4.639469739,
+          "az_deg": 286.67447626,
+          "alt_deg": 30.815199495,
+          "observer_range_km": 102524770.66237834,
+          "range_rate_km_s": -13.4968619,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 208.948862271,
+          "dec_deg": -17.458589743,
+          "az_deg": 268.700653896,
+          "alt_deg": 30.614181841,
+          "observer_range_km": 67008649.03955871,
+          "range_rate_km_s": -11.8993772,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 210.69957919,
+          "dec_deg": -20.445341747,
+          "az_deg": 251.659476399,
+          "alt_deg": 9.460114227,
+          "observer_range_km": 42841173.91881746,
+          "range_rate_km_s": -4.3558383,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 200.669193175,
+          "dec_deg": -10.155739607,
+          "az_deg": 234.277088903,
+          "alt_deg": -27.208549179,
+          "observer_range_km": 49720503.079786584,
+          "range_rate_km_s": 9.0403536,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 216.70111222,
+          "dec_deg": -11.527043427,
+          "az_deg": 221.180462846,
+          "alt_deg": -34.466050842,
+          "observer_range_km": 79035582.2061815,
+          "range_rate_km_s": 12.9536268,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "sydney-mars",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-mars.txt",
+      "bytes": 9841,
+      "sha256": "9b7a7ee78fe9f7fb6ca22ba43e50a775b2dc0f80861f433964ac1cee804824b5",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:29.094526+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:29.539906+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 295.807221208,
+          "dec_deg": -22.306871676,
+          "az_deg": 247.08170412,
+          "alt_deg": 5.972274801,
+          "observer_range_km": 358688934.3127947,
+          "range_rate_km_s": -1.4161737,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 320.780250783,
+          "dec_deg": -16.464181575,
+          "az_deg": 248.81439379,
+          "alt_deg": -1.698244473,
+          "observer_range_km": 353093403.2594487,
+          "range_rate_km_s": -1.9699079,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 341.995590976,
+          "dec_deg": -8.80401111,
+          "az_deg": 251.232328818,
+          "alt_deg": -11.271167611,
+          "observer_range_km": 347130403.8906809,
+          "range_rate_km_s": -2.2122597,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 4.340315012,
+          "dec_deg": 0.811207165,
+          "az_deg": 254.054344114,
+          "alt_deg": -23.606343988,
+          "observer_range_km": 339908089.90187967,
+          "range_rate_km_s": -2.5022687,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 25.622519912,
+          "dec_deg": 9.786887332,
+          "az_deg": 256.813861113,
+          "alt_deg": -35.555891215,
+          "observer_range_km": 331932195.56852597,
+          "range_rate_km_s": -3.0735303,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 47.995496626,
+          "dec_deg": 17.361345964,
+          "az_deg": 259.455133406,
+          "alt_deg": -46.353215775,
+          "observer_range_km": 321611095.3369477,
+          "range_rate_km_s": -4.1705339,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 70.149331798,
+          "dec_deg": 22.0589622,
+          "az_deg": 260.450517396,
+          "alt_deg": -54.741771986,
+          "observer_range_km": 308224064.6203502,
+          "range_rate_km_s": -5.7859155,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 92.88412393,
+          "dec_deg": 23.703244091,
+          "az_deg": 256.777965624,
+          "alt_deg": -61.877580944,
+          "observer_range_km": 289397578.22511214,
+          "range_rate_km_s": -7.972183,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 114.261250181,
+          "dec_deg": 22.33294735,
+          "az_deg": 243.279710313,
+          "alt_deg": -68.321962428,
+          "observer_range_km": 264336814.26056814,
+          "range_rate_km_s": -10.4880335,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 132.635115373,
+          "dec_deg": 19.010544396,
+          "az_deg": 212.624989928,
+          "alt_deg": -72.809850993,
+          "observer_range_km": 233747054.95544466,
+          "range_rate_km_s": -12.9027097,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 148.414917159,
+          "dec_deg": 14.832630697,
+          "az_deg": 165.224607841,
+          "alt_deg": -70.417900352,
+          "observer_range_km": 196402319.31891283,
+          "range_rate_km_s": -14.7963972,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 159.361243519,
+          "dec_deg": 11.628039002,
+          "az_deg": 130.186929951,
+          "alt_deg": -58.98440691,
+          "observer_range_km": 157445242.97445223,
+          "range_rate_km_s": -15.0767747,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "sydney-jupiter",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-jupiter.txt",
+      "bytes": 9864,
+      "sha256": "eaefc8a4e547c40d77c86306cba360afb0fe26765ea609e5b20249aaaea3428e",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:29.842535+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:30.267761+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 111.07919533,
+          "dec_deg": 22.299889791,
+          "az_deg": 64.568947586,
+          "alt_deg": -2.386922604,
+          "observer_range_km": 633914088.2411523,
+          "range_rate_km_s": 2.9672607,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 107.401002939,
+          "dec_deg": 22.804948223,
+          "az_deg": 42.023410569,
+          "alt_deg": 20.109478636,
+          "observer_range_km": 664111726.1528276,
+          "range_rate_km_s": 18.1728594,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 106.449127427,
+          "dec_deg": 22.938188508,
+          "az_deg": 15.639003491,
+          "alt_deg": 31.551970093,
+          "observer_range_km": 719409347.1883404,
+          "range_rate_km_s": 26.1359436,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 108.482140163,
+          "dec_deg": 22.735233809,
+          "az_deg": 344.690538171,
+          "alt_deg": 31.830492695,
+          "observer_range_km": 793038197.8611276,
+          "range_rate_km_s": 27.6951086,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 112.886017312,
+          "dec_deg": 22.176956518,
+          "az_deg": 320.59759847,
+          "alt_deg": 22.650784905,
+          "observer_range_km": 859997567.1718214,
+          "range_rate_km_s": 23.5621551,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 119.014848813,
+          "dec_deg": 21.194739812,
+          "az_deg": 302.41778937,
+          "alt_deg": 8.157006422,
+          "observer_range_km": 912222562.5005187,
+          "range_rate_km_s": 15.5246883,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 125.693931725,
+          "dec_deg": 19.864458517,
+          "az_deg": 288.470798874,
+          "alt_deg": -8.193202376,
+          "observer_range_km": 939123252.8331412,
+          "range_rate_km_s": 5.7078794,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 132.712065281,
+          "dec_deg": 18.187394788,
+          "az_deg": 274.947349863,
+          "alt_deg": -26.423056967,
+          "observer_range_km": 938896916.2981486,
+          "range_rate_km_s": -5.1879687,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 139.263392601,
+          "dec_deg": 16.383433166,
+          "az_deg": 258.681999916,
+          "alt_deg": -45.361704816,
+          "observer_range_km": 910094338.1733247,
+          "range_rate_km_s": -15.4943982,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 144.582137066,
+          "dec_deg": 14.776829124,
+          "az_deg": 230.978485795,
+          "alt_deg": -62.667156023,
+          "observer_range_km": 858600243.7922256,
+          "range_rate_km_s": -23.3542091,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 148.325212812,
+          "dec_deg": 13.612443206,
+          "az_deg": 165.737858502,
+          "alt_deg": -69.207497589,
+          "observer_range_km": 789515535.3081263,
+          "range_rate_km_s": -27.221282,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 149.530388893,
+          "dec_deg": 13.315795059,
+          "az_deg": 115.88942796,
+          "alt_deg": -53.313174626,
+          "observer_range_km": 721095950.8453773,
+          "range_rate_km_s": -24.6063997,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "sydney-saturn",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-saturn.txt",
+      "bytes": 9842,
+      "sha256": "44899e9fdf7e55b3274ae8cb262123e058cd4ec009e7ce79a57a4b29f0d344fa",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:30.570494+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:30.995460+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 358.271605468,
+          "dec_deg": -3.162919512,
+          "az_deg": 304.99880032,
+          "alt_deg": 44.830823931,
+          "observer_range_km": 1486477195.9546509,
+          "range_rate_km_s": 25.569564,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 0.990720672,
+          "dec_deg": -1.910275866,
+          "az_deg": 283.924208922,
+          "alt_deg": 22.951089676,
+          "observer_range_km": 1542667414.5451846,
+          "range_rate_km_s": 16.172934,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 4.030534376,
+          "dec_deg": -0.568136661,
+          "az_deg": 270.657654664,
+          "alt_deg": 1.998998075,
+          "observer_range_km": 1567333677.7833614,
+          "range_rate_km_s": 4.7034629,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 7.561874163,
+          "dec_deg": 0.932797012,
+          "az_deg": 256.237586104,
+          "alt_deg": -21.093463536,
+          "observer_range_km": 1560943699.7103994,
+          "range_rate_km_s": -8.6071993,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 10.691152321,
+          "dec_deg": 2.199822467,
+          "az_deg": 237.060952627,
+          "alt_deg": -42.078602015,
+          "observer_range_km": 1522859242.9529853,
+          "range_rate_km_s": -19.7043761,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 13.165300671,
+          "dec_deg": 3.1276514,
+          "az_deg": 199.896484424,
+          "alt_deg": -57.740625684,
+          "observer_range_km": 1458595114.2208698,
+          "range_rate_km_s": -27.1249105,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 14.424760437,
+          "dec_deg": 3.510572614,
+          "az_deg": 147.446407144,
+          "alt_deg": -55.393444007,
+          "observer_range_km": 1385106988.309948,
+          "range_rate_km_s": -28.5816423,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 14.285325122,
+          "dec_deg": 3.299935609,
+          "az_deg": 113.20779065,
+          "alt_deg": -35.527230704,
+          "observer_range_km": 1315036968.3574698,
+          "range_rate_km_s": -22.9132208,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 12.785622079,
+          "dec_deg": 2.561297836,
+          "az_deg": 93.138524873,
+          "alt_deg": -9.24721117,
+          "observer_range_km": 1270119169.267529,
+          "range_rate_km_s": -10.3320833,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 10.675739396,
+          "dec_deg": 1.646231683,
+          "az_deg": 75.755531678,
+          "alt_deg": 17.358324952,
+          "observer_range_km": 1264419088.8970752,
+          "range_rate_km_s": 5.3778335,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 8.860447795,
+          "dec_deg": 0.944520159,
+          "az_deg": 51.039266352,
+          "alt_deg": 41.893967657,
+          "observer_range_km": 1300046718.6271503,
+          "range_rate_km_s": 19.8914276,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 8.296932763,
+          "dec_deg": 0.83094953,
+          "az_deg": 9.148997657,
+          "alt_deg": 54.951440203,
+          "observer_range_km": 1363742687.434588,
+          "range_rate_km_s": 27.7588386,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "sydney-uranus",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-uranus.txt",
+      "bytes": 9848,
+      "sha256": "069102776278d1b1688eb80a743cac4bbdd5c55bf0bb3673a926762a81a9747c",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:31.297566+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:31.750776+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 55.404608615,
+          "dec_deg": 19.441665217,
+          "az_deg": 24.358836034,
+          "alt_deg": 32.868500397,
+          "observer_range_km": 2833749281.7365646,
+          "range_rate_km_s": 24.7789043,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 55.286052027,
+          "dec_deg": 19.42578656,
+          "az_deg": 349.352138617,
+          "alt_deg": 35.999966724,
+          "observer_range_km": 2908544439.763203,
+          "range_rate_km_s": 29.5637971,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 55.911897879,
+          "dec_deg": 19.570546777,
+          "az_deg": 321.685272539,
+          "alt_deg": 26.455406132,
+          "observer_range_km": 2977414667.7359624,
+          "range_rate_km_s": 26.5900043,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 57.272610582,
+          "dec_deg": 19.866118335,
+          "az_deg": 300.402451922,
+          "alt_deg": 7.879516165,
+          "observer_range_km": 3036051630.9091625,
+          "range_rate_km_s": 16.8610056,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 58.994250678,
+          "dec_deg": 20.21921508,
+          "az_deg": 285.41626839,
+          "alt_deg": -13.604080479,
+          "observer_range_km": 3062289624.790732,
+          "range_rate_km_s": 3.753646,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 60.861160777,
+          "dec_deg": 20.578982372,
+          "az_deg": 271.2054024,
+          "alt_deg": -37.284136665,
+          "observer_range_km": 3052236220.6292057,
+          "range_rate_km_s": -10.4254628,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 62.433272347,
+          "dec_deg": 20.864024464,
+          "az_deg": 251.797901975,
+          "alt_deg": -60.363676055,
+          "observer_range_km": 3008970338.035659,
+          "range_rate_km_s": -21.8824995,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 63.512558321,
+          "dec_deg": 21.050383109,
+          "az_deg": 182.957858409,
+          "alt_deg": -77.165298262,
+          "observer_range_km": 2939580502.7119794,
+          "range_rate_km_s": -28.7163024,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 63.81349411,
+          "dec_deg": 21.101351352,
+          "az_deg": 108.436318835,
+          "alt_deg": -60.987094955,
+          "observer_range_km": 2861624180.123089,
+          "range_rate_km_s": -28.3696624,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 63.308417987,
+          "dec_deg": 21.017689583,
+          "az_deg": 87.530728084,
+          "alt_deg": -36.285407365,
+          "observer_range_km": 2797427224.194452,
+          "range_rate_km_s": -20.4689033,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 62.157813923,
+          "dec_deg": 20.821425526,
+          "az_deg": 71.800079841,
+          "alt_deg": -10.37484426,
+          "observer_range_km": 2761796402.4084725,
+          "range_rate_km_s": -6.0297884,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 60.860988554,
+          "dec_deg": 20.592180319,
+          "az_deg": 54.262788181,
+          "alt_deg": 12.598930021,
+          "observer_range_km": 2767944769.081769,
+          "range_rate_km_s": 10.0263839,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "sydney-neptune",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272461055.855081018526%27%20%272461086.855081018526%27%20%272461114.855081018526%27%20%272461145.855081018526%27%20%272461175.855081018526%27%20%272461206.855081018526%27%20%272461236.855081018526%27%20%272461267.855081018526%27%20%272461298.855081018526%27%20%272461328.855081018526%27%20%272461359.855081018526%27%20%272461389.855081018526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/sydney-neptune.txt",
+      "bytes": 9864,
+      "sha256": "2e57dca0c8f643aeca48d7ed47584585c4a5f37cbc794cd73c7d11fd9144fef9",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:32.054319+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:32.474150+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461055.855081019,
+          "ra_deg": 0.288698921,
+          "dec_deg": -1.317607822,
+          "az_deg": 308.850539038,
+          "alt_deg": 44.790160414,
+          "observer_range_km": 4531907432.683608,
+          "range_rate_km_s": 27.3900575,
+          "dut1_seconds": 0.07205
+        },
+        {
+          "jd_utc": 2461086.855081019,
+          "ra_deg": 1.047843016,
+          "dec_deg": -0.973372708,
+          "az_deg": 284.778120976,
+          "alt_deg": 22.440753053,
+          "observer_range_km": 4592368926.341999,
+          "range_rate_km_s": 17.3108866,
+          "dut1_seconds": 0.06956
+        },
+        {
+          "jd_utc": 2461114.855081019,
+          "ra_deg": 1.963841453,
+          "dec_deg": -0.571855069,
+          "az_deg": 269.502642805,
+          "alt_deg": 0.28511714,
+          "observer_range_km": 4618071145.450305,
+          "range_rate_km_s": 4.347652,
+          "dut1_seconds": 0.06179
+        },
+        {
+          "jd_utc": 2461145.855081019,
+          "ra_deg": 3.027194329,
+          "dec_deg": -0.118060374,
+          "az_deg": 252.375675188,
+          "alt_deg": -24.086369578,
+          "observer_range_km": 4608399911.709071,
+          "range_rate_km_s": -10.6201035,
+          "dut1_seconds": 0.04341
+        },
+        {
+          "jd_utc": 2461175.855081019,
+          "ra_deg": 3.902571823,
+          "dec_deg": 0.243091437,
+          "az_deg": 228.233148461,
+          "alt_deg": -45.090621091,
+          "observer_range_km": 4564092394.819203,
+          "range_rate_km_s": -22.3115419,
+          "dut1_seconds": 0.02662
+        },
+        {
+          "jd_utc": 2461206.855081019,
+          "ra_deg": 4.469339875,
+          "dec_deg": 0.461542167,
+          "az_deg": 183.240453637,
+          "alt_deg": -56.549613205,
+          "observer_range_km": 4493979479.654886,
+          "range_rate_km_s": -28.699269,
+          "dut1_seconds": 0.01175
+        },
+        {
+          "jd_utc": 2461236.855081019,
+          "ra_deg": 4.586681325,
+          "dec_deg": 0.483452371,
+          "az_deg": 136.340442135,
+          "alt_deg": -47.735226158,
+          "observer_range_km": 4419420116.638555,
+          "range_rate_km_s": -27.8093731,
+          "dut1_seconds": 0.01146
+        },
+        {
+          "jd_utc": 2461267.855081019,
+          "ra_deg": 4.255747557,
+          "dec_deg": 0.314168772,
+          "az_deg": 108.545264732,
+          "alt_deg": -25.863347648,
+          "observer_range_km": 4355238181.109243,
+          "range_rate_km_s": -19.4831597,
+          "dut1_seconds": 0.00888
+        },
+        {
+          "jd_utc": 2461298.855081019,
+          "ra_deg": 3.585553089,
+          "dec_deg": 0.008345082,
+          "az_deg": 90.116770057,
+          "alt_deg": -0.188941998,
+          "observer_range_km": 4321893656.864572,
+          "range_rate_km_s": -5.4532298,
+          "dut1_seconds": -0.00766
+        },
+        {
+          "jd_utc": 2461328.855081019,
+          "ra_deg": 2.836192221,
+          "dec_deg": -0.317598374,
+          "az_deg": 72.375129053,
+          "alt_deg": 24.799590133,
+          "observer_range_km": 4328809998.1910515,
+          "range_rate_km_s": 10.0232346,
+          "dut1_seconds": -0.03716
+        },
+        {
+          "jd_utc": 2461359.855081019,
+          "ra_deg": 2.234143677,
+          "dec_deg": -0.566034321,
+          "az_deg": 45.030457438,
+          "alt_deg": 47.175990391,
+          "observer_range_km": 4375283509.412067,
+          "range_rate_km_s": 23.3272796,
+          "dut1_seconds": -0.06858
+        },
+        {
+          "jd_utc": 2461389.855081019,
+          "ra_deg": 2.03377641,
+          "dec_deg": -0.632282979,
+          "az_deg": 358.13306482,
+          "alt_deg": 56.748435794,
+          "observer_range_km": 4445956104.989995,
+          "range_rate_km_s": 29.7519733,
+          "dut1_seconds": -0.09844
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-sun",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-sun.txt",
+      "bytes": 9840,
+      "sha256": "957a47346d4cf88fce3bae4e8d7fa0c30ffd9835876c1202b64aaf45a82ac193",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:32.781323+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:33.204164+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 297.424467415,
+          "dec_deg": -21.049730617,
+          "az_deg": 195.643184652,
+          "alt_deg": 3.826899759,
+          "observer_range_km": 147161231.7494566,
+          "range_rate_km_s": 0.1645214,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 329.138251559,
+          "dec_deg": -12.540286957,
+          "az_deg": 195.588490426,
+          "alt_deg": 12.407971801,
+          "observer_range_km": 147774556.68374944,
+          "range_rate_km_s": 0.3990155,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 355.430488534,
+          "dec_deg": -1.980360735,
+          "az_deg": 198.360786247,
+          "alt_deg": 22.714448392,
+          "observer_range_km": 148777586.11205685,
+          "range_rate_km_s": 0.5370679,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 23.7690806,
+          "dec_deg": 9.909772118,
+          "az_deg": 202.937869568,
+          "alt_deg": 34.12247367,
+          "observer_range_km": 150089301.79321092,
+          "range_rate_km_s": 0.5544419,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 52.428470115,
+          "dec_deg": 18.961797494,
+          "az_deg": 206.218618573,
+          "alt_deg": 42.849247527,
+          "observer_range_km": 151223281.45685953,
+          "range_rate_km_s": 0.4405474,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 84.031751712,
+          "dec_deg": 23.323055942,
+          "az_deg": 206.140016544,
+          "alt_deg": 47.318247993,
+          "observer_range_km": 151951395.70540395,
+          "range_rate_km_s": 0.2193051,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 114.975412551,
+          "dec_deg": 21.452531817,
+          "az_deg": 203.789002499,
+          "alt_deg": 45.738121509,
+          "observer_range_km": 152051804.52959955,
+          "range_rate_km_s": -0.0299121,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 145.145647447,
+          "dec_deg": 13.913283136,
+          "az_deg": 202.445835891,
+          "alt_deg": 38.255945539,
+          "observer_range_km": 151505664.4932825,
+          "range_rate_km_s": -0.260129,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 173.373739541,
+          "dec_deg": 2.861480823,
+          "az_deg": 202.900881417,
+          "alt_deg": 26.974222609,
+          "observer_range_km": 150438864.47486642,
+          "range_rate_km_s": -0.4019057,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 200.58791387,
+          "dec_deg": -8.67044922,
+          "az_deg": 203.260092718,
+          "alt_deg": 15.21045036,
+          "observer_range_km": 149175219.32906964,
+          "range_rate_km_s": -0.4214641,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 230.856759101,
+          "dec_deg": -18.586580043,
+          "az_deg": 201.800782557,
+          "alt_deg": 5.394602999,
+          "observer_range_km": 147977553.4071476,
+          "range_rate_km_s": -0.3166726,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 263.067713736,
+          "dec_deg": -23.287022259,
+          "az_deg": 198.603172742,
+          "alt_deg": 1.153367043,
+          "observer_range_km": 147246317.85904524,
+          "range_rate_km_s": -0.1146474,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-moon",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-moon.txt",
+      "bytes": 9842,
+      "sha256": "0303331547a37160cd6982a118f0b9b33fa3fdfdcc67b298427607877f58da6c",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:33.506402+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:33.923511+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 257.682506443,
+          "dec_deg": -28.873451342,
+          "az_deg": 228.518024495,
+          "alt_deg": -12.919399152,
+          "observer_range_km": 405211.6060521625,
+          "range_rate_km_s": 0.1243698,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 307.284449822,
+          "dec_deg": -22.944955678,
+          "az_deg": 214.072909425,
+          "alt_deg": -1.821823345,
+          "observer_range_km": 392280.9743782847,
+          "range_rate_km_s": 0.0577198,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 315.162925726,
+          "dec_deg": -20.224112958,
+          "az_deg": 232.33753222,
+          "alt_deg": -5.110565457,
+          "observer_range_km": 390079.40001762233,
+          "range_rate_km_s": 0.0915684,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 359.285778993,
+          "dec_deg": 1.071395544,
+          "az_deg": 226.985856778,
+          "alt_deg": 19.435054693,
+          "observer_range_km": 369655.54428460443,
+          "range_rate_km_s": 0.0687912,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 33.388192659,
+          "dec_deg": 17.452978272,
+          "az_deg": 228.306565457,
+          "alt_deg": 36.372618692,
+          "observer_range_km": 357802.94157469866,
+          "range_rate_km_s": 0.0712962,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 91.6922777,
+          "dec_deg": 27.209136674,
+          "az_deg": 196.611698072,
+          "alt_deg": 52.365007613,
+          "observer_range_km": 352536.4006730591,
+          "range_rate_km_s": 0.0490695,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 132.909679405,
+          "dec_deg": 18.774996997,
+          "az_deg": 179.564240139,
+          "alt_deg": 44.644453666,
+          "observer_range_km": 359200.9749010754,
+          "range_rate_km_s": 0.0486867,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 179.258353513,
+          "dec_deg": -3.432040104,
+          "az_deg": 162.683333049,
+          "alt_deg": 21.380260024,
+          "observer_range_km": 378007.83646492584,
+          "range_rate_km_s": 0.0174877,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 222.938972439,
+          "dec_deg": -22.624833478,
+          "az_deg": 153.193404989,
+          "alt_deg": 0.301775732,
+          "observer_range_km": 396658.7503388244,
+          "range_rate_km_s": -0.0380306,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 257.833827426,
+          "dec_deg": -28.602197174,
+          "az_deg": 149.897630382,
+          "alt_deg": -6.621913261,
+          "observer_range_km": 404264.4315260189,
+          "range_rate_km_s": -0.0786059,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 305.715916003,
+          "dec_deg": -22.298172501,
+          "az_deg": 133.012315934,
+          "alt_deg": -5.296038535,
+          "observer_range_km": 404220.0072041321,
+          "range_rate_km_s": -0.1724323,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 336.857550068,
+          "dec_deg": -9.417528014,
+          "az_deg": 127.109712549,
+          "alt_deg": 6.256688265,
+          "observer_range_km": 397196.4638496598,
+          "range_rate_km_s": -0.2105903,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-mercury",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-mercury.txt",
+      "bytes": 9840,
+      "sha256": "cabd2516423e241814bc46b74b0b4191f2636637dd7f7e3ca752e37ac39897e6",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:34.226646+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:34.659542+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 293.682979198,
+          "dec_deg": -23.497741287,
+          "az_deg": 198.7329232,
+          "alt_deg": 0.920191587,
+          "observer_range_km": 213967590.04809052,
+          "range_rate_km_s": -0.5641829,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 345.32460455,
+          "dec_deg": -6.070089386,
+          "az_deg": 179.376771672,
+          "alt_deg": 19.798511239,
+          "observer_range_km": 157452283.50598234,
+          "range_rate_km_s": -46.2199002,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 340.566815652,
+          "dec_deg": -5.763199288,
+          "az_deg": 213.052537289,
+          "alt_deg": 16.185091825,
+          "observer_range_km": 95552383.18087244,
+          "range_rate_km_s": 12.9770268,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 1.650470663,
+          "dec_deg": -2.125050091,
+          "az_deg": 223.574575808,
+          "alt_deg": 17.129068022,
+          "observer_range_km": 157540507.41619143,
+          "range_rate_km_s": 24.5195447,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 53.615959148,
+          "dec_deg": 19.575254205,
+          "az_deg": 204.878105871,
+          "alt_deg": 43.673858003,
+          "observer_range_km": 197439651.25289124,
+          "range_rate_km_s": -6.1966526,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 110.746889558,
+          "dec_deg": 23.121121812,
+          "az_deg": 169.196835855,
+          "alt_deg": 48.673356872,
+          "observer_range_km": 123544809.99603088,
+          "range_rate_km_s": -30.0000323,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 109.967780634,
+          "dec_deg": 17.191044871,
+          "az_deg": 208.933398571,
+          "alt_deg": 40.596507718,
+          "observer_range_km": 87628121.2514185,
+          "range_rate_km_s": 11.3603129,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 133.171805046,
+          "dec_deg": 18.658979352,
+          "az_deg": 218.312523685,
+          "alt_deg": 40.241399694,
+          "observer_range_km": 180501607.0095683,
+          "range_rate_km_s": 35.6755211,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 187.523525116,
+          "dec_deg": -3.067404366,
+          "az_deg": 186.67657991,
+          "alt_deg": 22.645887886,
+          "observer_range_km": 198947120.06878135,
+          "range_rate_km_s": -12.0249124,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 223.587937895,
+          "dec_deg": -19.876568752,
+          "az_deg": 179.69110101,
+          "alt_deg": 5.993047019,
+          "observer_range_km": 141536216.15838596,
+          "range_rate_km_s": -31.4822084,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 213.849367149,
+          "dec_deg": -11.17936755,
+          "az_deg": 219.622467872,
+          "alt_deg": 8.836395099,
+          "observer_range_km": 128818716.55336757,
+          "range_rate_km_s": 44.6762382,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 252.809975761,
+          "dec_deg": -22.690783713,
+          "az_deg": 207.98943943,
+          "alt_deg": -0.029468748,
+          "observer_range_km": 209043791.46542192,
+          "range_rate_km_s": 12.8004224,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-venus",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-venus.txt",
+      "bytes": 9840,
+      "sha256": "587a69b952de61246c7c2210f47660e810578ba2eff20db99bdc1505a03da4e4",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:34.962736+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:35.381457+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 299.875318863,
+          "dec_deg": -21.620502037,
+          "az_deg": 193.304391307,
+          "alt_deg": 3.527296955,
+          "observer_range_km": 255798075.9574042,
+          "range_rate_km_s": -0.4535298,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 338.794132676,
+          "dec_deg": -10.492135565,
+          "az_deg": 186.05480905,
+          "alt_deg": 15.240987775,
+          "observer_range_km": 251583484.74666995,
+          "range_rate_km_s": -2.6418799,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 10.872518921,
+          "dec_deg": 3.555682866,
+          "az_deg": 181.673332389,
+          "alt_deg": 29.416378514,
+          "observer_range_km": 242554521.90750387,
+          "range_rate_km_s": -4.824874,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 47.062546982,
+          "dec_deg": 17.814686672,
+          "az_deg": 174.507970235,
+          "alt_deg": 43.597411567,
+          "observer_range_km": 226053091.11790302,
+          "range_rate_km_s": -7.5226803,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 85.474172364,
+          "dec_deg": 24.856073099,
+          "az_deg": 161.534454633,
+          "alt_deg": 49.814053762,
+          "observer_range_km": 203156039.00274268,
+          "range_rate_km_s": -10.1456311,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 125.290326845,
+          "dec_deg": 21.573660984,
+          "az_deg": 150.130878696,
+          "alt_deg": 44.93666053,
+          "observer_range_km": 172960943.66636625,
+          "range_rate_km_s": -12.375271,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 158.699166063,
+          "dec_deg": 10.184277707,
+          "az_deg": 148.892895581,
+          "alt_deg": 33.004358618,
+          "observer_range_km": 139189710.66686848,
+          "range_rate_km_s": -13.6684267,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 187.398456675,
+          "dec_deg": -4.768130566,
+          "az_deg": 154.376813036,
+          "alt_deg": 18.76122538,
+          "observer_range_km": 102217044.65891922,
+          "range_rate_km_s": -13.8934392,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 209.081393487,
+          "dec_deg": -17.547406311,
+          "az_deg": 165.215366406,
+          "alt_deg": 7.459759314,
+          "observer_range_km": 66737791.12317096,
+          "range_rate_km_s": -12.2546841,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 210.592688215,
+          "dec_deg": -20.40507383,
+          "az_deg": 191.905680638,
+          "alt_deg": 4.892152679,
+          "observer_range_km": 42737403.47289729,
+          "range_rate_km_s": -4.5628824,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 200.707348105,
+          "dec_deg": -10.119105631,
+          "az_deg": 232.305789591,
+          "alt_deg": 5.725634111,
+          "observer_range_km": 49913636.00295834,
+          "range_rate_km_s": 8.9908601,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 216.914170175,
+          "dec_deg": -11.58729524,
+          "az_deg": 243.925536052,
+          "alt_deg": -0.578590391,
+          "observer_range_km": 79317139.77597217,
+          "range_rate_km_s": 12.9390315,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-mars",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-mars.txt",
+      "bytes": 9841,
+      "sha256": "7e899a6856ffc44b53616e49ad4fe384eb0f98cb404729305a5e421a4202a117",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:35.683931+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:36.109785+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 296.021881329,
+          "dec_deg": -22.27480221,
+          "az_deg": 196.776574798,
+          "alt_deg": 2.441543121,
+          "observer_range_km": 358649648.96841264,
+          "range_rate_km_s": -1.7182476,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 320.983102955,
+          "dec_deg": -16.403365481,
+          "az_deg": 202.931984937,
+          "alt_deg": 7.412951462,
+          "observer_range_km": 353040231.6650796,
+          "range_rate_km_s": -2.255101,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 342.186865324,
+          "dec_deg": -8.728142447,
+          "az_deg": 210.721841619,
+          "alt_deg": 13.674604434,
+          "observer_range_km": 347070116.99216217,
+          "range_rate_km_s": -2.4726855,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 4.524721064,
+          "dec_deg": 0.890556599,
+          "az_deg": 221.612500985,
+          "alt_deg": 20.858958393,
+          "observer_range_km": 339839648.1117239,
+          "range_rate_km_s": -2.7205469,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 25.807512381,
+          "dec_deg": 9.857571955,
+          "az_deg": 233.308333759,
+          "alt_deg": 26.688833262,
+          "observer_range_km": 331849968.236651,
+          "range_rate_km_s": -3.2413146,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 48.185306828,
+          "dec_deg": 17.412789028,
+          "az_deg": 244.982371313,
+          "alt_deg": 30.603427709,
+          "observer_range_km": 321503983.5563854,
+          "range_rate_km_s": -4.2860353,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 70.341557298,
+          "dec_deg": 22.085186496,
+          "az_deg": 254.702726559,
+          "alt_deg": 31.77731762,
+          "observer_range_km": 308081021.82930857,
+          "range_rate_km_s": -5.8554643,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 93.07007483,
+          "dec_deg": 23.702155975,
+          "az_deg": 263.013962378,
+          "alt_deg": 29.861343902,
+          "observer_range_km": 289206327.5249438,
+          "range_rate_km_s": -7.9941088,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 114.430578081,
+          "dec_deg": 22.30967112,
+          "az_deg": 270.663914192,
+          "alt_deg": 24.631710588,
+          "observer_range_km": 264090617.3514909,
+          "range_rate_km_s": -10.4514434,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 132.781074304,
+          "dec_deg": 18.975053571,
+          "az_deg": 278.954737205,
+          "alt_deg": 16.804874049,
+          "observer_range_km": 233449006.07362473,
+          "range_rate_km_s": -12.7902424,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 148.5291768,
+          "dec_deg": 14.796707106,
+          "az_deg": 290.073356823,
+          "alt_deg": 6.809596206,
+          "observer_range_km": 196065306.01399004,
+          "range_rate_km_s": -14.5830232,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 159.428961827,
+          "dec_deg": 11.606322418,
+          "az_deg": 305.525820511,
+          "alt_deg": -3.308588562,
+          "observer_range_km": 157106509.8740627,
+          "range_rate_km_s": -14.7488802,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-jupiter",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-jupiter.txt",
+      "bytes": 9864,
+      "sha256": "0490cd84f23f4e139eb3b8dbcb90fad6c97d6463d00807c138b3906423d12f41",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:36.413058+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:36.876931+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 111.041839314,
+          "dec_deg": 22.304507733,
+          "az_deg": 21.327819921,
+          "alt_deg": -1.702977994,
+          "observer_range_km": 633989789.427856,
+          "range_rate_km_s": 3.384431,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 107.379868633,
+          "dec_deg": 22.806717353,
+          "az_deg": 51.538796601,
+          "alt_deg": 7.574180014,
+          "observer_range_km": 664526099.5572901,
+          "range_rate_km_s": 18.3598755,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 106.453134435,
+          "dec_deg": 22.93715166,
+          "az_deg": 75.966854437,
+          "alt_deg": 18.771464159,
+          "observer_range_km": 719997630.6561675,
+          "range_rate_km_s": 26.0808327,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 108.511421892,
+          "dec_deg": 22.731243914,
+          "az_deg": 101.69608133,
+          "alt_deg": 30.91613094,
+          "observer_range_km": 793655559.6199254,
+          "range_rate_km_s": 27.421226,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 112.932148304,
+          "dec_deg": 22.169836379,
+          "az_deg": 127.973277096,
+          "alt_deg": 40.309027928,
+          "observer_range_km": 860517173.7687688,
+          "range_rate_km_s": 23.1577746,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 119.070736002,
+          "dec_deg": 21.184225576,
+          "az_deg": 158.313209865,
+          "alt_deg": 45.735381157,
+          "observer_range_km": 912558008.7327206,
+          "range_rate_km_s": 15.0707706,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 125.75324532,
+          "dec_deg": 19.851039338,
+          "az_deg": 189.178785568,
+          "alt_deg": 45.482598526,
+          "observer_range_km": 939236341.6838485,
+          "range_rate_km_s": 5.278222,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 132.769803855,
+          "dec_deg": 18.172065311,
+          "az_deg": 218.60761507,
+          "alt_deg": 39.665732026,
+          "observer_range_km": 938765261.3267223,
+          "range_rate_km_s": -5.5260963,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 139.314637825,
+          "dec_deg": 16.368076667,
+          "az_deg": 244.03108919,
+          "alt_deg": 29.828363854,
+          "observer_range_km": 909733295.2101833,
+          "range_rate_km_s": -15.6796472,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 144.62183792,
+          "dec_deg": 14.763989304,
+          "az_deg": 266.366811634,
+          "alt_deg": 18.204629932,
+          "observer_range_km": 858066645.4956925,
+          "range_rate_km_s": -23.3503387,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 148.346573834,
+          "dec_deg": 13.60538309,
+          "az_deg": 289.727502918,
+          "alt_deg": 5.655305252,
+          "observer_range_km": 788900872.5640786,
+          "range_rate_km_s": -27.0024573,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 149.528393711,
+          "dec_deg": 13.316868761,
+          "az_deg": 315.22353895,
+          "alt_deg": -4.987426226,
+          "observer_range_km": 720546384.486855,
+          "range_rate_km_s": -24.1995162,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-saturn",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-saturn.txt",
+      "bytes": 9842,
+      "sha256": "faf26b5fe914b03fa54a0560807110b0f902ad73cc03f96dee406599714d734f",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:37.179891+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:37.620558+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 358.290292288,
+          "dec_deg": -3.154448348,
+          "az_deg": 133.911490892,
+          "alt_deg": 15.26572267,
+          "observer_range_km": 1487046187.939978,
+          "range_rate_km_s": 25.1462038,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 1.017165159,
+          "dec_deg": -1.898818044,
+          "az_deg": 162.293384786,
+          "alt_deg": 22.879009084,
+          "observer_range_km": 1543020289.0773666,
+          "range_rate_km_s": 15.6725349,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 4.060164952,
+          "dec_deg": -0.5557137,
+          "az_deg": 189.1364782,
+          "alt_deg": 25.02686838,
+          "observer_range_km": 1567426486.4634717,
+          "range_rate_km_s": 4.2338444,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 7.590922493,
+          "dec_deg": 0.94445426,
+          "az_deg": 218.470055367,
+          "alt_deg": 21.771346281,
+          "observer_range_km": 1560737512.5425024,
+          "range_rate_km_s": -8.9467059,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 10.715743979,
+          "dec_deg": 2.209079103,
+          "az_deg": 245.083131772,
+          "alt_deg": 13.952232453,
+          "observer_range_km": 1522406460.4305289,
+          "range_rate_km_s": -19.8475386,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 13.181475252,
+          "dec_deg": 3.132949502,
+          "az_deg": 271.21601947,
+          "alt_deg": 2.892489912,
+          "observer_range_km": 1457980783.1057277,
+          "range_rate_km_s": -27.0296037,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 14.429729082,
+          "dec_deg": 3.511014634,
+          "az_deg": 297.106297509,
+          "alt_deg": -8.648936933,
+          "observer_range_km": 1384466343.7799766,
+          "range_rate_km_s": -28.2663101,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 14.277673664,
+          "dec_deg": 3.295270244,
+          "az_deg": 326.96492757,
+          "alt_deg": -18.730570051,
+          "observer_range_km": 1314530253.8577445,
+          "range_rate_km_s": -22.4383,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 12.768613995,
+          "dec_deg": 2.553237341,
+          "az_deg": 1.004651674,
+          "alt_deg": -23.313229806,
+          "observer_range_km": 1269899565.3046725,
+          "range_rate_km_s": -9.8261785,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 10.657329591,
+          "dec_deg": 1.638302092,
+          "az_deg": 34.966915296,
+          "alt_deg": -19.980278781,
+          "observer_range_km": 1264552972.569929,
+          "range_rate_km_s": 5.7619388,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 8.849608688,
+          "dec_deg": 0.940448707,
+          "az_deg": 66.823293371,
+          "alt_deg": -9.778397585,
+          "observer_range_km": 1300503013.7748642,
+          "range_rate_km_s": 20.0278738,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 8.298480147,
+          "dec_deg": 0.832411195,
+          "az_deg": 94.217409018,
+          "alt_deg": 2.96696456,
+          "observer_range_km": 1364369536.2138436,
+          "range_rate_km_s": 27.6236392,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-uranus",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-uranus.txt",
+      "bytes": 9848,
+      "sha256": "5249f3e90f7c9524fea8f871061e965c87f2eb5d1e037e03b949b8b1412022ed",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:37.923271+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:38.363816+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 55.400044571,
+          "dec_deg": 19.440544666,
+          "az_deg": 71.453350113,
+          "alt_deg": 12.674490589,
+          "observer_range_km": 2834309346.650167,
+          "range_rate_km_s": 24.7988015,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 55.288736224,
+          "dec_deg": 19.426244511,
+          "az_deg": 98.782187602,
+          "alt_deg": 25.865286686,
+          "observer_range_km": 2909205319.8431387,
+          "range_rate_km_s": 29.3269848,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 55.920727417,
+          "dec_deg": 19.572306802,
+          "az_deg": 125.763914186,
+          "alt_deg": 36.81306366,
+          "observer_range_km": 2978002919.678644,
+          "range_rate_km_s": 26.1856577,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 57.286313914,
+          "dec_deg": 19.868802763,
+          "az_deg": 160.794113562,
+          "alt_deg": 44.69040825,
+          "observer_range_km": 3036416574.314384,
+          "range_rate_km_s": 16.3802235,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 59.010080691,
+          "dec_deg": 20.222168607,
+          "az_deg": 198.030741421,
+          "alt_deg": 45.172472551,
+          "observer_range_km": 3062358107.4107695,
+          "range_rate_km_s": 3.3152154,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 60.876304737,
+          "dec_deg": 20.581639236,
+          "az_deg": 233.117881638,
+          "alt_deg": 38.259403613,
+          "observer_range_km": 3051987127.9098287,
+          "range_rate_km_s": -10.7173894,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 62.445047674,
+          "dec_deg": 20.86595982,
+          "az_deg": 261.569232985,
+          "alt_deg": 27.323723485,
+          "observer_range_km": 3008467532.206455,
+          "range_rate_km_s": -21.9658294,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 63.518524844,
+          "dec_deg": 21.051268773,
+          "az_deg": 287.891445735,
+          "alt_deg": 14.783317439,
+          "observer_range_km": 2938930051.3055463,
+          "range_rate_km_s": -28.5607857,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 63.812343503,
+          "dec_deg": 21.101044454,
+          "az_deg": 314.163297763,
+          "alt_deg": 3.607921508,
+          "observer_range_km": 2860988166.928162,
+          "range_rate_km_s": -28.0074441,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 63.300872614,
+          "dec_deg": 21.016296959,
+          "az_deg": 341.309790643,
+          "alt_deg": -3.43705236,
+          "observer_range_km": 2796974162.3492246,
+          "range_rate_km_s": -19.9927757,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 62.146503426,
+          "dec_deg": 20.819312631,
+          "az_deg": 10.933287684,
+          "alt_deg": -4.565962511,
+          "observer_range_km": 2761670549.0390854,
+          "range_rate_km_s": -5.5696926,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 60.850394893,
+          "dec_deg": 20.590101262,
+          "az_deg": 39.267189666,
+          "alt_deg": 0.885901005,
+          "observer_range_km": 2768178635.6715827,
+          "range_rate_km_s": 10.3353378,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "reykjavik-neptune",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27338.1%2C64.13%2C0.025%27&TLIST=%272461056.113923611119%27%20%272461087.113923611119%27%20%272461115.113923611119%27%20%272461146.113923611119%27%20%272461176.113923611119%27%20%272461207.113923611119%27%20%272461237.113923611119%27%20%272461268.113923611119%27%20%272461299.113923611119%27%20%272461329.113923611119%27%20%272461360.113923611119%27%20%272461390.113923611119%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/reykjavik-neptune.txt",
+      "bytes": 9864,
+      "sha256": "74ff414a8ebb48476dbbff39dcdf0fc0b396db43366767a2d4efec9ba75405e2",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:38.666875+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:39.118047+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.113923611,
+          "ra_deg": 0.2934499,
+          "dec_deg": -1.315514484,
+          "az_deg": 131.327335866,
+          "alt_deg": 16.364042958,
+          "observer_range_km": 4532517261.760518,
+          "range_rate_km_s": 26.9724994,
+          "dut1_seconds": 0.0722
+        },
+        {
+          "jd_utc": 2461087.113923611,
+          "ra_deg": 1.055651324,
+          "dec_deg": -0.970048175,
+          "az_deg": 162.116929321,
+          "alt_deg": 23.794347289,
+          "observer_range_km": 4592746979.396837,
+          "range_rate_km_s": 16.7992365,
+          "dut1_seconds": 0.06962
+        },
+        {
+          "jd_utc": 2461115.113923611,
+          "ra_deg": 1.972899161,
+          "dec_deg": -0.568091711,
+          "az_deg": 191.430248165,
+          "alt_deg": 24.851948593,
+          "observer_range_km": 4618155649.227826,
+          "range_rate_km_s": 3.8701272,
+          "dut1_seconds": 0.06164
+        },
+        {
+          "jd_utc": 2461146.113923611,
+          "ra_deg": 3.035773743,
+          "dec_deg": -0.114613287,
+          "az_deg": 222.814983514,
+          "alt_deg": 19.461440873,
+          "observer_range_km": 4608148834.502012,
+          "range_rate_km_s": -10.9432591,
+          "dut1_seconds": 0.04308
+        },
+        {
+          "jd_utc": 2461176.113923611,
+          "ra_deg": 3.909014177,
+          "dec_deg": 0.245534477,
+          "az_deg": 250.630494938,
+          "alt_deg": 9.406082949,
+          "observer_range_km": 4563582406.54429,
+          "range_rate_km_s": -22.405582,
+          "dut1_seconds": 0.02642
+        },
+        {
+          "jd_utc": 2461207.113923611,
+          "ra_deg": 4.472299977,
+          "dec_deg": 0.462445035,
+          "az_deg": 277.895332654,
+          "alt_deg": -3.298110285,
+          "observer_range_km": 4493332176.173002,
+          "range_rate_km_s": -28.5318983,
+          "dut1_seconds": 0.01181
+        },
+        {
+          "jd_utc": 2461237.113923611,
+          "ra_deg": 4.585728893,
+          "dec_deg": 0.48268653,
+          "az_deg": 305.281929607,
+          "alt_deg": -15.13067132,
+          "observer_range_km": 4418799609.878447,
+          "range_rate_km_s": -27.4280746,
+          "dut1_seconds": 0.01139
+        },
+        {
+          "jd_utc": 2461268.113923611,
+          "ra_deg": 4.251215378,
+          "dec_deg": 0.311934277,
+          "az_deg": 336.83191074,
+          "alt_deg": -23.711628698,
+          "observer_range_km": 4354810733.54253,
+          "range_rate_km_s": -18.980722,
+          "dut1_seconds": 0.00865
+        },
+        {
+          "jd_utc": 2461299.113923611,
+          "ra_deg": 3.579031477,
+          "dec_deg": 0.005369415,
+          "az_deg": 11.211803634,
+          "alt_deg": -25.433747414,
+          "observer_range_km": 4321784549.322841,
+          "range_rate_km_s": -4.970356,
+          "dut1_seconds": -0.00786
+        },
+        {
+          "jd_utc": 2461329.113923611,
+          "ra_deg": 2.829965719,
+          "dec_deg": -0.320323806,
+          "az_deg": 43.539817997,
+          "alt_deg": -19.70352884,
+          "observer_range_km": 4329047903.914324,
+          "range_rate_km_s": 10.3536927,
+          "dut1_seconds": -0.0373
+        },
+        {
+          "jd_utc": 2461360.113923611,
+          "ra_deg": 2.230497778,
+          "dec_deg": -0.567550206,
+          "az_deg": 73.563349573,
+          "alt_deg": -8.437819645,
+          "observer_range_km": 4375815931.491293,
+          "range_rate_km_s": 23.4051798,
+          "dut1_seconds": -0.06878
+        },
+        {
+          "jd_utc": 2461390.113923611,
+          "ra_deg": 2.03402251,
+          "dec_deg": -0.632087246,
+          "az_deg": 100.511863552,
+          "alt_deg": 4.356018954,
+          "observer_range_km": 4446626386.549102,
+          "range_rate_km_s": 29.56421,
+          "dut1_seconds": -0.09872
+        }
+      ]
+    },
+    {
+      "id": "nairobi-sun",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-sun.txt",
+      "bytes": 9840,
+      "sha256": "5e7f4c5c7119ae5dde75920b52ed68a228d10f1d4ea93896895de50d4e05a692",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:39.426356+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:39.864388+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 297.702510101,
+          "dec_deg": -20.997700961,
+          "az_deg": 205.457276812,
+          "alt_deg": -65.190508338,
+          "observer_range_km": 147169954.32207382,
+          "range_rate_km_s": 0.1957501,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 329.390207032,
+          "dec_deg": -12.447693021,
+          "az_deg": 221.212386597,
+          "alt_deg": -71.638454026,
+          "observer_range_km": 147789768.10761902,
+          "range_rate_km_s": 0.4437042,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 355.667731545,
+          "dec_deg": -1.875434972,
+          "az_deg": 253.898026175,
+          "alt_deg": -78.602190436,
+          "observer_range_km": 148797042.70499086,
+          "range_rate_km_s": 0.566967,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 24.009254157,
+          "dec_deg": 10.00380523,
+          "az_deg": 315.40937311,
+          "alt_deg": -77.695993665,
+          "observer_range_km": 150110074.1159094,
+          "range_rate_km_s": 0.5576286,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 52.685259641,
+          "dec_deg": 19.023328172,
+          "az_deg": 337.054820224,
+          "alt_deg": -70.672125353,
+          "observer_range_km": 151242022.4417145,
+          "range_rate_km_s": 0.4327209,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 84.301404355,
+          "dec_deg": 23.333768979,
+          "az_deg": 339.270037679,
+          "alt_deg": -66.324173812,
+          "observer_range_km": 151965452.52453148,
+          "range_rate_km_s": 0.2219428,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 115.237369936,
+          "dec_deg": 21.411561161,
+          "az_deg": 334.262503648,
+          "alt_deg": -67.525445327,
+          "observer_range_km": 152060280.29424945,
+          "range_rate_km_s": -0.012836,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 145.388201846,
+          "dec_deg": 13.833094239,
+          "az_deg": 322.583232324,
+          "alt_deg": -74.106848339,
+          "observer_range_km": 151508524.22297117,
+          "range_rate_km_s": -0.2461139,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 173.606286226,
+          "dec_deg": 2.763584334,
+          "az_deg": 281.19655954,
+          "alt_deg": -82.33181053,
+          "observer_range_km": 150437476.35730278,
+          "range_rate_km_s": -0.4130284,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 200.82954148,
+          "dec_deg": -8.763405104,
+          "az_deg": 207.105720523,
+          "alt_deg": -78.696707524,
+          "observer_range_km": 149171967.6699391,
+          "range_rate_km_s": -0.4578046,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 231.123886259,
+          "dec_deg": -18.648758418,
+          "az_deg": 193.415800673,
+          "alt_deg": -69.482017996,
+          "observer_range_km": 147975368.61970556,
+          "range_rate_km_s": -0.3530836,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 263.354707053,
+          "dec_deg": -23.295955349,
+          "az_deg": 196.252052999,
+          "alt_deg": -64.330000053,
+          "observer_range_km": 147248212.89178222,
+          "range_rate_km_s": -0.1211797,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    },
+    {
+      "id": "nairobi-moon",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-moon.txt",
+      "bytes": 9842,
+      "sha256": "6904fff1cb294eac9ab6af1957c2e766ff1769948bbe0f9acabca7ea6b5a0968",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:40.167447+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:40.600010+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 261.997729055,
+          "dec_deg": -27.821418981,
+          "az_deg": 142.81738333,
+          "alt_deg": -52.527282656,
+          "observer_range_km": 408427.38142269955,
+          "range_rate_km_s": -0.1867323,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 311.014477658,
+          "dec_deg": -20.627089885,
+          "az_deg": 165.066170433,
+          "alt_deg": -67.282429534,
+          "observer_range_km": 396960.16591814836,
+          "range_rate_km_s": -0.0900656,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 319.226716717,
+          "dec_deg": -17.842322754,
+          "az_deg": 128.483729767,
+          "alt_deg": -58.444041055,
+          "observer_range_km": 393694.1275375174,
+          "range_rate_km_s": -0.2404639,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 3.031412015,
+          "dec_deg": 3.636529032,
+          "az_deg": 78.914767073,
+          "alt_deg": -77.549044917,
+          "observer_range_km": 376764.7093625327,
+          "range_rate_km_s": -0.1516048,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 37.636493331,
+          "dec_deg": 19.299447354,
+          "az_deg": 20.937914998,
+          "alt_deg": -70.657639521,
+          "observer_range_km": 366774.2348143699,
+          "range_rate_km_s": -0.0906812,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 95.836327526,
+          "dec_deg": 27.117227302,
+          "az_deg": 324.570790798,
+          "alt_deg": -57.574053837,
+          "observer_range_km": 363364.46454388154,
+          "range_rate_km_s": 0.1588263,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 136.11430008,
+          "dec_deg": 17.867858608,
+          "az_deg": 300.363108776,
+          "alt_deg": -55.210524444,
+          "observer_range_km": 369988.81300101907,
+          "range_rate_km_s": 0.2708315,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 181.526303479,
+          "dec_deg": -4.107224507,
+          "az_deg": 263.070980771,
+          "alt_deg": -43.711185969,
+          "observer_range_km": 386222.15722485434,
+          "range_rate_km_s": 0.3873121,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 225.157820979,
+          "dec_deg": -22.495125983,
+          "az_deg": 243.615510301,
+          "alt_deg": -27.774046324,
+          "observer_range_km": 400689.6472075686,
+          "range_rate_km_s": 0.398018,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 260.143291571,
+          "dec_deg": -27.661553532,
+          "az_deg": 239.402962836,
+          "alt_deg": -21.764011265,
+          "observer_range_km": 406289.0481915591,
+          "range_rate_km_s": 0.3728387,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 307.557870746,
+          "dec_deg": -20.409133875,
+          "az_deg": 249.209342322,
+          "alt_deg": -7.639931693,
+          "observer_range_km": 403894.76774352917,
+          "range_rate_km_s": 0.388471,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 338.480398654,
+          "dec_deg": -7.10916859,
+          "az_deg": 262.67292989,
+          "alt_deg": -7.070392423,
+          "observer_range_km": 397580.88709719875,
+          "range_rate_km_s": 0.3933188,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    },
+    {
+      "id": "nairobi-mercury",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-mercury.txt",
+      "bytes": 9840,
+      "sha256": "a021b795cf69bee99bfe805705abfc2f60d18d3b4ba80cb7a7c6b3e2ad78ed68",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:40.904205+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:41.353638+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 294.139227851,
+          "dec_deg": -23.441273123,
+          "az_deg": 196.132046381,
+          "alt_deg": -64.194089743,
+          "observer_range_km": 213956502.80001605,
+          "range_rate_km_s": -0.8272416,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 345.638177144,
+          "dec_deg": -5.873335717,
+          "az_deg": 255.596084617,
+          "alt_deg": -60.635529642,
+          "observer_range_km": 156420286.35718626,
+          "range_rate_km_s": -46.3013789,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 340.463927192,
+          "dec_deg": -5.868107594,
+          "az_deg": 149.361555799,
+          "alt_deg": -81.676982053,
+          "observer_range_km": 95854523.25327002,
+          "range_rate_km_s": 13.3277581,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 1.992856254,
+          "dec_deg": -1.981018522,
+          "az_deg": 103.817614815,
+          "alt_deg": -76.326424968,
+          "observer_range_km": 158094755.48336944,
+          "range_rate_km_s": 24.2383377,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 54.190059189,
+          "dec_deg": 19.752794887,
+          "az_deg": 334.249284824,
+          "alt_deg": -69.395310621,
+          "observer_range_km": 197302533.29051232,
+          "range_rate_km_s": -6.8304692,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 111.008085472,
+          "dec_deg": 23.044017519,
+          "az_deg": 304.950268868,
+          "alt_deg": -49.176875205,
+          "observer_range_km": 122884079.11490338,
+          "range_rate_km_s": -29.5717071,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 109.811738597,
+          "dec_deg": 17.214416876,
+          "az_deg": 343.616723964,
+          "alt_deg": -73.37771842,
+          "observer_range_km": 87897709.32312253,
+          "range_rate_km_s": 11.8886235,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 133.68540309,
+          "dec_deg": 18.559294585,
+          "az_deg": 5.841141726,
+          "alt_deg": -72.637056414,
+          "observer_range_km": 181303514.1067909,
+          "range_rate_km_s": 35.0457647,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 187.892284187,
+          "dec_deg": -3.2579065,
+          "az_deg": 258.174737824,
+          "alt_deg": -67.723622473,
+          "observer_range_km": 198683244.40776348,
+          "range_rate_km_s": -12.0668321,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 223.795510485,
+          "dec_deg": -19.944763575,
+          "az_deg": 230.956614455,
+          "alt_deg": -55.179007103,
+          "observer_range_km": 140835067.55003342,
+          "range_rate_km_s": -31.3832501,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 213.948017308,
+          "dec_deg": -11.188128097,
+          "az_deg": 135.997969999,
+          "alt_deg": -72.561657337,
+          "observer_range_km": 129826643.90644747,
+          "range_rate_km_s": 44.6562406,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 253.23850193,
+          "dec_deg": -22.764366757,
+          "az_deg": 174.293923116,
+          "alt_deg": -65.819494635,
+          "observer_range_km": 209331364.64966637,
+          "range_rate_km_s": 12.413,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    },
+    {
+      "id": "nairobi-venus",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-venus.txt",
+      "bytes": 9840,
+      "sha256": "5617eeaa1a5e00c2289382c9398a2adacf01c095361de0fb6d9115236a288fd8",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:41.656609+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:42.076045+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 300.220443955,
+          "dec_deg": -21.560929628,
+          "az_deg": 209.523763809,
+          "alt_deg": -63.538013988,
+          "observer_range_km": 255792789.21992686,
+          "range_rate_km_s": -0.4158976,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 339.099912669,
+          "dec_deg": -10.369722817,
+          "az_deg": 241.430368852,
+          "alt_deg": -65.213722296,
+          "observer_range_km": 251531071.06370625,
+          "range_rate_km_s": -2.5105276,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 11.165563772,
+          "dec_deg": 3.689661224,
+          "az_deg": 275.681714699,
+          "alt_deg": -63.469820513,
+          "observer_range_km": 242454854.67364874,
+          "range_rate_km_s": -4.6450318,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 47.378868643,
+          "dec_deg": 17.912597728,
+          "az_deg": 299.774424269,
+          "alt_deg": -54.36192896,
+          "observer_range_km": 225894080.1547114,
+          "range_rate_km_s": -7.2973937,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 85.814705915,
+          "dec_deg": 24.875154848,
+          "az_deg": 304.254907838,
+          "alt_deg": -43.96827421,
+          "observer_range_km": 202938562.13502455,
+          "range_rate_km_s": -9.8500546,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 125.602976825,
+          "dec_deg": 21.504175576,
+          "az_deg": 296.284403051,
+          "alt_deg": -37.126026141,
+          "observer_range_km": 172693263.0022787,
+          "range_rate_km_s": -11.9881593,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 158.95957703,
+          "dec_deg": 10.066863188,
+          "az_deg": 281.477420893,
+          "alt_deg": -35.634734821,
+          "observer_range_km": 138892328.77799493,
+          "range_rate_km_s": -13.2189117,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 187.612172184,
+          "dec_deg": -4.888232603,
+          "az_deg": 262.824184768,
+          "alt_deg": -37.596919075,
+          "observer_range_km": 101913383.92625886,
+          "range_rate_km_s": -13.4430304,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 209.20318126,
+          "dec_deg": -17.621458722,
+          "az_deg": 243.962234039,
+          "alt_deg": -43.519516033,
+          "observer_range_km": 66469732.0304589,
+          "range_rate_km_s": -11.8729256,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 210.475535653,
+          "dec_deg": -20.338599344,
+          "az_deg": 213.119482184,
+          "alt_deg": -63.944033959,
+          "observer_range_km": 42641755.132631056,
+          "range_rate_km_s": -4.377552,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 200.751587807,
+          "dec_deg": -10.064003992,
+          "az_deg": 114.713390224,
+          "alt_deg": -62.241372846,
+          "observer_range_km": 50118658.28747079,
+          "range_rate_km_s": 8.7034014,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 217.132989449,
+          "dec_deg": -11.635632053,
+          "az_deg": 109.691088397,
+          "alt_deg": -49.493506517,
+          "observer_range_km": 79608008.38932346,
+          "range_rate_km_s": 12.484509,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    },
+    {
+      "id": "nairobi-mars",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-mars.txt",
+      "bytes": 9841,
+      "sha256": "709e1510f371b1a2b1b7f12146de10ff72c525f446e255e3f3df314896cb2386",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:42.379682+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:42.820627+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 296.236018747,
+          "dec_deg": -22.239414569,
+          "az_deg": 201.297997637,
+          "alt_deg": -64.648798033,
+          "observer_range_km": 358615795.1358871,
+          "range_rate_km_s": -1.7113461,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 321.185573738,
+          "dec_deg": -16.339286267,
+          "az_deg": 192.666696377,
+          "alt_deg": -71.91931007,
+          "observer_range_km": 352994786.2882278,
+          "range_rate_km_s": -2.3051337,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 342.378007848,
+          "dec_deg": -8.64921484,
+          "az_deg": 166.842758273,
+          "alt_deg": -79.791112172,
+          "observer_range_km": 347020204.0681988,
+          "range_rate_km_s": -2.5941298,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 4.709358411,
+          "dec_deg": 0.972585037,
+          "az_deg": 91.612243044,
+          "alt_deg": -79.435201392,
+          "observer_range_km": 339784349.39418334,
+          "range_rate_km_s": -2.935047,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 25.993123616,
+          "dec_deg": 9.930487909,
+          "az_deg": 64.552388238,
+          "alt_deg": -69.365559505,
+          "observer_range_km": 331782807.56789786,
+          "range_rate_km_s": -3.5414608,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 48.376119297,
+          "dec_deg": 17.46604108,
+          "az_deg": 57.045830725,
+          "alt_deg": -58.905415947,
+          "observer_range_km": 321412932.0656325,
+          "range_rate_km_s": -4.6572097,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 70.535115,
+          "dec_deg": 22.112976941,
+          "az_deg": 55.565306535,
+          "alt_deg": -50.571548165,
+          "observer_range_km": 307954127.83941585,
+          "range_rate_km_s": -6.2813299,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 93.257692558,
+          "dec_deg": 23.702662177,
+          "az_deg": 57.877536818,
+          "alt_deg": -43.354339676,
+          "observer_range_km": 289030532.9526949,
+          "range_rate_km_s": -8.4744574,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 114.602002862,
+          "dec_deg": 22.288361099,
+          "az_deg": 63.165899293,
+          "alt_deg": -35.78351776,
+          "observer_range_km": 263858335.70417607,
+          "range_rate_km_s": -10.9930169,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 132.929728277,
+          "dec_deg": 18.942239437,
+          "az_deg": 69.471351608,
+          "alt_deg": -26.153848608,
+          "observer_range_km": 233162422.24225566,
+          "range_rate_km_s": -13.3911563,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 148.646980869,
+          "dec_deg": 14.764601357,
+          "az_deg": 75.165455407,
+          "alt_deg": -12.362733257,
+          "observer_range_km": 195736157.98210183,
+          "range_rate_km_s": -15.2206263,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 159.501198251,
+          "dec_deg": 11.590047684,
+          "az_deg": 78.209171076,
+          "alt_deg": 5.878208729,
+          "observer_range_km": 156771269.18154562,
+          "range_rate_km_s": -15.3559682,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    },
+    {
+      "id": "nairobi-jupiter",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-jupiter.txt",
+      "bytes": 9864,
+      "sha256": "77d17aa2edc9211ea9c959359c129a454970ced0056eebae4b09a9d9e48172a1",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:43.124144+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:43.550417+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 111.00495888,
+          "dec_deg": 22.310803977,
+          "az_deg": 10.146995527,
+          "alt_deg": 66.004812454,
+          "observer_range_km": 634062891.9870615,
+          "range_rate_km_s": 3.568322,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 107.358684577,
+          "dec_deg": 22.810104904,
+          "az_deg": 311.555304967,
+          "alt_deg": 52.306204352,
+          "observer_range_km": 664938150.915085,
+          "range_rate_km_s": 18.8320203,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 106.45668592,
+          "dec_deg": 22.937524763,
+          "az_deg": 297.085579106,
+          "alt_deg": 28.396599795,
+          "observer_range_km": 720585984.6098737,
+          "range_rate_km_s": 26.6738513,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 108.540004111,
+          "dec_deg": 22.728383494,
+          "az_deg": 292.819076209,
+          "alt_deg": 2.514768485,
+          "observer_range_km": 794276932.2711058,
+          "range_rate_km_s": 28.0040751,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 112.977538205,
+          "dec_deg": 22.16360757,
+          "az_deg": 293.25689342,
+          "alt_deg": -20.688230355,
+          "observer_range_km": 861044818.1724148,
+          "range_rate_km_s": 23.623838,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 119.125976489,
+          "dec_deg": 21.17442507,
+          "az_deg": 298.222273912,
+          "alt_deg": -42.983140964,
+          "observer_range_km": 912905065.5705022,
+          "range_rate_km_s": 15.3432477,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 125.812094832,
+          "dec_deg": 19.838235186,
+          "az_deg": 313.664775549,
+          "alt_deg": -62.436324486,
+          "observer_range_km": 939363347.7106818,
+          "range_rate_km_s": 5.320631,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 132.82733706,
+          "dec_deg": 18.157327289,
+          "az_deg": 8.749544145,
+          "alt_deg": -72.926583383,
+          "observer_range_km": 938648335.0485194,
+          "range_rate_km_s": -5.7354689,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 139.365984102,
+          "dec_deg": 16.353368899,
+          "az_deg": 58.70363987,
+          "alt_deg": -59.686208532,
+          "observer_range_km": 909386036.6155773,
+          "range_rate_km_s": -16.1169189,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 144.661950894,
+          "dec_deg": 14.751929454,
+          "az_deg": 72.225462636,
+          "alt_deg": -37.906458281,
+          "observer_range_km": 857544191.4229981,
+          "range_rate_km_s": -23.9438032,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 148.368635168,
+          "dec_deg": 13.599309384,
+          "az_deg": 76.36589283,
+          "alt_deg": -12.129246881,
+          "observer_range_km": 788293170.3274381,
+          "range_rate_km_s": -27.639658,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 149.527267398,
+          "dec_deg": 13.319171776,
+          "az_deg": 75.797691214,
+          "alt_deg": 15.481428847,
+          "observer_range_km": 719999054.902694,
+          "range_rate_km_s": -24.7196063,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    },
+    {
+      "id": "nairobi-saturn",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-saturn.txt",
+      "bytes": 9842,
+      "sha256": "4f2f197d5d05c7f3bfed031c40ab8e3e812b09990c3705b1c68653fa9d2e8b9b",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:43.854117+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:44.278939+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 358.308580431,
+          "dec_deg": -3.145347458,
+          "az_deg": 266.265307194,
+          "alt_deg": -18.147184119,
+          "observer_range_km": 1487616113.0968928,
+          "range_rate_km_s": 25.6706316,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 1.043214232,
+          "dec_deg": -1.886750269,
+          "az_deg": 265.947422771,
+          "alt_deg": -45.967162684,
+          "observer_range_km": 1543378888.8386464,
+          "range_rate_km_s": 15.9536466,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 4.089479098,
+          "dec_deg": -0.542703349,
+          "az_deg": 264.710953877,
+          "alt_deg": -70.542024323,
+          "observer_range_km": 1567528202.272446,
+          "range_rate_km_s": 4.2459823,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 7.619809047,
+          "dec_deg": 0.956673098,
+          "az_deg": 92.416037324,
+          "alt_deg": -82.342568532,
+          "observer_range_km": 1560541809.2052026,
+          "range_rate_km_s": -9.2328396,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 10.740368849,
+          "dec_deg": 2.218879769,
+          "az_deg": 87.947307926,
+          "alt_deg": -55.903748932,
+          "observer_range_km": 1521963418.2616665,
+          "range_rate_km_s": -20.3682818,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 13.197892729,
+          "dec_deg": 3.138789854,
+          "az_deg": 87.1314862,
+          "alt_deg": -27.828496371,
+          "observer_range_km": 1457373161.9374866,
+          "range_rate_km_s": -27.6806631,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 14.43510648,
+          "dec_deg": 3.51202072,
+          "az_deg": 86.476806133,
+          "alt_deg": 0.450890407,
+          "observer_range_km": 1383827850.863501,
+          "range_rate_km_s": -28.8908303,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 14.27050693,
+          "dec_deg": 3.291215069,
+          "az_deg": 85.374260861,
+          "alt_deg": 31.098142682,
+          "observer_range_km": 1314020435.8556008,
+          "range_rate_km_s": -22.8590382,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 12.752023454,
+          "dec_deg": 2.545840721,
+          "az_deg": 81.815741107,
+          "alt_deg": 63.056259142,
+          "observer_range_km": 1269672575.9122734,
+          "range_rate_km_s": -9.9028782,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 10.639146474,
+          "dec_deg": 1.6310735,
+          "az_deg": 300.252860277,
+          "alt_deg": 84.204511074,
+          "observer_range_km": 1264677594.121889,
+          "range_rate_km_s": 6.048335,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 8.838741622,
+          "dec_deg": 0.937087504,
+          "az_deg": 273.229983887,
+          "alt_deg": 52.574738986,
+          "observer_range_km": 1300951065.9169989,
+          "range_rate_km_s": 20.5912514,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 8.299783884,
+          "dec_deg": 0.834567141,
+          "az_deg": 271.438136996,
+          "alt_deg": 22.501038241,
+          "observer_range_km": 1364991594.7886083,
+          "range_rate_km_s": 28.2875419,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    },
+    {
+      "id": "nairobi-uranus",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-uranus.txt",
+      "bytes": 9848,
+      "sha256": "472146489301f78034d267f1cefcd443927c54a6c1ec93e09979f9c9b5784d6a",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:44.582156+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:45.017301+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 55.395492007,
+          "dec_deg": 19.439829445,
+          "az_deg": 295.22409172,
+          "alt_deg": 35.707655005,
+          "observer_range_km": 2834868002.4377265,
+          "range_rate_km_s": 25.4025445,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 55.291291083,
+          "dec_deg": 19.427083652,
+          "az_deg": 289.770884201,
+          "alt_deg": 7.269593037,
+          "observer_range_km": 2909868815.6765647,
+          "range_rate_km_s": 29.943393,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 55.92933523,
+          "dec_deg": 19.574404703,
+          "az_deg": 290.19546975,
+          "alt_deg": -18.114134157,
+          "observer_range_km": 2978598064.528929,
+          "range_rate_km_s": 26.6744195,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 57.299752443,
+          "dec_deg": 19.871765458,
+          "az_deg": 297.237105926,
+          "alt_deg": -44.915202058,
+          "observer_range_km": 3036792682.9124937,
+          "range_rate_km_s": 16.6171432,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 59.025669034,
+          "dec_deg": 20.225344423,
+          "az_deg": 324.732202443,
+          "alt_deg": -66.532020332,
+          "observer_range_km": 3062440451.515204,
+          "range_rate_km_s": 3.2568134,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 60.891288207,
+          "dec_deg": 20.584473429,
+          "az_deg": 35.305182616,
+          "alt_deg": -66.064284981,
+          "observer_range_km": 3051752520.3023853,
+          "range_rate_km_s": -11.0664131,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 62.456783961,
+          "dec_deg": 20.86805084,
+          "az_deg": 61.654070275,
+          "alt_deg": -44.159330181,
+          "observer_range_km": 3007977559.542685,
+          "range_rate_km_s": -22.5185385,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 63.524595688,
+          "dec_deg": 21.052319723,
+          "az_deg": 68.331617992,
+          "alt_deg": -17.244871922,
+          "observer_range_km": 2938288786.563343,
+          "range_rate_km_s": -29.1875686,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 63.811417604,
+          "dec_deg": 21.10094612,
+          "az_deg": 68.213719748,
+          "alt_deg": 10.95447654,
+          "observer_range_km": 2860356645.3595767,
+          "range_rate_km_s": -28.5378336,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 63.293611273,
+          "dec_deg": 21.015176904,
+          "az_deg": 61.621128688,
+          "alt_deg": 38.362600475,
+          "observer_range_km": 2796521271.417799,
+          "range_rate_km_s": -20.2783804,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 62.135458395,
+          "dec_deg": 20.817542228,
+          "az_deg": 34.347095568,
+          "alt_deg": 62.944903667,
+          "observer_range_km": 2761541889.049086,
+          "range_rate_km_s": -5.5127939,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 60.839975689,
+          "dec_deg": 20.588414249,
+          "az_deg": 327.037971236,
+          "alt_deg": 63.686582246,
+          "observer_range_km": 2768409062.358606,
+          "range_rate_km_s": 10.7078947,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    },
+    {
+      "id": "nairobi-neptune",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27&TLIST=%272461056.373391203582%27%20%272461087.373391203582%27%20%272461115.373391203582%27%20%272461146.373391203582%27%20%272461176.373391203582%27%20%272461207.373391203582%27%20%272461237.373391203582%27%20%272461268.373391203582%27%20%272461299.373391203582%27%20%272461329.373391203582%27%20%272461360.373391203582%27%20%272461390.373391203582%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "responses/nairobi-neptune.txt",
+      "bytes": 9864,
+      "sha256": "8772a83db72b50388bb90311220d4ea6403a920978f876d6759efe13207b0dec",
+      "api_version": "1.2",
+      "capture_started_utc": "2026-11-04T18:23:45.322363+00:00",
+      "capture_finished_utc": "2026-11-04T18:23:45.737674+00:00",
+      "capture_phase": "amended",
+      "rows": [
+        {
+          "jd_utc": 2461056.373391204,
+          "ra_deg": 0.298061213,
+          "dec_deg": -1.313215465,
+          "az_deg": 268.256330069,
+          "alt_deg": -16.226031746,
+          "observer_range_km": 4533128154.998336,
+          "range_rate_km_s": 27.5074829,
+          "dut1_seconds": 0.07235
+        },
+        {
+          "jd_utc": 2461087.373391204,
+          "ra_deg": 1.063256629,
+          "dec_deg": -0.966520899,
+          "az_deg": 267.271209825,
+          "alt_deg": -46.000704773,
+          "observer_range_km": 4593130808.918043,
+          "range_rate_km_s": 17.069506,
+          "dut1_seconds": 0.06968
+        },
+        {
+          "jd_utc": 2461115.373391204,
+          "ra_deg": 1.981743618,
+          "dec_deg": -0.564130495,
+          "az_deg": 263.971702986,
+          "alt_deg": -72.636840512,
+          "observer_range_km": 4618248933.812094,
+          "range_rate_km_s": 3.8436889,
+          "dut1_seconds": 0.06147
+        },
+        {
+          "jd_utc": 2461146.373391204,
+          "ra_deg": 3.044182758,
+          "dec_deg": -0.110975452,
+          "az_deg": 96.448744782,
+          "alt_deg": -77.693666679,
+          "observer_range_km": 4607907635.822527,
+          "range_rate_km_s": -11.2893577,
+          "dut1_seconds": 0.04275
+        },
+        {
+          "jd_utc": 2461176.373391204,
+          "ra_deg": 3.91537287,
+          "dec_deg": 0.248161649,
+          "az_deg": 91.108882052,
+          "alt_deg": -49.065717645,
+          "observer_range_km": 4563080845.441087,
+          "range_rate_km_s": -22.9791864,
+          "dut1_seconds": 0.02623
+        },
+        {
+          "jd_utc": 2461207.373391204,
+          "ra_deg": 4.475288137,
+          "dec_deg": 0.463526731,
+          "az_deg": 89.955780494,
+          "alt_deg": -19.08438155,
+          "observer_range_km": 4492689516.627001,
+          "range_rate_km_s": -29.1938316,
+          "dut1_seconds": 0.01187
+        },
+        {
+          "jd_utc": 2461237.373391204,
+          "ra_deg": 4.584908566,
+          "dec_deg": 0.482098873,
+          "az_deg": 89.273726909,
+          "alt_deg": 10.367173658,
+          "observer_range_km": 4418178786.141305,
+          "range_rate_km_s": -28.003739,
+          "dut1_seconds": 0.01131
+        },
+        {
+          "jd_utc": 2461268.373391204,
+          "ra_deg": 4.246889827,
+          "dec_deg": 0.309883226,
+          "az_deg": 88.455977402,
+          "alt_deg": 41.251643695,
+          "observer_range_km": 4354377920.550855,
+          "range_rate_km_s": -19.3036573,
+          "dut1_seconds": 0.00842
+        },
+        {
+          "jd_utc": 2461299.373391204,
+          "ra_deg": 3.572731599,
+          "dec_deg": 0.002585374,
+          "az_deg": 85.90653375,
+          "alt_deg": 72.457159217,
+          "observer_range_km": 4321666578.733382,
+          "range_rate_km_s": -4.9420368,
+          "dut1_seconds": -0.00804
+        },
+        {
+          "jd_utc": 2461329.373391204,
+          "ra_deg": 2.823914273,
+          "dec_deg": -0.322849935,
+          "az_deg": 274.205645984,
+          "alt_deg": 77.143702,
+          "observer_range_km": 4329276031.455564,
+          "range_rate_km_s": 10.716957,
+          "dut1_seconds": -0.03743
+        },
+        {
+          "jd_utc": 2461360.373391204,
+          "ra_deg": 2.226931337,
+          "dec_deg": -0.568860903,
+          "az_deg": 270.517831226,
+          "alt_deg": 46.027165882,
+          "observer_range_km": 4376340379.591224,
+          "range_rate_km_s": 24.0059984,
+          "dut1_seconds": -0.069
+        },
+        {
+          "jd_utc": 2461390.373391204,
+          "ra_deg": 2.034237513,
+          "dec_deg": -0.631683257,
+          "az_deg": 269.718445076,
+          "alt_deg": 16.273935155,
+          "observer_range_km": 4447292532.359375,
+          "range_rate_km_s": 30.2282786,
+          "dut1_seconds": -0.09902
+        }
+      ]
+    }
+  ],
+  "finished_at_utc": "2026-11-04T18:23:46.054486+00:00"
+}

@@ -13,6 +13,9 @@ import { moonElementsAt, moonOffsetAU, moonOrbitPath, systemScale, jdFromUnix, i
 import { BODY, poleVector } from "../../apps/web/js/bodyData.js";
 
 const AU_KM = 149597870.7;
+// Horizons epochs are TDB, not UTC. TT is within 2 ms of TDB; the shipped
+// 2021–2030 data use the current 37 s TAI−UTC plus 32.184 s TT−TAI.
+const unixFromDynamicalJd = jd => (jd - 2440587.5) * 86400 - 69.184;
 
 // The knots live in the lazily imported moonelements.js so they stay off the first-paint path;
 // orrery.js hangs them on the identity records at load. Do the same here so these tests exercise
@@ -153,7 +156,7 @@ test("the shipped JavaScript model meets the held-out Horizons error budget", ()
   for (const line of csv.slice(1)) {
     const [name, , jdText, xText, yText, zText] = line.split(",");
     const truth = [Number(xText), Number(yText), Number(zText)];
-    const unix = (Number(jdText) - 2440587.5) * 86400;
+    const unix = unixFromDynamicalJd(Number(jdText));
     const got = moonOffsetAU(moons.get(name), unix).map((value) => value * AU_KM);
     const truthR = Math.hypot(...truth), gotR = Math.hypot(...got);
     const cosine = got.reduce((sum, value, index) => sum + value * truth[index], 0)
@@ -206,7 +209,7 @@ test("the epoch is a real Julian date and jdFromUnix agrees with it", () => {
 });
 
 test("orbits are drawn only inside the exact held-out validation interval", () => {
-  const unix = (jd) => (jd - 2440587.5) * 86400;
+  const unix = unixFromDynamicalJd;
   assert.ok(MOON_VALID_MAX_JD > MOON_VALID_MIN_JD, "validation interval must be non-empty");
   assert.ok(withinMoonValidity(unix(MOON_VALID_MIN_JD), MOON_VALID_MIN_JD, MOON_VALID_MAX_JD));
   assert.ok(withinMoonValidity(unix(MOON_VALID_MAX_JD), MOON_VALID_MIN_JD, MOON_VALID_MAX_JD));
@@ -216,6 +219,30 @@ test("orbits are drawn only inside the exact held-out validation interval", () =
   assert.ok(!withinMoonValidity(
     unix(MOON_VALID_MAX_JD + 0.001), MOON_VALID_MIN_JD, MOON_VALID_MAX_JD,
   ), "a time after the last checked instant must be rejected");
+});
+
+test("UTC scene time indexes dynamical element knots at the same physical instant", () => {
+  // A circular orbit advancing one degree per second makes a UTC/TDB mix-up
+  // visible without sharing the production time conversion or orbital solver.
+  const utc = Date.parse("2026-01-01T00:00:00Z") / 1000;
+  const t0 = 2461041.5 + 69.184 / 86400;
+  const moon = {t0, step: 1, el: [10000, 0, 0, 0, 0, 0,
+    10000, 0, 0, 0, 0, 86400]};
+  assert.ok(Math.abs(moonElementsAt(moon, utc).M) < 0.0001,
+    "UTC midnight must reach the corresponding TT/TDB knot, not one 69 s earlier");
+  assert.ok(Math.abs(moonElementsAt(moon, utc + 30).M - 30) < 0.0001);
+});
+
+test("moon validity compares dynamical bounds with UTC input, including sub-minute edges", () => {
+  const low = unixFromDynamicalJd(MOON_VALID_MIN_JD);
+  const high = unixFromDynamicalJd(MOON_VALID_MAX_JD);
+  assert.equal(withinMoonValidity(low - 1, MOON_VALID_MIN_JD, MOON_VALID_MAX_JD), false);
+  assert.equal(withinMoonValidity(low + 1, MOON_VALID_MIN_JD, MOON_VALID_MAX_JD), true);
+  assert.equal(withinMoonValidity(high - 1, MOON_VALID_MIN_JD, MOON_VALID_MAX_JD), true);
+  assert.equal(withinMoonValidity(high + 1, MOON_VALID_MIN_JD, MOON_VALID_MAX_JD), false);
+  for (const invalid of [NaN, Infinity, -Infinity]) {
+    assert.equal(withinMoonValidity(invalid, MOON_VALID_MIN_JD, MOON_VALID_MAX_JD), false);
+  }
 });
 
 test("multi-epoch knots cover the validated interval without extrapolation", () => {

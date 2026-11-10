@@ -1,0 +1,36 @@
+{
+  "schema_version": "horizons-vector-reference.v1",
+  "source": "NASA/JPL Horizons API",
+  "scope": "160 recorded DE441 geometric ecliptic-J2000 vectors, 16 TDB epochs, ten explicit target/origin pairs",
+  "limitations": "Sampled coordinate-model comparison only; barycentres are explicit. No continuous, apparent-place, event, absolute ancient-UTC, navigation, UI-registry or full-release qualification.",
+  "acceptance": {
+    "metric": "relative_vector_norm_arcsec",
+    "maximum": 10.0,
+    "arcsec_per_radian": 206264.80624709636
+  },
+  "predeclared_plan": {
+    "path": "predeclared-plan.txt",
+    "bytes": 2551,
+    "sha256": "feabd6d48bec21972cd2c6cc51284fdc97d3e97aa12af0111237f3500f77e41c"
+  },
+  "query_spec": {
+    "path": "query-spec.json",
+    "bytes": 8465,
+    "sha256": "47b0aee52e7e8995c8b37d221bb41a2b51e285b700ec9fe8ae01ea6ba0fb36c3"
+  },
+  "query_builder": {
+    "path": "query-builder.py.txt",
+    "bytes": 4182,
+    "sha256": "ffcf0d5a6cadcdb11fae9150f6b2eed58026b8c9b9b531883079f3eff8710fa2"
+  },
+  "acquisition": {
+    "path": "acquisition.json",
+    "bytes": 10637,
+    "sha256": "6b29e9faae793d6e1d1f60dba04d84401e60e9494c331ec0ed79d422fa4aeefc"
+  },
+  "derived_matrix": {
+    "path": "vectors.csv",
+    "bytes": 26532,
+    "sha256": "4267d3e08b844b8a0e98def3e23d0ccba3429c840fc8472acd364282bfa76e54"
+  }
+}

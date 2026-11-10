@@ -1,0 +1,123 @@
+API VERSION: 1.2
+API SOURCE: NASA/JPL Horizons API
+
+
+
+*******************************************************************************
+Ephemeris / API_USER Tue Nov  3 20:13:49 2026 Pasadena, USA      / Horizons
+*******************************************************************************
+Target body name: Neptune Barycenter (8)          {source: DE441}
+Center body name: Sun (10)                        {source: DE441}
+Center-site name: BODY CENTER
+*******************************************************************************
+Start time      : A.D. 2152-Jun-14 08:40:05.0000 TDB
+Stop  time      : A.D. 2194-Sep-19 02:38:01.0000 TDB
+Step-size       : DISCRETE TIME-LIST
+*******************************************************************************
+Center geodetic : 0.0, 0.0, 0.0                   {E-lon(deg),Lat(deg),Alt(km)}
+Center cylindric: 0.0, 0.0, 0.0                   {E-lon(deg),Dxy(km),Dz(km)}
+Center radii    : 695700.0, 695700.0, 695700.0 km {Equator_a, b, pole_c}
+Output units    : AU-D
+Calendar mode   : Gregorian
+Output type     : GEOMETRIC cartesian states
+Output format   : 1 (position only)
+Reference frame : Ecliptic of J2000.0
+*******************************************************************************
+            JDTDB,            Calendar Date (TDB),                      X,                      Y,                      Z,
+**************************************************************************************************************************
+$$SOE
+2507226.861168982, A.D. 2152-Jun-14 08:40:05.0000,  3.741893261827849E+00, -2.999498539228564E+01,  5.314576005201739E-01,
+2507234.778148148, A.D. 2152-Jun-22 06:40:32.0000,  3.766405190659489E+00, -2.999171109689865E+01,  5.308263065004087E-01,
+2507492.026886574, A.D. 2153-Mar-06 12:38:43.0000,  4.561043107252075E+00, -2.987428473079382E+01,  5.101289680166092E-01,
+2508723.151493056, A.D. 2156-Jul-19 15:38:09.0001,  8.302096787812022E+00, -2.902543179278138E+01,  4.064997381758998E-01,
+2508904.248148148, A.D. 2157-Jan-16 17:57:20.0000,  8.842326666973497E+00, -2.886152735853284E+01,  3.906619128097742E-01,
+2509247.337777778, A.D. 2157-Dec-25 20:06:24.0000,  9.857738031486480E+00, -2.852380336119733E+01,  3.602700829802529E-01,
+2509424.986134259, A.D. 2158-Jun-21 11:40:02.0000,  1.037909656191559E+01, -2.833492990836809E+01,  3.443420818006875E-01,
+2510491.605266204, A.D. 2161-May-23 02:31:35.0000,  1.343527565793813E+01, -2.699943494015355E+01,  2.462770998243268E-01,
+2510569.039467593, A.D. 2161-Aug-08 12:56:50.0001,  1.365149295716053E+01, -2.688905643511627E+01,  2.390160125437477E-01,
+2510954.322928241, A.D. 2162-Aug-28 19:45:01.0000,  1.471401800165734E+01, -2.631316027787630E+01,  2.026566585024149E-01,
+2512159.707881944, A.D. 2165-Dec-16 04:59:20.9999,  1.787232786696113E+01, -2.423514755195323E+01,  8.714317054547324E-02,
+2512976.899120370, A.D. 2168-Mar-12 09:34:44.0000,  1.984914260496022E+01, -2.260898955832946E+01,  8.094396194849118E-03,
+2513393.407083333, A.D. 2169-May-02 21:46:12.0000,  2.080207271240327E+01, -2.171856283020429E+01, -3.224476664639314E-02,
+2514294.482141204, A.D. 2171-Oct-20 23:34:17.0000,  2.273104207527964E+01, -1.965641104635164E+01, -1.192892587017527E-01,
+2514471.875532407, A.D. 2172-Apr-15 09:00:46.0000,  2.308836018188224E+01, -1.922916028792301E+01, -1.363426666074194E-01,
+2515037.284652778, A.D. 2173-Nov-01 18:49:54.0000,  2.417477936086084E+01, -1.782240320499693E+01, -1.903843596303286E-01,
+2515702.973043981, A.D. 2175-Aug-29 11:21:11.0000,  2.534497959589736E+01, -1.608279653212210E+01, -2.531469929287493E-01,
+2515837.840891204, A.D. 2176-Jan-11 08:10:53.0000,  2.556686527051393E+01, -1.572012463170114E+01, -2.657150211946097E-01,
+2516469.153564815, A.D. 2177-Oct-03 15:41:08.0000,  2.653425438816068E+01, -1.398154239959370E+01, -3.237360395612703E-01,
+2517650.264212963, A.D. 2180-Dec-27 18:20:28.0000,  2.802162446114288E+01, -1.057862587408185E+01, -4.280640432369245E-01,
+2517926.936215278, A.D. 2181-Sep-30 10:28:09.0000,  2.830913829901710E+01, -9.758066636625538E+00, -4.516113318134949E-01,
+2518373.434131945, A.D. 2182-Dec-20 22:25:09.0000,  2.872410335427367E+01, -8.417476705215728E+00, -4.888289385865199E-01,
+2518473.668553241, A.D. 2183-Mar-31 04:02:43.0000,  2.880887064683148E+01, -8.113905628938246E+00, -4.970447668400262E-01,
+2519738.565127315, A.D. 2186-Sep-16 01:33:47.0000,  2.960712286313219E+01, -4.211975540785353E+00, -5.958497565257008E-01,
+2519791.470995370, A.D. 2186-Nov-07 23:18:14.0000,  2.962924012069678E+01, -4.046348522398525E+00, -5.997676319266136E-01,
+2519843.033877315, A.D. 2186-Dec-29 12:48:47.0000,  2.964989854138170E+01, -3.884784719544383E+00, -6.035680930829842E-01,
+2520270.760115741, A.D. 2188-Mar-01 06:14:34.0000,  2.978688651743501E+01, -2.539812139240814E+00, -6.343885493338625E-01,
+2520584.707013889, A.D. 2189-Jan-09 04:58:06.0000,  2.984792048518382E+01, -1.548688706888040E+00, -6.561752826702096E-01,
+2520949.592939815, A.D. 2190-Jan-09 02:13:50.0000,  2.987657899229529E+01, -3.949250427249415E-01, -6.805668935006994E-01,
+2521081.595266204, A.D. 2190-May-21 02:17:11.0000,  2.987579939026892E+01,  2.248778890753655E-02, -6.891388531169802E-01,
+2521265.889814815, A.D. 2190-Nov-21 09:21:20.0000,  2.986488091787744E+01,  6.049891706505911E-01, -7.008787507086272E-01,
+2522663.609733796, A.D. 2194-Sep-19 02:38:01.0000,  2.941889644090173E+01,  4.990559416334347E+00, -7.810461693169122E-01,
+$$EOE
+**************************************************************************************************************************
+ 
+TIME
+
+  Barycentric Dynamical Time ("TDB" or T_eph) output was requested. This
+continuous coordinate time is equivalent to the relativistic proper time
+of a clock at rest in a reference frame co-moving with the solar system
+barycenter but outside the system's gravity well. It is the independent
+variable in the solar system relativistic equations of motion.
+
+  TDB runs at a uniform rate of one SI second per second and is independent
+of irregularities in Earth's rotation.
+ 
+CALENDAR SYSTEM
+
+  Calendar dates are given in the modern Gregorian system, extended prior to
+its 1582-Oct-15 adoption. The Gregorian calendar more closely corresponds to
+physical Earth seasons and orbital motion, but can differ by up to 10 days with
+historical records made under the prior Julian calendar, more if the Julian
+calendar was extended prior to its 45-Jan-1 BC adoption to label the historical
+event. Select "mixed" calendar mode if correlation with historical dates prior
+to A.D. 1582 is important.
+
+REFERENCE FRAME AND COORDINATES
+
+  Ecliptic at the standard reference epoch
+
+    Reference epoch: J2000.0
+    X-Y plane: adopted Earth orbital plane at the reference epoch
+               Note: IAU76 obliquity of 84381.448 arcseconds wrt ICRF X-Y plane
+    X-axis   : ICRF
+    Z-axis   : perpendicular to the X-Y plane in the directional (+ or -) sense
+               of Earth's north pole at the reference epoch.
+
+  Symbol meaning [1 au= 149597870.700 km, 1 day= 86400.0 s]:
+
+    JDTDB    Julian Day Number, Barycentric Dynamical Time
+      X      X-component of position vector (au)
+      Y      Y-component of position vector (au)
+      Z      Z-component of position vector (au)
+
+ABERRATIONS AND CORRECTIONS
+
+ Geometric state vectors have NO corrections or aberrations applied.
+
+Computations by ...
+
+    Solar System Dynamics Group, Horizons On-Line Ephemeris System
+    4800 Oak Grove Drive, Jet Propulsion Laboratory
+    Pasadena, CA  91109   USA
+
+    General site: https://ssd.jpl.nasa.gov/
+    Mailing list: https://ssd.jpl.nasa.gov/email_list.html
+    System news : https://ssd.jpl.nasa.gov/horizons/news.html
+    User Guide  : https://ssd.jpl.nasa.gov/horizons/manual.html
+    Connect     : browser        https://ssd.jpl.nasa.gov/horizons/app.html#/x
+                  API            https://ssd-api.jpl.nasa.gov/doc/horizons.html
+                  command-line   telnet ssd.jpl.nasa.gov 6775
+                  e-mail/batch   https://ssd.jpl.nasa.gov/ftp/ssd/horizons_batch.txt
+                  scripts        https://ssd.jpl.nasa.gov/ftp/ssd/SCRIPTS
+    Inquiries   : Jon.D.Giorgini@jpl.nasa.gov
+*******************************************************************************

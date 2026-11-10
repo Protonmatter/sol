@@ -2,7 +2,7 @@
 // belong to the caller; no scattering formula or shader compilation lives here.
 import {atmosphereUniformValues,serializeAtmosphereProfile} from './atmosphereOptics.js';
 
-export const SCATTERING_TARGET_LIMITS=Object.freeze({targets:2,evaluations:65536,bytesPerTarget:1048576,textureUnits:11});
+export const SCATTERING_TARGET_LIMITS=Object.freeze({targets:2,evaluations:65536,bytesPerTarget:2097152,textureUnits:11});
 export const SCATTERING_TARGET_UNIFORMS=Object.freeze(['u_scatteringReady','u_scatteringSurface','u_scatteringLimb',
   'u_scatteringAxis','u_scatteringU','u_scatteringV','u_scatteringCameraRadius','u_scatteringHeightRange',
   'u_scatteringSurfaceSize','u_scatteringLimbSize']);
@@ -80,9 +80,9 @@ function uploadGrid(gl,locations,plan,ready){
  * No getError result or successful draw submission proves GPU completion/content.
  * @param {*} gl WebGL2 context, borrowed for this context generation.
  * @param {{contextGeneration:number,programGeneration:number,programs:{generation:number,get:Function},
- * generatorKey:string,generatorUniforms:Object,admitPlan:Function,capacity?:number}} options
+ * generatorKey:string,generatorUniforms:Object,numeratorKey?:string,numeratorUniforms?:Object,admitPlan:Function,capacity?:number}} options
  */
-export function createScatteringTargets(gl,{contextGeneration,programGeneration,programs,generatorKey,generatorUniforms,admitPlan,capacity=2}){
+export function createScatteringTargets(gl,{contextGeneration,programGeneration,programs,generatorKey,generatorUniforms,numeratorKey=null,numeratorUniforms=null,admitPlan,capacity=2}){
   if(!Number.isSafeInteger(contextGeneration)||contextGeneration<0||!Number.isSafeInteger(programGeneration)||programGeneration<0
     ||!Number.isInteger(capacity)||capacity<1||capacity>2)throw new RangeError('Invalid scattering resource identities or capacity');
   if(typeof admitPlan!=='function')throw new TypeError('Caller plan admission is required');
@@ -92,7 +92,17 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
   if(!program||!generatorUniforms||generatorUniforms.u_scatteringPass==null
     ||generatorUniforms.u_atmosphereColumnField==null)
     throw new TypeError('Already-ready scattering generator and uniform locations required');
-  const locations={...generatorUniforms},entries=new Map();
+  const paired=numeratorKey!==null||numeratorUniforms!==null;
+  let numerator=null;
+  if(paired){
+    if(typeof numeratorKey!=='string'||!numeratorKey||numeratorKey.length>80||numeratorKey===generatorKey
+      ||!numeratorUniforms||numeratorUniforms.u_scatteringPass==null||numeratorUniforms.u_atmosphereColumnField==null
+      ||generatorUniforms.u_scatteringNumerator==null)throw new TypeError('Complete distinct paired numerator ownership required');
+    numerator=programs.get(numeratorKey);
+    if(!numerator||numerator===program)throw new TypeError('Already-ready distinct numerator program required');
+  }
+  const locations={...generatorUniforms},numeratorLocations=paired?{...numeratorUniforms}:null,entries=new Map();
+  const units=paired?[6,...UNITS]:UNITS;
   let currentFrame=null,lastSerial=-1,disposed=false,fatal='',maxSize=0,maxUnits=0,lastFailure='';
   try{
     if(!gl.getExtension('EXT_color_buffer_float'))throw new Error('Float scattering targets unavailable');
@@ -106,7 +116,7 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
     entry.submission=null;if(invalidateRevision)entry.revision++;
     const group=entry.group;entry.group=null;if(!group)return;
     // No framebuffer/texture rebinding during release, and no borrowed resources.
-    for(const [method,value] of [['deleteTexture',group.surface],['deleteTexture',group.limb],
+    for(const [method,value] of [['deleteTexture',group.surface],['deleteTexture',group.limb],['deleteTexture',group.numeratorSurface],['deleteTexture',group.numeratorLimb],
       ['deleteFramebuffer',group.framebuffer],['deleteVertexArray',group.vao]])if(value){
       try{gl[method](value);}catch(error){lastFailure=message(error);}
     }
@@ -118,7 +128,7 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
     if(disposed||fatal)return false;
     try{
       if(gl.isContextLost())throw new Error('Scattering graphics context lost');
-      if(programs.generation!==programGeneration||programs.get(generatorKey)!==program)throw new Error('Scattering shader owner replaced or no longer ready');
+      if(programs.generation!==programGeneration||programs.get(generatorKey)!==program||(paired&&programs.get(numeratorKey)!==numerator))throw new Error('Scattering shader owner replaced or no longer ready');
       return true;
     }catch(error){fatal=message(error);currentFrame=null;for(const entry of entries.values()){release(entry);entry.state='unavailable';entry.reason=fatal;}return false;}
   }
@@ -159,10 +169,10 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
       ||!Number.isInteger(value.activeTexture)||value.activeTexture<gl.TEXTURE0||value.activeTexture>=gl.TEXTURE0+maxUnits
       ||!Array.isArray(value.colorMask)||value.colorMask.length!==4||!value.colorMask.every(v=>typeof v==='boolean')
       ||typeof value.depthMask!=='boolean'||!value.enabled||Object.keys(ENABLES).some(key=>typeof value.enabled[key]!=='boolean')
-      ||!Array.isArray(value.textureUnits)||value.textureUnits.length!==UNITS.length)throw new Error('Complete caller scattering restore state required');
+      ||!Array.isArray(value.textureUnits)||value.textureUnits.length!==units.length)throw new Error('Complete caller scattering restore state required');
     for(const key of ['drawFramebuffer','readFramebuffer','program','vertexArray'])
       if(!Object.hasOwn(value,key)||!binding(value[key])||handles.includes(value[key]))throw new Error('Restore state must contain caller-owned live bindings');
-    const textureUnits=UNITS.map(unit=>{
+    const textureUnits=units.map(unit=>{
       const matches=value.textureUnits.filter(item=>item?.unit===unit),item=matches[0];
       if(matches.length!==1||!Object.hasOwn(item,'texture')||!Object.hasOwn(item,'sampler')
         ||!binding(item.texture)||!binding(item.sampler)||handles.includes(item.texture))throw new Error('Caller texture/sampler restore binding missing or target-owned');
@@ -187,14 +197,16 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
     }
   }
   function allocate(entry,allocation){
-    const group={surface:null,limb:null,framebuffer:null,vao:null,shape:allocation.shape,bytes:allocation.bytes};entry.group=group;
+    const bytes=allocation.bytes*(paired?2:1);
+    if(bytes>SCATTERING_TARGET_LIMITS.bytesPerTarget)throw new Error('Scattering scratch allocation budget exceeded');
+    const group={surface:null,limb:null,numeratorSurface:null,numeratorLimb:null,framebuffer:null,vao:null,shape:allocation.shape,bytes};entry.group=group;
     const requireResource=(value,label)=>{if(!value)throw new Error(`Scattering ${label} allocation failed`);return value;};
     group.framebuffer=requireResource(gl.createFramebuffer(),'framebuffer');group.vao=requireResource(gl.createVertexArray(),'vertex array');
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,group.framebuffer);gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
-    for(let i=0;i<2;i++){
-      const key=i===0?'surface':'limb',texture=requireResource(gl.createTexture(),'texture');group[key]=texture;
-      gl.activeTexture(gl.TEXTURE0+8+i);gl.bindTexture(gl.TEXTURE_2D,texture);gl.bindSampler(8+i,null);
-      gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,...allocation.sizes[i]);
+    for(let i=0;i<(paired?4:2);i++){
+      const key=['surface','limb','numeratorSurface','numeratorLimb'][i],texture=requireResource(gl.createTexture(),'texture');group[key]=texture;
+      const unit=i<2?8+i:6;gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.bindSampler(unit,null);
+      gl.texStorage2D(gl.TEXTURE_2D,1,gl.RGBA32F,...allocation.sizes[i%2]);
       for(const parameter of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,parameter,gl.NEAREST);
       for(const parameter of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,parameter,gl.CLAMP_TO_EDGE);
       gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
@@ -229,15 +241,29 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,group.framebuffer);gl.bindVertexArray(group.vao);gl.useProgram(program);
       for(const constant of Object.values(ENABLES))gl.disable(gl[constant]);
       gl.colorMask(true,true,true,true);gl.depthMask(false);
-      for(const unit of UNITS){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,unit===7?data.columnTexture:unit===10?data.ozoneTexture||null:null);gl.bindSampler(unit,null);}
-      upload(gl,locations,data.values);uploadGrid(gl,locations,data.plan,0);
-      gl.uniform1i(locations.u_atmosphereColumnField,7);
-      if(locations.u_atmosphereOzoneField)gl.uniform1i(locations.u_atmosphereOzoneField,10);
-      for(let pass=0;pass<2;pass++){
-        if(entry.revision!==revision||!currentOwner())throw new Error('Scattering demand cancelled during generation');
-        gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,pass===0?group.surface:group.limb,0);
+      for(const unit of units){gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,unit===7?data.columnTexture:unit===10?data.ozoneTexture||null:null);gl.bindSampler(unit,null);}
+      const stillCurrent=()=>{
+        if(entry.revision!==revision||!currentOwner()||!sameFrame(currentFrame,data.frame))throw new Error('Scattering demand cancelled during generation');
+      };
+      const submit=(activeProgram,uniforms,texture,pass)=>{
+        stillCurrent();gl.useProgram(activeProgram);
+        upload(gl,uniforms,data.values);uploadGrid(gl,uniforms,data.plan,0);
+        gl.uniform1i(uniforms.u_atmosphereColumnField,7);
+        if(uniforms.u_atmosphereOzoneField)gl.uniform1i(uniforms.u_atmosphereOzoneField,10);
+        gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,texture,0);
         gl.viewport(0,0,...data.allocation.sizes[pass]);gl.clearBufferfv(gl.COLOR,0,new Float32Array(4));
-        gl.uniform1i(locations.u_scatteringPass,pass);gl.drawArrays(gl.TRIANGLES,0,3);checkedError(entry,'submission');
+        gl.uniform1i(uniforms.u_scatteringPass,pass);stillCurrent();gl.drawArrays(gl.TRIANGLES,0,3);stillCurrent();checkedError(entry,'submission');
+      };
+      for(let pass=0;pass<2;pass++){
+        const final=pass===0?group.surface:group.limb;
+        if(paired){
+          const scratch=pass===0?group.numeratorSurface:group.numeratorLimb;
+          gl.activeTexture(gl.TEXTURE0+6);gl.bindTexture(gl.TEXTURE_2D,null);
+          submit(numerator,numeratorLocations,scratch,pass);
+          gl.activeTexture(gl.TEXTURE0+6);gl.bindTexture(gl.TEXTURE_2D,scratch);
+          gl.useProgram(program);gl.uniform1i(locations.u_scatteringNumerator,6);
+        }
+        submit(program,locations,final,pass);
       }
       if(entry.revision!==revision||!currentOwner()||!sameFrame(currentFrame,data.frame))throw new Error('Stale scattering submission');
       submitted=data;
@@ -261,7 +287,7 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
       checkedError(entry,'binding-entry');const revision=entry.revision;
       const data=validated(args),prior=entry.submission;
       if(!currentOwner()||entry.revision!==revision||!prior||!sameFrame(prior.frame,data.frame)
-        ||data.identity!==prior.identity||data.columnTexture!==prior.columnTexture)return false;
+        ||data.identity!==prior.identity||data.columnTexture!==prior.columnTexture||data.ozoneTexture!==prior.ozoneTexture)return false;
       uploadGrid(gl,consumer.locations,data.plan,0);
       gl.activeTexture(gl.TEXTURE0+8);gl.bindTexture(gl.TEXTURE_2D,entry.group.surface);gl.bindSampler(8,null);
       gl.activeTexture(gl.TEXTURE0+9);gl.bindTexture(gl.TEXTURE_2D,entry.group.limb);gl.bindSampler(9,null);

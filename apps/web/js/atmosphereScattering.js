@@ -391,6 +391,19 @@ void main(){
   o=valid?vec4(residual,1):vec4(0);
 }`;
 
+// The original complete generator stays available as the numerical oracle.
+// Live preparation stores the unchanged numerator in RGBA32F, then resolves
+// the unchanged weight/residual tail. No nodes or coefficients are reduced.
+const GENERATOR_OUTPUT="  AtmosphereResult result=integrateAtmospherePrepared(path);\n  vec3 weight=scatteringReferenceWeightPrepared(path);\n  vec3 residual=vec3(weight.x>0.0?result.scattering.x/weight.x:0.0,\n    weight.y>0.0?result.scattering.y/weight.y:0.0,weight.z>0.0?result.scattering.z/weight.z:0.0);\n  bool valid=all(greaterThanEqual(weight,vec3(0)))&&!any(isnan(residual))&&!any(isinf(residual))&&all(greaterThanEqual(residual,vec3(0)));\n  o=valid?vec4(residual,1):vec4(0);\n}";
+if(!SCATTERING_GENERATOR_FS.endsWith(GENERATOR_OUTPUT)||SCATTERING_GENERATOR_FS.split(GENERATOR_OUTPUT).length!==2)
+  throw new Error('Scattering generator output boundary changed');
+const GENERATOR_PREFIX=SCATTERING_GENERATOR_FS.slice(0,-GENERATOR_OUTPUT.length);
+if(GENERATOR_PREFIX.split('out vec4 o;').length!==2)throw new Error('Scattering generator output declaration changed');
+export const SCATTERING_NUMERATOR_FS=GENERATOR_PREFIX+'  AtmosphereResult result=integrateAtmospherePrepared(path);\n  o=vec4(result.scattering,1);\n}';
+export const SCATTERING_RESOLVE_FS=GENERATOR_PREFIX.replace('out vec4 o;','out vec4 o;\nuniform highp sampler2D u_scatteringNumerator;')
+  +GENERATOR_OUTPUT.replace('  AtmosphereResult result=integrateAtmospherePrepared(path);',
+    '  AtmosphereResult result=AtmosphereResult(vec3(0),texelFetch(u_scatteringNumerator,ivec2(gl_FragCoord.xy),0).rgb);');
+
 const SAMPLE_GLSL=`
 uniform highp sampler2D u_scatteringSurface,u_scatteringLimb;
 bool atmosphereScatteringIsZeroPrepared(AtmospherePath path){

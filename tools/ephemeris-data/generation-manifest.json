@@ -5,7 +5,7 @@
     "name": "generate_moons.py + moon_model.py",
     "version": "source-sha256",
     "files": {
-      "tools/generate_moons.py": "0c070352991b48283a9ab9aa40425b50df9406a5d36dd1788f5c8d34290f86f9",
+      "tools/generate_moons.py": "ee3712f01c49f79fa325e7c11898fab530476c1de91596426936a3a3b26dc028",
       "tools/moon_model.py": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445"
     }
   },
@@ -33,7 +33,14 @@
     "encoding": "UTF-8",
     "newlines": "LF",
     "ordering": "JPL body code ascending; fixed field order",
-    "knot_decimal_places": {"a": 4, "h": 12, "k": 12, "p": 12, "q": 12, "L": 6},
+    "knot_decimal_places": {
+      "a": 4,
+      "h": 12,
+      "k": 12,
+      "p": 12,
+      "q": 12,
+      "L": 6
+    },
     "float_format": "Pinned CPython built-in round and float/JSON serialization; generator source hash binds all representative-field formatting.",
     "timestamps_in_outputs": false
   },
@@ -42,7 +49,7 @@
     "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
   },
   "canonical": {
-    "status": "pending",
+    "status": "qualified",
     "platform": "linux/amd64",
     "image": "python:3.12.12-slim-bookworm",
     "image_digest": "sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
@@ -51,9 +58,12 @@
     "python_implementation": "CPython",
     "python_version": "3.12.12",
     "qualification": {
-      "identical_runs": 0,
-      "reviewed_evidence": null,
-      "reason": "Candidate amd64 manifest digest verified from primary Docker Hub metadata, but no matching local Linux x86_64 runtime/image was available. Windows ARM64 and WSL Linux aarch64 are diagnostic platforms, not canonical qualification."
+      "identical_runs": 2,
+      "evidence_id": "canonical-moon-20261104",
+      "reviewed_evidence": "docs/CANONICAL_MOON_REFRESH_20261104.md",
+      "pending_native_metadata_sha256": "681106e249685436a8fe82b682f8ff3a91c200f3299d2e96b09a70a09c11c33b",
+      "review_receipt_sha256": "7c4dfd4f5dcded033dc0329a29dd9891762456b27af18eb2fcc4e29c034c7361",
+      "reason": "Two fresh native pinned Linux x86_64 CPython3.12.12 containers reproduced both authoritative outputs and passed11985 held-out checks after source corrections. Exact pending reports and independent review are preserved under canonical-moon-20261104; strict qualified-state follow-up remains separately required. No hosted/UI/full-span qualification."
     }
   },
   "validation": {

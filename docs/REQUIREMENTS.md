@@ -1,7 +1,7 @@
 # Requirements and traceability
 
 Status: current  
-Updated: 2026-09-11
+Updated: 2026-11-06
 
 `requirements.json` is the machine-readable source of truth. Each record connects a
 normative statement to its governing specification, implementation, verification, and CI
@@ -32,9 +32,9 @@ unrecognized status, and incomplete workflow enforcement.
 | `SOL-VIS-005` | Numeric terrain datum, finite geometry, physical extents and source identity |
 | `SOL-VIS-006` | Dimensioned optical transfer with distinct reflection, scattering and emission |
 | `SOL-VIS-007` | Source band, frame, coverage and finite dynamic appearance playback |
-| `SOL-VIS-008` | Default attributed illustrative planet looks, selectable Source-qualified mode and separate bounded resources (proposed) |
-| `SOL-VIS-010` | Recovered Sites v7 Earth appearance with unchanged physical state and preserved scientific layer options (proposed) |
-| `SOL-VIS-011` | Approved illustrative Sun, default 1K and selectable 2K/4K with bounded resources and unchanged physical state (proposed) |
+| `SOL-VIS-008` | Default attributed illustrative planet looks, selectable Source-qualified mode and separate bounded resources |
+| `SOL-VIS-010` | Recovered Sites v7 Earth appearance with unchanged physical state and preserved scientific layer options |
+| `SOL-VIS-011` | Approved illustrative Sun, default 1K and selectable 2K/4K with bounded resources and unchanged physical state |
 | `SOL-CI-001` | SHA-pinned actions, least privilege, and deployment of the tested SHA |
 | `SOL-DOC-001` | Documentation, plans, instructions, and traceability updated with code |
 | `SOL-SUPPLY-001` | Locked dependencies and automated ecosystem update review |
@@ -55,13 +55,23 @@ unrecognized status, and incomplete workflow enforcement.
 
 ## Traceability review
 
+The [November appearance audit](APPEARANCE_TRACEABILITY_20261106.md) maps all three
+appearance statements to current local implementation, focused tests and retained
+rendering evidence. Their registry status is now `implemented` under the local
+definition above; all 27 current records have that status. RFCs 0007, 0009 and 0010
+remain Draft under the separate decision/acceptance process. Browser probes run in
+the Coverage workflow's JavaScript job, which is now listed alongside the CI web
+job. Physical-device, manual, hosted-current-source and served acceptance remain
+separate; this registry correction grants none of them.
+
 The September mapping now points to live v3 schemas, strict solar/ephemeris intake,
 worker/request identity, presentation/object controls, recipient privacy, atomic source/
 derived bundle readers and artifact/served-evidence tools. Historical v2 remains separate.
-The coefficient provenance inventory is documentation of missing regeneration/notice
-correspondence, not evidence that those gaps are resolved. Canonical moon generation,
-independent v3 astronomy, physical-device/manual accessibility and protected release
-qualification retain their own holds. RFC 0002 remains Accepted.
+The coefficient provenance inventory distinguishes reproducible numeric reconstruction
+from unresolved distribution/notice clearance. The current canonical moon asset
+contract is qualified for its pinned native image and exact sources; independent
+continuous v3 astronomy, physical-device/manual accessibility and protected release
+qualification retain their separate holds. RFC 0002 remains Accepted.
 
 CI gate names identify the governing workflow/job; a path's presence in this registry
 does not prove a hosted run or imply that every standalone local harness is run there.

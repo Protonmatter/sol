@@ -658,6 +658,8 @@ h2 {
   gap: 0.55rem;
   margin-top: 0.85rem;
 }
+.timeline-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.timeline-heading .time-btn { min-width: 44px; min-height: 44px; }
 
 .time-scrubber {
   flex: 1;
@@ -920,6 +922,11 @@ body[data-surface="sky"] .timeline-band {
   cursor: grabbing;
 }
 
+/* The viewport clips outside ink; keep the keyboard focus ring inside the scene. */
+#orreryCanvas:focus-visible {
+  outline-offset: -4px;
+}
+
 .orrery-panel {
   display: none;
 }
@@ -1076,6 +1083,8 @@ body[data-surface="orrery"] .timeline-band {
 
 /* ---- "The Sun" surface: one destination, depth revealed in progressive-disclosure drawers ---- */
 .sun-section {
+  /* Preserve disclosure content height inside the bounded Inspector flex column. */
+  flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.02);
@@ -1368,6 +1377,9 @@ body[data-surface="orrery"] .timeline-band {
 .tour-card {
   position: fixed;
   width: min(22rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 1rem);
+  overflow: auto;
+  scroll-padding: 4px; /* Preserve the 2px keyboard outline plus its 2px offset. */
   padding: 0.9rem 1rem;
   border: 1px solid var(--gold);
   background: rgba(12, 13, 17, 0.98);
@@ -1619,6 +1631,8 @@ body[data-surface="orrery"] .timeline-band {
 .physical-source-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .physical-source-actions button { min-height: 44px; }
 #orreryPhysicalStatus { color: #c4cbd5; }
+#orreryCataloguePanel { margin-top: .35rem; max-width: 72ch; }
+#orreryCataloguePanel button { margin-top: .35rem; min-height: 44px; pointer-events: auto; }
 
 /* Respect the OS motion preference: no decorative transitions/animations for users who
    asked for reduced motion. (The 3-D view's auto-animation is gated in JS — orrery.js
@@ -1627,7 +1641,7 @@ body[data-surface="orrery"] .timeline-band {
   *,
   *::before,
   *::after {
-    transition-duration: 0.01ms !important;
+    transition-duration: 0s !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
@@ -1979,3 +1993,14 @@ body:not([data-surface="today"]) .control-panel { padding: 1.3rem; background: #
   .system-jumps { inset: .6rem auto auto .6rem; max-width: calc(100% - 1.2rem); gap: .3rem; }
   .system-jumps button { font-size: .67rem; padding: .45rem .6rem; }
 }
+/* View-code recovery remains available when its inspector is closed. */
+.view-code-panel { grid-column: 1 / -1; }
+.view-code-panel p { margin: 0.4rem 0; }
+.view-code-panel button { min-height: 44px; }
+/* The destination headline arrives asynchronously; reserve its two-line space. */
+#surfaceInsight { min-block-size: 2lh; }
+
+/* Before first successful entry, hide scene placeholders without removing
+   canvas/card geometry. Loading and recovery controls remain available. */
+body[data-view-initialized="false"] :is(#stageRail,#baseLabel,.status-strip,#orreryLabels,#systemJumps) { display: none !important; }
+body[data-view-initialized="false"] :is(#solarCanvas,#skyCanvas,#orreryCanvas,.solar-runtime,.research-control,#destinationOverview,.destination-caption) { visibility: hidden !important; }

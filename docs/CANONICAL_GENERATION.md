@@ -8,14 +8,22 @@ rules and upstream notices are bound in
 [`generation-manifest.json`](../tools/ephemeris-data/generation-manifest.json).
 This is a **moon-assets contract**, not the simulation's cross-OS byte-identity contract.
 
-Canonical qualification is **pending**. The candidate is CPython 3.12.12 on Linux
+Canonical qualification is **qualified for the current moon asset contract**.
+The [current native source refresh](CANONICAL_MOON_REFRESH_20261104.md) retains
+two pending and two strict runs after the validator/generator lifecycle fixes,
+their independent reviews and exact current source correspondence. The original
+[native VM report](CANONICAL_MOON_20261103.md) and
+[independent review](CANONICAL_MOON_REVIEW_20261103.md) remain historical evidence.
+The runtime is CPython 3.12.12 on Linux
 x86_64 (`linux/amd64`), image `python:3.12.12-slim-bookworm`, architecture-specific digest
 `sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301`.
 That digest was resolved from [official Docker Hub image metadata](https://hub.docker.com/v2/repositories/library/python/tags/3.12.12-slim-bookworm)
-on 2026-09-11; it has **not** been executed here. Neither a mutable tag nor a Linux ARM
-run qualifies the selected x86_64 image. The locally available WSL/Docker platform is
-aarch64, and its installed Python images are ARM64. No image was pulled and no host
-software or dependency was installed for this investigation.
+on 2026-09-11. The original investigation did not execute it. Neither a mutable
+tag nor a Linux ARM run qualifies the selected x86_64 image. The locally available
+WSL/Docker platform is aarch64; its runtime is diagnostic rather than acceptance
+evidence. The subsequent native VM investigation reproduced the authoritative
+files twice in the exact image before reviewed metadata promotion. This does not
+qualify other runtimes or the complete production release.
 
 ## Operator commands and exits
 
@@ -69,7 +77,7 @@ Its independent 11,985 checks measured maximum angular error 0.1384 degrees (Ner
 JD 2461053.0) and radial error 0.1893 percent (Enceladus, JD 2461674.2), across the shared
 JD 2459219.0–2462859.0 validation interval.
 
-## Complete the canonical qualification
+## Reproduce or renew the canonical qualification
 
 This requires an operator-authorized Linux x86_64 environment with the exact pinned image
 already available. Do not silently pull a replacement tag or count an ARM image as amd64.
@@ -81,11 +89,13 @@ For example, from a Linux shell with the repository as the current directory:
 docker image inspect python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301
 docker run --pull=never --rm --platform linux/amd64 --network none --read-only \
   --mount "type=bind,src=$PWD,dst=/work,readonly" --workdir /work \
+  --env PYTHONDONTWRITEBYTECODE=1 \
+  --env SOL_MOON_GENERATOR_IMAGE_DIGEST=sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301 \
   python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301 \
-  python -B tools/validate_moons.py
+  python -B tools/validate_moons.py --require-canonical
 ```
 
-Run the complete comparison twice in separate fresh containers, preserving both logs,
+For a qualification renewal, run the complete comparison twice in separate fresh containers, preserving both logs,
 observed runtime facts, input/generator/output hashes and numerical maxima. While status
 is pending, diagnostic runs will say noncanonical; this is deliberate. If either run
 differs, leave status pending and preserve authoritative files. Investigate the difference
@@ -105,6 +115,61 @@ container attestation; Python cannot prove an image digest from inside a process
 image pinning and image inspection supply that part of the evidence. Do not set the variable
 on an arbitrary host as a workaround. CI enforcement must not label pending qualification
 as passed. The delivery workflow and its qualification evidence are owned separately.
+
+## Read-only evidence collector and CI integration
+
+`tools/collect_moon_evidence.py` collects one comparison as JSON. It admits only
+the manifest's exact image assertion and Linux x86_64 CPython version, checks
+source identities, generates both modules in memory and runs the complete
+held-out-vector validator. It records hashes of all ten inputs before and after,
+generated and committed output hashes, runtime facts and the numerical log.
+An image assertion on an arbitrary host cannot qualify that host.
+
+The collector exits 0 only for a passing comparison, 1 for a comparison failure
+and 2 for source/runtime/image admission refusal. `qualification_granted` remains
+false even when the comparison passes. A pending comparison is candidate
+evidence for independent review; it does not grant release qualification.
+When the manifest is qualified, the collector invokes the validator with
+`--require-canonical` and checks the recorded qualification conditions too.
+
+Prepare only the fixed public inputs for an isolated mount:
+
+```text
+python tools/collect_moon_evidence.py --snapshot build/NEW-moon-inputs
+```
+
+Snapshot mode requires a new directory under `build/`, verifies the source
+manifest and copies only the ten named files. It excludes `.git`, credentials
+and unrelated project content. Existing targets and redirected build roots are
+refused. Input mutation prevents successful completion; preserve incomplete
+evidence for inspection and choose a new directory for another attempt.
+
+The `moon-image-evidence` job in [CI](../.github/workflows/ci.yml) has two matrix
+samples on native Ubuntu x86_64 runners. Each pulls the exact existing digest,
+checks the image OS/architecture and records repository digests, then runs a
+fresh container with read-only root and input mount, no network, two CPUs,
+1 GiB memory, 128 PIDs, dropped capabilities and no new privileges. It retains
+JSON artifacts on failure as well as success. It never rewrites generated
+modules or promotes the manifest.
+After collection, CI explicitly requires both a passing comparison and recorded
+qualified status. A future pending reset can retain candidate evidence but fails
+the strict CI job. The duplicate host-dependent moon regeneration was moved out
+of the web job; both required image jobs still run the full numerical validator.
+
+Both expanded matrix names are included in the authoritative release inventory
+in `tools/release_policy.py`, and the aggregate is required by the release gate.
+Missing, failed, skipped or cancelled evidence is rejected by regression tests.
+An independently maintained protected verifier/profile must adopt the reviewed
+inventory before accepting a future candidate; no protected settings, accepted
+profile, hosted job, commit, push or publication was changed by this local work.
+
+The admission/reporting tests use mocks and do not count as numerical or native
+image evidence. Run them with the existing test runner:
+
+```text
+python -m unittest discover -s tests/python -p test_canonical_moon_evidence.py -v
+python -m unittest discover -s tests/python -p test_release_policy.py -v
+```
 
 ## Updating sources or generators and rollback
 

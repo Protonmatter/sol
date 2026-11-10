@@ -1,0 +1,3 @@
+SOL_MOON_RUN=1 passed
+SOL_MOON_RUN=2 passed
+SOL_MOON_COMPLETE={"passed": true, "archive_bytes": 5161, "archive_sha256": "f3215e40dba81dc16fc91791a4b5c18546a21e967f523b20467c253785004091", "metadata_sha256": "681106e249685436a8fe82b682f8ff3a91c200f3299d2e96b09a70a09c11c33b"}

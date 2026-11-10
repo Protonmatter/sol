@@ -45,8 +45,8 @@ async function panelHarness({ absent = [], blockedStorage = false } = {}) {
     window: { innerWidth: 800, innerHeight: 600, dispatchEvent(event) { events.push({ type: event.type, detail: event.detail }); }, scrollTo(...args) { scrolls.push(args); } },
     localStorage: { setItem(key, value) { if (blockedStorage) throw new Error("storage unavailable"); saved.set(key, value); } },
   });
-  const [panels, tour, tooltip, state] = await loadSourceModules(context,
-    [moduleURL("panels"), moduleURL("tour"), moduleURL("tooltip"), moduleURL("store")], {
+  const [panels, tour, tooltip, state, config] = await loadSourceModules(context,
+    [moduleURL("panels"), moduleURL("tour"), moduleURL("tooltip"), moduleURL("store"), moduleURL("config")], {
       resolveImport: (_specifier, url) => url.pathname.endsWith("/view.js") ? { renderAll() { renderCount++; } } : undefined,
     });
   const { store } = state;
@@ -67,7 +67,7 @@ async function panelHarness({ absent = [], blockedStorage = false } = {}) {
   store.presentation = { headline: "Synthetic solar maximum", sourceKind: "synthetic", showModelOverlays: true, coordinateLabel: "Modeled anchors" };
   store.wavelength = "model";
   store.seriesRecords = [{ id: "frame-0", months: 0, index: 0, status: "ready" }, { id: "frame-12", months: 12, index: 1, status: "unavailable" }];
-  return { ...host, context, panels, tour, tooltip, store, events, saved, scrolls, renderCount: () => renderCount };
+  return { ...host, context, panels, tour, tooltip, store, config, events, saved, scrolls, renderCount: () => renderCount };
 }
 
 test("panels present current numeric facts, source limitations and keyboard glossary controls", async () => {
@@ -335,6 +335,30 @@ test("tour spotlight and card stay inside viewport and last step finishes cleanl
   assert.equal(h.nodes.get("tourLayer").hidden, true);
 });
 
+test('tour card stays visible when its highlighted target lies below a short viewport',async()=>{
+  const h=await panelHarness();h.tour.startTour();
+  h.nodes.get('solarCanvas').rect={left:200,top:900,width:200,height:180};
+  h.store.tourIndex=1;
+  for(const height of [600,240]){
+    h.context.window.innerHeight=height;h.tour.showTourStep();
+    const top=Number.parseFloat(h.nodes.get('tourCard').style.top);
+    assert.equal(top,height-120-8,'the card must clamp to the viewport even when both target-adjacent placements are offscreen');
+    assert.equal(h.document.activeElement,h.nodes.get('tourCard'),'positioning preserves dialog focus');
+  }
+});
+
+test('tour step reflow reveals the current action without moving focus',async()=>{
+  const h=await panelHarness();h.tour.startTour();
+  const next=h.nodes.get('tourNext'),calls=[];
+  next.scrollIntoView=options=>calls.push({options:{...options},top:h.nodes.get('tourCard').style.top,focused:h.document.activeElement===next});
+  next.focus();h.store.tourIndex=1;
+  h.nodes.get('solarCanvas').rect={left:200,top:900,width:200,height:180};
+  h.tour.showTourStep();
+  assert.deepEqual(calls,[{options:{block:'nearest',inline:'nearest',behavior:'instant'},top:'472px',focused:true}]);
+  h.nodes.get('priorFocus').focus();h.tour.showTourStep();
+  assert.equal(calls.length,1,'unrelated background focus is not scrolled');
+});
+
 test("tour traps forward/backward Tab while leaving ordinary navigation alone", async () => {
   const h = await panelHarness(); h.tour.startTour();
   const card = h.nodes.get("tourCard"), next = h.nodes.get("tourNext"), skip = h.nodes.get("tourSkip");
@@ -421,4 +445,134 @@ test("tooltip placement clamps each edge and unknown terms do not replace visibl
   missing.tooltip.showTip(target); missing.store.tipPinned = true; missing.tooltip.hideTip();
   assert.equal(missing.tooltip.isTipHidden(), true);
   assert.equal(missing.store.tipPinned, false);
+});
+
+
+test('legend controls retain their logical identity and glossary association on unchanged refresh',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const legend=h.nodes.get('layerLegend'),children=[...legend.children],focused=children[1];
+  focused.focus();h.tooltip.showTip(focused);
+  const snapshot=JSON.stringify(h.store.state);h.panels.updateText();
+  assert.deepEqual(legend.children.map((row,index)=>row===children[index]),children.map(()=>true));
+  assert.ok(focused.parentElement===legend);assert.ok(h.document.activeElement===focused);
+  assert.equal(focused.getAttribute('aria-describedby'),'termTip');
+  assert.equal(JSON.stringify(h.store.state),snapshot);
+});
+
+test('signal controls retain identity and glossary association on unchanged refresh',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const signals=h.nodes.get('applicationSignals'),children=[...signals.children],focused=children[0];
+  focused.focus();h.tooltip.showTip(focused);h.panels.updateText();
+  assert.deepEqual(signals.children.map((row,index)=>row===children[index]),children.map(()=>true));assert.ok(focused.parentElement===signals);
+  assert.ok(h.document.activeElement===focused);assert.equal(focused.getAttribute('aria-describedby'),'termTip');
+});
+
+test('signal text, observer and feed caveats update while the focused control survives',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const signals=h.nodes.get('applicationSignals'),kp=signals.children[0];kp.focus();
+  h.store.state.observed_context.space_weather_signals.latest_kp=6;
+  h.store.sky={observer:{lat:65,lon:-20,label:'Updated observer'}};
+  h.store.feedStatus={status:'ok',last_run_utc:'2026-09-08T00:00:00Z',next_recommended_run_utc:'2026-09-09T00:00:00Z',sources:[]};
+  h.panels.updateText();
+  assert.ok(signals.children[0]===kp);assert.equal(kp.textContent,'Kp 6.0');assert.ok(h.document.activeElement===kp);
+  assert.match(h.nodes.get('auroraOutlook').textContent,/Updated observer/);
+  assert.match(h.nodes.get('auroraOutlook').textContent,/Kp is from the last completed feed run/);
+});
+
+test('removing an earlier legend layer preserves the surviving focused control',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const legend=h.nodes.get('layerLegend'),confidence=legend.children[1],regions=legend.children[2];regions.focus();
+  h.nodes.get('layerConfidence').checked=false;h.panels.updateText();
+  assert.ok(confidence.parentElement===null);assert.ok(legend.children[1]===regions);
+  assert.ok(h.document.activeElement===regions);assert.ok(regions.parentElement===legend);
+  assert.equal(legend.children.length,2);
+});
+
+test('changed legend wording updates the same logical control',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const legend=h.nodes.get('layerLegend'),regions=legend.children[2];regions.focus();
+  h.store.presentation.coordinateLabel='Updated modeled anchors';h.panels.updateText();
+  assert.ok(legend.children[2]===regions);assert.match(regions.textContent,/Updated modeled anchors/);
+  assert.equal(regions.getAttribute('data-term'),'active-region');assert.ok(h.document.activeElement===regions);
+});
+
+test('removed and restored legend controls do not resurrect a detached owner',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const legend=h.nodes.get('layerLegend'),old=legend.children[1];old.setAttribute('aria-describedby','oldTip');
+  h.nodes.get('layerConfidence').checked=false;h.panels.updateText();
+  h.nodes.get('layerConfidence').checked=true;h.panels.updateText();
+  assert.ok(legend.children[1]!==old);assert.ok(old.parentElement===null);
+  assert.equal(legend.children[1].getAttribute('aria-describedby'),null);
+});
+
+test('a replacement container obtains new controls without reparenting old controls',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const old=h.nodes.get('layerLegend'),chip=old.children[1];old.remove();
+  const replacement=h.add('layerLegend');h.panels.updateText();
+  assert.ok(replacement.children[1]!==chip);assert.ok(chip.parentElement===old);
+  assert.equal(replacement.children[1].getAttribute('data-term'),'confidence');
+});
+
+test('a reused control still replaces unexpected rich label descendants',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const signals=h.nodes.get('applicationSignals'),kp=signals.children[0];
+  kp.textContent='';const child=h.document.createElement('strong');child.textContent='Kp 4.0';kp.appendChild(child);
+  h.panels.updateText();assert.ok(signals.children[0]===kp);assert.equal(kp.textContent,'Kp 4.0');
+  assert.equal(kp.children.length,0);assert.ok(child.parentElement===null);
+});
+
+
+test('reordering signal controls does not move the focused node itself',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const signals=h.nodes.get('applicationSignals'),focused=signals.children[1];focused.focus();
+  const byTerm=new Map(signals.children.map(row=>[row.getAttribute('data-term'),row]));
+  focused.remove=()=>{throw Error('The focused control was moved');};
+  h.config.APPLICATION_COPY.weather.signals.reverse();h.panels.updateText();
+  assert.deepEqual(signals.children.map(row=>row===byTerm.get(row.getAttribute('data-term'))),[true,true,true,true]);
+  assert.ok(focused.parentElement===signals);assert.ok(h.document.activeElement===focused);
+  assert.deepEqual(signals.children.map(row=>row.getAttribute('data-term')),['solar-wind','goes-xray','f107','kp']);
+});
+
+test('duplicate chip identities fail before partially changing signal controls',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const signals=h.nodes.get('applicationSignals'),children=[...signals.children],labels=children.map(row=>row.textContent);
+  h.store.state.observed_context.space_weather_signals.latest_kp=5;
+  h.config.APPLICATION_COPY.weather.signals.push(h.config.APPLICATION_COPY.weather.signals[0]);
+  assert.throws(()=>h.panels.updateText(),/Duplicate panel chip identity/);
+  assert.deepEqual(signals.children.map((row,index)=>row===children[index]),[true,true,true,true]);
+  assert.deepEqual(signals.children.map(row=>row.textContent),labels);
+});
+
+
+test('Aurora help retains focus and its native button semantics on unchanged refresh',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const target=h.nodes.get('auroraOutlook'),children=[...target.children],help=children[2];
+  help.focus();h.tooltip.showTip(help);h.panels.updateText();
+  assert.deepEqual(target.children.map((row,index)=>row===children[index]),[true,true,true]);
+  assert.ok(h.document.activeElement===help);assert.ok(help.parentElement===target);
+  assert.deepEqual(target.children.map(row=>row.tagName),['STRONG','SPAN','BUTTON']);
+  assert.equal(help.type,'button');assert.equal(help.className,'term');
+  assert.equal(help.getAttribute('data-term'),'geomagnetic-latitude');
+  assert.equal(help.getAttribute('aria-label'),'What is geomagnetic latitude?');
+  assert.equal(help.getAttribute('role'),null);assert.equal(help.getAttribute('tabindex'),null);
+  assert.equal(help.getAttribute('aria-describedby'),'termTip');
+});
+
+test('Aurora observer and stale-data wording refresh without replacing focused help',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const target=h.nodes.get('auroraOutlook'),help=target.children[2],oldText=target.textContent;help.focus();
+  h.store.sky={observer:{lat:65,lon:-20,label:'New Aurora observer'}};
+  h.store.state.observed_context.space_weather_signals.latest_kp=8;
+  h.store.feedStatus={status:'ok',last_run_utc:'2026-09-08T00:00:00Z',next_recommended_run_utc:'2026-09-09T00:00:00Z',sources:[]};
+  h.panels.updateText();
+  assert.ok(target.children[2]===help);assert.ok(h.document.activeElement===help);
+  assert.notEqual(target.textContent,oldText);assert.match(target.textContent,/New Aurora observer/);
+  assert.match(target.textContent,/Kp is from the last completed feed run/);
+});
+
+test('retained Aurora help remains the tooltip owner for later cleanup',async()=>{
+  const h=await panelHarness();h.panels.updateText();
+  const target=h.nodes.get('auroraOutlook'),help=target.children[2];help.focus();h.tooltip.showTip(help);
+  h.panels.updateText();assert.ok(target.children[2]===help);h.tooltip.hideTip();
+  assert.equal(help.getAttribute('aria-describedby'),null);assert.equal(h.nodes.get('termTip').hidden,true);
 });

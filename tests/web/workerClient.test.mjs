@@ -3,7 +3,7 @@ import test from "node:test";
 import { LatestWorkerClient } from "../../apps/web/js/workerClient.js";
 function setup() {
   const workers=[],timers=new Map();let clock=0;
-  const client=new LatestWorkerClient({engine:"test",schema:"test.v1",release:"local",deadlineMs:10,
+  const client=new LatestWorkerClient({engine:"test",schema:"test.v1",release:"local",deadlineMs:10,now:()=>0,
     createWorker:()=>{const worker={sent:[],postMessage(value){this.sent.push(value);},terminate(){this.terminated=true;}};workers.push(worker);return worker;},
     validateRequest:value=>{if(value.invalid)throw Error("invalid");return value;},validateResult:value=>{if(value.invalid)throw Error("invalidresult");return Object.freeze(value);},
     setTimer:callback=>{timers.set(++clock,callback);return clock;},clearTimer:id=>timers.delete(id)});

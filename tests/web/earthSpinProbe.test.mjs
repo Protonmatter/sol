@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import {types as utilTypes} from 'node:util';
 import ts from 'typescript';
 import { collectSubmittedEarthSpin } from '../../tools/earth_spin_probe.mjs';
 
@@ -426,7 +427,7 @@ test('a native draw completing after the deadline is forwarded but incurs no GPU
 
 for (const diagnosticFails of [false, true]) test(`early failures preserve page and console errors with DOM failure=${diagnosticFails}`, async () => {
   const writes = [], timers = new Set(), original = Error('spin failed');
-  const context = { error: original, diagnosticPage: { evaluate: () => diagnosticFails ? Promise.reject(Error('page unavailable')) : Promise.resolve({ surface: 'orrery' }) },
+  const context = { utilTypes, error: original, diagnosticPage: { evaluate: () => diagnosticFails ? Promise.reject(Error('page unavailable')) : Promise.resolve({ surface: 'orrery' }) },
     evidence:{status:'running'},
     phase: 'System/WebGL', outputDirectory: 'evidence', failures: ['pageerror: native draw failed', 'console: unexpected'], workerCoverage: { errors: [] },
     fs: { writeFileSync: (name, text) => writes.push({ name, value: JSON.parse(text) }) }, path: { join: (...parts) => parts.join('/') },

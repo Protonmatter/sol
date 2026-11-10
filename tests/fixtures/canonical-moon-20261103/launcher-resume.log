@@ -1,0 +1,5 @@
+SOL_UPLOADED_OCI_VERIFIED sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301
+SOL_UPLOADED_IMAGE_LOADED
+SOL_RUN_RESULT={"index": 1, "exit_code": 0, "report_sha256": "52b6f06fd685f62a7df432aecc13522b22167a428fc28e59cb7b96a3f29611cd", "comparison_passed": true, "generated_sha256": {"apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51", "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"}, "runtime": {"system": "Linux", "machine": "x86_64", "implementation": "CPython", "python_version": "3.12.12"}}
+SOL_RUN_RESULT={"index": 2, "exit_code": 0, "report_sha256": "127b885984893f3f011be9897ae87371c00629491638d8fb07bd4b77081c7d4f", "comparison_passed": true, "generated_sha256": {"apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51", "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"}, "runtime": {"system": "Linux", "machine": "x86_64", "implementation": "CPython", "python_version": "3.12.12"}}
+SOL_NATIVE_COMPLETE=/tmp/sol-moon-native-20261103-7wbwyp3s

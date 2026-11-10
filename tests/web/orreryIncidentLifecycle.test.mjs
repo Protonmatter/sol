@@ -57,8 +57,9 @@ test('base sphere programs cover pending, disabled, moon and transparent draws a
   assert.ok(sphereDraws().some(d=>d.uniforms.u_atmosphereEnabled===1&&d.program!==ready.at(-1).program),'Physical program is recreated with its own uniform map');
   h.input('orreryAnchor','Mars','change');pending.shift()(field());await h.settle();checkRouting();
   assert.ok(sphereDraws().some(d=>d.uniforms.u_atmosphereEnabled===1&&d.uniforms.u_bodyRadiusKm<4000),'Mars also selects physical optics');
-  h.input('orreryAnchor','Jupiter','change');h.state.radius=.1;const start=h.gpuDraws.length;
-  h.check('orreryTrueScale',true);
+  h.input('orreryAnchor','Jupiter','change');h.check('orreryTrueScale',true);
+  // Set the physical-system framing after the scale control refits the camera.
+  h.state.radius=.1;const start=h.gpuDraws.length;h.check('orreryTextures',h.state.useTextures);
   const moons=h.gpuDraws.slice(start).filter(d=>isMoonDraw(h,'Jupiter',d.uniforms));
   assert.ok(moons.length>=4,'Real Galilean moon draws exercise routing after physical Mars');
   for(const moon of moons)assert.ok(moon.program.sources.every(source=>source.includes('const int u_atmosphereEnabled = 0;')));

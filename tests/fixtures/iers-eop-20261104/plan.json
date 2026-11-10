@@ -1,0 +1,34 @@
+{
+  "schema_version": "eop-history-source-research.v1",
+  "frozen_at_utc": "2026-11-04T08:40:20.460654+00:00",
+  "purpose": "Read-only official IERS/USNO source/format acquisition for possible measured-history extension. No runtime/data/dependency/license change or accuracy promotion.",
+  "origin": "https://maia.usno.navy.mil/ser7/",
+  "files": [
+    {
+      "local": "checksums-before.sha512",
+      "upstream": "checksums.sha512",
+      "maximum_bytes": 10000
+    },
+    {
+      "local": "readme.finals2000A",
+      "upstream": "readme.finals2000A",
+      "maximum_bytes": 10000
+    },
+    {
+      "local": "finals2000A.all",
+      "upstream": "finals2000A.all",
+      "maximum_bytes": 5242880
+    },
+    {
+      "local": "checksums-after.sha512",
+      "upstream": "checksums.sha512",
+      "maximum_bytes": 10000
+    }
+  ],
+  "limits": {
+    "attempts_per_file": 1,
+    "timeout_seconds": 30,
+    "redirects": "rejected"
+  },
+  "published_all_sha512_observed": "ec1b23eadc029abe3c6bb3e7b2a2d519774c3b02edb457802d8369690b334f325d113d28c8dc7ff3e27ad89641b0e69da30c5830525eef2b92d1b9b375b71b0a"
+}

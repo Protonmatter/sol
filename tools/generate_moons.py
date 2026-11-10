@@ -93,8 +93,8 @@ def num(v: str, default: float | None = None) -> float | None:
 
 def build() -> tuple[str, str]:
     groups = load_element_groups(SRC / "horizons_satellite_elements.csv")
-    phys = {r["Code"]: r for r in
-            csv.DictReader((SRC / "jpl_satellite_physical.csv").open(encoding="utf-8", newline=""))}
+    with (SRC / "jpl_satellite_physical.csv").open(encoding="utf-8", newline="") as physical_stream:
+        phys = {r["Code"]: r for r in csv.DictReader(physical_stream)}
     if not groups:
         die("no satellite elements found")
 

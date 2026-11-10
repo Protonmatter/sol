@@ -1,7 +1,7 @@
 // Optional validator-only observations. No application/runtime imports execute in Node.
 import assert from 'node:assert/strict';
 import {captureDeviceMemory} from './texture_device_telemetry.mjs';
-import {assertBrowserBackend,captureBrowserCapabilities} from './browser_backend.mjs';
+import {assertBrowserBackend,captureBrowserCapabilities,withBrowserFeatureStatus} from './browser_backend.mjs';
 import {preparePhysicalSpinEvidence,waitForPhysicalSpinReadiness} from './physical_spin_probe.mjs';
 import {collectSubmittedEarthSpin} from './earth_spin_probe.mjs';
 import {prepareMarsTerrainEvidence} from './mars_terrain_probe.mjs';
@@ -157,10 +157,14 @@ async function prepareMemoryProof(page,body,{restored=false}={}){
   await page.evaluate(async({body,restored})=>{
     const q=new URL(document.querySelector('script[type="module"][src^="app.js"]').src).search;
     const {store}=await import('./js/store.js'+q),s=store.orrery;
+    if(body==='Mars'&&s.anchor!==body)throw Error('Memory preparation requires the already qualified Mars view');
     const toggle=(id,value)=>{const el=document.getElementById(id);if(el.checked!==value){el.checked=value;el.dispatchEvent(new Event('change'));}};
     toggle('orreryAnimate',false);toggle('orreryTextures',true);toggle('orreryTerrain',true);toggle('orreryOptics',true);
     s.hdrEnabled=true;
-    if(!restored){const anchor=document.getElementById('orreryAnchor');anchor.value=body;anchor.dispatchEvent(new Event('change'));if(body==='Mars')s.radius*=.35;}
+    // The mandatory Mars animation gate already proved a close level-4 view.
+    // Reselecting its anchor refits the whole satellite system; a fixed fraction
+    // of that distance can stop requesting the very mesh this proof requires.
+    if(!restored&&body!=='Mars'){const anchor=document.getElementById('orreryAnchor');anchor.value=body;anchor.dispatchEvent(new Event('change'));}
     document.getElementById('orrerySize').dispatchEvent(new Event('input'));
   },{body,restored});
   const appearance=createMemoryAppearanceRequirement(await page.evaluate(readMemoryFeatureState),body);
@@ -226,7 +230,7 @@ export async function runFullFeatureMemoryCheckpoints({browser,page,body,backend
       const generation=assertMemoryDrawProof(proof.probe,body);
       if(restored)assert.ok(generation>previousGeneration,'Restoration reused the old graphics generation');
       previousGeneration=generation;
-      const capabilities=await page.evaluate(captureBrowserCapabilities);assertBrowserBackend(backend,capabilities);proof.capabilities=capabilities;
+      const capabilities=await withBrowserFeatureStatus(backend,browser,await page.evaluate(captureBrowserCapabilities));assertBrowserBackend(backend,capabilities);proof.capabilities=capabilities;
       const snapshot=async()=>assertMemoryFeatureState(await page.evaluate(readMemoryFeatureState),body,generation,proof.appearance,proof.budget.deadlineMs);
       const before=async()=>{
         await waitForMemoryAppearance(page,proof.appearance,proof.budget.deadlineMs);

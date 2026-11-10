@@ -35,6 +35,17 @@ class ChangesTests(unittest.TestCase):
         report = changes.classify("a" * 40, "b" * 40, [("M", path)])
         self.assertEqual(report["categories"], ["scientific"])
 
+    def test_sphere_mesh_policy_and_pool_are_scientific_changes(self):
+        import release_changes as changes
+        from build_web import SCIENCE_MODULES
+        for name in ("sphereMeshPolicy.js", "sphereMeshPool.js"):
+            with self.subTest(module=name):
+                self.assertIn(name, SCIENCE_MODULES)
+                path = "apps/web/js/" + name
+                self.assertEqual(changes.category(path), "scientific")
+                report = changes.classify("a" * 40, "b" * 40, [("M", path)])
+                self.assertEqual(report["categories"], ["scientific"])
+
     def test_scientific_inventory_matches_real_contract_files_and_unknown_contract_requires_review(self):
         import release_changes as changes
         from build_web import SCIENCE_MODULES

@@ -93,9 +93,10 @@ test('scattering generation restores the active HDR target before physical surfa
   const draws=h.gpuSubmissions.slice(first),generated=draws.filter(draw=>Number.isInteger(draw.uniforms.u_scatteringPass));
   const physical=draws.filter(draw=>draw.kind==='elements'&&draw.uniforms.u_scatteringReady===1);
   const presented=draws.find(draw=>draw.uniforms.u_frameSerial);
-  assert.equal(generated.length,2);assert.equal(physical.length,2);assert.ok(presented);
+  assert.equal(generated.length,4);assert.equal(physical.length,2);assert.ok(presented);
   assert.ok(physical[0].framebuffer);assert.equal(physical[0].framebuffer,physical[1].framebuffer);
-  assert.notEqual(generated[0].framebuffer,physical[0].framebuffer);
+  assert.ok(generated.every(d=>d.framebuffer!==physical[0].framebuffer));
+  assert.ok(draws.indexOf(generated[3])<draws.indexOf(physical[0]),'all four draws finish before HDR composition');
   assert.equal(presented.framebuffer,null);
   assert.ok(physical.every(draw=>draw.uniforms.u_linearOutput===1));
   assert.deepEqual(physical[0].viewport,[0,0,810,610]);

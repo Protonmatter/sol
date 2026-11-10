@@ -36,9 +36,11 @@ test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse att
   const h = await harness(t, { controls: true, catalogues: "ready", reducedMotion: true });
   await h.enterOrrery(); await h.settleCatalogues();
   h.input("orreryAnchor", "Jupiter", "change");
+  h.check("orreryTrueScale", true);
+  // The scale control refits the camera; apply the system-wide fixture afterward.
   h.state.radius = 0.1;
   const first = h.uniformDraws.length;
-  h.check("orreryTrueScale", true);
+  h.check("orreryTextures", h.state.useTextures);
   const jupiter = h.state.bodies.find(body => body.name === "Jupiter");
   const parent = [jupiter.x_au, jupiter.y_au, jupiter.z_au];
   const rot = iauRotation(BODY.Jupiter, h.state.renderUnix);

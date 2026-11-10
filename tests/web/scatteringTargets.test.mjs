@@ -4,7 +4,7 @@ import {getAtmosphereProfile,ATMOSPHERE_UNIFORMS} from '../../apps/web/js/atmosp
 import {createScatteringTargets} from '../../apps/web/js/scatteringTargets.js';
 
 const names=[...ATMOSPHERE_UNIFORMS,'u_atmosphereColumnField','u_scatteringPass',
-  'u_scatteringReady','u_scatteringSurface','u_scatteringLimb','u_scatteringAxis','u_scatteringU',
+  'u_scatteringNumerator','u_scatteringReady','u_scatteringSurface','u_scatteringLimb','u_scatteringAxis','u_scatteringU',
   'u_scatteringV','u_scatteringCameraRadius','u_scatteringHeightRange','u_scatteringSurfaceSize','u_scatteringLimbSize'];
 const locations=Object.fromEntries(names.map(name=>[name,name]));
 const frame=(sceneSerial=1,epoch=1800000000.25)=>({contextGeneration:12,sceneSerial,epoch});
@@ -29,7 +29,7 @@ function graphics(options={}){
     sampleAlphaToCoverage:'SAMPLE_ALPHA_TO_COVERAGE',dither:'DITHER'};
   const restore={drawFramebuffer:{hdr:true},readFramebuffer:{read:true},viewport:[13,17,800,600],
     program:{scene:true},vertexArray:{sceneVao:true},activeTexture:gl.TEXTURE0+2,
-    textureUnits:[7,8,9,10].map(unit=>({unit,texture:{previous:unit},sampler:{previousSampler:unit}})),
+    textureUnits:[...(options.paired?[6]:[]),7,8,9,10].map(unit=>({unit,texture:{previous:unit},sampler:{previousSampler:unit}})),
     enabled:{...enabled},colorMask:[false,true,false,true],depthMask:true};
   const state={...restore,viewport:[...restore.viewport],enabled:{...enabled},colorMask:[...restore.colorMask],
     textureUnits:restore.textureUnits.map(value=>({...value}))};
@@ -72,17 +72,17 @@ function graphics(options={}){
     assert.ok(Object.values(state.enabled).every(value=>!value),'prepass disables every write-blocking state');
     assert.deepEqual(state.colorMask,[true,true,true,true]);assert.equal(state.depthMask,false);
     assert.ok(state.vertexArray&&live.has(state.vertexArray));
-    draws.push({viewport:[...state.viewport],texture:state.drawFramebuffer.attachment,pass:uniforms.get('u_scatteringPass')});
+    draws.push({viewport:[...state.viewport],texture:state.drawFramebuffer.attachment,pass:uniforms.get('u_scatteringPass'),program:state.program,numerator:state.textureUnits.find(t=>t.unit===6)?.texture});
     if(options.drawError)errors.push(gl.OUT_OF_MEMORY);
     options.onDraw?.();
   };
   return {gl,options,state,restore,live,deleted,draws,clears,allocations,queries,uniforms,errors};
 }
 function setup(options={}){
-  const h=graphics(options),program={borrowed:true},programs={generation:7,get:()=>program};
+  const h=graphics(options),program={borrowed:true},numerator={numerator:true},programs={generation:7,numerator,get:key=>key==='numerator'?programs.numerator:program};
   const manager=createScatteringTargets(h.gl,{contextGeneration:12,programGeneration:7,programs,generatorKey:'generator',
-    generatorUniforms:locations,admitPlan:()=>true});
-  return {...h,manager,programs,program};
+    generatorUniforms:locations,admitPlan:()=>true,...(options.paired?{numeratorKey:'numerator',numeratorUniforms:locations}:{})});
+  return {...h,manager,programs,program,numerator};
 }
 
 test('submits both complete bounded targets using a borrowed ready program and restores caller HDR state',()=>{
@@ -283,4 +283,46 @@ test('disposal and caller mutation during submission cannot leave a late ready r
   assert.equal(other.manager.generate('Earth',next,other.restore),true,'submitted immutable original inputs');
   assert.equal(other.manager.bind('Earth',next,{program:other.restore.program,locations,activeTexture:102}),false,'mutated caller input never matches the immutable submission');
   other.manager.dispose();assert.equal(other.live.size,0);
+});
+
+test('paired targets borrow both ready programs, account for scratch and restore unit six exactly',()=>{
+  const h=setup({paired:true}),a=input();a.ozoneTexture={packed:true};h.manager.beginFrame(a.frame);
+  assert.equal(h.manager.generate('Earth',a,h.restore),true);
+  assert.deepEqual(h.draws.map(d=>[d.program,d.pass]),[[h.numerator,0],[h.program,0],[h.numerator,1],[h.program,1]]);
+  assert.equal(h.draws[1].numerator,h.draws[0].texture);assert.equal(h.draws[3].numerator,h.draws[2].texture);
+  assert.notEqual(h.draws[1].numerator,h.draws[1].texture);assert.notEqual(h.draws[3].numerator,h.draws[3].texture);
+  assert.equal(h.live.size,6);assert.equal(h.allocations.reduce((n,t)=>n+t.width*t.height*16,0),2*a.plan.bytes);
+  assert.equal(h.manager.status('Earth').estimatedBytes,2*a.plan.bytes);assert.deepEqual(h.state,h.restore);
+  h.manager.dispose();assert.equal(h.live.size,0);
+});
+for(const stage of [1,2,3,4])test(`paired cancellation after draw${stage} never publishes a partial atlas`,()=>{
+  const h=setup({paired:true}),a=input();h.manager.beginFrame(a.frame);let count=0;
+  h.options.onDraw=()=>{if(++count===stage)h.manager.cancel('Earth');};
+  assert.equal(h.manager.generate('Earth',a,h.restore),false);assert.equal(h.draws.length,stage);
+  assert.equal(h.manager.status('Earth').submission,null);assert.equal(h.live.size,0);assert.deepEqual(h.state,h.restore);
+});
+test('a replaced numerator owner cannot finish or bind an otherwise matching resolve',()=>{
+  const h=setup({paired:true}),a=input();h.manager.beginFrame(a.frame);
+  h.options.onDraw=()=>{h.programs.numerator={replacement:true};};
+  assert.equal(h.manager.generate('Earth',a,h.restore),false);assert.equal(h.draws.length,1);
+  assert.equal(h.manager.status('Earth').submission,null);assert.equal(h.live.size,0);assert.deepEqual(h.state,h.restore);
+});
+test('a complete pair refuses a changed packed optical companion at bind',()=>{
+  const h=setup({paired:true}),a=input();a.ozoneTexture={packed:true};h.manager.beginFrame(a.frame);
+  assert.equal(h.manager.generate('Earth',a,h.restore),true);a.ozoneTexture={replacement:true};
+  assert.equal(h.manager.bind('Earth',a,{program:h.restore.program,locations,activeTexture:h.restore.activeTexture}),false);h.manager.dispose();
+});
+test('legacy submissions also refuse a swapped packed optical companion',()=>{
+  const h=setup(),a=input();h.manager.beginFrame(a.frame);assert.equal(h.manager.generate('Earth',a,h.restore),true);
+  a.ozoneTexture={replacement:true};assert.equal(h.manager.bind('Earth',a,{program:h.restore.program,locations,activeTexture:h.restore.activeTexture}),false);h.manager.dispose();
+});
+test('half-specified paired owners are rejected before resource allocation',()=>{
+  for(const extra of [{numeratorKey:'n'},{numeratorUniforms:locations},{numeratorKey:'generator',numeratorUniforms:locations}]){
+    const h=graphics();assert.throws(()=>createScatteringTargets(h.gl,{contextGeneration:12,programGeneration:7,programs:{generation:7,get:()=>({})},
+      generatorKey:'generator',generatorUniforms:locations,admitPlan:()=>true,...extra}),/numerator|paired|distinct/i);assert.equal(h.live.size,0);
+  }
+});
+for(const failAllocation of [1,2,3,4,5,6])test(`paired allocation${failAllocation} failure restores caller and deletes its partial group`,()=>{
+  const h=setup({paired:true,failAllocation}),a=input();h.manager.beginFrame(a.frame);
+  assert.equal(h.manager.generate('Earth',a,h.restore),false);assert.equal(h.live.size,0);assert.deepEqual(h.state,h.restore);
 });

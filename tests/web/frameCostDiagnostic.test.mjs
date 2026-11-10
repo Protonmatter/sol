@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {createHash} from 'node:crypto';
+import vm from 'node:vm';
+import {createHash,webcrypto} from 'node:crypto';
 import {collectFrameCostDiagnostic} from '../../tools/frame_cost_diagnostic.mjs';
+import * as sphereSources from '../../apps/web/js/orreryShaders.js';
+import * as scatteringSources from '../../apps/web/js/atmosphereScattering.js';
+import * as physicalSources from '../../apps/web/js/physicalProgramSources.js';
 
 function fixture({timer=true,pending=false,disjoint=false,occupied=false,queryThrow=false,drawThrow=false,readThrow=false}={}){
   let now=0,nextId=0,current=null,activeQuery=occupied?{borrowed:true}:null,nextQuery=0,pass=0;
@@ -40,19 +44,96 @@ function fixture({timer=true,pending=false,disjoint=false,occupied=false,queryTh
       }catch(error){errors.push(error);}
       fn(now);
     },16)};
-  async function run(options={}){
-    const promise=collectFrameCostDiagnostic(options,env);let settled=false,result;
-    promise.then(value=>{settled=true;result=value;});
-    for(let i=0;i<1000&&!settled;i++){
-      await Promise.resolve();
-      if(tasks.size){const [id,task]=[...tasks].sort((a,b)=>a[1].at-b[1].at)[0];tasks.delete(id);now=Math.max(now,task.at);task.fn();}
+  async function run(options={},invoke=options=>collectFrameCostDiagnostic(options,env)){
+    const promise=invoke(options);let settled=false,result,failure;
+    promise.then(value=>{settled=true;result=value;},error=>{settled=true;failure=error;});
+    // Real imports/WebCrypto can wait for libuv work without scheduling fake
+    // timers. Bound actual synthetic work separately from that asynchronous wait.
+    const deadline=performance.now()+5000;let executedTasks=0;
+    while(!settled&&performance.now()<deadline){
+      await new Promise(resolve=>setImmediate(resolve));
+      if(tasks.size){
+        assert.ok(++executedTasks<=1000,'synthetic task limit');
+        const [id,task]=[...tasks].sort((a,b)=>a[1].at-b[1].at)[0];tasks.delete(id);now=Math.max(now,task.at);task.fn();
+      }
     }
     assert.ok(settled,'bounded diagnostic must settle');
+    if(failure)throw failure;
     for(const [name,method] of Object.entries(originals))assert.equal(gl[name],method,`${name} restored`);
     assert.equal(tasks.size,0);return result;
   }
   return {env,run,deleted,ended,nativeDraws,errors,get activeQuery(){return activeQuery;}};
 }
+
+// Exercise the function exactly as page.evaluate serializes it, including the
+// default browser environment and real shader exports. Only DOM/GL/time are doubles.
+async function browserDiagnostic(f){
+  const imports=[],canvas={width:732,height:612,getContext:()=>f.env.gl};
+  const context=vm.createContext({URL,TextEncoder,crypto:webcrypto,
+    performance:{now:f.env.now},requestAnimationFrame:f.env.raf,cancelAnimationFrame:f.env.cancelRaf,
+    setTimeout:f.env.later,clearTimeout:f.env.cancelLater,
+    document:{querySelector:()=>({src:'https://example.test/sol/app.js?source-control'}),
+      getElementById:()=>canvas},__solProgramSourceEvidence:f.env.observer});
+  const exportsByPath=new Map([
+    ['./js/store.js',{store:{orrery:{active:true,animate:true}}}],
+    ['./js/orreryShaders.js',sphereSources],['./js/atmosphereScattering.js',scatteringSources],
+    ['./js/physicalProgramSources.js',physicalSources],
+  ]);
+  const module=new vm.SourceTextModule(`export default ${collectFrameCostDiagnostic.toString()}`,{
+    context,importModuleDynamically:async specifier=>{
+      imports.push(specifier);const [path,token]=specifier.split('?');
+      assert.equal(token,'source-control');assert.ok(exportsByPath.has(path),specifier);
+      const values=exportsByPath.get(path);
+      const imported=new vm.SyntheticModule(Object.keys(values),function(){
+        for(const [name,value] of Object.entries(values))this.setExport(name,value);
+      },{context});
+      await imported.link(()=>assert.fail('synthetic dependency'));await imported.evaluate();return imported;
+    },
+  });
+  await module.link(()=>assert.fail('serialized function must be self-contained'));await module.evaluate();
+  return {invoke:options=>module.namespace.default(options),imports};
+}
+
+test('asynchronous module or digest waits do not exhaust the synthetic task budget',async()=>{
+  const f=fixture();let turns=0;
+  const r=await f.run({},async options=>{
+    await new Promise(resolve=>{
+      const advance=()=>{if(++turns===1100)resolve();else setImmediate(advance);};setImmediate(advance);
+    });
+    return collectFrameCostDiagnostic(options,f.env);
+  });
+  assert.equal(turns,1100);assert.equal(r.status,'captured');assert.equal(r.draws.length,8);
+});
+
+test('serialized browser diagnostic recognizes exact generic and current Earth/Mars program sources',async()=>{
+  for(const body of ['generic','Earth','Mars']){
+    const actual=body==='generic'?{
+      generator:scatteringSources.SCATTERING_GENERATOR_FS,
+      surface:sphereSources.SCATTERING_SPHERE_FS,shell:scatteringSources.ATMOSPHERE_SCATTERING_FS,
+    }:(()=>{const p=physicalSources.physicalProgramSources(body);return {
+      generator:p.scatteringGenerator.fragment,surface:p.physicalSphere.fragment,shell:p.atmosphere.fragment};})();
+    const f=fixture();f.env.observer.snapshot=(_gl,p)=>p?{sequence:1,
+      sources:[{type:4,source:actual[p.name]},{type:5,source:'vertex'}]}:null;
+    const browser=await browserDiagnostic(f),r=await f.run({},browser.invoke);
+    assert.equal(r.status,'captured',body);
+    assert.deepEqual(Array.from(r.draws.slice(0,4),x=>[x.role,x.pass]),[
+      ['generator',0],['generator',1],['physical-surface',null],['physical-shell',null]],body);
+    assert.equal(r.draws.filter(x=>x.uniforms!==null).length,8,body);
+    for(const p of r.programs){const name=p.role==='generator'?'generator':p.role==='physical-surface'?'surface':'shell';
+      assert.equal(p.sources.find(x=>x.type===4).sha256,createHash('sha256').update(actual[name]).digest('hex'));}
+  }
+});
+
+test('serialized browser diagnostic leaves altered, absent and non-string fragments unclassified',async()=>{
+  const known=physicalSources.physicalProgramSources('Earth').physicalSphere.fragment;
+  for(const fragment of [known+' ',null,undefined,42]){
+    const f=fixture();f.env.observer.snapshot=(_gl,p)=>p?{sequence:1,
+      sources:fragment===undefined?[]:[{type:4,source:fragment}]}:null;
+    const browser=await browserDiagnostic(f),r=await f.run({},browser.invoke);
+    assert.ok(r.draws.every(x=>x.role==='other'&&x.pass===null&&x.uniforms===null));
+    assert.equal(f.nativeDraws.length,8);
+  }
+});
 
 test('attributes generator surface/limb and consumers with source hashes and actual single-plane grid',async()=>{
   const f=fixture(),r=await f.run();

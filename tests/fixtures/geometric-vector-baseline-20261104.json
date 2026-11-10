@@ -1,0 +1,3578 @@
+{
+  "schema_version": "geometric-vector-validation.v1",
+  "reference_mode": "offline_replay",
+  "reference_manifest_sha256": "263e63ea08502631a56b64adf135b186101ca56a2e19b632ba23d5fe75bb3ac7",
+  "native_command": [
+    "cargo",
+    "run",
+    "--quiet",
+    "--locked",
+    "--offline",
+    "-p",
+    "solar-ephemeris",
+    "--example",
+    "geometric_vectors"
+  ],
+  "native_source_sha256": {
+    "Cargo.lock": "829ee940420d35ffbb9eccb7d5cda4fbeacd9efe0dab7a27ba5902aa209bedf8",
+    "Cargo.toml": "98f5c3251cdc1e4f37011ead4c9bc510bd0cd36e5ccecf8f3a540109082e6b34",
+    "crates/solar-ephemeris/Cargo.toml": "46182a3c0b660d7b34e6fa58d765c3677a767406704d0570ac3cfa9cda160bee",
+    "crates/solar-ephemeris/data/elpmpp02.bin": "9f670b604c7b5189c9d70a1c2ab050672e6e8706aa0ab9b0cae439cb88171347",
+    "crates/solar-ephemeris/data/horizons-vectors-20261104.csv": "4267d3e08b844b8a0e98def3e23d0ccba3429c840fc8472acd364282bfa76e54",
+    "crates/solar-ephemeris/data/top2013.bin": "d399838a9cdefde56219e405a2c00c7ebde7aa2d817db91ceb7bb4b4c9d57ce8",
+    "crates/solar-ephemeris/data/vsop2013.bin": "9f7a79ea13f97bdc6e6bc28f3078ee0c13abb943fd1838b3754633677ed8ee19",
+    "crates/solar-ephemeris/examples/geometric_vectors.rs": "1c4f7f0038276abfeae31708aed42b3a04297a747739d3d99b7cf5f98d4c9f63",
+    "crates/solar-ephemeris/src/bin/sky.rs": "0851897b9be33558c33ded322c5969f1bae551e52c0172ee4113a934b37e993f",
+    "crates/solar-ephemeris/src/binread.rs": "0fbd4f8484e166cda808161bfa2172c75894165f3e798ab3546bdede28f94a54",
+    "crates/solar-ephemeris/src/blob_validate.rs": "b6dcb424c8f310ec0c47133f2b3fe517f2677ae2cb7f224e182da02c0691c064",
+    "crates/solar-ephemeris/src/coords.rs": "f0e0bb8428992ae06b543188ab066e05ae4e3cb629b9254261c8d44d91726dfb",
+    "crates/solar-ephemeris/src/earth_orientation.rs": "ac63a151e8e194a5e958f01d5b93ca9bc654aa7193c5d6eeefa99af5b83c4583",
+    "crates/solar-ephemeris/src/elpmpp02.rs": "2ba627e64624436949fb386968f2f3cc509dba16747350ecbe5674daff38948c",
+    "crates/solar-ephemeris/src/elpmpp02_data.rs": "61e83c6dc2d84c02ec19d957f6d3a60354354f2b94275535e3ac47b3a20a6684",
+    "crates/solar-ephemeris/src/lib.rs": "41177f4b8ca2e8631071fd62e3343e7fff2c0064d927188d98a6e278d735b907",
+    "crates/solar-ephemeris/src/physics.rs": "e9cbe117b65911839054ecb8ab6e2da6211e0829faaaa0e7731b787fa9ab644a",
+    "crates/solar-ephemeris/src/planets.rs": "7c297ab6c4be517d49bedc995f9a1c2ff827d5f3ab013d81749ad2cfd4918d27",
+    "crates/solar-ephemeris/src/stars.rs": "fcdf75121496f3abeec146549293973814b9b5a07547d8629b939a1369e39112",
+    "crates/solar-ephemeris/src/time.rs": "0dce8702e4c596be9aa40c4618774ef1cbdc875c69a5df914e2b3ba3ec5fc2fd",
+    "crates/solar-ephemeris/src/timescales.rs": "7279fb949fc58c2f6cce232b6e2774f003fca6caec1c3efe4728d25ca67253fa",
+    "crates/solar-ephemeris/src/top2013.rs": "f41392d0627b9e3c41311cf5b5cea9df64f320e82b9f539b64770b1b4625e268",
+    "crates/solar-ephemeris/src/top2013_data.rs": "f4e8e4e3682db0a271507f733fb3151f596001edbe9b50dc9b817b22cbc22a84",
+    "crates/solar-ephemeris/src/vsop2013.rs": "5806f2d4f3327c91f2cc473780fe5c67f564378650e3bb829f508535a4397faf",
+    "crates/solar-ephemeris/src/vsop2013_data.rs": "12a152a3d7e14e6fa873946cc301535d746d329808fe879815da851e2e0c7e52"
+  },
+  "validation_source_sha256": {
+    "tools/validate_vectors.py": "7eb40e4c96b309648c316befd030a3c679f969541349ae8626e42c2cf9e14395",
+    "tools/horizons_vectors.py": "e87e0343663cd3fe6db9d577c40d6ac74a4a47c0b08d5cda5ad34976fd6ad3dc",
+    "tools/horizons_reference.py": "2078a01201c35dc27c46c18016bdb4b1d51809a1b3dbfed91f70d146900e82c9"
+  },
+  "host": {
+    "system": "Windows",
+    "machine": "ARM64"
+  },
+  "metric": "relative_vector_norm_arcsec",
+  "maximum_error": 10.0,
+  "matrix_size": 160,
+  "passed": false,
+  "records": [
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        0.3406182928747781,
+        -0.1782193410715852,
+        -0.04706849390849102
+      ],
+      "native_vector_au": [
+        0.34061725301749957,
+        -0.1782125931627383,
+        -0.047069819603146296
+      ],
+      "relative_vector_norm_arcsec": 3.7041070387150214,
+      "angular_error_arcsec": 3.0818301540080806,
+      "radial_error_ppm": -9.962686969289258,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        0.1917944369557663,
+        0.6941717915316021,
+        -0.00567600301619816
+      ],
+      "native_vector_au": [
+        0.19179539042192584,
+        0.6941717680877275,
+        -0.005675515428089237
+      ],
+      "relative_vector_norm_arcsec": 0.306779176514626,
+      "angular_error_arcsec": 0.29978174768098004,
+      "radial_error_ppm": 0.31584926785122036,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        -0.6212863796339654,
+        0.7645420277927755,
+        0.003516936347634266
+      ],
+      "native_vector_au": [
+        -0.6212919961658978,
+        0.7645285595776986,
+        0.0035116770861392237
+      ],
+      "relative_vector_norm_arcsec": 3.2476252813180557,
+      "angular_error_arcsec": 2.9056158714657387,
+      "radial_error_ppm": -7.033184157956285,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        0.3029419965798353,
+        1.533999389370849,
+        0.02191989772030914
+      ],
+      "native_vector_au": [
+        0.30293564061769124,
+        1.5340047079398438,
+        0.021913981107915023
+      ],
+      "relative_vector_norm_arcsec": 1.3431406544574962,
+      "angular_error_arcsec": 1.2405573971425374,
+      "radial_error_ppm": 2.4959210349617678,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        -4.853314557378541,
+        -2.431703331493654,
+        0.1212482497231872
+      ],
+      "native_vector_au": [
+        -4.85327560474396,
+        -2.4316704149691684,
+        0.12127382560533455
+      ],
+      "relative_vector_norm_arcsec": 2.16727265040958,
+      "angular_error_arcsec": 1.1108843636025034,
+      "radial_error_ppm": -9.021987667279241,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        -1.889466316115185,
+        8.790928915420553,
+        -0.1087886704580827
+      ],
+      "native_vector_au": [
+        -1.8893427726186443,
+        8.79103225567847,
+        -0.10881983666070777
+      ],
+      "relative_vector_norm_arcsec": 3.7630270629638622,
+      "angular_error_arcsec": 3.3414830724199565,
+      "radial_error_ppm": 8.389896336336022,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        17.75707718820716,
+        8.976272202622344,
+        -0.2012779069042867
+      ],
+      "native_vector_au": [
+        17.757803896939905,
+        8.975162614838027,
+        -0.2012389402732514
+      ],
+      "relative_vector_norm_arcsec": 13.755401844184908,
+      "angular_error_arcsec": 13.669970793598633,
+      "radial_error_ppm": 7.418745835430229,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        -7.303767710489452,
+        -29.40039465088914,
+        0.7728365230563056
+      ],
+      "native_vector_au": [
+        -7.303559326961029,
+        -29.400338157624756,
+        0.7729031597882466
+      ],
+      "relative_vector_norm_arcsec": 1.5379728305264533,
+      "angular_error_arcsec": 1.3677276790782706,
+      "radial_error_ppm": -3.409890772965163,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        -0.6237330599943434,
+        0.7641908876607059,
+        0.003298376269339345
+      ],
+      "native_vector_au": [
+        -0.6237386476379752,
+        0.7641771306864598,
+        0.003293101967515904
+      ],
+      "relative_vector_norm_arcsec": 3.294904832257861,
+      "angular_error_arcsec": 2.9370387549605077,
+      "radial_error_ppm": -7.2402401419813245,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 1721425.5,
+      "reference_vector_au": [
+        -0.002446680360378014,
+        -0.0003511401320694525,
+        -0.0002185600782949675
+      ],
+      "native_vector_au": [
+        -0.0024466514720773436,
+        -0.00035142889123884746,
+        -0.00021857511862331987
+      ],
+      "relative_vector_norm_arcsec": 24.155183199765467,
+      "angular_error_arcsec": 24.12817966434964,
+      "radial_error_ppm": 5.5290090412718484,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        -0.004743022078608243,
+        -0.4617096280923315,
+        -0.0366544604937396
+      ],
+      "native_vector_au": [
+        -0.004741539826618943,
+        -0.4617094373515504,
+        -0.036654971185682485
+      ],
+      "relative_vector_norm_arcsec": 0.7032989087636139,
+      "angular_error_arcsec": 0.6994551679178903,
+      "radial_error_ppm": -0.3559997558966188,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        0.6994446770793009,
+        0.1891422026358363,
+        -0.03879494061053946
+      ],
+      "native_vector_au": [
+        0.6994450409046866,
+        0.18914107406868522,
+        -0.03879490309854271
+      ],
+      "relative_vector_norm_arcsec": 0.3372405331316105,
+      "angular_error_arcsec": 0.33688418924379004,
+      "radial_error_ppm": 0.0751401292298226,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        -0.4098171434467521,
+        0.8939108017045284,
+        0.002000551586984104
+      ],
+      "native_vector_au": [
+        -0.40981917674969803,
+        0.8939099384562136,
+        0.00200099051801827
+      ],
+      "relative_vector_norm_arcsec": 0.47239175208719086,
+      "angular_error_arcsec": 0.4722036193525798,
+      "radial_error_ppm": 0.06462675461449408,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        -0.8680562288418372,
+        1.39347596919582,
+        0.05177931632228008
+      ],
+      "native_vector_au": [
+        -0.8680590754769137,
+        1.393471780017987,
+        0.05178267498493742
+      ],
+      "relative_vector_norm_arcsec": 0.7631574499080078,
+      "angular_error_arcsec": 0.7230745902023944,
+      "radial_error_ppm": -1.1833133957139808,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        0.972217652096008,
+        -5.106217262560801,
+        -0.004241472034857925
+      ],
+      "native_vector_au": [
+        0.9722067396910551,
+        -5.106208330507392,
+        -0.004262702678059711
+      ],
+      "relative_vector_norm_arcsec": 1.0113858443696606,
+      "angular_error_arcsec": 0.9161331758845327,
+      "radial_error_ppm": -2.0773747120284014,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        3.60905135819265,
+        8.259222824519597,
+        -0.295857440073814
+      ],
+      "native_vector_au": [
+        3.609133159665239,
+        8.259236203874405,
+        -0.295875233494658
+      ],
+      "relative_vector_norm_arcsec": 1.9390230006586768,
+      "angular_error_arcsec": 1.635006865364872,
+      "radial_error_ppm": 5.053584973824243,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        19.69173034891098,
+        -3.784564737861647,
+        -0.2752908316955699
+      ],
+      "native_vector_au": [
+        19.691767567739966,
+        -3.784857514886932,
+        -0.27531123687322234
+      ],
+      "relative_vector_norm_arcsec": 3.04283043310884,
+      "angular_error_arcsec": 2.8916753246555484,
+      "radial_error_ppm": 4.591655162977659,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        4.784373415375129,
+        -29.84393642612444,
+        0.5044116253127343
+      ],
+      "native_vector_au": [
+        4.7842485521956615,
+        -29.843853379497403,
+        0.5044879793592775
+      ],
+      "relative_vector_norm_arcsec": 1.1482216895501007,
+      "angular_error_arcsec": 0.9210816282655857,
+      "radial_error_ppm": -3.3238017790315766,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        -0.4115866257799133,
+        0.8955650179582507,
+        0.002215948980901615
+      ],
+      "native_vector_au": [
+        -0.4115886792502112,
+        0.8955641335204151,
+        0.002216387796523132
+      ],
+      "relative_vector_norm_arcsec": 0.4768300968336746,
+      "angular_error_arcsec": 0.4766917824709363,
+      "radial_error_ppm": 0.05567407646012157,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2086302.5,
+      "reference_vector_au": [
+        -0.001769482333161174,
+        0.00165421625372228,
+        0.0002153973939175108
+      ],
+      "native_vector_au": [
+        -0.0017695025005131648,
+        0.0016541950642015024,
+        0.00021539727850486195
+      ],
+      "relative_vector_norm_arcsec": 2.481172759844465,
+      "angular_error_arcsec": 2.4810816251271235,
+      "radial_error_ppm": 0.1030271263857685,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        0.2737813604833304,
+        -0.3164421022612743,
+        -0.05109324513447672
+      ],
+      "native_vector_au": [
+        0.2737815145436995,
+        -0.316442644936713,
+        -0.05109335567988432
+      ],
+      "relative_vector_norm_arcsec": 0.28127582900797127,
+      "angular_error_arcsec": 0.11904582908555461,
+      "radial_error_ppm": 1.2355062188884602,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        -0.2971096421299554,
+        0.6537227936994572,
+        0.02544784769085707
+      ],
+      "native_vector_au": [
+        -0.2971092420607967,
+        0.6537245935402329,
+        0.02544795583571642
+      ],
+      "relative_vector_norm_arcsec": 0.5301962457484203,
+      "angular_error_arcsec": 0.31873880721635334,
+      "radial_error_ppm": 2.054108269922139,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        -0.2638652282592019,
+        0.9470832122220952,
+        0.0008453320533516006
+      ],
+      "native_vector_au": [
+        -0.26386479737280727,
+        0.9470833985279601,
+        0.000845602183899819
+      ],
+      "relative_vector_norm_arcsec": 0.11362966038301969,
+      "angular_error_arcsec": 0.11283208408853546,
+      "radial_error_ppm": 0.0651564493470147,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        -0.8593166501456032,
+        1.394720825931453,
+        0.05086469549787316
+      ],
+      "native_vector_au": [
+        -0.8593180064107082,
+        1.3947181240172553,
+        0.0508661917528909
+      ],
+      "relative_vector_norm_arcsec": 0.42451707095177943,
+      "angular_error_arcsec": 0.3775837908706429,
+      "radial_error_ppm": -0.9406554707380721,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        -4.067265493668612,
+        3.466515181681562,
+        0.07832967031773971
+      ],
+      "native_vector_au": [
+        -4.0672600675652015,
+        3.4665243340708014,
+        0.0783151686222138
+      ],
+      "relative_vector_norm_arcsec": 0.694139313723761,
+      "angular_error_arcsec": 0.6914064476522513,
+      "radial_error_ppm": 0.2983226989883292,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        -8.651412683618798,
+        -4.493428475914381,
+        0.4216280623475066
+      ],
+      "native_vector_au": [
+        -8.651397527530738,
+        -4.493397858303218,
+        0.421607044731954
+      ],
+      "relative_vector_norm_arcsec": 0.8478784418199724,
+      "angular_error_arcsec": 0.5977992287243536,
+      "radial_error_ppm": -2.915076968257324,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        16.09653425980309,
+        11.49741508218234,
+        -0.1663543845246479
+      ],
+      "native_vector_au": [
+        16.096709049094805,
+        11.49724893338016,
+        -0.16639633709885954
+      ],
+      "relative_vector_norm_arcsec": 2.552319624827992,
+      "angular_error_arcsec": 2.5068160797816827,
+      "radial_error_ppm": 2.3260650678924577,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        -26.58644716759585,
+        14.18604710102254,
+        0.3199393963552626
+      ],
+      "native_vector_au": [
+        -26.586520760161402,
+        14.186257823644937,
+        0.31994477904146484
+      ],
+      "relative_vector_norm_arcsec": 1.528148241725175,
+      "angular_error_arcsec": 1.0356398471501096,
+      "radial_error_ppm": 5.447807376102176,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        -0.2647555493456722,
+        0.9494835672811428,
+        0.0009107983082832133
+      ],
+      "native_vector_au": [
+        -0.264755118329661,
+        0.9494837537694766,
+        0.0009110692143544753
+      ],
+      "relative_vector_norm_arcsec": 0.1134512688172312,
+      "angular_error_arcsec": 0.11265512184646692,
+      "radial_error_ppm": 0.06504694649578369,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2305447.5,
+      "reference_vector_au": [
+        -0.0008903210864703058,
+        0.00240035505904753,
+        6.546625493157607e-05
+      ],
+      "native_vector_au": [
+        -0.0008903209568537074,
+        0.002400355241516494,
+        6.546703045465631e-05
+      ],
+      "relative_vector_norm_arcsec": 0.06501075336332274,
+      "angular_error_arcsec": 0.06394157836759176,
+      "radial_error_ppm": 0.05692637072840512,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -0.211017039504102,
+        0.2504904749426191,
+        0.03987341794077889
+      ],
+      "native_vector_au": [
+        -0.21101813240537248,
+        0.25049002605435633,
+        0.03987374311120985
+      ],
+      "relative_vector_norm_arcsec": 0.766074620138484,
+      "angular_error_arcsec": 0.7246562376897209,
+      "radial_error_ppm": 1.2046720372360653,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -0.6146735311863512,
+        0.3700477245303873,
+        0.04042985773461467
+      ],
+      "native_vector_au": [
+        -0.6146742631523798,
+        0.3700440048432543,
+        0.0404292555729091
+      ],
+      "relative_vector_norm_arcsec": 1.101797215225118,
+      "angular_error_arcsec": 1.0342634213672472,
+      "radial_error_ppm": -1.8413875146894298,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -0.2250166372828223,
+        0.9571256442418263,
+        0.0004265711732381446
+      ],
+      "native_vector_au": [
+        -0.22501702790893516,
+        0.9571273680726112,
+        0.0004274472509045528
+      ],
+      "relative_vector_norm_arcsec": 0.4138506141718707,
+      "angular_error_arcsec": 0.18365101704310557,
+      "radial_error_ppm": 1.798028611776914,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -1.096269329010749,
+        -1.109396990046943,
+        0.004256544573574103
+      ],
+      "native_vector_au": [
+        -1.096272712173439,
+        -1.1094022296862933,
+        0.004257543955165399
+      ],
+      "relative_vector_norm_arcsec": 0.8353502520075985,
+      "angular_error_arcsec": 0.21303712416716916,
+      "radial_error_ppm": 3.915977433432971,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -0.02950367180452556,
+        5.132251005824536,
+        -0.01979011721300067
+      ],
+      "native_vector_au": [
+        -0.02955397602670451,
+        5.132268111566591,
+        -0.019804125283893463
+      ],
+      "relative_vector_norm_arcsec": 2.208326938700453,
+      "angular_error_arcsec": 2.0940255957504714,
+      "radial_error_ppm": 3.3997497246307518,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -5.68610894906374,
+        7.110000857547584,
+        0.0982217710292795
+      ],
+      "native_vector_au": [
+        -5.686063330068741,
+        7.110044533572944,
+        0.09824658962102839
+      ],
+      "relative_vector_norm_arcsec": 1.5373153993430575,
+      "angular_error_arcsec": 1.5315223198319734,
+      "radial_error_ppm": 0.6463950958934817,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -18.27116526907822,
+        0.9816670693102162,
+        0.2420129966727424
+      ],
+      "native_vector_au": [
+        -18.271209141687443,
+        0.9816947173651664,
+        0.24191121934850082
+      ],
+      "relative_vector_norm_arcsec": 1.287550764511348,
+      "angular_error_arcsec": 1.1884622391116744,
+      "radial_error_ppm": 2.4013751278584294,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -20.31023510815904,
+        -22.49417451983968,
+        0.9309124791653681
+      ],
+      "native_vector_au": [
+        -20.310240949310423,
+        -22.49429000723604,
+        0.9310082089830315
+      ],
+      "relative_vector_norm_arcsec": 1.02121550257093,
+      "angular_error_arcsec": 0.8041630167762934,
+      "radial_error_ppm": 3.0516353353160497,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        -0.222427203463359,
+        0.956727625413127,
+        0.0002598185164388761
+      ],
+      "native_vector_au": [
+        -0.22242759399072964,
+        0.9567293496227501,
+        0.0002606939618272796
+      ],
+      "relative_vector_norm_arcsec": 0.41426878106431586,
+      "angular_error_arcsec": 0.18375156165985995,
+      "radial_error_ppm": 1.8000494501624331,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2378496.5,
+      "reference_vector_au": [
+        0.002589433819463328,
+        -0.000398018828699336,
+        -0.0001667526567992566
+      ],
+      "native_vector_au": [
+        0.0025894339182055137,
+        -0.0003980184498610928,
+        -0.0001667532890772732
+      ],
+      "relative_vector_norm_arcsec": 0.05843209249488447,
+      "angular_error_arcsec": 0.058091959579176726,
+      "radial_error_ppm": 0.03052153840776839,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        -0.3873786086579065,
+        -0.1626546484088456,
+        0.02239016479422692
+      ],
+      "native_vector_au": [
+        -0.3873781905620801,
+        -0.16265483532391672,
+        0.02238994527942178
+      ],
+      "relative_vector_norm_arcsec": 0.24897930830603224,
+      "angular_error_arcsec": 0.19158127448679138,
+      "radial_error_ppm": -0.7709503975217302,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        0.6998542285711752,
+        -0.1936805114475438,
+        -0.04304705980257389
+      ],
+      "native_vector_au": [
+        0.6998534393197403,
+        -0.19368004165374847,
+        -0.0430469945529096
+      ],
+      "relative_vector_norm_arcsec": 0.2610951227317147,
+      "angular_error_arcsec": 0.06878955603833672,
+      "radial_error_ppm": -1.2211018448615718,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        -0.1968875343395437,
+        0.9633523543749501,
+        0.0002139422806843124
+      ],
+      "native_vector_au": [
+        -0.19688666768580565,
+        0.9633549034896832,
+        0.00021436551106684062
+      ],
+      "relative_vector_norm_arcsec": 0.571736286047948,
+      "angular_error_arcsec": 0.29866363479003893,
+      "radial_error_ppm": 2.3635957429046783,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        0.4353672637655843,
+        -1.352511632053734,
+        -0.03907972599721322
+      ],
+      "native_vector_au": [
+        0.43536777530462345,
+        -1.3525137236631304,
+        -0.03908117133411733
+      ],
+      "relative_vector_norm_arcsec": 0.3763337006184816,
+      "angular_error_arcsec": 0.20232805963841713,
+      "radial_error_ppm": 1.538398283651432,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        -3.016040410743296,
+        -4.460193700714686,
+        0.08580442433439912
+      ],
+      "native_vector_au": [
+        -3.016027979958552,
+        -4.460217118562203,
+        0.08578415972517275
+      ],
+      "relative_vector_norm_arcsec": 1.2782234803519714,
+      "angular_error_arcsec": 1.1910651295772028,
+      "radial_error_ppm": 2.249117143859891,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        -0.3669663184937633,
+        -10.05835317286966,
+        0.1915846966740642
+      ],
+      "native_vector_au": [
+        -0.3670429825504744,
+        -10.058311307626957,
+        0.19160434326851436
+      ],
+      "relative_vector_norm_arcsec": 1.8344731337750904,
+      "angular_error_arcsec": 1.6546333503373343,
+      "radial_error_ppm": -3.840418055345296,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        -6.479256690534942,
+        -17.85344415641349,
+        0.01776408265131592
+      ],
+      "native_vector_au": [
+        -6.479479300635922,
+        -17.85338828336483,
+        0.017709873432046982
+      ],
+      "relative_vector_norm_arcsec": 2.561148493108182,
+      "angular_error_arcsec": 2.5485390226734546,
+      "radial_error_ppm": 1.2305337333540223,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        1.514876809881821,
+        29.8255708590277,
+        -0.6491142369486043
+      ],
+      "native_vector_au": [
+        1.5149688303712665,
+        29.825467008347886,
+        -0.6491351802001479
+      ],
+      "relative_vector_norm_arcsec": 0.9689740125378679,
+      "angular_error_arcsec": 0.6896616366848439,
+      "radial_error_ppm": -3.2998651277038604,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        -0.196723996371939,
+        0.9608957087166305,
+        0.0002610189062632942
+      ],
+      "native_vector_au": [
+        -0.19672312908741316,
+        0.9608982577419334,
+        0.0002614415819669906
+      ],
+      "relative_vector_norm_arcsec": 0.5731648477886382,
+      "angular_error_arcsec": 0.29964319924149957,
+      "radial_error_ppm": 2.3688081951522832,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2415020.5,
+      "reference_vector_au": [
+        0.0001635379676047432,
+        -0.002456645658319611,
+        4.70766255789861e-05
+      ],
+      "native_vector_au": [
+        0.00016353859839249307,
+        -0.0024566457477498416,
+        4.707607090014999e-05
+      ],
+      "relative_vector_norm_arcsec": 0.07075517179316679,
+      "angular_error_arcsec": 0.07003152682780846,
+      "radial_error_ppm": 0.048934813756673634,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        0.3208815126064326,
+        0.09919523755987102,
+        -0.02139653050292696
+      ],
+      "native_vector_au": [
+        0.32088047091740024,
+        0.09919486276108608,
+        -0.021396543222716946
+      ],
+      "relative_vector_norm_arcsec": 0.6785524961969204,
+      "angular_error_arcsec": 0.0595241240931442,
+      "radial_error_ppm": -3.2770334464915507,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        0.09427794081347,
+        0.7138887939817755,
+        0.004209010424116465
+      ],
+      "native_vector_au": [
+        0.09428110261454137,
+        0.7138873684461476,
+        0.004210099981541076
+      ],
+      "relative_vector_norm_arcsec": 1.0413270312144989,
+      "angular_error_arcsec": 1.0017361153820272,
+      "radial_error_ppm": -1.378850720268332,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        -0.1827171265684942,
+        0.966117231253604,
+        0.0001080379451135291
+      ],
+      "native_vector_au": [
+        -0.18271660825700645,
+        0.9661177723042338,
+        0.00010747815077739628
+      ],
+      "relative_vector_norm_arcsec": 0.19620339914484666,
+      "angular_error_arcsec": 0.17366334865151525,
+      "radial_error_ppm": 0.4426644093502574,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        -1.395553774894645,
+        0.9043964307255137,
+        0.05337868315184154
+      ],
+      "native_vector_au": [
+        -1.3955594858736489,
+        0.904391757678871,
+        0.05338031448203737
+      ],
+      "relative_vector_norm_arcsec": 0.9368828420767168,
+      "angular_error_arcsec": 0.8923455909405839,
+      "radial_error_ppm": 1.3837817729456248,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        3.406606567761871,
+        -3.760530074704583,
+        -0.06089143087800919
+      ],
+      "native_vector_au": [
+        3.4066356953373877,
+        -3.7604877143390008,
+        -0.06088921070201778
+      ],
+      "relative_vector_norm_arcsec": 2.0915700509814172,
+      "angular_error_arcsec": 2.0352160776353667,
+      "radial_error_ppm": -2.338041208305164,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        -9.007365273104547,
+        2.50042942092649,
+        0.313989356935002
+      ],
+      "native_vector_au": [
+        -9.007356674275316,
+        2.5004432707752633,
+        0.3140001375768849
+      ],
+      "relative_vector_norm_arcsec": 0.43100562622265076,
+      "angular_error_arcsec": 0.420856360640957,
+      "radial_error_ppm": -0.45079469901398994,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        -1.241444804038292,
+        18.90453844218382,
+        0.0864795260924592
+      ],
+      "native_vector_au": [
+        -1.241421535801234,
+        18.90459665111226,
+        0.08651410222233455
+      ],
+      "relative_vector_norm_arcsec": 0.7794270515267169,
+      "angular_error_arcsec": 0.4756197274089968,
+      "radial_error_ppm": 2.993667465922556,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        -29.09262413350747,
+        -8.409026602184248,
+        0.8433802290035933
+      ],
+      "native_vector_au": [
+        -29.09246926176576,
+        -8.409129854759763,
+        0.843435251512866
+      ],
+      "relative_vector_norm_arcsec": 1.321508859634719,
+      "angular_error_arcsec": 1.0464730405483893,
+      "radial_error_ppm": -3.912551917006901,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        -0.1814703730559028,
+        0.9684729979315194,
+        0.0002844907302509138
+      ],
+      "native_vector_au": [
+        -0.18146985525535078,
+        0.9684735392369588,
+        0.00028393112752643826
+      ],
+      "relative_vector_norm_arcsec": 0.1957359356506265,
+      "angular_error_arcsec": 0.17309635140922677,
+      "radial_error_ppm": 0.4430198756733006,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2433282.5,
+      "reference_vector_au": [
+        0.001246753512591357,
+        0.002355766677915464,
+        0.0001764527851374222
+      ],
+      "native_vector_au": [
+        0.001246753001655665,
+        0.0023557669327249897,
+        0.00017645297674904198
+      ],
+      "relative_vector_norm_arcsec": 0.04650458457064207,
+      "angular_error_arcsec": 0.04650450752235432,
+      "radial_error_ppm": -0.0004104310225017116,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        -0.1300936053754522,
+        -0.4472876181353563,
+        -0.02459830695805179
+      ],
+      "native_vector_au": [
+        -0.13009148187625583,
+        -0.44728770458879813,
+        -0.0245984462931226
+      ],
+      "relative_vector_norm_arcsec": 0.9417662832096902,
+      "angular_error_arcsec": 0.9152364408750078,
+      "radial_error_ppm": -1.0760995373670923,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        -0.718302296345389,
+        -0.03265430819980606,
+        0.04101418202684621
+      ],
+      "native_vector_au": [
+        -0.7183030236023384,
+        -0.032652213656705675,
+        0.041014542709030016
+      ],
+      "relative_vector_norm_arcsec": 0.6433426875444443,
+      "angular_error_arcsec": 0.6157424864295284,
+      "radial_error_ppm": 0.9037668429190404,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        -0.1771350992727098,
+        0.9672416867665306,
+        -4.085281582511366e-06
+      ],
+      "native_vector_au": [
+        -0.1771322008824857,
+        0.9672396823609014,
+        -3.304935231177892e-06
+      ],
+      "relative_vector_norm_arcsec": 0.7570999435196444,
+      "angular_error_arcsec": 0.547337803960031,
+      "radial_error_ppm": -2.5360084758840884,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        1.390715921746287,
+        -0.01341631815233992,
+        -0.03446766277585426
+      ],
+      "native_vector_au": [
+        1.390712822248358,
+        -0.013411770044641114,
+        -0.034465248517843966
+      ],
+      "relative_vector_norm_arcsec": 0.8910702120200247,
+      "angular_error_arcsec": 0.7540697856519113,
+      "radial_error_ppm": -2.3016459426150604,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        4.001177161126058,
+        2.938576106966103,
+        -0.101785276633744
+      ],
+      "native_vector_au": [
+        4.001198215677326,
+        2.938601285260658,
+        -0.10176960802149114
+      ],
+      "relative_vector_norm_arcsec": 1.5108132774994814,
+      "angular_error_arcsec": 0.7518842687464641,
+      "radial_error_ppm": 6.353137316228441,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        6.406408859532809,
+        6.569989616912557,
+        -0.3690764262448534
+      ],
+      "native_vector_au": [
+        6.4063832893164925,
+        6.569928073229633,
+        -0.369089612402999
+      ],
+      "relative_vector_norm_arcsec": 1.5258158180205987,
+      "angular_error_arcsec": 0.6561139747592907,
+      "radial_error_ppm": -6.678528401748984,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        14.43185661438178,
+        -13.73432146877096,
+        -0.2381416877992503
+      ],
+      "native_vector_au": [
+        14.431606217682555,
+        -13.734286308069159,
+        -0.23821517931801367
+      ],
+      "relative_vector_norm_arcsec": 2.7260057560768325,
+      "angular_error_arcsec": 1.7143093524902249,
+      "radial_error_ppm": -10.275626857181308,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        16.81204696805288,
+        -24.99176288928469,
+        0.1272228799202476
+      ],
+      "native_vector_au": [
+        16.812087616404973,
+        -24.992156801322793,
+        0.12729444314980434
+      ],
+      "relative_vector_norm_arcsec": 2.7557463927517296,
+      "angular_error_arcsec": 1.3620273852156173,
+      "radial_error_ppm": 11.614296393958057,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        -0.1790843809223965,
+        0.9654035607264573,
+        0.0002383726922995396
+      ],
+      "native_vector_au": [
+        -0.1790814821857466,
+        0.9654015559479951,
+        0.00023915279810490634
+      ],
+      "relative_vector_norm_arcsec": 0.7583123444800128,
+      "angular_error_arcsec": 0.5470809076075998,
+      "radial_error_ppm": -2.545806700449127,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2451545.0,
+      "reference_vector_au": [
+        -0.001949281649686695,
+        -0.001838126040073046,
+        0.0002424579738820632
+      ],
+      "native_vector_au": [
+        -0.0019492813032608858,
+        -0.0018381264129062602,
+        0.00024245773333608423
+      ],
+      "relative_vector_norm_arcsec": 0.04316045342387135,
+      "angular_error_arcsec": 0.0431385051211501,
+      "radial_error_ppm": -0.006672361996251652,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        -0.1109935241241007,
+        -0.4524933383561495,
+        -0.02679938857727897
+      ],
+      "native_vector_au": [
+        -0.11099195711171192,
+        -0.45249339821239537,
+        -0.026799358366268698
+      ],
+      "relative_vector_norm_arcsec": 0.6932306871950517,
+      "angular_error_arcsec": 0.6789800562122671,
+      "radial_error_ppm": -0.6779626869901634,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        -0.6404430203052559,
+        -0.331980779111447,
+        0.03239200268970781
+      ],
+      "native_vector_au": [
+        -0.6404421613761376,
+        -0.33197801087981516,
+        0.032391900182182645
+      ],
+      "relative_vector_norm_arcsec": 0.8284408823937109,
+      "angular_error_arcsec": 0.5891214559886294,
+      "radial_error_ppm": -2.8238105337363706,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        0.1561399658143803,
+        -1.004515630606645,
+        6.124719003139202e-05
+      ],
+      "native_vector_au": [
+        0.15613061668765174,
+        -1.0045182618671276,
+        6.129281368435311e-05
+      ],
+      "relative_vector_norm_arcsec": 1.9706674430847295,
+      "angular_error_arcsec": 1.9564597552101781,
+      "radial_error_ppm": 1.1451358077341212,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        1.171173223164016,
+        0.8413775610676589,
+        -0.01108559170228348
+      ],
+      "native_vector_au": [
+        1.1711771082319231,
+        0.8413697368623969,
+        -0.011083798942862017
+      ],
+      "relative_vector_norm_arcsec": 1.2755005169988873,
+      "angular_error_arcsec": 1.2591459533849698,
+      "radial_error_ppm": -0.9871002041306198,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        -2.931110550863879,
+        4.386852279340316,
+        0.04735652881673637
+      ],
+      "native_vector_au": [
+        -2.9311198080344,
+        4.386858908562349,
+        0.047335212058582044
+      ],
+      "relative_vector_norm_arcsec": 0.9447755841051346,
+      "angular_error_arcsec": 0.8516346872531888,
+      "radial_error_ppm": 1.9831062014752376,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        9.370005244059476,
+        1.261437688533784,
+        -0.3949507826054373
+      ],
+      "native_vector_au": [
+        9.37003657121195,
+        1.261465270479001,
+        -0.3949299013100257
+      ],
+      "relative_vector_norm_arcsec": 1.0173105077345246,
+      "angular_error_arcsec": 0.7009252903151422,
+      "radial_error_ppm": 3.574568620878793,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        9.253836521739903,
+        17.11642976336454,
+        -0.05641941221455468
+      ],
+      "native_vector_au": [
+        9.253670984697493,
+        17.116431598031447,
+        -0.056468110689589165
+      ],
+      "relative_vector_norm_arcsec": 1.8292509525088807,
+      "angular_error_arcsec": 1.6371979567228296,
+      "radial_error_ppm": -3.9557721640548493,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        29.85193310095743,
+        1.090088549644371,
+        -0.7103714515223708
+      ],
+      "native_vector_au": [
+        29.85191188547652,
+        1.090054165867869,
+        -0.7103153626328976
+      ],
+      "relative_vector_norm_arcsec": 0.4771747372227854,
+      "angular_error_arcsec": 0.4480425830157155,
+      "radial_error_ppm": -0.7959473319330002,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        0.1570542960649721,
+        -1.007050343444339,
+        -9.535948035892941e-05
+      ],
+      "native_vector_au": [
+        0.15704494720201487,
+        -1.0070529745178636,
+        -9.531430815641682e-05
+      ],
+      "relative_vector_norm_arcsec": 1.9654908835268765,
+      "angular_error_arcsec": 1.951441904657274,
+      "radial_error_ppm": 1.1372428529998757,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2461222.5,
+      "reference_vector_au": [
+        0.0009143302505918192,
+        -0.002534712837692809,
+        -0.0001566066703904082
+      ],
+      "native_vector_au": [
+        0.0009143305143631264,
+        -0.002534712650736015,
+        -0.00015660712184076994
+      ],
+      "relative_vector_norm_arcsec": 0.042433943181513195,
+      "angular_error_arcsec": 0.04218531190237651,
+      "radial_error_ppm": -0.022237592101070902,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        -0.179514042484485,
+        0.2678117696735194,
+        0.03834830324254487
+      ],
+      "native_vector_au": [
+        -0.17951498977284108,
+        0.26781120616070453,
+        0.038348442298860114
+      ],
+      "relative_vector_norm_arcsec": 0.7057732417477558,
+      "angular_error_arcsec": 0.7041473727819615,
+      "radial_error_ppm": 0.23211545929768818,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        0.1417822235551292,
+        -0.7133842157318016,
+        -0.0180256677459316
+      ],
+      "native_vector_au": [
+        0.14178164027765566,
+        -0.7133834024707137,
+        -0.01802582917960082
+      ],
+      "relative_vector_norm_arcsec": 0.2873970343590832,
+      "angular_error_arcsec": 0.12832091163749929,
+      "radial_error_ppm": -1.246742657445843,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        -0.1716121680953062,
+        0.9682588196450419,
+        -0.000109967048540747
+      ],
+      "native_vector_au": [
+        -0.17161030268636426,
+        0.9682641212684703,
+        -0.00010993763953423147
+      ],
+      "relative_vector_norm_arcsec": 1.1789005802031838,
+      "angular_error_arcsec": 0.579383488132146,
+      "radial_error_ppm": 4.977598097255509,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        -1.54323168777937,
+        -0.5035895204729829,
+        0.02720193305006915
+      ],
+      "native_vector_au": [
+        -1.543239155075183,
+        -0.503582210940838,
+        0.02720396020291091
+      ],
+      "relative_vector_norm_arcsec": 1.3523011002647445,
+      "angular_error_arcsec": 1.2028103749983006,
+      "radial_error_ppm": 2.996294196311311,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        -2.39104634493199,
+        4.664074051129192,
+        0.03396564221877785
+      ],
+      "native_vector_au": [
+        -2.391065644343479,
+        4.664060655960656,
+        0.03397178362728435
+      ],
+      "relative_vector_norm_arcsec": 0.9555763539620381,
+      "angular_error_arcsec": 0.9478793644178143,
+      "radial_error_ppm": -0.5868329873148781,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        4.766225421471267,
+        -8.773719932777603,
+        -0.03787676542813846
+      ],
+      "native_vector_au": [
+        4.766304135407958,
+        -8.77365775623176,
+        -0.03787529051693256
+      ],
+      "relative_vector_norm_arcsec": 2.0723833858259515,
+      "angular_error_arcsec": 2.042177436029803,
+      "radial_error_ppm": -1.7092095562221132,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        -17.82323641511405,
+        4.07148301656417,
+        0.2458503411213354
+      ],
+      "native_vector_au": [
+        -17.82330713101325,
+        4.071358500674854,
+        0.24582390753670152
+      ],
+      "relative_vector_norm_arcsec": 1.6427035678765878,
+      "angular_error_arcsec": 1.576731675428955,
+      "radial_error_ppm": 2.2342846712763986,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        17.39819881068304,
+        24.19778398623797,
+        -0.8992418129822297
+      ],
+      "native_vector_au": [
+        17.39832915057791,
+        24.197822311374757,
+        -0.8992317995099992
+      ],
+      "relative_vector_norm_arcsec": 0.9423785620393585,
+      "angular_error_arcsec": 0.584523553566128,
+      "radial_error_ppm": 3.58371552899861,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        -0.169208520282083,
+        0.9690380779312486,
+        3.968250966978647e-05
+      ],
+      "native_vector_au": [
+        -0.1692066549822208,
+        0.9690433799042706,
+        3.971166023869172e-05
+      ],
+      "relative_vector_norm_arcsec": 1.1785412060206715,
+      "angular_error_arcsec": 0.5765516369255527,
+      "radial_error_ppm": 4.983323225404845,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2469807.5,
+      "reference_vector_au": [
+        0.00240364781322315,
+        0.0007792582862066543,
+        0.0001496495582104887
+      ],
+      "native_vector_au": [
+        0.0024036477041434745,
+        0.0007792586358003062,
+        0.0001496492997729232
+      ],
+      "relative_vector_norm_arcsec": 0.03652470148732868,
+      "angular_error_arcsec": 0.03651322426630545,
+      "radial_error_ppm": -0.004438836520570533,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        0.2387416045804995,
+        -0.3565573467721776,
+        -0.05102537864026348
+      ],
+      "native_vector_au": [
+        0.23874113640288588,
+        -0.35655788579789727,
+        -0.05102532039828721
+      ],
+      "relative_vector_norm_arcsec": 0.34192218836954613,
+      "angular_error_arcsec": 0.33104702037727535,
+      "radial_error_ppm": 0.41475258560907946,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        0.6875297939410026,
+        0.2278299451942747,
+        -0.03645142369161136
+      ],
+      "native_vector_au": [
+        0.687529522324251,
+        0.2278321793171732,
+        -0.03645150666596648
+      ],
+      "relative_vector_norm_arcsec": 0.6405430353337159,
+      "angular_error_arcsec": 0.6277105108356952,
+      "radial_error_ppm": 0.6184871901293576,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        -0.1574071329883954,
+        0.9706777444608841,
+        -0.0002182183279262971
+      ],
+      "native_vector_au": [
+        -0.15740487356500063,
+        0.9706755922853835,
+        -0.00021768189909335446
+      ],
+      "relative_vector_norm_arcsec": 0.6641212029309246,
+      "angular_error_arcsec": 0.41121629828477624,
+      "radial_error_ppm": -2.528286174974248,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        0.6096557738720235,
+        1.38075226007722,
+        0.01412357993494745
+      ],
+      "native_vector_au": [
+        0.6096471452759799,
+        1.3807630407198341,
+        0.014122367473426775
+      ],
+      "relative_vector_norm_arcsec": 1.894213069150709,
+      "angular_error_arcsec": 1.6826881678950296,
+      "radial_error_ppm": 4.217020039831709,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        -5.373760625167001,
+        -0.9084811839584034,
+        0.1238877216653095
+      ],
+      "native_vector_au": [
+        -5.373725864941892,
+        -0.9084808731599829,
+        0.1238582870248554
+      ],
+      "relative_vector_norm_arcsec": 1.7234559245894547,
+      "angular_error_arcsec": 1.1036286856881519,
+      "radial_error_ppm": -6.4177170794321725,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        -9.153085337027678,
+        -3.078993154333759,
+        0.4182399744436658
+      ],
+      "native_vector_au": [
+        -9.153100674759123,
+        -3.0790022568050337,
+        0.4182704410434796
+      ],
+      "relative_vector_norm_arcsec": 0.7533317987524363,
+      "angular_error_arcsec": 0.6384129169746032,
+      "radial_error_ppm": 1.9388726308910975,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        18.86507112395653,
+        6.548911064562091,
+        -0.2196578701532411
+      ],
+      "native_vector_au": [
+        18.865165614461326,
+        6.548860979748203,
+        -0.21968685308468663
+      ],
+      "relative_vector_norm_arcsec": 1.1444003025358171,
+      "angular_error_arcsec": 0.8595172486697529,
+      "radial_error_ppm": 3.66308562171902,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        -29.05923005378275,
+        8.235173027683336,
+        0.5001941229684301
+      ],
+      "native_vector_au": [
+        -29.05917834337755,
+        8.23520451471493,
+        0.5001422627392018
+      ],
+      "relative_vector_norm_arcsec": 0.5443281143727207,
+      "angular_error_arcsec": 0.4625722078299569,
+      "radial_error_ppm": -1.3910042634401876,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        -0.1596766813558764,
+        0.9716881075058745,
+        -0.0001710149911903909
+      ],
+      "native_vector_au": [
+        -0.15967442192765846,
+        0.971685955262214,
+        -0.00017047821065257712
+      ],
+      "relative_vector_norm_arcsec": 0.6632250005518676,
+      "angular_error_arcsec": 0.40961489168305615,
+      "radial_error_ppm": -2.5288667285794375,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2488069.5,
+      "reference_vector_au": [
+        -0.002269548367481041,
+        0.001010363044990555,
+        4.720333673585385e-05
+      ],
+      "native_vector_au": [
+        -0.0022695483626578306,
+        0.0010103629768305478,
+        4.720368844077734e-05
+      ],
+      "relative_vector_norm_arcsec": 0.029741915148729273,
+      "angular_error_arcsec": 0.02966684530336043,
+      "radial_error_ppm": -0.010238428660436227,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        0.3350073946594021,
+        0.06767038604956092,
+        -0.02502996818038785
+      ],
+      "native_vector_au": [
+        0.33500658232570407,
+        0.06766815583891013,
+        -0.025030190257469727
+      ],
+      "relative_vector_norm_arcsec": 1.4348797293439128,
+      "angular_error_arcsec": 1.2333558516262622,
+      "radial_error_ppm": -3.5551046707604783,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        -0.5841735030283718,
+        -0.4247609070852175,
+        0.0275830933457766
+      ],
+      "native_vector_au": [
+        -0.5841735162027631,
+        -0.42476012134216085,
+        0.027583111677800986
+      ],
+      "relative_vector_norm_arcsec": 0.224319015303785,
+      "angular_error_arcsec": 0.18384483910844052,
+      "radial_error_ppm": -0.6231339648721246,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        -0.1289267301917316,
+        0.9749411090239669,
+        -0.0004321330583873423
+      ],
+      "native_vector_au": [
+        -0.1289287553580344,
+        0.9749434131387721,
+        -0.00043273507043864635
+      ],
+      "relative_vector_norm_arcsec": 0.6556749561801768,
+      "angular_error_arcsec": 0.37928779850887145,
+      "radial_error_ppm": 2.5929603391094957,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        -0.861222024642337,
+        1.389447804930616,
+        0.04999269638452244
+      ],
+      "native_vector_au": [
+        -0.861230699058348,
+        1.3894409313700864,
+        0.04999392450374085
+      ],
+      "relative_vector_norm_arcsec": 1.404404575611932,
+      "angular_error_arcsec": 1.3957532531221284,
+      "radial_error_ppm": -0.7546065137198354,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        4.707046667734004,
+        -1.64442631529955,
+        -0.09782717487331415
+      ],
+      "native_vector_au": [
+        4.7070686054090345,
+        -1.64438990559772,
+        -0.09782401241137309
+      ],
+      "relative_vector_norm_arcsec": 1.7630160538434045,
+      "angular_error_arcsec": 1.7264302191271759,
+      "radial_error_ppm": 1.7322111380835281,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        8.460605301111615,
+        -4.981664655423844,
+        -0.2536886347958817
+      ],
+      "native_vector_au": [
+        8.460542672723614,
+        -4.981711794990479,
+        -0.25366274849878795
+      ],
+      "relative_vector_norm_arcsec": 1.73365653748972,
+      "angular_error_arcsec": 1.6092418597286238,
+      "radial_error_ppm": -3.1266300117849255,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        1.705543986975012,
+        19.00432938473488,
+        0.04811805679063182
+      ],
+      "native_vector_au": [
+        1.705346153803559,
+        19.004280614885392,
+        0.048167089779052555
+      ],
+      "relative_vector_norm_arcsec": 2.2654989979240407,
+      "angular_error_arcsec": 2.1497468310512744,
+      "radial_error_ppm": -3.465961080695301,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        27.77577792146793,
+        10.85621817588305,
+        -0.8640252250328259
+      ],
+      "native_vector_au": [
+        27.77568330210461,
+        10.85646360251583,
+        -0.8639736201654756
+      ],
+      "relative_vector_norm_arcsec": 1.8531902241642042,
+      "angular_error_arcsec": 1.8531892410745643,
+      "radial_error_ppm": -0.009294857994390782,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        -0.1291006182616124,
+        0.9776306571899304,
+        -0.0006356765688716586
+      ],
+      "native_vector_au": [
+        -0.12910264279793462,
+        0.9776329613435653,
+        -0.000636278148738475
+      ],
+      "relative_vector_norm_arcsec": 0.6537900802741946,
+      "angular_error_arcsec": 0.3781547899456697,
+      "radial_error_ppm": 2.5856530114776177,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2524593.5,
+      "reference_vector_au": [
+        -0.0001738880698808016,
+        0.002689548165963245,
+        -0.0002035435104843183
+      ],
+      "native_vector_au": [
+        -0.00017388743990021105,
+        0.0026895482047931685,
+        -0.00020354307829982863
+      ],
+      "relative_vector_norm_arcsec": 0.058377412517901656,
+      "angular_error_arcsec": 0.05831822666689118,
+      "radial_error_ppm": -0.012741263377691325,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        -0.3942920482303814,
+        -0.08183427452940287,
+        0.0290559762160303
+      ],
+      "native_vector_au": [
+        -0.3942922367763894,
+        -0.08183101806696778,
+        0.029055866088816308
+      ],
+      "relative_vector_norm_arcsec": 1.6674075065330198,
+      "angular_error_arcsec": 1.648985315537667,
+      "radial_error_ppm": -1.1983676365678875,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        -0.2679097487588972,
+        -0.6741602458926481,
+        0.005415670737695765
+      ],
+      "native_vector_au": [
+        -0.26791040896297125,
+        -0.6741595137240862,
+        0.005415258184815645
+      ],
+      "relative_vector_norm_arcsec": 0.30385709114733245,
+      "angular_error_arcsec": 0.27695295888193483,
+      "radial_error_ppm": -0.6060410875363687,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        -0.0717673596350626,
+        0.9810945227042868,
+        -0.0008812546902943255
+      ],
+      "native_vector_au": [
+        -0.0717664432243753,
+        0.9810973465858823,
+        -0.000881286567151793
+      ],
+      "relative_vector_norm_arcsec": 0.6225434477707311,
+      "angular_error_arcsec": 0.23491802786920737,
+      "radial_error_ppm": 2.7950411063404346,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        -1.115517610282249,
+        -1.102243399824331,
+        0.003219800476586872
+      ],
+      "native_vector_au": [
+        -1.115512198974296,
+        -1.1022511245901407,
+        0.003219043731325425
+      ],
+      "relative_vector_norm_arcsec": 1.244496054088383,
+      "angular_error_arcsec": 1.2270505519307018,
+      "radial_error_ppm": 1.0066844791101204,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        1.598947811539629,
+        -4.922589316776698,
+        -0.0138359886369045
+      ],
+      "native_vector_au": [
+        1.5989616229598629,
+        -4.922592962508545,
+        -0.013854434115598748
+      ],
+      "relative_vector_norm_arcsec": 0.9297396636635585,
+      "angular_error_arcsec": 0.8764694775334896,
+      "radial_error_ppm": 1.503828754856329,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        -1.666582301081378,
+        -9.9194557326759,
+        0.2336887974805414
+      ],
+      "native_vector_au": [
+        -1.6665470407592564,
+        -9.919424740971179,
+        0.23367404264563485
+      ],
+      "relative_vector_norm_arcsec": 1.0088253404581,
+      "angular_error_arcsec": 0.6711612741418135,
+      "radial_error_ppm": -3.651496008671984,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        -11.45654038300794,
+        -14.7760242012232,
+        0.09417194389082419
+      ],
+      "native_vector_au": [
+        -11.456379959519644,
+        -14.776312663258137,
+        0.09412566734862451
+      ],
+      "relative_vector_norm_arcsec": 3.676859673286662,
+      "angular_error_arcsec": 3.3882600129059157,
+      "radial_error_ppm": 6.922677059817417,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        -4.908599492846742,
+        29.50339173759163,
+        -0.4946467479569872
+      ],
+      "native_vector_au": [
+        -4.908691040595913,
+        29.503516932798902,
+        -0.49460561367691286
+      ],
+      "relative_vector_norm_arcsec": 1.106437556196985,
+      "angular_error_arcsec": 0.5665879938541577,
+      "radial_error_ppm": 4.60746637820364,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        -0.06973029034532707,
+        0.9793255590070685,
+        -0.0008067487741599616
+      ],
+      "native_vector_au": [
+        -0.06972937635482841,
+        0.9793283800538499,
+        -0.0008067810016840305
+      ],
+      "relative_vector_norm_arcsec": 0.6230327174401475,
+      "angular_error_arcsec": 0.23370971705478663,
+      "radial_error_ppm": 2.7999800509270756,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2597641.5,
+      "reference_vector_au": [
+        0.002037069289735539,
+        -0.001768963697218252,
+        7.450591613438596e-05
+      ],
+      "native_vector_au": [
+        0.002037066869546883,
+        -0.001768966532032401,
+        7.450556546776245e-05
+      ],
+      "relative_vector_norm_arcsec": 0.28611869548640234,
+      "angular_error_arcsec": 0.28611390389264185,
+      "radial_error_ppm": 0.008026923348225523,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        -0.2428546277077136,
+        -0.3892641435936675,
+        -0.01063903215364366
+      ],
+      "native_vector_au": [
+        -0.24285160996748872,
+        -0.38926618297464083,
+        -0.0106393152479849
+      ],
+      "relative_vector_norm_arcsec": 1.6419214585273485,
+      "angular_error_arcsec": 1.6407243255838804,
+      "radial_error_ppm": 0.3038875211469616,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        0.7090570052898265,
+        -0.1545806530681496,
+        -0.04280228983552626
+      ],
+      "native_vector_au": [
+        0.7090560510104882,
+        -0.15457865322674236,
+        -0.0428018939264289
+      ],
+      "relative_vector_norm_arcsec": 0.6386637224874772,
+      "angular_error_arcsec": 0.5047125109005779,
+      "radial_error_ppm": -1.8973325415228004,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        0.0657247622258195,
+        0.982509820897789,
+        -0.002225791150299126
+      ],
+      "native_vector_au": [
+        0.0657202083312633,
+        0.9825090910754053,
+        -0.0022249682608153935
+      ],
+      "relative_vector_norm_arcsec": 0.9813242125763713,
+      "angular_error_arcsec": 0.9571246232030567,
+      "radial_error_ppm": -1.0500512331867995,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        -1.124550041566794,
+        -1.103337410086133,
+        0.001763422148939371
+      ],
+      "native_vector_au": [
+        -1.1245441999839398,
+        -1.1033418925377605,
+        0.0017634879589760767
+      ],
+      "relative_vector_norm_arcsec": 0.9640728713996108,
+      "angular_error_arcsec": 0.9545871327765791,
+      "radial_error_ppm": -0.6540584572833907,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        -4.505118072987974,
+        2.911627875567703,
+        0.08492143038952185
+      ],
+      "native_vector_au": [
+        -4.5051668162926015,
+        2.911581923749476,
+        0.08488401459848535
+      ],
+      "relative_vector_norm_arcsec": 2.9500926537531695,
+      "angular_error_arcsec": 2.8900481411898453,
+      "radial_error_ppm": 2.870835702273311,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        8.434780522117482,
+        4.047127295155206,
+        -0.4084946625570555
+      ],
+      "native_vector_au": [
+        8.4347511275228,
+        4.04715331984643,
+        -0.4084376579979705
+      ],
+      "relative_vector_norm_arcsec": 1.5245869251362534,
+      "angular_error_arcsec": 1.4738057013651948,
+      "radial_error_ppm": -1.8918058277694882,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        4.79959093608085,
+        -18.84738716496338,
+        -0.1266077908889419
+      ],
+      "native_vector_au": [
+        4.800147397765263,
+        -18.8473812152671,
+        -0.12655250738427526
+      ],
+      "relative_vector_norm_arcsec": 5.930799973327507,
+      "angular_error_arcsec": 5.7652469439045,
+      "radial_error_ppm": 6.745867979995879,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        25.40641358435944,
+        -15.97626156341128,
+        -0.2574901468890733
+      ],
+      "native_vector_au": [
+        25.406571916160054,
+        -15.975885620859685,
+        -0.2575503745931122
+      ],
+      "relative_vector_norm_arcsec": 2.8338332199385095,
+      "angular_error_arcsec": 2.7977797767488073,
+      "radial_error_ppm": -2.184655335968344,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        0.06705510611846534,
+        0.9801855488266603,
+        -0.001982714560802553
+      ],
+      "native_vector_au": [
+        0.06705051321889813,
+        0.980184795266676,
+        -0.001981892512765702
+      ],
+      "relative_vector_norm_arcsec": 0.992264697776594,
+      "angular_error_arcsec": 0.9666527655538782,
+      "radial_error_ppm": -1.0859466739177037,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 2816787.5,
+      "reference_vector_au": [
+        0.001330343892645837,
+        -0.00232427207112871,
+        0.0002430765894965163
+      ],
+      "native_vector_au": [
+        0.0013303048876348311,
+        -0.002324295808729282,
+        0.00024307574804969135
+      ],
+      "relative_vector_norm_arcsec": 3.502953330530308,
+      "angular_error_arcsec": 3.5018513511484946,
+      "radial_error_ppm": 0.4258068890816702,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        -0.3815230916329789,
+        -0.1584813715065967,
+        0.0184720578200809
+      ],
+      "native_vector_au": [
+        -0.3815114839689327,
+        -0.15849691189607823,
+        0.01846817970402363
+      ],
+      "relative_vector_norm_arcsec": 9.866191023664644,
+      "angular_error_arcsec": 9.555401429486457,
+      "radial_error_ppm": -11.912136055669542,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        0.5583811316288613,
+        -0.4640994066604109,
+        -0.04031441117924195
+      ],
+      "native_vector_au": [
+        0.5583644866811529,
+        -0.46410307814192253,
+        -0.04030189417218428
+      ],
+      "relative_vector_norm_arcsec": 5.998376221666057,
+      "angular_error_arcsec": 5.100148737141361,
+      "radial_error_ppm": -15.307678812748193,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        0.5245102153884333,
+        0.8407627640916208,
+        -0.00623245229138386
+      ],
+      "native_vector_au": [
+        0.5244780382042784,
+        0.8408038866861125,
+        -0.006247741138803718
+      ],
+      "relative_vector_norm_arcsec": 11.324576841784246,
+      "angular_error_arcsec": 10.689998492628845,
+      "radial_error_ppm": 18.11926017825094,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        1.368100815027727,
+        -0.1591708698106976,
+        -0.02772125931797564
+      ],
+      "native_vector_au": [
+        1.3681118260673513,
+        -0.15918411246294528,
+        -0.027649850022751762
+      ],
+      "relative_vector_norm_arcsec": 10.99844705494144,
+      "angular_error_arcsec": 10.873704042275618,
+      "radial_error_ppm": 8.006696633477972,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        4.939595879010943,
+        -0.2639930777831151,
+        -0.103828956364395
+      ],
+      "native_vector_au": [
+        4.939683826073742,
+        -0.2642320513374712,
+        -0.10365028069502014
+      ],
+      "relative_vector_norm_arcsec": 12.968348946058324,
+      "angular_error_arcsec": 12.324199812924427,
+      "radial_error_ppm": 19.567023380462345,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        9.567791882858502,
+        -1.868715968465255,
+        -0.3832232774490917
+      ],
+      "native_vector_au": [
+        9.567425047113591,
+        -1.8681711584687477,
+        -0.3832337176427808
+      ],
+      "relative_vector_norm_arcsec": 13.887904211911922,
+      "angular_error_arcsec": 9.837307330196788,
+      "radial_error_ppm": -47.52803049612453,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        -15.94390647423346,
+        -9.378624155932426,
+        0.1688137296947002
+      ],
+      "native_vector_au": [
+        -15.943644500838305,
+        -9.380623276686098,
+        0.16878908264038725
+      ],
+      "relative_vector_norm_arcsec": 22.48313939791781,
+      "angular_error_arcsec": 20.696545451964937,
+      "radial_error_ppm": 42.57711092936489,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        28.31620785018523,
+        9.383184875156681,
+        -0.8502403363136904
+      ],
+      "native_vector_au": [
+        28.31570754393375,
+        9.383234334784884,
+        -0.8500704348187234
+      ],
+      "relative_vector_norm_arcsec": 3.667929883453322,
+      "angular_error_arcsec": 1.7799437369059576,
+      "radial_error_ppm": -15.548511549390298,
+      "tt_argument_error_seconds": 0.0,
+      "passed": true
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        0.5231926035713818,
+        0.8428696156767823,
+        -0.006020684148111302
+      ],
+      "native_vector_au": [
+        0.5231615837017655,
+        0.842911388666743,
+        -0.006035957533896696
+      ],
+      "relative_vector_norm_arcsec": 11.27442234082645,
+      "angular_error_arcsec": 10.54192798509081,
+      "radial_error_ppm": 19.379331466673477,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 3547272.5,
+      "reference_vector_au": [
+        -0.001317611817051607,
+        0.002106851585161607,
+        0.000211768143272501
+      ],
+      "native_vector_au": [
+        -0.0013164545025129426,
+        0.0021075019806304773,
+        0.00021178360490702215
+      ],
+      "relative_vector_norm_arcsec": 109.8041043459555,
+      "angular_error_arcsec": 109.6920183886673,
+      "radial_error_ppm": -24.189126682672146,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        -0.3048792341379423,
+        0.1540658662238575,
+        0.03744973319227404
+      ],
+      "native_vector_au": [
+        -0.3048440069797479,
+        0.154053958794207,
+        0.03742576322116958
+      ],
+      "relative_vector_norm_arcsec": 26.555039034812097,
+      "angular_error_arcsec": 12.307305752131475,
+      "radial_error_ppm": -114.08250061450964,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        0.2810556522240389,
+        -0.6692718488215853,
+        -0.03197194114694239
+      ],
+      "native_vector_au": [
+        0.2809645335759102,
+        -0.6692887378448689,
+        -0.03192778267242917
+      ],
+      "relative_vector_norm_arcsec": 29.141270843261406,
+      "angular_error_arcsec": 28.487729203025445,
+      "radial_error_ppm": -29.762627139939823,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        0.8612269329050817,
+        0.5071967485210946,
+        -0.008055449963598927
+      ],
+      "native_vector_au": [
+        0.8611385992449724,
+        0.5074306897903493,
+        -0.008189526713690146
+      ],
+      "relative_vector_norm_arcsec": 58.55395336976715,
+      "angular_error_arcsec": 57.85342521156228,
+      "radial_error_ppm": 43.740906683575886,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        -0.809659288897292,
+        1.371526545900466,
+        0.03841706462355458
+      ],
+      "native_vector_au": [
+        -0.809440534172072,
+        1.371534864136956,
+        0.038173483570989736
+      ],
+      "relative_vector_norm_arcsec": 42.401171576164025,
+      "angular_error_arcsec": 39.94582959458672,
+      "radial_error_ppm": -68.95613316237892,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        -4.489929747285657,
+        -3.15452392783406,
+        0.1197957706691715
+      ],
+      "native_vector_au": [
+        -4.489236184279413,
+        -3.1548667734420084,
+        0.12001369802005687
+      ],
+      "relative_vector_norm_arcsec": 30.206533211521673,
+      "angular_error_arcsec": 26.903495771759527,
+      "radial_error_ppm": -66.5952549894211,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        6.959351752292261,
+        -7.042029121625355,
+        -0.2423804804905229
+      ],
+      "native_vector_au": [
+        6.956999825923373,
+        -7.039282219048401,
+        -0.24233006102140994
+      ],
+      "relative_vector_norm_arcsec": 75.32313324147732,
+      "angular_error_arcsec": 5.432911356283498,
+      "radial_error_ppm": -364.22605478236835,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        -12.67768394040156,
+        13.48699826924386,
+        0.184205381450677
+      ],
+      "native_vector_au": [
+        -12.682140470054268,
+        13.482755182323777,
+        0.18375842956454255
+      ],
+      "relative_vector_norm_arcsec": 68.74702506557861,
+      "angular_error_arcsec": 68.74545443818644,
+      "radial_error_ppm": -2.309399570132875,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        10.73320888635864,
+        27.78698900476357,
+        -0.8227961779895888
+      ],
+      "native_vector_au": [
+        10.729254313972454,
+        27.789040383058193,
+        -0.8224747272911369
+      ],
+      "relative_vector_norm_arcsec": 30.916659901113448,
+      "angular_error_arcsec": 30.73741641714999,
+      "radial_error_ppm": 16.105651135855936,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        0.8615654024212572,
+        0.5045883218678207,
+        -0.007788840346600846
+      ],
+      "native_vector_au": [
+        0.8614711083270895,
+        0.5048213127965323,
+        -0.00792297085249533
+      ],
+      "relative_vector_norm_arcsec": 58.85390813404032,
+      "angular_error_arcsec": 58.34170021740988,
+      "radial_error_ppm": 37.52245666199805,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 4277757.5,
+      "reference_vector_au": [
+        0.0003384695161755883,
+        -0.002608426653273975,
+        0.0002666096169980772
+      ],
+      "native_vector_au": [
+        0.00033250908211712726,
+        -0.0026093769938170253,
+        0.00026655586119481676
+      ],
+      "relative_vector_norm_arcsec": 470.9203170276212,
+      "angular_error_arcsec": 470.70448553265186,
+      "radial_error_ppm": 66.57634267503987,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "mercury",
+      "body": "Mercury",
+      "target_id": 1,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        0.3747821746282366,
+        -0.1247766192883979,
+        -0.03764910396712647
+      ],
+      "native_vector_au": [
+        0.3749409367340427,
+        -0.12486350757955968,
+        -0.03758896726425513
+      ],
+      "relative_vector_norm_arcsec": 99.13708115536352,
+      "angular_error_arcsec": 43.270424959137024,
+      "radial_error_ppm": 432.409819608015,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "venus",
+      "body": "Venus",
+      "target_id": 2,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        -0.6497028225879038,
+        -0.3169878007563292,
+        0.01816073885029445
+      ],
+      "native_vector_au": [
+        -0.6499691106937833,
+        -0.31693476805372495,
+        0.017820844204474533
+      ],
+      "relative_vector_norm_arcsec": 124.08625127729651,
+      "angular_error_arcsec": 109.0354357872778,
+      "radial_error_ppm": 287.0350564092572,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "earth",
+      "body": "Earth",
+      "target_id": 399,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        0.9940207325638482,
+        -0.1763539027410121,
+        -0.004156164357264591
+      ],
+      "native_vector_au": [
+        0.9939757602742925,
+        -0.17531726124076355,
+        -0.004920632870152963
+      ],
+      "relative_vector_norm_arcsec": 263.32320877737374,
+      "angular_error_arcsec": 259.4364991957758,
+      "radial_error_ppm": -219.3258872682513,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "mars",
+      "body": "Mars",
+      "target_id": 4,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        -0.1310106664542461,
+        -1.544088782784818,
+        -0.02582994039957683
+      ],
+      "native_vector_au": [
+        -0.12941959029694977,
+        -1.544508160400711,
+        -0.025698994192487282
+      ],
+      "relative_vector_norm_arcsec": 219.67575617911152,
+      "angular_error_arcsec": 216.42653754905376,
+      "radial_error_ppm": 181.94880039024142,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "jupiter",
+      "body": "Jupiter",
+      "target_id": 5,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        -4.919999138935429,
+        2.10815185860227,
+        0.08470616410229728
+      ],
+      "native_vector_au": [
+        -4.913732986332383,
+        2.1120116813903986,
+        0.08102492534938063
+      ],
+      "relative_vector_norm_arcsec": 317.0616758782323,
+      "angular_error_arcsec": 270.6127889240855,
+      "radial_error_ppm": -801.8583260321899,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "saturn",
+      "body": "Saturn",
+      "target_id": 6,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        -3.446680626065259,
+        -8.939048632978112,
+        0.1614319193977719
+      ],
+      "native_vector_au": [
+        -3.4792551698459224,
+        -8.929233137581774,
+        0.15547815206941076
+      ],
+      "relative_vector_norm_arcsec": 743.4904557884677,
+      "angular_error_arcsec": 741.4085820306842,
+      "radial_error_ppm": 263.2001069671208,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "uranus",
+      "body": "Uranus",
+      "target_id": 7,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        18.30413004764607,
+        7.908890641549904,
+        -0.1988265857683159
+      ],
+      "native_vector_au": [
+        18.311074727134805,
+        7.905065982545721,
+        -0.19912139993677697
+      ],
+      "relative_vector_norm_arcsec": 82.06544621991014,
+      "angular_error_arcsec": 64.84383455366721,
+      "radial_error_ppm": 243.80823895753247,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "neptune",
+      "body": "Neptune",
+      "target_id": 8,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        -23.76949422252595,
+        18.42544737457004,
+        0.1785239260132015
+      ],
+      "native_vector_au": [
+        -23.766937762219666,
+        18.42896950334191,
+        0.17762682182876138
+      ],
+      "relative_vector_norm_arcsec": 30.475621557339633,
+      "angular_error_arcsec": 30.462032045177473,
+      "radial_error_ppm": 4.400951761684979,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "moon",
+      "body": "Moon",
+      "target_id": 301,
+      "center_id": 10,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        0.9958199747084222,
+        -0.1745040409593522,
+        -0.004417858992088183
+      ],
+      "native_vector_au": [
+        0.9957931418130067,
+        -0.17348668468520262,
+        -0.005183046892520338
+      ],
+      "relative_vector_norm_arcsec": 259.77470727765945,
+      "angular_error_arcsec": 256.6428388195725,
+      "radial_error_ppm": -195.7503017271378,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    },
+    {
+      "case": "geocentric-moon",
+      "body": "GeocentricMoon",
+      "target_id": 301,
+      "center_id": 399,
+      "jd_tdb": 5373119.5,
+      "reference_vector_au": [
+        0.001799242144574134,
+        0.001849861781659829,
+        -0.0002616946348235886
+      ],
+      "native_vector_au": [
+        0.0018173815387142467,
+        0.001830576555560931,
+        -0.0002624140223673752
+      ],
+      "relative_vector_norm_arcsec": 2106.1849121265564,
+      "angular_error_arcsec": 2105.1907782297685,
+      "radial_error_ppm": -371.4925485489573,
+      "tt_argument_error_seconds": 0.0,
+      "passed": false
+    }
+  ]
+}

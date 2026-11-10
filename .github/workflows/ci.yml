@@ -15,6 +15,54 @@ permissions:
   contents: read
 
 jobs:
+  moon-image-evidence:
+    name: Moon pinned-image evidence (${{ matrix.sample }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        sample: [1, 2]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - name: Collect one read-only native image comparison
+        shell: bash
+        env:
+          SOL_MOON_GENERATOR_IMAGE_DIGEST: sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          image="python@$SOL_MOON_GENERATOR_IMAGE_DIGEST"
+          mkdir -p build/moon-image-evidence
+          python3 tools/collect_moon_evidence.py --snapshot build/moon-image-inputs > build/moon-image-evidence/snapshot.json
+          docker pull --platform linux/amd64 "$image"
+          test "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" = linux/amd64
+          docker image inspect "$image" --format '{{json .RepoDigests}}' > build/moon-image-evidence/image-digests.json
+          docker run --pull=never --rm --platform linux/amd64 --network none --read-only \
+            --cpus=2 --memory=1g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/build/moon-image-inputs,dst=/work,readonly" --workdir /work \
+            --env PYTHONDONTWRITEBYTECODE=1 --env SOL_MOON_GENERATOR_IMAGE_DIGEST --env GITHUB_SHA \
+            "$image" python -B tools/collect_moon_evidence.py > build/moon-image-evidence/comparison.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('build/moon-image-evidence/comparison.json').read_text())
+          if report['comparison_passed'] is not True or report['qualification_status'] != 'qualified':
+              raise SystemExit('Strict moon CI requires passing comparison and reviewed canonical qualification')
+          PY
+      - name: Retain candidate evidence without promoting qualification
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: moon-image-evidence-${{ github.sha }}-${{ matrix.sample }}
+          path: build/moon-image-evidence/
+          if-no-files-found: warn
+          retention-days: 90
+
   candidate:
     name: Candidate identity
     runs-on: ubuntu-latest
@@ -57,9 +105,21 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        with:
+          toolchain: "1.96.0"
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: cargo test --workspace
         run: cargo test --workspace --locked
+      - name: Test declared Rust minimum
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: target/msrv-1.85.0
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.85.0 --profile minimal --target wasm32-unknown-unknown --no-self-update
+          cargo +1.85.0 check --workspace --all-targets --locked --offline
+          cargo +1.85.0 test --workspace --locked --offline
+          cargo +1.85.0 check -p solar-wasm -p solar-ephemeris --target wasm32-unknown-unknown --locked --offline
 
   lint:
     name: Rust lint (fmt + clippy)
@@ -90,6 +150,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
         with:
+          toolchain: "1.96.0"
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -162,10 +223,14 @@ jobs:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
         with:
+          toolchain: "1.96.0"
           targets: wasm32-unknown-unknown
 
       - name: Install locked browser-validation tooling
         run: npm ci --ignore-scripts
+
+      - name: Verify parsed startup module graph
+        run: node tools/validate_module_graph.mjs
 
       - name: JavaScript syntax (native ESM)
         shell: bash
@@ -230,12 +295,12 @@ jobs:
         # passes validate_body_constants.py and fails here.
         run: python tools/validate_body_motion.py
 
-      - name: Moon orbits regen-stable + validated vs JPL Horizons
-        # Regenerates apps/web/js/moons.js from the committed Horizons elements and requires
-        # byte-identity, then interpolates every moon and compares against committed Horizons
-        # state vectors at times interleaved between the element knots. Offline —
-        # tools/fetch_moons.py is the only networked step and is never run here.
-        run: python tools/validate_moons.py
+      # Full moon regeneration + held-out Horizons checks run in both required
+      # moon-image-evidence jobs using the reviewed exact native image, rather
+      # than this runner's uncontrolled host interpreter/libm.
+
+      - name: EOP source-to-table correspondence (offline)
+        run: python tools/generate_eop.py --check
 
       - name: EOP prediction coverage
         run: python tools/check_eop_freshness.py --minimum-days 90
@@ -298,6 +363,25 @@ jobs:
 
       - name: Generate on-device ephemeris v3 fixture
         run: cargo run --quiet --locked -p solar-ephemeris --example snapshot > /tmp/ephemeris-v3.json
+
+      - name: Approved 1900-2200 independent model samples
+        # Offline raw DE441 replay at every predeclared grid/irregular epoch.
+        # This is a blocking sampled-model gate, not continuous or release qualification.
+        run: python tools/validate_precision_window.py --out-dir build/precision-window-validation
+
+      - name: Retain complete precision-window model comparison
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: precision-window-model-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/precision-window-validation/summary.json
+            build/precision-window-validation/all-comparisons.csv
+            build/precision-window-validation/observer/receipt.json
+            build/precision-window-validation/observer/native.csv
+            build/precision-window-validation/observer/epochs.txt
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Ephemeris v3 structural schema
         run: |
@@ -407,7 +491,7 @@ jobs:
   release-gate:
     name: Release gate
     if: always()
-    needs: [candidate, governance, test, lint, web, artifact, wasm, coverage, docs, determinism, determinism-compare]
+    needs: [candidate, governance, test, lint, web, artifact, wasm, coverage, docs, determinism, determinism-compare, moon-image-evidence]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -462,6 +546,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        with:
+          toolchain: "1.96.0"
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Reference simulation, twice — byte-identical on this OS
         shell: bash

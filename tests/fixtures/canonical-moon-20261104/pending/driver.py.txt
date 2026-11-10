@@ -1,0 +1,155 @@
+"""Two bounded native pinned-image runs on an admitted, read-only public snapshot."""
+from pathlib import Path
+import datetime as dt
+import gzip
+import hashlib
+import io
+import json
+import platform
+import subprocess
+import sys
+import tarfile
+import time
+
+BASE=Path(__file__).resolve().parent
+SOURCE=BASE/'inputs'
+OUT=BASE/'evidence';OUT.mkdir()
+DIGEST='sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301'
+IMAGE='python@'+DIGEST
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+spec=json.loads((BASE/'input-manifest.json').read_bytes())
+expected={r['path']:r['sha256'] for r in spec['files']}
+record=dict(schema_version='sol-canonical-moon-native.v2',passed=False,
+    scope='Native local qualification evidence for uncommitted exact-hash inputs; no hosted commit/release assertion.',
+    phase=spec['phase'],started_at_utc=dt.datetime.now(dt.timezone.utc).isoformat(),
+    host_system=platform.system(),host_machine=platform.machine(),image_ref=IMAGE,
+    driver_sha256=sha(Path(__file__)),input_manifest_sha256=sha(BASE/'input-manifest.json'),
+    current_source_sha256=expected,commands=[],runs=[])
+owned=[]
+def save():
+    (OUT/'native-metadata.json').write_text(json.dumps(record,indent=2)+'\n')
+def run(name,command,timeout=60,required=True):
+    started=time.monotonic();out=OUT/(name+'.stdout.txt');err=OUT/(name+'.stderr.txt')
+    item=dict(name=name,command=command,timeout_seconds=timeout,exit_code=None)
+    record['commands'].append(item);save()
+    try:
+        with out.open('xb') as stdout,err.open('xb') as stderr:
+            result=subprocess.run(command,stdout=stdout,stderr=stderr,timeout=timeout,check=False)
+        item['exit_code']=result.returncode
+    except subprocess.TimeoutExpired:
+        item['timed_out']=True
+        raise
+    finally:
+        item['elapsed_seconds']=time.monotonic()-started
+        item['stdout_sha256']=sha(out);item['stderr_sha256']=sha(err);save()
+    if required:result.check_returncode()
+    return result.returncode,out.read_bytes()
+def source_hashes():
+    values={}
+    for r in spec['files']:
+        p=SOURCE/r['path']
+        if p.is_symlink() or not p.resolve().is_relative_to(SOURCE.resolve()) or not p.is_file() or p.stat().st_size!=r['bytes']:
+            raise ValueError('input path/size changed: '+r['path'])
+        values[r['path']]=sha(p)
+    return values
+save()
+try:
+    if (platform.system(),platform.machine())!=('Linux','x86_64'):
+        raise ValueError('native Linux x86_64 required')
+    if len(spec['files'])!=10 or len(expected)!=10 or source_hashes()!=expected:
+        raise ValueError('exact ten source inputs required')
+    manifest=json.loads((SOURCE/'tools/ephemeris-data/generation-manifest.json').read_bytes())
+    if manifest['canonical']['image_digest']!=DIGEST or manifest['canonical']['status']!=spec['phase']:
+        raise ValueError('phase/image differs')
+    code,raw=run('docker-native',['docker','info','--format','{{.OSType}}/{{.Architecture}}'])
+    if raw.decode().strip() not in ('linux/x86_64','linux/amd64'):
+        raise ValueError('Docker daemon is not native amd64 Linux')
+    code,_=run('image-before',['docker','image','inspect',IMAGE],required=False)
+    if code:
+        archive=Path.home()/'python-canonical-20261103.tar'
+        if archive.is_symlink() or not archive.is_file() or archive.stat().st_size!=45438464 \
+                or sha(archive)!='a6b7a59930e3ebb097ea3306907265c2563ed74ff68ed42ccb8888e916492b62':
+            raise ValueError('retained official image archive unavailable or differs')
+        with tarfile.open(archive) as tar:
+            def blob(digest):
+                name='blobs/sha256/'+digest.split(':')[1]
+                member=tar.getmember(name)
+                if not member.isfile() or member.size>48*1024**2:raise ValueError('invalid OCI blob')
+                raw=tar.extractfile(member).read()
+                if 'sha256:'+hashlib.sha256(raw).hexdigest()!=digest:raise ValueError('OCI blob identity differs')
+                return raw
+            image_manifest=json.loads(blob(DIGEST))
+            verified=[]
+            for item in [image_manifest['config'],*image_manifest['layers']]:
+                data=blob(item['digest'])
+                if len(data)!=item['size']:raise ValueError('OCI blob size differs')
+                verified.append(item)
+            config=json.loads(blob(image_manifest['config']['digest']))
+            if (config['os'],config['architecture'])!=('linux','amd64'):raise ValueError('OCI architecture differs')
+        (OUT/'image-acquisition.json').write_text(json.dumps(dict(archive_sha256=sha(archive),
+            archive_bytes=archive.stat().st_size,manifest_digest=DIGEST,verified_blobs=verified),indent=2)+'\n')
+        run('image-load',['docker','image','load','--platform','linux/amd64','--input',str(archive)],120)
+        run('digest-registration',['docker','pull','--platform','linux/amd64',IMAGE],90)
+    _,raw=run('image-inspect',['docker','image','inspect',IMAGE])
+    image=json.loads(raw)[0]
+    if image['Os']!='linux' or image['Architecture']!='amd64' \
+            or not any(value.endswith('@'+DIGEST) for value in image.get('RepoDigests',[])):
+        raise ValueError('actual image identity differs')
+    record.update(image_id=image['Id'],image_os=image['Os'],image_architecture=image['Architecture'],
+        repo_digests=image['RepoDigests']);save()
+    for index in (1,2):
+        if source_hashes()!=expected:raise ValueError('source changed before native run')
+        name='sol-moon-'+BASE.name[-12:]+'-'+str(index)
+        absent,_=run('container-before-'+str(index),['docker','container','inspect',name],required=False)
+        before_error=(OUT/('container-before-'+str(index)+'.stderr.txt')).read_text()
+        if absent==0 or not ('No such container' in before_error or 'No such object' in before_error):
+            raise ValueError('unique container name is not confirmed absent')
+        owned.append(name)
+        command=['docker','run','--rm','--name',name,'--platform','linux/amd64','--read-only',
+            '--network','none','--cpus','2','--memory','1g','--pids-limit','128','--cap-drop','ALL',
+            '--security-opt','no-new-privileges','--mount','type=bind,src='+str(SOURCE)+',dst=/work,readonly',
+            '--workdir','/work','--env','PYTHONDONTWRITEBYTECODE=1','--env','SOL_MOON_GENERATOR_IMAGE_DIGEST='+DIGEST,
+            IMAGE,'python','-B','tools/collect_moon_evidence.py']
+        _,raw=run('comparison-'+str(index),command,120)
+        report=json.loads(raw)
+        if report['comparison_passed'] is not True or report['qualification_granted'] is not False \
+                or report['qualification_status']!=spec['phase'] \
+                or report['runtime']!={'system':'Linux','machine':'x86_64','implementation':'CPython','python_version':'3.12.12'} \
+                or report['source_sha256_before']!=expected or report['source_sha256_after']!=expected \
+                or report['generated_sha256']!=manifest['outputs'] or report['committed_sha256']!=manifest['outputs'] \
+                or report['numerical_validator_exit']!=0 or '11985 interleaved Horizons checks' not in report['validator_log']:
+            raise ValueError('native comparison failed admission')
+        if spec['phase']=='qualified' and 'noncanonical comparison' in report['validator_log']:
+            raise ValueError('strict comparison used a noncanonical path')
+        record['runs'].append(dict(index=index,exit_code=0,comparison_passed=True,
+            report_sha256=hashlib.sha256(raw).hexdigest(),runtime=report['runtime'],generated_sha256=report['generated_sha256']))
+        save();print('SOL_MOON_RUN='+str(index)+' passed',flush=True)
+    if source_hashes()!=expected:raise ValueError('source changed after native runs')
+    record['passed']=True
+except Exception as error:
+    record['failure']=dict(type=type(error).__name__,message=str(error)[:3000])
+finally:
+    for index,name in enumerate(owned,1):
+        try:
+            code,_=run('container-after-'+str(index),['docker','container','inspect',name],20,required=False)
+            error=(OUT/('container-after-'+str(index)+'.stderr.txt')).read_text()
+            absent=code!=0 and ('No such container' in error or 'No such object' in error)
+            record.setdefault('cleanup_checks',[]).append(dict(name=name,confirmed_absent=absent))
+            if code==0:
+                run('container-cleanup-'+str(index),['docker','container','rm','--force',name],30,required=False)
+            if not absent:record['passed']=False
+        except Exception as error:
+            record.setdefault('cleanup_errors',[]).append(dict(name=name,type=type(error).__name__,message=str(error)[:2000]))
+            record['passed']=False
+    record['finished_at_utc']=dt.datetime.now(dt.timezone.utc).isoformat();save()
+    files=[p for p in OUT.iterdir() if p.is_file()]
+    inventory=OUT/'evidence-manifest.json'
+    inventory.write_text(json.dumps(dict(files=[dict(path=p.name,bytes=p.stat().st_size,sha256=sha(p)) for p in files]),indent=2)+'\n')
+    files.append(inventory)
+    archive=BASE/'evidence.tar.gz'
+    with archive.open('xb') as stream,gzip.GzipFile(fileobj=stream,mode='wb',mtime=0) as compressed,tarfile.open(fileobj=compressed,mode='w') as tar:
+        for p in sorted(files):
+            data=p.read_bytes();info=tarfile.TarInfo(p.name);info.size=len(data);info.mode=0o644;tar.addfile(info,io.BytesIO(data))
+    print('SOL_MOON_COMPLETE='+json.dumps(dict(passed=record['passed'],archive_bytes=archive.stat().st_size,
+        archive_sha256=sha(archive),metadata_sha256=sha(OUT/'native-metadata.json'))),flush=True)
+raise SystemExit(0 if record['passed'] else 1)

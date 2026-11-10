@@ -152,7 +152,7 @@ fn topocentric_sky_at_time(
         astro.eop.xp_arcsec,
         astro.eop.yp_arcsec,
     );
-    let lst = (time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon).rem_euclid(360.0);
+    let lst = coords::wrap_degrees(time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon);
     let (rho_sin, rho_cos) = coords::observer_rho(observer_lat, elev);
     let (ra_t, dec_t) = coords::topocentric(ra, dec, dist_km, lst, rho_sin, rho_cos);
     // Subtract the terrestrial observer vector in the same equatorial frame as
@@ -208,7 +208,7 @@ fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _e
         astro.eop.xp_arcsec,
         astro.eop.yp_arcsec,
     );
-    let lst = (time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon).rem_euclid(360.0);
+    let lst = coords::wrap_degrees(time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon);
     let (alt, az) = coords::alt_az(ra, dec, lst, observer_lat);
     Topo {
         geocentric_ra: ra,
@@ -333,7 +333,8 @@ fn events_detailed(sample_at: &dyn Fn(f64) -> (f64, f64), day_start_jd_utc: f64)
     let mut transit_alt = f64::NAN;
     let mut transit_failed = false;
     let h = 1.0 / steps as f64;
-    let (left_margin, mut left_alt) = sample_at(day_start_jd_utc - h);
+    let mut left_jd = day_start_jd_utc - h;
+    let (mut left_margin, mut left_alt) = sample_at(left_jd);
     if prev_margin == 0.0 {
         let right_margin = sample_at(day_start_jd_utc + h).0;
         if left_margin < 0.0 && right_margin > 0.0 {
@@ -345,6 +346,13 @@ fn events_detailed(sample_at: &dyn Fn(f64) -> (f64, f64), day_start_jd_utc: f64)
     }
     let mut centre_alt = initial_alt;
     let day_end = day_start_jd_utc + 1.0;
+    let retain_first = |event: &mut f64, candidate: f64| {
+        if (day_start_jd_utc..day_end).contains(&candidate)
+            && (event.is_nan() || candidate < *event)
+        {
+            *event = candidate;
+        }
+    };
     for i in 1..=steps {
         let jd = day_start_jd_utc + (i as f64) / (steps as f64);
         let (margin, alt) = sample_at(jd);
@@ -367,37 +375,70 @@ fn events_detailed(sample_at: &dyn Fn(f64) -> (f64, f64), day_start_jd_utc: f64)
                 transit_alt = sample_at(peak).1;
             }
         }
-        if prev_margin < 0.0 && margin >= 0.0 && rise.is_nan() {
+        if prev_margin < 0.0 && margin > 0.0 && rise.is_nan() {
             rise = bisect_cross(&|time| sample_at(time).0, prev_jd, jd);
         }
-        if prev_margin >= 0.0 && margin < 0.0 && set.is_nan() {
+        if prev_margin > 0.0 && margin < 0.0 && set.is_nan() {
             set = bisect_cross(&|time| sample_at(time).0, prev_jd, jd);
         }
+        // Equality alone is not a crossing: a curve can touch zero and turn
+        // back. Require signs on both sides of an exact coarse-grid root.
+        if prev_margin == 0.0 {
+            if left_margin < 0.0 && margin > 0.0 {
+                retain_first(&mut rise, prev_jd);
+            }
+            if left_margin > 0.0 && margin < 0.0 {
+                retain_first(&mut set, prev_jd);
+            }
+        }
+        if rise.is_nan() || set.is_nan() {
+            if let Some((up, down)) = refine_grazing_crossings(
+                sample_at,
+                [(left_jd, left_margin), (prev_jd, prev_margin), (jd, margin)],
+            ) {
+                retain_first(&mut rise, up);
+                retain_first(&mut set, down);
+            }
+        }
+        left_jd = prev_jd;
+        left_margin = prev_margin;
         prev_jd = jd;
         prev_margin = margin;
         left_alt = centre_alt;
         centre_alt = alt;
     }
-    // Include a peak just before the end whose nearest grid point is the end.
-    if transit.is_nan()
-        && !transit_failed
-        && centre_alt > left_alt
-        && centre_alt > sample_at(day_end + h).1
-    {
-        let peak = refine_culmination(
-            sample_at,
-            day_end - h,
-            day_end,
-            day_end + h,
-            day_start_jd_utc,
-            day_end,
-        );
-        if peak.is_nan() {
-            transit_failed = true;
+    // The nearest grid point to an in-window extremum may be the end.
+    if (transit.is_nan() && !transit_failed) || rise.is_nan() || set.is_nan() {
+        let (right_margin, right_alt) = sample_at(day_end + h);
+        if transit.is_nan() && !transit_failed && centre_alt > left_alt && centre_alt > right_alt {
+            let peak = refine_culmination(
+                sample_at,
+                day_end - h,
+                day_end,
+                day_end + h,
+                day_start_jd_utc,
+                day_end,
+            );
+            if peak.is_nan() {
+                transit_failed = true;
+            }
+            if (day_start_jd_utc..day_end).contains(&peak) {
+                transit = peak;
+                transit_alt = sample_at(peak).1;
+            }
         }
-        if (day_start_jd_utc..day_end).contains(&peak) {
-            transit = peak;
-            transit_alt = sample_at(peak).1;
+        if rise.is_nan() || set.is_nan() {
+            if let Some((up, down)) = refine_grazing_crossings(
+                sample_at,
+                [
+                    (left_jd, left_margin),
+                    (day_end, prev_margin),
+                    (day_end + h, right_margin),
+                ],
+            ) {
+                retain_first(&mut rise, up);
+                retain_first(&mut set, down);
+            }
         }
     }
     if !(day_start_jd_utc..day_end).contains(&rise) {
@@ -410,6 +451,75 @@ fn events_detailed(sample_at: &dyn Fn(f64) -> (f64, f64), day_start_jd_utc: f64)
         values: (rise, transit, set, transit_alt),
         transit_failed,
     }
+}
+
+/// Recover two opposite crossings hidden inside a sampled unimodal extremum.
+/// Refine the crossing margin, not the transit's true centre altitude. The
+/// extremum may lie outside the day: its roots are filtered by the caller.
+fn refine_grazing_crossings(
+    sample: &dyn Fn(f64) -> (f64, f64),
+    bracket: [(f64, f64); 3],
+) -> Option<(f64, f64)> {
+    let [(left, left_margin), (centre, centre_margin), (right, right_margin)] = bracket;
+    let sign = if centre_margin <= 0.0
+        && centre_margin > left_margin
+        && centre_margin >= right_margin
+    {
+        1.0
+    } else if centre_margin >= 0.0 && centre_margin < left_margin && centre_margin <= right_margin {
+        -1.0
+    } else {
+        return None;
+    };
+    let mut a = left;
+    let mut b = right;
+    let mut best = centre;
+    let mut best_margin = sign * centre_margin;
+    // A one-second peak bracket can still miss a shorter positive excursion.
+    // Bound work while contracting to representable-JD resolution instead.
+    for _ in 0..128 {
+        let p = a + (b - a) / 3.0;
+        let q = b - (b - a) / 3.0;
+        if p <= a || q >= b || p >= q {
+            break;
+        }
+        let fp = sign * sample(p).0;
+        let fq = sign * sample(q).0;
+        for (jd, margin) in [(p, fp), (q, fq)] {
+            if margin > best_margin {
+                best = jd;
+                best_margin = margin;
+            }
+        }
+        if fp < fq {
+            a = p;
+        } else if fp > fq {
+            b = q;
+        } else {
+            a = p.min(best);
+            b = q.max(best);
+        }
+    }
+    if best_margin <= 0.0 {
+        return None;
+    }
+    // Keep an already sampled zero exactly. Approximating that same root from
+    // a wider bracket can round it across a half-open local-day boundary.
+    let first = if centre_margin == 0.0 && centre < best {
+        centre
+    } else {
+        bisect_cross(&|jd| sample(jd).0, left, best)
+    };
+    let second = if centre_margin == 0.0 && centre > best {
+        centre
+    } else {
+        bisect_cross(&|jd| sample(jd).0, best, right)
+    };
+    Some(if sign > 0.0 {
+        (first, second)
+    } else {
+        (second, first)
+    })
 }
 
 /// Contract a sampled unimodal maximum bracket to at most one second, continuing
@@ -564,7 +674,7 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
         astro.eop.xp_arcsec,
         astro.eop.yp_arcsec,
     );
-    let lst = (time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon).rem_euclid(360.0);
+    let lst = coords::wrap_degrees(time::gast_deg(astro.jd_ut1, dpsi, eps_true) + observer_lon);
     let accuracy_class = if astro.eop.quality.precision_ready() {
         "eop-aware apparent topocentric place"
     } else {
@@ -603,8 +713,9 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
         astro.delta_t_seconds
     ));
     out.push_str(&format!(
-        "\"lst_deg\":{:.9},\"obliquity_deg\":{:.9},",
-        lst, eps_true
+        "\"lst_deg\":{},\"obliquity_deg\":{:.9},",
+        jnum(lst),
+        eps_true
     ));
     out.push_str("\"earth_orientation\":{");
     out.push_str(&format!(
@@ -618,8 +729,8 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     out.push_str("}},\n");
     out.push_str("  \"observer\": {");
     out.push_str(&format!(
-        "\"terrestrial_lat_deg\":{},\"terrestrial_lon_deg_east\":{},\"polar_motion_corrected_lat_deg\":{:.8},\"polar_motion_corrected_lon_deg_east\":{:.8},\"elev_m\":{}",
-        jnum(lat), jnum(lon_east), observer_lat, observer_lon, jnum(elev)
+        "\"terrestrial_lat_deg\":{},\"terrestrial_lon_deg_east\":{},\"polar_motion_corrected_lat_deg\":{:.8},\"polar_motion_corrected_lon_deg_east\":{},\"elev_m\":{}",
+        jnum(lat), jnum(lon_east), observer_lat, jnum(observer_lon), jnum(elev)
     ));
     out.push_str("},\n");
     out.push_str(
@@ -653,12 +764,12 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             body.kind()
         ));
         out.push_str(&format!(
-            "\"ra_deg\":{:.9},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{:.9},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{:.9},\"topocentric_apparent_dec_deg\":{:.9},\"geocentric_range_km\":{},\"observer_range_km\":{},\"range_approximation\":\"finite\",",
-            s.topocentric_ra,
+            "\"ra_deg\":{},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{},\"topocentric_apparent_dec_deg\":{:.9},\"geocentric_range_km\":{},\"observer_range_km\":{},\"range_approximation\":\"finite\",",
+            jnum(s.topocentric_ra),
             s.topocentric_dec,
-            s.geocentric_ra,
+            jnum(s.geocentric_ra),
             s.geocentric_dec,
-            s.topocentric_ra,
+            jnum(s.topocentric_ra),
             s.topocentric_dec,
             jnum(s.dist_km), jnum(s.observer_range_km)
         ));
@@ -688,12 +799,12 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             star.name
         ));
         out.push_str(&format!(
-            "\"ra_deg\":{:.9},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{:.9},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{:.9},\"topocentric_apparent_dec_deg\":{:.9},\"geocentric_range_km\":null,\"observer_range_km\":null,\"range_approximation\":\"infinite_catalogue_star\",",
-            s.topocentric_ra,
+            "\"ra_deg\":{},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{},\"topocentric_apparent_dec_deg\":{:.9},\"geocentric_range_km\":null,\"observer_range_km\":null,\"range_approximation\":\"infinite_catalogue_star\",",
+            jnum(s.topocentric_ra),
             s.topocentric_dec,
-            s.geocentric_ra,
+            jnum(s.geocentric_ra),
             s.geocentric_dec,
-            s.topocentric_ra,
+            jnum(s.topocentric_ra),
             s.topocentric_dec
         ));
         out.push_str(&format!(
@@ -725,6 +836,8 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
 
 fn jnum(v: f64) -> String {
     if v.is_finite() {
+        // Round-trip precision also preserves open angle/event boundaries:
+        // fixed decimal places can round a value just below 360 up to 360.
         v.to_string()
     } else {
         "null".to_string()
@@ -782,8 +895,8 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
     let mut out = String::with_capacity(2048);
     out.push_str("{\n  \"schema_version\": \"system-snapshot.v1\",\n");
     out.push_str(&format!("  \"jd_utc\": {:.6},\n  \"bodies\": [\n", jd_utc));
-    // Jupiter–Neptune use TOP2013 (sub-arcsec for the giants over ±6000 yr, where VSOP2013 drifts to
-    // hundreds of arcsec); the inner planets stay on VSOP2013. Same equinoctial frame, so they mix.
+    // Jupiter–Neptune use truncated TOP2013; inner planets use truncated VSOP2013 in the same
+    // equinoctial frame. Source parity does not qualify independent deep-time accuracy.
     let helio = system_helio_xyz;
     for (i, (name, planet)) in bodies.iter().enumerate() {
         let xyz = helio(name, planet, jy2k);
@@ -1070,6 +1183,387 @@ pub extern "C" fn result_len() -> usize {
 mod tests {
     use super::*;
 
+    // Model-independent regression oracles. The event finder is not used here:
+    // sample the known coarse-grid gap at one-second intervals and interpolate
+    // only actual sign changes. Confirm each estimate inside a 0.02-second
+    // sign bracket, narrower than the retained 0.1-second event tolerance.
+    fn sun_regression_oracle(
+        sample: &dyn Fn(f64) -> f64,
+        start: f64,
+        seconds: usize,
+    ) -> Vec<(f64, f64)> {
+        let mut roots = Vec::new();
+        let mut previous = sample(start);
+        assert!(previous.is_finite() && previous != 0.0);
+        for second in 1..=seconds {
+            let at = start + second as f64 / 86400.0;
+            let value = sample(at);
+            // These retained Sun cases have no exact one-second sample root.
+            // A changed case needs explicit review rather than a guessed direction.
+            assert!(value.is_finite() && value != 0.0);
+            if previous.is_sign_positive() != value.is_sign_positive() {
+                let fraction = -previous / (value - previous);
+                let root = start + (second as f64 - 1.0 + fraction) / 86400.0;
+                let direction = if previous < value { 1.0 } else { -1.0 };
+                assert!(direction * sample(root - 0.01 / 86400.0) < 0.0);
+                assert!(direction * sample(root + 0.01 / 86400.0) > 0.0);
+                roots.push((root, direction));
+            }
+            previous = value;
+        }
+        roots
+    }
+
+    // Construct the observer independently by inverting the polar rotation of
+    // its geodetic normal. The desired corrected latitude is stellar declination
+    // and the desired local sidereal angle is stellar right ascension.
+    fn observer_at_model_zenith(star: &stars::Star, jd: f64) -> (f64, f64) {
+        let astro = AstroTime::from_jd_utc(jd);
+        let t = time::centuries(astro.jd_tt);
+        let (dpsi, deps) = time::nutation_deg(t);
+        let gast = time::gast_deg(astro.jd_ut1, dpsi, time::mean_obliquity_deg(t) + deps);
+        let place = star_topocentric(star, jd, 0.0, 0.0, 0.0);
+        let lat = place.geocentric_dec.to_radians();
+        let lon = coords::wrap_degrees(place.geocentric_ra - gast).to_radians();
+        let xp = (astro.eop.xp_arcsec / 3600.0).to_radians();
+        let yp = (astro.eop.yp_arcsec / 3600.0).to_radians();
+        let (x1, y2, z2) = (lat.cos() * lon.cos(), lat.cos() * lon.sin(), lat.sin());
+        let y = yp.cos() * y2 - yp.sin() * z2;
+        let z1 = yp.sin() * y2 + yp.cos() * z2;
+        let x = xp.cos() * x1 + xp.sin() * z1;
+        let z = -xp.sin() * x1 + xp.cos() * z1;
+        let observer_lat = z.atan2(x.hypot(y)).to_degrees();
+        let observer_lon = coords::wrap_degrees(y.atan2(x).to_degrees());
+        let (actual_lat, actual_lon) = earth_orientation::corrected_observer_geodetic(
+            observer_lat,
+            observer_lon,
+            astro.eop.xp_arcsec,
+            astro.eop.yp_arcsec,
+        );
+        assert!((actual_lat - place.geocentric_dec).abs() < 1e-10);
+        let longitude_error =
+            (actual_lon - (place.geocentric_ra - gast) + 180.0).rem_euclid(360.0) - 180.0;
+        assert!(longitude_error.abs() < 1e-10);
+        (observer_lat, observer_lon)
+    }
+
+    #[test]
+    fn catalogue_star_at_zenith_keeps_sky_snapshot_finite() {
+        let jd = 2461041.5;
+        // Preserve the original valid observer that produced NaN before the
+        // inverse-sine guard. Its exact zenith alignment is model-dependent.
+        let snapshot = sky_snapshot_json(jd, 6.4717687563178625, 198.48616092057026, 0.0);
+        assert!(!snapshot.contains(":NaN"));
+        assert!(!snapshot.contains(":inf"));
+        assert!(!snapshot.starts_with("{\"error\""));
+        // Every catalogue direction gets an exact current-model zenith input;
+        // the original two-microdegree altitude tolerance is unchanged.
+        for star in stars::STARS.iter() {
+            let (lat, lon) = observer_at_model_zenith(star, jd);
+            let position = star_topocentric(star, jd, lat, lon, 0.0);
+            assert!(
+                position.alt.is_finite(),
+                "constructed zenith: {}",
+                star.name
+            );
+            assert!(
+                (position.alt - 90.0).abs() < 2e-6,
+                "constructed zenith: {}",
+                star.name
+            );
+            assert!(position.alt_refracted.is_finite());
+        }
+        let star = stars::STARS
+            .iter()
+            .find(|star| star.name == "Alshain")
+            .unwrap();
+        let (lat, lon) = observer_at_model_zenith(star, jd);
+        let snapshot = sky_snapshot_json(jd, lat, lon, 0.0);
+        assert!(!snapshot.contains(":NaN"));
+        assert!(!snapshot.contains(":inf"));
+        assert!(!snapshot.starts_with("{\"error\""));
+    }
+
+    #[test]
+    fn apparent_precision_window_worst_cases_meet_unchanged_budgets() {
+        // Selected AFTER the complete normal-tier sweep exposed failures.
+        // These are bug regressions, not fitted coefficients or a replacement
+        // for the complete 3,925-epoch independent qualification matrix.
+        let matrix = include_str!("../data/precision-regressions-20261104.csv");
+        let mut seen = std::collections::HashSet::new();
+        for line in matrix.lines().skip(1) {
+            let row: Vec<_> = line.split(',').collect();
+            assert_eq!(row.len(), 9);
+            let body = *ALL_BODIES
+                .iter()
+                .find(|body| body.name() == row[1])
+                .unwrap();
+            let values: Vec<f64> = row[4..8]
+                .iter()
+                .map(|value| value.parse().unwrap())
+                .collect();
+            assert!(values.iter().all(|value| value.is_finite()));
+            let (jd, reference_ra, reference_dec, reference_au) =
+                (values[0], values[1], values[2], values[3]);
+            assert!(seen.insert((row[0], jd.to_bits())));
+            assert!(reference_au > 0.0 && row[8].len() == 64);
+            let mut utc = jd;
+            for _ in 0..8 {
+                utc += jd - AstroTime::from_jd_utc(utc).jd_tt;
+            }
+            let astro = AstroTime::from_jd_utc(utc);
+            assert!((astro.jd_tt - jd).abs() * 86400.0 <= 0.001);
+            let (ra, dec, range) = geocentric(body, &astro);
+            let vector = |ra: f64, dec: f64| {
+                let (a, d) = (ra.to_radians(), dec.to_radians());
+                [d.cos() * a.cos(), d.cos() * a.sin(), d.sin()]
+            };
+            let a = vector(ra, dec);
+            let b = vector(reference_ra, reference_dec);
+            let cross = [
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0],
+            ];
+            let dot = a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
+            let angle = cross[0]
+                .hypot(cross[1])
+                .hypot(cross[2])
+                .atan2(dot)
+                .to_degrees()
+                * 3600.0;
+            let pointing_budget = if body == Body::Moon { 12.0 } else { 10.0 };
+            assert!(
+                angle.is_finite() && angle <= pointing_budget,
+                "{} at TT{jd}: pointing {angle} arcseconds",
+                row[1]
+            );
+            let reference_km = reference_au * AU_KM;
+            let range_budget = (reference_km * 1e-5).max(1.0);
+            assert!(
+                range.is_finite() && (range - reference_km).abs() <= range_budget,
+                "{} at TT{jd}: range error {} km exceeds {range_budget}",
+                row[1],
+                range - reference_km
+            );
+        }
+        assert_eq!(seen.len(), 18);
+    }
+
+    #[test]
+    fn apparent_ranges_match_captured_horizons_centers() {
+        // Independent raw Q20 observer tables and both center identities are
+        // retained in tests/fixtures/horizons-ranges-20261103. This is a sampled
+        // range regression, with its 10 ppm / 1 km budget declared pre-acquisition.
+        let matrix = include_str!("../data/horizons-ranges-20261103.csv");
+        let mut seen = std::collections::HashSet::new();
+        for line in matrix.lines().skip(1) {
+            let row: Vec<_> = line.split(',').collect();
+            assert_eq!(row.len(), 10);
+            assert!(seen.insert((row[0], row[1])), "duplicate range reference");
+            let body = match row[1] {
+                "Sun" => Body::Sun,
+                "Moon" => Body::Moon,
+                "Mercury" => Body::Mercury,
+                "Venus" => Body::Venus,
+                "Mars" => Body::Mars,
+                "Jupiter" => Body::Jupiter,
+                "Saturn" => Body::Saturn,
+                "Uranus" => Body::Uranus,
+                "Neptune" => Body::Neptune,
+                _ => panic!("unsupported range reference body"),
+            };
+            let values: Vec<f64> = row[2..8]
+                .iter()
+                .map(|value| value.parse().unwrap())
+                .collect();
+            assert!(values.iter().all(|value| value.is_finite()));
+            let sky = topocentric_sky(body, values[0], values[1], values[2], values[3]);
+            for (quantity, actual, reference) in [
+                ("geocentric", sky.dist_km, values[4]),
+                ("observer", sky.observer_range_km, values[5]),
+            ] {
+                assert!(reference > 0.0 && actual.is_finite());
+                let tolerance = (reference * 1e-5).max(1.0);
+                assert!(
+                    (actual - reference).abs() <= tolerance,
+                    "{}/{} {quantity} range residual {} km exceeds {tolerance} km",
+                    row[0],
+                    row[1],
+                    actual - reference
+                );
+            }
+        }
+        assert_eq!(
+            seen.len(),
+            36,
+            "complete four-site/nine-body matrix required"
+        );
+    }
+
+    #[test]
+    fn apparent_pointing_matches_captured_horizons_observer_matrix() {
+        // Raw Q2/Q4/Q49 responses, request identities and this derived CSV are
+        // bound by tests/python/test_horizons_reference.py. These are four sites
+        // on 2026-07-01, not a continuous accuracy span or range/event evidence.
+        let matrix = include_str!("../data/horizons-observer-20261103.csv");
+        let separation_arcsec = |lat1: f64, lon1: f64, lat2: f64, lon2: f64| {
+            let (a, b, delta) = (
+                lat1.to_radians(),
+                lat2.to_radians(),
+                (lon1 - lon2).to_radians(),
+            );
+            (a.sin() * b.sin() + a.cos() * b.cos() * delta.cos())
+                .clamp(-1.0, 1.0)
+                .acos()
+                .to_degrees()
+                * 3600.0
+        };
+        let mut seen = std::collections::HashSet::new();
+        for line in matrix.lines().skip(1) {
+            let row: Vec<_> = line.split(',').collect();
+            assert_eq!(row.len(), 12);
+            assert!(seen.insert((row[0], row[1])), "duplicate reference sample");
+            let body = match row[1] {
+                "Sun" => Body::Sun,
+                "Moon" => Body::Moon,
+                "Mercury" => Body::Mercury,
+                "Venus" => Body::Venus,
+                "Mars" => Body::Mars,
+                "Jupiter" => Body::Jupiter,
+                "Saturn" => Body::Saturn,
+                "Uranus" => Body::Uranus,
+                "Neptune" => Body::Neptune,
+                _ => panic!("unsupported reference body"),
+            };
+            let values: Vec<f64> = row[2..11]
+                .iter()
+                .map(|value| value.parse().unwrap())
+                .collect();
+            assert!(values.iter().all(|value| value.is_finite()));
+            let sky = topocentric_sky(body, values[0], values[1], values[2], values[3]);
+            let tolerance = if body == Body::Moon { 12.0 } else { 10.0 };
+            let radec = separation_arcsec(
+                sky.topocentric_dec,
+                sky.topocentric_ra,
+                values[5],
+                values[4],
+            );
+            let altaz = separation_arcsec(sky.alt, sky.az, values[7], values[6]);
+            assert!(
+                radec <= tolerance,
+                "{}/{} RA/Dec {radec} arcsec",
+                row[0],
+                row[1]
+            );
+            assert!(
+                altaz <= tolerance,
+                "{}/{} alt/az {altaz} arcsec",
+                row[0],
+                row[1]
+            );
+            assert!((sky.alt - values[7]).abs() * 3600.0 <= tolerance);
+            assert!(
+                (AstroTime::from_jd_utc(values[0]).eop.dut1_seconds - values[8]).abs() <= 0.003
+            );
+        }
+        assert_eq!(
+            seen.len(),
+            36,
+            "complete four-site/nine-body matrix required"
+        );
+    }
+
+    #[test]
+    fn seasonal_observer_pointing_ranges_and_clock_match_horizons() {
+        // Twelve monthly 2026 epochs at four sites. Raw Q2/Q4/Q20/Q49 replies,
+        // frozen query/provenance amendments and this exact CSV are admitted by
+        // horizons_observer_seasonal.py. This is sampled seasonal evidence.
+        let csv = include_str!("../data/horizons-observer-seasonal-20261104.csv");
+        let separation = |lat1: f64, lon1: f64, lat2: f64, lon2: f64| {
+            let (a, b, delta) = (
+                lat1.to_radians(),
+                lat2.to_radians(),
+                (lon1 - lon2).to_radians(),
+            );
+            (a.sin() * b.sin() + a.cos() * b.cos() * delta.cos())
+                .clamp(-1.0, 1.0)
+                .acos()
+                .to_degrees()
+                * 3600.0
+        };
+        let mut seen = std::collections::HashSet::new();
+        let mut cases = std::collections::HashSet::new();
+        for line in csv.lines().skip(1) {
+            let row: Vec<_> = line.split(',').collect();
+            assert_eq!(row.len(), 14);
+            assert!(seen.insert((row[0], row[1])), "duplicate seasonal sample");
+            cases.insert(row[0]);
+            let body = match row[1] {
+                "Sun" => Body::Sun,
+                "Moon" => Body::Moon,
+                "Mercury" => Body::Mercury,
+                "Venus" => Body::Venus,
+                "Mars" => Body::Mars,
+                "Jupiter" => Body::Jupiter,
+                "Saturn" => Body::Saturn,
+                "Uranus" => Body::Uranus,
+                "Neptune" => Body::Neptune,
+                _ => panic!("unsupported seasonal body"),
+            };
+            let values: Vec<f64> = row[2..13]
+                .iter()
+                .map(|token| token.parse().unwrap())
+                .collect();
+            assert!(values.iter().all(|value| value.is_finite()));
+            assert!((values[0] - values[1]).abs() <= 1e-9);
+            assert!(values[9] > 0.0);
+            let sky = topocentric_sky(body, values[0], values[2], values[3], values[4]);
+            let pointing_limit = if body == Body::Moon { 12.0 } else { 10.0 };
+            for (quantity, error, limit) in [
+                (
+                    "topocentric RA/Dec arcsec",
+                    separation(
+                        sky.topocentric_dec,
+                        sky.topocentric_ra,
+                        values[6],
+                        values[5],
+                    ),
+                    pointing_limit,
+                ),
+                (
+                    "airless alt/az arcsec",
+                    separation(sky.alt, sky.az, values[8], values[7]),
+                    pointing_limit,
+                ),
+                (
+                    "airless altitude arcsec",
+                    (sky.alt - values[8]).abs() * 3600.0,
+                    pointing_limit,
+                ),
+                (
+                    "observer range km",
+                    (sky.observer_range_km - values[9]).abs(),
+                    (values[9] * 1e-5).max(1.0),
+                ),
+                (
+                    "DUT1 seconds",
+                    (AstroTime::from_jd_utc(values[0]).eop.dut1_seconds - values[10]).abs(),
+                    0.003,
+                ),
+            ] {
+                assert!(
+                    error.is_finite() && error <= limit,
+                    "{}/{} {quantity}: {error} exceeds {limit}",
+                    row[0],
+                    row[1]
+                );
+            }
+        }
+        assert_eq!(seen.len(), 432);
+        assert_eq!(cases.len(), 48);
+    }
+
     #[test]
     fn legacy_system_time_sanitizing_remains_bounded() {
         assert_eq!(sanitize_unix(f64::NAN), 0.0);
@@ -1136,6 +1630,87 @@ mod tests {
         assert!(json.contains("dut1_seconds"));
         assert!(json.contains("\"name\":\"Sun\""));
         assert!(json.contains("\"name\":\"Moon\""));
+    }
+
+    fn snapshot_number(json: &str, key: &str) -> f64 {
+        json.split_once(&format!("\"{key}\":"))
+            .unwrap()
+            .1
+            .split([',', '}'])
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap()
+    }
+
+    #[test]
+    fn corrected_longitude_serialization_preserves_the_open_upper_bound() {
+        // The worker's frozen historical case has an equatorial longitude a
+        // few nanodegrees below 360 after polar motion. Decimal rounding must
+        // neither turn it into 360 nor erase the computed displacement.
+        let jd_utc = 2_446_637.074_895_833 - (23.0 + 32.184) / 86400.0;
+        let astro = AstroTime::from_jd_utc(jd_utc);
+        let (_, expected) = earth_orientation::corrected_observer_geodetic(
+            0.0,
+            0.0,
+            astro.eop.xp_arcsec,
+            astro.eop.yp_arcsec,
+        );
+        assert!(expected > 359.999_999_995 && expected < 360.0);
+        let json = sky_snapshot_json(jd_utc, 0.0, 0.0, 0.0);
+        let actual = snapshot_number(&json, "polar_motion_corrected_lon_deg_east");
+        assert!((0.0..360.0).contains(&actual), "longitude {actual}");
+        assert_eq!(actual.to_bits(), expected.to_bits());
+    }
+
+    #[test]
+    fn snapshot_tiny_negative_longitude_retains_a_valid_wrapped_meridian() {
+        let json = sky_snapshot_json(2_415_020.5, 0.0, -1.0e-15, 0.0);
+        assert_eq!(snapshot_number(&json, "terrestrial_lon_deg_east"), -1.0e-15);
+        assert_eq!(
+            snapshot_number(&json, "polar_motion_corrected_lon_deg_east"),
+            0.0
+        );
+    }
+
+    #[test]
+    fn snapshot_periodic_angles_preserve_computed_binary64_values() {
+        let jd_utc = 2_446_637.074_895_833 - (23.0 + 32.184) / 86400.0;
+        let astro = AstroTime::from_jd_utc(jd_utc);
+        let (dpsi, deps) = time::nutation_deg(time::centuries(astro.jd_tt));
+        let eps_true = time::mean_obliquity_deg(time::centuries(astro.jd_tt)) + deps;
+        let (_, lon) = earth_orientation::corrected_observer_geodetic(
+            0.0,
+            0.0,
+            astro.eop.xp_arcsec,
+            astro.eop.yp_arcsec,
+        );
+        let lst = (time::gast_deg(astro.jd_ut1, dpsi, eps_true) + lon).rem_euclid(360.0);
+        let json = sky_snapshot_json(jd_utc, 0.0, 0.0, 0.0);
+        assert_eq!(snapshot_number(&json, "lst_deg").to_bits(), lst.to_bits());
+        let values = ALL_BODIES
+            .iter()
+            .map(|body| topocentric_sky_at_time(*body, &astro, 0.0, 0.0, 0.0))
+            .chain(
+                stars::STARS
+                    .iter()
+                    .map(|star| star_topocentric(star, jd_utc, 0.0, 0.0, 0.0)),
+            );
+        let mut entries = json.split("\"coordinate_frame\":\"true_equator_and_equinox_of_date\",");
+        entries.next().unwrap();
+        let entries: Vec<_> = entries.collect();
+        assert_eq!(entries.len(), ALL_BODIES.len() + stars::STARS.len());
+        for (entry, sky) in entries.iter().zip(values) {
+            for (field, expected) in [
+                ("ra_deg", sky.topocentric_ra),
+                ("geocentric_apparent_ra_deg", sky.geocentric_ra),
+                ("topocentric_apparent_ra_deg", sky.topocentric_ra),
+            ] {
+                let actual = snapshot_number(entry, field);
+                assert!((0.0..360.0).contains(&actual), "{field}: {actual}");
+                assert_eq!(actual.to_bits(), expected.to_bits(), "{field}");
+            }
+        }
     }
 
     #[test]
@@ -1314,15 +1889,285 @@ mod tests {
     #[test]
     fn horizon_crossings_use_the_same_half_open_day() {
         for direction in [-1.0, 1.0] {
-            for crossing in [0.0, 1.0] {
+            for crossing in [0.0, 70.0 / 144.0, 1.0] {
                 let (rise, _, set, _) = events_core(&|jd| (direction * (jd - crossing), 1.0), 0.0);
                 let event = if direction > 0.0 { rise } else { set };
-                if crossing == 0.0 {
-                    assert_eq!(event, 0.0);
+                if crossing < 1.0 {
+                    assert_eq!(event, crossing);
                 } else {
                     assert!(event.is_nan(), "end crossing: {event}");
                 }
+                assert!(if direction > 0.0 { set } else { rise }.is_nan());
             }
+        }
+    }
+
+    #[test]
+    fn grazing_crossings_between_grid_points_are_not_lost() {
+        for start in [0.0, 2_460_000.5, 5_373_483.5] {
+            for offset in [0.5 / 144.0, 70.5 / 144.0] {
+                for seconds in [60.0, 0.01] {
+                    let peak = start + offset;
+                    let width = seconds / 86400.0;
+                    for sign in [-1.0, 1.0] {
+                        let (rise, _, set, _) = events_core(
+                            &|jd| {
+                                // The crossing margin can have a different
+                                // extremum from the true centre altitude.
+                                let margin = sign * (width * width - (jd - peak).powi(2));
+                                (margin, jd - start)
+                            },
+                            start,
+                        );
+                        let expected_rise = peak - sign * width;
+                        let expected_set = peak + sign * width;
+                        assert!(
+                            (rise - expected_rise).abs() * 86400.0 < 0.001,
+                            "start {start}, peak {peak}, width {seconds}s, sign {sign}: rise {rise}"
+                        );
+                        assert!(
+                            (set - expected_set).abs() * 86400.0 < 0.001,
+                            "start {start}, peak {peak}, width {seconds}s, sign {sign}: set {set}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn grazing_crossings_keep_half_open_membership_even_with_an_outside_extremum() {
+        let start = 2_460_000.5;
+        let width = 60.0 / 86400.0;
+        for boundary in [start, start + 1.0] {
+            for offset in [-30.0, 0.0, 30.0] {
+                let peak = boundary + offset / 86400.0;
+                for sign in [-1.0, 1.0] {
+                    let (rise, _, set, _) = events_core(
+                        &|jd| (sign * (width * width - (jd - peak).powi(2)), 1.0),
+                        start,
+                    );
+                    for (actual, expected) in
+                        [(rise, peak - sign * width), (set, peak + sign * width)]
+                    {
+                        if (start..start + 1.0).contains(&expected) {
+                            assert!((actual - expected).abs() * 86400.0 < 0.001);
+                        } else {
+                            assert!(actual.is_nan(), "outside crossing {expected}: {actual}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn captured_fine_sun_moon_event_intervals_match_configured_model() {
+        // Independent Q2/4/20/49 grids, selected March/June 2026 diagnostics.
+        // Fixed refraction/semidiameter crossings and sampled-unimodal peaks;
+        // this is not physical visibility or continuous event qualification.
+        let csv = include_str!("../data/horizons-events-20261104.csv");
+        let mut previous_case = "";
+        let mut solution = None;
+        let mut cases = 0;
+        let mut records = 0;
+        for row in csv.lines().skip(1) {
+            let fields: Vec<_> = row.split(',').collect();
+            assert_eq!(fields.len(), 11);
+            let value = |index: usize| fields[index].parse::<f64>().unwrap();
+            let start = value(3);
+            if fields[0] != previous_case {
+                let body = match fields[1] {
+                    "Sun" => Body::Sun,
+                    "Moon" => Body::Moon,
+                    _ => panic!("unexpected event reference body"),
+                };
+                solution = Some(events(body, start, value(4), value(5), value(6)));
+                previous_case = fields[0];
+                cases += 1;
+            }
+            let times = solution.as_ref().unwrap().values;
+            let actual = match fields[2] {
+                "rise" => times.0,
+                "peak" => times.1,
+                "set" => times.2,
+                _ => panic!("unexpected event reference quantity"),
+            };
+            let low = value(7);
+            let high = value(8);
+            let peak = fields[2] == "peak";
+            assert!(start <= low && low < high && high < start + 1.0);
+            assert!((high - low) * 86400.0 <= if peak { 2.001 } else { 1.001 });
+            assert_eq!(
+                fields[9],
+                if peak {
+                    "sampled_unimodal_peak"
+                } else {
+                    "threshold_crossing"
+                }
+            );
+            assert_eq!(fields[10].len(), 64);
+            assert!(actual.is_finite() && (start..start + 1.0).contains(&actual));
+            let maximum_endpoint_error = (actual - low).abs().max((actual - high).abs()) * 86400.0;
+            assert!(
+                maximum_endpoint_error <= 10.0,
+                "{} {}: {maximum_endpoint_error}s",
+                fields[0],
+                fields[2]
+            );
+            records += 1;
+        }
+        assert_eq!(cases, 12);
+        assert_eq!(records, 32);
+    }
+
+    #[test]
+    fn grazing_crossings_retain_the_first_event_of_each_direction() {
+        let start = 2_460_000.5;
+        let first_peak = start + 35.5 / 144.0;
+        let second_peak = start + 70.5 / 144.0;
+        let width = 60.0 / 86400.0;
+        for sign in [-1.0, 1.0] {
+            let (rise, _, set, _) = events_core(
+                &|jd| {
+                    let distance = (jd - first_peak).abs().min((jd - second_peak).abs());
+                    (sign * (width * width - distance * distance), 1.0)
+                },
+                start,
+            );
+            assert!((rise - (first_peak - sign * width)).abs() * 86400.0 < 0.001);
+            assert!((set - (first_peak + sign * width)).abs() * 86400.0 < 0.001);
+        }
+    }
+
+    #[test]
+    fn grazing_refinement_does_not_invent_a_crossing_without_a_sign_change() {
+        let start = 2_460_000.5;
+        for offset in [70.0 / 144.0, 70.5 / 144.0] {
+            let peak = start + offset;
+            for sign in [-1.0, 1.0] {
+                for height in [-1.0e-8, 0.0] {
+                    let (rise, _, set, _) =
+                        events_core(&|jd| (sign * (height - (jd - peak).powi(2)), 1.0), start);
+                    assert!(rise.is_nan() && set.is_nan());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn grazing_crossings_with_one_root_exactly_on_the_grid_keep_both_roots() {
+        for start in [0.0, 2_460_000.5, 5_373_483.5] {
+            let grid: f64 = start + 70.0 / 144.0;
+            for other in [grid - 120.0 / 86400.0, grid + 120.0 / 86400.0] {
+                let first = grid.min(other);
+                let second = grid.max(other);
+                for sign in [-1.0, 1.0] {
+                    let (rise, _, set, _) =
+                        events_core(&|jd| (sign * (jd - first) * (second - jd), 1.0), start);
+                    let expected = if sign > 0.0 {
+                        (first, second)
+                    } else {
+                        (second, first)
+                    };
+                    assert!((rise - expected.0).abs() * 86400.0 < 0.001);
+                    assert!((set - expected.1).abs() * 86400.0 < 0.001);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn grazing_crossings_preserve_exact_boundary_roots() {
+        for start in [
+            0.0,
+            2_460_000.5,
+            adjacent_float(2_460_000.5, true),
+            5_373_483.5,
+            adjacent_float(5_373_483.5, true),
+        ] {
+            for boundary in [start, start + 1.0] {
+                for other in [boundary - 120.0 / 86400.0, boundary + 120.0 / 86400.0] {
+                    let first = boundary.min(other);
+                    let second = boundary.max(other);
+                    for sign in [-1.0, 1.0] {
+                        let (rise, _, set, _) =
+                            events_core(&|jd| (sign * (jd - first) * (second - jd), 1.0), start);
+                        let expected = if sign > 0.0 {
+                            (first, second)
+                        } else {
+                            (second, first)
+                        };
+                        for (actual, root) in [(rise, expected.0), (set, expected.1)] {
+                            if root == start {
+                                assert_eq!(actual, root, "exact start root must retain its JD");
+                            } else if (start..start + 1.0).contains(&root) {
+                                assert!((actual - root).abs() * 86400.0 < 0.001);
+                            } else {
+                                assert!(actual.is_nan(), "outside root {root}: {actual}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn arctic_sun_short_daylight_is_found_between_negative_grid_samples() {
+        // This numerical case remains hidden between ten-minute samples.
+        // Historical four-term roots were 2461347.98696173 / 2461347.9890421694;
+        // their independent current-model oracle replaces a theory-specific pin.
+        let start = 2_461_347.5;
+        let lat = 75.685_150_231_448_8;
+        let margin = |jd| {
+            let sky = topocentric_sky(Body::Sun, jd, lat, 0.0, 0.0);
+            sky.alt - standard_altitude_deg(Body::Sun, sky.observer_range_km)
+        };
+        for index in 0..=144 {
+            assert!(margin(start + index as f64 / 144.0) < 0.0);
+        }
+        let roots = sun_regression_oracle(&margin, start + 42000.0 / 86400.0, 600);
+        assert_eq!(roots.len(), 2);
+        assert_eq!((roots[0].1, roots[1].1), (1.0, -1.0));
+        let (rise, _, set, _) = events(Body::Sun, start + 0.5, lat, 0.0, 0.0).values;
+        for (actual, (expected, direction)) in [(rise, roots[0]), (set, roots[1])] {
+            assert!((actual - expected).abs() * 86400.0 < 0.1);
+            for seconds in [-1.0, 1.0] {
+                assert!(direction * seconds * margin(actual + seconds / 86400.0) > 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn arctic_sun_short_night_sets_before_the_end_of_the_day() {
+        // Historical four-term first rise/set were 2461163.528017383 /
+        // 2461164.49557094. Retain the same observer and half-open day.
+        let start = 2_461_163.5;
+        let lat = 73.264_619_851_045_27;
+        let margin = |jd| {
+            let sky = topocentric_sky(Body::Sun, jd, lat, 0.0, 0.0);
+            sky.alt - standard_altitude_deg(Body::Sun, sky.observer_range_km)
+        };
+        for offset in [143.0 / 144.0, 1.0] {
+            assert!(margin(start + offset) > 0.0);
+        }
+        let early = sun_regression_oracle(&margin, start + 2400.0 / 86400.0, 600);
+        let late = sun_regression_oracle(&margin, start + 85800.0 / 86400.0, 600);
+        assert_eq!(early.len(), 1);
+        assert_eq!(early[0].1, 1.0);
+        assert_eq!(late.len(), 2);
+        assert_eq!((late[0].1, late[1].1), (-1.0, 1.0));
+        let (rise, _, set, _) = events(Body::Sun, start + 0.5, lat, 0.0, 0.0).values;
+        assert!((rise - early[0].0).abs() * 86400.0 < 0.1);
+        assert!((set - late[0].0).abs() * 86400.0 < 0.1);
+        assert!((start..start + 1.0).contains(&set));
+        assert!(
+            rise < late[1].0,
+            "retain the first rise, not the second near midnight"
+        );
+        for seconds in [-1.0, 1.0] {
+            assert!(seconds * margin(set + seconds / 86400.0) < 0.0);
         }
     }
 
@@ -1423,17 +2268,47 @@ mod tests {
         // coordinate, formatted with the JSON path's own {:.8}, must appear verbatim in
         // the snapshot for the same instant. If the two model splits ever diverge
         // (e.g. one path switches Earth back to the EMB), this fails.
-        let unix = 1.7e9;
-        let _ = system_positions(unix);
-        let values = POSITIONS.with(|cell| cell.borrow().clone());
-        assert_eq!(values.len(), 27, "8 planets + Moon, xyz each");
-        assert_eq!(system_positions_len(), 27);
-        let json = system_snapshot_json(time::jd_from_unix(unix));
-        for (i, chunk) in values.chunks(3).enumerate() {
-            for (axis, value) in ["x_au", "y_au", "z_au"].iter().zip(chunk) {
-                let needle = format!("\"{}\":{:.8}", axis, value);
-                assert!(json.contains(&needle), "body {i}: {needle} not in snapshot");
+        // These epochs cover the captured vector matrix. This is interface
+        // parity, not a claim that its independent 10-arcsecond gate passes.
+        let epochs: Vec<f64> = include_str!("../data/horizons-vectors-20261104.csv")
+            .lines()
+            .filter(|line| line.starts_with("mercury,"))
+            .map(|line| line.split(',').nth(4).unwrap().parse().unwrap())
+            .collect();
+        assert_eq!(epochs.len(), 16);
+        let names = [
+            "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Moon",
+        ];
+        for jd_tdb in epochs {
+            let mut jd_utc = jd_tdb;
+            for _ in 0..8 {
+                jd_utc += jd_tdb - AstroTime::from_jd_utc(jd_utc).jd_tt;
             }
+            let unix = (jd_utc - time::UNIX_EPOCH_JD) * 86400.0;
+            let _ = system_positions(unix);
+            let values = POSITIONS.with(|cell| cell.borrow().clone());
+            assert_eq!(values.len(), 27, "8 planets + Moon, xyz each");
+            assert_eq!(system_positions_len(), 27);
+            let json = system_snapshot_json(time::jd_from_unix(unix));
+            for (name, chunk) in names.iter().zip(values.chunks(3)) {
+                let needle = format!(
+                    "{{\"name\":\"{name}\",\"x_au\":{:.8},\"y_au\":{:.8},\"z_au\":{:.8}",
+                    chunk[0], chunk[1], chunk[2]
+                );
+                assert!(
+                    json.contains(&needle),
+                    "{name} at {jd_tdb}: body-bound vector absent"
+                );
+            }
+            // The old per-coordinate search would accept a body-order swap.
+            let swapped = format!(
+                "{{\"name\":\"Mercury\",\"x_au\":{:.8},\"y_au\":{:.8},\"z_au\":{:.8}",
+                values[3], values[4], values[5]
+            );
+            assert!(
+                !json.contains(&swapped),
+                "swapped body vector must not pass"
+            );
         }
     }
 

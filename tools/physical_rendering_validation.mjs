@@ -2,6 +2,7 @@
 // Full application qualification of a pinned, locally served web release. No
 // fixture replaces the ephemeris, Worker, source assets, or rendering pipeline.
 import assert from 'node:assert/strict';
+import {types as utilTypes} from 'node:util';
 import {createHash} from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,7 +19,7 @@ import {installProgramSourceEvidence,preparePhysicalSpinEvidence} from './physic
 import {collectSubmittedEarthSpin} from './earth_spin_probe.mjs';
 import {prepareMarsTerrainEvidence} from './mars_terrain_probe.mjs';
 import {assertMarsOpticalTerrainSpin} from './mars_spin_assertions.mjs';
-import {browserBackendFromArgs,browserBackendArgs,assertBrowserBackend,captureBrowserCapabilities} from './browser_backend.mjs';
+import {browserBackendFromArgs,browserBackendArgs,assertBrowserBackend,captureBrowserCapabilities,withBrowserFeatureStatus} from './browser_backend.mjs';
 import {memoryRequested,runFullFeatureMemoryCheckpoints} from './full_feature_memory.mjs';
 
 const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -27,7 +28,7 @@ const webRoot=path.resolve(option('web-root',path.join(repo,'build/physical-prev
 const out=path.resolve(option('out',path.join(repo,'coverage/physical-rendering')));
 const chrome=option('browser',process.env.CHROME_BIN||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':'/usr/bin/google-chrome'));
 const marsOpticalAnimation=process.argv.includes('--mars-optical-animation');
-const backend=browserBackendFromArgs(process.argv.slice(2)),memory=memoryRequested(process.argv.slice(2));
+const backend=browserBackendFromArgs(process.argv.slice(2),{allowSoftwareFallback:true}),memory=memoryRequested(process.argv.slice(2));
 assert.ok(!memory||marsOpticalAnimation,'--memory requires --mars-optical-animation so the original physical terrain gate runs first');
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const manifestBytes=fs.readFileSync(path.join(webRoot,'web-release-manifest.json'));
@@ -58,7 +59,7 @@ for(const asset of manifest.assets){
   }
 }
 fs.mkdirSync(out,{recursive:true});
-let browser,server,page,timer,expired=false,invariant;
+let browser,server,page,timer,expired=false,invariant,validationError=null;
 const controller=new AbortController();
 const save=()=>fs.writeFileSync(path.join(out,'evidence.json'),JSON.stringify(evidence,null,2)+'\n');
 const check=(name,detail={})=>{evidence.checks.push({name,passed:true,...detail});save();console.log(JSON.stringify({check:name,...detail}));};
@@ -87,8 +88,20 @@ async function paintAction(action,value){
     if(action==='checkbox'){const e=document.getElementById(value.id);e.checked=value.checked;e.dispatchEvent(new Event('change'));return;}
     if(action==='scrub'){const e=document.getElementById('orrerySolarTime');e.value=String(value);e.dispatchEvent(new Event('input'));return;}
     if(action==='close-terrain'){
+      // System framing includes moons and depends on the previous anchor. A
+      // fixed fraction of that distance need not request the finest terrain.
+      // Observe this body's actual model scale before choosing a close view.
+      window.__physicalFraming=[];window.__physicalCaptureFraming=true;
+      try{document.getElementById('orrerySize').dispatchEvent(new Event('input'));}
+      finally{window.__physicalCaptureFraming=false;}
+      const {terrainReference}=await import('./js/terrainAssets.js'+q),reference=terrainReference(s.anchor);
+      // The Moon's displayed center can differ from its physical center.
+      // Match the admitted terrain datum uploaded for this body instead.
+      const draw=reference&&window.__physicalFraming.findLast(draw=>
+        draw.referenceRadiusKm===Math.fround(reference.referenceRadiusKm));
+      if(!draw||!Number.isFinite(draw.radius)||draw.radius<=0)throw Error('Terrain body draw scale unavailable');
       window.__physicalTerrainMeshes=[];window.__physicalTerrainDraws=[];
-      s.radius*=.35;
+      s.radius=draw.radius*1.1;
     }
     if(action==='restore-radius')s.radius=value;
     document.getElementById('orrerySize').dispatchEvent(new Event('input'));
@@ -184,6 +197,17 @@ async function run(){
     const drawElements=p.drawElements;
     p.drawElements=function(mode,count,type,offset){
       const result=drawElements.call(this,mode,count,type,offset);
+      // Open for one explicit preparation repaint only, never per animation frame.
+      if(window.__physicalCaptureFraming&&count>1000&&window.__physicalFraming.length<64){
+        const program=this.getParameter(this.CURRENT_PROGRAM),read=name=>{
+          const location=program&&this.getUniformLocation(program,name);return location?this.getUniform(program,location):null;
+        };
+        const model=read('u_model'),shape=read('u_terrainShape');
+        // Deferred transparent shells can retain the previous terrain uniforms;
+        // only mode 0 submits the ground body's model scale.
+        if(read('u_mode')===0&&read('u_terrainShadowEnabled')===1&&model?.length===16&&shape?.length===4)
+          window.__physicalFraming.push({referenceRadiusKm:shape[0],radius:Math.hypot(model[0],model[1],model[2])});
+      }
       if(count>500000&&window.__physicalTerrainDraws.length<256){
         const program=this.getParameter(this.CURRENT_PROGRAM),location=this.getUniformLocation(program,'u_terrainShadowEnabled');
         if(location&&this.getUniform(program,location)===1)window.__physicalTerrainDraws.push({mode,count,type,
@@ -215,7 +239,7 @@ async function run(){
   // The default illustrative look is validated by browser_validation.mjs.
   await page.select('#orreryPlanetLook','source-qualified');
   await paintAction('checkbox',{id:'orreryAnimate',checked:false});
-  evidence.capabilities=await page.evaluate(captureBrowserCapabilities);
+  evidence.capabilities=await withBrowserFeatureStatus(backend,browser,await page.evaluate(captureBrowserCapabilities));
   evidence.observed_backend=assertBrowserBackend(backend,evidence.capabilities);save();
   invariant=(await state()).invariant;
   check('Pinned staged bytes match release manifest',{assets:manifest.assets.length});
@@ -354,7 +378,7 @@ async function run(){
         'physical_texture_probe.mjs','scattering_producer_probe.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,digest(fs.readFileSync(path.join(repo,'tools',name)))]));
       evidence.mars_optical_animation=probe;save();
       const rotation=assertMarsOpticalTerrainSpin(probe);
-      probe.capabilities=await page.evaluate(captureBrowserCapabilities);
+      probe.capabilities=await withBrowserFeatureStatus(backend,browser,await page.evaluate(captureBrowserCapabilities));
       probe.observed_backend=assertBrowserBackend(backend,probe.capabilities);save();
       assert.throws(()=>assertMarsOpticalTerrainSpin({...probe,samples:probe.samples.map(sample=>({...sample,
         model:probe.samples[0].model,normal:probe.samples[0].normal}))}),/frozen|cap/);
@@ -382,10 +406,25 @@ try{
   assert.deepEqual(evidence.console_errors,[],'Console errors after original acceptance');
   evidence.passed=true;
 }catch(error){
+  error=utilTypes.isNativeError(error)?error:new Error('Non-Error rejection: '+String(error));
+  validationError=error;
   evidence.passed=false;evidence.failure=String(error?.stack||error);
   if(page&&!page.isClosed())try{evidence.failure_state=await state();}catch(diagnostic){evidence.diagnostic_error=String(diagnostic);}
   console.error(evidence.failure);process.exitCode=1;
 }finally{
-  clearTimeout(timer);controller.abort();if(browser)await closeOwnedBrowser(browser,{timeoutMs:8000});
-  server?.closeAllConnections();server?.close();evidence.finished_at=new Date().toISOString();save();
+  clearTimeout(timer);controller.abort();
+  evidence.cleanup={};
+  const close=async(name,action)=>{
+    try{await action();evidence.cleanup[name]={status:'completed'};}
+    catch(error){const failure=utilTypes.isNativeError(error)?error:new Error('Non-Error rejection: '+String(error));
+      evidence.cleanup[name]={status:'failed',message:failure.message};if(!validationError)validationError=failure;}
+  };
+  if(browser)await close('browser',()=>closeOwnedBrowser(browser,{timeoutMs:8000}));
+  else evidence.cleanup.browser={status:'not_started'};
+  if(server)await close('server',()=>{server.closeAllConnections();return new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));});
+  else evidence.cleanup.server={status:'not_started'};
+  const lateErrors=[...evidence.errors,...evidence.console_errors.map(item=>item.text)];
+  if(lateErrors.length&&!validationError)validationError=new Error('Physical rendering runtime errors during cleanup: '+lateErrors.join('; '));
+  if(validationError){evidence.passed=false;if(!evidence.failure)evidence.failure=String(validationError.stack||validationError);process.exitCode=1;}
+  evidence.finished_at=new Date().toISOString();save();
 }

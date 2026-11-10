@@ -1,0 +1,17 @@
+{
+  "schema_version": "canonical-moon-inputs.v1",
+  "snapshot_created": true,
+  "qualification_granted": false,
+  "source_sha256": {
+    "tools/generate_moons.py": "ee3712f01c49f79fa325e7c11898fab530476c1de91596426936a3a3b26dc028",
+    "tools/moon_model.py": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445",
+    "tools/validate_moons.py": "4358258af1f855297b0575da21bd2d7d373030ac2614ddf6d0a47987a82ba3bb",
+    "tools/collect_moon_evidence.py": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf",
+    "tools/ephemeris-data/generation-manifest.json": "577459d803e9519f3d2ce696bdd2656b1d3831ac4f9b8986edec00bbe85467cf",
+    "tools/ephemeris-data/moons/horizons_satellite_elements.csv": "cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f",
+    "tools/ephemeris-data/moons/horizons_satellite_vectors.csv": "ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918",
+    "tools/ephemeris-data/moons/jpl_satellite_physical.csv": "03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99",
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+  }
+}

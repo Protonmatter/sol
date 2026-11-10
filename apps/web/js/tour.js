@@ -84,6 +84,11 @@ export function showTourStep() {
     tourSpot.classList.add("hidden");
     centerTourCard();
   }
+  // A longer step can clip an action that already has focus, so focus() alone
+  // would not trigger the browser's usual keyboard scrolling.
+  const active = document.activeElement;
+  if (active?.tagName === 'BUTTON' && tourCard?.contains(active))
+    active.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
 }
 
 function positionTourCard(rect) {
@@ -94,7 +99,8 @@ function positionTourCard(rect) {
   if (top + card.height > window.innerHeight - 8) top = rect.top - card.height - 12;
   if (left + card.width > window.innerWidth - 8) left = window.innerWidth - card.width - 8;
   tourCard.style.left = `${Math.max(8, left)}px`;
-  tourCard.style.top = `${Math.max(8, top)}px`;
+  // A target below the viewport can put both adjacent placements offscreen.
+  tourCard.style.top = `${Math.max(8, Math.min(top, window.innerHeight - card.height - 8))}px`;
 }
 
 function centerTourCard() {

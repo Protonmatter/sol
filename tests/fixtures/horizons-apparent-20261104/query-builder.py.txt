@@ -1,0 +1,61 @@
+from pathlib import Path
+import datetime as dt
+import hashlib
+import json
+import re
+import time
+import urllib.parse
+import urllib.request
+
+ROOT=Path(__file__).resolve().parents[1]
+PACK=ROOT/'tests/fixtures/horizons-apparent-20261104'
+ENDPOINT='https://ssd.jpl.nasa.gov/api/horizons.api'
+if hashlib.sha256((PACK/'predeclared-plan.txt').read_bytes()).hexdigest()!='abea667213681f709bd67a35cd6676ce320fe7180eabc4f0efeda180761bf88d':
+    raise RuntimeError('Predeclared plan differs')
+CASES=[('sun','Sun',10),('moon','Moon',301),('mercury','Mercury',199),('venus','Venus',299),
+       ('mars','Mars',4),('jupiter','Jupiter',5),('saturn','Saturn',6),('uranus','Uranus',7),('neptune','Neptune',8)]
+dates=[dt.datetime(year,1,1) for year in (1000,1600,1800,1900,1950,2050,2100,2200,2400,3000,5000,7000,9999)]
+dates += [dt.datetime(1,1,2),dt.datetime(2000,1,1,12),dt.datetime(2026,7,1)]
+epochs=sorted(date.toordinal()+1721424.5+date.hour/24 for date in dates)
+queries=[]
+for case,body,target in CASES:
+    params={'format':'text','COMMAND':f"'{target}'",'OBJ_DATA':"'NO'",'MAKE_EPHEM':"'YES'",'EPHEM_TYPE':"'OBSERVER'",
+            'CENTER':"'500@399'",'TLIST':' '.join(f"'{jd}'" for jd in epochs),'TLIST_TYPE':"'JD'",'TIME_TYPE':"'TT'",
+            'CAL_FORMAT':"'JD'",'CAL_TYPE':"'GREGORIAN'",'TIME_DIGITS':"'FRACSEC'",'QUANTITIES':"'2,30,45'",
+            'ANG_FORMAT':"'DEG'",'APPARENT':"'AIRLESS'",'EXTRA_PREC':"'YES'",'CSV_FORMAT':"'YES'",'ELEV_CUT':"'-90'",'REF_SYSTEM':"'ICRF'"}
+    queries.append({'case':case,'body':body,'target':target,'center':399,'request_url':ENDPOINT+'?'+urllib.parse.urlencode(params,quote_via=urllib.parse.quote)})
+spec={'schema_version':'horizons-apparent-query-spec.v1','epochs_jd_tt':epochs,'queries':queries}
+with (PACK/'query-spec.json').open('x',encoding='utf-8',newline='\n') as stream:
+    json.dump(spec,stream,indent=2,allow_nan=False);stream.write('\n')
+with (PACK/'query-builder.py.txt').open('xb') as stream:stream.write(Path(__file__).read_bytes())
+start=dt.datetime.now(dt.timezone.utc).isoformat();records=[]
+for query in queries:
+    for attempt in range(2):
+        try:
+            request=urllib.request.Request(query['request_url'],headers={'User-Agent':'Sol-bounded-apparent-reference/1'})
+            with urllib.request.urlopen(request,timeout=30) as response:
+                if response.status!=200:raise RuntimeError('Non-success response')
+                raw=response.read(131073)
+            break
+        except (OSError,TimeoutError):
+            if attempt==1:raise
+            time.sleep(1)
+    if len(raw)>131072:raise RuntimeError('Oversized response')
+    text=raw.decode('utf-8')
+    if text.count('$$SOE')!=1 or text.count('$$EOE')!=1 or text.index('$$SOE')>text.index('$$EOE'):
+        raise RuntimeError('No unique ordered table: '+query['case']+' '+text[:800])
+    rows=text.split('$$SOE',1)[1].split('$$EOE',1)[0].strip().splitlines()
+    if len(rows)!=16:raise RuntimeError('Incomplete epochs')
+    version=re.findall(r'^API VERSION: ([^\r\n]+)',text,re.M)
+    if len(version)!=1:raise RuntimeError('Missing API version')
+    filename=query['case']+'.txt'
+    with (PACK/filename).open('xb') as stream:stream.write(raw)
+    records.append(dict(query,path=filename,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),api_version=version[0],acquired_at_utc=dt.datetime.now(dt.timezone.utc).isoformat()))
+    (ROOT/'build/apparent-acquisition-progress-20261104.json').write_text(json.dumps(records,indent=2)+'\n',encoding='utf-8')
+    print('CAPTURED',query['case'],len(raw),version[0],flush=True)
+    time.sleep(0.3)
+ledger={'schema_version':'horizons-apparent-acquisition.v1','source':'NASA/JPL Horizons API','endpoint':ENDPOINT,'started_at_utc':start,
+        'completed_at_utc':dt.datetime.now(dt.timezone.utc).isoformat(),'records':records}
+with (PACK/'acquisition.json').open('x',encoding='utf-8',newline='\n') as stream:
+    json.dump(ledger,stream,indent=2,allow_nan=False);stream.write('\n')
+print('COMPLETE',len(records),sum(record['bytes'] for record in records),flush=True)

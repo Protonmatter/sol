@@ -1,0 +1,40 @@
+
+
+// Isolated read-only observation entry point. All owning functions above are
+// an exact byte prefix from the product lib.rs; no model algorithm is copied.
+fn main() {
+    let args: Vec<_> = std::env::args().skip(1).collect();
+    assert_eq!(args.len(), 1, "expected one epoch input path");
+    let bytes = std::fs::read(&args[0]).expect("epoch input unavailable");
+    assert!(bytes.len() <= 100_000, "epoch input exceeds bound");
+    let input = std::str::from_utf8(&bytes).expect("epoch input must be UTF-8");
+    let epochs: Vec<f64> = input.lines().map(|line| line.parse().expect("invalid epoch")).collect();
+    assert_eq!(epochs.len(), 3925);
+    assert!(epochs.iter().all(|jd| jd.is_finite() && (2415019.5..=2524959.5).contains(jd)));
+    assert!(epochs.windows(2).all(|w| w[0] < w[1]));
+    let names = ["mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"];
+    println!("kind,case,jd_model,tt_argument_error_seconds,a,b,c");
+    for jd in epochs {
+        let mut utc = jd;
+        for _ in 0..8 { utc += jd - AstroTime::from_jd_utc(utc).jd_tt; }
+        let unix = (utc - time::UNIX_EPOCH_JD) * 86400.0;
+        let astro = AstroTime::from_jd_utc(time::jd_from_unix(unix));
+        let error = (astro.jd_tt - jd) * 86400.0;
+        assert!(error.abs() <= 0.001);
+        for body in ALL_BODIES {
+            let (ra, dec, range) = geocentric(body, &astro);
+            assert!([ra, dec, range].iter().all(|value| value.is_finite()));
+            println!("A,{},{jd:.9},{error:.17e},{ra:.17e},{dec:.17e},{range:.17e}", body.name().to_lowercase());
+        }
+        let pointer = system_positions(unix);
+        let length = system_positions_len();
+        assert!(!pointer.is_null()); assert_eq!(length, 27);
+        // Immediate copy from the exact original ABI, before any subsequent call.
+        let xyz = unsafe { std::slice::from_raw_parts(pointer, length) }.to_vec();
+        assert!(xyz.iter().all(|value| value.is_finite()));
+        for (index, name) in names.iter().enumerate() {
+            println!("V,{name},{jd:.9},{error:.17e},{:.17e},{:.17e},{:.17e}", xyz[3*index], xyz[3*index+1], xyz[3*index+2]);
+        }
+        println!("V,geocentric-moon,{jd:.9},{error:.17e},{:.17e},{:.17e},{:.17e}", xyz[24]-xyz[6], xyz[25]-xyz[7], xyz[26]-xyz[8]);
+    }
+}

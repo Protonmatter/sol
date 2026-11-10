@@ -7,21 +7,25 @@ export const controls = {
   regions: /** @type {HTMLInputElement} */ (document.getElementById("layerRegions"))
 };
 
+import {writeText} from './domWrites.js';
+
 export function text(id, value) {
   const node = document.getElementById(id);
-  if (node) node.textContent = value;
+  if (node) writeText(node, value);
 }
 
 export function textWithTitle(id, value, title) {
   const node = document.getElementById(id);
   if (!node) return;
-  node.textContent = value;
-  node.title = title;
+  writeText(node, value);
+  // An explicit empty title suppresses an inherited tooltip; absence is different.
+  if (typeof title !== "string" || typeof node.getAttribute !== "function" || node.getAttribute("title") !== title) node.title = title;
 }
 
 export function setPill(id, value, stateClass) {
   const node = document.getElementById(id);
   if (!node) return;
-  node.textContent = value;
-  node.className = `state-pill ${stateClass}`;
+  writeText(node, value);
+  const className = `state-pill ${stateClass}`;
+  if (typeof node.getAttribute !== "function" || node.getAttribute("class") !== className) node.className = className;
 }

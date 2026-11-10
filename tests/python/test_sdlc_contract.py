@@ -12,6 +12,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,6 +30,31 @@ class SdlcContractTests(unittest.TestCase):
 
     def test_repository_contract_passes(self) -> None:
         self.assertEqual(validate_sdlc.validate(ROOT), [])
+
+    def test_eop_source_reproduction_is_an_unconditional_required_web_step(self) -> None:
+        checker = getattr(validate_sdlc, 'validate_eop_generation_job', None)
+        self.assertTrue(callable(checker), 'EOP source/table correspondence must be blocking')
+        source = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+        step = '      - name: EOP source-to-table correspondence (offline)\n        run: python tools/generate_eop.py --check\n'
+        self.assertIn(step, source)
+        self.assertEqual(checker(source), [])
+        for replacement in ('', step.replace('        run:', '        if: false\n        run:'),
+                step.replace('        run:', '        continue-on-error: true\n        run:'),
+                step.replace('--check', '--check || true'),
+                step.replace('        run:', '        # run:'),
+                step + '        if: false\n', step + '        continue-on-error: true\n'):
+            with self.subTest(replacement=replacement): self.assertTrue(checker(source.replace(step, replacement)))
+        self.assertTrue(checker(source.replace('  web:\n', '  web:\n    if: false\n')))
+        path = ROOT / '.github/workflows/ci.yml'; original_read = Path.read_text
+        for first in ('if: false', 'continue-on-error: true'):
+            replacement = f'      - {first}\n        name: EOP source-to-table correspondence (offline)\n        run: python tools/generate_eop.py --check\n'
+            changed = source.replace(step, replacement)
+            def read(selected, *args, **kwargs):
+                return changed if selected == path else original_read(selected, *args, **kwargs)
+            with self.subTest(first=first):
+                self.assertTrue(checker(changed))
+                with mock.patch.object(Path, 'read_text', new=read):
+                    self.assertTrue(any('EOP source/table check' in message for message in validate_sdlc.validate(ROOT)))
 
     def wasm_job(self) -> str:
         source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")

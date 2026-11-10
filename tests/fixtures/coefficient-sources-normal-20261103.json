@@ -1,0 +1,42 @@
+{
+  "schema_version": "coefficient-sources.v1",
+  "upstream_repository": "https://github.com/THRASTRO/ephem.js",
+  "upstream_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+  "tier": "06-normal",
+  "notice_status": "upstream root LICENSE is LGPL-3.0; distribution correspondence requires review",
+  "inputs": {
+    "vsop2013.js": {
+      "path": "src/vsop2013/dist/06-normal/src/vsop2013.js",
+      "bytes": 339368,
+      "git_blob": "a725281c98b708ae48b28c400838147472c4068e",
+      "sha256": "59c1175fb832c4b30a7f7f4d52b6cf634f19a9b42569516c200ea3b41a7c3a3e"
+    },
+    "elpmpp02.js": {
+      "path": "src/elpmpp02/dist/06-normal/src/elpmpp02.js",
+      "bytes": 249010,
+      "git_blob": "870055c3d50bdb1a7450212f9b2b48404573e5f0",
+      "sha256": "50a7daaeeda8d4a0980b2bce98f639279a88e6ea2e9fa3d0162afd5acc604056"
+    },
+    "top2013.js": {
+      "path": "src/top2013/dist/06-normal/src/top2013.js",
+      "bytes": 329759,
+      "git_blob": "f499e7546b0051e1aea6bf395ed11d291a09e297",
+      "sha256": "6b096996b7959c34c74a99e8c56cf05dc7fd0d6d3cb0ec97af247e2ed4069cf8"
+    },
+    "LICENSE": {
+      "path": "LICENSE",
+      "bytes": 7651,
+      "git_blob": "65c5ca88a67c30becee01c5a8816d964b03862f9",
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    }
+  },
+  "lunar_initializer": {
+    "path": "tools/ephemeris-data/dump_elp.js",
+    "sha256_lf": "f680ddf0995e9c02677bc1f6010eb21e12b893dccbb6c809714e45e28a3e963a"
+  },
+  "outputs": {
+    "vsop2013.bin": {"bytes": 84449, "sha256": "9f7a79ea13f97bdc6e6bc28f3078ee0c13abb943fd1838b3754633677ed8ee19"},
+    "elpmpp02.bin": {"bytes": 241540, "sha256": "9f670b604c7b5189c9d70a1c2ab050672e6e8706aa0ab9b0cae439cb88171347"},
+    "top2013.bin": {"bytes": 59520, "sha256": "d399838a9cdefde56219e405a2c00c7ebde7aa2d817db91ceb7bb4b4c9d57ce8"}
+  }
+}

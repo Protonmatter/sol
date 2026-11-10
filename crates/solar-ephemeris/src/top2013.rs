@@ -1,10 +1,10 @@
 //! TOP2013 analytic theory of the outer planets (Jupiter, Saturn, Uranus, Neptune).
 //!
-//! A faithful port of ephem.js's TOP2013 evaluator (06-normal tier). TOP2013 is the IMCCE companion
-//! to VSOP2013, built for the outer planets over a long span (≈ −4000…+8000), where it is markedly
-//! more accurate than VSOP2013 for the giants (their VSOP error reaches hundreds of arcseconds by
-//! ±6000 yr; TOP2013 stays sub-arcsecond). The engine uses TOP2013 for the four giants and VSOP2013
-//! for the rest, so deep-time heliocentric positions of Jupiter–Neptune are tight.
+//! A faithful port of ephem.js's TOP2013 evaluator (08-big tier). TOP2013 is the IMCCE companion
+//! to VSOP2013. Published full-theory accuracy over −4000…+8000 does not qualify this truncated
+//! tier or establish a continuous bound. The System view uses TOP2013 for the four giants and
+//! VSOP2013 for the rest. Sky apparent places currently use VSOP2013 for all planets;
+//! source parity and independent astronomical accuracy remain separate checks.
 //!
 //! Each element l ∈ {a, L, k, h, q, p} is a Poisson series:
 //!   l(t) = Σ_power t^power · Σ_term [Ccos·cos(mult·DMU·t) + Csin·sin(mult·DMU·t)]   (+ mm·t for L)
@@ -96,17 +96,19 @@ mod tests {
 
     #[test]
     fn matches_top2013_source_deep_time() {
-        // ephem.js TOP2013 ground truth (heliocentric ecliptic-J2000 AU) at ±5000 yr, from
-        // tools/ephemeris-data/truth.js. The Rust port must reproduce the source to sub-arcsec.
+        // TOP2013 08-big source parity at the same ±5000 yr model arguments.
+        // References use the pinned upstream numeric element solver and an
+        // independent Cartesian reduction; its normal-tier control reproduces
+        // the archived eight source vectors. This is not JPL accuracy evidence.
         let cases: [(usize, f64, [f64; 3]); 8] = [
-            (0, 5000.0, [-4.32774859, -3.36860619, 0.11833825]),
-            (0, -5000.0, [-4.78884702, -2.48413965, 0.12775014]),
-            (1, 5000.0, [7.09745989, -6.89521046, -0.24948087]),
-            (1, -5000.0, [-8.36349070, 4.39065942, 0.16433556]),
-            (2, 5000.0, [-12.78922132, 13.37406412, 0.18478171]),
-            (2, -5000.0, [-11.04731187, 14.82682534, 0.23011759]),
-            (3, 5000.0, [10.61844988, 27.83186896, -0.82077486]),
-            (3, -5000.0, [-30.22443600, -0.64202797, 0.70168486]),
+            (0, 5000.0, [-4.32842172, -3.36821410, 0.11803611]),
+            (0, -5000.0, [-4.78977502, -2.48306535, 0.12736790]),
+            (1, 5000.0, [7.09907027, -6.89865121, -0.24955423]),
+            (1, -5000.0, [-8.36072079, 4.38752123, 0.16447946]),
+            (2, 5000.0, [-12.78733622, 13.37617692, 0.18528392]),
+            (2, -5000.0, [-11.04880315, 14.82653222, 0.22977684]),
+            (3, 5000.0, [10.62259522, 27.82984520, -0.82112857]),
+            (3, -5000.0, [-30.22626634, -0.64396146, 0.70189552]),
         ];
         for (idx, t, truth) in cases {
             let p = helio_xyz(idx, t);
@@ -123,18 +125,29 @@ mod tests {
     }
 
     #[test]
-    fn jupiter_near_j2000_matches_vsop() {
-        // TOP2013 and VSOP2013 agree to well under an arcsecond near the present.
-        let top = helio_xyz(0, 0.0);
-        let vsop = crate::vsop2013::helio_xyz(crate::vsop2013_data::jup(), 0.0);
-        let d =
-            ((top[0] - vsop[0]).powi(2) + (top[1] - vsop[1]).powi(2) + (top[2] - vsop[2]).powi(2))
-                .sqrt();
-        let r = (top[0] * top[0] + top[1] * top[1] + top[2] * top[2]).sqrt();
-        let arcsec = (d / r) * 206264.806;
-        assert!(
-            arcsec < 1.0,
-            "TOP vs VSOP Jupiter at J2000 = {arcsec} arcsec"
-        );
+    fn jupiter_at_j2000_meets_independent_vector_budget() {
+        // Retained DE441 target 5 / Sun 10, JDTDB 2451545, geometric ICRF /
+        // ecliptic J2000 AU: data/horizons-vectors-20261104.csv. Test each
+        // truncated model against independent truth; agreement between two
+        // analytic models does not establish either one's accuracy.
+        let truth: [f64; 3] = [4.001177161126058, 2.938576106966103, -0.101_785_276_633_744];
+        let radius = truth[0].hypot(truth[1]).hypot(truth[2]);
+        for (name, actual) in [
+            ("TOP2013 normal", helio_xyz(0, 0.0)),
+            (
+                "VSOP2013 big",
+                crate::vsop2013::helio_xyz(crate::vsop2013_data::jup(), 0.0),
+            ),
+        ] {
+            assert!(actual.iter().all(|value| value.is_finite()));
+            let delta = (actual[0] - truth[0])
+                .hypot(actual[1] - truth[1])
+                .hypot(actual[2] - truth[2]);
+            let equivalent_arcsec = delta / radius * 206264.80624709636;
+            assert!(
+                equivalent_arcsec <= 10.0,
+                "{name} Jupiter at J2000: {equivalent_arcsec} arcsec equivalent"
+            );
+        }
     }
 }

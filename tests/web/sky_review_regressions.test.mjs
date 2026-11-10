@@ -10,7 +10,7 @@ import { SkyConsent, makeSkyPreview, parseSkyLink } from "../../apps/web/js/skyP
 import { skyRows, parseSkyTime, formatSkyTimeInput } from "../../apps/web/js/skyPresentation.js";
 import { syncObjectRows } from "../../apps/web/js/objectBrowser.js";
 import { CONSTELLATIONS } from "../../apps/web/js/celestial.js";
-import { epochAccuracy, epochLabel } from "../../apps/web/js/accuracy.js";
+import { epochAccuracyAtUnix, renderedEpochLabel } from "../../apps/web/js/accuracy.js";
 import { resolveSkyPresentation } from "../../apps/web/js/presentationState.js";
 import { assertEphemerisSnapshotV3, mergeLocalEvents } from "../../apps/web/js/ephemerisContract.js";
 
@@ -118,13 +118,13 @@ async function skyHarness(t, { basePath = "/sol/", stamped = false, href = "http
     fetchServerSky, BODY_INDEX, SERVER_BASE,
     createSkyWorkerClient: () => createSkyWorkerClient({
       createWorker: () => {
-        const worker = { postMessage(message) { this.sent = message; }, terminate() {} };
+        const worker = { postMessage(message) { this.sent = message;if(message.type==='initialize')this.onmessage({data:{...message,type:'ready'}}); }, terminate() {} };
         workers.push(worker); return worker;
       },
       setTimer: () => 1, clearTimer() {},
     }),
     validateSkyWork, SkyConsent, makeSkyPreview, parseSkyLink, skyRows, parseSkyTime, formatSkyTimeInput,
-    syncObjectRows, CONSTELLATIONS, epochAccuracy, epochLabel, resolveSkyPresentation,
+    syncObjectRows, CONSTELLATIONS, epochAccuracyAtUnix, renderedEpochLabel, resolveSkyPresentation,
     assertEphemerisSnapshotV3, mergeLocalEvents,
   });
   if (stamped && basePath !== "__SOL_BASE_PATH__") {
@@ -443,6 +443,22 @@ test("time controls reject invalid instants, disclose timezone, and Now clears f
   let prevented = false; h.nodes.get("skyLat").value = "0"; h.nodes.get("skyLon").value = "0"; h.nodes.get("skyElev").value = "0";
   h.nodes.get("skyElev").listeners.get("keydown")({ key: "Enter", preventDefault() { prevented = true; } });
   assert.equal(prevented, true); assert.equal(h.store.sky.observer.label, "Set location");
+});
+
+test("precision readout retains the rendered snapshot epoch after a failed distant-date request", async t => {
+  const h=await skyHarness(t,{controls:true});
+  await h.publishSnapshot();
+  const original=h.nodes.get("skyAccuracy").textContent;
+  assert.match(original,/2026-07-01/);
+  assert.match(original,/1900–2200.*pending/);
+  h.store.sky.chosenUnix=Date.parse("9999-01-01T00:00:00Z")/1000;
+  const pending=h.context.renderSky();
+  const worker=h.workers.at(-1);
+  worker.onmessage({data:{...worker.sent,type:"error",error:{code:"engine_failed",message:"qualification fixture unavailable"}}});
+  await pending;
+  assert.equal(h.nodes.get("skyAccuracy").textContent,original);
+  assert.doesNotMatch(original,/Approximate exploration/);
+  assert.equal(h.context.window.__skyDebug().snap.time.jd_utc,snapshot.time.jd_utc);
 });
 
 test("dome pointer inspection pins a body, preserves pin on leave, and clears it on empty click", async t => {

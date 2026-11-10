@@ -1,3 +1,5 @@
+import {writeText,writeAttribute,writeBoolean} from './domWrites.js';
+
 // Session-only layout choices; no source, time, consent or scientific state lives here.
 export function createWorkspaceState() {
   const inspectors = new Map([['today', false], ['sky', false], ['orrery', false]]);
@@ -22,25 +24,25 @@ export function renderWorkspace(surface) {
   document.body.classList?.toggle('panel-collapsed', !open);
   document.body.classList?.toggle('focus-mode', workspace.focus);
   const panel = document.getElementById('viewInspector');
-  if (panel) { panel.hidden = !open; panel.inert = !open; }
+  if (panel) { writeBoolean(panel, 'hidden', !open); writeBoolean(panel, 'inert', !open); }
   const overview = document.getElementById('destinationOverview');
-  if (overview) overview.hidden = surface === 'today' || open || workspace.focus;
+  if (overview) writeBoolean(overview, 'hidden', surface === 'today' || open || workspace.focus);
   const toggle = document.getElementById('panelToggle');
   if (toggle) {
-    toggle.textContent = open ? 'Close inspector' : 'Open inspector';
-    toggle.setAttribute('aria-label', toggle.textContent);
-    toggle.setAttribute('aria-expanded', String(open));
+    writeText(toggle, open ? 'Close inspector' : 'Open inspector');
+    writeAttribute(toggle, 'aria-label', toggle.textContent);
+    writeAttribute(toggle, 'aria-expanded', String(open));
   }
   const timeline = document.getElementById('timeline');
-  if (timeline) timeline.hidden = !timelineOpen;
+  if (timeline) writeBoolean(timeline, 'hidden', !timelineOpen);
   const timeToggle = document.getElementById('timelineToggle');
   if (timeToggle) {
-    timeToggle.textContent = surface === 'today' ? (timelineOpen ? 'Close timeline' : 'Open timeline') : 'Date & time';
-    timeToggle.setAttribute('aria-controls', surface === 'today' ? 'timeline' : 'viewInspector');
-    timeToggle.setAttribute('aria-expanded', String(surface === 'today' ? timelineOpen : open));
+    writeText(timeToggle, surface === 'today' ? (timelineOpen ? 'Close timeline' : 'Open timeline') : 'Date & time');
+    writeAttribute(timeToggle, 'aria-controls', surface === 'today' ? 'timeline' : 'viewInspector');
+    writeAttribute(timeToggle, 'aria-expanded', String(surface === 'today' ? timelineOpen : open));
   }
   const focus = document.getElementById('focusToggle');
-  if (focus) { focus.textContent = workspace.focus ? 'Exit focus' : 'Focus view'; focus.setAttribute('aria-pressed', String(workspace.focus)); }
+  if (focus) { writeText(focus, workspace.focus ? 'Exit focus' : 'Focus view'); writeAttribute(focus, 'aria-pressed', String(workspace.focus)); }
   const key = `${surface}:${open}:${timelineOpen}:${workspace.focus}`;
   if (key !== layoutKey) {
     layoutKey = key;

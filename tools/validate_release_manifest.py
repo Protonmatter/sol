@@ -113,6 +113,16 @@ def validate_data(data: dict, root: Path) -> dict:
             raise ValueError("WASM identity mismatch")
         if not (root / asset["path"]).read_bytes().startswith(b"\0asm\1\0\0\0"):
             raise ValueError("invalid WASM header")
+    receipt_path = namespace + "pkg/wasm-build.v1.json"
+    if receipt_path in listed:
+        from wasm_provenance import read_receipt, validate_archived_sources
+        receipt_asset = next(asset for asset in assets if asset['path'] == receipt_path)
+        if receipt_asset['role'] != 'critical':
+            raise ValueError('WASM build receipt must be critical')
+        receipt, _ = read_receipt(root / namespace / 'pkg')
+        source_manifest = root / namespace / 'licenses/solar-ephemeris/SOURCE-MANIFEST.json'
+        if source_manifest.is_file():
+            validate_archived_sources(receipt, load_json(source_manifest).get('files', {}))
     if "solar-state-snapshot.v3" in data["schemas"]:
         from data_bundles import resolve_derived_manifest
         descriptor = data.get("data_bundle")

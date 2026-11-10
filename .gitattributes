@@ -24,9 +24,24 @@
 *.bin binary
 *.f32 binary
 *.txt text eol=lf
+**/COPYING.LESSER.LGPL-3.0 text eol=lf
+**/COPYING.GPL-3.0 text eol=lf
+**/upstream/LICENSE text eol=lf
+# Preferred ephemeris inputs are bound to original upstream bytes and Git blobs.
+/crates/solar-ephemeris/rebuild/upstream/*.js -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 # Immutable research bundles bind raw payload bytes, including line endings.
 # Do not normalize their JSON during staging or checkout: that invalidates hashes.
 # Recognize preserved CRLF while retaining the standard whitespace-error checks.
 /apps/web/data/bundles/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 /tests/fixtures/feed-source/bundles/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/canonical-moon-20261103/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/horizons-vectors-20261104/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/horizons-apparent-20261104/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/horizons-precision-1900-2200-20261104/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/iers-eop-20261104/** -text whitespace=-blank-at-eol,-blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/horizons-events-20261104/** -text whitespace=-blank-at-eol,-blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/canonical-moon-20261104/** -text whitespace=-blank-at-eol,-blank-at-eof,space-before-tab,cr-at-eol
+/tests/fixtures/horizons-observer-seasonal-20261104/** -text whitespace=-blank-at-eol,-blank-at-eof,space-before-tab,cr-at-eol
+# Retain the original clock regression bytes named by its provenance SHA-256.
+/tests/fixtures/ephemeris-clock-boundary-20261104*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

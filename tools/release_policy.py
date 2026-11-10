@@ -14,7 +14,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-REQUIRED_JOBS = ("candidate", "governance", "test", "lint", "web", "artifact", "wasm", "coverage", "docs", "determinism", "determinism-compare")
+REQUIRED_JOBS = ("candidate", "governance", "test", "lint", "web", "artifact", "wasm", "coverage", "docs", "determinism", "determinism-compare", "moon-image-evidence")
 # Expanded API identities for this reviewed workflow, including reusable children
 # and every matrix member. Pages publication uses this inventory directly.
 MANDATORY_JOB_NAMES = {
@@ -28,6 +28,7 @@ MANDATORY_JOB_NAMES = {
     "determinism": ["Engine determinism (ubuntu-latest)", "Engine determinism (macos-latest)",
                     "Engine determinism (windows-latest)"],
     "determinism-compare": ["Engine determinism (cross-OS byte compare + schema)"],
+    "moon-image-evidence": ["Moon pinned-image evidence (1)", "Moon pinned-image evidence (2)"],
     "release-gate": ["Release gate"],
 }
 

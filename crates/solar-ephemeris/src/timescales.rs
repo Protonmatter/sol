@@ -37,7 +37,9 @@ impl AstroTime {
                 jd_tt,
                 jd_ut1,
                 tai_minus_utc_seconds: Some(tai_minus_utc),
-                delta_t_seconds: (jd_tt - jd_ut1) * SECONDS_PER_DAY,
+                // Retain second-scale precision instead of subtracting two
+                // large JDs, whose binary64 rounding loses tens of microseconds.
+                delta_t_seconds: tai_minus_utc + TT_MINUS_TAI_SECONDS - eop.dut1_seconds,
                 eop,
             }
         } else {
@@ -147,8 +149,24 @@ mod tests {
         let time = AstroTime::from_jd_utc(2_400_000.5 + 61_223.0);
         assert_eq!(time.eop.quality, Quality::Rapid);
         assert_eq!(time.tai_minus_utc_seconds, Some(37.0));
-        assert!((time.delta_t_seconds - 69.169_127).abs() < 2.0e-5);
+        // Retained observed DUT1 at MJD 61223 is 0.0148642 seconds.
+        assert!((time.delta_t_seconds - 69.169_135_8).abs() < 2.0e-5);
         let tt_minus_tai = (time.jd_tt - time.jd_tai.unwrap()) * SECONDS_PER_DAY;
         assert!((tt_minus_tai - 32.184).abs() < 2.0e-5);
+    }
+
+    #[test]
+    fn delta_t_seconds_preserves_sub_julian_day_precision() {
+        for mjd in [41_684.0, 51_544.0, 57_754.5, 61_223.0, 61_342.75] {
+            let jd = 2_400_000.5 + mjd;
+            let time = AstroTime::from_jd_utc(jd);
+            let expected = tai_minus_utc_seconds(jd).unwrap() + 32.184 - time.eop.dut1_seconds;
+            assert!(
+                (time.delta_t_seconds - expected).abs() < 1e-12,
+                "MJD {mjd}, delta-T {:.12}, offset-derived {:.12}",
+                time.delta_t_seconds,
+                expected
+            );
+        }
     }
 }

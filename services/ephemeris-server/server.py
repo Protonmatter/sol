@@ -406,7 +406,12 @@ def _horizons_params(
 
 def _data_row(text: str) -> str:
     try:
-        return text.split("$$SOE", 1)[1].split("$$EOE", 1)[0].strip().splitlines()[0]
+        if text.count("$$SOE") != 1 or text.count("$$EOE") != 1 or text.index("$$SOE") > text.index("$$EOE"):
+            raise ValueError("Horizons response must contain one ephemeris block")
+        rows = text.split("$$SOE", 1)[1].split("$$EOE", 1)[0].strip().splitlines()
+        if len(rows) != 1:
+            raise ValueError("Horizons response must contain exactly the requested instant")
+        return rows[0]
     except (IndexError, AttributeError) as exc:
         raise ValueError("Horizons response did not contain an ephemeris row") from exc
 
@@ -429,6 +434,22 @@ def _verified_row(text: str, expected_jd: float) -> str:
     return row
 
 
+def _quantity_values(text: str, expected_jd: float, count: int) -> list[float]:
+    """Read the exact numeric columns from the requested plain-text table."""
+    row = _verified_row(text, expected_jd)
+    fields = row.split()[1:]
+    # Optional two-character solar/lunar presence marker, before quantities.
+    if fields and re.fullmatch(r"(?:[*ACN]m?|m)", fields[0]):
+        fields = fields[1:]
+    number = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?"
+    if len(fields) != count or any(re.fullmatch(number, value) is None for value in fields):
+        raise ValueError("Horizons row differs from the requested quantity layout")
+    values = [float(value) for value in fields]
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("Horizons quantities must be finite")
+    return values
+
+
 def fetch_body(
     when: dt.datetime,
     lat: float,
@@ -441,28 +462,28 @@ def fetch_body(
     params = _horizons_params(when, hid, "coord@399", "2,4,20", site)
     expected_jd = float(params["TLIST"].strip("'"))
     topo_text = _request_text(params)
-    topo_numbers = re.findall(r"[-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?", _verified_row(topo_text, expected_jd))
-    if len(topo_numbers) < 7:
-        raise ValueError("Horizons topocentric row has too few numeric fields")
-    topo = [float(value) for value in topo_numbers[-6:]]
+    topo = _quantity_values(topo_text, expected_jd, 6)
     top_ra, top_dec, az, alt, distance_au = topo[:5]
 
     geo_text = _request_text(_horizons_params(when, hid, "500@399", "2,20"))
-    geo_numbers = re.findall(r"[-+]?\d+(?:\.\d+)?(?:[Ee][-+]?\d+)?", _verified_row(geo_text, expected_jd))
-    if len(geo_numbers) < 5:
-        raise ValueError("Horizons geocentric row has too few numeric fields")
-    geo = [float(value) for value in geo_numbers[-4:]]
+    geo = _quantity_values(geo_text, expected_jd, 4)
     geo_ra, geo_dec = geo[:2]
+    observer_range_km = distance_au * AU_KM
+    geocentric_range_km = geo[2] * AU_KM
+    if not (0 <= top_ra <= 360 and -90 <= top_dec <= 90 and 0 <= az <= 360 and -90 <= alt <= 90
+            and 0 <= geo_ra <= 360 and -90 <= geo_dec <= 90 and distance_au > 0 and geo[2] > 0
+            and math.isfinite(observer_range_km) and math.isfinite(geocentric_range_km)):
+        raise ValueError("Horizons coordinates or ranges are outside their quantity domains")
 
     return {
-        "geocentric_ra": geo_ra,
+        "geocentric_ra": geo_ra % 360.0,
         "geocentric_dec": geo_dec,
-        "topocentric_ra": top_ra,
+        "topocentric_ra": top_ra % 360.0,
         "topocentric_dec": top_dec,
-        "az": az,
+        "az": az % 360.0,
         "alt": alt,
-        "observer_range_km": distance_au * AU_KM,
-        "geocentric_range_km": geo[2] * AU_KM,
+        "observer_range_km": observer_range_km,
+        "geocentric_range_km": geocentric_range_km,
     }
 
 

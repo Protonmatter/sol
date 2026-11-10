@@ -20,6 +20,24 @@ class UxContractTests(unittest.TestCase):
     def test_repository_contract_passes(self) -> None:
         self.assertEqual(validate_ux_contract.validate(WEB), [])
 
+    def test_inspector_guarded_attribute_writer_is_required(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / "web"
+            self._copy_web_contract(target)
+            self.assertEqual(validate_ux_contract.validate(target), [])
+            workspace_path = target / "js" / "workspace.js"
+            original = workspace_path.read_text(encoding="utf-8")
+            call = "writeAttribute(toggle, 'aria-expanded', String(open))"
+            self.assertEqual(original.count(call), 1)
+            workspace_path.write_text(
+                original.replace(call, "writeAttribute(toggle, 'expanded-regressed', String(open))"),
+                encoding="utf-8",
+            )
+            self.assertIn(
+                "panel collapse must update aria-expanded at runtime",
+                validate_ux_contract.validate(target),
+            )
+
     def test_dynamic_inspectors_are_not_continuously_announced(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp) / "web"
@@ -140,7 +158,7 @@ class UxContractTests(unittest.TestCase):
             )
             for module_path in (target / "js").glob("*.js"):
                 module_path.write_text(
-                    module_path.read_text(encoding="utf-8").replace("setAttribute('aria-expanded'", "setAttribute('expanded-regressed'").replace(
+                    module_path.read_text(encoding="utf-8").replace("writeAttribute(toggle, 'aria-expanded',", "writeAttribute(toggle, 'expanded-regressed',").replace("setAttribute('aria-expanded'", "setAttribute('expanded-regressed'").replace(
                         'setAttribute("aria-pressed"', 'setAttribute("pressed-regressed"'
                     ),
                     encoding="utf-8",

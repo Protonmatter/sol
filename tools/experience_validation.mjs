@@ -5,19 +5,25 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
+import {resolvePreviewFile,validatePreviewBasePath} from './staged_preview_server.mjs';
+import {readContextLayout} from './context_layout.mjs';
+import {assertSystemLabelLayout,readSystemLabelLayout} from './system_label_layout.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = (name, fallback) => process.argv.find(v => v.startsWith(`--${name}=`))?.slice(name.length + 3) || fallback;
 const root = path.resolve(arg("web-root", path.join(repo, "apps/web")));
 const out = path.resolve(arg("out", path.join(repo, "coverage/experience")));
 const captureOnly = process.argv.includes("--capture-only");
-const diagnostics = { browser: "", requests: [], console: [], checks: [], sourceRoot: root };
+const manifestPath=path.join(root,'web-release-manifest.json');
+const manifest=fs.existsSync(manifestPath)?JSON.parse(fs.readFileSync(manifestPath,'utf8')):null;
+const basePath=validatePreviewBasePath(manifest?manifest.base_path:'/');
+const diagnostics = { browser: "", requests: [], console: [], checks: [], sourceRoot: root,basePath };
 let invalidSnapshot = false;
 const server = http.createServer((req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
   diagnostics.requests.push({path:pathname,status:"local_request"});
-  const file = path.resolve(root, `.${pathname.endsWith("/") ? pathname + "index.html" : pathname}`);
-  if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404).end(); return; }
+  const file = resolvePreviewFile(root,basePath,pathname);
+  if (!file || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404).end(); return; }
   if (invalidSnapshot && (pathname.endsWith("/data/latest-state.json") || /\/data\/bundles\/[^/]+\/snapshot\.json$/.test(pathname))) { res.setHeader("Content-Type", "application/json"); res.end('{"schema_version":"broken"}'); return; }
   res.setHeader("Content-Type", ({ ".js": "text/javascript", ".html": "text/html", ".css": "text/css", ".wasm": "application/wasm", ".json": "application/json", ".jpg": "image/jpeg", ".svg": "image/svg+xml" })[path.extname(file)] || "application/octet-stream");
   res.setHeader("Cache-Control", "no-store");
@@ -26,12 +32,22 @@ const server = http.createServer((req, res) => {
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const address = server.address();
 const origin = `http://127.0.0.1:${typeof address === "object" ? address.port : 0}`;
-let browser;
+let browser,page,validationError=null;
 fs.mkdirSync(out, { recursive: true });
 try {
   browser = await puppeteer.launch({ executablePath: process.env.CHROME_BIN, headless: true, args: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
   diagnostics.browser = await browser.version();
-  const page = await browser.newPage();
+  page = await browser.newPage();
+  await page.evaluateOnNewDocument(()=>{
+    const trace=[];window.__solQaInteractions=trace;
+    for(const type of ['pointerdown','pointerup','click','focusin','focusout'])
+      document.addEventListener(type,event=>{
+        trace.push({type,target:event.target?.id||event.target?.tagName,
+          active:document.activeElement?.id,x:event.clientX,y:event.clientY,
+          at:performance.now(),scrollY});
+        if(trace.length>256)trace.shift();
+      },true);
+  });
   await page.setBypassServiceWorker(true);
   await page.setRequestInterception(true);
   page.on("request", request => {
@@ -42,8 +58,8 @@ try {
   page.on("pageerror", error => diagnostics.console.push({ type: "pageerror", message: error.message }));
   await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
   await page.setViewport({ width: 1440, height: 900 });
-  await page.goto(origin, { waitUntil: "networkidle0" });
-  await page.waitForFunction(() => document.getElementById("schemaVersion")?.textContent?.startsWith("solar-state-snapshot.v"));
+  await page.goto(origin+basePath, { waitUntil: "networkidle0" });
+  await page.waitForFunction(() => document.body.dataset.appReady === 'true');
   // Import the same tokened modules the actual app uses, not a duplicate store.
   const token = await page.evaluate(async () => (await (await fetch("app.js")).text()).match(/store\.js(\?v=[A-Za-z0-9._-]+)/)?.[1] || "");
   const prefix = new URL(".",page.url()).pathname;
@@ -100,7 +116,7 @@ try {
         if(failObservation&&new URL(request.url()).pathname.endsWith('/textures/solar-observation-171.jpg')) { abortedImages++;request.abort(); }
         else request.continue();
       });
-      await failurePage.goto(origin,{waitUntil:'networkidle0'});
+      await failurePage.goto(origin+basePath,{waitUntil:'networkidle0'});
       await failurePage.waitForSelector('#observationUnavailable',{visible:true,timeout:15000});
       const failure=await failurePage.evaluate(()=>({
         header:document.querySelector('.view-heading').innerText,
@@ -132,7 +148,7 @@ try {
     try {
       const entryPage=await entryContext.newPage();
       await entryPage.setViewport({width:1440,height:900});
-      await entryPage.goto(origin,{waitUntil:'networkidle0'});
+      await entryPage.goto(origin+basePath,{waitUntil:'networkidle0'});
       await entryPage.waitForFunction(()=>document.getElementById('observationImage')?.naturalWidth>0);
       await entryPage.click('#openResearchTools');
       assert.equal(await entryPage.evaluate(()=>document.activeElement.id),'inspectorClose','overview Research entry transfers focus to visible controls');
@@ -140,6 +156,7 @@ try {
       assert.equal(await entryPage.$eval('#inspectorClose',node=>node.getClientRects().length>0),true);
       await entryPage.click('#exploreObservation');
       await entryPage.click('#openEarthContext');
+      await entryPage.waitForFunction(()=>document.body.dataset.viewCode==='ready'&&document.body.dataset.viewCodeName==='research');
       const earthFocus=await entryPage.evaluate(()=>({
         summaryFocused:document.activeElement===document.querySelector('#sunWeather > summary'),
         summaryVisible:document.querySelector('#sunWeather > summary').getClientRects().length>0,
@@ -152,6 +169,8 @@ try {
   }
   await page.setViewport({width:1440,height:900});
   await page.click("#exploreResearch");
+  await page.waitForFunction(()=>document.body.dataset.viewCode==='ready'&&document.body.dataset.viewCodeName==='research');
+  await page.waitForFunction(()=>document.getElementById('schemaVersion')?.textContent==='solar-state-snapshot.v3');
   assert.equal(await page.$eval("#solarObservation",node=>node.getClientRects().length>0),false,"Research hides the separate observation surface");
   const initialWorkspace = await page.evaluate(() => ({
     inspectorHidden: document.getElementById("viewInspector").hidden,
@@ -175,9 +194,30 @@ try {
   }
   await page.setViewport({width:1440,height:900});
   await page.click("#panelToggle");
+  const timelineModelState=()=>page.evaluate(async q=>{
+    const {store}=await import(`${window.__solQaPrefix}js/store.js${q}`);
+    return JSON.stringify({wavelength:store.wavelength,timelineIndex:store.timelineIndex,playTimer:store.playTimer,liveEngineRun:store.liveEngineRun,bundle:store.dataBundleIdentity,state:store.state});
+  },token);
+  const beforeTimelineOpen=await timelineModelState();
   await page.click("#timelineToggle");
+  assert.equal(await timelineModelState(),beforeTimelineOpen,'opening timeline preserves model/frame/playback state');
   assert.equal(await page.$eval("#viewInspector", node => node.hidden || node.inert), false);
   assert.equal(await page.$eval("#timeline", node => node.hidden), false);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'journeyTitle','explicit timeline entry focuses its revealed heading');
+  const timelineReveal=await page.$eval('#timeline',node=>{
+    const rect=node.getBoundingClientRect(),close=document.getElementById('timelineClose').getBoundingClientRect();
+    return {intersects:rect.bottom>0&&rect.top<innerHeight&&rect.right>0&&rect.left<innerWidth,closeWidth:close.width,closeHeight:close.height};
+  });
+  assert.equal(timelineReveal.intersects,true,'expanded timeline must actually intersect the viewport');
+  assert.ok(timelineReveal.closeWidth>=44&&timelineReveal.closeHeight>=44,'local close retains a44px target');
+  await page.click('#timelineClose');
+  assert.equal(await page.$eval('#timeline',node=>node.hidden),true);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'timelineToggle');
+  assert.equal(await timelineModelState(),beforeTimelineOpen,'closing timeline preserves model/frame/playback state');
+  await page.click('#timelineToggle');
+  await page.click('[data-mode="sky"]');
+  assert.equal(await page.$eval('#viewTitle',node=>{const r=node.getBoundingClientRect();return r.bottom>0&&r.top<innerHeight;}),true,'new destination title remains visible after departing a scrolled timeline');
+  await page.click('[data-mode="today"]');
   await page.click("#focusToggle");
   assert.equal(await page.$eval("#focusToggle", node => node.getAttribute("aria-pressed")), "true");
   assert.equal(await page.$eval("#viewInspector", node => node.hidden && node.inert), true);
@@ -344,11 +384,8 @@ try {
     assert.match(await page.$eval('#destinationCaption',node=>node.textContent),/physical centers preserved/);
     for(const width of [1440,900,390,320]) {
       await page.setViewport({width,height:900});
-      const layout=await page.evaluate(()=>({
-        overflow:document.documentElement.scrollWidth>innerWidth+1,
-        clipped:[...document.querySelectorAll('#destinationOverview button:not([hidden]), #systemJumps button')].filter(node=>{const r=node.getBoundingClientRect();return !r.width||r.left<0||r.right>innerWidth+1;}).map(node=>node.id||node.textContent),
-        visible:['destinationOverview','viewSource','viewTime','destinationCaption','systemJumps'].every(id=>document.getElementById(id).getClientRects().length>0),
-      }));
+      const {layout}=await page.evaluate(readContextLayout,{requiredControls:'#systemJumps button',
+        visibleIds:['destinationOverview','viewSource','viewTime','destinationCaption','systemJumps']});
       assert.deepEqual(layout,{overflow:false,clipped:[],visible:true},`${width}: System overview and navigation remain usable`);
       assert.equal(await page.$$eval('#destinationOverview .overview-cta:not([hidden])',nodes=>nodes.every(node=>node.getBoundingClientRect().height>=44)),true,`${width}: primary System actions meet the 44px target`);
       await page.screenshot({path:path.join(out,`system-context-${width}.png`),fullPage:true});
@@ -460,20 +497,27 @@ try {
       const header=document.getElementById("viewTime").textContent,rendered=s.renderUnix;
       const paused=s.renderUnix;await new Promise(resolve=>setTimeout(resolve,120));
       const pauseStable=paused===s.renderUnix;
-      const labels=Array.from(document.querySelectorAll("#orreryLabels span")).filter(node=>getComputedStyle(node).display!=="none").map(node=>{const r=node.getBoundingClientRect();return{id:node.dataset.objectId,x:r.x,y:r.y,width:r.width,height:r.height};});
-      return {focus:document.activeElement===focused,header,rendered,pauseStable,labels};
+      return {focus:document.activeElement===focused,header,rendered,pauseStable};
     },token);
+    Object.assign(system,await page.evaluate(readSystemLabelLayout));
+    diagnostics.checks.push({system});
+    fs.writeFileSync(path.join(out,"system-state.json"),JSON.stringify(system,null,2)+"\n");
+    await page.screenshot({path:path.join(out,"system-before-label-check.png"),fullPage:true});
     assert.equal(system.focus,true,"ten real System time changes preserve focused body node");
     assert.equal(system.pauseStable,true,"paused System stops advancing its clock");
     assert.match(system.header,/2027-01-01/);assert.ok(system.header.startsWith(new Date(system.rendered*1000).toISOString()),"header uses the same rendered instant");
-    assert.ok(system.labels.length>0&&system.labels.length<=16);
-    for(const a of system.labels)for(const b of system.labels.filter(x=>x!==a))assert.ok(a.x+a.width+3.9<=b.x||b.x+b.width+3.9<=a.x||a.y+a.height+3.9<=b.y||b.y+b.height+3.9<=a.y,`label clearance: ${a.id}/${b.id}`);
+    diagnostics.checks.push({systemLabelLayout:assertSystemLabelLayout(system)});
     await page.screenshot({path:path.join(out,"system-1440.png"),fullPage:true});
     await page.type("#orrerySearch","Sirius");
     await page.waitForFunction(()=>document.getElementById("orreryPositions").textContent.includes("Sirius"),{timeout:10000});
     await page.click("#orreryPositions button");
     assert.match(await page.$eval("#orreryDetail",node=>node.textContent),/Sirius/);
     await page.setViewport({width:390,height:844});
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    const mobileLabels=await page.evaluate(readSystemLabelLayout);
+    diagnostics.checks.push({mobileLabels});
+    fs.writeFileSync(path.join(out,"system-labels-390.json"),JSON.stringify(mobileLabels,null,2)+"\n");
+    diagnostics.checks.push({mobileLabelLayout:assertSystemLabelLayout(mobileLabels)});
     await page.screenshot({path:path.join(out,"system-390.png"),fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
 
@@ -494,13 +538,56 @@ try {
     fs.writeFileSync(path.join(out,"system-main-thread-profile.json"),JSON.stringify({microprofile,samples:profile},null,2)+"\n");
     assert.ok(microprofile.rawP95Ms<=16,"fixed-nine-body position-only main-thread exception stays under 16ms p95 in this local controlled sample");
     assert.ok(workers.some(url=>url.includes("systemWorker.js")),"full System JSON is off-main in an actual worker");
-    assert.ok(!/\bsystemSnapshot\s*\(/.test(fs.readFileSync(path.join(root,prefix.replace(/^\//,""),"js/orrery.js"),"utf8")),"renderer never invokes the heavy synchronous JSON path");
+    const rendererFile=resolvePreviewFile(root,basePath,prefix+'js/orrery.js');
+    assert.ok(rendererFile,'renderer source must remain within the declared preview mount');
+    assert.ok(!/\bsystemSnapshot\s*\(/.test(fs.readFileSync(rendererFile,"utf8")),"renderer never invokes the heavy synchronous JSON path");
     assert.deepEqual(diagnostics.console, [], "no uncaught browser errors");
   }
-  diagnostics.checks.push({ result: captureOnly ? "capture_only" : "passed" });
-  process.stdout.write(`${captureOnly ? "CAPTURED" : "PASS"}: local experience evidence ${out}\n`);
+  diagnostics.interactions=await page.evaluate(()=>window.__solQaInteractions||[]);
+} catch(error) {
+  validationError=error;
+  diagnostics.failure={name:error.name,message:error.message,stack:error.stack};
+  if(page&&!page.isClosed()) {
+    try {
+      diagnostics.failure.layout=await page.evaluate(()=>{
+        const geometry=id=>{
+          const node=document.getElementById(id);if(!node)return null;
+          const {x,y,width,height}=node.getBoundingClientRect(),style=getComputedStyle(node);
+          return {x,y,width,height,hidden:node.hidden,display:style.display,visibility:style.visibility,
+            overflowX:style.overflowX,overflowY:style.overflowY,scrollTop:node.scrollTop,
+            scrollHeight:node.scrollHeight,clientHeight:node.clientHeight};
+        };
+        return {active:document.activeElement?.id,interactions:window.__solQaInteractions||[],
+          viewport:{width:innerWidth,height:innerHeight,scrollX,scrollY},
+          document:{scrollHeight:document.documentElement.scrollHeight,clientHeight:document.documentElement.clientHeight},
+          elements:Object.fromEntries(['sourcesAndLimits','viewEvidencePanel','viewEvidenceJson','viewEvidenceCancel',
+            'viewInspector','orreryCanvas','orreryLabels'].map(id=>[id,geometry(id)]))};
+      });
+      await page.screenshot({path:path.join(out,'failure.png'),fullPage:true});
+    } catch(captureError) { diagnostics.failure.captureError=captureError.message; }
+  }
 } finally {
+  // Runtime events can arrive during the final state read and browser shutdown.
+  // Attempt both owned cleanups, preserve the original failure, then serialize
+  // the complete result before announcing success.
+  diagnostics.cleanup={};
+  const close=async(name,action)=>{
+    try {await action();diagnostics.cleanup[name]={status:'closed'};}
+    catch(error) {
+      diagnostics.cleanup[name]={status:'failed',message:error.message};
+      if(!validationError)validationError=error;
+    }
+  };
+  if(browser)await close('browser',()=>browser.close());
+  else diagnostics.cleanup.browser={status:'not_started'};
+  await close('server',()=>new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve())));
+  if(!captureOnly&&diagnostics.console.length&&!validationError)
+    validationError=new Error('no uncaught browser errors: '+diagnostics.console.map(item=>item.message).join('; '));
+  if(validationError&&!diagnostics.failure)
+    diagnostics.failure={name:validationError.name,message:validationError.message,stack:validationError.stack};
+  diagnostics.status=validationError?'failed':captureOnly?'capture_only':'passed';
+  diagnostics.checks.push({result:diagnostics.status});
   fs.writeFileSync(path.join(out, "evidence.json"), JSON.stringify(diagnostics, null, 2) + "\n");
-  if (browser) await browser.close();
-  await new Promise(resolve => server.close(resolve));
 }
+if(validationError)throw validationError;
+process.stdout.write(`${captureOnly ? "CAPTURED" : "PASS"}: local experience evidence ${out}\n`);

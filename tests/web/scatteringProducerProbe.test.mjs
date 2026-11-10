@@ -210,3 +210,68 @@ test('shell schema requires its active limb uniforms while still validating the 
   assert.equal(f.capture({consumerKind:'shell'}).passed,false);
   assert.equal(f.capture({consumerKind:'unknown'}).passed,false);
 });
+
+function pairedFixture(){
+  const f=fixture(),scratch=[{},{}],packed={packed:true};
+  f.atmosphere.u_atmosphereOzoneKm=[.01,.02,.03].map(Math.fround);
+  Object.assign(f.generator.uniforms,{u_atmosphereOzoneKm:f.atmosphere.u_atmosphereOzoneKm,u_atmosphereOzoneField:10,u_scatteringNumerator:6});
+  f.consumer.uniforms.u_atmosphereOzoneField=10;
+  const numerator={uniforms:{...f.generator.uniforms}};delete numerator.uniforms.u_scatteringNumerator;
+  f.link(numerator,'numerator fragment');
+  f.evidence.configure({vertexSource:'generator vertex',fragmentSource:'generator fragment',
+    numeratorVertexSource:'generator vertex',numeratorFragmentSource:'numerator fragment',getFrame:()=>f.frame});
+  f.allocate(scratch[0],128,193);f.allocate(scratch[1],128,64);
+  f.gl.activeTexture(f.gl.TEXTURE0+10);f.gl.bindTexture(f.gl.TEXTURE_2D,packed);f.gl.texImage2D();
+  const produceNumerator=(pass,beforeDraw=()=>{})=>{
+    f.gl.useProgram(numerator);f.gl.bindFramebuffer(f.gl.DRAW_FRAMEBUFFER,f.fbo);
+    f.gl.framebufferTexture2D(f.gl.DRAW_FRAMEBUFFER,f.gl.COLOR_ATTACHMENT0,f.gl.TEXTURE_2D,scratch[pass],0);
+    f.gl.viewport(0,0,128,pass===0?193:64);f.gl.clearBufferfv(f.gl.COLOR,0,new Float32Array(4));
+    numerator.uniforms.u_scatteringPass=pass;beforeDraw();f.gl.drawArrays(f.gl.TRIANGLES,0,3);
+  };
+  const producePair=(pass,beforeResolve=()=>{},beforeNumerator=()=>{})=>{
+    produceNumerator(pass,beforeNumerator);f.gl.activeTexture(f.gl.TEXTURE0+6);f.gl.bindTexture(f.gl.TEXTURE_2D,scratch[pass]);
+    beforeResolve();f.produce(pass);
+  };
+  return {...f,numerator,scratch,packed,produceNumerator,producePair,complete:()=>{producePair(0);producePair(1);f.bound();}};
+}
+test('paired producer capture proves each numerator precedes its exact resolve and final consumer',()=>{
+  const f=pairedFixture();f.complete();const r=f.capture();assert.equal(r.passed,true,r.reason);
+  assert.equal(r.passes.length,2);assert.ok(r.passes.every(p=>p.numerator),'numerator provenance required');
+  assert.ok(r.passes.every(p=>p.numerator.drawSequence<p.drawSequence));assert.equal(r.counters.accepted,4);
+});
+test('resolve-only writes cannot masquerade as a complete paired producer',()=>{
+  const f=pairedFixture();f.produce(0);f.produce(1);f.bound();assert.equal(f.capture().passed,false);
+});
+for(const kind of ['frame','profile','ozone-coefficient','pass','scratch-clear','scratch-binding','scratch-sampler','packed-swap','packed-mutation','relink'])test(`paired proof rejects a mismatched numerator dependency: ${kind}`,()=>{
+  const f=pairedFixture();
+  f.producePair(0,()=>{
+    if(kind==='frame'){f.frame.sceneSerial++;f.published.submission={...f.frame};}
+    if(kind==='scratch-clear'){f.gl.bindFramebuffer(f.gl.DRAW_FRAMEBUFFER,f.fbo);f.gl.framebufferTexture2D(f.gl.DRAW_FRAMEBUFFER,f.gl.COLOR_ATTACHMENT0,f.gl.TEXTURE_2D,f.scratch[0],0);f.gl.clearBufferfv(f.gl.COLOR,0,new Float32Array(4));}
+    if(kind==='scratch-binding'){f.gl.activeTexture(f.gl.TEXTURE0+6);f.gl.bindTexture(f.gl.TEXTURE_2D,{});}
+    if(kind==='scratch-sampler')f.gl.bindSampler(6,{});
+    if(kind==='packed-swap'){f.gl.activeTexture(f.gl.TEXTURE0+10);f.gl.bindTexture(f.gl.TEXTURE_2D,{});}
+    if(kind==='packed-mutation'){f.gl.activeTexture(f.gl.TEXTURE0+10);f.gl.bindTexture(f.gl.TEXTURE_2D,f.packed);f.gl.texSubImage2D();}
+    if(kind==='relink')f.link(f.numerator,'changed numerator fragment');
+  },()=>{
+    if(kind==='profile')f.numerator.uniforms.u_atmosphereExposure=2;
+    if(kind==='ozone-coefficient')f.numerator.uniforms.u_atmosphereOzoneKm=[.1,.2,.3];
+    if(kind==='pass')f.numerator.uniforms.u_scatteringPass=1;
+  });
+  f.gl.activeTexture(f.gl.TEXTURE0+10);f.gl.bindTexture(f.gl.TEXTURE_2D,f.packed);f.gl.bindSampler(6,null);
+  f.producePair(1);f.bound();assert.equal(f.capture().passed,false,kind);
+});
+test('packed optical mutation after the pair invalidates final consumption even with the same texture object',()=>{
+  const f=pairedFixture();f.complete();f.gl.activeTexture(f.gl.TEXTURE0+10);f.gl.bindTexture(f.gl.TEXTURE_2D,f.packed);f.gl.texSubImage2D();
+  f.bound();assert.equal(f.capture().passed,false);
+});
+test('completed final output keeps the captured dependency proof after scratch reuse',()=>{
+  const f=pairedFixture();f.complete();f.gl.bindFramebuffer(f.gl.DRAW_FRAMEBUFFER,f.fbo);
+  f.gl.framebufferTexture2D(f.gl.DRAW_FRAMEBUFFER,f.gl.COLOR_ATTACHMENT0,f.gl.TEXTURE_2D,f.scratch[0],0);f.gl.clearBufferfv(f.gl.COLOR,0,new Float32Array(4));
+  f.bound();assert.equal(f.capture().passed,true,'a later scratch write does not rewrite the completed final atlas');
+});
+test('paired configuration refuses an incomplete or identical source pair',()=>{
+  const f=fixture(),base={vertexSource:'generator vertex',fragmentSource:'generator fragment',getFrame:()=>f.frame};
+  for(const extra of [{numeratorVertexSource:'v'},{numeratorFragmentSource:'f'},
+    {numeratorVertexSource:'generator vertex',numeratorFragmentSource:'generator fragment'}])
+    assert.throws(()=>f.evidence.configure({...base,...extra}),/numerator|paired|distinct/i);
+});

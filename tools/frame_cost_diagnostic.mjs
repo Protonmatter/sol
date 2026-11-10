@@ -11,15 +11,18 @@ export async function collectFrameCostDiagnostic(options={},environment=null){
   let env=environment;
   if(!env){
     const tag=document.querySelector('script[type="module"][src^="app.js"]'),token=tag?new URL(tag.src).search:'';
-    const [{store},sphere,scattering]=await Promise.all([import(`./js/store.js${token}`),
-      import(`./js/orreryShaders.js${token}`),import(`./js/atmosphereScattering.js${token}`)]);
+    const [{store},sphere,scattering,{physicalProgramSources}]=await Promise.all([import(`./js/store.js${token}`),
+      import(`./js/orreryShaders.js${token}`),import(`./js/atmosphereScattering.js${token}`),
+      import(`./js/physicalProgramSources.js${token}`)]);
+    const profiles=['Earth','Mars'].map(body=>physicalProgramSources(body));
     const canvas=document.getElementById('orreryCanvas');
     env={gl:canvas?.getContext('webgl2'),observer:globalThis.__solProgramSourceEvidence,
       now:()=>performance.now(),raf:fn=>requestAnimationFrame(fn),cancelRaf:id=>cancelAnimationFrame(id),
       later:(fn,ms)=>setTimeout(fn,ms),cancelLater:id=>clearTimeout(id),
       hash:async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join(''),
-      expected:{generator:scattering.SCATTERING_GENERATOR_FS,'physical-surface':sphere.SCATTERING_SPHERE_FS,
-        'physical-shell':scattering.ATMOSPHERE_SCATTERING_FS},
+      expected:{generator:[scattering.SCATTERING_GENERATOR_FS,...profiles.flatMap(p=>[p.scatteringGenerator,p.scatteringNumerator,p.scatteringResolve].filter(Boolean).map(s=>s.fragment))],
+        'physical-surface':[sphere.SCATTERING_SPHERE_FS,...profiles.map(p=>p.physicalSphere.fragment)],
+        'physical-shell':[scattering.ATMOSPHERE_SCATTERING_FS,...profiles.map(p=>p.atmosphere.fragment)]},
       readState:()=>JSON.parse(JSON.stringify({active:store.orrery.active,animate:store.orrery.animate,
         epoch:store.orrery.renderUnix,frame:store.orrery.scatteringFrame,scattering:store.orrery.scatteringStatus,
         optics:store.orrery.opticsStatus,programs:store.orrery.programStatus,terrain:store.orrery.terrainRendered,
@@ -53,7 +56,8 @@ export async function collectFrameCostDiagnostic(options={},environment=null){
     if(old&&old.sequence===(observed?.sequence??null))return old;
     if(sourceRecords.length>=limits.programs)return {id:'program-limit',role:'unknown'};
     const sources=observed?.sources||[],fragment=sources.find(x=>x?.type===gl.FRAGMENT_SHADER)?.source;
-    const role=Object.entries(env.expected||{}).find(([,source])=>typeof source==='string'&&fragment===source)?.[0]||'other';
+    const role=Object.entries(env.expected||{}).find(([,sources])=>(Array.isArray(sources)?sources:[sources])
+      .some(source=>typeof source==='string'&&fragment===source))?.[0]||'other';
     const record={id:`program-${sourceRecords.length+1}`,role,sequence:observed?.sequence??null,
       sourceIdentity:observed?'observed-link-source':'unavailable',sources};
     programs.set(program,record);sourceRecords.push(record);return record;

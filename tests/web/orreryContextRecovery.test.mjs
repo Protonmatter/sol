@@ -53,7 +53,10 @@ test('a time change during parallel context restoration still completes graphics
   assert.equal(h.state.programStatus.base,'loading');
   const drawsBefore=h.draws;
   // Now advances the metadata generation while the replacement programs still compile.
-  h.now();await h.settle();
+  const uploadsWhileLoading=h.bufferUploads.length;h.setWallUnix(1800007200);h.now();await h.settle();
+  assert.equal(h.state.renderUnix,1800007200);
+  assert.equal(h.bufferUploads.length,uploadsWhileLoading,"CPU time updates must not upload into old context buffers");
+  assert.deepEqual(h.bufferErrors,[]);
   h.completePrograms();for(let i=0;i<4&&h.frames.size;i++)h.frame(100);await h.settle();
   assert.equal(h.state.programStatus.base,'ready');
   assert.ok(h.draws>drawsBefore,'the restored context must draw again');

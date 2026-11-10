@@ -12,6 +12,20 @@ const EPOCH_TOLERANCE_DAYS = 2 ** -29;
 // One arcminute accommodates that metadata; vector distance stays conditioned
 // at zenith/nadir and across azimuth 0/360. Roundoff margin is 1e-12 in unit space.
 const HORIZONTAL_CHORD_LIMIT = 2*Math.sin(Math.PI/(180*60*2))+1e-12;
+function deltaTConsistent(time) {
+  // Preserve legacy producers that derived delta-T from their rounded JDs.
+  if (Math.abs(time.delta_t_seconds-(time.jd_tt-time.jd_ut1)*86400)<=5e-5) return true;
+  if (time.tai_minus_utc_seconds===null) return false;
+  // Three large-JD additions can exceed 50 microseconds of construction
+  // roundoff. Atomic offsets give a well-conditioned, independent identity.
+  // Two 9-decimal-second fields contribute at most 1 ns; the remaining term
+  // conservatively bounds scalar parse/arithmetic rounding, not EOP accuracy.
+  const scale=Math.max(32.184,Math.abs(time.delta_t_seconds),Math.abs(time.tai_minus_utc_seconds),Math.abs(time.dut1_seconds));
+  const tolerance=1e-9+16*Number.EPSILON*scale;
+  if (tolerance>5e-5) return false;
+  const expected=time.tai_minus_utc_seconds+32.184-time.dut1_seconds;
+  return Math.abs(time.delta_t_seconds-expected)<=tolerance;
+}
 function horizontalDirectionAgrees(body,time,observer) {
   const radians=Math.PI/180;
   const hour=(time.lst_deg-body.topocentric_apparent_ra_deg)*radians;
@@ -73,7 +87,7 @@ export function assertEphemerisSnapshotV3(snapshot) {
   if ((time.input_time_semantics==="historical_ut1_proxy")!==(time.jd_tai===null)) fail("time","historical approximation mismatch");
   if ((time.jd_tai===null)!==(time.tai_minus_utc_seconds===null)) fail("time","TAI values must both be null or numeric");
   if (time.input_time_semantics==="historical_ut1_proxy" && time.earth_orientation.quality!=="pre_utc_ut1_proxy") fail("time","historical approximation requires degraded UT1-proxy quality");
-  if (Math.abs(time.jd_ut1-time.jd_utc-time.dut1_seconds/86400)>2e-9 || Math.abs(time.delta_t_seconds-(time.jd_tt-time.jd_ut1)*86400)>5e-5) fail("time","inconsistent time scales");
+  if (Math.abs(time.jd_ut1-time.jd_utc-time.dut1_seconds/86400)>2e-9 || !deltaTConsistent(time)) fail("time","inconsistent time scales");
   if (time.jd_tai!==null && (Math.abs(time.jd_tai-time.jd_utc-time.tai_minus_utc_seconds/86400)>2e-9 || Math.abs(time.jd_tt-time.jd_tai-32.184/86400)>2e-9)) fail("time","inconsistent TAI/TT");
   if (accuracy.eop_status!==time.earth_orientation.quality) fail("accuracy","EOP status mismatch");
   if ((accuracy.evidence_status==="unvalidated")!==(accuracy.evidence_record_ids.length===0)) fail("accuracy","evidence status mismatch");

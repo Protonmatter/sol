@@ -58,7 +58,7 @@ async function harness() {
     "tour.js": { maybeAutoStartTour: context.maybeAutoStartTour },
     "solarWorkerClient.js": { requestSolarSimulation: context.requestSolarSimulation, cancelSolarSimulation: context.cancelSolarSimulation },
   };
-  Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "render", "wavelength", "explorer"].map(moduleURL), {
+  Object.assign(context, ...await loadSourceModules(context, ["timeline", "data", "view", "render", "wavelength", "explorer", "researchView"].map(moduleURL), {
     resolveImport: (_specifier, url) => boundaries[url.pathname.split("/").at(-1)],
     initializeImportMeta: meta => { meta.url = "https://example.invalid/js/data.js"; },
   }));

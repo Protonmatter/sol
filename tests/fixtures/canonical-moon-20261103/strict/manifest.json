@@ -1,0 +1,39 @@
+{
+  "schema_version": "canonical-moon-strict-fixture.v1",
+  "scope": "Two fresh post-promotion native exact-image runs invoking strict canonical validation; no output or numerical changes.",
+  "completed_at_utc": "2026-11-04T01:12:29.875471+00:00",
+  "files": {
+    "native-metadata.json": {
+      "bytes": 3047,
+      "sha256": "ab85717397c9e18369c8a9f9b151a4ba3d7f00d2f78b477ec756df1becc4d1c6"
+    },
+    "comparison-1.json": {
+      "bytes": 3730,
+      "sha256": "1975268bd3161cb12ced68ccf1652b0e24660c41ae96a16b9be70760523bcaf7"
+    },
+    "comparison-2.json": {
+      "bytes": 3730,
+      "sha256": "725f3a5d6637d0bbe63dd9507aa1e3bd0bbc39236c9bae9ad15660bc2f50b8b8"
+    },
+    "comparison-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "comparison-2.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "launcher.py.txt": {
+      "bytes": 2035,
+      "sha256": "8e7bc7f258747ec351e97eb10849fde2135d8c079d0aff1567af614da341ac45"
+    },
+    "launcher.log": {
+      "bytes": 1095,
+      "sha256": "bf94532b6fca480e750a179a29389c4c11e0122c25f879e2ede84d99e0a87a22"
+    },
+    "generation-manifest.qualified.json": {
+      "bytes": 3556,
+      "sha256": "1a4ed85e02723db602439078a46a7b0fc754926004809fe6b70be5153454329a"
+    }
+  }
+}

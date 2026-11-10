@@ -21,6 +21,7 @@ const chrome=argument('browser',process.env.CHROME_BIN||(process.platform==='win
 const caseFilter=argument('cases',''),hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const backend=browserBackendFromArgs(process.argv.slice(2));
 const qualifyTerrain=process.argv.includes('--terrain-v2-explicit-height');
+const profileSpecialized=process.argv.includes('--profile-specialized');
 assert.ok(!fs.existsSync(out),'Evidence directory already exists; select a new output path');
 fs.mkdirSync(path.dirname(out),{recursive:true});fs.mkdirSync(out);
 const snapshot=path.join(out,'snapshot');fs.mkdirSync(snapshot);
@@ -43,10 +44,14 @@ function copy(relative){
   fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,bytes,{flag:'wx'});allowlisted.add('/'+relative);
   if(relative.endsWith('.js'))for(const match of bytes.toString('utf8').matchAll(/\bfrom\s*['"]([^'"]+)['"]/g)){
     assert.ok(match[1].startsWith('.'),'Snapshot module must use local relative imports');
-    copy(path.posix.normalize(path.posix.join(path.posix.dirname(relative),match[1])));
+    const [modulePath,query,...extra]=match[1].split('?');
+    assert.ok(!modulePath.includes('#')&&!extra.length&&(query===undefined||/^v=[A-Za-z0-9._-]+$/.test(query)),
+      'Snapshot module may use only a release cache-token query');
+    copy(path.posix.normalize(path.posix.join(path.posix.dirname(relative),modulePath)));
   }
 }
 for(const entry of ['js/atmosphereScattering.js','js/atmosphereColumnManifest.js','js/bodyData.js'])copy(entry);
+if(profileSpecialized)copy('js/physicalProgramSources.js');
 fs.writeFileSync(path.join(snapshot,'package.json'),'{"type":"module"}\n',{flag:'wx'});
 fs.writeFileSync(path.join(snapshot,'index.html'),'<!doctype html><meta charset="utf-8"><title>SOL scattering qualification</title><canvas width="16" height="16"></canvas>',{flag:'wx'});
 const fixtureBytes=fs.readFileSync(path.join(ROOT,'tools/scattering_target_fixture.mjs'));
@@ -82,14 +87,18 @@ if(qualifyTerrain){
 }
 const datasets=[...originalDatasets,...supplemental].filter(item=>!caseFilter||new RegExp(caseFilter).test(item.name));
 assert.ok(datasets.length,'Case filter selected no fixtures');
+const declaredHeightNegatives=supplemental.flatMap(item=>item.queries).filter(query=>query.expectedHeightRejection).length;
+const selectedHeightNegatives=datasets.flatMap(item=>item.queries).filter(query=>query.expectedHeightRejection).length;
 const evidence={schema_version:'scattering-qualification.v1',started_at:new Date().toISOString(),web_root:webRoot,
   snapshot,release_id:release?.release_id??null,hashes,tool_sha256:hash(fs.readFileSync(fileURLToPath(import.meta.url))),
   fixtures_sha256:hash(fs.readFileSync(path.join(ROOT,'tools/scattering_validation_cases.mjs'))),
   fixture_adapter_sha256:hash(fixtureBytes),
   requested_backend:backend,backend_helpers:Object.fromEntries(['browser_backend.mjs','texture_device_telemetry.mjs'].map(name=>[name,hash(fs.readFileSync(path.join(ROOT,'tools',name)))])),
-  terrain_v2_explicit_height:qualifyTerrain,terrain_source:terrainSource,original_dataset_sha256:originalDatasetHash,
+  terrain_v2_explicit_height:qualifyTerrain,profile_specialized:profileSpecialized,terrain_source:terrainSource,original_dataset_sha256:originalDatasetHash,
   original_queries:originalDatasets.reduce((n,item)=>n+item.queries.length,0),supplemental_queries:supplemental.reduce((n,item)=>n+item.queries.length,0),
-  negative_controls:supplemental.flatMap(item=>item.queries).filter(query=>query.expectedHeightRejection).length,
+  negative_controls:declaredHeightNegatives,
+  negative_controls_scope:'Declared full supplemental matrix before filtering; see height_negative_controls for selected/returned coverage',
+  height_negative_controls:{declared:declaredHeightNegatives,selected:selectedHeightNegatives,returned:0},
   supplement_sha256:hash(fs.readFileSync(path.join(ROOT,'tools/scattering_validation_supplement.mjs'))),
   reference:'Actual retained direct GPU integrator (12-node Gauss-Legendre quadrature per split segment) and column evaluator, separately qualified by the original float64 solver gate. This measures added interpolation error, not physical calibration.',
   limits:SCATTERING_QUALIFICATION_LIMITS,case_filter:caseFilter,complete_matrix:!caseFilter,cases:[],errors:[]};
@@ -112,11 +121,11 @@ try{
   page.on('request',request=>request.url().startsWith(base+'/')?request.continue():request.abort());
   page.on('pageerror',error=>evidence.errors.push(String(error)));
   await page.goto(base+'/index.html');
-  evidence.gpu=await page.evaluate(async({columns,qualifyTerrain})=>{
+  evidence.gpu=await page.evaluate(async({columns,qualifyTerrain,profileSpecialized})=>{
     const scattering=await import('./js/atmosphereScattering.js'),optics=await import('./js/atmosphereOptics.js');
     const legacy=await import('./js/atmosphereColumnField.js');
     const {createValidationTargetFactory}=await import('./tools/scattering_target_fixture.mjs');
-    const createTarget=createValidationTargetFactory(scattering,optics);
+    const profiled=profileSpecialized?await import('./js/physicalProgramSources.js'):null;
     const gl=document.querySelector('canvas').getContext('webgl2',{antialias:false});
     if(!gl||!gl.getExtension('EXT_color_buffer_float'))throw Error('Float WebGL2 unavailable');
     function compile(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;}
@@ -124,7 +133,7 @@ try{
       const p=gl.createProgram(),vs=compile(gl.VERTEX_SHADER,scattering.SCATTERING_GENERATOR_VS),fs=compile(gl.FRAGMENT_SHADER,source);
       gl.attachShader(p,vs);gl.attachShader(p,fs);gl.linkProgram(p);gl.deleteShader(vs);gl.deleteShader(fs);
       if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));
-      const uniforms={};for(const name of [...optics.ATMOSPHERE_UNIFORMS,...scattering.SCATTERING_UNIFORMS,'u_atmosphereColumnField','u_queries'])uniforms[name]=gl.getUniformLocation(p,name);
+      const uniforms={};for(const name of [...optics.ATMOSPHERE_UNIFORMS,...scattering.SCATTERING_UNIFORMS,'u_atmosphereColumnField','u_atmosphereOzoneField','u_queries'])uniforms[name]=gl.getUniformLocation(p,name);
       return {p,uniforms};
     }
     const prefix='#version 300 es\nprecision highp float;\nprecision highp int;\n';
@@ -133,8 +142,6 @@ try{
     // camera. The same raw input prepares source, lookup and transfer once.
     const begin='void main(){int x=int(gl_FragCoord.x);vec4 a=texelFetch(u_queries,ivec2(x,0),0);vec4 b=texelFetch(u_queries,ivec2(x,1),0);bool limb=a.a>0.5;AtmospherePath path;if(limb)path=atmospherePrepareObserver(u_atmosphereCameraKm,b.xyz,b.a);else path=atmospherePrepareSurface(u_atmosphereCameraKm,a.xyz);outDomain=vec4(path.ground,path.outer);';
     const reference=program(prefix+legacy.ATMOSPHERE_RENDER_GLSL+declarations+begin+'AtmosphereResult r=integrateAtmospherePrepared(path);outS=vec4(r.scattering,1);outT=vec4(r.transmittance,1);outColor=vec4(vec3(.18)*r.transmittance+r.scattering,1);}');
-    const actual=program(prefix+scattering.ATMOSPHERE_SCATTERING_GLSL+declarations+begin+'vec4 s=limb?atmosphereLimbScatteringPrepared(path):atmosphereSurfaceScatteringPrepared(a.xyz,length(atmosphereUnflatten(a.xyz))-u_atmosphereRadiusKm,path);vec3 t=atmosphereViewTransmissionPrepared(path);outS=s;outT=vec4(t,1);outColor=vec4(limb?vec3(.18)*t+s.rgb:atmosphereSurfaceColorPrepared(vec3(.18),a.xyz,length(atmosphereUnflatten(a.xyz))-u_atmosphereRadiusKm,path),1);}');
-    const actualExplicit=qualifyTerrain?program(prefix+scattering.ATMOSPHERE_SCATTERING_GLSL+declarations+begin+'vec4 h=texelFetch(u_queries,ivec2(x,2),0);vec4 s=limb?atmosphereLimbScatteringPrepared(path):atmosphereSurfaceScatteringPrepared(a.xyz,h.x,path);vec3 t=atmosphereViewTransmissionPrepared(path);outS=s;outT=vec4(t,1);outColor=vec4(limb?vec3(.18)*t+s.rgb:atmosphereSurfaceColorPrepared(vec3(.18),a.xyz,h.x,path),1);}'):null;
     function shellProgram(source){
       const declaration='in vec3 v_atmosphereBodyKm;',ray='vec3 direction=v_atmosphereBodyKm-u_atmosphereCameraKm;';
       if(source.split(declaration).length!==2||source.split(ray).length!==2)throw Error('Actual shell ray-input binding changed');
@@ -143,32 +150,51 @@ try{
       return program(source.replace(declaration,'uniform highp sampler2D u_queries;')
         .replace(ray,'vec3 direction=texelFetch(u_queries,ivec2(int(gl_FragCoord.x),1),0).xyz;'));
     }
-    const referenceShell=shellProgram(legacy.ATMOSPHERE_RENDER_FS),actualShell=shellProgram(scattering.ATMOSPHERE_SCATTERING_FS);
+    const referenceShell=shellProgram(legacy.ATMOSPHERE_RENDER_FS);
+    const generatorModes={};
+    function variant(body){
+      const source=profiled?profiled.specializeScatteringSource(scattering.ATMOSPHERE_SCATTERING_GLSL,body):scattering.ATMOSPHERE_SCATTERING_GLSL;
+      const shaders=profiled?.physicalProgramSources(body);
+      const paired=!!shaders?.scatteringNumerator||!!shaders?.scatteringResolve;
+      if(paired&&(!shaders.scatteringNumerator||!shaders.scatteringResolve))throw Error('Incomplete live scattering source pair');
+      generatorModes[body]=paired?'paired':'legacy-complete';
+      const createTarget=createValidationTargetFactory(shaders?{...scattering,SCATTERING_GENERATOR_FS:shaders.scatteringGenerator.fragment,
+        ...(paired?{SCATTERING_TWO_STAGE:true,SCATTERING_NUMERATOR_FS:shaders.scatteringNumerator.fragment,SCATTERING_RESOLVE_FS:shaders.scatteringResolve.fragment}:{})}:scattering,optics);
+      const actual=program(prefix+source+declarations+begin+'vec4 s=limb?atmosphereLimbScatteringPrepared(path):atmosphereSurfaceScatteringPrepared(a.xyz,length(atmosphereUnflatten(a.xyz))-u_atmosphereRadiusKm,path);vec3 t=atmosphereViewTransmissionPrepared(path);outS=s;outT=vec4(t,1);outColor=vec4(limb?vec3(.18)*t+s.rgb:atmosphereSurfaceColorPrepared(vec3(.18),a.xyz,length(atmosphereUnflatten(a.xyz))-u_atmosphereRadiusKm,path),1);}');
+      const actualExplicit=qualifyTerrain?program(prefix+source+declarations+begin+'vec4 h=texelFetch(u_queries,ivec2(x,2),0);vec4 s=limb?atmosphereLimbScatteringPrepared(path):atmosphereSurfaceScatteringPrepared(a.xyz,h.x,path);vec3 t=atmosphereViewTransmissionPrepared(path);outS=s;outT=vec4(t,1);outColor=vec4(limb?vec3(.18)*t+s.rgb:atmosphereSurfaceColorPrepared(vec3(.18),a.xyz,h.x,path),1);}'):null;
+      const actualShell=shellProgram(shaders?shaders.atmosphere.fragment:scattering.ATMOSPHERE_SCATTERING_FS);
+      return {createTarget,actual,actualExplicit,actualShell,generatorMode:generatorModes[body]};
+    }
+    const earth=variant('Earth'),variants={Earth:earth,Mars:profiled?variant('Mars'):earth};
     function texture(width,height,internal=gl.RGBA32F,format=gl.RGBA,data=null){
       const t=gl.createTexture();gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,t);gl.texImage2D(gl.TEXTURE_2D,0,internal,width,height,0,format,gl.FLOAT,data);
       for(const p of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);
       for(const p of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);
       return t;
     }
-    const columnTextures={};for(const [body,record]of Object.entries(columns)){
-      const data=await(await fetch(record.url)).arrayBuffer();columnTextures[body]=texture(record.width,record.height,gl.RG32F,gl.RG,new Float32Array(data));
+    const columnTextures={},ozoneTextures={};for(const [body,record]of Object.entries(columns)){
+      const data=await(await fetch(record.url)).arrayBuffer(),values=new Float32Array(data);
+      columnTextures[body]=texture(record.width,record.height,gl.RG32F,gl.RG,values);
+      const ozone=legacy.generateAtmosphereOzoneColumns(optics.getAtmosphereProfile(body));
+      ozoneTextures[body]=texture(record.width,record.height,gl.RGBA32F,gl.RGBA,legacy.packAtmosphereOpticalField(values,ozone));
     }
     const debug=gl.getExtension('WEBGL_debug_renderer_info');
-    globalThis.scatteringValidation={gl,scattering,optics,createTarget,reference,actual,actualExplicit,referenceShell,actualShell,texture,columnTextures};
-    return {vendor:gl.getParameter(gl.VENDOR),renderer:gl.getParameter(gl.RENDERER),unmasked_renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):null,max_texture_size:gl.getParameter(gl.MAX_TEXTURE_SIZE),version:gl.getParameter(gl.VERSION)};
-  },{columns,qualifyTerrain});
+    globalThis.scatteringValidation={gl,scattering,optics,variants,reference,referenceShell,texture,columnTextures,ozoneTextures};
+    return {vendor:gl.getParameter(gl.VENDOR),renderer:gl.getParameter(gl.RENDERER),unmasked_renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):null,max_texture_size:gl.getParameter(gl.MAX_TEXTURE_SIZE),version:gl.getParameter(gl.VERSION),generator_modes:generatorModes};
+  },{columns,qualifyTerrain,profileSpecialized});
   evidence.observed_backend=assertBrowserBackend(backend,{renderer:evidence.gpu.unmasked_renderer??evidence.gpu.renderer});
   for(const dataset of datasets){
     console.log(`Scattering qualification: ${dataset.name}, ${dataset.queries.length} physical queries`);
     const result=await page.evaluate(item=>{
-      const {gl,scattering,optics,createTarget,reference,actual,actualExplicit,referenceShell,actualShell,texture,columnTextures}=globalThis.scatteringValidation;
+      const {gl,scattering,optics,variants,reference,referenceShell,texture,columnTextures,ozoneTextures}=globalThis.scatteringValidation;
+      const {createTarget,actual,actualExplicit,actualShell,generatorMode}=variants[item.body];
       const plan=scattering.planAtmosphereScattering(item.profile,{...item.options,...item.bounds});
       if(plan.status!=='ready')return {plan,error:plan.reason};
       const target=createTarget(gl,plan);
       if(target.status!=='ready')return {plan,error:target.reason};
       const owned=[],framebuffer=gl.createFramebuffer();
       try{
-        if(!target.generate({plan,profile:item.profile,opticalOptions:item.options,columnTexture:columnTextures[item.body],restoreViewport:[16,16]}))throw Error(target.reason);
+        if(!target.generate({plan,profile:item.profile,opticalOptions:item.options,columnTexture:columnTextures[item.body],ozoneTexture:ozoneTextures[item.body],restoreViewport:[16,16]}))throw Error(target.reason);
         gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer);
         const atlas=[],atlasPixels={};
         for(const [name,t,width,height]of [['surface',target.surfaceTexture,plan.surfaceSize[0],plan.surfaceSize[1]*plan.surfaceSize[2]],['limb',target.limbTexture,...plan.limbSize]]){
@@ -197,6 +223,7 @@ try{
         const draw=(probe,bindField)=>{
           gl.useProgram(probe.p);optics.setAtmosphereUniforms(gl,probe.uniforms,item.profile,item.options);
           gl.activeTexture(gl.TEXTURE0+7);gl.bindTexture(gl.TEXTURE_2D,columnTextures[item.body]);gl.uniform1i(probe.uniforms.u_atmosphereColumnField,7);
+          gl.activeTexture(gl.TEXTURE0+10);gl.bindTexture(gl.TEXTURE_2D,ozoneTextures[item.body]);gl.uniform1i(probe.uniforms.u_atmosphereOzoneField,10);
           if(bindField&&!target.bind(probe.uniforms))throw Error('Actual target bind rejected');
           gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,queryTexture);gl.uniform1i(probe.uniforms.u_queries,0);
           gl.drawArrays(gl.TRIANGLES,0,3);
@@ -209,6 +236,7 @@ try{
           gl.drawBuffers([gl.COLOR_ATTACHMENT0]);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
           gl.useProgram(probe.p);optics.setAtmosphereUniforms(gl,probe.uniforms,item.profile,item.options);
           gl.activeTexture(gl.TEXTURE0+7);gl.bindTexture(gl.TEXTURE_2D,columnTextures[item.body]);gl.uniform1i(probe.uniforms.u_atmosphereColumnField,7);
+          gl.activeTexture(gl.TEXTURE0+10);gl.bindTexture(gl.TEXTURE_2D,ozoneTextures[item.body]);gl.uniform1i(probe.uniforms.u_atmosphereOzoneField,10);
           if(bindField&&!target.bind(probe.uniforms))throw Error('Actual shell target bind rejected');
           gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,queryTexture);gl.uniform1i(probe.uniforms.u_queries,0);
           gl.drawArrays(gl.TRIANGLES,0,3);gl.readBuffer(gl.COLOR_ATTACHMENT0);
@@ -238,23 +266,26 @@ try{
           }
           corners[index]={cpu_coordinates:p,values};
         }
-        return {plan,atlas,reference:referenceResults,measured:measuredResults,corners,generation:target.generation};
+        return {plan,atlas,reference:referenceResults,measured:measuredResults,corners,generation:target.generation,generator:{mode:generatorMode,ownedTexturePayloadBytes:target.bytes,scratchBytes:target.scratchBytes,submittedDraws:target.submittedDraws,cleanupErrors:target.cleanupErrors}};
       }finally{target.dispose();for(const t of owned)gl.deleteTexture(t);gl.deleteFramebuffer(framebuffer);gl.bindFramebuffer(gl.FRAMEBUFFER,null);}
     },dataset);
     const samples=result.error?[]:dataset.queries.map((query,i)=>({...query,reference:result.reference[i],measured:result.measured[i],assessment:query.expectedHeightRejection?assessExplicitHeightRejection(query,result.measured[i]):assessScatteringQuery(query,result.measured[i],result.reference[i]),...(result.corners?.[i]?{corner_diagnostic:result.corners[i]}:{})}));
-    const atlasPassed=!result.error&&result.atlas.every(a=>a.invalidAlpha===0&&a.nonFinite===0&&a.negative===0);
+    const generatorPassed=!result.error&&result.generator?.ownedTexturePayloadBytes===(result.generator.mode==='paired'?2:1)*result.plan.bytes
+      &&result.generator.submittedDraws===(result.generator.mode==='paired'?4:2)&&result.generator.cleanupErrors.length===0;
+    const atlasPassed=generatorPassed&&result.atlas.every(a=>a.invalidAlpha===0&&a.nonFinite===0&&a.negative===0);
     const domainCounts={};for(const sample of samples)domainCounts[sample.assessment.domain]=(domainCounts[sample.assessment.domain]??0)+1;
     const nonzeroVisibleShells=samples.filter(s=>s.assessment.domain==='visible-limb'&&s.reference.shell.some(value=>Math.abs(value)>SCATTERING_QUALIFICATION_LIMITS.zeroLeak)).length;
     const domainCoveragePassed=nonzeroVisibleShells>0;
     const inside=samples.filter(s=>s.assessment.domain==='surface'||s.assessment.domain==='visible-limb');
-    const summary={name:dataset.name,body:dataset.body,plan:result.plan,error:result.error??null,atlas:result.atlas??[],atlas_passed:atlasPassed,
+    const summary={name:dataset.name,body:dataset.body,plan:result.plan,error:result.error??null,generator:result.generator??null,atlas:result.atlas??[],atlas_passed:atlasPassed,
       domain_counts:domainCounts,nonzero_visible_shells:nonzeroVisibleShells,domain_coverage_passed:domainCoveragePassed,
       total:samples.length,failed:samples.filter(s=>!s.assessment.passed).length,raw_failed:samples.filter(s=>!s.assessment.raw_assessment.passed).length,passed:!result.error&&atlasPassed&&domainCoveragePassed&&samples.every(s=>s.assessment.passed),
       max_inside_scattering_error:Math.max(0,...inside.map(s=>s.assessment.maxScatteringError??Infinity)),
       max_inside_display_error:Math.max(0,...inside.map(s=>s.assessment.maxDisplayError??Infinity)),
       max_scattering_error:Math.max(0,...samples.map(s=>s.assessment.maxScatteringError??Infinity)),max_display_error:Math.max(0,...samples.map(s=>s.assessment.maxDisplayError??Infinity))};
     fs.writeFileSync(path.join(out,dataset.name+'.json'),JSON.stringify({summary,inputs:dataset,samples},null,2),{flag:'wx'});
-    evidence.cases.push(summary);console.log(`${summary.passed?'PASS':'FAIL'} ${dataset.name}: ${summary.failed}/${summary.total} rejected; atlas valid ${atlasPassed}; max inside delta S ${summary.max_inside_scattering_error}; max inside display ${summary.max_inside_display_error}`);
+    evidence.cases.push(summary);evidence.height_negative_controls.returned+=samples.filter(sample=>sample.expectedHeightRejection).length;
+    console.log(`${summary.passed?'PASS':'FAIL'} ${dataset.name}: ${summary.failed}/${summary.total} rejected; atlas valid ${atlasPassed}; max inside delta S ${summary.max_inside_scattering_error}; max inside display ${summary.max_inside_display_error}`);
   }
 }catch(error){evidence.errors.push(error.stack??String(error));console.error(error.stack??String(error));}
 finally{

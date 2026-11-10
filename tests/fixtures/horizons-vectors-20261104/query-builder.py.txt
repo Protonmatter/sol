@@ -1,0 +1,67 @@
+from pathlib import Path
+import datetime as dt
+import hashlib
+import json
+import re
+import time
+import urllib.parse
+import urllib.request
+
+ROOT = Path(__file__).resolve().parents[1]
+PACK = ROOT / 'tests/fixtures/horizons-vectors-20261104'
+ENDPOINT = 'https://ssd.jpl.nasa.gov/api/horizons.api'
+CASES = [('mercury', 'Mercury', 1, 10), ('venus', 'Venus', 2, 10),
+         ('earth', 'Earth', 399, 10), ('mars', 'Mars', 4, 10),
+         ('jupiter', 'Jupiter', 5, 10), ('saturn', 'Saturn', 6, 10),
+         ('uranus', 'Uranus', 7, 10), ('neptune', 'Neptune', 8, 10),
+         ('moon', 'Moon', 301, 10), ('geocentric-moon', 'GeocentricMoon', 301, 399)]
+assert hashlib.sha256((PACK / 'predeclared-plan.txt').read_bytes()).hexdigest() == 'feabd6d48bec21972cd2c6cc51284fdc97d3e97aa12af0111237f3500f77e41c'
+dates = [dt.datetime(year, 1, 1) for year in [1, 1000, 1600, 1800, 1900, 1950, 2050, 2100, 2200, 2400, 3000, 5000, 7000, 9999]]
+dates += [dt.datetime(2000, 1, 1, 12), dt.datetime(2026, 7, 1)]
+epochs = sorted(date.toordinal() + 1721424.5 + date.hour / 24 for date in dates)
+assert len(epochs) == 16
+queries = []
+for key, body, target, center in CASES:
+    params = {'format': 'text', 'COMMAND': f"'{target}'", 'OBJ_DATA': "'NO'", 'MAKE_EPHEM': "'YES'",
+              'EPHEM_TYPE': "'VECTORS'", 'CENTER': f"'500@{center}'", 'TLIST': ' '.join(f"'{jd}'" for jd in epochs),
+              'TLIST_TYPE': "'JD'", 'TIME_TYPE': "'TDB'", 'CAL_TYPE': "'GREGORIAN'", 'TIME_DIGITS': "'FRACSEC'",
+              'REF_SYSTEM': "'ICRF'", 'REF_PLANE': "'ECLIPTIC'", 'VEC_CORR': "'NONE'", 'OUT_UNITS': "'AU-D'",
+              'VEC_TABLE': "'1'", 'CSV_FORMAT': "'YES'", 'VEC_LABELS': "'YES'"}
+    url = ENDPOINT + '?' + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+    queries.append({'case': key, 'body': body, 'target': target, 'center': center, 'request_url': url})
+spec = {'schema_version': 'horizons-vector-query-spec.v1', 'epochs_jd_tdb': epochs, 'queries': queries}
+with (PACK / 'query-spec.json').open('x', encoding='utf-8', newline='\n') as stream:
+    json.dump(spec, stream, indent=2, allow_nan=False); stream.write('\n')
+with (PACK / 'query-builder.py.txt').open('xb') as stream:
+    stream.write(Path(__file__).read_bytes())
+start = dt.datetime.now(dt.timezone.utc).isoformat()
+records = []
+for query in queries:
+    filename = query['case'] + '.txt'
+    for attempt in range(2):
+        try:
+            request = urllib.request.Request(query['request_url'], headers={'User-Agent': 'Sol-bounded-vector-reference/1'})
+            with urllib.request.urlopen(request, timeout=30) as response:
+                if response.status != 200: raise RuntimeError('Non-success response')
+                raw = response.read(1048577)
+            break
+        except (OSError, TimeoutError):
+            if attempt == 1: raise
+            time.sleep(1)
+    if len(raw) > 1048576: raise RuntimeError('Oversized response')
+    text = raw.decode('utf-8')
+    if text.count('$$SOE') != 1 or text.count('$$EOE') != 1: raise RuntimeError('No unique vector block: ' + query['case'])
+    version = re.findall(r'^API VERSION: ([^\r\n]+)', text, re.M)
+    if len(version) != 1: raise RuntimeError('Missing API version')
+    with (PACK / filename).open('xb') as stream: stream.write(raw)
+    record = dict(query, path=filename, bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest(),
+                  api_version=version[0], acquired_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())
+    records.append(record)
+    (ROOT / 'build/vector-acquisition-progress-20261104.json').write_text(json.dumps(records, indent=2) + '\n')
+    print('CAPTURED', query['case'], len(raw), version[0], flush=True)
+ledger = {'schema_version': 'horizons-vector-acquisition.v1', 'source': 'NASA/JPL Horizons API',
+          'endpoint': ENDPOINT, 'started_at_utc': start,
+          'completed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(), 'records': records}
+with (PACK / 'acquisition.json').open('x', encoding='utf-8', newline='\n') as stream:
+    json.dump(ledger, stream, indent=2, allow_nan=False); stream.write('\n')
+print('COMPLETE', len(records), sum(record['bytes'] for record in records), flush=True)

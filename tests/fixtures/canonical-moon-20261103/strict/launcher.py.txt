@@ -1,0 +1,27 @@
+from pathlib import Path
+import hashlib,json
+original=(Path.home()/'cloud_moon_driver_20261103.py').read_bytes()
+if hashlib.sha256(original).hexdigest()!='1e9674ac8cafa345ab76c6aeb3f81d75079541f3ea2e29c7fa83ca0ca2f22c2a':raise RuntimeError('Original launcher differs')
+text=original.decode();prefix=text.split('root=Path(tempfile.mkdtemp',1)[0];suffix='image=json.loads'+text.split('image=json.loads',1)[1]
+exec(prefix)
+old_root=Path('/tmp/sol-moon-native-20261103-7wbwyp3s')
+inputs={name:(old_root/'inputs'/name).read_bytes() for name in EXPECTED}
+for name,raw in inputs.items():
+    if hashlib.sha256(raw).hexdigest()!=EXPECTED[name]:raise RuntimeError('Original source differs')
+key='tools/ephemeris-data/generation-manifest.json'
+qualified=(Path.home()/'generation-manifest.qualified.json').read_bytes()
+if hashlib.sha256(qualified).hexdigest()!='1a4ed85e02723db602439078a46a7b0fc754926004809fe6b70be5153454329a':raise RuntimeError('Qualified manifest differs')
+old=json.loads(inputs[key]);new=json.loads(qualified);compare=json.loads(qualified)
+compare['canonical']['status']=old['canonical']['status'];compare['canonical']['qualification']=old['canonical']['qualification']
+if compare!=old or new['canonical']['status']!='qualified' or new['canonical']['qualification']['identical_runs']!=2:raise RuntimeError('Change exceeds qualification metadata')
+inputs[key]=qualified;EXPECTED[key]=hashlib.sha256(qualified).hexdigest()
+root=Path(tempfile.mkdtemp(prefix='sol-moon-strict-20261103-',dir='/tmp'));source=root/'inputs';source.mkdir()
+for name,raw in inputs.items():
+    path=source/name;path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open('xb') as output:output.write(raw)
+print('SOL_STRICT_ROOT='+str(root),flush=True)
+exec(suffix)
+for index in (1,2):
+    report=json.loads((root/('comparison-'+str(index)+'.json')).read_text())
+    if report['comparison_passed'] is not True or report['qualification_status']!='qualified':raise RuntimeError('Strict CI admission failed')
+print('SOL_STRICT_CI_PASSED',flush=True)

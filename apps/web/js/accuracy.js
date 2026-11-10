@@ -1,6 +1,14 @@
 // Supported model spans are computation limits, not empirical accuracy envelopes.
 export const ENGINE_RANGE = { helioYears: 5000, skyYears: 5000 };
 
+// Approved complete UTC calendar years. Being inside this target does not
+// certify a quantity before its independent qualification has been accepted.
+export const PRECISION_TARGET = Object.freeze({
+  startUnix: Date.UTC(1900, 0, 1) / 1000,
+  endUnix: Date.UTC(2201, 0, 1) / 1000,
+  label: "1900–2200",
+});
+
 function usableSourceParityRecord(record) {
   if (!record || record.method!=="source_theory_parity") return false;
   const nonempty=value=>typeof value==="string" && value.trim().length>0;
@@ -25,12 +33,24 @@ export function accuracyForSelection(records, {body,quantity,jd,observerDomain})
     : "Unvalidated for this body, quantity, observer domain and selected epoch."};
 }
 
-/** @returns {{level:"good"|"ok"|"rough", text:string}} */
+/** Absolute rendered time avoids wall-clock and rounded-year boundary drift.
+ * @returns {{level:"good"|"ok"|"rough", text:string}}
+ */
+export function epochAccuracyAtUnix(unixSeconds, kind) {
+  if (!Number.isFinite(unixSeconds)) return {level:"rough",text:"Epoch unavailable; independent accuracy unvalidated."};
+  const inside=unixSeconds>=PRECISION_TARGET.startUnix && unixSeconds<PRECISION_TARGET.endUnix;
+  const scope=inside
+    ? `${PRECISION_TARGET.label} precision qualification is pending.`
+    : `Approximate exploration outside ${PRECISION_TARGET.label}.`;
+  const limits=kind==="helio"
+    ? "Selected model positions remain independently unvalidated."
+    : "Sky accuracy remains unvalidated; Earth orientation and star-catalogue limits apply.";
+  return {level:inside?"ok":"rough",text:`${scope} ${limits}`};
+}
+
+/** Compatibility for offset callers; use the absolute API when time is known. */
 export function epochAccuracy(yearsFromNow, kind) {
-  return {level:Math.abs(yearsFromNow)>300 && kind==="sky" ? "rough" : "ok",
-    text:kind==="helio"
-      ? "Selected epoch unvalidated. VSOP2013/TOP2013 source-theory sample parity is not independent accuracy over a time span."
-      : "Selected sky epoch unvalidated. Earth orientation, historical time-scale approximations and catalogue-star simplifications add uncertainty; dates use the proleptic Gregorian calendar."};
+  return epochAccuracyAtUnix(Date.now()/1000+yearsFromNow*365.25*86400,kind);
 }
 
 export function renderedEpochLabel(unixSeconds) {

@@ -1,4 +1,4 @@
-//! VSOP2013 analytic planetary theory (truncated to ephem.js's 06-normal tier).
+//! VSOP2013 analytic planetary theory (ephem.js's pinned 08-big coefficient tier).
 //!
 //! Evaluates the equinoctial-element Poisson series and converts to heliocentric
 //! ecliptic (dynamical equinox & ecliptic J2000) rectangular coordinates in AU.

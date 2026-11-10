@@ -12,7 +12,8 @@
 // number of days (TT) from J2000 — wDot is negative for retrograde rotators (Venus, Uranus).
 // rotationHours is the sidereal rotation period (negative = retrograde) for human-readable display.
 
-export const SUN_RADIUS_KM = 695700;
+import { SUN_RADIUS_KM, SUN_MEAN_TEMP_K } from './sunFacts.js';
+export { SUN_RADIUS_KM } from './sunFacts.js';
 export const AU_KM = 149597870.7;
 
 /** @typedef {{name:string, innerKm:number, outerKm:number, opacity:number}} RingBand */
@@ -38,7 +39,7 @@ export const BODY = {
     poleRaDeg: 286.13, poleDecDeg: 63.87, poleRaDotDegPerCty: 0.0, poleDecDotDegPerCty: 0.0, w0Deg: 84.176, wDotDegPerDay: 14.1844,
     magDipoleEarth: 0, magnetosphere: true,
     atmosphere: { pressureBar: 0, composition: "H₂ plasma (73% H, 25% He by mass)" },
-    albedo: 0, meanTempK: 5772, style: "sun", color: [1.0, 0.83, 0.36],
+    albedo: 0, meanTempK: SUN_MEAN_TEMP_K, style: "sun", color: [1.0, 0.83, 0.36],
     blurb: "A G2V main-sequence star; luminosity 3.828×10²⁶ W. Rotates differentially (~25 d equator, ~34 d poles). Surface granulation, sunspots, an X-ray corona at ~1–3 MK, and a continuous solar wind.",
   },
   Mercury: {

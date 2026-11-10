@@ -10,6 +10,19 @@ Run from the repository root with the locked Rust toolchain, installed WASM targ
 and the existing pinned JavaScript dependencies. No administrator rights are needed.
 Choose a new output directory for each artifact; an existing destination is rejected.
 
+The root `rust-toolchain.toml` and qualification workflows select released Rust
+1.96.0 explicitly. Install its required target/components as described in
+[build notes](../BUILD_NOTES.md#current-qualification-compiler-policy--2026-11-04).
+The source-policy gate rejects omitted, floating, partial or conflicting compiler
+selections. Build provenance captures actual `rustc`/`cargo` versions; collection
+and outer-evidence admission require that exact released version. Fuzzing's
+explicit nightly selection is separate from release qualification.
+
+Cross-host binary identity is not established by matching compiler versions.
+The [native comparison](NATIVE_PRECISION_20261104.md) explains the inspected
+Windows/Linux WASM index/path differences. Evidence and staged runtime checks
+remain bound to the selected artifact's original hashes.
+
 ```powershell
 $candidateSha = git rev-parse HEAD
 python tools/build_wasm.py --locked --out-root build/wasm
@@ -25,7 +38,9 @@ from the checkout/run context and are independently resolved before promotion.
 
 The builder discovers the live solar schema from the generated canonical schema
 module and the live ephemeris version from its runtime guard. Both WASM outputs must
-have the expected header. It stages final token-stamped bytes before computing hashes.
+have the expected header. Current component-bearing builds also require the
+source/binary receipt emitted by build_wasm.py in that same directory; copying
+only the two binaries is insufficient. See [WASM source binding](WASM_SOURCE_BINDING_20261108.md). It stages final token-stamped bytes before computing hashes.
 The final root manifest is then hashed by the outer release-evidence record.
 
 `--previous-root PATH` accepts only a validated prior artifact. Its immutable namespace
@@ -35,6 +50,21 @@ another. Unsupported transitions fail. Retention does not make an old artifact a
 qualified production rollback target.
 
 ## Manifest and browser interface
+
+Model-data bundle loading has one 30-second budget for the complete transaction:
+release/pointer selection, manifest and component transfers, hashing and final
+validation. The byte, hash, schema and atomic-publication requirements remain.
+Monotonic checks reject overdue work at I/O boundaries and final completion;
+JavaScript cannot preempt a blocked synchronous operation. A newer load aborts
+the older transfer. Late results cannot publish or start more bundle requests,
+and cancellation does not await a stalled reader-cancellation promise.
+
+In Solar research, failure retains the last complete publication, or the declared
+illustrative fallback on first load, and exposes the existing Retry action. A retry selects
+one complete bundle again. Deadline/cancellation handling preserves immutable
+release selection and never falls back to mutable data aliases. The reader's
+optional `signal` and bounded `timeoutMs` parameters support callers and tests;
+the application uses the default 30-second budget.
 
 The version is `web-release-manifest.v1`. All asset paths are site-root-relative,
 without a leading slash, and include `releases/RELEASE_ID/` for immutable files.
@@ -49,8 +79,33 @@ without a Sky fragment; the application itself requires JavaScript. There is exa
 root `sw.js`; register it using the stamped base path and base scope. The builder
 substitutes `__SOL_RELEASE_ID__`, `__SOL_RELEASE_NAMESPACE__`, `__SOL_BASE_PATH__`, and
 existing version-query tokens before hashing. Root bootstrap and worker bytes are
-critical inventory entries. Code, CSS, data, and both WASM binaries are critical;
-textures are optional. A prior namespace is optional in the new manifest.
+critical inventory entries. Code, CSS, core Research data, and both WASM binaries
+are critical. The original default Sun image is critical as well. The two data-only
+enrichment modules `js/moonelements.js` (weekly additional-Moon element knots) and
+`js/starcatalog.js` (full star catalogue) are optional and load on view intent.
+Their executable owners, curated body identities, workers and geography retain
+their existing critical roles. Textures, apart from the default Sun image, and the
+previously declared optical numerical fields remain optional. A prior namespace
+is optional in the new manifest.
+
+Offline installation begins after the saved observation has had a paint opportunity.
+If the image is unavailable, its explicit Retry can start that wait after recovery.
+The verified core preserves the original Sun and its provenance on first offline
+return. Uncached enrichment can be unavailable offline; catalogue status and Retry
+remain visible without fabricating positions. A controlled client's on-use cache
+admission verifies enrichment bytes against its immutable release manifest before
+caching them. The first uncontrolled network visit can use an enrichment table
+before service-worker control; it is not universal pre-execution verification.
+The worker does not automatically claim clients, and update consent is unchanged.
+
+The observation/workspace startup closure is recorded in
+`apps/web/startup-modules.v1.json`. `node tools/validate_module_graph.mjs` independently
+parses static imports/re-exports with the locked validation toolchain. Python static
+and staging checks bind that descriptor's exact URLs and hashes to source, HTML
+roots/preloads and the copied, deterministically stamped representation. Inactive
+Research/Sky/System code remains in the runtime coverage denominator. Regenerate
+the descriptor with `node tools/validate_module_graph.mjs --write` after a reviewed
+startup-source change, and update the exact HTML preload set when edges change.
 
 Identical current manifests appear at root and within the current namespace. Those
 two copies are excluded from their own asset inventory to avoid a digest cycle.
@@ -261,6 +316,24 @@ correspondence and dry-run log digest. Cargo-generated metadata is identified ex
 No registry credential is loaded; the final workflow step intentionally fails with a hold.
 License inventory does not substitute for legal/notices review or release qualification.
 
+The package source check also binds workspace `Cargo.toml` / `Cargo.lock` and each
+non-generated packaged file to the requested commit's Git blob identity. A matching
+working copy and self-declared clean VCS marker are insufficient. `Cargo.toml.orig`
+maps to the committed crate manifest. The read-only lookup disables optional locks
+and lazy fetching; the requested tree must be locally available in a normal trusted
+checkout with Git supporting those flags. It does not execute configurable filters.
+
+Raw identity is checked first. Exactly three existing text paths may then compare
+after CRLF-to-LF conversion: workspace `Cargo.lock`,
+`crates/solar-ephemeris/LICENSE-MIT` and `crates/solar-ephemeris/LICENSE-APACHE`.
+The additive `source_binding.normalized_paths` receipt lists only actual fallbacks,
+in sorted order. Every other byte is preserved, and all other source/numerical/binary
+paths require raw Git identity. Archive-to-working-copy equality and the actual raw
+archive/member SHA-256 digests remain required. This is canonical-text correspondence
+for those paths, not a claim of raw or cross-host package identity. No file is rewritten.
+The [source-binding correction and checks](PACKAGE_NOTICE_AUDIT_20261104.md#source-binding-correction--2026-11-05)
+record the reproduced failures and local qualification limits.
+
 `tools/release_crate.py --registry-status STATUS --registry-body captured-body.json
 --version VERSION` classifies an already captured response without a network call.
 Only HTTP 404 means absent. HTTP 200 must identify the expected package/version; auth,
@@ -269,6 +342,10 @@ authority. The package workflow reports registry `not_checked`; it does not inve
 successful lookup. Standard Cargo publication repackages source; there is no invented
 prebuilt-crate publish command. Any later irreversible publication needs separate authority
 and resulting registry checksum/content correspondence verification.
+Registry/VCS JSON rejects duplicate keys, nonfinite values, non-object roots and invalid
+nested shapes with controlled failures. JSON intake and the Git inventory are bounded
+at 16MiB; package inventory retains its 128MiB data bound plus a 4,096-member cap.
+Malformed captured bodies do not print their content or a traceback.
 
 ## Unqualified operational surfaces
 

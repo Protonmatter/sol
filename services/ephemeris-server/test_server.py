@@ -99,6 +99,32 @@ class ServerContractTests(unittest.TestCase):
         self.assertAlmostEqual(item["geocentric_range_km"], 403914.25089, places=5)
         self.assertAlmostEqual(item["observer_range_km"], 388954.46382, places=5)
 
+    def test_horizons_numeric_fragments_cannot_be_coordinates(self):
+        geo = "$$SOE\n2461230.500000000 11.9 -3.1 0.0027 0\n$$EOE"
+        for value in ["junk12.5", "NaN(12.5)", "12.5oops"]:
+            topo = f"$$SOE\n2461230.500000000 {value} -3.25 87.0 45.0 0.0026 0\n$$EOE"
+            with self.subTest(value=value), mock.patch.object(server, "_request_text", side_effect=[topo, geo]), self.assertRaises(ValueError):
+                server.fetch_body(datetime(2026, 7, 9, tzinfo=timezone.utc), 0, 0, 0, "301")
+
+    def test_horizons_rejects_multiple_or_extra_quantity_rows(self):
+        row = "2461230.500000000 12.5 -3.25 87.0 45.0 0.0026 0"
+        geo = "$$SOE\n2461230.500000000 11.9 -3.1 0.0027 0\n$$EOE"
+        for topo in [f"$$SOE\n{row}\n{row}\n$$EOE", f"$$SOE\n{row} 0.5\n$$EOE", f"$$EOE\n$$SOE\n{row}\n"]:
+            with self.subTest(topo=topo), mock.patch.object(server, "_request_text", side_effect=[topo, geo]), self.assertRaises(ValueError):
+                server.fetch_body(datetime(2026, 7, 9, tzinfo=timezone.utc), 0, 0, 0, "301")
+
+    def test_rounded_full_turn_normalizes_and_invalid_range_scaling_fails(self):
+        topo = "$$SOE\n2461230.500000000 *m 360.0 -3.25 360.0 45.0 0.0026 0\n$$EOE"
+        geo = "$$SOE\n2461230.500000000 360.0 -3.1 0.0027 0\n$$EOE"
+        with mock.patch.object(server, "_request_text", side_effect=[topo, geo]):
+            result = server.fetch_body(datetime(2026, 7, 9, tzinfo=timezone.utc), 0, 0, 0, "301")
+        self.assertEqual(result['geocentric_ra'], 0.0)
+        self.assertEqual(result['topocentric_ra'], 0.0)
+        self.assertEqual(result['az'], 0.0)
+        for old, new in [('0.0026', '1e308'), ('0.0026', '0'), ('45.0', '91.0'), ('-3.25', 'NaN')]:
+            with self.subTest(new=new), mock.patch.object(server, "_request_text", side_effect=[topo.replace(old, new), geo]), self.assertRaises(ValueError):
+                server.fetch_body(datetime(2026, 7, 9, tzinfo=timezone.utc), 0, 0, 0, "301")
+
     def test_time_metadata_is_internally_consistent_and_degraded(self):
         time = self.build()["time"]
         self.assertEqual(time["earth_orientation"]["quality"], "degraded")
@@ -142,7 +168,9 @@ class ServerContractTests(unittest.TestCase):
         self.assertEqual(params["COMMAND"], "'301'")
         self.assertEqual(params["COORD_TYPE"], "'GEODETIC'")
         self.assertNotIn("SITE_COORD", server._horizons_params(when, "301", "500@399", "2,20"))
-        self.assertEqual(server._data_row("head\n$$SOE\n first\nsecond\n$$EOE\n"), "first")
+        self.assertEqual(server._data_row("head\n$$SOE\n first\n$$EOE\n"), "first")
+        with self.assertRaises(ValueError):
+            server._data_row("head\n$$SOE\n first\nsecond\n$$EOE\n")
         with self.assertRaises(ValueError):
             server._data_row("missing markers")
 
@@ -192,12 +220,13 @@ class ServerContractTests(unittest.TestCase):
     def test_fetch_body_parses_topocentric_and_geocentric_rows(self):
         when = datetime(2026, 7, 9, tzinfo=timezone.utc)
         topo = "$$SOE\n2461230.500000000 12.5 -3.25 87.0 45.0 0.00257 0\n$$EOE"
-        geo = "$$SOE\n2461230.500000000 11.9 -3.1 0 0\n$$EOE"
+        geo = "$$SOE\n2461230.500000000 11.9 -3.1 0.0027 0\n$$EOE"
         with mock.patch.object(server, "_request_text", side_effect=[topo, geo]):
             body = server.fetch_body(when, 10, 20, 30, "301")
         self.assertEqual(body["topocentric_ra"], 12.5)
         self.assertEqual(body["geocentric_ra"], 11.9)
         self.assertEqual(body["observer_range_km"], 0.00257 * server.AU_KM)
+        self.assertEqual(body["geocentric_range_km"], 0.0027 * server.AU_KM)
         with mock.patch.object(server, "_request_text", return_value="$$SOE\n1 2\n$$EOE"):
             with self.assertRaises(ValueError):
                 server.fetch_body(datetime.now(timezone.utc), 0, 0, 0, "301")

@@ -21,6 +21,8 @@ STYLE (offline markdown lint; code fences excluded where noted)
   8. fence-closed        — every opened code fence must be closed.
 
 External URLs and pure ``#anchor`` fragments are never fetched (no network).
+The default scan excludes generated root build/ and coverage/ copies. Explicit
+file arguments still validate those paths, and nested source guides stay checked.
 
 Exit status is non-zero if any file has a broken reference or style violation,
 so this is safe to gate every PR. Standard library only.
@@ -152,7 +154,8 @@ def check_file(md_path: Path, repo_root: Path) -> list[str]:
 
 def iter_markdown(root: Path):
     for path in sorted(root.rglob("*.md")):
-        if any(part in SKIP_DIRS for part in path.relative_to(root).parts):
+        parts = path.relative_to(root).parts
+        if parts[0] in {"build", "coverage"} or any(part in SKIP_DIRS for part in parts):
             continue
         yield path
 

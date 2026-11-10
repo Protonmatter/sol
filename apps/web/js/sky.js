@@ -9,16 +9,17 @@ import { SkyConsent, makeSkyPreview, parseSkyLink } from "./skyPrivacy.js?v=dcca
 import { skyRows, parseSkyTime, formatSkyTimeInput } from "./skyPresentation.js?v=dcca6290db";
 import { syncObjectRows } from "./objectBrowser.js?v=dcca6290db";
 import { CONSTELLATIONS } from "./celestial.js?v=dcca6290db";
-import { epochAccuracy, epochLabel } from "./accuracy.js?v=dcca6290db";
+import { epochAccuracyAtUnix, renderedEpochLabel } from "./accuracy.js?v=dcca6290db";
 import { resolveSkyPresentation } from "./presentationState.js?v=dcca6290db";
 import { assertEphemerisSnapshotV3, mergeLocalEvents } from "./ephemerisContract.js?v=dcca6290db";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
-  const yrs = (currentUnix() - Date.now() / 1000) / (365.25 * 86400);
-  const a = epochAccuracy(yrs, "sky");
+  if (!lastSnap) { node.textContent=""; return; }
+  const renderedUnix = (lastSnap.time.jd_utc-2440587.5)*86400;
+  const a = epochAccuracyAtUnix(renderedUnix, "sky");
   node.className = "epoch-accuracy acc-" + a.level;
-  node.textContent = Math.abs(yrs) < 0.5 ? "" : `${epochLabel(yrs)} — ${a.text}`;
+  node.textContent = `${renderedEpochLabel(renderedUnix)} — ${a.text}`;
 }
 
 const BODY_STYLE = {
@@ -749,8 +750,9 @@ export function fillTooltip(t, b) {
     line(lm >= 1 ? `${(b.observer_range_km / 1.495978707e8).toFixed(3)} AU · light ${lm.toFixed(1)} min`
       : `${Math.round(b.observer_range_km).toLocaleString()} km away`, "tt-line");
   }
-  const transitAltitude = b.events.transit.altitude_deg == null ? "" : ` (${Math.round(b.events.transit.altitude_deg)}°)`;
-  line(`rises ${eventLabel(b.events.rise)} · transits ${eventLabel(b.events.transit)}${transitAltitude} · sets ${eventLabel(b.events.set)}`, "tt-line");
+  // The compatible v3 `transit` field records an altitude maximum.
+  const peakAltitude = b.events.transit.altitude_deg == null ? "" : ` (${Math.round(b.events.transit.altitude_deg)}°)`;
+  line(`rises ${eventLabel(b.events.rise)} · peak altitude ${eventLabel(b.events.transit)}${peakAltitude} · sets ${eventLabel(b.events.set)}`, "tt-line");
   line("trajectory: dashed = past, solid = ahead", "tt-line muted");
 }
 function showTooltip(b, clientX, clientY) {

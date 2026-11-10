@@ -4,9 +4,9 @@ import vm from 'node:vm';
 import {createHash,webcrypto} from 'node:crypto';
 import {installProgramSourceEvidence,preparePhysicalSpinEvidence} from '../../tools/physical_spin_probe.mjs';
 
-async function fixture({datum=0}={}){
+async function fixture({datum=0,paired=false}={}){
   const profile={body:'Earth',radiusKm:1,topKm:2,rayleighScaleHeightKm:3,aerosolScaleHeightKm:4,
-    betaRayleighKm:[.1,.2,.3],betaAerosolExtinctionKm:[.4,.5,.6],aerosolSingleScatteringAlbedo:[.7,.8,.9],aerosolG:.8,surfaceRefractivity:.01};
+    betaRayleighKm:[.1,.2,.3],betaAerosolExtinctionKm:[.4,.5,.6],aerosolSingleScatteringAlbedo:[.7,.8,.9],aerosolG:.8,surfaceRefractivity:.01,betaOzoneKm:[.01,.02,.03]};
   const profileHash=createHash('sha256').update('profile').digest('hex'),textures=[{},{}];
   const incident={sha256:'i'.repeat(64),profile_sha256:profileHash,dimensions:[2,2,3],bytes:192,domain:{minHeightKm:0,maxHeightKm:16,quadratic:true}};
   const columns={sha256:'c'.repeat(64),profile_sha256:profileHash,dimensions:[2,2,2],bytes:32};
@@ -35,7 +35,8 @@ async function fixture({datum=0}={}){
   });
   vm.runInContext(`(${installProgramSourceEvidence.toString()})()`,context);
   const modules={
-    orreryShaders:{SCATTERING_SPHERE_VS:'physical vertex',SCATTERING_SPHERE_FS:'physical fragment'},
+    physicalProgramSources:{physicalProgramSources:()=>({physicalSphere:{vertex:'physical vertex',fragment:'physical fragment'},
+      scatteringGenerator:{vertex:'generator vertex',fragment:'generator fragment'},...(paired?{scatteringNumerator:{vertex:'generator vertex',fragment:'numerator fragment'},scatteringResolve:{vertex:'generator vertex',fragment:'resolve fragment'}}:{})})},
     atmosphereScattering:{SCATTERING_GENERATOR_VS:'generator vertex',SCATTERING_GENERATOR_FS:'generator fragment',planAtmosphereScattering:()=>({status:'ready',surfaceSize:[128,193,1],limbSize:[128,64]})},terrainAssets:{terrainReference:()=>null},
     atmosphereOptics:{getAtmosphereProfile:()=>profile,serializeAtmosphereProfile:()=>'profile'},
     bodyData:{BODY:{Earth:{radiusKm:1+datum,polarKm:1+datum}}},atmosphereIncidentManifest:{INCIDENT_FIELDS:{Earth:incident}},
@@ -48,7 +49,7 @@ async function fixture({datum=0}={}){
       await module.link(()=>{});await module.evaluate();return module;
     }});
   await prepared.link(()=>{});await prepared.evaluate();const summary=await prepared.namespace.default();
-  const uniforms={u_scatteringReferenceHeightKm:Math.fround(datum),u_atmosphereEnabled:1,u_atmosphereRefractionEnabled:1,u_incidentFieldReady:1,u_atmosphereRadiusKm:1,u_bodyRadiusKm:Math.fround(1+datum),u_atmosphereTopKm:2,
+  const uniforms={u_atmosphereOzoneKm:profile.betaOzoneKm.map(Math.fround),u_atmosphereOzoneField:10,u_scatteringReferenceHeightKm:Math.fround(datum),u_atmosphereEnabled:1,u_atmosphereRefractionEnabled:1,u_incidentFieldReady:1,u_atmosphereRadiusKm:1,u_bodyRadiusKm:Math.fround(1+datum),u_atmosphereTopKm:2,
     u_atmospherePolarRatio:1,u_atmosphereG:Math.fround(.8),u_atmosphereRefractivity:Math.fround(.01),u_atmosphereSolarScale:1,u_atmosphereExposure:1,
     u_incidentField:6,u_atmosphereColumnField:7,u_atmosphereCameraKm:[0,0,Math.fround(3*(1+datum))],u_atmosphereSunDirection:[-1,0,0],u_incidentFieldHeight:[0,16,1],
     u_model:[1,0,0,0,0,1,0,0,0,0,1,0,1,0,0,1],u_cam:[1,0,3],
@@ -114,4 +115,11 @@ test('physical surface datum is an independently observed scalar from the catalo
   assert.equal(result.uniforms.u_scatteringReferenceHeightKm,Math.fround(.003));
   assert.ok(Math.abs(result.scattering_height_range_km[0]-.003)<1e-15);
   f.uniforms.u_scatteringReferenceHeightKm=0;assert.equal(f.capture().passed,false);
+});
+
+test('physical spin configures the actual live numerator and resolve sources with the optical coefficients',async()=>{
+  const f=await fixture({paired:true});assert.equal(f.producer.configuration.fragmentSource,'resolve fragment');
+  assert.equal(f.producer.configuration.numeratorVertexSource,'generator vertex');assert.equal(f.producer.configuration.numeratorFragmentSource,'numerator fragment');
+  assert.ok(f.summary.numerator_shader_sha256);assert.equal(f.capture().passed,true);
+  f.uniforms.u_atmosphereOzoneKm=[1,1,1];assert.equal(f.capture().passed,false);
 });

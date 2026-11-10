@@ -7,9 +7,12 @@ self.onmessage=async event=>{
   const request=event.data;
   if(!Number.isSafeInteger(request?.generation)||request.generation<1)return;
   const identity={protocol:"sol-worker.v1",engine:"system",schema:"system-snapshot.v1",abi:1,release,generation:request.generation};
-  if(request.type!=="compute"||Object.keys(identity).some(k=>identity[k]!==request[k])||busy){self.postMessage({...identity,type:"error",error:{code:"protocol",message:"System worker identity/admission mismatch"}});return;}
+  if(!["initialize","compute"].includes(request.type)||Object.keys(identity).some(k=>identity[k]!==request[k])||busy){self.postMessage({...identity,type:"error",error:{code:"protocol",message:"System worker identity/admission mismatch"}});return;}
   busy=true;
-  try { const {unix}=validateSystemRequest(request.payload);await loadSkyEngine();self.postMessage({...identity,type:"result",value:assertSystemSnapshot(systemSnapshot(unix),unix)}); }
+  try {
+    if(request.type==="initialize"){await loadSkyEngine();self.postMessage({...identity,type:"ready"});return;}
+    const {unix}=validateSystemRequest(request.payload);await loadSkyEngine();self.postMessage({...identity,type:"result",value:assertSystemSnapshot(systemSnapshot(unix),unix)});
+  }
   catch(error){self.postMessage({...identity,type:"error",error:{code:error.code||"engine_failed",message:error.message}});}
   finally {busy=false;}
 };

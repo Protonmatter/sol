@@ -1,0 +1,8 @@
+{
+  "scope": "Native-model contract regression, not independent astronomy truth. Nine major bodies retained without numeric changes; catalogue stars removed from the original public snapshot.",
+  "source_snapshot_sha256": "aa35220891593c92cf2e6b86eb3843ad1160cca2eb3cb7fae8836e2f7964bf4e",
+  "fixture_sha256": "32bc9e7b6f8bc07e44f79af8ef71127ce02fe0cf5dc19c8bdaa486c7712f287b",
+  "native_input_manifest_sha256": "0d6756ecfb82a58af6879d191b00ad7c72177218880e2d586ef2a9fe2878ebd1",
+  "eop_table_sha256": "994c3fe24df38b54dc404bc6c1d1b7db86aab6aae4d2f311d7ad8207b0a9038a",
+  "problem": "Accurate offset-derived delta-T is rejected by fixed50us JD-subtraction coherence at this epoch."
+}

@@ -1,0 +1,122 @@
+"""Explicit provenance-admission amendment; preserve the frozen query matrix."""
+from pathlib import Path
+import csv
+import io
+import json
+import math
+import os
+import re
+import sys
+import time
+import urllib.request
+
+from observer_sweep_20261104 import ROOT, OUT, SameOrigin, now, sha, write_json, source_hashes, helper
+from horizons_reference import load_reference_pack
+
+PLAN_SHA='7d5c6df57cf8994aecef9867848ecda36964a800cf360c2e8369d76c14a05bf3'
+
+def verify_response(raw,q):
+    text=raw.decode('utf-8')
+    if not 0<len(raw)<=160000:raise ValueError('response byte bound')
+    versions=re.findall(r'^API VERSION: ([^\n]+)',text,re.M)
+    if len(versions)!=1 or versions[0] not in ('1.2','1.3') or not text.startswith('API VERSION: '+versions[0]+'\nAPI SOURCE: NASA/JPL Horizons API\n'):
+        raise ValueError('unknown API identity')
+    for label,target,source in [('Target',q['target'],q['target_source']),('Center','399',q['center_source'])]:
+        values=re.findall(r'^'+label+r' body name:[^\n]*\((\d+)\)\s+\{source: ([^}]+)\}',text,re.M)
+        if values!=[(target,source)]:raise ValueError('target/origin/source changed: '+str(values))
+    sites=re.findall(r'^Center geodetic\s*:\s*([^{}\n]+)\{E-lon\(deg\),Lat\(deg\),Alt\(km\)\}',text,re.M)
+    expected=[q['longitude_east_deg']%360,q['latitude_deg'],q['elevation_m']/1000]
+    if len(sites)!=1 or list(map(float,sites[0].split(',')))!=expected:raise ValueError('observer identity changed')
+    if re.findall(r'^Atmos refraction:\s+([^\n]+)',text,re.M)!=['NO (AIRLESS)'] \
+            or not re.search(r'^Units conversion:\s+1 au=\s*149597870\.700 km,',text,re.M):raise ValueError('quantity scope changed')
+    headers=[next(csv.reader([line])) for line in text.splitlines() if line.startswith('Date_________JDUT')]
+    expected_header=['Date_________JDUT','','','R.A.__(a-app)','DEC___(a-app)','Azimuth_(a-app)','Elevation_(a-app)','delta','deldot','UT1-UTC','']
+    if len(headers)!=1 or [x.strip() for x in headers[0]]!=expected_header:raise ValueError('quantity layout changed')
+    if text.count('$$SOE')!=1 or text.count('$$EOE')!=1 or text.index('$$SOE')>text.index('$$EOE'):raise ValueError('ephemeris block changed')
+    rows=list(csv.reader(io.StringIO(text.split('$$SOE')[1].split('$$EOE')[0].strip()),strict=True))
+    if len(rows)!=12:raise ValueError('monthly epoch matrix incomplete')
+    parsed=[];numeric=r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?'
+    for row,jd in zip(rows,q['epochs_jd_utc']):
+        if len(row)!=11 or row[-1].strip() or any(re.fullmatch(numeric,x.strip()) is None for x in [row[0],*row[3:10]]):raise ValueError('malformed row')
+        epoch,*values=map(float,[row[0],*row[3:10]])
+        if not all(math.isfinite(x) for x in [epoch,*values]) or abs(epoch-jd)>1e-9:raise ValueError('nonfinite/incorrect epoch')
+        ra,dec,az,alt,distance,rate,dut1=values
+        if not(0<=ra<=360 and -90<=dec<=90 and 0<=az<=360 and -90<=alt<=90 and distance>0 and abs(dut1)<=.9):raise ValueError('invalid quantity domain')
+        parsed.append({'jd_utc':epoch,'ra_deg':ra%360,'dec_deg':dec,'az_deg':az%360,'alt_deg':alt,
+                       'observer_range_km':distance*149597870.7,'range_rate_km_s':rate,'dut1_seconds':dut1})
+    return versions[0],parsed
+
+def prepare():
+    plan_raw=(OUT/'predeclared-plan.json').read_bytes()
+    if sha(plan_raw)!=PLAN_SHA:raise ValueError('original plan changed')
+    plan=json.loads(plan_raw)
+    expected={(label,body):helper.horizons_request_url(code,when,lat,lon,elev)
+              for label,when,lat,lon,elev in helper.CASES for body,code in helper.BODIES.items()}
+    pack=load_reference_pack(ROOT/'tests/fixtures/horizons-observer-20261103',expected)
+    centers={};proofs={}
+    for body in helper.BODIES:
+        values=set()
+        for (site,name),url in expected.items():
+            if name!=body:continue
+            text=pack.fetch(url)
+            fields=re.findall(r'^Center body name:[^\n]*\((\d+)\)\s+\{source: ([^}]+)\}',text,re.M)
+            if len(fields)!=1 or fields[0][0]!='399':raise ValueError('historical Earth origin unavailable')
+            values.add(fields[0][1]);proofs[site+'/'+body]=sha(text.encode('utf-8'))
+        if len(values)!=1:raise ValueError('historical kernel identity inconsistent across sites')
+        centers[body]=values.pop()
+    captured={p.name:sha(p.read_bytes()) for p in (OUT/'responses').iterdir()}
+    if set(captured)!={q['id']+'.txt' for q in plan['queries'][:6]}:raise ValueError('unexpected original captured inventory')
+    script=Path(__file__).read_bytes();(OUT/'query-helper-amended.py.txt').write_bytes(script)
+    amendment={'schema_version':'observer-seasonal-admission-amendment.v1','frozen_at_utc':now(),
+        'original_plan_sha256':PLAN_SHA,'original_acquisition_sha256':sha((OUT/'acquisition.json').read_bytes()),
+        'reason':'The original guard wrongly assumed every Earth-center header uses DE441. The retained independent baseline already identifies Jupiter/Neptune Earth-center kernels separately. Fix exact per-body provenance, not query dates, quantities, sites, budgets or model.',
+        'historical_manifest_sha256':pack.manifest_sha256,'historical_raw_sha256':proofs,
+        'center_sources':centers,'captured_before_amendment_sha256':captured,
+        'helper_sha256':sha(script),'unchanged_query_and_acceptance_plan_sha256':PLAN_SHA,
+        'transport':'Admit six preserved responses, fetch only the remaining30; one request per original query, no retry/threshold amendment.'}
+    write_json(OUT/'admission-amendment.json',amendment)
+    print(json.dumps({'amendment_sha256':sha((OUT/'admission-amendment.json').read_bytes()),'center_sources':centers}),flush=True)
+
+def acquire():
+    raw_plan=(OUT/'predeclared-plan.json').read_bytes();plan=json.loads(raw_plan)
+    raw_amend=(OUT/'admission-amendment.json').read_bytes();amend=json.loads(raw_amend)
+    if sha(raw_plan)!=PLAN_SHA or sha(Path(__file__).read_bytes())!=amend['helper_sha256'] \
+            or source_hashes()!=plan['native_source_sha256'] \
+            or sha((ROOT/'tools/validate_ephemeris.py').read_bytes())!=plan['provider_sha256']:
+        raise ValueError('frozen plan/helper/model/provider drift')
+    prior=json.loads((OUT/'acquisition.json').read_bytes());prior_records={r['id']:r for r in prior['records']}
+    progress={'schema_version':'observer-seasonal-amended-acquisition.v1','status':'running','pid':os.getpid(),
+        'started_at_utc':prior['started_at_utc'],'resumed_at_utc':now(),'plan_sha256':PLAN_SHA,
+        'amendment_sha256':sha(raw_amend),'records':[]}
+    opener=urllib.request.build_opener(SameOrigin())
+    try:
+        for index,original in enumerate(plan['queries']):
+            q={**original,'center_source':amend['center_sources'][original['body']]}
+            path=OUT/'responses'/(q['id']+'.txt')
+            if index<6:
+                raw=path.read_bytes()
+                if sha(raw)!=amend['captured_before_amendment_sha256'][path.name]:raise ValueError('preserved response changed')
+                exact=prior_records.get(q['id'],{}).get('acquired_at_utc')
+                began=exact or prior['started_at_utc'];ended=exact or prior['finished_at_utc'];phase='original'
+            else:
+                began=now();request=urllib.request.Request(q['request_url'],headers={'User-Agent':'Sol bounded scientific reference validation'})
+                with opener.open(request,timeout=40) as response:raw=response.read(160001)
+                ended=now();phase='amended'
+                with path.open('xb') as stream:stream.write(raw)
+            version,rows=verify_response(raw,q)
+            progress['records'].append({'id':q['id'],'request_url':q['request_url'],'path':'responses/'+path.name,
+                'bytes':len(raw),'sha256':sha(raw),'api_version':version,'capture_started_utc':began,
+                'capture_finished_utc':ended,'capture_phase':phase,'rows':rows})
+            (OUT/'progress-amended.json').write_text(json.dumps(progress,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+            print(json.dumps({'completed':len(progress['records']),'query':q['id'],'phase':phase}),flush=True)
+            if phase=='amended':time.sleep(.3)
+        if source_hashes()!=plan['native_source_sha256'] or len({r['api_version'] for r in progress['records']})!=1:raise ValueError('source/API drift')
+        progress.update(status='captured_not_qualified',finished_at_utc=now())
+    except Exception as exc:
+        progress.update(status='failed',error=repr(exc),finished_at_utc=now());raise
+    finally:write_json(OUT/'acquisition-amended.json',progress)
+
+if __name__=='__main__':
+    if sys.argv[1:]==['prepare']:prepare()
+    elif sys.argv[1:]==['acquire']:acquire()
+    else:raise SystemExit('choose prepare or acquire')

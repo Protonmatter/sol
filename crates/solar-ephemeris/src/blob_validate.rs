@@ -222,8 +222,8 @@ mod tests {
         // Exact counts pin the decode: a repack that gains or loses a single term fails
         // here before any golden test can drift. (Values printed by this test's first
         // run against the committed blobs, then frozen.)
-        assert_eq!(validate_vsop2013(VSOP).expect("vsop2013.bin"), 3191);
-        assert_eq!(validate_top2013(TOP).expect("top2013.bin"), 2909);
+        assert_eq!(validate_vsop2013(VSOP).expect("vsop2013.bin"), 26631);
+        assert_eq!(validate_top2013(TOP).expect("top2013.bin"), 21851);
         assert_eq!(validate_elpmpp02(ELP).expect("elpmpp02.bin"), 5030);
     }
 

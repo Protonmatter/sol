@@ -1,0 +1,51 @@
+{
+  "schema_version": "canonical-moon-evidence.v1",
+  "status": "comparison_passed",
+  "comparison_passed": true,
+  "qualification_status": "qualified",
+  "qualification_granted": false,
+  "source_revision": null,
+  "completed_at_utc": "2026-11-04T01:12:26.995844+00:00",
+  "runtime": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "implementation": "CPython",
+    "python_version": "3.12.12"
+  },
+  "launcher_asserted_image_digest": "sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+  "scope": "One full source/output/numerical comparison; two fresh native image runs and independent review are still required for qualification.",
+  "source_sha256_before": {
+    "tools/generate_moons.py": "0c070352991b48283a9ab9aa40425b50df9406a5d36dd1788f5c8d34290f86f9",
+    "tools/moon_model.py": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445",
+    "tools/validate_moons.py": "ec1c04c0921ec8ecc15bd3fba38e1e797f2392bd3cdb13d30f72cef611401826",
+    "tools/collect_moon_evidence.py": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf",
+    "tools/ephemeris-data/generation-manifest.json": "1a4ed85e02723db602439078a46a7b0fc754926004809fe6b70be5153454329a",
+    "tools/ephemeris-data/moons/horizons_satellite_elements.csv": "cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f",
+    "tools/ephemeris-data/moons/horizons_satellite_vectors.csv": "ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918",
+    "tools/ephemeris-data/moons/jpl_satellite_physical.csv": "03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99",
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+  },
+  "source_sha256_after": {
+    "tools/generate_moons.py": "0c070352991b48283a9ab9aa40425b50df9406a5d36dd1788f5c8d34290f86f9",
+    "tools/moon_model.py": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445",
+    "tools/validate_moons.py": "ec1c04c0921ec8ecc15bd3fba38e1e797f2392bd3cdb13d30f72cef611401826",
+    "tools/collect_moon_evidence.py": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf",
+    "tools/ephemeris-data/generation-manifest.json": "1a4ed85e02723db602439078a46a7b0fc754926004809fe6b70be5153454329a",
+    "tools/ephemeris-data/moons/horizons_satellite_elements.csv": "cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f",
+    "tools/ephemeris-data/moons/horizons_satellite_vectors.csv": "ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918",
+    "tools/ephemeris-data/moons/jpl_satellite_physical.csv": "03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99",
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+  },
+  "generated_sha256": {
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+  },
+  "committed_sha256": {
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+  },
+  "numerical_validator_exit": 0,
+  "validator_log": "OK: moons.js + moonelements.js match their sources\nOK: 21 moons \u2014 regen byte-stable; 11985 interleaved Horizons checks across JD 2459219.0\u20132462859.0; worst angular 0.1384\u00b0 [Nereid @ JD 2461053.0], worst radial 0.1893% [Enceladus @ JD 2461674.2]\n"
+}

@@ -1,0 +1,513 @@
+{
+  "schema_version": "ephemeris-snapshot.v3",
+  "engine_version": "solar-ephemeris 0.2.0",
+  "events_window": {
+    "convention": "observer_local_mean_solar_day",
+    "time_scale": "UTC",
+    "interval": "[start,end)",
+    "start_jd": 2444328.5,
+    "end_jd": 2444329.5
+  },
+  "time": {
+    "calendar": "proleptic_gregorian",
+    "input_time_semantics": "utc",
+    "jd_utc": 2444329.499407592,
+    "jd_tai": 2444329.4996275,
+    "jd_tt": 2444329.5,
+    "jd_ut1": 2444329.499412464,
+    "tai_minus_utc_seconds": 19,
+    "dut1_seconds": 0.420937741,
+    "delta_t_seconds": 50.763062259,
+    "lst_deg": 188.307435371,
+    "obliquity_deg": 23.439882188,
+    "earth_orientation": {
+      "source": "IERS Bulletin A finals2000A.all, USNO capture 2026-11-04",
+      "quality": "rapid",
+      "xp_arcsec": 0.01258897,
+      "yp_arcsec": 0.18568567,
+      "dut1_uncertainty_seconds": 0.00030755
+    }
+  },
+  "observer": {
+    "terrestrial_lat_deg": 0,
+    "terrestrial_lon_deg_east": 0,
+    "polar_motion_corrected_lat_deg": 3.5e-06,
+    "polar_motion_corrected_lon_deg_east": 0.0,
+    "elev_m": 0
+  },
+  "accuracy": {
+    "evidence_status": "unvalidated",
+    "evidence_record_ids": [],
+    "class": "eop-aware apparent topocentric place",
+    "coordinate_semantics": "ra_deg and dec_deg are apparent topocentric coordinates; geocentric and topocentric values are also emitted under explicit field names",
+    "time_scales": "UTC to TAI from leap-second table, TT = TAI + 32.184 s, UT1 = UTC + DUT1",
+    "eop_status": "rapid",
+    "validation_scope": "Numerical claims are limited to the committed regression matrix and independently rerunnable JPL Horizons validation",
+    "valid_epoch": "Precision Earth rotation is limited to the declared EOP source coverage; outside it the snapshot is explicitly degraded",
+    "non_goal": "navigation, occultation prediction, or safety-critical timing"
+  },
+  "bodies": [
+    {
+      "name": "Sun",
+      "kind": "star",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 9.586607637,
+      "dec_deg": 4.129862775,
+      "geocentric_apparent_ra_deg": 9.586662363,
+      "geocentric_apparent_dec_deg": 4.130038821,
+      "topocentric_apparent_ra_deg": 9.586607637,
+      "topocentric_apparent_dec_deg": 4.129862775,
+      "geocentric_range_km": 149458033.2200011,
+      "observer_range_km": 149464393.21224493,
+      "range_approximation": "finite",
+      "alt_deg": -85.676894371511,
+      "az_deg": 342.81971491968375,
+      "alt_refracted_deg": -85.676894371511,
+      "above_horizon": false,
+      "compass": "NNW",
+      "angular_size_arcsec": 1920.1756,
+      "horizontal_parallax_deg": 0.002445104,
+      "events": {
+        "rise": {
+          "jd": 2444328.750804631,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444329.003052703,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 86.06209760225933
+        },
+        "set": {
+          "jd": 2444329.255326081,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    },
+    {
+      "name": "Moon",
+      "kind": "moon",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 184.352404056,
+      "dec_deg": 1.323331768,
+      "geocentric_apparent_ra_deg": 184.41446524,
+      "geocentric_apparent_dec_deg": 1.302605912,
+      "topocentric_apparent_ra_deg": 184.352404056,
+      "topocentric_apparent_dec_deg": 1.323331768,
+      "geocentric_range_km": 406248.0617781896,
+      "observer_range_km": 399886.54366895795,
+      "range_approximation": "finite",
+      "alt_deg": 85.8297856193403,
+      "az_deg": 288.5166793159211,
+      "alt_refracted_deg": 85.83099135714065,
+      "above_horizon": true,
+      "compass": "WNW",
+      "angular_size_arcsec": 1792.3364,
+      "horizontal_parallax_deg": 0.899587105,
+      "events": {
+        "rise": {
+          "jd": 2444329.2312327437,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444329.488321636,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 88.63275104728542
+        },
+        "set": {
+          "jd": 2444328.716105257,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    },
+    {
+      "name": "Mercury",
+      "kind": "planet",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 344.669165237,
+      "dec_deg": -7.960442582,
+      "geocentric_apparent_ra_deg": 344.667995917,
+      "geocentric_apparent_dec_deg": -7.960809003,
+      "topocentric_apparent_ra_deg": 344.669165237,
+      "topocentric_apparent_dec_deg": -7.960442582,
+      "geocentric_range_km": 126529245.59327239,
+      "observer_range_km": 126535032.24434,
+      "range_approximation": "finite",
+      "alt_deg": -65.13043785061417,
+      "az_deg": 109.22642754902853,
+      "alt_refracted_deg": -65.13043785061417,
+      "above_horizon": false,
+      "compass": "ESE",
+      "angular_size_arcsec": 7.9539,
+      "horizontal_parallax_deg": 0.00288819,
+      "events": {
+        "rise": {
+          "jd": 2444328.682488679,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444328.933971373,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 81.9383602103647
+        },
+        "set": {
+          "jd": 2444329.1854397384,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    },
+    {
+      "name": "Venus",
+      "kind": "planet",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 53.087646478,
+      "dec_deg": 22.137438376,
+      "geocentric_apparent_ra_deg": 53.090106314,
+      "geocentric_apparent_dec_deg": 22.138303573,
+      "topocentric_apparent_ra_deg": 53.087646478,
+      "topocentric_apparent_dec_deg": 22.137438376,
+      "geocentric_range_km": 112974969.51606543,
+      "observer_range_km": 112979162.96686241,
+      "range_approximation": "finite",
+      "alt_deg": -41.108603368165475,
+      "az_deg": 300.0085440618553,
+      "alt_refracted_deg": -41.108603368165475,
+      "above_horizon": false,
+      "compass": "WNW",
+      "angular_size_arcsec": 22.0974,
+      "horizontal_parallax_deg": 0.003234703,
+      "events": {
+        "rise": {
+          "jd": 2444328.872004674,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444329.1236820295,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 67.97758119408961
+        },
+        "set": {
+          "jd": 2444329.3754712017,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    },
+    {
+      "name": "Mars",
+      "kind": "planet",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 149.528134611,
+      "dec_deg": 15.91831151,
+      "geocentric_apparent_ra_deg": 149.530143565,
+      "geocentric_apparent_dec_deg": 15.917651997,
+      "topocentric_apparent_ra_deg": 149.528134611,
+      "topocentric_apparent_dec_deg": 15.91831151,
+      "geocentric_range_km": 118474327.01890475,
+      "observer_range_km": 118469545.43774727,
+      "range_approximation": "finite",
+      "alt_deg": 48.56187836597666,
+      "az_deg": 294.4826912614873,
+      "alt_refracted_deg": 48.57678497911783,
+      "above_horizon": true,
+      "compass": "WNW",
+      "angular_size_arcsec": 11.8028,
+      "horizontal_parallax_deg": 0.003084554,
+      "events": {
+        "rise": {
+          "jd": 2444329.1411405345,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444329.392016535,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 74.08025353346859
+        },
+        "set": {
+          "jd": 2444328.645890642,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    },
+    {
+      "name": "Jupiter",
+      "kind": "planet",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 153.805114855,
+      "dec_deg": 12.226306931,
+      "geocentric_apparent_ra_deg": 153.805423437,
+      "geocentric_apparent_dec_deg": 12.226214011,
+      "topocentric_apparent_ra_deg": 153.805114855,
+      "topocentric_apparent_dec_deg": 12.226306931,
+      "geocentric_range_km": 686376364.8177142,
+      "observer_range_km": 686371227.7794889,
+      "range_approximation": "finite",
+      "alt_deg": 53.65002257442849,
+      "az_deg": 290.9340676575913,
+      "alt_refracted_deg": 53.66245316422126,
+      "above_horizon": true,
+      "compass": "WNW",
+      "angular_size_arcsec": 42.0186,
+      "horizontal_parallax_deg": 0.00053242,
+      "events": {
+        "rise": {
+          "jd": 2444329.1529814033,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444329.403847826,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 77.7762152463925
+        },
+        "set": {
+          "jd": 2444328.6576617565,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    },
+    {
+      "name": "Saturn",
+      "kind": "planet",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 173.925971307,
+      "dec_deg": 5.253893436,
+      "geocentric_apparent_ra_deg": 173.926043053,
+      "geocentric_apparent_dec_deg": 5.253867922,
+      "topocentric_apparent_ra_deg": 173.925971307,
+      "topocentric_apparent_dec_deg": 5.253893436,
+      "geocentric_range_km": 1270462597.4780722,
+      "observer_range_km": 1270456445.1618204,
+      "range_approximation": "finite",
+      "alt_deg": 74.70793021221805,
+      "az_deg": 290.31588534908684,
+      "alt_refracted_deg": 74.71253723187196,
+      "above_horizon": true,
+      "compass": "WNW",
+      "angular_size_arcsec": 18.9085,
+      "horizontal_parallax_deg": 0.000287644,
+      "events": {
+        "rise": {
+          "jd": 2444329.2087298017,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444329.4595739073,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 84.74723923329768
+        },
+        "set": {
+          "jd": 2444328.713339203,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    },
+    {
+      "name": "Uranus",
+      "kind": "planet",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 232.890319209,
+      "dec_deg": -18.777233294,
+      "geocentric_apparent_ra_deg": 232.890218694,
+      "geocentric_apparent_dec_deg": -18.777202211,
+      "topocentric_apparent_ra_deg": 232.890319209,
+      "topocentric_apparent_dec_deg": -18.777233294,
+      "geocentric_range_km": 2695475474.249217,
+      "observer_range_km": 2695471173.2829046,
+      "range_approximation": "finite",
+      "alt_deg": 42.402033577696216,
+      "az_deg": 115.84320595036768,
+      "alt_refracted_deg": 42.42050875480137,
+      "above_horizon": true,
+      "compass": "ESE",
+      "angular_size_arcsec": 3.8815,
+      "horizontal_parallax_deg": 0.000135576,
+      "events": {
+        "rise": {
+          "jd": 2444329.3719446566,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444328.6257044272,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 71.21745597135326
+        },
+        "set": {
+          "jd": 2444328.8766604643,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    },
+    {
+      "name": "Neptune",
+      "kind": "planet",
+      "coordinate_frame": "true_equator_and_equinox_of_date",
+      "ra_deg": 262.095905063,
+      "dec_deg": -21.852953526,
+      "geocentric_apparent_ra_deg": 262.095820707,
+      "geocentric_apparent_dec_deg": -21.852945053,
+      "topocentric_apparent_ra_deg": 262.095905063,
+      "topocentric_apparent_dec_deg": -21.852953526,
+      "geocentric_range_km": 4481946424.348268,
+      "observer_range_km": 4481944771.6228075,
+      "range_approximation": "finite",
+      "alt_deg": 15.018016064103474,
+      "az_deg": 112.66789235785163,
+      "alt_refracted_deg": 15.079192754379196,
+      "above_horizon": true,
+      "compass": "ESE",
+      "angular_size_arcsec": 2.2663,
+      "horizontal_parallax_deg": 8.1536e-05,
+      "events": {
+        "rise": {
+          "jd": 2444329.452807689,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        },
+        "transit": {
+          "jd": 2444328.706553295,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          },
+          "altitude_deg": 68.1463697318662
+        },
+        "set": {
+          "jd": 2444328.957559823,
+          "calculation_status": "calculated",
+          "occurrence_status": "occurs",
+          "source": {
+            "engine": "solar-ephemeris",
+            "version": "0.2.0"
+          }
+        }
+      }
+    }
+  ],
+  "warnings": [
+    "Analytic apparent place; research and observing-planning only. Catalogue stars approximate infinite distance; annual parallax and aberration are omitted."
+  ]
+}

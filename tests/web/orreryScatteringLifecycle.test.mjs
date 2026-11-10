@@ -1,3 +1,4 @@
+import {physicalProgramSources} from '../../apps/web/js/physicalProgramSources.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {orreryHarness} from './helpers/orreryHarness.mjs';
@@ -48,7 +49,7 @@ test('the scattering prepass asserts the scene-pass state it restores instead of
       probing=true;
       try{
         const active=realGet(gl.ACTIVE_TEXTURE);
-        const units=[7,8,9,10].map(unit=>{gl.activeTexture(gl.TEXTURE0+unit);return [realGet(gl.TEXTURE_BINDING_2D),realGet(gl.SAMPLER_BINDING)];});
+        const units=[6,7,8,9,10].map(unit=>{gl.activeTexture(gl.TEXTURE0+unit);return [realGet(gl.TEXTURE_BINDING_2D),realGet(gl.SAMPLER_BINDING)];});
         gl.activeTexture(active);
         observed.push({framebuffers:[realGet(gl.DRAW_FRAMEBUFFER_BINDING),realGet(gl.READ_FRAMEBUFFER_BINDING)],viewport:realGet(gl.VIEWPORT),
           program:realGet(gl.CURRENT_PROGRAM),vertexArray:realGet(gl.VERTEX_ARRAY_BINDING),activeTexture:active,units,
@@ -64,7 +65,7 @@ test('the scattering prepass asserts the scene-pass state it restores instead of
     assert.deepEqual(queried,[],'no caller-state parameter may be read back from the driver');
     assert.deepEqual(enabledQueries,[],'no enable state may be read back from the driver');
     assert.deepEqual(observed,[{framebuffers:[null,null],viewport:[0,0,812,604],program:null,vertexArray:null,activeTexture:gl.TEXTURE0,
-      units:[[null,null],[null,null],[null,null],[null,null]],colorMask:[true,true,true,true],depthMask:true,
+      units:[[null,null],[null,null],[null,null],[null,null],[null,null]],colorMask:[true,true,true,true],depthMask:true,
       enabled:[true,true,false,false,false,false,false,false,true]}],'generation starts from exactly the asserted scene-pass state');
     const surface=consumers(draws)[0];
     assert.ok(surface,'the physical surface still composes after the prepass');
@@ -99,12 +100,14 @@ for(const body of ['Earth','Mars'])test(`${body} shell raster and optical endpoi
   assert.deepEqual(h.errors,[]);
 });
 
-test('every physical scene generates two passes before surface and shell consumers, including paused repaints',async t=>{
+test('every physical scene generates four ordered draws before surface and shell consumers, including paused repaints',async t=>{
   const h=await boot(t),before=h.gpuSubmissions.length,serial=h.state.scatteringFrame.sceneSerial;
   h.resize(812,604);const draws=h.gpuSubmissions.slice(before),generated=generatorDraws(draws),used=consumers(draws);
-  assert.equal(h.state.opticsStatus.Earth,'ready');assert.equal(generated.length,2);assert.equal(used.length,2);
-  assert.deepEqual(generated.map(draw=>draw.uniforms.u_scatteringPass),[0,1]);
-  assert.ok(draws.indexOf(generated[1])<draws.indexOf(used[0]));
+  assert.equal(h.state.opticsStatus.Earth,'ready');assert.equal(generated.length,4);assert.equal(used.length,2);
+  assert.deepEqual(generated.map(draw=>draw.uniforms.u_scatteringPass),[0,0,1,1]);
+  const sources=physicalProgramSources('Earth');
+  for(const [i,draw]of generated.entries())assert.ok(draw.program.sources.includes(sources[i%2===0?'scatteringNumerator':'scatteringResolve'].fragment));
+  assert.ok(draws.indexOf(generated[3])<draws.indexOf(used[0]));
   assert.ok(generated.every(draw=>draw.framebuffer&&draw.framebuffer!==used[0].framebuffer));
   assert.ok(generated.every(draw=>draw.enabled.size===0&&!draw.depthWrites));
   assert.equal(used[0].framebuffer,null);assert.equal(used[1].framebuffer,null);
@@ -114,7 +117,7 @@ test('every physical scene generates two passes before surface and shell consume
   assert.ok(h.state.scatteringFrame.sceneSerial>serial);
   assert.equal(h.state.scatteringStatus.Earth.submission.sceneSerial,h.state.scatteringFrame.sceneSerial);
   const second=h.gpuSubmissions.length;h.resize(812,604);
-  assert.equal(generatorDraws(h.gpuSubmissions.slice(second)).length,2,'same epoch/camera still requires a fresh scene submission');
+  assert.equal(generatorDraws(h.gpuSubmissions.slice(second)).length,4,'same epoch/camera still requires a fresh scene submission');
   assert.equal(h.state.opticsStatus.Earth,'ready','previous output bindings cannot poison next-frame restore admission');
   assert.deepEqual(h.errors,[]);
 });

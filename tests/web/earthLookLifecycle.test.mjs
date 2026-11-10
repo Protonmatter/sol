@@ -43,6 +43,30 @@ test('Earth rejects and closes a decode that finishes after the page is hidden',
   assert.ok(!h.textureRecords.some(record=>record.pixels===image));h.leaveOrrery();
 });
 
+test('an old Earth decode cannot upload or displace the ready replacement after context recovery',async t=>{
+  const pending=[];
+  const h=await orreryHarness(t,{controls:true,useProductAppearanceDefault:true,
+    illustrativeMap:(asset,signal)=>asset.body==='Earth'?new Promise(resolve=>pending.push({signal,resolve}))
+      :Promise.resolve({width:2048,height:1024,close(){}})});
+  t.after(()=>h.leaveOrrery());
+  await h.enterOrrery();h.setAnimate(false);h.input('orreryAnchor','Earth','change');await h.settle();
+  const old=pending.at(-1);assert.ok(old);assert.equal(h.state.earthLookStatus,'loading');
+  const physical=JSON.stringify([h.state.renderUnix,h.state.bodies]);
+  h.event('orreryCanvas','webglcontextlost');assert.equal(old.signal.aborted,true);
+  h.event('orreryCanvas','webglcontextrestored');await h.settle();await h.settle();
+  const fresh=pending.at(-1);assert.notEqual(fresh,old);assert.equal(fresh.signal.aborted,false);
+  const image=()=>({width:5400,height:2700,closes:0,close(){this.closes++;}});
+  const replacement=image();fresh.resolve(replacement);await settleEarthLayers(h);
+  assert.equal(h.state.earthLookStatus,'ready');assert.equal(replacement.closes,1);
+  const texture=h.textureRecords.find(record=>record.pixels===replacement)?.texture;assert.ok(texture);
+  const stale=image();old.resolve(stale);await h.settle();await h.settle();
+  assert.equal(stale.closes,1,'the abandoned decoded image is closed exactly once');
+  assert.ok(!h.textureRecords.some(record=>record.pixels===stale),'an obsolete owner must not upload even temporarily');
+  assert.ok(!h.deletedTextures.includes(texture),'the current Earth texture survives the old completion');
+  assert.equal(h.state.earthLookStatus,'ready');
+  assert.equal(JSON.stringify([h.state.renderUnix,h.state.bodies]),physical);
+});
+
 test('Earth shader failure stays isolated and the appearance selector retries it',async t=>{
   const h=await orreryHarness(t,{controls:true,useProductAppearanceDefault:true,
     illustrativeMap:async asset=>({width:asset.dimensions[0],height:asset.dimensions[1],close(){}})});

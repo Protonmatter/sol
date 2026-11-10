@@ -117,13 +117,14 @@ test('a moon focus action reaches the renderer instead of dying on the anchor li
     click() { clicked.push(id); this.listeners.get('click')?.({currentTarget: this}); }, dataset: {}});
   const nodes = new Map([['orreryAnchor', anchor],
     ...['destinationFocus', 'orreryFocusSelected', 'orreryFreeFly'].map(id => [id, node(id)])]);
-  const document = {getElementById: id => nodes.get(id) ?? null, querySelectorAll: () => [],
+  const document = {body:{setAttribute(){}},getElementById: id => nodes.get(id) ?? null, querySelectorAll: () => [],
     querySelector: () => null, addEventListener() {}};
   const bindings = {store: state, controls: {}, TOUR_STEPS: [], workspace: createWorkspaceState(),
     explorer: {}, revealWorkspaceControl: () => {}};
   const boundaries = new Map([...appSource.matchAll(/^import \{([^}]+)\} from "([^"]+)";/gm)].map(([, names, specifier]) =>
     [specifier, Object.fromEntries(names.split(',').map(name => name.trim()).map(name =>
       [name, Object.hasOwn(bindings, name) ? bindings[name] : () => {}]))]));
+  boundaries.set('./js/viewLoader.js',{createViewLoader:()=>({activate:()=>Promise.resolve(null),state:{name:'observe',status:'idle'},pauseLoading(){},resumeLoading:()=>Promise.resolve(null)})});
   await loadSourceModules(vm.createContext({document, window: {addEventListener() {}},
     location: {hash: ''}, localStorage: {getItem: () => null}, navigator: {},
     Event: class { constructor(type) { this.type = type; } }}), [appURL], {
@@ -157,7 +158,7 @@ test('app details routing rejects stale galactic planet facts while retaining se
     listeners: new Map(), addEventListener(type, listener) { this.listeners.set(type, listener); },
     click() { this.listeners.get('click')?.(); },
   }]));
-  const document = {getElementById: id => buttons.get(id), querySelectorAll: () => [],
+  const document = {body:{setAttribute(){}},getElementById: id => buttons.get(id), querySelectorAll: () => [],
     querySelector: () => null, addEventListener() {}};
   const bindings = {store: state, controls: {}, TOUR_STEPS: [], workspace: createWorkspaceState(),
     explorer: {}, revealWorkspaceControl: (surface, target) => calls.push([surface, target])};
@@ -166,6 +167,7 @@ test('app details routing rejects stale galactic planet facts while retaining se
   const boundaries = new Map([...appSource.matchAll(/^import \{([^}]+)\} from "([^"]+)";/gm)].map(([,names,specifier]) =>
     [specifier, Object.fromEntries(names.split(',').map(name => name.trim()).map(name =>
       [name, Object.hasOwn(bindings, name) ? bindings[name] : () => {}]))]));
+  boundaries.set('./js/viewLoader.js',{createViewLoader:()=>({activate:()=>Promise.resolve(null),state:{name:'observe',status:'idle'},pauseLoading(){},resumeLoading:()=>Promise.resolve(null)})});
   await loadSourceModules(vm.createContext({document, window: {addEventListener() {}},
     location: {hash: ''}, localStorage: {getItem: () => null}, navigator: {}}), [appURL], {
       resolveImport: specifier => boundaries.get(specifier),
@@ -191,4 +193,30 @@ test('app details routing rejects stale galactic planet facts while retaining se
   state.activeMode = 'orrery'; state.orrery.galaxy = false;
   details.click();
   assert.deepEqual(calls, [['orrery', 'orreryDetail']]);
+});
+
+test('explicit solar timeline entry reveals the region and local close restores the visible trigger',async()=>{
+  const appURL=new URL('../../apps/web/app.js',import.meta.url),appSource=readFileSync(appURL,'utf8'),calls=[];
+  const state={activeMode:'today',tourIndex:-1},layout=createWorkspaceState();
+  const node=id=>({id,hidden:true,listeners:new Map(),addEventListener(type,fn){this.listeners.set(type,fn);},
+    click(){this.listeners.get('click')?.();},scrollIntoView(options){calls.push(['scroll',id,options.block,options.behavior]);},
+    focus(options){assert.equal(nodes.get('timeline').hidden,id==='timelineToggle');calls.push(['focus',id,options?.preventScroll]);}});
+  const nodes=new Map(['timeline','timelineToggle','timelineClose','journeyTitle'].map(id=>[id,node(id)]));
+  const document={body:{setAttribute(){}},getElementById:id=>nodes.get(id)??null,querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
+  const bindings={store:state,controls:{},TOUR_STEPS:[],workspace:layout,explorer:{},
+    renderWorkspace(){nodes.get('timeline').hidden=!layout.timelineOpen;},
+    openInspector(surface){calls.push(['inspector',surface]);},revealWorkspaceControl:(surface,target)=>calls.push(['control',surface,target])};
+  const boundaries=new Map([...appSource.matchAll(/^import \{([^}]+)\} from "([^"]+)";/gm)].map(([,names,specifier])=>
+    [specifier,Object.fromEntries(names.split(',').map(name=>name.trim()).map(name=>[name,Object.hasOwn(bindings,name)?bindings[name]:()=>{}]))]));
+  boundaries.set('./js/viewLoader.js',{createViewLoader:()=>({activate:()=>Promise.resolve(null),state:{name:'observe',status:'idle'},pauseLoading(){},resumeLoading:()=>Promise.resolve(null)})});
+  await loadSourceModules(vm.createContext({document,window:{addEventListener(){}},location:{hash:''},localStorage:{getItem:()=>null},navigator:{}}),[appURL],{resolveImport:specifier=>boundaries.get(specifier)});
+  nodes.get('timelineToggle').click();assert.equal(layout.timelineOpen,true);
+  assert.deepEqual(calls.splice(0),[['scroll','timeline','nearest','auto'],['focus','journeyTitle',true]]);
+  nodes.get('timelineClose').click();assert.equal(layout.timelineOpen,false);
+  assert.deepEqual(calls.splice(0),[['focus','timelineToggle',undefined]]);
+  nodes.get('timelineToggle').click();calls.length=0;
+  nodes.get('timelineToggle').click();assert.equal(layout.timelineOpen,false);assert.deepEqual(calls,[],'closing the original trigger does not scroll the hidden region');
+  state.activeMode='sky';nodes.get('timelineToggle').click();
+  assert.deepEqual(calls.splice(0),[['inspector','sky'],['control','sky','skyTime']]);
+  nodes.get('timelineClose').click();assert.deepEqual(calls,[],'a stale local close cannot steal focus in another destination');
 });

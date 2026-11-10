@@ -2,7 +2,7 @@
   "schema_version": "accuracy-evidence.v1",
   "records": [
     {
-      "id": "top2013-0-5000",
+      "id": "top2013-big-0-5000",
       "body": "Jupiter",
       "quantity": "heliocentric_ecliptic_j2000_position",
       "tested_epochs_jd": [
@@ -12,25 +12,25 @@
       "method": "source_theory_parity",
       "observer_domain": "not_applicable_heliocentric",
       "reference": {
-        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
-        "path": "crates/solar-ephemeris/src/top2013.rs",
-        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
-        "symbol": "tests::matches_top2013_source_deep_time",
+        "git_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+        "path": "src/top2013/dist/08-big/src/top2013.js",
+        "sha256_lf": "c75e7f713d7e5b1bea1278efeb62b06236098754c6db49717700ae61b6f5ab15",
+        "symbol": "top2k_theory",
         "vector_au": [
-          -4.32774859,
-          -3.36860619,
-          0.11833825
+          -4.32842172,
+          -3.3682141,
+          0.11803611
         ]
       },
       "measured_error": {
         "metric": "relative_vector_norm_arcsec",
-        "value": 0.0002058985020796671,
+        "value": 0.0002571769472515003,
         "acceptance_threshold": 0.5
       },
-      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+      "limitations": "Pinned upstream TOP2013 08-big element solver and independent elliptic Cartesian reduction, rounded to eight decimals. Source-theory parity only; not independent JPL accuracy or a continuous epoch guarantee."
     },
     {
-      "id": "top2013-0--5000",
+      "id": "top2013-big-0--5000",
       "body": "Jupiter",
       "quantity": "heliocentric_ecliptic_j2000_position",
       "tested_epochs_jd": [
@@ -40,25 +40,25 @@
       "method": "source_theory_parity",
       "observer_domain": "not_applicable_heliocentric",
       "reference": {
-        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
-        "path": "crates/solar-ephemeris/src/top2013.rs",
-        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
-        "symbol": "tests::matches_top2013_source_deep_time",
+        "git_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+        "path": "src/top2013/dist/08-big/src/top2013.js",
+        "sha256_lf": "c75e7f713d7e5b1bea1278efeb62b06236098754c6db49717700ae61b6f5ab15",
+        "symbol": "top2k_theory",
         "vector_au": [
-          -4.78884702,
-          -2.48413965,
-          0.12775014
+          -4.78977502,
+          -2.48306535,
+          0.1273679
         ]
       },
       "measured_error": {
         "metric": "relative_vector_norm_arcsec",
-        "value": 0.0002033052934756709,
+        "value": 0.00018168640445426361,
         "acceptance_threshold": 0.5
       },
-      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+      "limitations": "Pinned upstream TOP2013 08-big element solver and independent elliptic Cartesian reduction, rounded to eight decimals. Source-theory parity only; not independent JPL accuracy or a continuous epoch guarantee."
     },
     {
-      "id": "top2013-1-5000",
+      "id": "top2013-big-1-5000",
       "body": "Saturn",
       "quantity": "heliocentric_ecliptic_j2000_position",
       "tested_epochs_jd": [
@@ -68,25 +68,25 @@
       "method": "source_theory_parity",
       "observer_domain": "not_applicable_heliocentric",
       "reference": {
-        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
-        "path": "crates/solar-ephemeris/src/top2013.rs",
-        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
-        "symbol": "tests::matches_top2013_source_deep_time",
+        "git_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+        "path": "src/top2013/dist/08-big/src/top2013.js",
+        "sha256_lf": "c75e7f713d7e5b1bea1278efeb62b06236098754c6db49717700ae61b6f5ab15",
+        "symbol": "top2k_theory",
         "vector_au": [
-          7.09745989,
-          -6.89521046,
-          -0.24948087
+          7.09907027,
+          -6.89865121,
+          -0.24955423
         ]
       },
       "measured_error": {
         "metric": "relative_vector_norm_arcsec",
-        "value": 0.00003444256054926199,
+        "value": 7.667974336291116e-05,
         "acceptance_threshold": 0.5
       },
-      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+      "limitations": "Pinned upstream TOP2013 08-big element solver and independent elliptic Cartesian reduction, rounded to eight decimals. Source-theory parity only; not independent JPL accuracy or a continuous epoch guarantee."
     },
     {
-      "id": "top2013-1--5000",
+      "id": "top2013-big-1--5000",
       "body": "Saturn",
       "quantity": "heliocentric_ecliptic_j2000_position",
       "tested_epochs_jd": [
@@ -96,25 +96,25 @@
       "method": "source_theory_parity",
       "observer_domain": "not_applicable_heliocentric",
       "reference": {
-        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
-        "path": "crates/solar-ephemeris/src/top2013.rs",
-        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
-        "symbol": "tests::matches_top2013_source_deep_time",
+        "git_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+        "path": "src/top2013/dist/08-big/src/top2013.js",
+        "sha256_lf": "c75e7f713d7e5b1bea1278efeb62b06236098754c6db49717700ae61b6f5ab15",
+        "symbol": "top2k_theory",
         "vector_au": [
-          -8.3634907,
-          4.39065942,
-          0.16433556
+          -8.36072079,
+          4.38752123,
+          0.16447946
         ]
       },
       "measured_error": {
         "metric": "relative_vector_norm_arcsec",
-        "value": 0.00015919185787553384,
+        "value": 8.847966162992572e-05,
         "acceptance_threshold": 0.5
       },
-      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+      "limitations": "Pinned upstream TOP2013 08-big element solver and independent elliptic Cartesian reduction, rounded to eight decimals. Source-theory parity only; not independent JPL accuracy or a continuous epoch guarantee."
     },
     {
-      "id": "top2013-2-5000",
+      "id": "top2013-big-2-5000",
       "body": "Uranus",
       "quantity": "heliocentric_ecliptic_j2000_position",
       "tested_epochs_jd": [
@@ -124,25 +124,25 @@
       "method": "source_theory_parity",
       "observer_domain": "not_applicable_heliocentric",
       "reference": {
-        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
-        "path": "crates/solar-ephemeris/src/top2013.rs",
-        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
-        "symbol": "tests::matches_top2013_source_deep_time",
+        "git_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+        "path": "src/top2013/dist/08-big/src/top2013.js",
+        "sha256_lf": "c75e7f713d7e5b1bea1278efeb62b06236098754c6db49717700ae61b6f5ab15",
+        "symbol": "top2k_theory",
         "vector_au": [
-          -12.78922132,
-          13.37406412,
-          0.18478171
+          -12.78733622,
+          13.37617692,
+          0.18528392
         ]
       },
       "measured_error": {
         "metric": "relative_vector_norm_arcsec",
-        "value": 0.00005596229459233995,
+        "value": 5.8290072956048516e-05,
         "acceptance_threshold": 0.5
       },
-      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+      "limitations": "Pinned upstream TOP2013 08-big element solver and independent elliptic Cartesian reduction, rounded to eight decimals. Source-theory parity only; not independent JPL accuracy or a continuous epoch guarantee."
     },
     {
-      "id": "top2013-2--5000",
+      "id": "top2013-big-2--5000",
       "body": "Uranus",
       "quantity": "heliocentric_ecliptic_j2000_position",
       "tested_epochs_jd": [
@@ -152,25 +152,25 @@
       "method": "source_theory_parity",
       "observer_domain": "not_applicable_heliocentric",
       "reference": {
-        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
-        "path": "crates/solar-ephemeris/src/top2013.rs",
-        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
-        "symbol": "tests::matches_top2013_source_deep_time",
+        "git_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+        "path": "src/top2013/dist/08-big/src/top2013.js",
+        "sha256_lf": "c75e7f713d7e5b1bea1278efeb62b06236098754c6db49717700ae61b6f5ab15",
+        "symbol": "top2k_theory",
         "vector_au": [
-          -11.04731187,
-          14.82682534,
-          0.23011759
+          -11.04880315,
+          14.82653222,
+          0.22977684
         ]
       },
       "measured_error": {
         "metric": "relative_vector_norm_arcsec",
-        "value": 0.00003705132693430364,
+        "value": 5.412621209849628e-05,
         "acceptance_threshold": 0.5
       },
-      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+      "limitations": "Pinned upstream TOP2013 08-big element solver and independent elliptic Cartesian reduction, rounded to eight decimals. Source-theory parity only; not independent JPL accuracy or a continuous epoch guarantee."
     },
     {
-      "id": "top2013-3-5000",
+      "id": "top2013-big-3-5000",
       "body": "Neptune",
       "quantity": "heliocentric_ecliptic_j2000_position",
       "tested_epochs_jd": [
@@ -180,25 +180,25 @@
       "method": "source_theory_parity",
       "observer_domain": "not_applicable_heliocentric",
       "reference": {
-        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
-        "path": "crates/solar-ephemeris/src/top2013.rs",
-        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
-        "symbol": "tests::matches_top2013_source_deep_time",
+        "git_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+        "path": "src/top2013/dist/08-big/src/top2013.js",
+        "sha256_lf": "c75e7f713d7e5b1bea1278efeb62b06236098754c6db49717700ae61b6f5ab15",
+        "symbol": "top2k_theory",
         "vector_au": [
-          10.61844988,
-          27.83186896,
-          -0.82077486
+          10.62259522,
+          27.8298452,
+          -0.82112857
         ]
       },
       "measured_error": {
         "metric": "relative_vector_norm_arcsec",
-        "value": 0.000039922513615877085,
+        "value": 3.074604495104913e-05,
         "acceptance_threshold": 0.5
       },
-      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+      "limitations": "Pinned upstream TOP2013 08-big element solver and independent elliptic Cartesian reduction, rounded to eight decimals. Source-theory parity only; not independent JPL accuracy or a continuous epoch guarantee."
     },
     {
-      "id": "top2013-3--5000",
+      "id": "top2013-big-3--5000",
       "body": "Neptune",
       "quantity": "heliocentric_ecliptic_j2000_position",
       "tested_epochs_jd": [
@@ -208,22 +208,22 @@
       "method": "source_theory_parity",
       "observer_domain": "not_applicable_heliocentric",
       "reference": {
-        "git_revision": "25efcd528c13bb46a0caf364b37b98801232e7be",
-        "path": "crates/solar-ephemeris/src/top2013.rs",
-        "sha256_lf": "e52c55152d5cfe5f26eed83125cd9b5bba172619cb3caf4276f4e9cdb2af3554",
-        "symbol": "tests::matches_top2013_source_deep_time",
+        "git_revision": "2f679a1f698b4f20f9579d94da24af51559458ed",
+        "path": "src/top2013/dist/08-big/src/top2013.js",
+        "sha256_lf": "c75e7f713d7e5b1bea1278efeb62b06236098754c6db49717700ae61b6f5ab15",
+        "symbol": "top2k_theory",
         "vector_au": [
-          -30.224436,
-          -0.64202797,
-          0.70168486
+          -30.22626634,
+          -0.64396146,
+          0.70189552
         ]
       },
       "measured_error": {
         "metric": "relative_vector_norm_arcsec",
-        "value": 0.00003858837332976884,
+        "value": 2.2855679342548284e-05,
         "acceptance_threshold": 0.5
       },
-      "limitations": "Committed 8-decimal source-theory literals; original truth.js generator is not in this checkout. Not independent JPL accuracy, not a continuous epoch guarantee."
+      "limitations": "Pinned upstream TOP2013 08-big element solver and independent elliptic Cartesian reduction, rounded to eight decimals. Source-theory parity only; not independent JPL accuracy or a continuous epoch guarantee."
     }
   ],
   "unvalidated_quantities": [

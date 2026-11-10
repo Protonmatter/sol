@@ -3,7 +3,7 @@
 //! tools/ephemeris-data/). This replaces ~230 KB of generated Rust source: the
 //! blob is `include_bytes!`d and decoded into exactly the `Planet` / `Term`
 //! structures the evaluator (`vsop2013.rs`) already expects, so the math and the
-//! coefficient values are byte-for-byte unchanged.
+//! selected upstream profile's coefficient values are preserved exactly.
 
 use super::binread::Reader;
 use super::vsop2013::{Planet, Series, Term};

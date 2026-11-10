@@ -1,0 +1,64 @@
+{
+  "files": [
+    {
+      "path": "native-evidence.tar.gz",
+      "bytes": 4136,
+      "sha256": "09b5116f2b9095c8a3404afe5e4c724a845a05bc85e195f40d10b73d2ef05688"
+    },
+    {
+      "path": "bootstrap-receipt.json",
+      "bytes": 716,
+      "sha256": "ea85d686748715f5b49b7689c4caf76777ef789786ec0a17bdd2c1db5de092bb"
+    },
+    {
+      "path": "bootstrap.py.txt",
+      "bytes": 3343,
+      "sha256": "82f915b8f0af16ac9127392ddec88feafcd4972391bc40f40cfb067b4fefd502"
+    },
+    {
+      "path": "driver.py.txt",
+      "bytes": 9709,
+      "sha256": "07d57d21f080e9e5137221d7fe069af16413bcb7b796d7118286050646476b91"
+    },
+    {
+      "path": "input-manifest.json",
+      "bytes": 1909,
+      "sha256": "78aa0392ef4f4d64557bf794fc8c8ac9cf819457b12d3bb0b79d8a407155413a"
+    },
+    {
+      "path": "launcher.log",
+      "bytes": 275,
+      "sha256": "bdbf543fb538461f681257837218c9e51413f1df04b46f9d923dda35d941ff82"
+    },
+    {
+      "path": "return-control.py.txt",
+      "bytes": 4546,
+      "sha256": "213bbcb0af9a64286afaa85552531d480133ce22e59f9e19fcaad654dbcd0248"
+    },
+    {
+      "path": "source/generate_moons.py.txt",
+      "bytes": 19165,
+      "sha256": "ee3712f01c49f79fa325e7c11898fab530476c1de91596426936a3a3b26dc028"
+    },
+    {
+      "path": "source/validate_moons.py.txt",
+      "bytes": 9125,
+      "sha256": "4358258af1f855297b0575da21bd2d7d373030ac2614ddf6d0a47987a82ba3bb"
+    },
+    {
+      "path": "source/collect_moon_evidence.py.txt",
+      "bytes": 7027,
+      "sha256": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf"
+    },
+    {
+      "path": "source/moon_model.py.txt",
+      "bytes": 6090,
+      "sha256": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445"
+    },
+    {
+      "path": "generation-manifest.qualified.json",
+      "bytes": 3747,
+      "sha256": "e994a31d8043bc33ff640b01825bdf2ceed75970073ff6df46bcb257785e4dcb"
+    }
+  ]
+}

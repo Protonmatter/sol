@@ -4,6 +4,7 @@ import { assertEphemerisSnapshotV3, assertEphemerisRequestBinding } from "./ephe
 
 export function createSkyWorkerClient(options = {}) {
   const client=new LatestWorkerClient({engine:"ephemeris",schema:"ephemeris-snapshot.v3",release:"__SOL_RELEASE_ID__",
+    initialize:true,
     createWorker:()=>new Worker(new URL("./skyWorker.js?v=dcca6290db",import.meta.url),{type:"module",name:"Sol Sky engine"}),
     ...options,validateRequest:validateSkyWork,deadlineMs:SKY_LIMITS.deadlineMs});
   return {

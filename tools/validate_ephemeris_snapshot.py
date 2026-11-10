@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 import jsonschema_min
 from validate_ephemeris_snapshot_v2 import (
-    finite, finite_tree, check_time, local_solar_day_start, MAJOR_BODIES,
+    finite, finite_tree, SECONDS_PER_DAY, local_solar_day_start, MAJOR_BODIES,
 )
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "docs/ephemeris-snapshot-v3.schema.json"
@@ -36,6 +36,54 @@ def horizontal_direction_agrees(body: dict, time: dict, observer: dict) -> bool:
 
 def reject_constant(value: str) -> None:
     raise ValueError(f"non-JSON numeric constant {value}")
+
+
+def delta_t_consistent(time: dict[str, Any]) -> bool:
+    delta_t = float(time['delta_t_seconds'])
+    expected_jd = (float(time['jd_tt']) - float(time['jd_ut1'])) * SECONDS_PER_DAY
+    if abs(delta_t - expected_jd) <= 5e-5:
+        return True
+    offset, dut1 = time.get('tai_minus_utc_seconds'), time.get('dut1_seconds')
+    if not all(finite(value) for value in (offset, dut1)):
+        return False
+    # Keep the legacy JD path and its 50us allowance. Accurate atomic offsets
+    # avoid large-JD construction quantization. Two 9dp fields add at most1ns;
+    # scalar floating-point parsing/arithmetic adds the bounded epsilon term.
+    scale = max(32.184, abs(delta_t), abs(float(offset)), abs(float(dut1)))
+    tolerance = 1e-9 + 16 * sys.float_info.epsilon * scale
+    if tolerance > 5e-5:
+        return False
+    return abs(delta_t - (float(offset) + 32.184 - float(dut1))) <= tolerance
+
+
+def check_time(time: dict[str, Any]) -> list[str]:
+    """Live v3 clock policy; the historical v2 implementation remains frozen."""
+    errors = []
+    jd_utc, jd_ut1, jd_tt, jd_tai = (time.get(key) for key in ('jd_utc', 'jd_ut1', 'jd_tt', 'jd_tai'))
+    dut1, delta_t, offset = (time.get(key) for key in ('dut1_seconds', 'delta_t_seconds', 'tai_minus_utc_seconds'))
+    if all(finite(value) for value in (jd_utc, jd_ut1, dut1)):
+        if abs(float(jd_ut1) - float(jd_utc) - float(dut1) / SECONDS_PER_DAY) > 2e-9:
+            errors.append('time.jd_ut1 must equal jd_utc + dut1_seconds/86400')
+    if all(finite(value) for value in (jd_tt, jd_ut1, delta_t)) and not delta_t_consistent(time):
+        errors.append('time.delta_t_seconds must agree with rounded Julian dates or atomic offsets')
+    if jd_tai is None or offset is None:
+        if jd_tai is not None or offset is not None:
+            errors.append('time.jd_tai and tai_minus_utc_seconds must both be null or both numeric')
+    elif all(finite(value) for value in (jd_utc, jd_tai, jd_tt, offset)):
+        if abs(float(jd_tai) - float(jd_utc) - float(offset) / SECONDS_PER_DAY) > 2e-9:
+            errors.append('time.jd_tai must equal jd_utc + TAI-UTC')
+        if abs(float(jd_tt) - float(jd_tai) - 32.184 / SECONDS_PER_DAY) > 2e-9:
+            errors.append('time.jd_tt must equal jd_tai + 32.184 seconds')
+    eop = time.get('earth_orientation')
+    if isinstance(eop, dict):
+        if eop.get('quality') in {'rapid', 'predicted'} and not str(eop.get('source', '')).startswith('IERS Bulletin A'):
+            errors.append('precision EOP must identify its IERS Bulletin A source')
+        uncertainty = eop.get('dut1_uncertainty_seconds')
+        if finite(uncertainty) and float(uncertainty) < 0:
+            errors.append('EOP uncertainty must be non-negative')
+        if finite(dut1) and abs(float(dut1)) > .9:
+            errors.append('DUT1 must remain within UTC steering bounds')
+    return errors
 
 def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result = {}

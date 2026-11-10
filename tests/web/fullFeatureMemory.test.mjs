@@ -11,6 +11,65 @@ test('memory follow-up is explicit and rejects ambiguous flags',()=>{
   for(const args of [['--memory=true'],['--memory','--memory'],['--memory=false']])assert.throws(()=>memoryRequested(args));
 });
 
+async function executeMemoryView(body,restored,anchor=body){
+  const source=fs.readFileSync(new URL('../../tools/full_feature_memory.mjs',import.meta.url),'utf8');
+  const marker='  await page.evaluate(async({body,restored})=>{';
+  const start=source.indexOf(marker)+'  await page.evaluate('.length;
+  const end=source.indexOf('  },{body,restored});',start)+'  }'.length;
+  assert.ok(start>0&&end>start,'Actual memory preparation callback must be selected');
+  const events=[],state={anchor,radius:1.1,hdrEnabled:false,renderUnix:123,bodies:[{name:'Mars',x_au:1,y_au:2,z_au:3}]};
+  const inputs=Object.fromEntries(['orreryAnimate','orreryTextures','orreryTerrain','orreryOptics','orrerySize','orreryAnchor'].map(id=>[id,{
+    checked:false,value:anchor,dispatchEvent(event){events.push([id,event.type]);
+      if(id==='orreryAnchor'){state.anchor=this.value;state.radius=100;}
+    },
+  }]));
+  const context=vm.createContext({URL,Event:class{constructor(type){this.type=type;}},document:{
+    querySelector:()=>({src:'https://sol.invalid/sol/app.js?v=frozen'}),getElementById:id=>inputs[id],
+  }});
+  const module=new vm.SyntheticModule(['store'],function(){this.setExport('store',{orrery:state});},{context});
+  await module.link(()=>{});await module.evaluate();
+  const script=new vm.Script('('+source.slice(start,end)+')('+JSON.stringify({body,restored})+')',{
+    importModuleDynamically:async name=>{assert.equal(name,'./js/store.js?v=frozen');return module;},
+  });
+  return {state,events,inputs,run:()=>script.runInContext(context)};
+}
+
+test('Mars memory preparation retains the already qualified close view rather than refitting its satellite system',async()=>{
+  const fixture=await executeMemoryView('Mars',false);
+  await fixture.run();
+  assert.equal(fixture.state.radius,1.1);
+  assert.equal(fixture.state.anchor,'Mars');
+  assert.equal(fixture.events.some(([id])=>id==='orreryAnchor'),false);
+  assert.equal(fixture.state.hdrEnabled,true);
+  assert.equal(fixture.state.renderUnix,123);
+  assert.deepEqual(fixture.state.bodies,[{name:'Mars',x_au:1,y_au:2,z_au:3}]);
+  assert.ok(fixture.events.some(([id])=>id==='orrerySize'));
+});
+
+test('restored Mars memory preparation retains the same camera distance',async()=>{
+  const fixture=await executeMemoryView('Mars',true);
+  await fixture.run();
+  assert.equal(fixture.state.radius,1.1);
+  assert.equal(fixture.events.some(([id])=>id==='orreryAnchor'),false);
+});
+
+test('Mars memory preparation refuses an unrelated anchor before changing feature or camera state',async()=>{
+  const fixture=await executeMemoryView('Mars',false,'Earth');
+  await assert.rejects(fixture.run(),/qualified Mars view/);
+  assert.equal(fixture.state.radius,1.1);
+  assert.equal(fixture.state.anchor,'Earth');
+  assert.equal(fixture.state.hdrEnabled,false);
+  assert.deepEqual(fixture.events,[]);
+});
+
+test('initial Earth memory preparation keeps the existing anchor-selection behavior',async()=>{
+  const fixture=await executeMemoryView('Earth',false,'Mars');
+  await fixture.run();
+  assert.equal(fixture.state.anchor,'Earth');
+  assert.equal(fixture.state.radius,100);
+  assert.equal(fixture.events.filter(([id])=>id==='orreryAnchor').length,1);
+});
+
 test('checkpoint and preparation exclusion holds until every original gate completed',async()=>{
   const calls=[],browser={owned:true};let clock=0;
   const recorder=createMemoryCheckpointRecorder({browser,now:()=>++clock,capture:async(actual,options)=>{
@@ -186,7 +245,8 @@ test('restored memory preparation awaits asynchronous base readiness before clas
     const dependencies={
       'node:assert/strict':{default:assert},
       './texture_device_telemetry.mjs':{captureDeviceMemory:()=>{throw new Error('OS sampling belongs after preparation');}},
-      './browser_backend.mjs':{assertBrowserBackend:()=>{},captureBrowserCapabilities:()=>{}},
+      './browser_backend.mjs':{assertBrowserBackend:()=>{},captureBrowserCapabilities:()=>{},
+        withBrowserFeatureStatus:()=>{throw Error('Backend readback belongs after preparation');}},
       './physical_spin_probe.mjs':{preparePhysicalSpinEvidence:function preparePhysicalSpinEvidence(){},waitForPhysicalSpinReadiness:function waitForPhysicalSpinReadiness(){}},
       './earth_spin_probe.mjs':{collectSubmittedEarthSpin:function collectSubmittedEarthSpin(){}},
       './mars_terrain_probe.mjs':{prepareMarsTerrainEvidence:()=>{}},
@@ -261,7 +321,7 @@ test('both callers place optional sampling after complete original acceptance an
   assert.match(physical,/await Promise\.race\(\[run\(\),deadline\]\);\s*clearTimeout\(timer\);timer=null;\s*evidence\.original_gates=\{passed:true,deadline_ms:240000/);
   assert.ok(physical.indexOf('await runFullFeatureMemoryCheckpoints')>physical.indexOf('evidence.original_gates={passed:true'));
   assert.match(physical,/assert\.ok\(!memory\|\|marsOpticalAnimation/);
-  assert.match(physical,/browserBackendFromArgs\(process\.argv\.slice\(2\)\)/);
+  assert.match(physical,/browserBackendFromArgs\(process\.argv\.slice\(2\),\{allowSoftwareFallback:true\}\)/);
   assert.match(physical,/probe\.observed_backend=assertBrowserBackend\(backend,probe\.capabilities\)/);
 });
 

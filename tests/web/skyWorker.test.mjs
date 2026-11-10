@@ -3,7 +3,7 @@ import test from "node:test";
 import fs from "node:fs";
 import { createSkyWorkerClient } from "../../apps/web/js/skyWorkerClient.js";
 const input={operation:"track",bodyIndex:0,lat:0,lon:0,elev:0,unix:1700000000,dtSeconds:1,samples:2};
-function setup(){let worker;const client=createSkyWorkerClient({createWorker:()=>worker={postMessage(value){this.sent=value;},terminate(){this.terminated=true;}}});return{client,reply(value,identity={}){worker.onmessage({data:{...worker.sent,type:"result",value,...identity}});},worker:()=>worker};}
+function setup(){let worker;const client=createSkyWorkerClient({createWorker:()=>worker={postMessage(value){this.sent=value;if(value.type==='initialize')this.onmessage({data:{...value,type:'ready'}});},terminate(){this.terminated=true;}}});return{client,reply(value,identity={}){worker.onmessage({data:{...worker.sent,type:"result",value,...identity}});},worker:()=>worker};}
 test("worker trajectory requires exact count and finite consistent samples",async()=>{
  const sparse=setup();const pending=sparse.client.request(input);sparse.reply({operation:"track",samples:new Array(2)});await assert.rejects(pending);sparse.client.dispose();
  for(const samples of [[{alt:1,az:1,up:true}],[{alt:NaN,az:1,up:false},{alt:1,az:1,up:true}],[{alt:-1,az:1,up:true},{alt:1,az:1,up:true}]]){

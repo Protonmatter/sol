@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {isDeepStrictEqual} from 'node:util';
+import {analyzeModules} from './module_graph.mjs';
+const args=process.argv.slice(2),rootFlag=args.indexOf('--root'),rootsFlag=args.indexOf('--roots');
+const root=path.resolve(rootFlag>=0?args[rootFlag+1]:path.join(path.dirname(fileURLToPath(import.meta.url)),'../apps/web'));
+const file=path.join(root,'startup-modules.v1.json');
+const current=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):null;
+const roots=rootsFlag>=0?args[rootsFlag+1].split(','):current?.roots;
+const expected=analyzeModules(root,roots);
+if(args.includes('--write'))fs.writeFileSync(file,JSON.stringify(expected,null,2)+'\n');
+else if(!isDeepStrictEqual(expected,current))throw new Error('Startup module graph drift; regenerate reviewed graph and hints');
+console.log(`Startup graph ${args.includes('--write')?'written':'valid'}: ${expected.modules.length} module URL identities`);

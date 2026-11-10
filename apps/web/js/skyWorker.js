@@ -7,11 +7,12 @@ self.onmessage=async event=>{
   const request=event.data;
   if (!Number.isSafeInteger(request?.generation)||request.generation<1) return;
   const identity={protocol:"sol-worker.v1",engine:"ephemeris",schema:"ephemeris-snapshot.v3",abi:1,release,generation:request.generation};
-  if (request.type!=="compute"||request.protocol!==identity.protocol||request.engine!==identity.engine||request.schema!==identity.schema||request.abi!==1||request.release!==release||busy) {
+  if (!["initialize","compute"].includes(request.type)||request.protocol!==identity.protocol||request.engine!==identity.engine||request.schema!==identity.schema||request.abi!==1||request.release!==release||busy) {
     self.postMessage({...identity,type:"error",error:{code:"protocol",message:"Sky worker identity or admission mismatch"}});return;
   }
   busy=true;
   try {
+    if(request.type==="initialize"){await loadSkyEngine();self.postMessage({...identity,type:"ready"});return;}
     const p=validateSkyWork(request.payload);
     await loadSkyEngine();
     const value=p.operation==="snapshot"?{operation:p.operation,snapshot:skySnapshot(p.unix,p.lat,p.lon,p.elev)}:{operation:p.operation,samples:bodyTrack(p.bodyIndex,p.lat,p.lon,p.elev,p.unix,p.dtSeconds,p.samples)};
