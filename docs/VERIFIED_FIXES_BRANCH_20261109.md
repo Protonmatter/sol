@@ -54,3 +54,19 @@ accessibility acceptance, final distribution and recipient-delivery acceptance,
 served-byte correspondence, returning-client transition and executed production
 rollback remain separate release gates. The owner's instruction resumes
 engineering work; it does not clear these holds or authorize deployment.
+
+## Hosted startup identity correction
+
+The first branch CI run passed Rust tests/lint, both pinned Moon-image checks,
+governance and cross-OS engine determinism, but rejected the startup descriptor.
+Its hashes had been generated from Windows CRLF versions of two startup sources,
+while Git's existing attributes publish those authored JavaScript files as LF.
+The web artifact correctly refused that mismatch; dependent jobs then failed
+because no accepted web artifact existed.
+
+The descriptor is regenerated from the canonical LF bytes of `app.js` and
+`js/sourceRecords.js`, without changing JavaScript behavior or weakening the
+exact-byte hash check. A regression copies the real startup sources as an LF
+checkout and validates the shipped descriptor. It reproduces the original
+failure and passes after correction. The first failed hosted run remains
+historical evidence, not a successful publication check.

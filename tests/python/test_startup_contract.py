@@ -25,6 +25,16 @@ class StartupContractTests(unittest.TestCase):
         (self.root/'index.html').write_text(self.markup,encoding='utf-8')
     def test_exact_source_and_html_pass_without_node(self):
         self.assertEqual(validate_startup_contract(self.root),self.descriptor)
+    def test_repository_descriptor_survives_lf_checkout(self):
+        source=Path(__file__).resolve().parents[2]/'apps/web'
+        target=self.root/'lf-checkout';target.mkdir()
+        descriptor=(source/'startup-modules.v1.json').read_bytes()
+        value=json.loads(descriptor)
+        for name in ['index.html',*[item['path']for item in value['modules']]]:
+            destination=target/name;destination.parent.mkdir(parents=True,exist_ok=True)
+            destination.write_bytes((source/name).read_bytes().replace(b'\r\n',b'\n'))
+        (target/'startup-modules.v1.json').write_bytes(descriptor)
+        self.assertEqual(validate_startup_contract(target),value)
     def test_stale_import_edges_or_values_fail_source_hash_binding(self):
         for contents in [b"import './js/new.js';\n",b'export const value=2;\n']:
             with self.subTest(contents=contents):

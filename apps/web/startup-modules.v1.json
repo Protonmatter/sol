@@ -8,7 +8,7 @@
     {
       "url": "app.js?v=dcca6290e0",
       "path": "app.js",
-      "sha256": "dcec18a5d03ff823a4cc3b881accba9b9d7b8de9b566f505dbddf2d32e89d0f7"
+      "sha256": "fccf60f3bf8f97e29a6ba956b43dea697d79e9429811c5e8974747e29d114788"
     },
     {
       "url": "js/catalogueLoader.js",
@@ -58,7 +58,7 @@
     {
       "url": "js/sourceRecords.js",
       "path": "js/sourceRecords.js",
-      "sha256": "4f1eaceec054b89f0d0e33343396a2b780135acdec72ce3c90311c4ae7a89a5f"
+      "sha256": "252b04edce38306f3d9e3181118b14296e73b46dc96fd04a87289ffe7938a6dc"
     },
     {
       "url": "js/store.js?v=dcca6290db",
