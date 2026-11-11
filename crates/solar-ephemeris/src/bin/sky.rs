@@ -1,4 +1,4 @@
-//! CLI: print a live ephemeris-snapshot.v3 for a Unix time + observer.
+//! CLI: print a live ephemeris-snapshot.v4 for a Unix time + observer.
 //! Usage: sky <unix_seconds> <lat_deg> <lon_deg_east> <elev_m>
 
 const USAGE: &str = "usage: sky <unix_seconds> <lat_deg> <lon_deg_east> <elev_m>";

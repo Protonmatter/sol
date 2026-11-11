@@ -226,13 +226,13 @@ Live intake also checks circular longitude agreement with the declared fixed
 differential-rotation law; a hash-valid but inconsistent model anchor is not publishable.
 See [solar v3](SOLAR_V3_MIGRATION.md) and ADR 0006 for units and exact conventions.
 
-### `ephemeris-snapshot.v3`
+### `ephemeris-snapshot.v4`
 
 Both the local Rust/WASM engine and optional JPL Horizons provider emit:
 
 ```text
-EphemerisSnapshotV3 {
-  schema_version = "ephemeris-snapshot.v3"
+EphemerisSnapshotV4 {
+  schema_version = "ephemeris-snapshot.v4"
   engine_version
   provider?
   time {

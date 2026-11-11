@@ -16,7 +16,7 @@ test("invalid inputs do not allocate and protocol mismatch cannot publish",async
  const result=client.request(input);reply({operation:"track",samples:[]},{abi:2});await assert.rejects(result,e=>e.code==="protocol");client.dispose();
 });
 test("worker snapshot publication is bound to the captured original request",async()=>{
- const snapshot=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json",import.meta.url),"utf8")).snapshot;
+ const snapshot=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v4-corpus.json",import.meta.url),"utf8")).snapshot;
  const request={operation:"snapshot",lat:0,lon:0,elev:0,unix:(snapshot.time.jd_utc-2440587.5)*86400};
  for(const changed of [{...request,unix:request.unix+10800},{...request,lat:1}]) {
   const {client,reply}=setup();const result=client.request(changed);reply({operation:"snapshot",snapshot});await assert.rejects(result,/epoch|observer/);client.dispose();

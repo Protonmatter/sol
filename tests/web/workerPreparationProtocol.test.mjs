@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {loadSourceModules} from './helpers/sourceModuleHarness.mjs';
-const definitions=[['systemWorker.js','system','system-snapshot.v1'],['skyWorker.js','ephemeris','ephemeris-snapshot.v3']];
+const definitions=[['systemWorker.js','system','system-snapshot.v1'],['skyWorker.js','ephemeris','ephemeris-snapshot.v4']];
 async function fixture(file,engine,schema){
   const messages=[],self={postMessage:message=>messages.push(message)};let resolve,reject,loads=0,calculations=0;const loadedModules=[];
   const loading=new Promise((yes,no)=>{resolve=yes;reject=no;});

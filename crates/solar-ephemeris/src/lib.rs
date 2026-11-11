@@ -711,7 +711,7 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
 
     let mut out = String::with_capacity(4096);
     out.push_str("{\n");
-    out.push_str("  \"schema_version\": \"ephemeris-snapshot.v3\",\n");
+    out.push_str("  \"schema_version\": \"ephemeris-snapshot.v4\",\n");
     out.push_str(&format!(
         "  \"engine_version\": \"solar-ephemeris {}\",\n",
         env!("CARGO_PKG_VERSION")
@@ -1807,7 +1807,7 @@ mod tests {
     fn snapshot_is_well_formed() {
         // 2024-01-01 00:00 UTC ≈ JD 2460310.5, Boston.
         let json = sky_snapshot_json(2460310.5, 42.36, -71.06, 0.0);
-        assert!(json.contains("ephemeris-snapshot.v3"));
+        assert!(json.contains("ephemeris-snapshot.v4"));
         assert!(json.contains("\"geocentric_range_km\""));
         assert!(json.contains("\"observer_range_km\""));
         assert!(json.contains("\"events_window\""));

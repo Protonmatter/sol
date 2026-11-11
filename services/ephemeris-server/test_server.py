@@ -98,16 +98,16 @@ class ServerContractTests(unittest.TestCase):
             sent = []
             handler._send = lambda code, payload: sent.append((code, payload))
             handler._disconnected = lambda: False
-            handler.path = f'/v3/sky?unix={future}'
+            handler.path = f'/v4/sky?unix={future}'
             handler.do_GET()
             self.assertEqual(sent[-1][0], 422)
             self.assertEqual(sent[-1][1]['code'], 'unsupported_time')
             submit.assert_not_called()
 
-    def test_server_emits_valid_provider_neutral_v3(self):
+    def test_server_emits_valid_provider_neutral_v4(self):
         snapshot = self.build()
-        self.assertEqual(snapshot["schema_version"], "ephemeris-snapshot.v3")
-        self.assertEqual(snapshot["provider"]["endpoint_contract"], "ephemeris-snapshot.v3")
+        self.assertEqual(snapshot["schema_version"], "ephemeris-snapshot.v4")
+        self.assertEqual(snapshot["provider"]["endpoint_contract"], "ephemeris-snapshot.v4")
         self.assertEqual(snapshot["provider"]["tier"], "server")
         self.assertEqual(validator.validate(snapshot), [])
 
@@ -381,7 +381,7 @@ class ServerContractTests(unittest.TestCase):
         args = (1_783_569_600.0, 40.71, -74.01, 12.0)
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(server, "CACHE_DIR", tmp):
             path = Path(server.cache_path(*args))
-            path.write_text('{"schema_version":"ephemeris-snapshot.v3","corrupt":true}', encoding="utf-8")
+            path.write_text('{"schema_version":"ephemeris-snapshot.v4","corrupt":true}', encoding="utf-8")
             with mock.patch.object(server, "definitive_positions", side_effect=server.ProviderError("upstream_failed", "offline")) as provider:
                 with self.assertRaises(server.ProviderError):
                     server.snapshot_cached(*args)
@@ -488,15 +488,16 @@ class ServerContractTests(unittest.TestCase):
         for path, expected in [
             ("/health", 200),
             ("/missing", 404),
+            ("/v3/sky", 409),
             ("/v2/sky", 409),
             ("/v1/sky", 409),
-            ("/v3/sky", 400),
-            ("/v3/sky?unix=0&lat=91", 400),
+            ("/v4/sky", 400),
+            ("/v4/sky?unix=0&lat=91", 400),
         ]:
             handler.path = path
             handler.do_GET()
             self.assertEqual(sent[-1][0], expected)
-        handler.path = "/v3/sky?unix=1783569600&lat=1&lon=2&elev=3"
+        handler.path = "/v4/sky?unix=1783569600&lat=1&lon=2&elev=3"
         with mock.patch.object(server, "snapshot_cached", return_value={"ok": True}):
             handler.do_GET()
         self.assertEqual(sent[-1], (200, {"ok": True}))

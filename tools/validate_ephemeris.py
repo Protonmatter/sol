@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate ephemeris-snapshot.v3 against JPL Horizons observer quantities 2, 4, and 49.
+"""Validate ephemeris-snapshot.v4 against JPL Horizons observer quantities 2, 4, and 49.
 
 Runs the `sky` CLI (apparent topocentric alt/az from the engine) and compares to
 Horizons' airless Az/El for the same instant + site. This is the "grounded in
@@ -72,8 +72,8 @@ def engine_snapshot(binary: Path, when: dt.datetime, lat: float, lon: float, ele
         check=True,
     ).stdout
     snapshot = json.loads(out)
-    if snapshot.get("schema_version") != "ephemeris-snapshot.v3":
-        raise RuntimeError("engine did not emit ephemeris-snapshot.v3")
+    if snapshot.get("schema_version") != "ephemeris-snapshot.v4":
+        raise RuntimeError("engine did not emit ephemeris-snapshot.v4")
     return snapshot
 
 

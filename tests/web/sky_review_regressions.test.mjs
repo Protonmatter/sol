@@ -18,7 +18,7 @@ import { assertEphemerisSnapshotV3, mergeLocalEvents } from "../../apps/web/js/e
 
 const moduleURL = new URL("../../apps/web/js/sky.js", import.meta.url);
 const source = fs.readFileSync(moduleURL, "utf8");
-const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json", import.meta.url), "utf8")).snapshot;
+const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v4-corpus.json", import.meta.url), "utf8")).snapshot;
 const nativeStarFrame = JSON.parse(fs.readFileSync(new URL("../fixtures/sky-star-frame.json", import.meta.url), "utf8")).star_frame;
 const unix = (snapshot.time.jd_utc - 2440587.5) * 86400;
 const capturedHash = "#sky=0,0,1782872026.9999936,0";
@@ -283,17 +283,17 @@ test("saved remote preference is restored but each session requires fresh recipi
   assert.deepEqual(requests,[],"restoration and refresh cannot send health or snapshot requests before consent");
   assert.equal(h.saved.size,0,"restoration cannot rewrite stored preferences");
   h.click("skyConsentAllow");
-  assert.deepEqual(requests,["/v3/sky"]);
+  assert.deepEqual(requests,["/v4/sky"]);
   assert.equal(h.saved.get("sol-sky-provider"),"server");
   const reloaded=await skyHarness(t,{...options,savedProvider:h.saved.get("sol-sky-provider")});
   await reloaded.context.renderSky();
   assert.equal(reloaded.store.sky.provider,"server");
   assert.equal(reloaded.nodes.get("skyConsent").hidden,false);
-  assert.deepEqual(requests,["/v3/sky"],"saved provider cannot carry consent into another page session");
+  assert.deepEqual(requests,["/v4/sky"],"saved provider cannot carry consent into another page session");
   reloaded.click("skyConsentDeny");
   assert.equal(reloaded.store.sky.provider,"local");
   assert.equal(reloaded.saved.get("sol-sky-provider"),"local");
-  assert.deepEqual(requests,["/v3/sky"]);
+  assert.deepEqual(requests,["/v4/sky"]);
 });
 
 test("malformed saved observer does not discard a separately valid saved remote preference", async t => {
@@ -570,7 +570,7 @@ for (const augmentationFails of [false, true]) test(`remote snapshot retains hon
   const h = await skyHarness(t, { recipientBase: "https://recipient.invalid" });
   h.click("skyProviderServer"); h.click("skyConsentAllow");
   await new Promise(setImmediate);
-  assert.deepEqual(requested, ["/v3/sky"]);
+  assert.deepEqual(requested, ["/v4/sky"]);
   const worker = h.workers.at(-1);
   if (augmentationFails) worker.onmessage({ data: { ...worker.sent, type: "error", error: { code: "engine_failed", message: "local engine unavailable" } } });
   else worker.onmessage({ data: { ...worker.sent, type: "result", value: { operation: "snapshot", snapshot: structuredClone(snapshot) } } });

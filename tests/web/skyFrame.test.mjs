@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { constellationFrame, altAz } from '../../apps/web/js/skyFrame.js';
 import { mergeLocalEvents } from '../../apps/web/js/ephemerisContract.js';
 import fs from 'node:fs';
-const fixture=JSON.parse(fs.readFileSync(new URL('../fixtures/ephemeris-v3-corpus.json',import.meta.url))).snapshot;
+const fixture=JSON.parse(fs.readFileSync(new URL('../fixtures/ephemeris-v4-corpus.json',import.meta.url))).snapshot;
 function snapshot() {
   const s=structuredClone(fixture);
   s.star_frame={version:1,jd_utc:s.time.jd_utc,observer:{...s.observer},lst_deg:s.time.lst_deg,

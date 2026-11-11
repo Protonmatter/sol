@@ -1,5 +1,5 @@
 // ES module: loads the solar-ephemeris engine (WebAssembly) and validates
-// provider-neutral ephemeris-snapshot.v3 responses from both local and server tiers.
+// provider-neutral ephemeris-snapshot.v4 responses from both local and server tiers.
 
 import { assertEphemerisSnapshotV3, parseEphemerisSnapshot, assertEphemerisRequestBinding } from "./ephemerisContract.js";
 import { validateSkyWork } from "./skyLimits.js";
@@ -31,7 +31,7 @@ function readResult(ptr, len) {
   return JSON.parse(new TextDecoder("utf-8").decode(view));
 }
 
-// Returns a validated ephemeris-snapshot.v3 for a Unix time + observer.
+// Returns a validated ephemeris-snapshot.v4 for a Unix time + observer.
 export function skySnapshot(unixSeconds, lat, lonEast, elev) {
   validateSkyRequest(unixSeconds,lat,lonEast,elev);
   if (!wasmExports) throw new Error("sky engine not loaded");
@@ -119,7 +119,7 @@ export async function checkServerHealth(base = SERVER_BASE, consent = null) {
     });
     if (!response.ok) return false;
     const health = await response.json();
-    return health.status === "ok" && health.schema_version === "ephemeris-snapshot.v3";
+    return health.status === "ok" && health.schema_version === "ephemeris-snapshot.v4";
   } catch (_) {
     return false;
   } finally {
@@ -149,7 +149,7 @@ export async function fetchServerSky(unixSeconds, lat, lonEast, elev, base = SER
   if (!consent?.allows(base)) throw new EngineError("consent_required","Authorize this specific recipient before sending location and time");
   if (signal?.aborted) throw new EngineError("cancelled","Remote request cancelled");
 
-  const url = new URL(`${base}/v3/sky`);
+  const url = new URL(`${base}/v4/sky`);
   url.searchParams.set("unix", String(unixSeconds));
   url.searchParams.set("lat", String(lat));
   url.searchParams.set("lon", String(lonEast));

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 import validate_ephemeris_snapshot as validator
 
-SNAPSHOT = json.loads((ROOT / "tests/fixtures/ephemeris-v3-corpus.json").read_text())["snapshot"]
+SNAPSHOT = json.loads((ROOT / "tests/fixtures/ephemeris-v4-corpus.json").read_text())["snapshot"]
 
 
 class HorizontalTests(unittest.TestCase):

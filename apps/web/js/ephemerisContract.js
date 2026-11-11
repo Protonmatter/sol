@@ -3,7 +3,7 @@ import { ephemerisSchema } from "./ephemerisSchema.js";
 import { parseStrictJson } from "./solarContract.js";
 const MAJOR = new Set(["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"]);
 const COMPASS_POINTS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-const fail = (path, message) => { throw new TypeError(`Invalid ephemeris-snapshot.v3 at ${path}: ${message}`); };
+const fail = (path, message) => { throw new TypeError(`Invalid ephemeris-snapshot.v4 at ${path}: ${message}`); };
 // Inclusive serialization/float allowance: 2^-29 day (~0.161ms), four binary64
 // ulps at modern JD or two at the upper supported epoch. Never a day/window allowance.
 const EPOCH_TOLERANCE_DAYS = 2 ** -29;
@@ -76,7 +76,7 @@ function validateSchema(value, schema, path="$") {
   }
 }
 export function assertEphemerisSnapshotV3(snapshot) {
-  if (!snapshot || snapshot.schema_version !== "ephemeris-snapshot.v3") fail("schema_version","upgrade required: live provider must emit ephemeris-snapshot.v3");
+  if (!snapshot || snapshot.schema_version !== "ephemeris-snapshot.v4") fail("schema_version","upgrade required: live provider must emit ephemeris-snapshot.v4");
   validateSchema(snapshot,ephemerisSchema);
   const {time,observer,events_window:window,accuracy}=snapshot;
   if (time.jd_utc < 1721425.5 || time.jd_utc >= 5373484.5) fail("time.jd_utc","unsupported proleptic Gregorian epoch");

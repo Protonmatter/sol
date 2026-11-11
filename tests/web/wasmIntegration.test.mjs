@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {loadSourceModules} from './helpers/sourceModuleHarness.mjs';
 const bytes=Uint8Array.from([0,97,115,109,1,0,0,0,5,3,1,0,1,7,10,1,6,109,101,109,111,114,121,2,0]);
 const base=new URL('../../apps/web/',import.meta.url);
-const sky=JSON.parse(fs.readFileSync(new URL('../fixtures/ephemeris-v3-corpus.json',import.meta.url))).snapshot;
+const sky=JSON.parse(fs.readFileSync(new URL('../fixtures/ephemeris-v4-corpus.json',import.meta.url))).snapshot;
 const unix=(sky.time.jd_utc-2440587.5)*86400;
 function systemSnapshot(unix){return {schema_version:'system-snapshot.v1',jd_utc:unix/86400+2440587.5,bodies:['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune','Moon'].map(name=>({name,x_au:1,y_au:0,z_au:0,dist_au:1,geo_dist_au:1,speed_kms:1,phase_angle_deg:null,illuminated_fraction:null,magnitude:null,equilibrium_temp_k:null,mean_temp_k:null,a_au:1,ecc:0,inc_deg:0,node_deg:0,argp_deg:0}))};}
 const hosts={URL,TextDecoder,Uint8Array,Float64Array,AbortController,setTimeout,clearTimeout,performance,WebAssembly};

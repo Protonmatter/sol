@@ -12,7 +12,7 @@ export async function release(id, base = "/sol/") {
     [`releases/${id}/data/latest-state.json`]: '{"release":"' + id + '"}', [`releases/${id}/texture.jpg`]: "optional"};
   const assets = await Promise.all(Object.entries(files).map(async ([path, bytes]) => ({path,size:new TextEncoder().encode(bytes).length,sha256:await sha(bytes),role:path.endsWith(".jpg")?"optional":"critical"})));
   return {files, manifest:{schema_version:"web-release-manifest.v1",release_id:id,namespace:`releases/${id}/`,base_path:base,
-    source_sha:"a".repeat(40),schemas:["solar-state-snapshot.v3","ephemeris-snapshot.v3"],abi_versions:{solar:1,ephemeris:1},
+    source_sha:"a".repeat(40),schemas:["solar-state-snapshot.v3","ephemeris-snapshot.v4"],abi_versions:{solar:1,ephemeris:1},
     wasm_sha256:Object.fromEntries(assets.filter(a=>a.path.endsWith(".wasm")).map(a=>[a.path.split("/").at(-1),a.sha256])),assets}};
 }
 export function harness(id, data, shared = new Map(), base = "/sol/") {

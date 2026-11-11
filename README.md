@@ -27,8 +27,8 @@ separate artifacts and have not been revalidated as matching this checkout. Pass
 tests do not establish hosted CI, accepted scientific/manual evidence or production approval.
 
 Live contracts are [solar-state-snapshot.v3](docs/solar-state-snapshot-v3.schema.json),
-[ephemeris-snapshot.v3](docs/ephemeris-snapshot-v3.schema.json), and
-`system-snapshot.v1`. Historical v2 remains separately inspectable; live readers reject
+[ephemeris-snapshot.v4](docs/ephemeris-snapshot-v4.schema.json), and
+`system-snapshot.v1`. Historical ephemeris v3 and v2 remain separately inspectable; live readers reject
 unsupported versions rather than silently relabelling data.
 
 ## What the application does

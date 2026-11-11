@@ -57,4 +57,4 @@ try {
 }
 if (!rejected) throw new Error("finite-parallax catalogue star was not rejected");
 
-console.log(`OK: ${process.argv[2]} satisfies the browser ephemeris-snapshot.v3 guard`);
+console.log(`OK: ${process.argv[2]} satisfies the browser ephemeris-snapshot.v4 guard`);

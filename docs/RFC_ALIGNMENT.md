@@ -11,7 +11,7 @@ and the traced requirements are authoritative.
 | Vite + TypeScript frontend | Native ES modules, JSDoc, no runtime bundler | ADR 0001 |
 | No browser-side physics | Audited deterministic Rust engines execute through raw WASM; snapshots remain the UI boundary | ADR 0001 |
 | `solar-state-snapshot.v1` | `solar-state-snapshot.v3`: explicit coordinates, scalar illustrative activity variance, unavailable magnetic uncertainty and current model anchors | `docs/SPEC.md`, JSON Schema |
-| `ephemeris-snapshot.v1` provider-neutral contract | Provider-neutral `ephemeris-snapshot.v3`; distinct ranges and event calculation/occurrence states; unsupported live versions rejected | ADR 0006, `docs/EPHEMERIS_V3.md` |
+| `ephemeris-snapshot.v1` provider-neutral contract | Provider-neutral `ephemeris-snapshot.v4`; distinct ranges and event calculation/occurrence states; unsupported live versions rejected | ADR 0006, `docs/EPHEMERIS_V3.md` |
 | Observer location never leaves device | Default local; configured exact-recipient session consent before health/location requests, redirects denied; share/export preview | ADR 0003, `docs/EPHEMERIS_V3.md` |
 | Observer civil timezone inferred from coordinates | Not implemented; UI must identify browser/device timezone until an audited resolver exists | ADR 0003 |
 | Deployment triggered directly by a master push | Exact candidate artifact, same-run CI and protected scientific/manual/settings acceptance; post-approval recheck, no rebuild | RFC 0002, `docs/RELEASE_DELIVERY.md` |

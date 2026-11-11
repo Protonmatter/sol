@@ -8,7 +8,7 @@ import { assertEphemerisSnapshotV2 } from "../../apps/web/js/ephemerisContractV2
 import { assertSolarSnapshot, parseStrictJson } from "../../apps/web/js/solarContract.js";
 
 const solar = JSON.parse(fs.readFileSync(new URL("../../apps/web/data/latest-state.json", import.meta.url), "utf8"));
-const ephemeris = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json", import.meta.url), "utf8")).snapshot;
+const ephemeris = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v4-corpus.json", import.meta.url), "utf8")).snapshot;
 const bytes = value => new TextEncoder().encode(JSON.stringify(value));
 const hash = raw => createHash("sha256").update(raw).digest("hex");
 
@@ -106,9 +106,9 @@ rejectionCases("historical ephemeris rejects", historical, assertEphemerisSnapsh
   ["infinite planetary range", s => { s.bodies[2].distance_km = null; }, /may be null only for catalogue stars/],
   ["numeric visibility", s => { s.bodies[0].above_horizon = 1; }, /expected boolean/],
   ["contradictory refracted visibility", s => { s.bodies[0].above_horizon = false; }, /disagrees with alt_refracted_deg/],
-  ["live schema in historical reader", s => { s.schema_version = "ephemeris-snapshot.v3"; }, /expected ephemeris-snapshot.v2/],
+  ["live schema in historical reader", s => { s.schema_version = "ephemeris-snapshot.v4"; }, /expected ephemeris-snapshot.v2/],
   ["unknown provider tier", s => { s.provider.tier = "remote"; }, /unsupported tier/],
-  ["wrong provider contract", s => { s.provider.endpoint_contract = "ephemeris-snapshot.v3"; }, /must be ephemeris-snapshot.v2/],
+  ["wrong provider contract", s => { s.provider.endpoint_contract = "ephemeris-snapshot.v4"; }, /must be ephemeris-snapshot.v2/],
   ["unpaired TAI values", s => { s.time.jd_tai = 2460000.75; }, /both be null or both numeric/],
   ["unknown EOP quality", s => { s.time.earth_orientation.quality = "exact"; }, /unsupported quality/],
   ["contradictory EOP accuracy", s => { s.accuracy.eop_status = "rapid"; }, /must match EOP quality/],

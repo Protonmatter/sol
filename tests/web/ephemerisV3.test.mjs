@@ -4,8 +4,10 @@ import test from "node:test";
 import { assertEphemerisSnapshotV3, parseEphemerisSnapshot, mergeLocalEvents } from "../../apps/web/js/ephemerisContract.js";
 import { ephemerisSchema } from "../../apps/web/js/ephemerisSchema.js";
 import { fetchServerSky } from "../../apps/web/js/skyEngine.js";
-const corpus=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json",import.meta.url),"utf8"));
+const corpus=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v4-corpus.json",import.meta.url),"utf8"));
 const clockBoundary=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-clock-boundary-20261104.json",import.meta.url),"utf8"));
+// The provenance-hashed fixture is an archived v3 document; v4 only adds optional fields.
+clockBoundary.schema_version="ephemeris-snapshot.v4";
 const clockUlpCases=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-clock-ulp-cases-20261104.json",import.meta.url),"utf8"));
 test("v3 clock residual cutoff has fixed adjacent-float decisions",()=>{
   for(const row of clockUlpCases.cases) {
@@ -60,7 +62,7 @@ for(const scenario of corpus.cases) test(`v3 shared corpus: ${scenario.name}`,()
   if(scenario.valid) assert.equal(assertEphemerisSnapshotV3(data),data);
   else assert.throws(()=>assertEphemerisSnapshotV3(data));
 });
-test("generated schema exactly matches canonical schema",()=>assert.deepEqual(ephemerisSchema,JSON.parse(fs.readFileSync(new URL("../../docs/ephemeris-snapshot-v3.schema.json",import.meta.url),"utf8"))));
+test("generated schema exactly matches canonical schema",()=>assert.deepEqual(ephemerisSchema,JSON.parse(fs.readFileSync(new URL("../../docs/ephemeris-snapshot-v4.schema.json",import.meta.url),"utf8"))));
 test("strict JSON rejects duplicate members and non-JSON numbers",()=>{
   for(const text of ['{"a":1,"a":2}','{"a":NaN}','{"a":Infinity}','{"a":1} trailing']) assert.throws(()=>parseEphemerisSnapshot(text));
 });

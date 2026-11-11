@@ -15,7 +15,7 @@ A **zero-dependency** Rust ephemeris and topocentric sky engine:
   values near the present
 - Rise / transit / set with body-specific thresholds and grazing-crossing refinement, a 108-star bright-star catalogue
   with proper motion applied, phase/illumination, and apparent magnitudes
-- A provider-neutral, versioned JSON contract (`ephemeris-snapshot.v3`) shared with the
+- A provider-neutral, versioned JSON contract (`ephemeris-snapshot.v4`) shared with the
   Python tooling and the browser
 
 Independent accuracy is limited to recorded body/quantity/observer/epoch evidence, not
@@ -55,7 +55,7 @@ version's contract before using it. The current repository workflow qualifies ex
 source packages but holds further publication; see [build notes](../../BUILD_NOTES.md).
 Zero dependencies — it pulls in nothing else.
 
-The engine emits a versioned `ephemeris-snapshot.v3` JSON document for a given time and
+The engine emits a versioned `ephemeris-snapshot.v4` JSON document for a given time and
 observer. The runnable `snapshot` example shows end-to-end usage:
 
 ```bash

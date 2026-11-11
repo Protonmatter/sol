@@ -389,7 +389,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
-      - name: Ephemeris v3 structural schema
+      - name: Ephemeris v4 structural schema
         run: |
           python - <<'PY'
           import json
@@ -398,7 +398,7 @@ jobs:
           sys.path.insert(0, "tools")
           import jsonschema_min
           data = json.loads(Path("/tmp/ephemeris-v3.json").read_text(encoding="utf-8"))
-          schema = json.loads(Path("docs/ephemeris-snapshot-v3.schema.json").read_text(encoding="utf-8"))
+          schema = json.loads(Path("docs/ephemeris-snapshot-v4.schema.json").read_text(encoding="utf-8"))
           errors = jsonschema_min.validate(data, schema)
           if errors:
               print("\n".join(f"ERROR: {error}" for error in errors), file=sys.stderr)

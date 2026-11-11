@@ -1,6 +1,17 @@
-# Ephemeris v3 — local preview contract
+# Ephemeris v4 — local preview contract
 
-This is the live contract in the reviewed local tree, not a production release claim. The normative shape is `ephemeris-snapshot-v3.schema.json`. Historical v2 documents and their validator remain frozen; live providers reject other versions instead of converting missing information.
+This is the live contract in the reviewed local tree, not a production release claim. The normative shape is `ephemeris-snapshot-v4.schema.json`. Historical v3 and v2 documents and their validators remain frozen; live providers reject other versions instead of converting missing information.
+
+## Changes from v3
+
+v4 is the v3 contract plus these additions. Every published v3 field keeps its meaning.
+
+- An optional root `star_frame` (version 1), described under the constellation frame extension below.
+- Optional `catalogue_ra_deg` and `catalogue_dec_deg` on catalogue-star bodies.
+- `time.input_time_semantics` gains `future_nominal_utc`, and `earth_orientation.quality` gains `modeled_future`, for dates past the Earth-orientation table.
+- `earth_orientation.dut1_uncertainty_seconds` is null exactly when the future model applies, and `dut1_seconds` is no longer bounded for that model.
+
+The published v3 schema is unchanged and is used only for archived copies (`--historical-v3`). The optional JPL server moved from `/v3/sky` to `/v4/sky`; `/v3/sky` answers 409 with an upgrade explanation.
 
 ## Ranges and frames
 
@@ -148,7 +159,7 @@ the committed source identities and numerical reproductions.
 
 ## My Sky execution and privacy boundary
 
-Full local snapshots (including event solving) and finite-body trajectories run in a module worker. The `sol-worker.v1` envelope binds engine `ephemeris`, schema `ephemeris-snapshot.v3`, ABI 1, release identity and generation. The client has one active and one latest pending job; stale results cannot publish and navigation disposes the worker. Sky and System first prepare their module/engine under a separate 60-second initialization bound, using an identity-bound `initialize`/`ready` exchange before calculation admission. The unchanged 10-second calculation wall deadline then terminates uncooperative synchronous work. An already prepared worker can serve the next accepted request without repeated initialization. Cancellation terminates pending preparation as well as calculation; late readiness/results and cleared timers cannot affect a newer job or phase. Arrival-time monotonic checks reject responses at or beyond their phase deadline even when a timer callback is delayed. This does not promise a ten-second total first-download time. Snapshot results are schema-validated and bound to the original observer/epoch on the main side. Parsed sparse arrays are rejected. System rendering owns a separate fixed-nine-body fast path; its separate measured performance exception is not a Sky exception.
+Full local snapshots (including event solving) and finite-body trajectories run in a module worker. The `sol-worker.v1` envelope binds engine `ephemeris`, schema `ephemeris-snapshot.v4`, ABI 1, release identity and generation. The client has one active and one latest pending job; stale results cannot publish and navigation disposes the worker. Sky and System first prepare their module/engine under a separate 60-second initialization bound, using an identity-bound `initialize`/`ready` exchange before calculation admission. The unchanged 10-second calculation wall deadline then terminates uncooperative synchronous work. An already prepared worker can serve the next accepted request without repeated initialization. Cancellation terminates pending preparation as well as calculation; late readiness/results and cleared timers cannot affect a newer job or phase. Arrival-time monotonic checks reject responses at or beyond their phase deadline even when a timer callback is delayed. This does not promise a ten-second total first-download time. Snapshot results are schema-validated and bound to the original observer/epoch on the main side. Parsed sparse arrays are rejected. System rendering owns a separate fixed-nine-body fast path; its separate measured performance exception is not a Sky exception.
 
 Trajectory admission is identical in JS and the raw Rust ABI: body index 0–8, 2–257 samples, finite nonzero step with magnitude at most 3600 seconds, aggregate span at most 172800 seconds, and supported observer/start/end epochs. No clamping, modulo-body selection or omitted samples are permitted. Capacity or numerical failures return typed errors. Apparent altitude is serialized at round-trip precision to preserve the `up` predicate.
 
@@ -170,11 +181,12 @@ node --test tests/web/ephemerisV3.test.mjs tests/web/skyEvents.test.mjs tests/we
 python tools/validate_accuracy_evidence.py
 python tools/validate_ephemeris.py --reference-dir tests/fixtures/horizons-observer-20261103
 python tools/validate_ranges.py
-python tools/validate_ephemeris_snapshot.py <live-v3.json>
+python tools/validate_ephemeris_snapshot.py <live-v4.json>
+python tools/validate_ephemeris_snapshot.py --historical-v3 <unchanged-archived-v3.json>
 python tools/validate_ephemeris_snapshot.py --historical-v2 <unchanged-archived-v2.json>
 ```
 
-The shared positive/negative corpus is `tests/fixtures/ephemeris-v3-corpus.json`. It is synthetic/native-model contract evidence, not JPL truth. Fresh native snapshots at modern, historical and exact-pole observer inputs pass through both live readers in the native integration test. Historical v2 browser validation is isolated in `ephemerisContractV2.js` and never statically imported by live providers.
+The shared positive/negative corpus is `tests/fixtures/ephemeris-v4-corpus.json`. It is synthetic/native-model contract evidence, not JPL truth. Fresh native snapshots at modern, historical and exact-pole observer inputs pass through both live readers in the native integration test. Historical v2 browser validation is isolated in `ephemerisContractV2.js` and never statically imported by live providers.
 
 
 ### Optional constellation frame extension

@@ -63,12 +63,13 @@ class EphemerisTransportTests(unittest.TestCase):
     def test_native_snapshot_version_and_request_arguments_are_bound(self):
         when=dt.datetime(2026,7,1,tzinfo=dt.timezone.utc)
         snapshot=json.loads((ROOT/'tests/fixtures/ephemeris-clock-boundary-20261104.json').read_bytes())
+        snapshot['schema_version']='ephemeris-snapshot.v4'  # archived v3 fixture under the live identity
         with mock.patch.object(helper.subprocess,'run',return_value=mock.Mock(stdout=json.dumps(snapshot))) as run:
             self.assertEqual(helper.engine_snapshot(Path('unused'),when,12.,34.,5.),snapshot)
             self.assertEqual(run.call_args.args[0][-3:],['12.0','34.0','5.0'])
         snapshot['schema_version']='ephemeris-snapshot.v2'
         with mock.patch.object(helper.subprocess,'run',return_value=mock.Mock(stdout=json.dumps(snapshot))):
-            with self.assertRaisesRegex(RuntimeError,'ephemeris-snapshot.v3'):helper.engine_snapshot(Path('unused'),when,12.,34.,5.)
+            with self.assertRaisesRegex(RuntimeError,'ephemeris-snapshot.v4'):helper.engine_snapshot(Path('unused'),when,12.,34.,5.)
 
 
 if __name__=='__main__':unittest.main()

@@ -5,7 +5,7 @@ import vm from "node:vm";
 import { loadSourceModules } from "./helpers/sourceModuleHarness.mjs";
 
 const moduleURL = new URL("../../apps/web/js/skyEngine.js", import.meta.url);
-const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json", import.meta.url))).snapshot;
+const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v4-corpus.json", import.meta.url))).snapshot;
 async function engine(extra = {}) {
   const context = vm.createContext({ URL, TextDecoder, Uint8Array, Float64Array,
     AbortController, setTimeout, clearTimeout, performance, ...extra });
@@ -46,7 +46,7 @@ test("engine load shares one in-flight request, resets failure, and decodes vali
   assert.equal(api.loadSkyEngine(), first);
   rejectFirst(Error("offline")); await assert.rejects(first, /offline/);
   assert.equal(await api.loadSkyEngine(), exports); assert.equal(attempts, 2);
-  assert.equal(api.skySnapshot(0, 0, 0, 0).schema_version, "ephemeris-snapshot.v3");
+  assert.equal(api.skySnapshot(0, 0, 0, 0).schema_version, "ephemeris-snapshot.v4");
   assert.equal(JSON.stringify(api.systemSnapshot(123)), JSON.stringify(system));
   assert.equal(JSON.stringify(api.bodyTrack(2, 10, -20, 30, 0, 60, 2)), JSON.stringify(track));
   assert.deepEqual(calls, [["sky", 0, 0, 0, 0], ["system", 123], ["track", 2, 10, -20, 30, 0, 60, 2]]);
@@ -90,9 +90,9 @@ test("server control communicates configured, unavailable, and missing DOM state
 });
 
 test("health validation admits only matching healthy provider and cleans up timeout", async () => {
-  for (const result of [null, { ok: false }, { ok: true, status: "broken", schema_version: "ephemeris-snapshot.v3" },
+  for (const result of [null, { ok: false }, { ok: true, status: "broken", schema_version: "ephemeris-snapshot.v4" },
     { ok: true, status: "ok", schema_version: "ephemeris-snapshot.v2" },
-    { ok: true, status: "ok", schema_version: "ephemeris-snapshot.v3" }]) {
+    { ok: true, status: "ok", schema_version: "ephemeris-snapshot.v4" }]) {
     let calls = 0, cleared = 0, timeout, signal;
     const api = await engine({
       setTimeout: callback => { timeout = callback; return 7; },
@@ -108,7 +108,7 @@ test("health validation admits only matching healthy provider and cleans up time
     assert.equal(await api.checkServerHealth("https://fixture.invalid", null), false);
     assert.equal(calls, 0);
     const valid = await api.checkServerHealth("https://fixture.invalid", { allows: () => true });
-    assert.equal(valid, result?.status === "ok" && result?.schema_version === "ephemeris-snapshot.v3");
+    assert.equal(valid, result?.status === "ok" && result?.schema_version === "ephemeris-snapshot.v4");
     assert.equal(calls, 1); assert.equal(cleared, 1);
     timeout(); assert.equal(signal.aborted, true);
   }

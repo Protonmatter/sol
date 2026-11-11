@@ -6,7 +6,7 @@ let busy=false;
 self.onmessage=async event=>{
   const request=event.data;
   if (!Number.isSafeInteger(request?.generation)||request.generation<1) return;
-  const identity={protocol:"sol-worker.v1",engine:"ephemeris",schema:"ephemeris-snapshot.v3",abi:1,release,generation:request.generation};
+  const identity={protocol:"sol-worker.v1",engine:"ephemeris",schema:"ephemeris-snapshot.v4",abi:1,release,generation:request.generation};
   if (!["initialize","compute"].includes(request.type)||request.protocol!==identity.protocol||request.engine!==identity.engine||request.schema!==identity.schema||request.abi!==1||request.release!==release||busy) {
     self.postMessage({...identity,type:"error",error:{code:"protocol",message:"Sky worker identity or admission mismatch"}});return;
   }
