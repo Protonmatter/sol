@@ -16,7 +16,11 @@ export async function verifyEarthLook(page,directory,capture){
     checked('orreryEarthNight',true);checked('orreryEarthIce',false);checked('orreryOptics',true);
     const select=(id,value)=>{const node=document.getElementById(id);node.value=value;node.dispatchEvent(new Event('change',{bubbles:true}));};
     select('orreryEarthCloudSource','composite');select('orreryPlanetLook','illustrative');
-    select('orreryAnchor','Earth');state.radius=.5;
+    select('orreryAnchor','Earth');
+    // Focus inspection draws Earth at physical scale, so a fixed AU distance leaves it sub-pixel and
+    // the Earth look is never demanded. Put the whole disc at 30% of the canvas half-height, inside
+    // assertBlueEarth's central sample, as the enlarged Earth was at the old 0.5 AU framing.
+    state.radius=6378.137/149597870.7/(0.3*Math.tan(21*Math.PI/180));
     const gl=document.getElementById('orreryCanvas').getContext('webgl2'),original=gl.drawElements;
     const textures=new Map();let nextTexture=0;
     const textureId=texture=>{if(!texture)throw Error('Earth look sampler has no texture');
