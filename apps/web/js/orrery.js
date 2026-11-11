@@ -3661,8 +3661,9 @@ async function showFallback(msg) {
     frameScheduler.invalidate({input:true}); if (!moved) pick(e); drop(e); });
   canvas.addEventListener("pointercancel", drop);
   canvas.addEventListener("pointermove", (e) => {
-    frameScheduler.invalidate({input:true});
+    // Hovering is not interaction: only a tracked drag or pinch schedules a frame.
     if (!pointers.has(e.pointerId)) return;
+    frameScheduler.invalidate({input:true});
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size >= 2) {
       moved = true; // a pinch is a gesture, not a tap — lifting a finger must not trigger pick()
@@ -3727,6 +3728,9 @@ async function showFallback(msg) {
       return; // the galaxy disc has no per-object picking
     }
 
+    // A fingertip covers far more than a cursor: touch keeps a ~44 px target
+    // (WCAG 2.5.5) around small or sub-pixel bodies; mouse and pen stay precise.
+    const minimumHit = e.pointerType === "touch" ? 22 : 12;
     let best = null;
     for (const name of DRAW_LIST) {
       if(state.solarInspection&&name!=='Sun')continue;
@@ -3742,7 +3746,7 @@ async function showFallback(msg) {
       const phys = BODY[name];
       const disc = projectOpaqueDisc({id:name,position:p,
         radius:displayRadiusAU(name)*Math.min(1,phys.polarKm/phys.radiusKm)},vp,{width:w,height:h});
-      const hitRadius = Math.max(12, disc?.radius || 0);
+      const hitRadius = Math.max(minimumHit, disc?.radius || 0);
       if (d < hitRadius && (!best || wv < best.depth)) best = { d, name, depth:wv };
     }
     // Moons compete on the same footing, with a tighter radius so a moon close to its planet
@@ -3759,7 +3763,7 @@ async function showFallback(msg) {
       const d = Math.hypot(sx - px, sy - py);
       const disc = mk.moon ? projectOpaqueDisc({id:mk.name,position:p,
         radius:moonDisplayRadius(mk.moon,BODY[mk.moon.p].radiusKm,displayRadiusAU(mk.moon.p))},vp,{width:w,height:h}) : null;
-      if (d < Math.max(12,disc?.radius || 0) && (!best || wv < best.depth)) best = { d, name: mk.name, depth:wv };
+      if (d < Math.max(minimumHit,disc?.radius || 0) && (!best || wv < best.depth)) best = { d, name: mk.name, depth:wv };
     }
     // Solar-system bodies win: they are the subject of this view, and a star behind one
     // must not steal the click. Only an empty patch of sky falls through to the stars,

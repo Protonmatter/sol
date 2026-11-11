@@ -811,3 +811,36 @@ test("System opens with optional clutter hidden and guide and small-body control
   assert.equal(drawsAfter("orreryShowConst", false), baseline);
   assert.ok(h.nodes.orreryPositions.children.some(node => node.textContent.startsWith("Pluto")), "hidden small bodies retain searchable catalogue facts");
 });
+
+test("Orrery hover without a tracked pointer schedules no frame while paused", async t => {
+  const h = await orreryHarness(t, { controls: true, reducedMotion: true, manualFrames: true });
+  await h.enterOrrery();
+  assert.equal(h.state.animate, false);
+  for (let i = 0; i < 50 && h.frames.size; i++) h.frame(1000 + i * 16);
+  assert.equal(h.frames.size, 0, "a paused scene settles with no frame pending");
+  for (let i = 0; i < 20; i++) h.event("orreryCanvas", "pointermove", { pointerId: 7, clientX: 40 + i, clientY: 60 });
+  assert.equal(h.frames.size, 0, "hover must not redraw an idle scene");
+  h.event("orreryCanvas", "pointerdown", { pointerId: 7, clientX: 60, clientY: 60 });
+  h.event("orreryCanvas", "pointermove", { pointerId: 7, clientX: 80, clientY: 60 });
+  assert.ok(h.frames.size > 0, "a drag still schedules its frame");
+  assert.equal(h.errors.length, 0);
+});
+
+test("Orrery touch taps keep a larger target around small bodies than mouse clicks", async t => {
+  const h = await orreryHarness(t, { controls: true, catalogues: "ready", reducedMotion: true });
+  await h.enterOrrery(); await h.settleCatalogues();
+  h.check("orreryShowSky", false); h.check("orreryShowSmall", true);
+  h.input("orreryAnchor", "Pluto", "change");
+  h.input("orrerySearch", "Earth"); h.nodes.orreryPositions.children[0].click();
+  const label = h.nodes.orreryLabels.children.find(node => node.textContent === "Pluto" && node.style.display === "block");
+  assert.ok(label, "Pluto has a visible label");
+  const tap = (pointerType, pointerId) => {
+    const event = { pointerId, pointerType, clientX: Number(label.dataset.projectionX) + 18, clientY: Number(label.dataset.projectionY) };
+    h.event("orreryCanvas", "pointerdown", event); h.event("orreryCanvas", "pointerup", event);
+    return h.state.selected;
+  };
+  assert.notEqual(tap("mouse", 1), "Pluto", "18 px is outside the precise mouse target");
+  assert.equal(tap("touch", 2), "Pluto", "18 px is inside the touch target");
+  await h.settle();
+  assert.equal(h.errors.length, 0);
+});
