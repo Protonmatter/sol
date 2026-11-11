@@ -61,7 +61,13 @@ class WasmProvenanceTests(unittest.TestCase):
         document['profile'] = 'release'
         self.replace_receipt(document)
         self.assertEqual(provenance.read_receipt(self.wasm)[0], document)
-        provenance.validate_receipt(self.root, self.wasm)
+
+    def test_current_sources_require_the_browser_profile_receipt(self):
+        document = self.write()
+        document['profile'] = 'release'
+        self.replace_receipt(document)
+        with self.assertRaisesRegex(ValueError, 'is not wasm-release; rebuild WASM'):
+            provenance.validate_receipt(self.root, self.wasm)
 
     def test_repeat_receipts_are_deterministic_and_bind_both_binaries(self):
         first = self.write()

@@ -160,6 +160,10 @@ def validate_receipt(project: Path, wasm_root: Path) -> bytes:
     document, raw = read_receipt(wasm_root)
     if document['source_inputs'] != capture_source_inputs(project):
         raise ValueError('WASM source receipt does not match current source materials; rebuild WASM')
+    # Historical profiles stay readable for archived evidence, but the current sources are
+    # only ever built by tools/build_wasm.py with the dedicated browser profile.
+    if document['profile'] != BUILD_PROFILE:
+        raise ValueError(f"WASM receipt profile {document['profile']} is not {BUILD_PROFILE}; rebuild WASM")
     return raw
 
 
