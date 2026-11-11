@@ -68,3 +68,41 @@ test('very slow continuous CPU frames can still lower resolution when delivery i
   const f=fixture();f.feed(10,{step:300,intervalMs:null,continuation:true,frameMs:290});
   assert.equal(f.policy.current.tier,'balanced','sustained measured CPU work is distinct from an idle delivery gap');
 });
+
+test('an upgrade the device cannot sustain backs off instead of oscillating',()=>{
+  // Too slow at High (34 ms delivery), comfortable below it (16 ms).
+  const policy=createRenderQuality();let timestamp=0;const changes=[];
+  for(let i=0;i<120000/16;i++){
+    const interval=policy.current.tier==='high'?34:16;timestamp+=interval;
+    if(policy.observe({timestamp,intervalMs:interval,frameMs:5,inputToSubmitMs:null,continuous:true,continuation:true,rendered:true,completed:true}))changes.push(timestamp);
+  }
+  assert.ok(changes.length<=10,`${changes.length} tier changes in two minutes`);
+  // Each failed upgrade at least doubles the wait before the next attempt.
+  const upgrades=changes.filter((_,i)=>i%2===1),downgrades=changes.filter((_,i)=>i%2===0);
+  for(let i=1;i<upgrades.length;i++){
+    assert.ok(upgrades[i]-downgrades[i]>=2*(upgrades[i-1]-downgrades[i-1])-50,'upgrade hold grows after each reversal');
+  }
+});
+
+test('a paused scene lowered during slow interaction recovers on fast input-driven frames',()=>{
+  const policy=createRenderQuality();let timestamp=0;
+  const frame=(frameMs,inputToSubmitMs,step)=>{timestamp+=step;
+    policy.observe({timestamp,intervalMs:null,frameMs,inputToSubmitMs,continuous:false,continuation:false,rendered:true,completed:true});};
+  for(let i=0;i<12;i++)frame(30,30,30);
+  assert.equal(policy.current.tier,'balanced');
+  for(let i=0;i<600;i++)frame(4,8,16);
+  assert.equal(policy.current.tier,'high');
+});
+
+test('returning to Auto clears the upgrade backoff',()=>{
+  const policy=createRenderQuality();let timestamp=0;
+  for(let i=0;i<60000/16;i++){const interval=policy.current.tier==='high'?34:16;timestamp+=interval;
+    policy.observe({timestamp,intervalMs:interval,frameMs:5,inputToSubmitMs:null,continuous:true,continuation:true,rendered:true,completed:true});}
+  policy.setMode('auto');assert.equal(policy.current.tier,'high');
+  for(let i=0;i<12;i++){timestamp+=34;policy.observe({timestamp,intervalMs:34,frameMs:5,inputToSubmitMs:null,continuous:true,continuation:true,rendered:true,completed:true});}
+  assert.equal(policy.current.tier,'balanced');
+  const droppedAt=timestamp;
+  while(policy.current.tier!=='high'&&timestamp-droppedAt<20000){timestamp+=16;
+    policy.observe({timestamp,intervalMs:16,frameMs:5,inputToSubmitMs:null,continuous:true,continuation:true,rendered:true,completed:true});}
+  assert.ok(timestamp-droppedAt<=6100,`fresh Auto restored the 6 s hold, took ${timestamp-droppedAt} ms`);
+});
