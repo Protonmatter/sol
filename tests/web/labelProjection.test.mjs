@@ -1,3 +1,4 @@
+import {createLabelPresenter} from '../../apps/web/js/labelPresenter.js';
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
@@ -23,10 +24,11 @@ function fixture() {
     DRAW_LIST: ["Jupiter"], moonMarkers: [], moonSet: { MOONS: [] },
     moonDisplayRadius: () => 0.02, bodyWorldPos: body => body.p,
     cel: { pulsars: [], deepsky: [], brightStars: [] },
-    document: { getElementById: () => ({ style: {}, appendChild() {} }),
+    document: { getElementById: () => ({ style: {}, appendChild(el) {labels.push(el);}  }),
       createElement: () => ({ style: {}, dataset: {}, offsetWidth: 40, offsetHeight: 16,
         getBoundingClientRect: () => ({width:40,height:16}), classList: { toggle() {} } }) },
   });
+  context.labelPresenter=createLabelPresenter({document:context.document});
   vm.runInContext(functionSource, context);
   const matrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
   const render = () => context.updateLabels({ clientWidth: 200, clientHeight: 100, offsetLeft: 0, offsetTop: 0 }, matrix, matrix);
@@ -62,7 +64,12 @@ test("fractional text boxes retain clearance when integer offset sizes round dow
     f.context.state.anchor='Earth';f.context.state.selected='Earth';
     f.render();
     const boxes=f.labels.filter(label=>label.style.display==='block').map(label=>label.getBoundingClientRect());
-    assert.equal(boxes.length,2,'both planets retain a readable label');
+    assert.ok(boxes.length>=1,'the selected planet retains a readable label');
+    assert.equal(f.labels[0].style.display,'block');
+    if (boxes.length===1) {
+      assert.equal(f.labels[1].dataset.projectionX,undefined,'suppressed name clears its anchor');
+      continue;
+    }
     const [a,b]=boxes;
     if(!(a.x+a.width+3.9<=b.x||b.x+b.width+3.9<=a.x||a.y+a.height+3.9<=b.y||b.y+b.height+3.9<=a.y))failures.push(boxes);
   }
@@ -77,12 +84,6 @@ test("hidden, invalid and removed labels clear stale projection anchors", () => 
     if (mode === "invalid") f.context.state.bodies[0].p = [NaN, 0, 0];
     if (mode === "removed") f.context.state.bodies = [];
     f.render();
-    if (mode === "outside") {
-      assert.equal(f.labels[0].style.display, "block", "the focused body keeps an overflow name when it leaves the frame");
-      assert.ok(Number.isFinite(Number(f.labels[0].dataset.projectionX)), mode);
-      assert.ok(Number.isFinite(Number(f.labels[0].dataset.projectionY)), mode);
-      continue;
-    }
     assert.equal(f.labels[0].style.display, "none", mode);
     assert.equal(f.labels[0].dataset.projectionX, undefined, mode);
     assert.equal(f.labels[0].dataset.projectionY, undefined, mode);

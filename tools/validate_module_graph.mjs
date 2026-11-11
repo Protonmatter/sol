@@ -9,6 +9,7 @@ const file=path.join(root,'startup-modules.v1.json');
 const current=fs.existsSync(file)?JSON.parse(fs.readFileSync(file,'utf8')):null;
 const roots=rootsFlag>=0?args[rootsFlag+1].split(','):current?.roots;
 const expected=analyzeModules(root,roots);
+const complete=analyzeModules(root,roots,{includeDeferred:true});
 if(args.includes('--write'))fs.writeFileSync(file,JSON.stringify(expected,null,2)+'\n');
 else if(!isDeepStrictEqual(expected,current))throw new Error('Startup module graph drift; regenerate reviewed graph and hints');
-console.log(`Startup graph ${args.includes('--write')?'written':'valid'}: ${expected.modules.length} module URL identities`);
+console.log(`Startup graph ${args.includes('--write')?'written':'valid'}: ${expected.modules.length} startup module URL identities; ${complete.modules.length} complete graph identities`);

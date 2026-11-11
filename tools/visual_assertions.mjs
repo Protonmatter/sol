@@ -588,11 +588,57 @@ export function assertNoMoonTransitShadow(input, plan, umbraPxHint) {
  * thing that changes for this moon is the `eclipsed` factor multiplying u_base. Its total flux
  * must therefore fall by exactly 0.06 ** (1 / 2.2).
  */
+/**
+ * The lit disc of a focused moon, measured from pixels alone: the centroid and the
+ * equivalent radius sqrt(area / pi) of every pixel brighter than a tenth of the disc's peak.
+ * Coordinates are continuous canvas coordinates (pixel x spans [x, x + 1)), the convention the
+ * page's projection uses. The search window must enclose the whole disc on an unlit sky.
+ */
+export function measureLitDisc(image, centre, searchRadius) {
+  const x0 = Math.max(0, Math.floor(centre[0] - searchRadius)), x1 = Math.min(image.width - 1, Math.ceil(centre[0] + searchRadius));
+  const y0 = Math.max(0, Math.floor(centre[1] - searchRadius)), y1 = Math.min(image.height - 1, Math.ceil(centre[1] + searchRadius));
+  let peak = 0;
+  for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) peak = Math.max(peak, luminanceAt(image, x, y));
+  const threshold = Math.max(8, 0.1 * peak);
+  let pixels = 0, sx = 0, sy = 0, touchesWindow = false;
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
+      if (luminanceAt(image, x, y) <= threshold) continue;
+      pixels += 1; sx += x + 0.5; sy += y + 0.5;
+      if (x === x0 || x === x1 || y === y0 || y === y1) touchesWindow = true;
+    }
+  }
+  return { at: pixels ? [sx / pixels, sy / pixels] : null, radius: Math.sqrt(pixels / Math.PI), pixels, peak, threshold, touchesWindow };
+}
+
 export function assertEclipsedMoonMarker(eclipsedInput, sunlitInput, eclipsedPlan, sunlitPlan, moonName) {
   const dark = decodePng(eclipsedInput);
   const lit = decodePng(sunlitInput);
   checkPlan(dark, eclipsedPlan);
   checkPlan(lit, sunlitPlan);
+  // The eclipse pair focuses the eclipsed moon, so only its own label anchors the camera. Its
+  // lit disc in the sunlit frame independently checks the camera distance and field of view:
+  // the measured centre and radius must match the exact perspective silhouette the page
+  // predicted (tan(asin(R/d)), not the centre-to-edge chord).
+  for (const plan of [eclipsedPlan, sunlitPlan]) {
+    if (plan.target !== moonName || !plan.targetDisc) {
+      throw new Error(`the eclipse pair must focus ${moonName} itself; the plan targets ${plan.target}`);
+    }
+  }
+  const expectedDisc = sunlitPlan.targetDisc;
+  const disc = measureLitDisc(lit, expectedDisc.at, expectedDisc.radiusPx * 1.25);
+  if (!disc.at || disc.touchesWindow) {
+    throw new Error(`${moonName}'s lit disc is missing or not isolated on a dark sky: ${JSON.stringify(disc)}`);
+  }
+  const centreError = Math.hypot(disc.at[0] - expectedDisc.at[0], disc.at[1] - expectedDisc.at[1]);
+  const radiusTolerance = Math.max(1, 0.01 * expectedDisc.radiusPx);
+  if (centreError > 1 || Math.abs(disc.radius - expectedDisc.radiusPx) > radiusTolerance) {
+    throw new Error(
+      `${moonName}'s lit disc does not match the predicted camera: measured centre `
+      + `${disc.at.map((v) => v.toFixed(2)).join(",")} radius ${disc.radius.toFixed(2)} px, predicted `
+      + `${expectedDisc.at.map((v) => v.toFixed(2)).join(",")} radius ${expectedDisc.radiusPx.toFixed(2)} px`
+    );
+  }
   if (eclipsedPlan.sunlit[moonName] !== 0) {
     throw new Error(
       `${moonName} is not in total umbra at the pinned eclipse instant `
@@ -649,7 +695,10 @@ export function assertEclipsedMoonMarker(eclipsedInput, sunlitInput, eclipsedPla
       + `shipped ramp's ${expected.toFixed(4)}`
     );
   }
-  return { ratio, expected, eclipsedFlux: eclipsed.total, sunlitFlux: sunlit.total };
+  return {
+    ratio, expected, eclipsedFlux: eclipsed.total, sunlitFlux: sunlit.total,
+    disc: { measured: disc.at, measuredRadiusPx: disc.radius, predicted: expectedDisc.at, predictedRadiusPx: expectedDisc.radiusPx, centreError },
+  };
 }
 
 export { decodePng };

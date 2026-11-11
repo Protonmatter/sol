@@ -1,7 +1,7 @@
 // @lazy-module — loaded only as a module worker after an explicit simulation request.
-import { loadEngine, simulateSnapshot } from "../engine.js?v=dcca6290db";
-import { validateSolarRequest } from "./engineLimits.js?v=dcca6290db";
-import { SOLAR_STATE_SNAPSHOT_SCHEMA } from "./solarContract.js?v=dcca6290db";
+import { loadEngine, simulateSnapshot } from "../engine.js";
+import { validateSolarRequest } from "./engineLimits.js";
+import { SOLAR_STATE_SNAPSHOT_SCHEMA } from "./solarContract.js";
 const release = "__SOL_RELEASE_ID__";
 let busy = false;
 self.onmessage = async event=>{
@@ -11,10 +11,13 @@ self.onmessage = async event=>{
   if(request.type!=="compute" || request.protocol!==identity.protocol || request.engine!=="solar" || request.schema!==identity.schema || request.abi!==1 || request.release!==release || busy) {
     self.postMessage({...identity,type:"error",error:{code:"protocol",message:"Solar worker request identity or admission mismatch"}});return;
   }
+  if(request.module!==undefined && !(request.module instanceof WebAssembly.Module)) {
+    self.postMessage({...identity,type:"error",error:{code:"protocol",message:"Invalid compiled WASM module"}});return;
+  }
   busy = true;
   try {
     const payload = validateSolarRequest(request.payload);
-    await loadEngine();
+    await loadEngine(request.module);
     self.postMessage({...identity,type:"result",value:simulateSnapshot(payload)});
   } catch(error) {
     self.postMessage({...identity,type:"error",error:{code:error.code || "engine_failed",message:error.message || "Solar engine failed"}});

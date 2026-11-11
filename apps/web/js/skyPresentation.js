@@ -1,4 +1,4 @@
-import { validateSkyWork } from "./skyLimits.js?v=dcca6290db";
+import { validateSkyWork } from "./skyLimits.js";
 
 export function skyRows(bodies,query="",group="all",selected=null) {
   const q=query.trim().toLowerCase();

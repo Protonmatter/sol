@@ -15,7 +15,7 @@ function fixture(){
   vm.runInContext(`(${installWorkerActivity.toString()})()`,context);
   return {context,worker:new context.Worker('worker.js',{type:'module'}),state:()=>context.__solWorkerActivity()};
 }
-const message=(generation=1,extra={})=>({type:'compute',protocol:'sol-worker.v1',engine:'ephemeris',schema:'ephemeris-snapshot.v3',abi:1,release:'fixture',generation,...extra});
+const message=(generation=1,extra={})=>({type:'compute',protocol:'sol-worker.v1',engine:'ephemeris',schema:'ephemeris-snapshot.v4',abi:1,release:'fixture',generation,...extra});
 
 test('observes a real protocol request without changing native arguments or return',()=>{
   const f=fixture(),request=message(),transfer=[];

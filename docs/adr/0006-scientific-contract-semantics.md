@@ -22,7 +22,7 @@ Ephemeris contract decisions are documented separately in `docs/EPHEMERIS_V3.md`
 
 ## Ephemeris snapshot v3
 
-Live ephemeris accepts only `ephemeris-snapshot.v3`; v2 readers and archived fixtures remain explicitly historical. Finite bodies carry separate positive geocentric and observer ranges. Angular size uses observer range, parallax uses geocentric range, and Moon phase pairs geocentric directions and ranges. Catalogue-star null ranges explicitly mean the infinite-distance approximation, not measured distance.
+Live ephemeris accepts only `ephemeris-snapshot.v4`; v3 and v2 readers and archived fixtures remain explicitly historical. v4 is v3 plus additive fields (see EPHEMERIS_V3.md). Finite bodies carry separate positive geocentric and observer ranges. Angular size uses observer range, parallax uses geocentric range, and Moon phase pairs geocentric directions and ranges. Catalogue-star null ranges explicitly mean the infinite-distance approximation, not measured distance.
 
 The observer mean-solar event window is half-open `[start,end)`, not civil midnight. An unavailable numerical peak is failed/unknown, not proof of no occurrence; genuinely absent and uncomputed events have separate statuses. Gregorian years 1–9999 are computational admission bounds, not an accuracy envelope. Historical times explicitly use a degraded UT1 proxy. Hybrid event/star augmentation requires exact terrestrial observer and instantaneous epoch binding, not just the same day, and never replaces the server's source time/EOP metadata.
 

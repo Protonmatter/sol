@@ -1,6 +1,9 @@
 // Small read-only cards use accepted presentation data; controls keep their existing owners.
-import { skyCard, systemCard } from './destinationCards.js?v=dcca6290de';
-import { elpMoonAliased } from './orreryTime.js?v=dcca6290db';
+import { skyCard, systemCard } from './destinationCards.js';
+import { resolveSystemDisplayPolicy } from './systemDisplayPolicy.js';
+import { BODY } from './bodyData.js';
+import { MOONS } from './moons.js';
+import { elpMoonAliased } from './orreryTime.js';
 import { appearanceReference, appearanceDescription, appearanceReferences, earthLayerDescription } from './planetAppearance.js';
 
 // The surface this card last rendered. Entering it from another one is a deliberate
@@ -80,16 +83,20 @@ export function renderDestinationOverview(surface, sky, system) {
   if (details) details.hidden = surface === 'orrery' && Boolean(system?.galaxy) && !system?.selectedStar;
   const systemJumps = document.getElementById('systemJumps');
   if (systemJumps) systemJumps.hidden = surface !== 'orrery' || Boolean(system?.galaxy);
+  const scalePolicy=resolveSystemDisplayPolicy({...system,focus:system?.focusMode||'overview',
+    inspectable:!!BODY[system?.anchor]||MOONS.some(m=>m.n===system?.anchor)});
   text('destinationCaption', surface === 'sky'
     ? 'Horizon map · north at the top · calculated positions, not a camera view'
     : system?.galaxy ? (system.localView ? 'Solar neighbourhood · static catalogue epoch · distances in light-years' : 'Milky Way illustration · separate model clock')
     : system?.trueScale ? 'Physical scale · small bodies may be subpixel'
+    : scalePolicy.physicalGeometry ? 'Physical relative sizes and distances · small moons may be subpixel'
     : 'Sizes enlarged for visibility · physical centers preserved · moon spacing enlarged');
   const caveats = surface === 'sky' || system?.galaxy ? '' : [system?.moonsHiddenReason,
     system?.animate && elpMoonAliased(system?.simStepSeconds) ? 'The Moon’s drawn motion is under-sampled at this speed; physical positions are unchanged.' : '',
     system?.spinLimitedCount && system?.animate && !system?.galaxy ? 'Rotation display rate-limited to one visible turn/5s.' : ''].filter(Boolean).join(' ');
   const earthLayersCaption = surface === 'orrery' && !system?.galaxy && !system?.selectedStar && system?.selected === 'Earth' && system?.useTextures !== false
     ? earthLayerDescription(system, true) : '';
-  text('destinationCaveat', [caveats, earthLayersCaption ? `Reference layers: ${earthLayersCaption}.` : ''].filter(Boolean).join(' '));
+  text('destinationCaveat', caveats);
+  text('destinationReferenceNote',earthLayersCaption ? `Reference layers: ${earthLayersCaption}.` : '');
   for (const button of document.querySelectorAll('[data-camera-body]')) button.setAttribute('aria-pressed', String(!system?.solarInspection&&system?.anchor === /** @type {HTMLElement} */ (button).dataset.cameraBody));
 }

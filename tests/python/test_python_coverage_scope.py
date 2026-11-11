@@ -46,13 +46,15 @@ class PythonCoverageScopeTests(unittest.TestCase):
         source=(ROOT/'.github/workflows/coverage.yml').read_text(encoding='utf-8')
         self.assertEqual(checker(ROOT,source),[])
         policy=json.loads((ROOT/'tools/python_coverage_scope.json').read_bytes())
-        self.assertEqual(len(policy['modules']),56)
+        self.assertEqual(len(policy['modules']),59)
         self.assertIn('tools/browser_smoke.py',policy['modules'])
         self.assertIn('tools/startup_contract.py',policy['modules'])
         self.assertIn('tools/validate_web_static.py',policy['modules'])
         self.assertTrue({'tools/horizons_events.py','tools/horizons_observer_seasonal.py',
                          'tools/validate_moons.py','tools/moon_model.py',
-                         'tools/validate_operational_readiness.py','tools/ephemeris_distribution.py'}<=set(policy['modules']))
+                         'tools/validate_operational_readiness.py','tools/ephemeris_distribution.py',
+                         'tools/generate_independent_vector_evidence.py','tools/independent_vector_evidence.py',
+                         'tools/validate_independent_vector_evidence.py'}<=set(policy['modules']))
 
     def test_new_or_changed_excluded_code_cannot_silently_escape_the_denominator(self):
         with tempfile.TemporaryDirectory() as folder:

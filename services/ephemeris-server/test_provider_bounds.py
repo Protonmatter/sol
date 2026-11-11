@@ -86,7 +86,7 @@ class ProviderBoundsTests(unittest.TestCase):
     def test_handler_errors_never_echo_raw_coordinates_or_upstream_url(self):
         handler=object.__new__(server.Handler);sent=[]
         handler._send=lambda code,payload:sent.append((code,payload))
-        handler.path="/v3/sky?unix=100&lat=1.23456789&lon=2&elev=3"
+        handler.path="/v4/sky?unix=100&lat=1.23456789&lon=2&elev=3"
         with mock.patch.object(server,"snapshot_cached",side_effect=RuntimeError("https://provider/?SITE_COORD=1.23456789&secret=raw")):
             handler.do_GET()
         self.assertEqual(sent[-1][0],502)

@@ -81,7 +81,7 @@ function graphics(options={}){
 function setup(options={}){
   const h=graphics(options),program={borrowed:true},numerator={numerator:true},programs={generation:7,numerator,get:key=>key==='numerator'?programs.numerator:program};
   const manager=createScatteringTargets(h.gl,{contextGeneration:12,programGeneration:7,programs,generatorKey:'generator',
-    generatorUniforms:locations,admitPlan:()=>true,...(options.paired?{numeratorKey:'numerator',numeratorUniforms:locations}:{})});
+    generatorUniforms:locations,admitPlan:()=>true,...(options.diagnostics===undefined?{}:{diagnostics:options.diagnostics}),...(options.paired?{numeratorKey:'numerator',numeratorUniforms:locations}:{})});
   return {...h,manager,programs,program,numerator};
 }
 
@@ -157,7 +157,7 @@ test('caller plan admission is mandatory and is rechecked on bind',()=>{
 test('capability and allocation failures release partial resources and require explicit retry',()=>{
   for(const options of [{extension:false},{maxUnits:9},{maxUnits:10},{maxSize:4},{incomplete:true},
     ...[1,2,3,4].map(failAllocation=>({failAllocation})),{storageError:true},{drawError:true}]){
-    const h=setup(options),args=input();h.manager.beginFrame(args.frame);
+    const h=setup({...options,diagnostics:!!options.drawError}),args=input();h.manager.beginFrame(args.frame);
     assert.equal(h.manager.generate('Earth',args,h.restore),false,JSON.stringify(options));
     assert.equal(h.live.size,0);assert.deepEqual(h.state,h.restore);
     const count=h.allocations.length;h.manager.generate('Earth',args,h.restore);assert.equal(h.allocations.length,count,'no implicit retry loop');
@@ -192,7 +192,7 @@ test('cancellation, context loss and program replacement cannot admit late submi
 });
 
 test('restores the exact default framebuffer and hands consumed GL errors to diagnostics',()=>{
-  const h=setup(),args=input();h.restore.drawFramebuffer=null;h.restore.readFramebuffer=null;
+  const h=setup({diagnostics:true}),args=input();h.restore.drawFramebuffer=null;h.restore.readFramebuffer=null;
   h.state.drawFramebuffer=null;h.state.readFramebuffer=null;h.manager.beginFrame(args.frame);h.errors.push(1282,1281);
   assert.equal(h.manager.generate('Earth',args,h.restore),false);
   assert.equal(h.live.size,0);assert.deepEqual(h.state,h.restore);
@@ -210,9 +210,9 @@ test('restores any supported active selector, including units above the ten-unit
   assert.equal(h.state.activeTexture,115);
 });
 
-test('silent GL binding and restoration errors never report a usable submission',()=>{
+test('diagnostic mode catches silent GL binding and restoration errors',()=>{
   for(const phase of ['binding','restoration']){
-    const h=setup(),args=input();h.manager.beginFrame(args.frame);
+    const h=setup({diagnostics:true}),args=input();h.manager.beginFrame(args.frame);
     if(phase==='binding')assert.equal(h.manager.generate('Earth',args,h.restore),true);
     const original=phase==='binding'?h.gl.bindTexture:h.gl.useProgram;
     let injected=false;
@@ -325,4 +325,16 @@ test('half-specified paired owners are rejected before resource allocation',()=>
 for(const failAllocation of [1,2,3,4,5,6])test(`paired allocation${failAllocation} failure restores caller and deletes its partial group`,()=>{
   const h=setup({paired:true,failAllocation}),a=input();h.manager.beginFrame(a.frame);
   assert.equal(h.manager.generate('Earth',a,h.restore),false);assert.equal(h.live.size,0);assert.deepEqual(h.state,h.restore);
+});
+
+test('normal repeated generation and binding do not poll driver errors after allocation',()=>{
+  const h=setup(),args=input();h.manager.beginFrame(args.frame);
+  let polls=0;const original=h.gl.getError;h.gl.getError=()=>{polls++;return original();};
+  assert.equal(h.manager.generate('Earth',args,h.restore),true);
+  assert.ok(polls>0,'allocation retains driver error checks');
+  polls=0;
+  assert.equal(h.manager.generate('Earth',args,h.restore),true);
+  assert.equal(h.manager.bind('Earth',args,{program:h.restore.program,locations,activeTexture:102}),true);
+  assert.equal(polls,0,'steady-state draw and bind must not force error synchronization');
+  h.manager.dispose();
 });

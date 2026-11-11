@@ -62,7 +62,7 @@ def parse_native(text: str) -> dict:
                 or not _finite(row['tt_argument_error_seconds']) or abs(row['tt_argument_error_seconds']) > 0.001:
             raise ValueError('native apparent epoch/order/model argument differs')
         snapshot = row['snapshot']
-        if not isinstance(snapshot, dict) or snapshot.get('schema_version') != 'ephemeris-snapshot.v3':
+        if not isinstance(snapshot, dict) or snapshot.get('schema_version') != 'ephemeris-snapshot.v4':
             raise ValueError('native apparent snapshot schema differs')
         timing, observer = snapshot.get('time'), snapshot.get('observer')
         if not isinstance(timing, dict) or not _finite(timing.get('jd_tt')) or not _finite(timing.get('jd_utc')) \

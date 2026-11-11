@@ -5,7 +5,7 @@ import { assertEphemerisSnapshotV3, mergeLocalEvents } from "../../apps/web/js/e
 import { fetchServerSky } from "../../apps/web/js/skyEngine.js";
 import { SkyConsent } from "../../apps/web/js/skyPrivacy.js";
 
-const snapshot=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json",import.meta.url),"utf8")).snapshot;
+const snapshot=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v4-corpus.json",import.meta.url),"utf8")).snapshot;
 const unix=(snapshot.time.jd_utc-2440587.5)*86400;
 function atOffset(days) {
   const data=structuredClone(snapshot);

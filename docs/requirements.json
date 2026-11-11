@@ -60,7 +60,7 @@
       "source": "docs/SDLC.md#contract-and-schema-changes",
       "implementation": [
         "docs/solar-state-snapshot-v3.schema.json",
-        "docs/ephemeris-snapshot-v3.schema.json",
+        "docs/ephemeris-snapshot-v4.schema.json",
         "crates/solar-core/src/contracts.rs",
         "apps/web/js/ephemerisContract.js"
       ],

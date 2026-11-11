@@ -1,4 +1,4 @@
-import { store } from './store.js?v=dcca6290db';
+import { store } from './store.js';
 
 export function updateModeButtons() {
   document.querySelectorAll('.mode-button').forEach(node => {

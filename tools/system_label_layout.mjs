@@ -25,6 +25,18 @@ export function assertSystemLabelLayout({labels,canvas}) {
     assert.ok(a.x+a.width+clearancePx<=b.x||b.x+b.width+clearancePx<=a.x
       ||a.y+a.height+clearancePx<=b.y||b.y+b.height+clearancePx<=a.y,`System label clearance: ${a.id}/${b.id}`);
   }
+  for(const label of labels) {
+    assert.ok([label.anchorX,label.anchorY].every(Number.isFinite)
+      &&label.anchorX>=canvas.x&&label.anchorX<=canvas.x+canvas.width
+      &&label.anchorY>=canvas.y&&label.anchorY<=canvas.y+canvas.height,
+    `System label target must be on screen: ${label.id}`);
+    const dx=Math.max(label.x-label.anchorX,0,label.anchorX-label.x-label.width);
+    const dy=Math.max(label.y-label.anchorY,0,label.anchorY-label.y-label.height);
+    // Projection uses integer client dimensions; the rendered canvas can differ
+    // by half a CSS pixel on each axis. Include that bound plus DOM rounding.
+    const attachmentLimit=8+Math.hypot(.5,.5)+.1;
+    assert.ok(Math.hypot(dx,dy)<=attachmentLimit,`System label attachment: ${label.id}`);
+  }
   return {count:labels.length,limit,clearancePx};
 }
 
@@ -33,8 +45,11 @@ export function assertSystemLabelLayout({labels,canvas}) {
 export function readSystemLabelLayout() {
   const box=node=>{const {x,y,width,height}=node.getBoundingClientRect();return {x,y,width,height};};
   const canvas=document.getElementById('orreryCanvas');
-  return {canvas:{...box(canvas),clientWidth:canvas.clientWidth},
+  const bounds=box(canvas);
+  return {canvas:{...bounds,clientWidth:canvas.clientWidth},
     labels:Array.from(document.querySelectorAll('#orreryLabels span'))
       .filter(node=>getComputedStyle(node).display!=='none')
-      .map(node=>({id:node.dataset.objectId,...box(node)}))};
+      .map(node=>({id:node.dataset.objectId,...box(node),
+        anchorX:node.dataset.projectionX===undefined?NaN:bounds.x+Number(node.dataset.projectionX)*bounds.width/canvas.clientWidth,
+        anchorY:node.dataset.projectionY===undefined?NaN:bounds.y+Number(node.dataset.projectionY)*bounds.height/canvas.clientHeight}))};
 }

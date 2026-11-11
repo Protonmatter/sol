@@ -8,6 +8,14 @@ import {analyzeModules} from './module_graph.mjs';
 const base='https://sol.invalid/__root__/';
 export function smokeModuleUrls(webRoot){
   const root=path.resolve(webRoot);
+  const buildFile=path.join(root,'web-build.v1.json');
+  if(fs.existsSync(buildFile)){
+    const build=JSON.parse(fs.readFileSync(buildFile,'utf8'));
+    const modules=['js/store.js','js/orreryTime.js','js/orrery.js','js/moons.js'];
+    if(build.schema_version!=='web-build.v1'||modules.some(name=>!build.retained?.includes(name)&&build.entries?.[name]!==name))throw new Error('Missing compiled smoke module entry');
+    analyzeModules(root,['app.js',...modules],{includeDeferred:true});
+    return modules;
+  }
   const parse=name=>{
     const source=ts.createSourceFile(name,fs.readFileSync(path.join(root,name),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
     if(source.parseDiagnostics.length)throw new Error('Smoke module JavaScript syntax error: '+name);

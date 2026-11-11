@@ -56,6 +56,12 @@ class StartupContractTests(unittest.TestCase):
             with self.subTest(mutate=mutate):
                 self.descriptor=copy.deepcopy(original);mutate(self.descriptor);self.write()
                 with self.assertRaisesRegex(ValueError,'startup'):validate_startup_contract(self.root)
+    def test_two_urls_for_one_source_path_fail(self):
+        duplicate=copy.deepcopy(self.descriptor['modules'][1]);duplicate['url']='js/shared.js?v=other'
+        self.descriptor['modules'].append(duplicate)
+        self.markup += '<link rel="modulepreload" href="js/shared.js?v=other">'
+        self.write()
+        with self.assertRaisesRegex(ValueError,'duplicate.*identit'):validate_startup_contract(self.root)
     def test_unbound_executable_html_cannot_bypass_startup_graph(self):
         original=self.markup
         for suffix in ["<script>void import('./js/later.js')</script>",'<script src="extra.js"></script>',

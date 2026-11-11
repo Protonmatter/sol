@@ -1,14 +1,14 @@
 {
   "schema_version": "startup-modules.v1",
   "roots": [
-    "app.js?v=dcca6290e0",
-    "js/observationBoot.js?v=dcca6290db"
+    "app.js",
+    "js/observationBoot.js"
   ],
   "modules": [
     {
-      "url": "app.js?v=dcca6290e0",
+      "url": "app.js",
       "path": "app.js",
-      "sha256": "fccf60f3bf8f97e29a6ba956b43dea697d79e9429811c5e8974747e29d114788"
+      "sha256": "ceaf6d064a296305e0a830d7aecdef397fc9cfa0cf6b82117e72a83a6ee7574a"
     },
     {
       "url": "js/catalogueLoader.js",
@@ -16,7 +16,7 @@
       "sha256": "743bad2a968abae7aae9c9cee83382ceba48f8b49a068f784e629678c60134b6"
     },
     {
-      "url": "js/config.js?v=dcca6290db",
+      "url": "js/config.js",
       "path": "js/config.js",
       "sha256": "3fa0ef84525d7947f81ec0a7c669d9fd93c7786749e1325af432a90f56d3ddde"
     },
@@ -26,12 +26,12 @@
       "sha256": "7dc82e6bedec3426a39df4bd558a9e9c432b7ecb13a04a4c65c65d2ca40956ce"
     },
     {
-      "url": "js/explorer.js?v=dcca6290db",
+      "url": "js/explorer.js",
       "path": "js/explorer.js",
       "sha256": "11dfa8825362839a66c682636749537a3821f03b22d3282b45c9b927fd061ffc"
     },
     {
-      "url": "js/observationBoot.js?v=dcca6290db",
+      "url": "js/observationBoot.js",
       "path": "js/observationBoot.js",
       "sha256": "beefc68b31d3d4b49f3453b517507afef156db0bc1d7b2d8ae8c1efbcbf34ee4"
     },
@@ -46,7 +46,7 @@
       "sha256": "711ca3a796c8217bdf4aecc1558c6c2c4f227296d139f86b286954519e11e439"
     },
     {
-      "url": "js/releaseClient.js?v=dcca6290db",
+      "url": "js/releaseClient.js",
       "path": "js/releaseClient.js",
       "sha256": "ac1c391e5ce106060a7e5f0eae8de3b6fc0cf04808eefc02e6413d06f80ba37b"
     },
@@ -61,9 +61,9 @@
       "sha256": "252b04edce38306f3d9e3181118b14296e73b46dc96fd04a87289ffe7938a6dc"
     },
     {
-      "url": "js/store.js?v=dcca6290db",
+      "url": "js/store.js",
       "path": "js/store.js",
-      "sha256": "ea502faf428b180fbf69f0975b5c128cf2297940344fbc573e516274c46d80c7"
+      "sha256": "f105054bfe38ad5524e537129e39a5b48a0c76b474b26881916c6deaed47af11"
     },
     {
       "url": "js/sunFacts.js",
@@ -73,20 +73,20 @@
     {
       "url": "js/surfaceNavigation.js",
       "path": "js/surfaceNavigation.js",
-      "sha256": "407da2ffa9439f5568adfb49680e63985258444f1fb08d6355d89cc691247fc7"
+      "sha256": "f7af32cc0c9485108df006266a9c54857966b988be31356dc06c2200b2c836fc"
     },
     {
-      "url": "js/tooltip.js?v=dcca6290db",
+      "url": "js/tooltip.js",
       "path": "js/tooltip.js",
-      "sha256": "e703d27bee78256345ee6cdd8b663cfafe15c0910a7e3cd9c3a782b97d9d742e"
+      "sha256": "8a2085120af34f6d90c676280a1d47cbf8170075301764139ad48341f3171082"
     },
     {
-      "url": "js/view.js?v=dcca6290de",
+      "url": "js/view.js",
       "path": "js/view.js",
-      "sha256": "15361c2674dffd047f22fd756a177568e200e23f4289fdda0f90bf0ac753f39e"
+      "sha256": "aa36dce4b49d5c49c45567ede784d34e23662bfd8d90cc9dafc0edbcfe8e02ab"
     },
     {
-      "url": "js/viewEvidence.js?v=dcca6290db",
+      "url": "js/viewEvidence.js",
       "path": "js/viewEvidence.js",
       "sha256": "bf610027dd205742a5a661391e96d2b21d12e2831b0ef481884ea932a1de3803"
     },
@@ -101,7 +101,7 @@
       "sha256": "76687ca3e04e6f82274ccc0252090b1b82e7e7077d8aee1bba4095ec21f9dcbc"
     },
     {
-      "url": "js/workspace.js?v=dcca6290db",
+      "url": "js/workspace.js",
       "path": "js/workspace.js",
       "sha256": "0508a68983631ed441dc05b78642c0ffb599f649d6c5c25650077a263681a3cf"
     }

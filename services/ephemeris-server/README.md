@@ -2,7 +2,7 @@
 
 The optional **server tier** of the hybrid provider model
 ([SOLAR_SYSTEM_SPEC.md](../../docs/SOLAR_SYSTEM_SPEC.md) §2.1). It serves the **same
-`ephemeris-snapshot.v3` contract** as the in-browser WASM engine, but sourced from **JPL
+`ephemeris-snapshot.v4` contract** as the in-browser WASM engine, but sourced from **JPL
 Horizons (DE441)** — the definitive numerically-integrated ephemeris. The on-device WASM
 engine (VSOP2013 + ELP-MPP02) stays the offline default; the web app escalates here only when
 you ask for definitive precision (the **"High-precision (DE441)"** toggle in *My Sky*).
@@ -31,8 +31,8 @@ relative to this script, independent of the current working directory. Copying
 `server.py` alone is not a supported standalone installation.
 
 - `GET /health` → `{ "status": "ok", "provider": "horizons-de441", ... }`
-- `GET /v3/sky?unix=<sec>&lat=<deg>&lon=<deg east+>&elev=<m>` → `ephemeris-snapshot.v3`
-- `GET /v1/sky?...` and `/v2/sky?...` → HTTP 409 with an explicit v3 upgrade explanation
+- `GET /v4/sky?unix=<sec>&lat=<deg>&lon=<deg east+>&elev=<m>` → `ephemeris-snapshot.v4`
+- `GET /v1/sky?...`, `/v2/sky?...` and `/v3/sky?...` → HTTP 409 with an explicit v4 upgrade explanation
 
 Responses are cached on disk under `cache/` (keyed by exact floating-point epoch and observer), so the first call
 for an instant is subject to the 20-second overall deadline; no current live latency is qualified. CORS is open
@@ -40,11 +40,11 @@ for an instant is subject to the 20-second overall deadline; no current live lat
 the URL the frontend uses with `window.SOL_EPHEMERIS_SERVER`. There is no default remote
 endpoint; the user explicitly consents to sending the selected location/time to the displayed recipient.
 
-Cache reads are bounded to 1 MiB and admitted through the full strict v3 contract,
+Cache reads are bounded to 1 MiB and admitted through the full strict v4 contract,
 including the requested epoch and observer. The internal `ephemeris-cache.v1`
 envelope also binds all four exact hexadecimal float request values, because
 different Unix floats can round to the same Julian day. The public HTTP response
-is still the unwrapped `ephemeris-snapshot.v3` object.
+is still the unwrapped `ephemeris-snapshot.v4` object.
 
 Malformed, oversized or mismatched entries are discarded and rebuilt once through
 the bounded provider path; a failed or invalid rebuild is an error, not a cache hit.
@@ -94,3 +94,13 @@ Offline verification (no network required):
 ```text
 python -m unittest discover -s services/ephemeris-server -p "test*.py"
 ```
+
+
+Future calendar requests after 2027-11-05 00:00 UTC (MJD 61714, the client EOP
+endpoint) return HTTP 422 with code `unsupported_time` before cache, queue or
+upstream access. Horizons UT requests do not establish the on-device model's
+explicit nominal-UTC mapping. Use the browser's **On your device** selection
+for future exploration; its held leap offset, modeled UT1 and unknown
+uncertainty are displayed. This server boundary is a request policy, not a
+claim that the server itself ingests the client's EOP table. Update the policy
+and its boundary-alignment test together when that supported interval changes.

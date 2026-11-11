@@ -50,7 +50,7 @@ async function fixture({pipeline=false}={}) {
   const loaded=await loadSourceModules(context,names.map(moduleURL),{resolveImport:(_specifier,url)=>boundaries[url.pathname.split('/').at(-1)]});
   Object.assign(context,...loaded);
   const solar=()=>commands.filter(c=>c[0]==='solar');
-  return {context,store,controls,nodes,window,solar,frozen,
+  return {context,store,controls,nodes,window,solar,frozen,commands,
     clear(){commands.length=0;gradient=0;},draw(options){context.drawSolarDisk(options);},
     image(value){image=value;},lost(value){lost=value;},failDraw(value){failDraw=value;},failPrepare(value){failPrepare=value;},now(value){now=Date.parse(value);},
     resize(){
@@ -161,4 +161,34 @@ test('native reset drawing-state defaults invalidate an equal-size live context'
   assert.ok(ctx.lineWidth>=1.5);ctx.lineWidth=1;ctx.strokeStyle='#000000';h.clear();h.draw({resizeOnly:true});
   assert.ok(h.solar().some(c=>c[1]==='clearRect'));
   h.clear();h.draw({resizeOnly:true});assert.equal(h.solar().length,0);
+});
+
+for(const [dpr,width] of [[1,320],[2,320],[2,1000]])test(`Solar and butterfly text preserves CSS readability at DPR ${dpr}, width ${width}`,async()=>{
+  const h=await fixture();h.window.devicePixelRatio=dpr;
+  for(const canvas of [h.nodes.solarCanvas,h.nodes.butterflyCanvas])canvas.rect={width,height:300};
+  h.draw();h.store.selectedRegionId=h.store.projectedRegions[0].region.id;h.clear();h.draw();
+  const solarScale=h.nodes.solarCanvas.height/300;
+  const solarFont=h.solar().find(c=>c[1]==='set'&&c[2]==='font');
+  assert.ok(parseFloat(solarFont[3])/solarScale>=12,'Selected active region is at least 12 CSS px');
+  for(const series of [false,true]){
+    h.store.seriesFrames=series?[h.store.state]:[];h.clear();h.context.drawButterfly();
+    const scale=h.nodes.butterflyCanvas.height/300;
+    const commands=h.commands.filter(c=>c[0]==='butterfly');
+    const font=commands.find(c=>c[1]==='set'&&c[2]==='font');
+    assert.ok(parseFloat(font[3])/scale>=12,'Butterfly annotations are at least 12 CSS px');
+    if(series){
+      const caption=commands.find(c=>c[1]==='fillText'&&c[2].startsWith('time'));
+      assert.ok(caption[3]/scale>=38,'Series retains room for readable latitude labels');
+      assert.ok((h.nodes.butterflyCanvas.height-caption[4])/scale>=7,'Time caption retains bottom padding');
+    }
+  }
+});
+
+test('CSS scale invalidates Solar text even when capped backing dimensions stay equal',async()=>{
+  const h=await fixture();h.window.devicePixelRatio=2;h.nodes.solarCanvas.rect={width:500,height:250};h.draw();
+  h.store.selectedRegionId=h.store.projectedRegions[0].region.id;h.draw();h.clear();
+  h.nodes.solarCanvas.rect={width:1000,height:500};h.draw({resizeOnly:true});
+  assert.equal(h.nodes.solarCanvas.width,720);assert.equal(h.nodes.solarCanvas.height,360);
+  assert.ok(h.solar().some(c=>c[1]==='clearRect'),'A changed CSS text scale must redraw');
+  h.clear();h.draw({resizeOnly:true});assert.equal(h.solar().length,0,'The new CSS scale remains reusable');
 });

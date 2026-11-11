@@ -14,13 +14,21 @@ const MOON_MASS_FRACTION: f64 = 0.012150585;
 /// apparent place. VSOP2013 gives the Earth-Moon barycentre; Earth's centre is offset toward the
 /// Moon by the lunar mass fraction (≈4671 km), which is ~6″ for the Sun and inner planets.
 pub(crate) fn earth_center(jy2k: f64) -> [f64; 3] {
+    earth_and_moon(jy2k).0
+}
+
+/// Earth's heliocentric centre and the geocentric Moon, both ecliptic J2000 AU.
+/// Share the lunar evaluation when a caller needs both positions at one epoch.
+/// Retain the original EMB correction's arithmetic order exactly.
+pub(crate) fn earth_and_moon(jy2k: f64) -> ([f64; 3], [f64; 3]) {
     let emb = vsop2013::helio_xyz(crate::vsop2013_data::emb(), jy2k);
-    let moon = crate::elpmpp02::moon_xyz(jy2k); // geocentric ecliptic J2000, AU
-    [
+    let moon = crate::elpmpp02::moon_xyz(jy2k);
+    let earth = [
         emb[0] - MOON_MASS_FRACTION * moon[0],
         emb[1] - MOON_MASS_FRACTION * moon[1],
         emb[2] - MOON_MASS_FRACTION * moon[2],
-    ]
+    ];
+    (earth, moon)
 }
 
 /// Reduce a geocentric ecliptic-J2000 vector to apparent ecliptic-of-date (lon °, lat °):

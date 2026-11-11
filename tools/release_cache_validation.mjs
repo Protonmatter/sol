@@ -1,4 +1,5 @@
 // Actual Chromium, three immutable local artifacts and two open clients. No external I/O.
+import {releaseModulePath} from './release_module_urls.mjs';
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -42,11 +43,30 @@ const systemState=(page,manifest)=>page.evaluate(async({url})=>{
   const s=(await import(url)).store.orrery;
   return s?{phase:{...s.catalogueStatus},bodies:s.bodies.map(body=>[body.name,body.x_au,body.y_au,body.z_au]),error:s.engineError,
     status:document.getElementById('orreryCatalogueStatus').textContent,retry:document.getElementById('orreryCatalogueRetry').checkVisibility()}:null;
-},{url:`/${manifest.namespace}js/store.js?v=${manifest.release_id}`});
-const waitCatalogues=(page,manifest,stars,moons)=>page.waitForFunction(async({url,stars,moons})=>{
-  const s=(await import(url)).store.orrery;
-  return s?.catalogueStatus.stars===stars&&s?.catalogueStatus.moons===moons;
-},{timeout:90000,polling:100},{url:`/${manifest.namespace}js/store.js?v=${manifest.release_id}`,stars,moons});
+},{url:`/${manifest.namespace}${releaseModulePath(manifest,'js/store.js')}`});
+const waitCatalogues=(page,manifest,stars,moons,deadline=performance.now()+90000)=>{
+  const remaining=deadline-performance.now();
+  if(!(remaining>0))throw new Error('Catalogue readiness exceeded its original deadline');
+  return page.waitForFunction(async({url,stars,moons})=>{
+    const s=(await import(url)).store.orrery;
+    // Catalogue requests can finish before main-thread/worker engine preparation.
+    return s?.bodies.length===9&&!s.entering&&s.catalogueStatus.stars===stars&&s.catalogueStatus.moons===moons;
+  },{timeout:remaining,polling:100},{url:`/${manifest.namespace}${releaseModulePath(manifest,'js/store.js')}`,stars,moons});
+};
+const enterAndDemandCatalogues=async(page,manifest,stars,moons)=>{
+  const deadline=performance.now()+90000;
+  await page.bringToFront();
+  await page.click('[data-mode="orrery"]');
+  const remaining=deadline-performance.now();
+  if(!(remaining>0))throw new Error('Catalogue view entry exceeded its original deadline');
+  await page.waitForFunction(()=>document.body.dataset.viewCode==='ready'&&document.body.dataset.viewCodeName==='orrery'
+    &&!!document.querySelector('#orreryAnchor option[value="Jupiter"]'),{timeout:remaining});
+  // These native controls create the production demand. Merely entering System
+  // must no longer be treated as a request for either optional enrichment table.
+  await page.select('#orreryAnchor','Jupiter');
+  await page.select('#orreryObjectGroup','star');
+  await waitCatalogues(page,manifest,stars,moons,deadline);
+};
 const cachedCatalogues=(page,manifest)=>page.evaluate(async({cache,paths})=>{
   const stored=await caches.open(cache);return await Promise.all(paths.map(async url=>!!(await stored.match(url))));
 },{cache:`sol-release-${manifest.release_id}`,paths:catalogueFiles.map(file=>`/${manifest.namespace}${file}`)});
@@ -118,8 +138,7 @@ try {
     for(const key of ['source','time','caption','imageUrl'])assert.equal(offlineReturn[key],online[key],`offline observation retains its original ${key}`);
     firstOffline.sha256=await fetchHash(returned,online.imageUrl);
     assert.equal(firstOffline.sha256,observationAsset.sha256,'offline image bytes match the immutable release manifest');
-    await returned.click('[data-mode="orrery"]');
-    await waitCatalogues(returned,manifest,'failed','failed');
+    await enterAndDemandCatalogues(returned,manifest,'failed','failed');
     const missing=await systemState(returned,manifest);assert.equal(missing.error,'');assert.equal(missing.bodies.length,9);
     assert.equal(missing.retry,true);assert.match(missing.status,/unavailable|failed|could not/i);
     assert.deepEqual(await cachedCatalogues(returned,manifest),[false,false]);
@@ -137,8 +156,8 @@ try {
     await returned.evaluate(()=>localStorage.removeItem('sol-surface'));await returned.close();offline=true;
     const enrichedReturn=await ownedPage(firstVisitContext);await enrichedReturn.setCacheEnabled(false);
     await enrichedReturn.goto(origin,{waitUntil:'domcontentloaded',timeout:30000});
-    await enrichedReturn.waitForFunction(()=>document.body.dataset.appReady==='true');await enrichedReturn.click('[data-mode="orrery"]');
-    await waitCatalogues(enrichedReturn,manifest,'ready','ready');const enriched=await systemState(enrichedReturn,manifest);
+    await enrichedReturn.waitForFunction(()=>document.body.dataset.appReady==='true');
+    await enterAndDemandCatalogues(enrichedReturn,manifest,'ready','ready');const enriched=await systemState(enrichedReturn,manifest);
     assert.equal(enriched.error,'');assert.equal(enriched.bodies.length,9);evidence.checks.push({verifiedEnrichmentOfflineReturn:enriched});
   } finally {await firstVisitContext.close();offline=false;active=0;}
   // An installed worker does not claim the initial document. Its online module
@@ -148,7 +167,7 @@ try {
     active=2;const manifest=manifests[2],page=await ownedPage(uncontrolledContext);await page.setCacheEnabled(false);
     await page.goto(origin,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.body.dataset.appReady==='true');await ready(page);
     assert.equal(await page.evaluate(()=>!!navigator.serviceWorker.controller),false);
-    await page.click('[data-mode="orrery"]');await waitCatalogues(page,manifest,'ready','ready');
+    await enterAndDemandCatalogues(page,manifest,'ready','ready');
     assert.deepEqual(await cachedCatalogues(page,manifest),[false,false],'uncontrolled online use is not verified cache admission');
     evidence.checks.push({uncontrolledOnlineEnrichment:await systemState(page,manifest),cacheAdmission:false});
   }finally{await uncontrolledContext.close();active=0;}

@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
@@ -122,7 +123,7 @@ def validate_visual_source(source_root: Path) -> frozenset[str]:
 
 TOKEN = re.compile(r"\?v=[0-9a-zA-Z._-]+")
 WASM_FILES = ("solar_wasm.wasm", "solar_ephemeris.wasm")
-TRANSITION_SCHEMAS = {"solar-state-snapshot.v2", "solar-state-snapshot.v3", "ephemeris-snapshot.v2", "ephemeris-snapshot.v3"}
+TRANSITION_SCHEMAS = {"solar-state-snapshot.v2", "solar-state-snapshot.v3", "ephemeris-snapshot.v2", "ephemeris-snapshot.v3", "ephemeris-snapshot.v4"}
 SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "ephemerisSchema.js", "ephemerisContract.js", "ephemerisContractV2.js",
     "solarSchema.js", "solarContract.js", "systemContract.js", "dataBundle.js", "sourceAttribution.js",
     "solarProjection.js", "solarRegionFacts.js", "celestial.js", "engineLimits.js",
@@ -146,7 +147,7 @@ SCIENCE_MODULES = frozenset({"engine.js", "skyEngine.js", "accuracy.js", "epheme
     # clip and limb treatment that go with each. That is observation rendering, so its hash
     # belongs in the science fingerprint rather than letting a later change to this path
     # reuse a qualification recorded for different behaviour.
-    "render.js"})
+    "render.js", "frameScheduler.js", "physicalPresenter.js", "labelPresenter.js", "systemDisplayPolicy.js", "skyFrame.js", "wasmBroker.js", "renderQuality.js", "referenceImageLoader.js", "textureDisplayBudget.js"})
 
 
 def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id: str,
@@ -200,6 +201,17 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     wasm_receipt = None
     if (source_root / "licenses/solar-ephemeris/index.html").is_file() or (wasm_root / RECEIPT_NAME).exists():
         wasm_receipt = validate_receipt(ROOT, wasm_root)
+    evidence_marker = source_root / 'data/independent-vector-evidence.json'
+    evidence_binding = source_root / 'js/independentEvidenceBinding.js'
+    if evidence_marker.exists() or evidence_binding.exists():
+        from independent_vector_evidence import validate_release_binding
+        validate_release_binding(ROOT, wasm_root)
+        # Alternate source-root staging must carry the same validated registry
+        # and browser binding, not an unrelated copy with a trusted project label.
+        for material in (evidence_marker, evidence_binding):
+            expected = ROOT / 'apps/web' / material.relative_to(source_root)
+            if material.is_symlink() or material.read_bytes() != expected.read_bytes():
+                raise ValueError('independent evidence source differs from validated project binding')
     previous = validate_manifest(previous_root / "web-release-manifest.json") if previous_root else None
     if previous and previous["release_id"] == release_id:
         raise ValueError("release ID collision with previous artifact")
@@ -215,6 +227,7 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
     # engines, core Research data and the original Sun image remain critical.
     optional_catalogue_paths = {namespace + 'js/' + name for name in ('moonelements.js', 'starcatalog.js')}
     source_map: dict[str, dict] = {}
+    source_inventory: dict[str, dict] = {}
     copied_hashes: dict[str, str] = {}
     try:
         for file in sorted(source_root.rglob("*")):
@@ -255,6 +268,29 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
             validate_startup_contract(temporary / namespace)
         if validate_visual_source(temporary / namespace) != critical_visuals:
             raise ValueError("visual source selection changed while staging")
+        # Capture original ownership before replacing private modules with bundles.
+        # Archive correspondence and fingerprints must describe all source inputs,
+        # including modules which have no standalone output after compilation.
+        source_inventory = dict(source_map)
+        modern_modules = startup_contract is not None and './js/viewLoader.js' in (source_root / 'app.js').read_text(encoding='utf-8')
+        web_build = None
+        if modern_modules:
+            compiled = subprocess.run(['node', str(ROOT / 'tools/bundle_web.mjs'), str(source_root), str(temporary / namespace)],
+                                      capture_output=True, text=True, check=False)
+            if compiled.returncode:
+                raise ValueError('web module compilation failed: ' + compiled.stderr.strip())
+            web_build = json.loads((temporary / namespace / 'web-build.v1.json').read_text(encoding='utf-8'))
+            for name, expected in web_build['sources'].items():
+                original = source_inventory.get(namespace + name.removeprefix('apps/web/'), {})
+                if original.get('source_sha256') != expected:
+                    raise ValueError('compiled source changed after staging: ' + name)
+            emitted = {namespace + output['path'] for output in web_build['outputs']}
+            source_map = {name: record for name, record in source_map.items()
+                          if name not in emitted and (temporary / name).is_file()}
+            # Retained startup bytes keep the same static closure, independently
+            # rechecked after compilation. Source-shape generated-data parity was
+            # checked above before the compiler transformed those modules.
+            validate_startup_contract(temporary / namespace)
         bundle_descriptor = None
         if selected_bundle:
             bundle_root = namespace + "data/bundles/" + selected_bundle.bundle_id + "/"
@@ -306,7 +342,7 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
         source_distribution = stage_distribution(ROOT, source_root, temporary / namespace,
             release_id=release_id, source_sha=source_sha, captured_data=captured_data,
             web_source_sha256={record['source_path'].removeprefix('apps/web/'): record['source_sha256']
-                for name, record in source_map.items() if name == 'sw.js' or name.startswith(namespace)})
+                for name, record in source_inventory.items() if name == 'sw.js' or name.startswith(namespace)})
         optional_source_paths = {namespace + 'licenses/solar-ephemeris/sol-source.tar.gz'} if source_distribution else set()
         assets = []
         for file in sorted(temporary.rglob("*")):
@@ -314,16 +350,25 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
                 continue
             relative = file.relative_to(temporary).as_posix()
             current = relative in ("index.html", "sw.js") or relative.startswith(namespace)
-            role = "optional" if (not current or relative in optional_optical_paths or relative in optional_source_paths or relative in optional_catalogue_paths
+            role = "optional" if (not current or relative in optional_optical_paths or relative in optional_source_paths or relative in optional_catalogue_paths or relative.endswith(".js.map")
                                   or ("/textures/" in relative and relative not in critical_visual_paths)) else "critical"
             assets.append({"path": relative, "size": file.stat().st_size, "sha256": digest(file),
                            "role": role, **source_map.get(relative, {})})
         data_assets = [asset for asset in assets if asset["path"].startswith(namespace + "data/")]
         bundle_digest = hashlib.sha256(json.dumps([(asset["path"][len(namespace):], asset["sha256"]) for asset in data_assets], separators=(",", ":")).encode()).hexdigest()
         wasm_hashes = {name: digest(package / name) for name in WASM_FILES}
-        ui_fingerprints = [(asset["source_path"], asset["source_sha256"]) for asset in assets
-                           if (asset["path"].startswith(namespace) or asset["path"] == "sw.js") and "source_path" in asset and asset["path"].endswith((".js", ".html", ".css"))]
+        ui_fingerprints = [(record['source_path'], record['source_sha256'])
+                           for name, record in sorted(source_inventory.items())
+                           if (name.startswith(namespace) or name == 'sw.js') and name.endswith(('.js', '.html', '.css'))]
         science_fingerprints = [(path, sha) for path, sha in ui_fingerprints if Path(path).name in SCIENCE_MODULES]
+        ui_material = ui_fingerprints
+        science_material = {"wasm": wasm_hashes, "schemas": schemas,
+                            "methods_contracts_coefficients": science_fingerprints}
+        if web_build is not None:
+            compilation = {"compiler": web_build['compiler'],
+                           "outputs": [(item['path'], item['sha256']) for item in web_build['outputs']]}
+            ui_material = {"sources": ui_fingerprints, "web_compilation": compilation}
+            science_material['web_compilation'] = compilation
         manifest = {"schema_version": "web-release-manifest.v1", "release_id": release_id,
             "source_sha": source_sha, "repository": repository, "run_id": run_id, "run_attempt": run_attempt,
             "base_path": base_path, "namespace": namespace,
@@ -331,9 +376,8 @@ def build_site(source_root: Path, wasm_root: Path, out_root: Path, *, release_id
             "abi_versions": {"solar": 1, "ephemeris": 1},
             "data_bundle_id": selected_bundle.bundle_id if selected_bundle else "materialized-sha256-" + bundle_digest,
             "wasm_sha256": wasm_hashes, "components": {
-                "ui": hashlib.sha256(json.dumps(ui_fingerprints, separators=(",", ":")).encode()).hexdigest(),
-                "science": hashlib.sha256(json.dumps({"wasm": wasm_hashes, "schemas": schemas,
-                    "methods_contracts_coefficients": science_fingerprints}, sort_keys=True).encode()).hexdigest()},
+                "ui": hashlib.sha256(json.dumps(ui_material, separators=(",", ":")).encode()).hexdigest(),
+                "science": hashlib.sha256(json.dumps(science_material, sort_keys=True).encode()).hexdigest()},
             "previous_release_id": previous["release_id"] if previous else None, "assets": assets}
         if bundle_descriptor:
             manifest["data_bundle"] = bundle_descriptor

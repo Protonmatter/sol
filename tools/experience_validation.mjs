@@ -35,7 +35,7 @@ const origin = `http://127.0.0.1:${typeof address === "object" ? address.port : 
 let browser,page,validationError=null;
 fs.mkdirSync(out, { recursive: true });
 try {
-  browser = await puppeteer.launch({ executablePath: process.env.CHROME_BIN, headless: true, args: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+  browser = await puppeteer.launch({ executablePath: process.env.CHROME_BIN, headless: true, args: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"] });
   diagnostics.browser = await browser.version();
   page = await browser.newPage();
   await page.evaluateOnNewDocument(()=>{
@@ -49,11 +49,10 @@ try {
       },true);
   });
   await page.setBypassServiceWorker(true);
-  await page.setRequestInterception(true);
+  // Passive observation avoids pausing module-worker imports in the pinned driver.
   page.on("request", request => {
     const url = new URL(request.url());
-    if (url.origin === origin || url.protocol === "data:") request.continue();
-    else { diagnostics.requests.push({ url: url.origin + url.pathname, status: "blocked_by_local_test" }); request.abort(); }
+    if (url.origin !== origin && !["data:", "blob:"].includes(url.protocol)) diagnostics.requests.push({ url: url.origin + url.pathname, status: "external_attempt" });
   });
   page.on("pageerror", error => diagnostics.console.push({ type: "pageerror", message: error.message }));
   await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
@@ -541,6 +540,7 @@ try {
     const rendererFile=resolvePreviewFile(root,basePath,prefix+'js/orrery.js');
     assert.ok(rendererFile,'renderer source must remain within the declared preview mount');
     assert.ok(!/\bsystemSnapshot\s*\(/.test(fs.readFileSync(rendererFile,"utf8")),"renderer never invokes the heavy synchronous JSON path");
+    assert.deepEqual(diagnostics.requests.filter(row=>row.status==="external_attempt"), [], "workflow uses only the local staged artifact");
     assert.deepEqual(diagnostics.console, [], "no uncaught browser errors");
   }
   diagnostics.interactions=await page.evaluate(()=>window.__solQaInteractions||[]);

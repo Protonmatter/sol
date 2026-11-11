@@ -31,9 +31,10 @@ test("current System metadata publication refreshes its timestamp and selected f
   assert.equal(h.state.metadataUnix, metadataUnix);
   assert.equal(h.state.renderUnix, currentRenderUnix, "delayed metadata cannot rewind the rendered epoch");
   assert.equal(h.positionEpochs.at(-1), currentRenderUnix, "published metadata is projected onto current marker positions");
-  assert.match(h.nodes.orreryMetadataEpoch.textContent, /2027-01-15 08:00:57\.600Z/);
+  assert.ok(h.nodes.orreryMetadataEpoch.textContent.includes(new Date(metadataUnix*1000).toISOString().replace('T',' ')));
   assert.equal(metric(h.nodes.orreryDetail, "Orbital speed"), "1.00 km/s");
-  assert.match(h.nodes.orrerySelectedEpoch.textContent, /Earth.*2027-01-15 08:03:57\.600Z/);
+  assert.match(h.nodes.orrerySelectedEpoch.textContent, /Earth/);
+  assert.ok(h.nodes.orrerySelectedEpoch.textContent.includes(new Date(currentRenderUnix*1000).toISOString().replace('T',' ')));
   h.leaveOrrery();
 });
 

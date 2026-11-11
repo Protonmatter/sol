@@ -11,7 +11,7 @@ import { systemCard } from '../../apps/web/js/destinationCards.js';
 test('Titan keeps an orange haze disk and a blue high-altitude rim without changing albedo or eclipse attenuation', async t => {
   const h = await orreryHarness(t, { controls: true, catalogues: 'ready', reducedMotion: true });
   await h.enterOrrery(); await h.settleCatalogues();
-  h.input('orreryAnchor', 'Saturn', 'change');
+  h.input('orreryAnchor', 'Saturn', 'change');await h.settleCatalogues();
   h.state.radius = 0.1;
   h.check('orreryTrueScale', true);
   const epoch = h.state.renderUnix, bodies = JSON.stringify(h.state.bodies);

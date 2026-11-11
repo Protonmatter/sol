@@ -1,14 +1,14 @@
 // Derived reads over the current snapshot in `store`. No DOM writes.
 
-import { store } from "./store.js?v=dcca6290db";
-import { controls } from "./dom.js?v=dcca6290db";
-import { BASE_IMAGES } from "./config.js?v=dcca6290db";
-import { solarRegionFacts } from "./solarRegionFacts.js?v=dcca6290db";
-import { assessFeedFreshness } from "./presentationState.js?v=dcca6290db";
+import { store } from "./store.js";
+import { controls } from "./dom.js";
+import { BASE_IMAGES } from "./config.js";
+import { solarRegionFacts } from "./solarRegionFacts.js";
+import { assessFeedFreshness } from "./presentationState.js";
 import {
   number, numberOrNa, compactNumberOrNa, plural, countBy, formatCounts,
   readableMode, humanizeId, complexityLabel
-} from "./format.js?v=dcca6290db";
+} from "./format.js";
 
 export function fieldValues(id) {
   return store.state.fields?.[id]?.values || [];

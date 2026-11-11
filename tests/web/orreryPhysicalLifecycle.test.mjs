@@ -50,7 +50,7 @@ test('a background star clears planetary status and disposes the anchor gallery 
   }});
   await h.enterOrrery();await h.settleCatalogues();h.setAnimate(false);
   h.input('orreryAnchor','Jupiter','change');assert.equal(images.length,1);
-  h.input('orrerySearch','Earth');h.nodes.orreryPositions.children[0].click();
+  h.input('orrerySearch','Earth');await h.settleCatalogues();h.nodes.orreryPositions.children[0].click();
   assert.equal(images[0].signal.aborted,true);assert.equal(h.nodes.orreryPlanetPhenomena.hidden,true);
   assert.match(h.nodes.orreryPhysicalStatus.textContent,/optical/i);
   let label;
@@ -70,7 +70,7 @@ test('a background star clears planetary status and disposes the anchor gallery 
   h.input('orreryAnchor','Jupiter','change');assert.equal(h.state.selectedStar,null);
   assert.equal(images.length,2);assert.equal(h.nodes.orreryPlanetPhenomena.hidden,false);
   h.nodes.orreryCanvas.clientWidth=0;
-  h.input('orreryObjectGroup','star','change');h.input('orrerySearch','Sirius');h.nodes.orreryPositions.children[0].click();
+  h.input('orreryObjectGroup','star','change');h.input('orrerySearch','Sirius');await h.settleCatalogues();h.nodes.orreryPositions.children[0].click();
   assert.ok(h.state.selectedStar);assert.equal(images[1].signal.aborted,true,'a star selection cancels the active planetary image');
   assert.equal(h.nodes.orreryPlanetPhenomena.hidden,true);assert.equal(h.nodes.orreryPlanetPhenomena.children.length,0);
   h.input('orreryAnchor','Earth','change');assert.equal(h.state.selectedStar,null);
@@ -124,7 +124,7 @@ test('solar restart retains a ready atlas without another transfer, release or G
   }});
   await h.enterOrrery();h.setAnimate(false);h.input('orrerySolarMode','reconstructed-euv','change');h.event('orreryInspectSun','click');await h.settle();
   assert.equal(h.state.solarStatus,'ready');assert.equal(loads,1);
-  h.event('orrerySolarPlay','click');h.frame(100);assert.ok(h.state.solarPlayback.seconds>0);
+  h.event('orrerySolarPlay','click');h.frame(116);assert.ok(h.state.solarPlayback.seconds>0);
   const uploads=h.textureUploads.length,releases=h.deletedTextures.length,epoch=h.state.renderUnix,bodies=JSON.stringify(h.state.bodies);
   h.event('orrerySolarRestart','click');
   assert.equal(h.state.solarPlayback.seconds,0);assert.equal(h.state.solarPlayback.playing,false);
@@ -225,7 +225,7 @@ for(const route of ['orreryGalaxy','orreryLocal','orreryTextures','orreryAnchor'
     else if(route==='orreryAnchor')h.input(route,'Earth','change');
     else if(route==='body-row'||route==='star-row'){
       h.input('orreryObjectGroup',route==='star-row'?'star':'all','change');
-      h.input('orrerySearch',route==='star-row'?'Sirius':'Earth');h.nodes.orreryPositions.children[0].click();
+      h.input('orrerySearch',route==='star-row'?'Sirius':'Earth');await h.settleCatalogues();h.nodes.orreryPositions.children[0].click();
     }else if(route==='orrerySolarMode')h.input(route,'visible','change');
     else if(route==='orrerySolarTime')h.input(route,'4');
     else if(route==='context-lost')h.event('orreryCanvas','webglcontextlost');
@@ -249,7 +249,7 @@ for(const route of ['orreryGalaxy','orreryLocal']){
   test(`leaving a named star through ${route} clears selection, detail, focus and positions`,async t=>{
     const h=await orreryHarness(t,{controls:true,catalogues:'ready'});
     await h.enterOrrery();await h.settleCatalogues();h.setAnimate(false);h.event('orreryLocal','click');
-    h.input('orreryObjectGroup','star','change');h.input('orrerySearch','Sirius');
+    h.input('orreryObjectGroup','star','change');h.input('orrerySearch','Sirius');await h.settleCatalogues();
     const sirius=h.nodes.orreryPositions.children.find(node=>node.textContent.startsWith('Sirius ·'));
     sirius.click();assert.match(h.state.selected,/^star:/);assert.equal(h.nodes.orreryFocusSelected.disabled,true);
     h.event(route,'click');assert.equal(h.state.selectedStar,null);assert.equal(h.state.selected,null);
@@ -257,10 +257,10 @@ for(const route of ['orreryGalaxy','orreryLocal']){
     assert.equal(h.nodes.orreryFocusSelected.disabled,false);
     assert.ok(h.nodes.orreryPositions.children.every(node=>node.getAttribute('aria-pressed')!=='true'));
     if(h.state.galaxy)h.event('orreryGalaxy','click');
-    h.input('orreryObjectGroup','all','change');h.input('orrerySearch','Earth');h.nodes.orreryPositions.children[0].click();
+    h.input('orreryObjectGroup','all','change');h.input('orrerySearch','Earth');await h.settleCatalogues();h.nodes.orreryPositions.children[0].click();
     assert.equal(h.state.selected,'Earth');assert.equal(h.nodes.orreryFocusSelected.disabled,false);
     h.event('orreryFocusSelected','click');assert.equal(h.state.anchor,'Earth');
-    h.input('orreryObjectGroup','star','change');h.input('orrerySearch','Sirius');h.nodes.orreryPositions.children[0].click();
+    h.input('orreryObjectGroup','star','change');h.input('orrerySearch','Sirius');await h.settleCatalogues();h.nodes.orreryPositions.children[0].click();
     h.event(route,'click');assert.equal(h.state.selectedStar,null);assert.equal(h.state.selected,null);
     assert.equal(h.nodes.orrerySelectionStatus.textContent,'No object selected');assert.equal(h.nodes.orreryFocusSelected.disabled,false);
     assert.doesNotMatch(h.nodes.orreryDetail.textContent,/Hipparcos \(ESA 1997\)/);h.leaveOrrery();

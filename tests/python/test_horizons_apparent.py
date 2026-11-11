@@ -142,7 +142,7 @@ class ApparentGateTests(unittest.TestCase):
                     'geocentric_apparent_ra_deg': place.ra_deg,
                     'geocentric_apparent_dec_deg': place.dec_deg + (offsets or {}).get(case, 0) / 3600})
             rows.append(json.dumps({'requested_jd_tt': jd, 'tt_argument_error_seconds': 0,
-                'snapshot': {'schema_version': 'ephemeris-snapshot.v3',
+                'snapshot': {'schema_version': 'ephemeris-snapshot.v4',
                     'time': {'jd_tt': jd, 'jd_utc': jd-69.184/86400},
                     'observer': {'terrestrial_lat_deg': 0, 'terrestrial_lon_deg_east': 0, 'elev_m': 0}, 'bodies': bodies}}))
         return '\n'.join(rows)

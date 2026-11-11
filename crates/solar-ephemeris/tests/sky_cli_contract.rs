@@ -43,7 +43,7 @@ fn the_cli_requires_exactly_four_arguments_and_preserves_valid_json_output() {
     let json = String::from_utf8(output.stdout).expect("UTF-8 snapshot");
     assert!(json.trim_start().starts_with('{'));
     let compact: String = json.chars().filter(|c| !c.is_whitespace()).collect();
-    assert!(compact.contains("\"schema_version\":\"ephemeris-snapshot.v3\""));
+    assert!(compact.contains("\"schema_version\":\"ephemeris-snapshot.v4\""));
     assert!(json.contains("\"bodies\""));
 }
 

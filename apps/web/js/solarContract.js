@@ -1,7 +1,7 @@
 // A raw-text boundary: platform JSON parsing alone cannot detect duplicate keys.
-import { solarSchema, solarImageRegistrationSchema } from "./solarSchema.js?v=dcca6290db";
+import { solarSchema, solarImageRegistrationSchema } from "./solarSchema.js";
 import { attributableSource } from "./sourceAttribution.js";
-export { SOLAR_STATE_SNAPSHOT_SCHEMA } from "./solarSchema.js?v=dcca6290db";
+export { SOLAR_STATE_SNAPSHOT_SCHEMA } from "./solarSchema.js";
 
 export function parseStrictJson(text) {
   if (typeof text !== "string" || text.length > 16 * 1024 * 1024) throw new Error("JSON input exceeds the 16 MiB text limit");

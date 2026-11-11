@@ -24,11 +24,11 @@ test('smoke parser ignores comments and string lookalikes',t=>{
 });
 test('multiple System module identities cannot silently pick an instance',t=>{
   const root=fixture(t);fs.appendFileSync(path.join(root,'app.js'),"import('./js/orrery.js?v=other');");
-  assert.throws(()=>smokeModuleUrls(root),/ambiguous/);
+  assert.throws(()=>smokeModuleUrls(root),/ambiguous|identities/);
 });
 test('multiple clock module identities in the owner cannot silently pick an instance',t=>{
   const root=fixture(t);fs.appendFileSync(path.join(root,'js/orrery.js'),"import './orreryTime.js';");
-  assert.throws(()=>smokeModuleUrls(root),/ambiguous/);
+  assert.throws(()=>smokeModuleUrls(root),/ambiguous|identities/);
 });
 test('a missing required catalogue import is rejected',t=>{
   const root=fixture(t);const file=path.join(root,'js/orrery.js');fs.writeFileSync(file,fs.readFileSync(file,'utf8').replace("import './moons.js?v=catalogue';",''));
@@ -38,4 +38,15 @@ test('external dynamic imports and malformed source fail admission',t=>{
   const root=fixture(t);const app=path.join(root,'app.js');const original=fs.readFileSync(app,'utf8');
   fs.writeFileSync(app,original+"import('https://example.invalid/orrery.js');");assert.throws(()=>smokeModuleUrls(root),/local relative/);
   fs.writeFileSync(app,'import {');assert.throws(()=>smokeModuleUrls(root),/syntax/);
+});
+test('compiled entry metadata identifies diagnostic exports without relying on source-shaped imports',async t=>{
+  const root=fixture(t),source=path.join(root,'input'),stage=path.join(root,'output');fs.mkdirSync(source);fs.mkdirSync(path.join(source,'js'));
+  fs.writeFileSync(path.join(source,'app.js'),"import './js/store.js';const load=()=>import('./js/orrery.js');");
+  fs.writeFileSync(path.join(source,'js/orrery.js'),"import {tick} from './orreryTime.js';import {moons} from './moons.js';export const result=()=>tick()+moons.length;");
+  fs.writeFileSync(path.join(source,'js/store.js'),'export const store={};');
+  fs.writeFileSync(path.join(source,'js/orreryTime.js'),'export const tick=()=>1;');
+  fs.writeFileSync(path.join(source,'js/moons.js'),'export const moons=[];');
+  fs.cpSync(source,stage,{recursive:true});
+  const {bundleWeb}=await import('../../tools/bundle_web.mjs');await bundleWeb({sourceRoot:source,stageRoot:stage,roots:['app.js'],qaEntries:['js/orrery.js','js/moons.js','js/orreryTime.js']});
+  assert.deepEqual(smokeModuleUrls(stage),['js/store.js','js/orreryTime.js','js/orrery.js','js/moons.js']);
 });

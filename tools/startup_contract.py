@@ -65,13 +65,13 @@ def validate_startup_contract(root: Path) -> dict | None:
     roots,modules=value['roots'],value['modules']
     if not isinstance(roots,list) or not roots or any(not isinstance(url,str) for url in roots) or roots!=sorted(set(roots)):raise ValueError('invalid startup roots')
     if not isinstance(modules,list) or not modules:raise ValueError('invalid startup modules')
-    urls=[]
+    urls=[];paths=[]
     for item in modules:
         if not isinstance(item,dict) or set(item)!={'url','path','sha256'}:raise ValueError('invalid startup module record')
-        name=module_path(item['url']);urls.append(item['url'])
+        name=module_path(item['url']);urls.append(item['url']);paths.append(name)
         if item['path']!=name or not isinstance(item['sha256'],str) or not re.fullmatch('[0-9a-f]{64}',item['sha256']):raise ValueError('invalid startup module hash/path')
         if source_hash(root,name)!=item['sha256']:raise ValueError(f'startup source hash drift: {name}')
-    if urls!=sorted(set(urls)) or not set(roots)<=set(urls):raise ValueError('duplicate/unbound startup identities')
+    if urls!=sorted(set(urls)) or len(set(paths))!=len(paths) or not set(roots)<=set(urls):raise ValueError('duplicate/unbound startup identities')
     if (any(not isinstance(url,str) for url in markup.roots+markup.preloads)
         or len(set(markup.roots))!=len(markup.roots) or sorted(markup.roots)!=roots
         or len(set(markup.preloads))!=len(markup.preloads)

@@ -1,14 +1,14 @@
 // Entry module: wires DOM events to the feature modules and kicks off loading.
 // The app is split into ES modules under ./js/ — see docs/HANDOFF.md.
 
-import { store } from "./js/store.js?v=dcca6290db";
-import { renderAll, updateTaskHeader, currentViewPresentation } from "./js/view.js?v=dcca6290de";
+import { store } from "./js/store.js";
+import { renderAll, updateTaskHeader, currentViewPresentation } from "./js/view.js";
 import { updateModeButtons } from "./js/surfaceNavigation.js";
-import { showTip, hideTip, isTipHidden } from "./js/tooltip.js?v=dcca6290db";
-import { registerOfflineRelease } from "./js/releaseClient.js?v=dcca6290db";
-import { createViewEvidence } from "./js/viewEvidence.js?v=dcca6290db";
-import { workspace, renderWorkspace, openInspector, revealWorkspaceControl } from "./js/workspace.js?v=dcca6290db";
-import { explorer, initExplorer } from "./js/explorer.js?v=dcca6290db";
+import { showTip, hideTip, isTipHidden } from "./js/tooltip.js";
+import { registerOfflineRelease } from "./js/releaseClient.js";
+import { createViewEvidence } from "./js/viewEvidence.js";
+import { workspace, renderWorkspace, openInspector, revealWorkspaceControl } from "./js/workspace.js";
+import { explorer, initExplorer } from "./js/explorer.js";
 import {createViewLoader} from './js/viewLoader.js';
 import {registerDestinationRenderer} from './js/viewRegistry.js';
 import {initObservationMedia} from './js/observationMedia.js';
@@ -25,8 +25,8 @@ let activeView='observe',retryFocus=false;
 const viewCode=createViewLoader({
   loaders:{
     research:()=>import('./js/research.js'),
-    sky:async()=>{const [view,overview]=await Promise.all([import('./js/sky.js?v=dcca6290db'),import('./js/destinationOverview.js?v=dcca6290de')]);return {...view,overview};},
-    orrery:async()=>{const [view,overview]=await Promise.all([import('./js/orrery.js?v=dcca6290e0'),import('./js/destinationOverview.js?v=dcca6290de')]);return {...view,overview};},
+    sky:async()=>{const [view,overview]=await Promise.all([import('./js/sky.js'),import('./js/destinationOverview.js')]);return {...view,overview};},
+    orrery:async()=>{const [view,overview]=await Promise.all([import('./js/orrery.js'),import('./js/destinationOverview.js')]);return {...view,overview};},
   },
   onState(state){
     document.body.setAttribute('data-view-code',state.status);

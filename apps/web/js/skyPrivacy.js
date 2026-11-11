@@ -1,4 +1,4 @@
-import { validateSkyWork } from "./skyLimits.js?v=dcca6290db";
+import { validateSkyWork } from "./skyLimits.js";
 
 export function normalizeRecipient(base) {
   if (!base) return "";

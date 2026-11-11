@@ -1,6 +1,17 @@
-# Ephemeris v3 — local preview contract
+# Ephemeris v4 — local preview contract
 
-This is the live contract in the reviewed local tree, not a production release claim. The normative shape is `ephemeris-snapshot-v3.schema.json`. Historical v2 documents and their validator remain frozen; live providers reject other versions instead of converting missing information.
+This is the live contract in the reviewed local tree, not a production release claim. The normative shape is `ephemeris-snapshot-v4.schema.json`. Historical v3 and v2 documents and their validators remain frozen; live providers reject other versions instead of converting missing information.
+
+## Changes from v3
+
+v4 is the v3 contract plus these additions. Every published v3 field keeps its meaning.
+
+- An optional root `star_frame` (version 1), described under the constellation frame extension below.
+- Optional `catalogue_ra_deg` and `catalogue_dec_deg` on catalogue-star bodies.
+- `time.input_time_semantics` gains `future_nominal_utc`, and `earth_orientation.quality` gains `modeled_future`, for dates past the Earth-orientation table.
+- `earth_orientation.dut1_uncertainty_seconds` is null exactly when the future model applies, and `dut1_seconds` is no longer bounded for that model.
+
+The published v3 schema is unchanged and is used only for archived copies (`--historical-v3`). The optional JPL server moved from `/v3/sky` to `/v4/sky`; `/v3/sky` answers 409 with an upgrade explanation.
 
 ## Ranges and frames
 
@@ -81,7 +92,7 @@ a passing discrete model sweep promotes provider/evidence status.
 
 My Sky accepts proleptic Gregorian years 1–9999: `-62135596800 <= unix < 253402300800`, equivalently `1721425.5 <= jd_utc < 5373484.5`. Observer limits are latitude [-90,90], longitude [-360,360], and elevation [-12000,100000] metres. Unsupported/nonfinite requests fail before calculation or remote I/O; they are not clamped. Individual Horizons targets can have narrower coverage and fail visibly.
 
-`time.calendar` is `proleptic_gregorian`; `input_time_semantics` is `utc` where TAI is supported, or `historical_ut1_proxy` with null TAI and degraded `pre_utc_ut1_proxy` metadata. These historical labels do not claim modern UTC existed in antiquity. The server uses explicit numeric JD TLIST, JD input type, UT, Gregorian calendar and fractional seconds; returned geocentric and topocentric epochs are verified before publication. Cache identity preserves exact input floats, including fractional seconds and observer coordinates.
+`time.calendar` is `proleptic_gregorian`; `input_time_semantics` is `utc` for the supported modern clock, `historical_ut1_proxy` with null TAI and degraded `pre_utc_ut1_proxy` metadata before 1972, or `future_nominal_utc` beyond the bundled EOP endpoint. These historical labels do not claim modern UTC existed in antiquity. Future nominal UTC holds the last tabulated leap offset as an explicit assumption, not a prediction of future UTC or leap seconds; its numeric TAI/TT fields follow that convention. The server uses explicit numeric JD TLIST, JD input type, UT, Gregorian calendar and fractional seconds; returned geocentric and topocentric epochs are verified before publication. Cache identity preserves exact input floats, including fractional seconds and observer coordinates.
 
 The native [Earth-orientation history](EOP_HISTORY_20261104.md) uses the pinned
 USNO Bulletin A capture with 20,031 complete daily rows, from1973-01-02 through
@@ -148,7 +159,7 @@ the committed source identities and numerical reproductions.
 
 ## My Sky execution and privacy boundary
 
-Full local snapshots (including event solving) and finite-body trajectories run in a module worker. The `sol-worker.v1` envelope binds engine `ephemeris`, schema `ephemeris-snapshot.v3`, ABI 1, release identity and generation. The client has one active and one latest pending job; stale results cannot publish and navigation disposes the worker. Sky and System first prepare their module/engine under a separate 60-second initialization bound, using an identity-bound `initialize`/`ready` exchange before calculation admission. The unchanged 10-second calculation wall deadline then terminates uncooperative synchronous work. An already prepared worker can serve the next accepted request without repeated initialization. Cancellation terminates pending preparation as well as calculation; late readiness/results and cleared timers cannot affect a newer job or phase. Arrival-time monotonic checks reject responses at or beyond their phase deadline even when a timer callback is delayed. This does not promise a ten-second total first-download time. Snapshot results are schema-validated and bound to the original observer/epoch on the main side. Parsed sparse arrays are rejected. System rendering owns a separate fixed-nine-body fast path; its separate measured performance exception is not a Sky exception.
+Full local snapshots (including event solving) and finite-body trajectories run in a module worker. The `sol-worker.v1` envelope binds engine `ephemeris`, schema `ephemeris-snapshot.v4`, ABI 1, release identity and generation. The client has one active and one latest pending job; stale results cannot publish and navigation disposes the worker. Sky and System first prepare their module/engine under a separate 60-second initialization bound, using an identity-bound `initialize`/`ready` exchange before calculation admission. The unchanged 10-second calculation wall deadline then terminates uncooperative synchronous work. An already prepared worker can serve the next accepted request without repeated initialization. Cancellation terminates pending preparation as well as calculation; late readiness/results and cleared timers cannot affect a newer job or phase. Arrival-time monotonic checks reject responses at or beyond their phase deadline even when a timer callback is delayed. This does not promise a ten-second total first-download time. Snapshot results are schema-validated and bound to the original observer/epoch on the main side. Parsed sparse arrays are rejected. System rendering owns a separate fixed-nine-body fast path; its separate measured performance exception is not a Sky exception.
 
 Trajectory admission is identical in JS and the raw Rust ABI: body index 0–8, 2–257 samples, finite nonzero step with magnitude at most 3600 seconds, aggregate span at most 172800 seconds, and supported observer/start/end epochs. No clamping, modulo-body selection or omitted samples are permitted. Capacity or numerical failures return typed errors. Apparent altitude is serialized at round-trip precision to preserve the `up` predicate.
 
@@ -170,8 +181,87 @@ node --test tests/web/ephemerisV3.test.mjs tests/web/skyEvents.test.mjs tests/we
 python tools/validate_accuracy_evidence.py
 python tools/validate_ephemeris.py --reference-dir tests/fixtures/horizons-observer-20261103
 python tools/validate_ranges.py
-python tools/validate_ephemeris_snapshot.py <live-v3.json>
+python tools/validate_ephemeris_snapshot.py <live-v4.json>
+python tools/validate_ephemeris_snapshot.py --historical-v3 <unchanged-archived-v3.json>
 python tools/validate_ephemeris_snapshot.py --historical-v2 <unchanged-archived-v2.json>
 ```
 
-The shared positive/negative corpus is `tests/fixtures/ephemeris-v3-corpus.json`. It is synthetic/native-model contract evidence, not JPL truth. Fresh native snapshots at modern, historical and exact-pole observer inputs pass through both live readers in the native integration test. Historical v2 browser validation is isolated in `ephemerisContractV2.js` and never statically imported by live providers.
+The shared positive/negative corpus is `tests/fixtures/ephemeris-v4-corpus.json`. It is synthetic/native-model contract evidence, not JPL truth. Fresh native snapshots at modern, historical and exact-pole observer inputs pass through both live readers in the native integration test. Historical v2 browser validation is isolated in `ephemerisContractV2.js` and never statically imported by live providers.
+
+
+### Optional constellation frame extension
+
+On-device snapshots may provide `star_frame` version 1: a row-major
+`j2000_to_true_equatorial` 3×3 rotation, source, UTC epoch, local apparent sidereal
+time, and its complete observer record (including polar-motion-corrected latitude).
+It applies the same precession and nutation reduction as engine catalogue stars.
+Its UTC epoch and terrestrial observer must match the enclosing snapshot. The
+browser also checks a finite proper orthonormal rotation before drawing figures.
+Local augmentation preserves this frame separately from server body metadata.
+Providers without the extension remain valid; constellation figures are unavailable
+and the enabled-overlay readout states that limitation.
+
+Optional `catalogue_ra_deg` and `catalogue_dec_deg` identify star J2000 catalogue
+positions. Unambiguous constellation vertices within 0.001 degree (3.6 arcseconds,
+allowing source rounding) use that star's already reduced geometric altitude and
+azimuth, retaining its proper motion. Other vertices use the frame rotation with
+zero proper motion; this limitation is displayed. Annual aberration and stellar
+parallax remain omitted by this model. The matrix is a reduction mechanism, not
+independent accuracy evidence.
+
+The Sky dome, constellation figures, and `body_track` altitude samples use the
+geometric horizon. The legacy snapshot `above_horizon` field retains its refracted
+meaning; rise/set events retain their documented separate crossing thresholds.
+
+
+### Future time convention
+
+The client preserves all rapid/predicted EOP values through MJD 61714
+(2027-11-05 00:00), inclusive. After that endpoint it emits `modeled_future`
+Earth-orientation quality and `future_nominal_utc` input semantics. The final
+37-second TAI−UTC value is held only to define a nominal calendar; TT remains
+nominal TAI + 32.184 seconds. No future leap seconds or observed EOP are invented.
+
+Let B be the last bundled EOP epoch and M(y) the existing approximate delta-T
+curve. The future model is `D(J) = D(B) + M(year(J)) − M(year(B))`, where
+`D(B) = 69.4003816` seconds comes from the final predicted EOP row. Then
+`DUT1 = 37 + 32.184 − D(J)` and `UT1 = J + DUT1/86400`. This keeps the time-scale
+values continuous at B while preserving the nominal TT mapping. The existing
+plateau through 2035 and bridge to 2050 are application assumptions; later
+terms follow the documented Espenak–Meeus curve. The endpoint offset is our
+continuity convention, not a published correction or an accuracy qualification.
+The model does not ensure derivative continuity or continuous polar motion.
+
+Modeled DUT1 can exceed the real-UTC ±0.9-second steering range. Both live
+validators permit that only with the explicit future semantics and modeled
+quality; ordinary UTC retains the original range. Future
+`dut1_uncertainty_seconds` is null: no defensible uncertainty bound is available.
+Polar motion is omitted. Future snapshots remain degraded and independently
+unvalidated; the displayed caveat names the assumption and absent uncertainty.
+At 2200 the model delta-T is approximately 442 seconds; passing a snapshot
+contract check establishes structural consistency, not astronomical accuracy.
+
+The legacy field names `jd_utc`, `star_frame.jd_utc` and
+`events_window.time_scale: UTC` identify the same requested calendar axis.
+`time.input_time_semantics` governs the instantaneous fields. A wholly future
+local-day window and its rise/set/transit labels use nominal UTC; they do not
+promise the UTC that a future authority will realize.
+
+The optional `events_window.future_nominal_utc_after_jd` separately identifies
+the EOP endpoint after which event calculations use the nominal future model.
+The client emits it whenever the event search can sample beyond that endpoint,
+including its ten-minute bracketing support beyond the local-day window. A
+snapshot at the endpoint can therefore retain instantaneous `utc`/`predicted`
+metadata while warning that some event calculations use modeled UT1 with
+unknown uncertainty and omitted polar motion. The marker must precede the end
+of that extended calculation support. It is propagated with local event
+augmentation without relabeling the server's instantaneous time/EOP metadata;
+the Sky caveat also describes mixed windows. This optional extension preserves
+compatibility with providers that do not supply these modeled local events.
+
+The optional server does not translate its Horizons UT query into this nominal
+future convention. It refuses dates after B with HTTP 422 `unsupported_time`,
+before cache access, queued provider work or upstream I/O. The browser retains
+its last validated snapshot, reports the unsupported time, and offers the
+existing explicit **On your device** recovery. It does not silently substitute
+local positions. Historical v2 artifacts and their validators remain frozen.

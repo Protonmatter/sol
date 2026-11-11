@@ -1,5 +1,6 @@
 // Local staged-image lifecycle checks with the actual application entry withheld.
 // Functional evidence only: this harness does not qualify a loading-time budget.
+import {releaseModulePath} from './release_module_urls.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -117,9 +118,9 @@ try {
       }
       assert.deepEqual(await navigation,{ok:true});
       const adopted=await snapshot(page);
-      // Reading the actual tokened module cannot initialize its explorer. Static
+      // Reading the actual canonical module cannot initialize its explorer. Static
       // captions and the early controller alone must fail this adoption proof.
-      const explorerUrl=origin+manifest.base_path+manifest.namespace+'js/explorer.js?v='+manifest.release_id;
+      const explorerUrl=origin+manifest.base_path+manifest.namespace+releaseModulePath(manifest,'js/explorer.js');
       const actualMedia=()=>page.evaluate(async url=>(await import(url)).explorer.media,explorerUrl);
       adopted.explorer_media=await actualMedia();
       check.adopted=adopted;

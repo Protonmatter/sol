@@ -74,12 +74,19 @@ test("qualified catalogue moon maps share readiness, registration, albedo and ec
   const h = await start(t, { catalogues: "ready" });
   await h.settleCatalogues();
   const assets = appearanceReferences().filter(a => MOONS.some(m => m.n === a.body));
+  const loadedAssets=[];
   assert.ok(assets.length >= 6, "qualified Saturnian mosaics must reach the real renderer");
   const epoch = h.state.renderUnix, positions = JSON.stringify(h.state.bodies);
   for (const asset of assets) {
     h.input("orreryAnchor", asset.body, "change");
+    await h.settleCatalogues();
     const before = paint(h);
-    const loaded = complete(h, asset.body);
+    if(!h.images.some(image=>image.src===asset.path)){
+      assert.ok(MOONS.find(m=>m.n===asset.body).r<20,'only tiny physical moons reach the existing numerical/subpixel detail floor');
+      assert.equal(h.state.selected,asset.body,'the subpixel moon remains selected and accessible');
+      continue;
+    }
+    const loaded = complete(h, asset.body);loadedAssets.push(asset);
     const matches = paint(h).filter(draw => draw.uniforms.u_useTex === 1 && draw.textures.get(0) === loaded.texture);
     assert.equal(matches.length, 1, `${asset.body}: exactly its own moon uses the source`);
     const draw = matches[0], u = draw.uniforms;
@@ -108,8 +115,8 @@ test("qualified catalogue moon maps share readiness, registration, albedo and ec
   assert.equal(h.state.renderUnix, epoch);
   assert.equal(JSON.stringify(h.state.bodies), positions);
   assert.equal(h.errors.length, 0);
-  assert.ok(h.deletedTextures.length>=assets.length-8);
-  const evicted = assets.find(asset=>h.state.appearanceStatus[asset.id]==='deferred');
+  assert.ok(h.deletedTextures.length>=loadedAssets.length-8);
+  const evicted = loadedAssets.find(asset=>h.state.appearanceStatus[asset.id]==='deferred');
   assert.ok(evicted,'a previously visited map outside current demand is evicted');
   h.input('orreryAnchor',evicted.body,'change');
   const reloaded = complete(h,evicted.body);
@@ -121,6 +128,7 @@ test("failed catalogue moon imagery retries explicitly and cannot be replaced by
   const h = await start(t, { catalogues: "ready" });
   await h.settleCatalogues();
   h.input("orreryAnchor", "Mimas", "change");
+  await h.settleCatalogues();
   const {asset, image} = sourceImage(h, "Mimas");
   image.onerror();
   assert.equal(h.state.appearanceStatus[asset.id], 'unavailable');
@@ -283,6 +291,7 @@ test("Earth dispatches registered land, night lights, weather and ice only to it
     assert.equal(earth.textures.get(layer.unit), loaded.get(layer.role).texture);
     assert.equal(h.state.appearanceStatus[loaded.get(layer.role).asset.id], "ready");
   }
+  h.input("orrerySolarMode","visible","change");
   for (const name of ["Sun", "Mercury", "Venus", "Mars", "Moon", "Jupiter", "Saturn", "Uranus", "Neptune"]) {
     h.input('orreryAnchor', name, 'change');
     assertFlags(bodyDraw(h, paint(h), name), []);
@@ -292,6 +301,7 @@ test("Earth dispatches registered land, night lights, weather and ice only to it
   assert.equal(marsDraw.textures.get(0), mars.texture);
   assert.equal(marsDraw.uniforms.u_mapNoData, 2, "the source's admitted coverage mask reaches its shader");
   h.input("orreryAnchor", "Jupiter", "change");
+  await h.settleCatalogues();
   h.check("orreryTrueScale", true);
   h.state.radius = 0.1;
   const close = paint(h);
@@ -456,12 +466,10 @@ test("context loss invalidates late source callbacks and restores only the new g
 test("4096 texture limit resamples the complete 5400-pixel Earth extent and preserves map registration", async t => {
   const h = await start(t, { maxTextureSize: 4096 });
   const { image, asset } = complete(h, "Earth");
-  const resample = h.canvasCommands.filter(command => command.method === "drawImage" && command.args[0] === image);
-  assert.equal(resample.length, 1);
-  assert.deepEqual(resample[0].args.slice(1), [0, 0, 4096, 2048], "five-argument drawImage scales the full source without a crop");
-  const canvas = resample[0].canvas;
-  assert.equal(canvas.width, 4096); assert.equal(canvas.height, 2048);
-  const upload = h.textureRecords.find(record => record.pixels === canvas);
+  assert.equal(h.canvasCommands.filter(command => command.method === "drawImage" && command.args[0] === image).length,0,
+    'source bitmap is resized asynchronously before upload');
+  assert.ok(image.width<=2048);assert.equal(image.width/image.height,2);
+  const upload = h.textureRecords.find(record => record.pixels === image);
   assert.ok(upload);
   assert.equal(h.state.appearanceStatus[asset.id], "ready");
   const draw = bodyDraw(h, paint(h));
@@ -539,21 +547,22 @@ test("an oversized scientific palette fails closed instead of creating interpola
   h.check('orreryEarthNight',false); h.check('orreryEarthWeather',false); h.check('orreryEarthIce',true);
   complete(h, "Earth");
   const before = h.textureRecords.length;
-  const ice = complete(h, "Earth", "sea-ice");
+  const ice = {asset:appearanceReference("Earth","sea-ice")};
+  assert.ok(!h.images.some(image=>image.src===ice.asset.path),"unsupported exact grid is rejected before download");
   assert.equal(h.state.appearanceStatus[ice.asset.id], "unavailable");
   assert.equal(h.textureRecords.length, before, "unsupported scientific grid is rejected before GPU upload");
-  assert.ok(!h.canvasCommands.some(command => command.method === "drawImage" && command.args[0] === ice.image));
+  assert.ok(!h.canvasCommands.some(command => command.method === "drawImage"));
   assertFlags(bodyDraw(h, paint(h, () => h.check("orreryEarthIce", true))), []);
   assert.match(h.nodes.orreryEarthLayerStatus.textContent, /unavailable/);
 });
 
-test("unavailable downsampling canvas leaves a smaller GPU usable with an explicit reference fallback", async t => {
+test("asynchronous bitmap display sizing works without a synchronous downsampling canvas", async t => {
   const h = await start(t, { maxTextureSize: 4096, canvas2dUnavailable: true });
   const before = h.textureRecords.length;
   const day = complete(h, "Earth");
-  assert.equal(h.state.appearanceStatus[day.asset.id], "unavailable");
-  assert.equal(h.textureRecords.length, before);
-  assert.equal(bodyDraw(h, paint(h)).uniforms.u_useTex, 0);
+  assert.equal(h.state.appearanceStatus[day.asset.id], "ready");
+  assert.equal(h.textureRecords.length, before+1);
+  assert.equal(bodyDraw(h, paint(h)).uniforms.u_useTex, 1);
   assert.equal(h.state.engineError, "");
   assert.equal(h.errors.length, 0);
 });
@@ -639,4 +648,18 @@ test('leaving cancels only pending mapped images and reentry rejects their queue
   assert.equal(bodyDraw(h,paint(h)).textures.get(0),ready.texture);
   assert.equal(h.state.renderUnix,epoch); assert.equal(JSON.stringify(h.state.bodies),bodies);
   assert.ok(Object.values(h.state.appearanceStatus).filter(value=>value==='loading').length<=2);
+});
+
+test('reference demand reuses the context texture limit between graphics restorations',async t=>{
+  const h=await start(t);
+  h.check("orreryEarthNight",false);h.check("orreryEarthWeather",false);complete(h,"Earth");
+  let queries=0;
+  const getParameter=h.gl.getParameter;
+  h.gl.getParameter=name=>{if(name===h.gl.MAX_TEXTURE_SIZE)queries++;return getParameter(name);};
+  for(let i=0;i<3;i++)paint(h);
+  assert.equal(queries,0,'Steady scene demand must not synchronously query the GPU texture limit');
+  h.event('orreryCanvas','webglcontextlost',{preventDefault(){}});
+  h.event('orreryCanvas','webglcontextrestored');await h.settle();
+  assert.ok(queries>=1,'Restored graphics must refresh capabilities');
+  complete(h,'Earth');queries=0;paint(h);assert.equal(queries,0,'Restored frames reuse refreshed capabilities');
 });

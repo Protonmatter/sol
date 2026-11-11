@@ -188,6 +188,34 @@ fn star_catalog_place_of_date(star: &stars::Star, years: f64) -> (f64, f64) {
     (ra, dec)
 }
 
+/// Shared rigid J2000 -> true equator/equinox of date reduction. Proper motion
+/// belongs before this rotation and is applied separately for catalogue stars.
+fn star_equatorial_of_date(ra: f64, dec: f64, t: f64, dpsi: f64, eps_true: f64) -> (f64, f64) {
+    let (lon, lat) = coords::equ_to_ecl(ra, dec, time::mean_obliquity_deg(0.0));
+    let (lon, lat) = coords::precess_ecliptic_from_j2000(lon, lat, t);
+    coords::ecl_to_equ(lon + dpsi, lat, eps_true)
+}
+
+/// Columns are the reduced J2000 basis vectors. Reuses the star reduction above
+/// instead of asking clients to implement another precession/nutation model.
+fn star_frame_rotation(astro: &AstroTime) -> [[f64; 3]; 3] {
+    let t = time::centuries(astro.jd_tt);
+    let (dpsi, deps) = time::nutation_deg(t);
+    let eps_true = time::mean_obliquity_deg(t) + deps;
+    let mut matrix = [[0.0; 3]; 3];
+    for (column, (ra, dec)) in [(0.0, 0.0), (90.0, 0.0), (0.0, 90.0)]
+        .into_iter()
+        .enumerate()
+    {
+        let (ra, dec) = star_equatorial_of_date(ra, dec, t, dpsi, eps_true);
+        let (ra, dec) = (ra.to_radians(), dec.to_radians());
+        matrix[0][column] = dec.cos() * ra.cos();
+        matrix[1][column] = dec.cos() * ra.sin();
+        matrix[2][column] = dec.sin();
+    }
+    matrix
+}
+
 /// Apparent topocentric place of a catalogue star. At infinite distance its
 /// geocentric and topocentric right ascension/declination are identical.
 fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _elev: f64) -> Topo {
@@ -195,13 +223,10 @@ fn star_topocentric(star: &stars::Star, jd_utc: f64, lat: f64, lon_east: f64, _e
     let t = time::centuries(astro.jd_tt);
     let (dpsi, deps) = time::nutation_deg(t);
     let eps_true = time::mean_obliquity_deg(t) + deps;
-    let eps0 = time::mean_obliquity_deg(0.0);
-    // Proper motion first (in the J2000 frame), then the standard reduction.
+    // Proper motion first (in the J2000 frame), then the shared reduction.
     let years = (astro.jd_tt - time::J2000) / 365.25;
     let (ra_cat, dec_cat) = star_catalog_place_of_date(star, years);
-    let (lon0, lat0) = coords::equ_to_ecl(ra_cat, dec_cat, eps0);
-    let (lon_d, lat_d) = coords::precess_ecliptic_from_j2000(lon0, lat0, t);
-    let (ra, dec) = coords::ecl_to_equ(lon_d + dpsi, lat_d, eps_true);
+    let (ra, dec) = star_equatorial_of_date(ra_cat, dec_cat, t, dpsi, eps_true);
     let (observer_lat, observer_lon) = earth_orientation::corrected_observer_geodetic(
         lat,
         lon_east,
@@ -322,9 +347,12 @@ fn events_core(sample: &dyn Fn(f64) -> (f64, f64), start: f64) -> (f64, f64, f64
     events_detailed(sample, start).values
 }
 
+// Event refinement may inspect one grid interval beyond the local-day window.
+const EVENT_GRID_STEPS: usize = 144;
+
 /// `sample_at` returns `(crossing_margin_deg, true_centre_altitude_deg)`.
 fn events_detailed(sample_at: &dyn Fn(f64) -> (f64, f64), day_start_jd_utc: f64) -> EventSolution {
-    let steps = 144; // 10-minute sampling over one local mean-solar day
+    let steps = EVENT_GRID_STEPS; // 10-minute sampling over one local mean-solar day
     let mut prev_jd = day_start_jd_utc;
     let (mut prev_margin, initial_alt) = sample_at(prev_jd);
     let mut rise = f64::NAN;
@@ -683,21 +711,26 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
 
     let mut out = String::with_capacity(4096);
     out.push_str("{\n");
-    out.push_str("  \"schema_version\": \"ephemeris-snapshot.v3\",\n");
+    out.push_str("  \"schema_version\": \"ephemeris-snapshot.v4\",\n");
     out.push_str(&format!(
         "  \"engine_version\": \"solar-ephemeris {}\",\n",
         env!("CARGO_PKG_VERSION")
     ));
     let day_start = local_solar_day_start(jd_utc, lon_east);
-    out.push_str(&format!("  \"events_window\":{{\"convention\":\"observer_local_mean_solar_day\",\"time_scale\":\"UTC\",\"interval\":\"[start,end)\",\"start_jd\":{},\"end_jd\":{}}},", jnum(day_start), jnum(day_start+1.0)));
+    let future_boundary = 2_400_000.5 + earth_orientation::PREDICTION_END_MJD;
+    let future_event_support = day_start + 1.0 + 1.0 / EVENT_GRID_STEPS as f64 > future_boundary;
+    out.push_str(&format!("  \"events_window\":{{\"convention\":\"observer_local_mean_solar_day\",\"time_scale\":\"UTC\",\"interval\":\"[start,end)\",\"start_jd\":{},\"end_jd\":{}", jnum(day_start), jnum(day_start+1.0)));
+    if future_event_support {
+        out.push_str(&format!(
+            ",\"future_nominal_utc_after_jd\":{}",
+            jnum(future_boundary)
+        ));
+    }
+    out.push_str("},");
     out.push_str("  \"time\": {");
     out.push_str(&format!(
         "\"calendar\":\"proleptic_gregorian\",\"input_time_semantics\":\"{}\",",
-        if astro.jd_tai.is_some() {
-            "utc"
-        } else {
-            "historical_ut1_proxy"
-        }
+        astro.input_time_semantics()
     ));
     out.push_str(&format!(
         "\"jd_utc\":{:.10},\"jd_tai\":{},\"jd_tt\":{:.10},\"jd_ut1\":{:.10},",
@@ -719,12 +752,12 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     ));
     out.push_str("\"earth_orientation\":{");
     out.push_str(&format!(
-        "\"source\":\"{}\",\"quality\":\"{}\",\"xp_arcsec\":{:.8},\"yp_arcsec\":{:.8},\"dut1_uncertainty_seconds\":{:.8}",
+        "\"source\":\"{}\",\"quality\":\"{}\",\"xp_arcsec\":{:.8},\"yp_arcsec\":{:.8},\"dut1_uncertainty_seconds\":{}",
         astro.eop.source,
         astro.eop.quality.name(),
         astro.eop.xp_arcsec,
         astro.eop.yp_arcsec,
-        astro.eop.dut1_uncertainty_seconds
+        jnum(astro.eop.dut1_uncertainty_seconds.unwrap_or(f64::NAN))
     ));
     out.push_str("}},\n");
     out.push_str("  \"observer\": {");
@@ -733,12 +766,22 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
         jnum(lat), jnum(lon_east), observer_lat, jnum(observer_lon), jnum(elev)
     ));
     out.push_str("},\n");
+    // Optional v3 extension; self-bound so mixed-provider snapshots can carry
+    // the local star frame without relabelling the provider's body frame.
+    let rotation = star_frame_rotation(&astro);
+    out.push_str(&format!(
+        "  \"star_frame\":{{\"version\":1,\"source\":\"solar-ephemeris {}\",\"jd_utc\":{},\"lst_deg\":{},\"observer\":{{\"terrestrial_lat_deg\":{},\"terrestrial_lon_deg_east\":{},\"elev_m\":{},\"polar_motion_corrected_lat_deg\":{},\"polar_motion_corrected_lon_deg_east\":{}}},\"j2000_to_true_equatorial\":{:?}}},\n",
+        env!("CARGO_PKG_VERSION"), jnum(jd_utc), jnum(lst), jnum(lat), jnum(lon_east), jnum(elev), jnum(observer_lat), jnum(observer_lon), rotation
+    ));
     out.push_str(
         "  \"accuracy\": {\"evidence_status\":\"unvalidated\",\"evidence_record_ids\":[],",
     );
     out.push_str(&format!("\"class\":\"{}\",", accuracy_class));
     out.push_str("\"coordinate_semantics\":\"ra_deg and dec_deg are apparent topocentric coordinates; geocentric and topocentric values are also emitted under explicit field names\",");
-    out.push_str("\"time_scales\":\"UTC to TAI from leap-second table, TT = TAI + 32.184 s, UT1 = UTC + DUT1\",");
+    out.push_str(&format!(
+        "\"time_scales\":\"{}\",",
+        astro.time_scales_description()
+    ));
     out.push_str(&format!("\"eop_status\":\"{}\",", astro.eop.quality.name()));
     out.push_str("\"validation_scope\":\"Numerical claims are limited to the committed regression matrix and independently rerunnable JPL Horizons validation\",");
     out.push_str("\"valid_epoch\":\"Precision Earth rotation is limited to the declared EOP source coverage; outside it the snapshot is explicitly degraded\",");
@@ -799,6 +842,11 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
             star.name
         ));
         out.push_str(&format!(
+            "\"catalogue_ra_deg\":{},\"catalogue_dec_deg\":{},",
+            jnum(star.ra_deg),
+            jnum(star.dec_deg)
+        ));
+        out.push_str(&format!(
             "\"ra_deg\":{},\"dec_deg\":{:.9},\"geocentric_apparent_ra_deg\":{},\"geocentric_apparent_dec_deg\":{:.9},\"topocentric_apparent_ra_deg\":{},\"topocentric_apparent_dec_deg\":{:.9},\"geocentric_range_km\":null,\"observer_range_km\":null,\"range_approximation\":\"infinite_catalogue_star\",",
             jnum(s.topocentric_ra),
             s.topocentric_dec,
@@ -826,6 +874,12 @@ pub fn sky_snapshot_json(jd_utc: f64, lat: f64, lon_east: f64, elev: f64) -> Str
     out.push_str(
         "  \"warnings\": [\"Analytic apparent place; research and observing-planning only. Catalogue stars approximate infinite distance; annual parallax and aberration are omitted.\"",
     );
+    if astro.eop.quality == earth_orientation::Quality::ModeledFuture {
+        out.push_str(",\"Future dates and event times use nominal UTC with the last tabulated leap offset held as an assumption, not a prediction. UT1 uses an approximate delta-T model; uncertainty is unknown and polar motion is omitted.\"");
+    }
+    if future_event_support {
+        out.push_str(",\"Event calculations after the bundled EOP endpoint use nominal UTC with the last tabulated leap offset held as an assumption; modeled UT1 uncertainty is unknown and polar motion is omitted. The event search may sample ten minutes beyond its local-day window; instantaneous time metadata is separate.\"");
+    }
     if !astro.eop.quality.precision_ready() {
         out.push_str(",\"Earth orientation is degraded for this epoch; sub-arcsecond topocentric accuracy is not asserted.\"");
     }
@@ -884,10 +938,11 @@ pub fn system_snapshot_json(jd_utc: f64) -> String {
     let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
     let jy2k = (jd_tt - time::J2000) / 365.25;
     let bodies = system_planet_table();
-    const AU_PER_YEAR_KMS: f64 = 4.740_57; // 1 AU/yr in km/s
-                                           // Earth's CENTRE, not the Earth-Moon barycentre: VSOP2013's EMB sits ~4671 km toward the
-                                           // Moon. Using it as "Earth" also overstated the Earth→Moon separation by the same amount
-                                           // (EMB + geocentric Moon double-counts the barycentre offset by the lunar mass fraction).
+    const SECONDS_PER_JULIAN_YEAR: f64 = 365.25 * timescales::SECONDS_PER_DAY;
+    const AU_PER_YEAR_KMS: f64 = AU_KM / SECONDS_PER_JULIAN_YEAR;
+    // Earth's CENTRE, not the Earth-Moon barycentre: VSOP2013's EMB sits ~4671 km toward the
+    // Moon. Using it as "Earth" also overstated the Earth→Moon separation by the same amount
+    // (EMB + geocentric Moon double-counts the barycentre offset by the lunar mass fraction).
     let earth = planets::earth_center(jy2k);
     let sun_earth = (earth[0] * earth[0] + earth[1] * earth[1] + earth[2] * earth[2]).sqrt();
     let dt = 0.001; // years, for the velocity finite difference
@@ -1062,15 +1117,18 @@ pub extern "C" fn system_positions(unix_seconds: f64) -> *const f64 {
     let jd_utc = time::jd_from_unix(sanitize_unix(unix_seconds));
     let jd_tt = AstroTime::from_jd_utc(jd_utc).jd_tt;
     let jy2k = (jd_tt - time::J2000) / 365.25;
-    let earth = planets::earth_center(jy2k);
+    let (earth, mg) = planets::earth_and_moon(jy2k);
     POSITIONS.with(|cell| {
         let mut values = cell.borrow_mut();
         values.clear();
         for (name, planet) in system_planet_table().iter() {
-            let xyz = system_helio_xyz(name, planet, jy2k);
+            let xyz = if *name == "Earth" {
+                earth
+            } else {
+                system_helio_xyz(name, planet, jy2k)
+            };
             values.extend_from_slice(&xyz);
         }
-        let mg = elpmpp02::moon_xyz(jy2k);
         values.extend_from_slice(&[earth[0] + mg[0], earth[1] + mg[1], earth[2] + mg[2]]);
         values.as_ptr()
     })
@@ -1086,7 +1144,7 @@ pub extern "C" fn system_positions_len() -> usize {
 /// enough to call densely) — for precise trajectory arcs in the sky dome. `body_idx` indexes
 /// ALL_BODIES (0=Sun, 1=Moon, 2=Mercury, 3=Venus, 4=Mars, 5=Jupiter, 6=Saturn, 7=Uranus, 8=Neptune).
 /// Samples start at `unix0` and step by `dt_seconds`. Returns JSON `[{"alt":..,"az":..,"up":bool},..]`
-/// (refracted altitude). Unlike a fixed-RA sweep, this re-solves the body's position at every sample,
+/// (geometric altitude). Unlike a fixed-RA sweep, this re-solves the body's position at every sample,
 /// so it is exact for the fast-moving Moon as well as the Sun and planets.
 fn body_track_json(
     body_idx: u32,
@@ -1130,7 +1188,7 @@ fn body_track_json(
         let jd = time::jd_from_unix(unix);
         let s = topocentric_sky(body, jd, lat_deg, lon_deg_east, elev_m);
         // Never silently omit a requested sample or publish a partial trajectory.
-        if !(s.alt_refracted.is_finite() && s.az.is_finite()) {
+        if !(s.alt.is_finite() && s.az.is_finite()) {
             return "{\"error\":\"Trajectory sample unavailable\",\"code\":\"engine_failed\"}"
                 .into();
         }
@@ -1140,9 +1198,9 @@ fn body_track_json(
         emitted = true;
         out.push_str(&format!(
             "{{\"alt\":{},\"az\":{},\"up\":{}}}",
-            s.alt_refracted,
+            s.alt,
             s.az,
-            s.alt_refracted > 0.0
+            s.alt > 0.0
         ));
     }
     out.push(']');
@@ -1182,6 +1240,133 @@ pub extern "C" fn result_len() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn future_snapshot_and_boundary_events_disclose_nominal_clock() {
+        let future = sky_snapshot_json(timescales::gregorian_to_jd(2200, 1, 1), 0.0, 0.0, 0.0);
+        assert!(future.contains("\"input_time_semantics\":\"future_nominal_utc\""));
+        assert!(future.contains("\"quality\":\"modeled_future\""));
+        assert!(future.contains("\"dut1_uncertainty_seconds\":null"));
+        assert!(future.contains("\"evidence_status\":\"unvalidated\""));
+        assert!(future.contains("event times use nominal UTC"));
+        assert!(!future.contains(":NaN"));
+        let boundary = 2_400_000.5 + earth_orientation::PREDICTION_END_MJD;
+        let mixed = sky_snapshot_json(boundary, 0.0, 0.0, 0.0);
+        assert!(mixed.contains("\"input_time_semantics\":\"utc\""));
+        assert!(mixed.contains("\"quality\":\"predicted\""));
+        assert!(mixed.contains("\"future_nominal_utc_after_jd\":2461714.5"));
+        assert!(mixed.contains("Event calculations after the bundled EOP endpoint"));
+        let earlier = sky_snapshot_json(boundary - 2.0, 0.0, 0.0, 0.0);
+        assert!(!earlier.contains("future_nominal_utc_after_jd"));
+        // This local-day event search samples both sides of the EOP endpoint.
+        let solution = events(Body::Sun, boundary, 0.0, 90.0, 0.0);
+        let encoded = solution.json();
+        assert!(encoded.contains("calculated"));
+        assert!(!encoded.contains("failed"));
+        assert!(!encoded.contains(":NaN"));
+    }
+
+    #[test]
+    fn constellation_rotation_matches_engine_stars_at_three_epochs() {
+        for jd in [2_415_020.5, 2_461_354.5, 2_524_593.5] {
+            // 1900, 2026, 2200
+            let astro = AstroTime::from_jd_utc(jd);
+            let matrix = star_frame_rotation(&astro);
+            let t = time::centuries(astro.jd_tt);
+            let (dpsi, deps) = time::nutation_deg(t);
+            let (lat, lon) = earth_orientation::corrected_observer_geodetic(
+                70.0,
+                -74.0,
+                astro.eop.xp_arcsec,
+                astro.eop.yp_arcsec,
+            );
+            let lst = coords::wrap_degrees(
+                time::gast_deg(astro.jd_ut1, dpsi, time::mean_obliquity_deg(t) + deps) + lon,
+            );
+            for (ra, dec) in [
+                (359.999_f64, 0.0_f64),
+                (0.001, -20.0),
+                (37.9546, 89.2641),
+                (180.0, -89.9999),
+            ] {
+                let star = stars::Star {
+                    name: "vertex",
+                    ra_deg: ra,
+                    dec_deg: dec,
+                    mag: 0.0,
+                    pm_ra_mas_yr: 0.0,
+                    pm_dec_mas_yr: 0.0,
+                };
+                let expected = star_topocentric(&star, jd, 70.0, -74.0, 0.0);
+                let v = [
+                    dec.to_radians().cos() * ra.to_radians().cos(),
+                    dec.to_radians().cos() * ra.to_radians().sin(),
+                    dec.to_radians().sin(),
+                ];
+                let rotated =
+                    matrix.map(|row| row.into_iter().zip(v).map(|(a, b)| a * b).sum::<f64>());
+                let actual = coords::alt_az(
+                    rotated[1].atan2(rotated[0]).to_degrees(),
+                    rotated[2].atan2(rotated[0].hypot(rotated[1])).to_degrees(),
+                    lst,
+                    lat,
+                );
+                assert!(
+                    (actual.0 - expected.alt).abs() < 1e-7,
+                    "altitude at {jd}: {actual:?} vs {}",
+                    expected.alt
+                );
+                assert!((actual.1 - expected.az).abs() < 1e-7, "azimuth at {jd}");
+            }
+        }
+    }
+
+    #[test]
+    fn sky_constellation_frame_is_available_and_bound() {
+        let json = sky_snapshot_json(2461222.5, 40.71, -74.01, 0.0);
+        assert!(
+            json.contains("\"star_frame\""),
+            "constellations need the engine reduction frame"
+        );
+        assert!(json.contains("\"j2000_to_true_equatorial\""));
+        assert!(json.contains("\"catalogue_ra_deg\""));
+    }
+
+    #[test]
+    fn sky_track_uses_geometric_altitude() {
+        let unix = 1.7e9 + 72000.0;
+        let json = body_track_json(0, 40.71, -74.01, 0.0, unix, 600.0, 2);
+        let expected = topocentric_sky(Body::Sun, time::jd_from_unix(unix), 40.71, -74.01, 0.0);
+        assert!(
+            expected.alt_refracted - expected.alt > 0.001,
+            "regression sample must have measurable refraction"
+        );
+        assert_eq!(snapshot_number(&json, "alt"), expected.alt);
+    }
+
+    #[test]
+    fn system_speed_uses_seconds_per_julian_year() {
+        // Check the public serialized speed against the same sampled displacement
+        // expressed directly in kilometres/seconds, independent of its AU/year factor.
+        for jd in [2_451_545.0, 2_461_222.5, 2_488_069.5] {
+            let years = (AstroTime::from_jd_utc(jd).jd_tt - time::J2000) / 365.25;
+            let planet = vsop2013_data::mer();
+            let ahead = system_helio_xyz("Mercury", planet, years + 0.001);
+            let behind = system_helio_xyz("Mercury", planet, years - 0.001);
+            let distance_km = ahead
+                .iter()
+                .zip(behind)
+                .map(|(a, b)| ((a - b) * 149_597_870.7).powi(2))
+                .sum::<f64>()
+                .sqrt();
+            let expected = distance_km / (0.002 * 365.25 * 86_400.0);
+            let actual = snapshot_number(&system_snapshot_json(jd), "speed_kms");
+            assert!(
+                (actual - expected).abs() <= 0.000_500_001,
+                "JD {jd}: serialized {actual}, expected {expected}"
+            );
+        }
+    }
 
     // Model-independent regression oracles. The event finder is not used here:
     // sample the known coarse-grid gap at one-second intervals and interpolate
@@ -1622,7 +1807,7 @@ mod tests {
     fn snapshot_is_well_formed() {
         // 2024-01-01 00:00 UTC ≈ JD 2460310.5, Boston.
         let json = sky_snapshot_json(2460310.5, 42.36, -71.06, 0.0);
-        assert!(json.contains("ephemeris-snapshot.v3"));
+        assert!(json.contains("ephemeris-snapshot.v4"));
         assert!(json.contains("\"geocentric_range_km\""));
         assert!(json.contains("\"observer_range_km\""));
         assert!(json.contains("\"events_window\""));
@@ -2259,6 +2444,29 @@ mod tests {
                 .sqrt();
             assert!((s.observer_range_km - expected).abs() < 1e-7);
             assert!((s.observer_range_km - s.dist_km).abs() > 1.0);
+        }
+    }
+
+    #[test]
+    fn system_positions_earth_and_moon_preserve_bits_at_animation_extremes() {
+        // Independent reconstruction of the original EMB correction and Moon
+        // addition, at the controlled animation profile's dates. This catches
+        // reassociation or model changes that decimal JSON parity could hide.
+        for years in [-5000.0, 0.0, 5000.0] {
+            for days in [0.0, 1.0, 49.0, 99.0] {
+                let unix = 1_767_225_600.0 + years * 365.25 * 86400.0 + days * 86400.0;
+                let jd = time::jd_from_unix(sanitize_unix(unix));
+                let jy2k = (AstroTime::from_jd_utc(jd).jd_tt - time::J2000) / 365.25;
+                let emb = vsop2013::helio_xyz(vsop2013_data::emb(), jy2k);
+                let moon = elpmpp02::moon_xyz(jy2k);
+                let _ = system_positions(unix);
+                let values = POSITIONS.with(|cell| cell.borrow().clone());
+                for axis in 0..3 {
+                    let earth = emb[axis] - 0.012150585 * moon[axis];
+                    assert_eq!(values[6 + axis].to_bits(), earth.to_bits());
+                    assert_eq!(values[24 + axis].to_bits(), (earth + moon[axis]).to_bits());
+                }
+            }
         }
     }
 

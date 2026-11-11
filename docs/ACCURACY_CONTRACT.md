@@ -117,10 +117,18 @@ protected by a comment in the code and (where applicable) by the constants gate.
 - Small bodies (dwarfs, comets, probes) and belts are the *illustrative* tier: real orbital
   elements, two-body propagation, ~degree-level markers — their cards carry that caveat and
   they are excluded from arcsecond claims.
-- Every accuracy claim shown in the UI (snapshot `accuracy` block, epoch-accuracy readout)
-  must be bounded to the exact body, quantity, epoch and observer evidence in
-  `apps/web/data/accuracy-evidence.json`; a source-theory parity test is not independent
-  JPL accuracy. Unmatched selections remain unvalidated. See [EPHEMERIS_V3.md](EPHEMERIS_V3.md).
+- Independent sample evidence is separately typed in
+  `apps/web/data/independent-vector-evidence.json`; source-theory parity stays in
+  `apps/web/data/accuracy-evidence.json`. The independent registry retains all 160
+  native f64 geometric observations, including failed samples. Release builds reject
+  stale scientific-source inventories, reference artifacts and browser byte bindings.
+  Only an admitted, passing record with exact body/case, quantity, epoch, frame,
+  time scale, origin and model-argument policy may return `sampled`; a current UTC
+  display selection does not inherit a TDB sample's result. Native evidence and
+  corresponding WASM source provenance do not establish measured WASM parity.
+  See [INDEPENDENT_VECTOR_EVIDENCE.md](INDEPENDENT_VECTOR_EVIDENCE.md) and the
+  [public evidence page](../apps/web/accuracy/index.html). Unmatched selections and
+  source-theory parity remain independently unvalidated.
 - Catalogue-moon knots and validity bounds use TDB. The renderer converts the UTC
   scene epoch to TT using the engine's latest known TAI−UTC offset (37 seconds)
   plus TT−TAI (32.184 seconds). TT approximates TDB within 2 milliseconds, below

@@ -40,7 +40,7 @@ export function projectOpaqueDisc(body, matrix, viewport) {
     if (Math.abs(dot(rows[a], rows[b])) > 1e-9 * norms[a] * norms[b]) return null;
   }
   const depth = dot(rows[2], body.position) + matrix[15];
-  if (!finite(depth) || depth <= Math.max(1e-4, body.radius * norms[2])) return null;
+  if (!finite(depth) || depth <= Math.max(1e-9, body.radius * norms[2])) return null;
   const clipZ = matrix[2] * body.position[0] + matrix[6] * body.position[1]
     + matrix[10] * body.position[2] + matrix[14];
   if (!finite(clipZ) || clipZ < -depth || clipZ > depth) return null;

@@ -19,8 +19,10 @@ test('fresh Saturn uses the Sun for its globe, rings and moons, independent of t
         ?offset.map(value=>-9.5*value/distance):name==='Sun'?[0,0,0]:[i+1,0,0]));
     }});
   await h.enterOrrery();t.after(()=>h.leaveOrrery());h.setAnimate(false);
-  await h.settleCatalogues();h.input('orreryAnchor','Saturn','change');
+  h.input('orreryAnchor','Saturn','change');await h.settleCatalogues();
   await h.settle();await h.settle();
+  // Globe inspection intentionally omits offscreen satellites; this checks the whole system.
+  h.event('orreryFocusSystem','click');
   assert.equal(h.state.saturnLighting,'sun-directed');
   assert.equal(h.nodes.orrerySaturnLighting.value,'sun-directed');
   const body=h.state.bodies.find(b=>b.name==='Saturn'),position=[body.x_au,body.y_au,body.z_au];

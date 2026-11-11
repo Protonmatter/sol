@@ -1,24 +1,24 @@
 // ES module: loads the solar-ephemeris engine (WebAssembly) and validates
-// provider-neutral ephemeris-snapshot.v3 responses from both local and server tiers.
+// provider-neutral ephemeris-snapshot.v4 responses from both local and server tiers.
 
-import { assertEphemerisSnapshotV3, parseEphemerisSnapshot, assertEphemerisRequestBinding } from "./ephemerisContract.js?v=dcca6290db";
-import { validateSkyWork } from "./skyLimits.js?v=dcca6290db";
-import { normalizeRecipient } from "./skyPrivacy.js?v=dcca6290db";
-import { EngineError } from "./workerClient.js?v=dcca6290db";
+import { assertEphemerisSnapshotV3, parseEphemerisSnapshot, assertEphemerisRequestBinding } from "./ephemerisContract.js";
+import { validateSkyWork } from "./skyLimits.js";
+import { normalizeRecipient } from "./skyPrivacy.js";
+import { EngineError } from "./workerClient.js";
+
+import { compileEphemerisModule } from "./wasmBroker.js";
 
 let wasmExports = null;
 let loadPromise = null;
 
-export function loadSkyEngine() {
+/** @param {WebAssembly.Module} [compiledModule] */
+export function loadSkyEngine(compiledModule = undefined) {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
-    // no-cache (revalidate, reuse on 304) rather than no-store: this module embeds the
-    // packed VSOP2013/ELP/TOP tables (~0.5 MB) — re-downloading it on every visit was
-    // the single largest repeat-load cost in the app.
-    const response = await fetch(new URL("../pkg/solar_ephemeris.wasm?v=dcca6290db",import.meta.url), { cache: "no-cache" });
-    if (!response.ok) throw new Error(`ephemeris wasm HTTP ${response.status}`);
-    const bytes = await response.arrayBuffer();
-    const { instance } = await WebAssembly.instantiate(bytes, {});
+    const module = compiledModule ?? await compileEphemerisModule();
+    // Module instantiation returns an Instance (the byte overload returns a pair).
+    // Each realm owns its own instance and memory, even when compiled code is shared.
+    const instance = await WebAssembly.instantiate(module, {});
     wasmExports = instance.exports;
     return wasmExports;
   })();
@@ -31,7 +31,7 @@ function readResult(ptr, len) {
   return JSON.parse(new TextDecoder("utf-8").decode(view));
 }
 
-// Returns a validated ephemeris-snapshot.v3 for a Unix time + observer.
+// Returns a validated ephemeris-snapshot.v4 for a Unix time + observer.
 export function skySnapshot(unixSeconds, lat, lonEast, elev) {
   validateSkyRequest(unixSeconds,lat,lonEast,elev);
   if (!wasmExports) throw new Error("sky engine not loaded");
@@ -119,7 +119,7 @@ export async function checkServerHealth(base = SERVER_BASE, consent = null) {
     });
     if (!response.ok) return false;
     const health = await response.json();
-    return health.status === "ok" && health.schema_version === "ephemeris-snapshot.v3";
+    return health.status === "ok" && health.schema_version === "ephemeris-snapshot.v4";
   } catch (_) {
     return false;
   } finally {
@@ -149,7 +149,7 @@ export async function fetchServerSky(unixSeconds, lat, lonEast, elev, base = SER
   if (!consent?.allows(base)) throw new EngineError("consent_required","Authorize this specific recipient before sending location and time");
   if (signal?.aborted) throw new EngineError("cancelled","Remote request cancelled");
 
-  const url = new URL(`${base}/v3/sky`);
+  const url = new URL(`${base}/v4/sky`);
   url.searchParams.set("unix", String(unixSeconds));
   url.searchParams.set("lat", String(lat));
   url.searchParams.set("lon", String(lonEast));
@@ -166,7 +166,29 @@ export async function fetchServerSky(unixSeconds, lat, lonEast, elev, base = SER
       redirect: "error", // Reject before location/time can reach another recipient.
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error(`ephemeris server HTTP ${response.status}`);
+    if (!response.ok) {
+      // Inspect only a small typed error body. Never display arbitrary server
+      // text, and keep unrelated or malformed errors on the generic path.
+      let unsupportedTime = false;
+      if (response.status === 422 && response.body?.getReader) {
+        const reader = response.body.getReader();
+        try {
+          const decoder = new TextDecoder();
+          let text = "", bytes = 0;
+          while (true) {
+            const {done,value} = await reader.read();
+            if (done) { text += decoder.decode(); break; }
+            bytes += value.byteLength;
+            if (bytes > 2048) break;
+            text += decoder.decode(value,{stream:true});
+          }
+          if (bytes <= 2048) unsupportedTime = JSON.parse(text)?.code === "unsupported_time";
+        } catch { /* Preserve the generic HTTP failure. */ }
+        finally { await reader.cancel().catch(()=>{}); }
+      }
+      if (unsupportedTime) throw new EngineError("unsupported_time","Future time is unsupported by this server. Choose On your device for explicitly modeled nominal UTC.");
+      throw new Error(`ephemeris server HTTP ${response.status}`);
+    }
     const snapshot = parseEphemerisSnapshot(await response.text());
     assertEphemerisRequestBinding(snapshot,unixSeconds,lat,lonEast,elev);
     if (snapshot.error) throw new Error(snapshot.error);

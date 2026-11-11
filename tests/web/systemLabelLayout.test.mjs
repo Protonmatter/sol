@@ -4,7 +4,7 @@ import * as checks from '../../tools/system_label_layout.mjs';
 
 function fixture(count=17,width=900) {
   return {canvas:{x:100,y:200,width,clientWidth:Math.round(width),height:600},labels:Array.from({length:count},(_,i)=>({
-    id:`body-${i}`,x:104+(i%4)*100,y:204+Math.floor(i/4)*30,width:60,height:16,
+    id:`body-${i}`,x:104+(i%4)*100,y:204+Math.floor(i/4)*30,width:60,height:16,anchorX:172+(i%4)*100,anchorY:212+Math.floor(i/4)*30,
   }))};
 }
 
@@ -16,7 +16,7 @@ test('System browser geometry accepts 17 through 24 desktop labels with the exis
 test('System label caps follow the actual canvas width at the 600px breakpoint',()=>{
   for(const width of [320,599]) {
     const state=fixture(14,width);
-    state.labels.forEach((label,i)=>{label.x=104+(i%2)*100;label.y=204+Math.floor(i/2)*30;});
+    state.labels.forEach((label,i)=>{label.x=104+(i%2)*100;label.y=204+Math.floor(i/2)*30;label.anchorX=label.x+label.width+8;label.anchorY=label.y+label.height/2;});
     assert.equal(checks.assertSystemLabelLayout(state).limit,14);
     state.labels.push({...state.labels[0],id:'extra'});
     assert.throws(()=>checks.assertSystemLabelLayout(state),/label count/);
@@ -46,4 +46,17 @@ test('System label check rejects invalid dimensions, duplicate identities and no
     const state=fixture(1);Object.assign(state.canvas,edit);
     assert.throws(()=>checks.assertSystemLabelLayout(state),/canvas geometry/);
   }
+});
+
+test('System label check rejects detached, missing and offscreen target anchors',()=>{
+  for (const edit of [{anchorX:500,anchorY:500},{anchorX:NaN},{anchorY:undefined},{anchorX:99},{anchorY:801}]) {
+    const state=fixture(1);Object.assign(state.labels[0],edit);
+    assert.throws(()=>checks.assertSystemLabelLayout(state),/label target|label attachment/);
+  }
+});
+test('System label attachment accepts fractional DOM rounding at the target gap',()=>{
+  const state=fixture(1);state.labels[0].anchorX+=.5;
+  assert.equal(checks.assertSystemLabelLayout(state).count,1);
+  state.labels[0].anchorX+=.5;
+  assert.throws(()=>checks.assertSystemLabelLayout(state),/label attachment/);
 });

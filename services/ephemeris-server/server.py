@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Optional high-precision ephemeris provider for Sol.
 
-The server emits the same ``ephemeris-snapshot.v3`` contract as the in-browser
+The server emits the same ``ephemeris-snapshot.v4`` contract as the in-browser
 Rust/WASM engine. Planet, Moon, and Sun positions are sourced from JPL Horizons
 (DE441). The server does not synthesize rise/transit/set events; those nullable
 fields are intentionally backfilled by the browser's local engine when the
@@ -14,8 +14,8 @@ Stdlib only. Run:
 Endpoints:
 
     GET /health
-    GET /v3/sky?unix=<sec>&lat=<deg>&lon=<degE>&elev=<m>
-    Legacy /v1/sky and /v2/sky fail closed with an upgrade explanation.
+    GET /v4/sky?unix=<sec>&lat=<deg>&lon=<degE>&elev=<m>
+    Legacy /v1/sky, /v2/sky and /v3/sky fail closed with an upgrade explanation.
 
 Calendar input uses proleptic Gregorian years 1 through 9999. Horizons receives
 explicit JD(UT); before modern UTC the time block declares a degraded UT1 proxy.
@@ -48,7 +48,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 # The documented provider runs from the repository, sharing its authoritative
-# stdlib-only validator and schema instead of maintaining another v3 contract.
+# stdlib-only validator and schema instead of maintaining another v4 contract.
 TOOLS = Path(__file__).resolve().parents[2] / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
@@ -57,7 +57,7 @@ from validate_ephemeris_snapshot import parse_snapshot, validate as validate_sna
 AU_KM = 149_597_870.7
 EARTH_R_KM = 6378.14
 HORIZONS = "https://ssd.jpl.nasa.gov/api/horizons.api"
-SCHEMA_VERSION = "ephemeris-snapshot.v3"
+SCHEMA_VERSION = "ephemeris-snapshot.v4"
 CACHE_VERSION = "v7"  # Exact-request envelope; older unbound snapshots are not reused.
 CACHE_SCHEMA_VERSION = "ephemeris-cache.v1"
 CACHE_MAX_ENTRIES = 4096
@@ -158,6 +158,7 @@ class ProviderWork:
         problem = validate_params(*args)
         if problem:
             raise ValueError(problem)
+        require_supported_time(args[0])
         key = tuple(float(value).hex() for value in args)
         with self.lock:
             if self.closed:
@@ -492,10 +493,24 @@ def definitive_positions(when: dt.datetime, lat: float, lon: float, elev: float)
     return {name: fetch_body(when, lat, lon, elev, hid) for name, hid, _, _ in BODIES}
 
 
+# Matches the client EOP endpoint; this is a request-policy boundary, not a
+# claim that this service ingests that table. Horizons UT requests do not define
+# the client's modeled nominal-UTC future clock, so future requests are refused.
+SUPPORTED_TIME_END_JD = 2_400_000.5 + 61_714.0
+
+
+def require_supported_time(unix: float) -> None:
+    if unix / 86_400.0 + 2_440_587.5 > SUPPORTED_TIME_END_JD:
+        raise ProviderError("unsupported_time",
+                            "Future time is unsupported by this server after 2027-11-05 00:00 UTC; choose On your device for explicitly modeled nominal UTC",
+                            422)
+
+
 def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str, Any]:
     problem = validate_params(unix, lat, lon, elev)
     if problem:
         raise ValueError(problem)
+    require_supported_time(unix)
     # Arithmetic conversion works for historical dates on Windows as well.
     when = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc) + dt.timedelta(seconds=unix)
     raw = definitive_positions(when, lat, lon, elev)
@@ -566,7 +581,7 @@ def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str
             "tier": "server",
             "source": "JPL Horizons",
             "ephemeris": "DE441",
-            "endpoint_contract": "ephemeris-snapshot.v3",
+            "endpoint_contract": "ephemeris-snapshot.v4",
         },
         "time": time_meta,
         "events_window": {
@@ -637,6 +652,7 @@ def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict[st
     problem = validate_params(unix, lat, lon, elev)
     if problem:
         raise ValueError(problem)
+    require_supported_time(unix)
     path = cache_path(unix, lat, lon, elev)
     request_identity = [float(value).hex() for value in (unix, lat, lon, elev)]
     if os.path.isfile(path):
@@ -684,7 +700,7 @@ def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict[st
 
 
 def snapshot_matches_request(snapshot: Any, unix: float, lat: float, lon: float, elev: float) -> bool:
-    """Validate all v3 fields, then bind its epoch and observer to this request.
+    """Validate all v4 fields, then bind its epoch and observer to this request.
 
     The envelope additionally preserves the exact Unix float because conversion
     to a Julian day can round distinct instants to the same representable value.
@@ -795,16 +811,16 @@ class Handler(BaseHTTPRequestHandler):
                     "status": "ok",
                     "provider": "horizons-de441",
                     "schema_version": SCHEMA_VERSION,
-                    "endpoints": ["/v3/sky"],
+                    "endpoints": ["/v4/sky"],
                     "bodies": [body[0] for body in BODIES],
                 },
             )
             return
 
-        if parsed.path in {"/v2/sky", "/v1/sky"}:
-            self._send(409, {"error": "upgrade required: use /v3/sky with ephemeris-snapshot.v3"})
+        if parsed.path in {"/v3/sky", "/v2/sky", "/v1/sky"}:
+            self._send(409, {"error": "upgrade required: use /v4/sky with ephemeris-snapshot.v4"})
             return
-        if parsed.path == "/v3/sky":
+        if parsed.path == "/v4/sky":
             query = urllib.parse.parse_qs(parsed.query)
             try:
                 unix = float(query.get("unix", [None])[0])
@@ -836,7 +852,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
             return
 
-        self._send(404, {"error": "not found", "endpoints": ["/health", "/v3/sky"]})
+        self._send(404, {"error": "not found", "endpoints": ["/health", "/v4/sky"]})
 
     def log_message(self, fmt: str, *args: Any) -> None:
         pass
@@ -851,7 +867,7 @@ def main() -> int:
     server = BoundedHTTPServer((args.host, args.port), Handler)
     print(
         f"ephemeris-server (DE441 via Horizons) on http://{args.host}:{args.port} "
-        "— GET /v3/sky?unix&lat&lon&elev"
+        "— GET /v4/sky?unix&lat&lon&elev"
     )
     try:
         server.serve_forever()

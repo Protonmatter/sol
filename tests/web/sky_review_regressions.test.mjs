@@ -9,6 +9,8 @@ import { validateSkyWork } from "../../apps/web/js/skyLimits.js";
 import { SkyConsent, makeSkyPreview, parseSkyLink } from "../../apps/web/js/skyPrivacy.js";
 import { skyRows, parseSkyTime, formatSkyTimeInput } from "../../apps/web/js/skyPresentation.js";
 import { syncObjectRows } from "../../apps/web/js/objectBrowser.js";
+import { constellationFrame, altAz } from "../../apps/web/js/skyFrame.js";
+import { layoutLabels } from "../../apps/web/js/labelLayout.js";
 import { CONSTELLATIONS } from "../../apps/web/js/celestial.js";
 import { epochAccuracyAtUnix, renderedEpochLabel } from "../../apps/web/js/accuracy.js";
 import { resolveSkyPresentation } from "../../apps/web/js/presentationState.js";
@@ -16,7 +18,8 @@ import { assertEphemerisSnapshotV3, mergeLocalEvents } from "../../apps/web/js/e
 
 const moduleURL = new URL("../../apps/web/js/sky.js", import.meta.url);
 const source = fs.readFileSync(moduleURL, "utf8");
-const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json", import.meta.url), "utf8")).snapshot;
+const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v4-corpus.json", import.meta.url), "utf8")).snapshot;
+const nativeStarFrame = JSON.parse(fs.readFileSync(new URL("../fixtures/sky-star-frame.json", import.meta.url), "utf8")).star_frame;
 const unix = (snapshot.time.jd_utc - 2440587.5) * 86400;
 const capturedHash = "#sky=0,0,1782872026.9999936,0";
 
@@ -49,7 +52,7 @@ function canvasRecorder() {
     translate(x, y) { coordinates.push([x, y]); },
     rotate(angle) { coordinates.push([angle]); },
     setLineDash(value) { dash = Array.from(value); },
-    stroke() { strokes.push({ path: structuredClone(path), dash: [...dash], alpha: this.globalAlpha }); },
+    stroke() { strokes.push({ path: structuredClone(path), dash: [...dash], alpha: this.globalAlpha, strokeStyle: this.strokeStyle }); },
     save() { stack.push({ strokeStyle: this.strokeStyle, fillStyle: this.fillStyle, globalAlpha: this.globalAlpha,
       font: this.font, textAlign: this.textAlign, textBaseline: this.textBaseline, dash: [...dash] }); },
     restore() { const saved = stack.pop(); dash = saved.dash; Object.assign(this, saved); },
@@ -115,8 +118,9 @@ async function skyHarness(t, { basePath = "/sol/", stamped = false, href = "http
     document: { getElementById: id => nodes.get(id) || null, createElement: () => node(), body: node("body") },
     window: { SOL_EPHEMERIS_SERVER: recipientBase, innerWidth: 640, innerHeight: 640, devicePixelRatio,
       dispatchEvent() {}, setInterval(callback) { intervals.set(1, callback); return 1; }, clearInterval(id) { intervals.delete(id); } },
-    fetchServerSky, BODY_INDEX, SERVER_BASE,
+    fetchServerSky, BODY_INDEX, SERVER_BASE, deploymentBasePath:stamped?basePath:"__SOL_BASE_PATH__",
     createSkyWorkerClient: () => createSkyWorkerClient({
+      prepareWorker: null, // This harness controls worker replies; broker behavior has a separate integration test.
       createWorker: () => {
         const worker = { postMessage(message) { this.sent = message;if(message.type==='initialize')this.onmessage({data:{...message,type:'ready'}}); }, terminate() {} };
         workers.push(worker); return worker;
@@ -124,7 +128,7 @@ async function skyHarness(t, { basePath = "/sol/", stamped = false, href = "http
       setTimer: () => 1, clearTimer() {},
     }),
     validateSkyWork, SkyConsent, makeSkyPreview, parseSkyLink, skyRows, parseSkyTime, formatSkyTimeInput,
-    syncObjectRows, CONSTELLATIONS, epochAccuracyAtUnix, renderedEpochLabel, resolveSkyPresentation,
+    syncObjectRows, layoutLabels, constellationFrame, altAz, CONSTELLATIONS, epochAccuracyAtUnix, renderedEpochLabel, resolveSkyPresentation,
     assertEphemerisSnapshotV3, mergeLocalEvents,
   });
   if (stamped && basePath !== "__SOL_BASE_PATH__") {
@@ -165,7 +169,7 @@ function assertFiniteDrawing(drawing) {
   assert.ok(drawing.coordinates.every(values => values.every(Number.isFinite)), "every Canvas coordinate must be finite");
 }
 
-test("narrow Sky keeps full compass, star and planet labels inside the canvas without moving their positions", async t => {
+test("narrow Sky keeps admitted labels inside the canvas without moving body positions", async t => {
   // Synthetic display-boundary fixture, never astronomical reference evidence:
   // at latitude zero an object due east at altitude 0.1 degrees has declination
   // zero and hour angle -89.9 degrees. Update every coordinate alias together so
@@ -183,10 +187,14 @@ test("narrow Sky keeps full compass, star and planet labels inside the canvas wi
   for (const [canvasWidth, canvasHeight, devicePixelRatio] of [[320, 400, 1], [288, 360, 2]]) {
     const h = await skyHarness(t, { canvas: true, canvasWidth, canvasHeight, devicePixelRatio });
     await h.publishSnapshot(nearHorizon);
+    setOverlay(h,"skyTraj",false);
+    h.nodes.get("skyList").children.find(row=>row.dataset.objectId==="Saturn").click();
     assertFiniteDrawing(h.drawing);
     const canvas = h.nodes.get("skyCanvas"), padding = 4 * devicePixelRatio;
+    for (const label of h.drawing.texts) assert.ok((label.bottom-label.top)/devicePixelRatio>=12,
+      `${label.text}: canvas text must retain at least 12 CSS pixels at DPR ${devicePixelRatio}`);
     const labels = new Map(h.drawing.texts.map(label => [label.text, label]));
-    for (const name of ["N", "S", "E", "W", "Sirius", "Saturn"]) {
+    for (const name of ["N", "S", "E", "W", "Saturn"]) {
       const label = labels.get(name);
       assert.ok(label, `${canvasWidth}px at DPR ${devicePixelRatio}: ${name} is rendered`);
       assert.ok(label.left >= padding - 1e-6 && label.right <= canvas.width - padding + 1e-6,
@@ -199,7 +207,7 @@ test("narrow Sky keeps full compass, star and planet labels inside the canvas wi
       const point = plotted.find(item => item.name === name);
       assert.ok(Math.abs(point.x - (geom.cx + geom.r * (1 - 0.1 / 90))) < 1e-6);
       assert.ok(Math.abs(point.y - geom.cy) < 1e-6);
-      assert.ok(labels.get(name).left < point.x,
+      if(labels.has(name))assert.ok(labels.get(name).left < point.x,
         "the long east-limb label must move left while its astronomical marker stays in place");
     }
   }
@@ -207,7 +215,9 @@ test("narrow Sky keeps full compass, star and planet labels inside the canvas wi
 
 test("v3 snapshots draw finite constellation paths and preserve overlay toggling", async t => {
   const h = await skyHarness(t, { canvas: true });
-  await h.publishSnapshot();
+  const framed = structuredClone(snapshot);
+  framed.star_frame = structuredClone(nativeStarFrame);
+  await h.publishSnapshot(framed);
   assertFiniteDrawing(h.drawing);
   const initial = structuredClone(h.drawing.strokes);
   setOverlay(h, "skyConst", true);
@@ -224,6 +234,17 @@ test("v3 snapshots draw finite constellation paths and preserve overlay toggling
   h.store.sky.observer.lat = 70;
   h.context.resizeSky();
   assert.deepEqual(h.drawing.strokes, visible, "constellations must stay bound to the displayed v3 observer");
+});
+
+test("legacy provider snapshot hides unavailable constellation geometry and explains why", async t => {
+  const h = await skyHarness(t, { canvas: true, controls: true });
+  await h.publishSnapshot();
+  const hidden = structuredClone(h.drawing.strokes);
+  setOverlay(h, "skyConst", true);
+  assert.deepEqual(h.drawing.strokes, hidden);
+  assert.match(h.nodes.get("skyAccuracy").textContent, /Constellations unavailable/);
+  setOverlay(h, "skyConst", false);
+  assert.doesNotMatch(h.nodes.get("skyAccuracy").textContent, /Constellations unavailable/);
 });
 
 test("selecting a v3 catalogue star draws finite past and future paths and preserves trajectory toggling", async t => {
@@ -262,17 +283,17 @@ test("saved remote preference is restored but each session requires fresh recipi
   assert.deepEqual(requests,[],"restoration and refresh cannot send health or snapshot requests before consent");
   assert.equal(h.saved.size,0,"restoration cannot rewrite stored preferences");
   h.click("skyConsentAllow");
-  assert.deepEqual(requests,["/v3/sky"]);
+  assert.deepEqual(requests,["/v4/sky"]);
   assert.equal(h.saved.get("sol-sky-provider"),"server");
   const reloaded=await skyHarness(t,{...options,savedProvider:h.saved.get("sol-sky-provider")});
   await reloaded.context.renderSky();
   assert.equal(reloaded.store.sky.provider,"server");
   assert.equal(reloaded.nodes.get("skyConsent").hidden,false);
-  assert.deepEqual(requests,["/v3/sky"],"saved provider cannot carry consent into another page session");
+  assert.deepEqual(requests,["/v4/sky"],"saved provider cannot carry consent into another page session");
   reloaded.click("skyConsentDeny");
   assert.equal(reloaded.store.sky.provider,"local");
   assert.equal(reloaded.saved.get("sol-sky-provider"),"local");
-  assert.deepEqual(requests,["/v3/sky"]);
+  assert.deepEqual(requests,["/v4/sky"]);
 });
 
 test("malformed saved observer does not discard a separately valid saved remote preference", async t => {
@@ -549,7 +570,7 @@ for (const augmentationFails of [false, true]) test(`remote snapshot retains hon
   const h = await skyHarness(t, { recipientBase: "https://recipient.invalid" });
   h.click("skyProviderServer"); h.click("skyConsentAllow");
   await new Promise(setImmediate);
-  assert.deepEqual(requested, ["/v3/sky"]);
+  assert.deepEqual(requested, ["/v4/sky"]);
   const worker = h.workers.at(-1);
   if (augmentationFails) worker.onmessage({ data: { ...worker.sent, type: "error", error: { code: "engine_failed", message: "local engine unavailable" } } });
   else worker.onmessage({ data: { ...worker.sent, type: "result", value: { operation: "snapshot", snapshot: structuredClone(snapshot) } } });
@@ -561,4 +582,153 @@ for (const augmentationFails of [false, true]) test(`remote snapshot retains hon
   assert.equal(visible.warnings.some(text => text.includes("augmentation unavailable")), augmentationFails);
   h.click("skyConsentRevoke");
   assert.equal(h.store.sky.provider, "local"); assert.match(h.nodes.get("skyInputError").textContent, /consent revoked/);
+});
+
+// Synthetic lat=0 meridian positions, with every coordinate alias kept consistent.
+function putOnSouthernMeridian(snap,body) {
+  const ra=snap.time.lst_deg;
+  Object.assign(body,{alt_deg:45,alt_refracted_deg:45.02,above_horizon:true,az_deg:180,compass:'S',
+    ra_deg:ra,dec_deg:-45,topocentric_apparent_ra_deg:ra,topocentric_apparent_dec_deg:-45});
+  if(body.kind==='star')Object.assign(body,{geocentric_apparent_ra_deg:ra,geocentric_apparent_dec_deg:-45});
+}
+
+test('daytime dome suppresses catalogue stars without removing accessible objects', async t => {
+  const day=structuredClone(snapshot),sun=day.bodies.find(b=>b.name==='Sun');
+  putOnSouthernMeridian(day,sun);
+  const h=await skyHarness(t,{canvas:true});
+  await h.publishSnapshot(day);
+  const stars=new Set(day.bodies.filter(b=>b.kind==='star'&&b.name!=='Sun').map(b=>b.name));
+  assert.ok(!h.context.window.__skyDebug().plotted.some(b=>stars.has(b.name)),'daytime stars must not be drawn or hit-testable');
+  assert.ok(!h.drawing.texts.some(label=>stars.has(label.text)),'daytime star labels must be hidden');
+  assert.ok(h.nodes.get('skyList').children.some(node=>stars.has(node.dataset.objectId)),'stars remain in the accessible list');
+});
+
+test('daylight suppresses native-frame constellation lines and dots while twilight fades them', async t => {
+  const day=structuredClone(snapshot);day.star_frame=structuredClone(nativeStarFrame);
+  assert.equal(constellationFrame(day).available,true);
+  putOnSouthernMeridian(day,day.bodies.find(b=>b.name==='Sun'));
+  const h=await skyHarness(t,{canvas:true,controls:true});
+  await h.publishSnapshot(day);
+  const hidden=structuredClone(h.drawing.strokes),coordinates=structuredClone(h.drawing.coordinates);
+  setOverlay(h,'skyConst',true);
+  assert.deepEqual(h.drawing.strokes,hidden,'enabled overlay cannot reveal daytime constellation lines');
+  assert.deepEqual(h.drawing.coordinates,coordinates,'enabled overlay cannot reveal daytime vertex dots');
+  assert.match(h.nodes.get('skyAccuracy').textContent,/matched catalogue stars include proper motion/);
+  const twilight=structuredClone(day),sun=twilight.bodies.find(b=>b.name==='Sun');
+  const ra=(twilight.time.lst_deg+99)%360;
+  Object.assign(sun,{alt_deg:-9,alt_refracted_deg:-9,above_horizon:false,az_deg:90,compass:'E',ra_deg:ra,dec_deg:0,topocentric_apparent_ra_deg:ra,topocentric_apparent_dec_deg:0});
+  // Keep the native frame epoch and observer; only change the Sun display condition.
+  h.context.renderSky();await h.publishSnapshot(twilight);
+  const figureLines=h.drawing.strokes.filter(s=>s.strokeStyle==='rgba(208,224,255,0.5)'&&s.path.length===2);
+  assert.ok(figureLines.length>10,'enabled preference survives daylight and restores figures at twilight');
+  assert.ok(figureLines.every(s=>s.alpha===0.5),'figures use the same daylight opacity as catalogue stars');
+});
+
+test('crowded dome labels avoid each other while their body markers stay fixed', async t => {
+  const crowded=structuredClone(snapshot);
+  for(const name of ['Moon','Saturn','Sirius']) {
+    const b=crowded.bodies.find(body=>body.name===name);
+    putOnSouthernMeridian(crowded,b);
+  }
+  const h=await skyHarness(t,{canvas:true,canvasWidth:320,canvasHeight:400});
+  await h.publishSnapshot(crowded);
+  const labels=h.drawing.texts.filter(label=>!['N','S','E','W'].includes(label.text));
+  assert.ok(labels.some(label=>label.text==='Moon'),'selected Moon gets first claim on label space');
+  for(let i=0;i<labels.length;i++)for(const b of labels.slice(i+1)) {
+    const a=labels[i];
+    assert.ok(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top,`${a.text}/${b.text} overlap`);
+  }
+  const {plotted,geom}=h.context.window.__skyDebug();
+  for(const name of ['Moon','Saturn','Sirius']) {
+    const point=plotted.find(b=>b.name===name);
+    assert.ok(Math.abs(point.x-geom.cx)<1e-8);
+    assert.ok(Math.abs(point.y-(geom.cy+geom.r/2))<1e-8);
+  }
+});
+
+test('redrawing a retained sky after provider failure cannot restart a local trajectory worker', async t => {
+  t.mock.method(globalThis,'fetch',async()=>new Response('offline fixture',{status:502}));
+  const h=await skyHarness(t,{canvas:true,recipientBase:'https://recipient.invalid'});
+  await h.publishSnapshot();
+  h.nodes.get('skyList').children.find(row=>row.dataset.objectId==='Saturn').click();
+  const before=h.workers.length;
+  h.click('skyProviderServer');h.click('skyConsentAllow');
+  await new Promise(setImmediate);
+  assert.equal(h.store.sky.presentation.availability,'last_valid');
+  h.context.resizeSky();
+  assert.equal(h.workers.length,before,'a failed provider request must not trigger implicit local computation');
+});
+
+test('future nominal clock assumption is visible with its retained snapshot',async t=>{
+  const h=await skyHarness(t,{controls:true});
+  const future=structuredClone(snapshot),clock=future.time;
+  clock.input_time_semantics='future_nominal_utc';
+  clock.earth_orientation.quality='modeled_future';
+  clock.earth_orientation.dut1_uncertainty_seconds=null;
+  future.accuracy.eop_status='modeled_future';
+  await h.publishSnapshot(future);
+  assert.match(h.nodes.get('skyAccuracy').textContent,/nominal UTC/);
+  assert.match(h.nodes.get('skyAccuracy').textContent,/leap offset.*assum|assum.*leap offset/);
+  assert.match(h.nodes.get('skyAccuracy').textContent,/UT1.*model/);
+  assert.match(h.nodes.get('skyAccuracy').textContent,/uncertainty.*unknown/);
+});
+
+test('server unsupported future time keeps the previous snapshot and explicit local recovery',async t=>{
+  t.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({code:'unsupported_time'}),{status:422}));
+  const h=await skyHarness(t,{controls:true,recipientBase:'https://recipient.invalid'});
+  await h.publishSnapshot();
+  const original=h.nodes.get('skyAccuracy').textContent;
+  h.store.sky.chosenUnix=Date.UTC(2200,0,1)/1000;
+  h.click('skyProviderServer');h.click('skyConsentAllow');
+  await new Promise(setImmediate);
+  assert.equal(h.store.sky.presentation.availability,'last_valid');
+  assert.equal(h.nodes.get('skyAccuracy').textContent,original);
+  assert.equal(h.context.window.__skyDebug().snap.time.jd_utc,snapshot.time.jd_utc);
+  assert.match(h.nodes.get('skyInputError').textContent,/Future time/);
+  assert.match(h.nodes.get('skyProvenance').textContent,/Choose On your device/);
+});
+
+test('mixed event window shows a future-event caveat while retaining the UTC instant',async t=>{
+  const h=await skyHarness(t,{controls:true});
+  const mixed=structuredClone(snapshot);
+  mixed.events_window.future_nominal_utc_after_jd=mixed.events_window.start_jd+.25;
+  await h.publishSnapshot(mixed);
+  const text=h.nodes.get('skyAccuracy').textContent;
+  assert.match(text,/event window.*beyond.*Earth-orientation/);
+  assert.match(text,/nominal UTC/);
+  assert.match(text,/uncertainty is unknown/);
+  assert.doesNotMatch(text.split(' — ')[0],/nominal UTC/);
+  assert.equal(h.context.window.__skyDebug().snap.time.input_time_semantics,'utc');
+});
+
+// The Sun east of the meridian on the celestial equator at a chosen altitude, with RA,
+// hour angle, altitude and azimuth mutually consistent for the snapshot's observer.
+function putSunAtAltitude(snap,altitudeDeg){
+  const d=Math.PI/180,lat=snap.observer.polar_motion_corrected_lat_deg*d,alt=altitudeDeg*d;
+  const H=-Math.acos(Math.sin(alt)/Math.cos(lat));
+  const az=Math.atan2(-Math.sin(H),-Math.cos(H)*Math.sin(lat));
+  const azDeg=((az/d)%360+360)%360,ra=((snap.time.lst_deg-H/d)%360+360)%360;
+  Object.assign(snap.bodies.find(b=>b.name==='Sun'),{alt_deg:altitudeDeg,alt_refracted_deg:altitudeDeg,above_horizon:false,
+    az_deg:azDeg,compass:'E',ra_deg:ra,dec_deg:0,topocentric_apparent_ra_deg:ra,topocentric_apparent_dec_deg:0});
+}
+
+test('faint twilight stars are not hit targets and a hidden star draws no daytime path', async t => {
+  const twilight=structuredClone(snapshot);putSunAtAltitude(twilight,-2);putOnSouthernMeridian(twilight,twilight.bodies.find(b=>b.name==='Sirius'));
+  const h=await skyHarness(t,{canvas:true});
+  await h.publishSnapshot(twilight);
+  const stars=new Set(twilight.bodies.filter(b=>b.kind==='star'&&b.name!=='Sun').map(b=>b.name));
+  assert.ok(twilight.bodies.some(b=>stars.has(b.name)&&b.alt_deg>0),'the fixture has a star above the horizon');
+  assert.ok(!h.context.window.__skyDebug().plotted.some(b=>stars.has(b.name)),'stars at 11% opacity are not hit targets');
+  const dusk=structuredClone(snapshot);putSunAtAltitude(dusk,-9);putOnSouthernMeridian(dusk,dusk.bodies.find(b=>b.name==='Sirius'));
+  h.context.renderSky();await h.publishSnapshot(dusk);
+  assert.ok(h.context.window.__skyDebug().plotted.some(b=>stars.has(b.name)),'stars at half opacity are hit targets again');
+
+  const day=structuredClone(snapshot);
+  for(const name of ['Sun','Sirius'])putOnSouthernMeridian(day,day.bodies.find(b=>b.name===name));
+  const d=await skyHarness(t,{canvas:true});
+  await d.publishSnapshot(day);
+  setOverlay(d,'skyConst',false);
+  const before=d.drawing.strokes.filter(s=>s.path.length>2).length;
+  d.nodes.get('skyList').children.find(row=>row.dataset.objectId==='Sirius').click();
+  assert.equal(d.drawing.strokes.filter(s=>s.path.length>2).length,before,'a daytime-hidden star draws no trajectory');
 });

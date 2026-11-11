@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import v8ToIstanbul from "v8-to-istanbul";
+import { compilerGeneratedModuleKind } from "./module_graph.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WEB = path.join(ROOT, "apps", "web");
@@ -119,5 +120,73 @@ export function releaseSourceMap(webRoot) {
     if (createHash("sha256").update(bytes).digest("hex") !== asset.source_sha256) throw new Error(`coverage source hash mismatch: ${asset.source_path}`);
     assets.set(path.resolve(webRoot, asset.path), { source, original: bytes.toString("utf8") });
   }
-  return { manifest, assets };
+  const compiled = readBundleCoverage(webRoot, manifest);
+  const javascript = new Set(manifest.assets.filter(asset => asset.path.startsWith(manifest.namespace) && asset.path.endsWith(".js")).map(asset => path.resolve(webRoot, asset.path)));
+  for (const file of javascript) if (!assets.has(file) && !compiled.has(file)) throw new Error("release JavaScript has no coverage source mapping: " + file);
+  return { manifest, assets, compiled, javascript };
+}
+
+// Validate both sides of every compiler mapping before converting any coverage.
+// Maps carry exact original source text; no generated asset claims one-source
+// ownership, and an unknown release chunk cannot disappear from the report.
+export function readBundleCoverage(webRoot, manifest, { repositoryRoot = ROOT } = {}) {
+  const compiled = new Map();
+  const assets = new Map(manifest.assets.map(asset => [asset.path, asset]));
+  const descriptorName = manifest.namespace + 'web-build.v1.json';
+  const descriptorAsset = assets.get(descriptorName);
+  if (!descriptorAsset) return compiled;
+  const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+  const readAsset = (name, expected) => {
+    if (!name.startsWith(manifest.namespace) || !/^[A-Za-z0-9_./-]+$/.test(name)
+      || name.split('/').some(part => !part || part === '.' || part === '..')) throw new Error('unsafe compiled coverage path');
+    const asset = assets.get(name), file = path.resolve(webRoot, name);
+    const bytes = fs.readFileSync(file);
+    if (!asset || digest(bytes) !== asset.sha256 || (expected && expected !== asset.sha256)) throw new Error('compiled coverage asset hash mismatch: ' + name);
+    return { file, bytes };
+  };
+  const descriptor = JSON.parse(readAsset(descriptorName).bytes);
+  if (descriptor.schema_version !== 'web-build.v1' || !descriptor.sources || !Array.isArray(descriptor.outputs)) throw new Error('invalid compiled coverage descriptor');
+  const originals = new Map();
+  for (const [name, expected] of Object.entries(descriptor.sources)) {
+    if (!/^apps\/web\/(?:js\/)?[A-Za-z0-9_.-]+\.js$/.test(name)) throw new Error('unsafe compiled coverage source');
+    const source = path.resolve(repositoryRoot, name), bytes = fs.readFileSync(source);
+    if (digest(bytes) !== expected) throw new Error('compiled coverage source hash mismatch: ' + name);
+    originals.set(name, { source, text: bytes.toString('utf8') });
+  }
+  for (const output of descriptor.outputs) {
+    if (!/^js\/[A-Za-z0-9_.-]+\.js$/.test(output.path) || output.map !== output.path + '.map'
+      || !Array.isArray(output.inputs) || output.inputs.some(name => !originals.has(name))) throw new Error('invalid compiled coverage output');
+    const generated = readAsset(manifest.namespace + output.path, output.sha256);
+    if (compiled.has(generated.file)) throw new Error('duplicate compiled coverage output');
+    const map = JSON.parse(readAsset(manifest.namespace + output.map, output.map_sha256).bytes);
+    if (map.version !== 3 || typeof map.mappings !== 'string' || map.sourceRoot
+      || !Array.isArray(map.sources) || !Array.isArray(map.sourcesContent)
+      || map.sources.length !== map.sourcesContent.length || new Set(map.sources).size !== map.sources.length) throw new Error('invalid compiled coverage source map');
+    const sources = map.sources.map((name, index) => {
+      const original = originals.get(name);
+      if (!original || !output.inputs.includes(name) || original.text !== map.sourcesContent[index]) throw new Error('compiled coverage map source identity mismatch');
+      return original.source;
+    });
+    const generatedKind = sources.length ? null : compilerGeneratedModuleKind(generated.bytes.toString("utf8"), generated.file);
+    if (!sources.length && !generatedKind) throw new Error("unmapped executable code in compiled coverage output");
+    compiled.set(generated.file, { file: generated.file, text: generated.bytes.toString('utf8'),
+      map: { ...map, sources }, sources, generatedKind });
+  }
+  return compiled;
+}
+
+export async function bundleCoverageEntry(entry, declared) {
+  if (entry.text !== declared.text) throw new Error('compiled coverage execution source identity differs from artifact');
+  // A facade containing only compiler-generated import/export links has no
+  // original executable lines. Its shared implementation is mapped separately.
+  if (!declared.sources.length) {
+    if (!compilerGeneratedModuleKind(entry.text, declared.file)) throw new Error("unmapped executable code in compiled coverage output");
+    return {};
+  }
+  const converter = v8ToIstanbul(declared.file, 0, { source: entry.text, sourceMap: { sourcemap: declared.map } });
+  await converter.load();
+  const functions = entry.rawScriptCoverage?.functions || [{ functionName: '(root)', isBlockCoverage: true,
+    ranges: entry.ranges.map(range => ({ startOffset: range.start, endOffset: range.end, count: 1 })) }];
+  converter.applyCoverage(functions);
+  return converter.toIstanbul();
 }

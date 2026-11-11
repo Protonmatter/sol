@@ -32,3 +32,25 @@ test('graph rejects symlinked source even when the target is local',t=>{
   try{fs.symlinkSync(path.join(root,'real.js'),path.join(root,'linked.js'));}catch(error){if(error.code==='EPERM'){t.skip('Windows symlink privilege unavailable');return;}throw error;}
   assert.throws(()=>analyzeModules(root,['app.js']),/symlink/i);
 });
+test('one source path cannot have two URL identities in static closure',t=>{
+  const root=fixture(t,{'app.js':"import './shared.js';import './shared.js?v=old';",'shared.js':'export {};'});
+  assert.throws(()=>analyzeModules(root,['app.js']),/multiple.*identit/i);
+});
+for(const edge of ["import('./later.js')","new Worker(new URL('./later.js',import.meta.url),{type:'module'})"])
+  test(`complete graph rejects duplicate identity through ${edge}`,t=>{
+    const root=fixture(t,{'app.js':`import './shared.js';${edge};`,'later.js':"import './shared.js?v=old';",'shared.js':'export {};'});
+    assert.equal(analyzeModules(root,['app.js']).modules.length,2);
+    assert.throws(()=>analyzeModules(root,['app.js'],{includeDeferred:true}),/multiple.*identit/i);
+  });
+test('complete graph follows literal dynamic imports and module URL workers but ignores asset URLs',t=>{
+  const root=fixture(t,{'app.js':"import('./view.js');new Worker(new URL('./worker.js',import.meta.url));new URL('./data.json',import.meta.url);",'view.js':'export {};','worker.js':"import './shared.js';",'shared.js':'export {};'});
+  assert.deepEqual(analyzeModules(root,['app.js'],{includeDeferred:true}).modules.map(x=>x.path),['app.js','shared.js','view.js','worker.js']);
+});
+test('complete graph refuses computed imports that cannot be admitted',t=>{
+  const root=fixture(t,{'app.js':"const name='./view.js';import(name);",'view.js':'export {};'});
+  assert.throws(()=>analyzeModules(root,['app.js'],{includeDeferred:true}),/literal.*dynamic/i);
+});
+test('complete graph refuses worker construction whose module URL cannot be admitted',t=>{
+  const root=fixture(t,{'app.js':"const workerURL='./worker.js';new Worker(workerURL,{type:'module'});",'worker.js':'export {};'});
+  assert.throws(()=>analyzeModules(root,['app.js'],{includeDeferred:true}),/literal.*worker/i);
+});

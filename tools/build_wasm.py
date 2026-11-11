@@ -6,6 +6,7 @@ used by local development and the read-only CI candidate build. Pages consumes
 the already-tested artifact and never rebuilds it. The web source tree is not
 an allowed output directory; the default is build/wasm.
 
+Uses the dedicated wasm-release Cargo profile; native release settings are separate.
 Requires cargo + the wasm target:  rustup target add wasm32-unknown-unknown
 No wasm-bindgen / wasm-pack: the crates expose a raw extern "C" ABI and the web
 app marshals the JSON snapshot through linear memory itself.
@@ -20,7 +21,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from wasm_provenance import RECEIPT_NAME, capture_source_inputs, write_receipt
+from wasm_provenance import BUILD_PROFILE, RECEIPT_NAME, capture_source_inputs, write_receipt
 
 ROOT = Path(__file__).resolve().parent.parent
 CRATES = ("solar-wasm", "solar-ephemeris")
@@ -105,10 +106,10 @@ def main() -> int:
         parser.exit(1, f"ERROR: WASM source inventory: {error}\n")
 
     for crate in CRATES:
-        print(f"Building {crate} (release, {TARGET})...")
+        print(f"Building {crate} ({BUILD_PROFILE}, {TARGET})...")
         try:
             result = subprocess.run(
-                ["cargo", "build", "-p", crate, "--target", TARGET, "--release", "--locked", "--message-format=json"],
+                ["cargo", "build", "-p", crate, "--target", TARGET, "--profile", BUILD_PROFILE, "--locked", "--message-format=json"],
                 cwd=ROOT,
                 check=True,
                 stdout=subprocess.PIPE,

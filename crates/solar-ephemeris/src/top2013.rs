@@ -27,17 +27,30 @@ fn planet(idx: usize) -> &'static TopPlanet {
     }
 }
 
-fn eval_elem(p: &TopPlanet, el: usize, t: f64) -> f64 {
+// Only exact duplicate arguments at this one epoch are shared. No recurrence,
+// approximation, cross-epoch cache or change to the series accumulation order.
+fn phase_table(p: &TopPlanet, t: f64) -> Vec<(f64, f64)> {
+    p.multipliers
+        .iter()
+        .map(|&mult| {
+            let arg = mult as f64 * DMU * t;
+            (arg.cos(), arg.sin())
+        })
+        .collect()
+}
+
+fn eval_elem(p: &TopPlanet, el: usize, t: f64, phases: &[(f64, f64)]) -> f64 {
     let mut total = 0.0;
     let mut tpow = 1.0;
     for (power, terms) in p.elems[el].iter().enumerate() {
         let mut sum = 0.0;
-        for &(mult, cc, cs) in terms.iter() {
+        for term in terms.iter() {
+            let (mult, cc, cs) = (term.mult, term.cc, term.cs);
             if el == 1 && power == 1 && mult == 0 {
                 continue; // the mean motion — added via `mm` below
             }
-            let arg = mult as f64 * DMU * t;
-            sum += cc * arg.cos() + cs * arg.sin();
+            let (cos, sin) = phases[term.phase];
+            sum += cc * cos + cs * sin;
         }
         total += sum * tpow;
         tpow *= t;
@@ -53,12 +66,13 @@ fn eval_elem(p: &TopPlanet, el: usize, t: f64) -> f64 {
 pub fn helio_xyz(idx: usize, jy2k: f64) -> [f64; 3] {
     let t = jy2k / 1000.0;
     let p = planet(idx);
-    let a = eval_elem(p, 0, t);
-    let l = eval_elem(p, 1, t);
-    let k = eval_elem(p, 2, t);
-    let h = eval_elem(p, 3, t);
-    let q = eval_elem(p, 4, t);
-    let pp = eval_elem(p, 5, t);
+    let phases = phase_table(p, t);
+    let a = eval_elem(p, 0, t, &phases);
+    let l = eval_elem(p, 1, t, &phases);
+    let k = eval_elem(p, 2, t, &phases);
+    let h = eval_elem(p, 3, t, &phases);
+    let q = eval_elem(p, 4, t, &phases);
+    let pp = eval_elem(p, 5, t, &phases);
     crate::vsop2013::equinoctial_to_xyz(a, l, k, h, q, pp)
 }
 
@@ -67,11 +81,12 @@ pub fn helio_xyz(idx: usize, jy2k: f64) -> [f64; 3] {
 pub fn elements(idx: usize, jy2k: f64) -> (f64, f64, f64, f64, f64) {
     let t = jy2k / 1000.0;
     let p = planet(idx);
-    let a = eval_elem(p, 0, t);
-    let k = eval_elem(p, 2, t);
-    let h = eval_elem(p, 3, t);
-    let q = eval_elem(p, 4, t);
-    let pp = eval_elem(p, 5, t);
+    let phases = phase_table(p, t);
+    let a = eval_elem(p, 0, t, &phases);
+    let k = eval_elem(p, 2, t, &phases);
+    let h = eval_elem(p, 3, t, &phases);
+    let q = eval_elem(p, 4, t, &phases);
+    let pp = eval_elem(p, 5, t, &phases);
     let e = (k * k + h * h).sqrt();
     let varpi = h.atan2(k);
     let inc = 2.0 * (q * q + pp * pp).sqrt().min(1.0).asin();
@@ -93,6 +108,104 @@ pub fn outer_index(name: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Frozen scalar loop from before phase reuse. Keep its argument formation
+    // and accumulation order independent of the optimized evaluator.
+    fn scalar_eval_elem(p: &TopPlanet, el: usize, t: f64) -> f64 {
+        let mut total = 0.0;
+        let mut tpow = 1.0;
+        for (power, terms) in p.elems[el].iter().enumerate() {
+            let mut sum = 0.0;
+            for term in terms.iter() {
+                let (mult, cc, cs) = (term.mult, term.cc, term.cs);
+                if el == 1 && power == 1 && mult == 0 {
+                    continue;
+                }
+                let arg = mult as f64 * DMU * t;
+                sum += cc * arg.cos() + cs * arg.sin();
+            }
+            total += sum * tpow;
+            tpow *= t;
+        }
+        if el == 1 {
+            total += p.mm * t;
+        }
+        total
+    }
+
+    #[test]
+    fn compact_phase_indices_share_only_identical_multipliers() {
+        for idx in 0..4 {
+            let p = planet(idx);
+            let phases = phase_table(p, 5.0);
+            let terms: Vec<_> = p
+                .elems
+                .iter()
+                .flat_map(|el| el.iter())
+                .flat_map(|power| power.iter())
+                .collect();
+            let unique: std::collections::BTreeSet<_> =
+                terms.iter().map(|term| term.mult).collect();
+            assert_eq!(phases.len(), unique.len());
+            assert!(
+                phases.len() * 3 < terms.len(),
+                "distinct-index storage must actually remove repeated phases"
+            );
+            for term in terms {
+                assert_eq!(p.multipliers[term.phase], term.mult);
+            }
+        }
+    }
+
+    #[test]
+    fn phase_reuse_preserves_scalar_position_and_element_bits() {
+        let mut epochs: Vec<f64> = include_str!("../data/horizons-vectors-20261104.csv")
+            .lines()
+            .filter(|line| line.starts_with("mercury,"))
+            .map(|line| {
+                let jd: f64 = line.split(',').nth(4).unwrap().parse().unwrap();
+                (jd - crate::time::J2000) / 365.25
+            })
+            .collect();
+        assert_eq!(epochs.len(), 16);
+        for years in [-5000.0, 0.0, 5000.0] {
+            for days in [0.0, 1.0, 49.0, 99.0] {
+                let unix = 1_767_225_600.0 + years * 365.25 * 86400.0 + days * 86400.0;
+                let jd = crate::time::jd_from_unix(unix);
+                epochs.push(
+                    (crate::timescales::AstroTime::from_jd_utc(jd).jd_tt - crate::time::J2000)
+                        / 365.25,
+                );
+            }
+        }
+        // Include exact zero/sign behavior in addition to the reference dates.
+        epochs.extend([0.0, -0.0]);
+        for jy2k in epochs {
+            for idx in 0..4 {
+                let p = planet(idx);
+                let t = jy2k / 1000.0;
+                let original: [f64; 6] = core::array::from_fn(|el| scalar_eval_elem(p, el, t));
+                let [a, l, k, h, q, pp] = original;
+                let xyz = crate::vsop2013::equinoctial_to_xyz(a, l, k, h, q, pp);
+                assert_eq!(
+                    helio_xyz(idx, jy2k).map(f64::to_bits),
+                    xyz.map(f64::to_bits),
+                    "planet {idx} at {jy2k}"
+                );
+                let e = (k * k + h * h).sqrt();
+                let varpi = h.atan2(k);
+                let inc = 2.0 * (q * q + pp * pp).sqrt().min(1.0).asin();
+                let node = pp.atan2(q);
+                let expected = [a, e, inc, node, varpi - node];
+                let actual = elements(idx, jy2k);
+                assert_eq!(
+                    [actual.0, actual.1, actual.2, actual.3, actual.4].map(f64::to_bits),
+                    expected.map(f64::to_bits),
+                    "elements {idx} at {jy2k}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn matches_top2013_source_deep_time() {

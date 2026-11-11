@@ -2,14 +2,15 @@
 // bodyData constants plus the live snapshot row passed in — no GL, no renderer state —
 // extracted from orrery.js so the renderer file holds plumbing, not panel markup.
 
-import { BODY, poleVector } from "./bodyData.js?v=dcca6290db";
-import { isRetrograde } from "./moonorbits.js?v=dcca6290db";
-import { MOON_ALBEDO } from "./moonAppearance.js?v=dcca6290db";
+import { writeBoolean } from "./domWrites.js";
+import { BODY, poleVector } from "./bodyData.js";
+import { isRetrograde } from "./moonorbits.js";
+import { MOON_ALBEDO } from "./moonAppearance.js";
 import { visualProvenanceText, visualBrowsePreview } from "./visualAssets.js";
 import { appearanceReference, appearanceReferences, appearanceDescription, earthCloudRole, surfaceReferenceShown } from "./planetAppearance.js";
 import { illustrativeReplacesSurface } from "./illustrativeAppearance.js";
 import { earthLookSelected } from "./earthLook.js";
-import { earthSunDistanceAu, formatApparentV, formatIrradiance } from "./sunPhotometry.js?v=dcca6290de";
+import { earthSunDistanceAu, formatApparentV, formatIrradiance } from "./sunPhotometry.js";
 
 // Keep mutable appearance text separate from the native disclosure and source links.
 // Presentation updates must not replace a focused link, glossary button or open card.
@@ -349,14 +350,14 @@ function updateVisualSources(sources, state) {
       // Hide the registered link when textures are off or Illustrative look
       // replaces the surface. Radar keeps the link: the mosaic is the ground
       // under the artistic atmosphere.
-      row.hidden = !enabled || illustrativeReplacesSurface(name, state) || earthLook;
+      writeBoolean(row,"hidden",!enabled || illustrativeReplacesSurface(name, state) || earthLook);
       continue;
     }
     const active = enabled && name === "Earth" && (
       asset.role === "night-lights" && state.earthNight !== false
       || asset.role === earthCloudRole(state) && state.earthWeather !== false
       || asset.role === "sea-ice" && state.earthIce === true);
-    row.hidden = !active;
+    writeBoolean(row,"hidden",!active);
     if (!active) continue;
     const status = state.appearanceStatus?.[asset.id];
     const readiness = status === "unavailable" ? "Image unavailable; layer is not rendered."

@@ -135,7 +135,9 @@ test('each body uploads the haze of its own profile, and moons upload none', asy
   // sphere must match one admitted profile exactly rather than sharing Earth's air.
   for (const draw of withHaze) assert.ok(same(draw, earth) || same(draw, mars), 'haze columns come from an admitted profile');
   assert.ok(withHaze.some(draw => same(draw, mars)), 'Mars carries its own thinner columns');
-  h.input('orreryAnchor', 'Jupiter', 'change'); h.check('orreryTrueScale', true);
+  h.input('orreryAnchor', 'Jupiter', 'change');
+  await h.settleCatalogues(); // Jupiter focus, not entry, requests the moon orbit data.
+  h.check('orreryTrueScale', true);
   const moons = spheres().filter(draw => h.moons.some(moon => matchesMoonNormal(h, moon, draw.uniforms.u_nmat)));
   assert.ok(moons.length >= 1, 'moon spheres are submitted for this check');
   for (const draw of moons) assert.deepEqual(Array.from(draw.uniforms.u_hazeRayleighTau), [0, 0, 0]);

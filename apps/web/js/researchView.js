@@ -1,9 +1,9 @@
 // Deferred Research presentation. Preparation precedes headers; canvas drawing follows.
-import {store} from './store.js?v=dcca6290db';
-import {updateText} from './panels.js?v=dcca6290db';
-import {drawSolarDisk,drawButterfly} from './render.js?v=dcca6290db';
-import {currentBaseImage,baseImageState} from './data.js?v=dcca6290db';
-import {resolvePresentation} from './presentationState.js?v=dcca6290db';
+import {store} from './store.js';
+import {updateText} from './panels.js';
+import {drawSolarDisk,drawButterfly} from './render.js';
+import {currentBaseImage,baseImageState} from './data.js';
+import {resolvePresentation} from './presentationState.js';
 import {registerResearchRenderer} from './viewRegistry.js';
 
 registerResearchRenderer({

@@ -1,4 +1,4 @@
-import { EngineError } from "./workerClient.js?v=dcca6290db";
+import { EngineError } from "./workerClient.js";
 
 export const SKY_LIMITS = Object.freeze({minUnix:-62135596800,maxUnix:253402300800,maxSamples:257,maxStepSeconds:3600,maxSpanSeconds:172800,deadlineMs:10000});
 

@@ -14,6 +14,9 @@ import tempfile
 from typing import Any
 
 RECEIPT_NAME = 'wasm-build.v1.json'
+BUILD_PROFILE = 'wasm-release'
+# Historical receipts remain readable; exact source/output binding still applies.
+SUPPORTED_PROFILES = ('release', BUILD_PROFILE)
 WASM_FILES = ('solar_wasm.wasm', 'solar_ephemeris.wasm')
 CRATES = ('solar-core', 'solar-wasm', 'solar-ephemeris')
 ROOT_FILES = ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml',
@@ -90,7 +93,7 @@ def write_receipt(project: Path, wasm_root: Path, *, expected_inputs: dict[str, 
     if expected_inputs is not None and inputs != expected_inputs:
         raise ValueError('WASM source materials changed during build')
     document = {'schema_version': 'wasm-build.v1', 'target': 'wasm32-unknown-unknown',
-                'profile': 'release', 'locked': True, 'source_inputs': inputs,
+                'profile': BUILD_PROFILE, 'locked': True, 'source_inputs': inputs,
                 'source_inputs_sha256': hashlib.sha256(_canonical(inputs)).hexdigest(),
                 'wasm_sha256': _wasm_hashes(wasm_root)}
     raw = _canonical(document)
@@ -133,7 +136,7 @@ def read_receipt(wasm_root: Path) -> tuple[dict, bytes]:
     document = json.loads(raw, object_pairs_hook=_unique,
                           parse_constant=lambda value: (_ for _ in ()).throw(ValueError('invalid WASM receipt JSON number')))
     if (not isinstance(document, dict) or document.get('schema_version') != 'wasm-build.v1'
-            or document.get('target') != 'wasm32-unknown-unknown' or document.get('profile') != 'release'
+            or document.get('target') != 'wasm32-unknown-unknown' or document.get('profile') not in SUPPORTED_PROFILES
             or document.get('locked') is not True):
         raise ValueError('invalid WASM build receipt recipe')
     inputs = document.get('source_inputs')
@@ -157,6 +160,10 @@ def validate_receipt(project: Path, wasm_root: Path) -> bytes:
     document, raw = read_receipt(wasm_root)
     if document['source_inputs'] != capture_source_inputs(project):
         raise ValueError('WASM source receipt does not match current source materials; rebuild WASM')
+    # Historical profiles stay readable for archived evidence, but the current sources are
+    # only ever built by tools/build_wasm.py with the dedicated browser profile.
+    if document['profile'] != BUILD_PROFILE:
+        raise ValueError(f"WASM receipt profile {document['profile']} is not {BUILD_PROFILE}; rebuild WASM")
     return raw
 
 

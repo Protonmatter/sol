@@ -1,5 +1,6 @@
 // Actual staged resource failures/recovery. Each case owns a fresh browser;
 // bypassed service workers and local interceptions are explicit test conditions.
+import {releaseModulePath} from './release_module_urls.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -81,12 +82,12 @@ async function read(page){
       active_element:document.activeElement?.id,overflow:document.documentElement.scrollWidth>innerWidth+1,
       inspector_open:byId('panelToggle').getAttribute('aria-expanded'),trusted_retries:window.__catalogueRetries||[],interactions:window.__catalogueInteractions||[],
       retry_rect:{x:r.x,y:r.y,width:r.width,height:r.height},hit_test:document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.id};
-  },moduleBase+'js/store.js?v='+manifest.release_id);
+  },moduleBase+releaseModulePath(manifest,'js/store.js'));
 }
 
 async function phase(page,key,status,timeout=45000){
   await page.waitForFunction(async({url,key,status})=>(await import(url)).store.orrery?.catalogueStatus[key]===status,{timeout,polling:100},
-    {url:moduleBase+'js/store.js?v='+manifest.release_id,key,status});
+    {url:moduleBase+releaseModulePath(manifest,'js/store.js'),key,status});
 }
 
 try {
@@ -141,7 +142,7 @@ try {
    // A target request is mandatory evidence: core-engine failure before import
    // must fail the scenario rather than masquerade as catalogue rejection.
    await page.waitForFunction(async({url,key})=>{const s=(await import(url)).store.orrery;return s.engineError||s.catalogueStatus[key]==='failed';},{timeout:90000,polling:100},
-     {url:moduleBase+'js/store.js?v='+manifest.release_id,key:scenario.target});
+     {url:moduleBase+releaseModulePath(manifest,'js/store.js'),key:scenario.target});
    const entry=await read(page);assert.equal(entry.engine_error,'','Core initialization failed before target catalogue qualification');
    if(scenario.mixedRetry)await phase(page,'moons','failed');
    assert.ok(item.requests.some(r=>r.key===scenario.target),'Target module was actually requested');

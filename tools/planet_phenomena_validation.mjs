@@ -8,6 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import puppeteer from 'puppeteer-core';
 import {closeOwnedBrowser} from './worker_coverage.mjs';
+import {analyzeModules} from './module_graph.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const arg=(key,value)=>process.argv.find(x=>x.startsWith('--'+key+'='))?.slice(key.length+3)??value;
@@ -29,7 +30,10 @@ function input(name){
 }
 const manifest=JSON.parse(input('planet-phenomena.v1.json'));
 const files=new Map();
-for(const name of ['js/planetPhenomena.js','js/planetPhenomenaManifest.js','planet-phenomena.css',...manifest.observations.map(x=>x.asset.path)])files.set('/'+name,input(name));
+// A bundled release splits modules into shared chunks; serve each gallery module's
+// complete static import closure, every file bound to the release manifest.
+const moduleNames=analyzeModules(pageRoot,['js/planetPhenomena.js','js/planetPhenomenaManifest.js']).modules.map(module=>module.path);
+for(const name of [...new Set([...moduleNames,'planet-phenomena.css',...manifest.observations.map(x=>x.asset.path)])])files.set('/'+name,input(name));
 const evidence={schema_version:'planet-phenomena-validation.v1',status:'running',scope:'Production historical observation gallery; no globe registration or current weather claim',
   web_root:webRoot,release_namespace:release?.namespace??null,source_hashes:sourceHashes,checks:[],runtime_errors:[]};
 const requests=[];let browser,server,deadline,expired=false;

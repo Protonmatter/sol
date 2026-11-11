@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live ephemeris v3 validation; --historical-v2 explicitly validates frozen copies."""
+"""Live ephemeris v4 validation; --historical-v3/--historical-v2 validate frozen copies."""
 from __future__ import annotations
 import argparse
 import json
@@ -12,7 +12,9 @@ from validate_ephemeris_snapshot_v2 import (
     finite, finite_tree, SECONDS_PER_DAY, local_solar_day_start, MAJOR_BODIES,
 )
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = ROOT / "docs/ephemeris-snapshot-v3.schema.json"
+SCHEMA = ROOT / "docs/ephemeris-snapshot-v4.schema.json"
+# The published v3 contract, kept unchanged for archived snapshots. v4 added fields.
+HISTORICAL_V3_SCHEMA = ROOT / "docs/ephemeris-snapshot-v3.schema.json"
 COMPASS_POINTS = (
     "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
     "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
@@ -57,7 +59,7 @@ def delta_t_consistent(time: dict[str, Any]) -> bool:
 
 
 def check_time(time: dict[str, Any]) -> list[str]:
-    """Live v3 clock policy; the historical v2 implementation remains frozen."""
+    """Live v4 clock policy (also applied to archived v3); historical v2 remains frozen."""
     errors = []
     jd_utc, jd_ut1, jd_tt, jd_tai = (time.get(key) for key in ('jd_utc', 'jd_ut1', 'jd_tt', 'jd_tai'))
     dut1, delta_t, offset = (time.get(key) for key in ('dut1_seconds', 'delta_t_seconds', 'tai_minus_utc_seconds'))
@@ -81,7 +83,12 @@ def check_time(time: dict[str, Any]) -> list[str]:
         uncertainty = eop.get('dut1_uncertainty_seconds')
         if finite(uncertainty) and float(uncertainty) < 0:
             errors.append('EOP uncertainty must be non-negative')
-        if finite(dut1) and abs(float(dut1)) > .9:
+        future = time.get('input_time_semantics') == 'future_nominal_utc'
+        if future != (eop.get('quality') == 'modeled_future'):
+            errors.append('future nominal UTC requires modeled-future quality')
+        if (uncertainty is None) != future:
+            errors.append('only the future model has unknown uncertainty')
+        if not future and finite(dut1) and abs(float(dut1)) > .9:
             errors.append('DUT1 must remain within UTC steering bounds')
     return errors
 
@@ -96,11 +103,16 @@ def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def parse_snapshot(text: str) -> Any:
     return json.loads(text, parse_constant=reject_constant, object_pairs_hook=unique_object)
 
-def validate(data: Any) -> list[str]:
-    errors = list(jsonschema_min.validate(data, json.loads(SCHEMA.read_text(encoding="utf-8"))))
+def validate(data: Any, schema: Path = SCHEMA) -> list[str]:
+    errors = list(jsonschema_min.validate(data, json.loads(schema.read_text(encoding="utf-8"))))
     if errors:
         return errors
     return semantic_checks(data)
+
+
+def validate_historical_v3(data: Any) -> list[str]:
+    """Archived v3 copies only; live readers accept v4."""
+    return validate(data, HISTORICAL_V3_SCHEMA)
 
 def semantic_checks(data: dict[str, Any]) -> list[str]:
     errors = list(check_time(data["time"]))
@@ -111,6 +123,9 @@ def semantic_checks(data: dict[str, Any]) -> list[str]:
     window = data["events_window"]
     if window["start_jd"] != start or window["end_jd"] != start + 1:
         errors.append("events_window differs from observer local mean-solar day")
+    future_boundary = window.get('future_nominal_utc_after_jd')
+    if future_boundary is not None and not 1721425.5 <= future_boundary < window['end_jd'] + 1 / 144:
+        errors.append('events_window future model boundary must intersect event calculation support')
     if (time["input_time_semantics"] == "historical_ut1_proxy") != (time["jd_tai"] is None):
         errors.append("time input semantics disagree with historical approximation")
     if time["input_time_semantics"] == "historical_ut1_proxy" and time["earth_orientation"]["quality"] != "pre_utc_ut1_proxy":
@@ -170,13 +185,17 @@ def semantic_checks(data: dict[str, Any]) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("snapshot")
-    parser.add_argument("--historical-v2", action="store_true", help="Validate an unchanged archived v2 copy, never a live feed")
+    historical = parser.add_mutually_exclusive_group()
+    historical.add_argument("--historical-v2", action="store_true", help="Validate an unchanged archived v2 copy, never a live feed")
+    historical.add_argument("--historical-v3", action="store_true", help="Validate an unchanged archived v3 copy, never a live feed")
     args = parser.parse_args()
     try:
         data = parse_snapshot(Path(args.snapshot).read_text(encoding="utf-8"))
         if args.historical_v2:
             from validate_ephemeris_snapshot_v2 import validate as historical_validate
             errors = historical_validate(data)
+        elif args.historical_v3:
+            errors = validate_historical_v3(data)
         else:
             errors = validate(data)
     except Exception as exc:
@@ -184,7 +203,8 @@ def main() -> int:
     if errors:
         for error in errors: print(f"ERROR: {error}", file=sys.stderr)
         return 1
-    print(f"OK: {args.snapshot} ({'historical v2' if args.historical_v2 else 'live v3'})")
+    kind = 'historical v2' if args.historical_v2 else 'historical v3' if args.historical_v3 else 'live v4'
+    print(f"OK: {args.snapshot} ({kind})")
     return 0
 
 if __name__ == "__main__":

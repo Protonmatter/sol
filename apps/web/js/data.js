@@ -1,12 +1,12 @@
 // Snapshot / series / feed-status loaders and the observed-image cache.
 
-import { store } from "./store.js?v=dcca6290db";
-import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=dcca6290db";
-import { renderAll } from "./view.js?v=dcca6290db";
-import { maybeAutoStartTour } from "./tour.js?v=dcca6290db";
-import { readDataBundle } from "./dataBundle.js?v=dcca6290db";
-import { prepareBundlePublication } from "./timeline.js?v=dcca6290db";
-import { dynamicSourceEligible } from "./visualAssets.js?v=dcca6290db";
+import { store } from "./store.js";
+import { FALLBACK_STATE, BASE_IMAGES } from "./config.js";
+import { renderAll } from "./view.js";
+import { maybeAutoStartTour } from "./tour.js";
+import { readDataBundle } from "./dataBundle.js";
+import { prepareBundlePublication } from "./timeline.js";
+import { dynamicSourceEligible } from "./visualAssets.js";
 
 const baseImageCache = {};
 

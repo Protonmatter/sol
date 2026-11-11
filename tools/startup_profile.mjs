@@ -1,4 +1,5 @@
 // Owned local Chromium profile. All network bodies share one calibrated budget.
+import {releaseModulePath,releaseSourceIdentities} from './release_module_urls.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -61,7 +62,9 @@ function sourcePins(){
     .map(name=>[name,hash(fs.readFileSync(path.join(root,name)))]));
 }
 const sourceBefore=sourcePins();
-for(const asset of manifest.assets)if(asset.source_path)assert.equal(sourceBefore[asset.source_path],asset.source_sha256,'stage source owner drift: '+asset.source_path);
+const buildPath=path.join(webRoot,manifest.namespace,'web-build.v1.json');
+const buildSources=fs.existsSync(buildPath)?readJSON(buildPath):null;
+for(const [name,expectedHash]of Object.entries(releaseSourceIdentities(manifest,buildSources)))assert.equal(sourceBefore[name],expectedHash,'stage source owner drift: '+name);
 fs.writeFileSync(path.join(out,'source-inputs.json'),JSON.stringify(sourceBefore,null,2)+'\n');
 fs.writeFileSync(path.join(out,'artifact-inputs.json'),JSON.stringify(artifactPins,null,2)+'\n');
 const expected={imagePath:manifest.base_path+manifest.namespace+image.path,imageSha256:image.sha256,width:1024,height:1024,tasks:tasks.map(task=>task.task)};
@@ -112,7 +115,7 @@ function installMetrics({trace=false}={}){
     .observe({type:'layout-shift',buffered:true});
   for(const method of ['instantiate','instantiateStreaming','compile','compileStreaming']){
     const native=WebAssembly[method];
-    WebAssembly[method]=function(...args){state.wasm.push({method,bytes:args[0]?.byteLength??null,stack:new Error().stack});return Reflect.apply(native,this,args);};
+    WebAssembly[method]=function(...args){state.wasm.push({method,bytes:args[0]?.byteLength??null,compiledModule:args[0] instanceof WebAssembly.Module,stack:new Error().stack});return Reflect.apply(native,this,args);};
   }
   {
     const native=window.fetch;
@@ -228,7 +231,7 @@ try{
         const response=await(await caches.open(cache)).match(url);if(!response)throw new Error('verified core lacks original image');
         return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await response.arrayBuffer())),n=>n.toString(16).padStart(2,'0')).join('');
       },{cache:'sol-release-'+manifest.release_id,url:origin+expected.imagePath});
-      const storeUrl=origin+manifest.base_path+manifest.namespace+'js/store.js?v='+manifest.release_id;
+      const storeUrl=origin+manifest.base_path+manifest.namespace+releaseModulePath(manifest,'js/store.js');
       run.domainReadiness=[];
       for(const task of tasks){
         const began=performance.now();let cpu;
@@ -244,7 +247,9 @@ try{
         }else if(task.task==='system'){
           await page.waitForFunction(async url=>{const s=(await import(url)).store.orrery;return s?.engineError||(s?.bodies.length===9&&document.body.dataset.viewCode==='ready');},{timeout:120000,polling:100},storeUrl);
           const error=await page.evaluate(async url=>(await import(url)).store.orrery.engineError,storeUrl);assert.equal(error,'','System engine must initialize and calculate correctly');
-          await page.waitForFunction(async url=>{const s=(await import(url)).store.orrery;return s.catalogueStatus.stars==='ready'&&s.catalogueStatus.moons==='ready';},{timeout:90000,polling:100},storeUrl);
+          const catalogues=await page.evaluate(async url=>(await import(url)).store.orrery.catalogueStatus,storeUrl);
+          assert.equal(catalogues.stars,'idle','overview does not demand the full star catalogue');
+          assert.equal(catalogues.moons,'idle','overview does not demand the full moon catalogue');
         }
         if(['research','sky','system'].includes(task.task))run.domainReadiness.push({task:task.task,elapsedMs:performance.now()-began});
       }
@@ -272,7 +277,16 @@ try{
       // Read the actual application context after the measured tasks to avoid warming them.
       run.gpu=await readBrowserFeatureStatus(browser,await page.evaluate(captureBrowserCapabilities));assertBrowserBackend(backend,run.gpu);
       if(backend==='native')assert.equal(run.gpu.renderer,expectedRenderer,'actual native renderer differs from exact pin');
-      for(const operation of run.wasm)if(!operation.stack?.includes('/js/skyEngine.js'))run.errors.push('unexpected main-thread WASM operation: '+operation.stack);
+      // Bundle chunk names do not identify original callers. Observe the broker's
+      // public ABI: one compilation per staged binary, then Module instantiation.
+      for(const operation of run.wasm)if(operation.method!=='compile'&&!(operation.method==='instantiate'&&operation.compiledModule))run.errors.push('unexpected main-thread WASM operation: '+operation.stack);
+      // This workflow displays retained Research data; it never requests a local
+      // Solar run. Sky and System demand the same ephemeris binary exactly once.
+      // Requiring solar_wasm here would reward an unnecessary eager compilation.
+      const ephemerisAsset=manifest.assets.find(asset=>asset.path===manifest.namespace+'pkg/solar_ephemeris.wasm');
+      assert.ok(ephemerisAsset,'staged ephemeris binary exists');
+      const compiledBytes=run.wasm.filter(operation=>operation.method==='compile').map(operation=>operation.bytes);
+      assert.deepEqual(compiledBytes,[ephemerisAsset.size],'Sky and System share one demanded ephemeris compilation; Solar remains lazy');
       assert.equal(run.workerActivity.errors.length,0,'worker activity observation failed');assert.equal(run.workerActivity.activeRequests,0);
       if(pair===1)await page.screenshot({path:path.join(out,kind+'-after-tasks.png')});
       // Leave by the real controls so the warm scenario naturally returns to Sun.

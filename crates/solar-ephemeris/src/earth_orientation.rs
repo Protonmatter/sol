@@ -6,6 +6,7 @@ pub enum Quality {
     Predicted,
     Degraded,
     PreUtcUt1Proxy,
+    ModeledFuture,
 }
 
 impl Quality {
@@ -15,6 +16,7 @@ impl Quality {
             Self::Predicted => "predicted",
             Self::Degraded => "degraded",
             Self::PreUtcUt1Proxy => "pre_utc_ut1_proxy",
+            Self::ModeledFuture => "modeled_future",
         }
     }
 
@@ -30,7 +32,8 @@ pub struct EarthOrientation {
     pub yp_arcsec: f64,
     /// Supplied DUT1 formal error, propagated with absolute interpolation
     /// weights. This excludes interpolation error and unmodeled subdaily terms.
-    pub dut1_uncertainty_seconds: f64,
+    /// None for a long-term model without a qualified uncertainty.
+    pub dut1_uncertainty_seconds: Option<f64>,
     pub source: &'static str,
     pub quality: Quality,
 }
@@ -41,7 +44,7 @@ impl EarthOrientation {
             dut1_seconds: 0.0,
             xp_arcsec: 0.0,
             yp_arcsec: 0.0,
-            dut1_uncertainty_seconds: 0.9,
+            dut1_uncertainty_seconds: Some(0.9),
             source,
             quality: Quality::Degraded,
         }
@@ -84,7 +87,7 @@ impl DailyRow {
             dut1_seconds: self.dut1,
             xp_arcsec: self.xp,
             yp_arcsec: self.yp,
-            dut1_uncertainty_seconds: self.error,
+            dut1_uncertainty_seconds: Some(self.error),
             source: EOP_SOURCE,
             quality: if self.prediction_flags == 0 {
                 Quality::Rapid
@@ -166,7 +169,7 @@ fn interpolate_eop(mjd: f64, first_mjd: f64, rows: [DailyRow; 4]) -> Option<Eart
         dut1_seconds: dut1,
         xp_arcsec: xp,
         yp_arcsec: yp,
-        dut1_uncertainty_seconds: error,
+        dut1_uncertainty_seconds: Some(error),
         source: EOP_SOURCE,
         quality: if predicted {
             Quality::Predicted
@@ -263,7 +266,7 @@ mod tests {
         assert_eq!(eop.dut1_seconds, 0.355_477_9);
         assert_eq!(eop.xp_arcsec, 0.043_301);
         assert_eq!(eop.yp_arcsec, 0.377_867);
-        assert_eq!(eop.dut1_uncertainty_seconds, 0.000_009_9);
+        assert_eq!(eop.dut1_uncertainty_seconds, Some(0.000_009_9));
     }
 
     #[test]
@@ -306,7 +309,7 @@ mod tests {
         assert_eq!(eop.dut1_seconds, -0.052_611_8);
         assert_eq!(eop.xp_arcsec, 0.142_839);
         assert_eq!(eop.yp_arcsec, 0.318_278);
-        assert_eq!(eop.dut1_uncertainty_seconds, 0.000_013_7);
+        assert_eq!(eop.dut1_uncertainty_seconds, Some(0.000_013_7));
     }
 
     #[test]
@@ -335,7 +338,7 @@ mod tests {
         let eop = for_jd_utc(2_440_000.5);
         assert_eq!(eop.quality, Quality::Degraded);
         assert_eq!(eop.dut1_seconds, 0.0);
-        assert_eq!(eop.dut1_uncertainty_seconds, 0.9);
+        assert_eq!(eop.dut1_uncertainty_seconds, Some(0.9));
     }
 
     #[test]
@@ -354,7 +357,10 @@ mod tests {
             assert_eq!(eop.xp_arcsec.to_bits(), row.xp.to_bits());
             assert_eq!(eop.yp_arcsec.to_bits(), row.yp.to_bits());
             assert_eq!(eop.dut1_seconds.to_bits(), row.dut1.to_bits());
-            assert_eq!(eop.dut1_uncertainty_seconds.to_bits(), row.error.to_bits());
+            assert_eq!(
+                eop.dut1_uncertainty_seconds.unwrap().to_bits(),
+                row.error.to_bits()
+            );
             assert_eq!(
                 eop.quality,
                 if row.prediction_flags == 0 {
@@ -387,7 +393,7 @@ mod tests {
             let eop = for_jd_utc(value);
             assert_eq!(eop.quality, Quality::Degraded);
             assert_eq!(eop.dut1_seconds, 0.0);
-            assert_eq!(eop.dut1_uncertainty_seconds, 0.9);
+            assert_eq!(eop.dut1_uncertainty_seconds, Some(0.9));
         }
         for value in [start, above(start), below(observed_end), observed_end] {
             assert_eq!(for_jd_utc(value).quality, Quality::Rapid);
@@ -404,9 +410,9 @@ mod tests {
             let eop = for_jd_utc(2_400_000.5 + mjd);
             assert!(eop.dut1_seconds.is_finite() && eop.dut1_seconds.abs() <= 0.9);
             assert!(eop.xp_arcsec.is_finite() && eop.yp_arcsec.is_finite());
-            assert!(
-                eop.dut1_uncertainty_seconds.is_finite() && eop.dut1_uncertainty_seconds >= 0.0
-            );
+            assert!(eop
+                .dut1_uncertainty_seconds
+                .is_some_and(|error| error.is_finite() && error >= 0.0));
             assert_eq!(
                 eop.quality,
                 if mjd <= RAPID_END_MJD {
@@ -463,7 +469,7 @@ mod tests {
         assert!((result.xp_arcsec - 0.03375).abs() < 1e-14);
         assert!((result.yp_arcsec - 0.115).abs() < 1e-14);
         assert!((result.dut1_seconds - 0.000625).abs() < 1e-14);
-        assert!((result.dut1_uncertainty_seconds - 0.0000125).abs() < 1e-15);
+        assert!((result.dut1_uncertainty_seconds.unwrap() - 0.0000125).abs() < 1e-15);
         assert_eq!(result.quality, Quality::Predicted);
         assert_eq!(
             interpolate_eop(51_545.0, 51_544.0, rows).unwrap().quality,

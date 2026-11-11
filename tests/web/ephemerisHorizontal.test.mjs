@@ -5,7 +5,7 @@ import { assertEphemerisSnapshotV3 } from "../../apps/web/js/ephemerisContract.j
 import { fetchServerSky } from "../../apps/web/js/skyEngine.js";
 import { SkyConsent } from "../../apps/web/js/skyPrivacy.js";
 
-const snapshot=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json",import.meta.url),"utf8")).snapshot;
+const snapshot=JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v4-corpus.json",import.meta.url),"utf8")).snapshot;
 const labels=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
 function direction(latitude,ra,dec,alt,az) {
   const data=structuredClone(snapshot);data.time.lst_deg=0;

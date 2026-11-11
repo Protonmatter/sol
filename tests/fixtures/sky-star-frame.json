@@ -1,0 +1,33 @@
+{
+  "source": "Native solar-ephemeris sky CLI, unix=1782872026.9999936 lat=0 lon=0 elev=0; frame-only regression fixture.",
+  "star_frame": {
+    "version": 1,
+    "source": "solar-ephemeris 0.2.0",
+    "jd_utc": 2461222.5929050925,
+    "lst_deg": 312.6026231400948,
+    "observer": {
+      "terrestrial_lat_deg": 0,
+      "terrestrial_lon_deg_east": 0,
+      "elev_m": 0,
+      "polar_motion_corrected_lat_deg": 5.7016803672503016e-05,
+      "polar_motion_corrected_lon_deg_east": 1.0757035506564132e-10
+    },
+    "j2000_to_true_equatorial": [
+      [
+        0.9999788690001709,
+        -0.005962431268556383,
+        -0.0025905533205900326
+      ],
+      [
+        0.005962336981571213,
+        0.9999822241376739,
+        -4.411789883574524e-05
+      ],
+      [
+        0.002590770321221316,
+        2.867121471461509e-05,
+        0.9999966435379192
+      ]
+    ]
+  }
+}

@@ -5,9 +5,11 @@ export class EngineError extends Error {
 
 export class LatestWorkerClient {
   constructor({ engine, schema, release, createWorker, validateRequest = value=>value, validateResult = value=>value,
-    deadlineMs = 10000, initialize = false, startupDeadlineMs = 60000, now = ()=>performance.now(),
+    deadlineMs = 10000, initialize = false, startupDeadlineMs = 60000, prepareWorker = null, now = ()=>performance.now(),
     setTimer = setTimeout, clearTimer = clearTimeout }) {
     if(typeof initialize!=="boolean"||!Number.isSafeInteger(startupDeadlineMs)||startupDeadlineMs<=0)throw new RangeError("Invalid initialization bound");
+    if(prepareWorker!==null&&typeof prepareWorker!=="function")throw new TypeError("Invalid worker preparation callback");
+    this.prepareWorker=prepareWorker;
     this.engine=engine; this.schema=schema; this.release=release; this.createWorker=createWorker;
     this.validateRequest=validateRequest; this.validateResult=validateResult; this.deadlineMs=deadlineMs;
     this.initialize=initialize;this.startupDeadlineMs=startupDeadlineMs;this.now=()=>now();this.workerReady=false;this.lastClock=-Infinity;
@@ -40,6 +42,7 @@ export class LatestWorkerClient {
         let time;
         try{time=this.clock();}catch(error){this.finish(error,undefined,true);return;}
         if(time>=this.active.deadline){this.finish(this.deadlineError(this.active),undefined,true);return;}
+        if(this.active.preparing){this.finish(new EngineError("protocol","Engine responded before preparation was posted"),undefined,true);return;}
         const initializing=this.active.phase==="initializing";
         if (message.protocol !== "sol-worker.v1" || message.engine !== this.engine || message.schema !== this.schema
           || message.abi !== 1 || message.release !== this.release || !(initializing?["ready","error"]:["result","error"]).includes(message.type)) {
@@ -61,7 +64,7 @@ export class LatestWorkerClient {
       };
       if(this.initialize&&!this.workerReady){
         this.armDeadline(job,"initializing",this.startupDeadlineMs);
-        worker.postMessage({...this.identity(job),type:"initialize"});
+        this.postPrepared(job,worker,{...this.identity(job),type:"initialize"});
       }else this.compute(job);
     } catch(error) { this.finish(error, undefined, true); }
   }
@@ -84,7 +87,24 @@ export class LatestWorkerClient {
   }
   compute(job){
     this.armDeadline(job,"computing",this.deadlineMs);
-    this.worker.postMessage({...this.identity(job),type:"compute",payload:job.payload});
+    const message={...this.identity(job),type:"compute",payload:job.payload};
+    if(this.initialize)this.worker.postMessage(message);
+    else this.postPrepared(job,this.worker,message);
+  }
+  postPrepared(job,worker,message){
+    if(!this.prepareWorker){worker.postMessage(message);return;}
+    // The phase's deadline was armed before preparation. Never re-arm it here:
+    // compute-only users count preparation inside their existing compute budget.
+    const current=()=>this.active===job&&this.worker===worker&&!this.disposed;
+    job.preparing=true;
+    Promise.resolve(this.prepareWorker()).then(module=>{
+      if(!current())return;
+      try{
+        if(this.clock()>=job.deadline){this.finish(this.deadlineError(job),undefined,true);return;}
+        job.preparing=false;
+        worker.postMessage({...message,module});
+      }catch(error){this.finish(error,undefined,true);}
+    },error=>{if(current())this.finish(error,undefined,true);});
   }
   finish(error, value, terminate = false) {
     if (!this.active) return;

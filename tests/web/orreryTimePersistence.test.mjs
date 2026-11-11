@@ -20,13 +20,15 @@ test('paused System reentry retains its scientific epoch after wall time passes'
 });
 
 test('running System reentry resumes from its last simulated epoch without wall-time drift', async t => {
-  const h=await orreryHarness(t,{controls:true});
-  await h.enterOrrery();h.frame(1000);
+  // Separate lifecycle completion from the first scheduled animation frame.
+  const h=await orreryHarness(t,{controls:true,manualFrames:true});
+  await h.enterOrrery();h.frame(1000);h.frame(1016);
   const epoch=h.state.renderUnix;
   h.leaveOrrery();h.setWallUnix(1800007200);
   await h.enterOrrery();
   assert.equal(h.state.renderUnix,epoch);
-  h.frame(2000);assert.equal(h.state.renderUnix,epoch+57.6);
+  h.frame(2000);assert.equal(h.state.renderUnix,epoch,"first presentation validates the retained scene before resuming its clock");
+  h.frame(2016);assert.equal(h.state.renderUnix,epoch+57.6);
   h.leaveOrrery();
 });
 
@@ -46,7 +48,8 @@ test('paused failed reentry and full Retry retain the accepted epoch', async t =
 });
 
 test('Now and explicit time offsets still replace a retained paused System epoch', async t => {
-  const h=await orreryHarness(t,{controls:true});
+  // Pause before the explicitly controlled first frame; no startup clock step.
+  const h=await orreryHarness(t,{controls:true,manualFrames:true});
   await h.enterOrrery();h.setAnimate(false);h.leaveOrrery();
   h.setWallUnix(1800003600);await h.enterOrrery();
   assert.equal(h.state.renderUnix,1800000000);
