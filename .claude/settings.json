@@ -9,5 +9,10 @@
   },
   "enabledPlugins": {
     "superpowers@superpowers-marketplace": true
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }
