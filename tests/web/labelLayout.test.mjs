@@ -37,3 +37,16 @@ test("oversized text and invalid anchors cannot fabricate a placement",()=>{
     assert.deepEqual(layoutLabels([{id:"body",priority:0,x:160,y:90,width:60,height:16,...edit}],{width:320,height:180}),[]);
   }
 });
+test("the selected label stays beside a target near a canvas corner",()=>{
+  const opts={width:956,height:612,topInset:72};
+  for(const [x,y] of [[6,80],[950,80],[6,606],[950,606]]){
+    const [box]=layoutLabels([{id:"Venus",priority:0,x,y,width:52,height:16}],opts);
+    assert.ok(box,`selected label kept at ${x},${y}`);
+    assert.ok(box.x>=4&&box.y>=76&&box.x+box.width<=952&&box.y+box.height<=608,"inside the canvas, below the jump bar");
+    const gap=Math.hypot(Math.max(box.x-x,0,x-box.x-box.width),Math.max(box.y-y,0,y-box.y-box.height));
+    assert.ok(gap<=16,`beside its target (${gap.toFixed(1)} px)`);
+    assert.equal(box.callout,false);
+  }
+  // Unselected names near a corner stay suppressed rather than nudged.
+  assert.deepEqual(layoutLabels([{id:"Mercury",priority:2,x:6,y:80,width:52,height:16}],opts),[]);
+});

@@ -17,7 +17,15 @@ export function layoutLabels(candidates, {width, height, clearance = 4, limit = 
     seen.add(c.id);
     const w = c.width, h = c.height;
     const positions = [[c.x+8,c.y-h/2],[c.x-w-8,c.y-h/2],[c.x-w/2,c.y-h-8],[c.x-w/2,c.y+8]];
-    const box = positions.map(([x,y])=>({id:c.id,x,y,width:w,height:h,callout:false})).find(fits);
+    let box = positions.map(([x,y])=>({id:c.id,x,y,width:w,height:h,callout:false})).find(fits);
+    if (!box && c.priority === 0) {
+      // Near a canvas corner every adjacent position crosses an edge. Nudge one back inside
+      // for the selection only, and only while it still sits beside its target.
+      const gap = b => Math.hypot(Math.max(b.x-c.x,0,c.x-b.x-b.width), Math.max(b.y-c.y,0,c.y-b.y-b.height));
+      box = positions.map(([x,y])=>({id:c.id,width:w,height:h,callout:false,
+        x:Math.max(clearance,Math.min(width-clearance-w,x)),y:Math.max(top,Math.min(height-clearance-h,y))}))
+        .find(b=>fits(b)&&gap(b)<=16);
+    }
     if (box) placed.push(box);
   }
   return placed;
