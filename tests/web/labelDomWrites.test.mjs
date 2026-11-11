@@ -105,3 +105,32 @@ test('class and text changes invalidate metrics, and explicit resize invalidatio
   f.labels[0].textContent='changed';f.render();assert.ok(f.reads.length>n);n=f.reads.length;
   f.context.labelPresenter.invalidate();f.render();assert.ok(f.reads.length>n);
 });
+
+test('a repeated frame with unchanged labels writes no styles and reads no layout',()=>{
+  let styleWrites=0,layoutReads=0;
+  const tracked=()=>new Proxy({},{set(target,name,value){styleWrites++;target[name]=value;return true;}});
+  class Span {
+    constructor(){this.style=tracked();this.dataset={};this.className='';this.childNodes=[];
+      this.classList={toggle:()=>{}};}
+    get textContent(){return this.childNodes.map(n=>n.textContent).join('');}
+    set textContent(value){this.childNodes=value?[{nodeType:3,textContent:String(value)}]:[];}
+    getBoundingClientRect(){layoutReads++;return {width:this.textContent.length*7,height:15,top:0,bottom:15};}
+  }
+  const host={style:tracked(),appendChild(){},getBoundingClientRect(){layoutReads++;return {top:100};}};
+  const jumps={hidden:false,getBoundingClientRect(){layoutReads++;return {bottom:140};}};
+  const document={getElementById:id=>id==='systemJumps'?jumps:null,createElement:()=>new Span()};
+  const presenter=createLabelPresenter({document});
+  const identity=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+  const frame=()=>presenter.present({canvas:{clientWidth:400,clientHeight:300,offsetLeft:0,offsetTop:0},host,
+    items:[{name:'Jupiter',cls:'orrery-label',p:[0,0,0]},{name:'Saturn',cls:'orrery-label',p:[.5,.2,0]}],
+    discs:[],vp:identity,skyVp:identity,parentOf:()=>null,selected:'Jupiter',selectedStar:null,anchor:'Jupiter',primaryNames:['Jupiter','Saturn']});
+  frame();
+  assert.ok(styleWrites>0&&layoutReads>0,'the first frame lays out and measures');
+  styleWrites=0;layoutReads=0;
+  frame();
+  assert.equal(styleWrites,0,'unchanged labels are not rewritten');
+  assert.equal(layoutReads,0,'unchanged labels and jump bar are not re-measured');
+  presenter.invalidate();layoutReads=0;
+  frame();
+  assert.ok(layoutReads>0,'an explicit invalidation measures again');
+});
