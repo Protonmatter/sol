@@ -1040,6 +1040,19 @@ async function visualAssertions(page, visualDirectory, observeContext, systemBud
   // A uniform low-detail sphere has no azimuthal texture from which pixels can prove spin.
   // Background/orbit movement can also satisfy a pixel-change check while the globe is frozen.
   // Keep both PNG artifacts, but inspect the actual Earth draw uniforms for this regression.
+  // The spin gates read submitted uniforms, not pixels, so frame the physical-scale Earth at
+  // 30% of the canvas half-height instead of the zoomed full-canvas view: on a software GPU a
+  // full-canvas Earth costs over a second per frame and starves the unchanged 5 s window.
+  await page.evaluate(async () => {
+    const entry = document.querySelector('script[type="module"][src^="app.js"]');
+    const { store } = await import(`./js/store.js${entry ? new URL(entry.src).search : ""}`);
+    if (store.orrery.anchor !== "Earth" || store.orrery.focusMode !== "inspect-body") {
+      throw new Error(`Earth spin framing expects Earth inspection, got ${store.orrery.anchor}/${store.orrery.focusMode}`);
+    }
+    store.orrery.radius = 6378.137 / 149597870.7 / (0.3 * Math.tan(21 * Math.PI / 180));
+    document.getElementById("orrerySize").dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
   await page.$eval('#orrerySpeedPresets button[data-dps="7"]', (button) => button.click());
   await new Promise((resolve) => setTimeout(resolve, 250));
   await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-before.png"));
