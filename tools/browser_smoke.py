@@ -88,8 +88,18 @@ addEventListener("unhandledrejection", e =>
 
 let smokeStore = null;
 let smokeTime = null;
+let smokeOrrery = null;
 let smokeMoons = null;
 let smokeLifecycleReady = false;
+// paint() only queues a frame. A deterministic check reads renderer state after
+// the first rendered frame that follows its input, never in the same task.
+const lastRenderedFrame = () => {
+  const timings = smokeOrrery?.orreryFrameTimings?.() || [];
+  for (let i = timings.length - 1; i >= 0; i--) if (timings[i].rendered) return timings[i].timestamp;
+  return -Infinity;
+};
+let frameAfter = null;
+const inputFrameRendered = () => frameAfter !== null && lastRenderedFrame() > frameAfter;
 const smokeMoonReady = __SOL_SMOKE_READY__;
 const smokeModuleUrls = __SOL_SMOKE_MODULE_URLS__;
 addEventListener("load", async () => {
@@ -109,13 +119,19 @@ addEventListener("load", async () => {
     // A bare import and a versioned import can share a pathname, so a resource
     // timing pathname alone is insufficient to identify the correct instance.
     const urls = smokeModuleUrls.map(url => new URL(url, location.href).href);
-    const [storeModule, timeModule, , moonsModule] = await Promise.all(urls.map(url => import(url)));
+    const [storeModule, timeModule, orreryModule, moonsModule] = await Promise.all(urls.map(url => import(url)));
     smokeStore = storeModule.store;
     smokeTime = timeModule;
+    smokeOrrery = orreryModule;
     smokeMoons = moonsModule.MOONS;
     if (tab.getAttribute("aria-pressed") === "true"
         && document.body.dataset.surface === "orrery") {
       document.body.dataset.smokeMode = "yes";
+      // Moon orbital elements load on demand when a satellite system is viewed.
+      // Request them through the real Focus control; loaded elements stay in MOONS.
+      const anchor = document.getElementById("orreryAnchor");
+      anchor.value = "Saturn";
+      anchor.dispatchEvent(new Event("change", { bubbles: true }));
       smokeLifecycleReady = true;
     } else {
       throw new Error("orrery destination did not activate");
@@ -125,9 +141,9 @@ addEventListener("load", async () => {
   }
 });
 
-// Synchronous repaint with a chosen frame step. The time slider's real input handler
-// rebuilds positions, paints, and refreshes the user-visible accuracy line while Animate is
-// off, so the smoke verifies both renderer state and the warning presented to the user.
+// Repaint with a chosen frame step. The time slider's real input handler rebuilds
+// positions, queues a frame, and refreshes the user-visible accuracy line while Animate
+// is off; callers check renderer state and the warning after that frame renders.
 const repaintWithStep = (stepSeconds) => {
   smokeStore.orrery.simStepSeconds = stepSeconds;
   const time = document.getElementById("orreryTime");
@@ -150,6 +166,11 @@ const advance = () => {
     ].join(" ");
   }
   if (phase === "ready") {
+    if (o?.catalogueStatus?.moons === "failed") {
+      smokeErr("moon catalogue failed to load");
+      phase = "end";
+      return;
+    }
     // Includes Earth's Moon plus the 21 catalogue moons in the current object browser.
     const rows = document.querySelectorAll("#orreryPositions .orrery-pos-moon").length;
     body.dataset.smokeMoonRows = String(rows);
@@ -220,7 +241,11 @@ const advance = () => {
   } else if (phase === "alias") {
     // A frame that covers 5 days must alias every inner moon (Phobos P/3 is 0.106 d)
     // through the real drawMoons path, and the resulting warning must be rendered.
+    frameAfter = lastRenderedFrame();
     repaintWithStep(5 * 86400);
+    phase = "alias-check";
+  } else if (phase === "alias-check") {
+    if (!inputFrameRendered()) return;
     const rendered = acc ? acc.textContent : "";
     if (o.moonsAliasedCount > 0
         && o.moonsHiddenReason.includes("inner moon")
@@ -237,7 +262,11 @@ const advance = () => {
   } else if (phase === "reset") {
     // Direct step injection is used only for deterministic renderer coverage; pause behavior
     // was already proven above through the actual Animate control.
+    frameAfter = lastRenderedFrame();
     repaintWithStep(0);
+    phase = "reset-check";
+  } else if (phase === "reset-check") {
+    if (!inputFrameRendered()) return;
     const rendered = acc ? acc.textContent : "";
     if (o.moonsAliasedCount === 0 && !o.moonsHiddenReason
         && !rendered.includes("inner moon")) {

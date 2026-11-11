@@ -33,12 +33,13 @@ const moduleUrls=JSON.parse(source.match(/const smokeModuleUrls = (\[[^;]+\]);/)
 const entries=moduleUrls.map(url=>({name:new URL(url,origin+'/sol/releases/fixture/__smoke_orrery.html').href}));
 const body={dataset:{surface:'today',viewCode:'ready',viewCodeName:'observe'}};
 const tab={click(){calls.push('native-orrery-click');body.dataset.surface='orrery';body.dataset.viewCodeName='orrery';},getAttribute(){return body.dataset.surface==='orrery'?'true':'false';}};
+const anchor={value:'Sun',dispatchEvent(event){calls.push('focus-'+event.type+':'+anchor.value);return true;}};
 const document={body,querySelector(selector){
   if(selector.startsWith('link['))return null;
   if(selector.includes('script'))return {src:app};
   if(selector.includes('data-mode="orrery"'))return tab;
   return null;
-}};
+},getElementById(id){return id==='orreryAnchor'?anchor:null;}};
 const modules={'store.js':{store:{orrery:{}}},'orreryTime.js':{},'orrery.js':{enterOrrery:async()=>{}},'moons.js':{MOONS:[{el:[[1]]}]}};
 const mockImport=async url=>{calls.push(url);assert.ok(entries.some(entry=>entry.name===url),'join the URL actually fetched by the app');return modules[new URL(url).pathname.split('/').at(-1)];};
 const run=new Function('document','location','performance','localStorage','addEventListener','setInterval','requestAnimationFrame','mockImport',source);
@@ -46,7 +47,8 @@ run(document,{origin,href:origin+'/sol/releases/fixture/__smoke_orrery.html'},
   {now:()=>0,getEntriesByType:()=>entries},{setItem(){}},(type,fn)=>callbacks.set(type,fn),()=>{},()=>{},mockImport);
 await callbacks.get('load')();for(let i=0;i<20;i++)await Promise.resolve();
 assert.equal(calls[0],'native-orrery-click','deferred System must enter through its actual control');
-assert.deepEqual(calls.slice(1),entries.map(entry=>entry.name),'reuse all four actual loaded module identities');
+assert.deepEqual(calls.slice(1,5),entries.map(entry=>entry.name),'reuse all four actual loaded module identities');
+assert.deepEqual(calls.slice(5),['focus-change:Saturn'],'demand moon knots through the actual Focus control');
 assert.equal(body.dataset.smokeMode,'yes');assert.equal(body.dataset.smokeErrs,undefined);
 """
             result = subprocess.run(['node', '--input-type=module', '-e', script, str(fixture)],
