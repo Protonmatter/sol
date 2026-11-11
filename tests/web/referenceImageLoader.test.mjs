@@ -58,3 +58,60 @@ test('exact scientific palettes disable color conversion during bitmap decode',a
   assert.equal(o.resizeWidth,5400);return {width:5400,height:2700,close(){}};
  }});
 });
+
+test('every pinned reference asset exposes its declared source grid in its own container format',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const {referenceSourceGrid}=await import('../../apps/web/js/referenceImageLoader.js');
+ const manifest=JSON.parse(await readFile(new URL('../../apps/web/visual-assets.v1.json',import.meta.url),'utf8'));
+ const assets=[];
+ const visit=node=>{
+  if(Array.isArray(node))node.forEach(visit);
+  else if(node&&typeof node==='object'){
+   if(typeof node.path==='string'&&node.path.startsWith('textures/reference/')&&node.sha256)assets.push(node);
+   Object.values(node).forEach(visit);
+  }
+ };
+ visit(manifest);
+ const formats=new Set();
+ for(const asset of assets){
+  const file=await readFile(new URL('../../apps/web/'+asset.path,import.meta.url));
+  const bytes=file.buffer.slice(file.byteOffset,file.byteOffset+file.byteLength);
+  const grid=referenceSourceGrid(bytes,asset.path);
+  assert.ok(grid,asset.path);
+  assert.deepEqual([grid.width,grid.height],asset.dimensions,asset.path);
+  formats.add(grid.type);
+ }
+ // The manifest admits both containers; a PNG-only reader rejected Earth and Moon maps.
+ assert.deepEqual([...formats].sort(),['image/jpeg','image/png']);
+});
+
+async function jpegFixture(width=5400,height=2700){
+ // SOI, APP0 (JFIF, 16-byte segment), SOF0 with the frame grid, then EOI.
+ const bytes=new Uint8Array([0xff,0xd8,0xff,0xe0,0,16,0x4a,0x46,0x49,0x46,0,1,1,0,0,1,0,1,0,0,
+   0xff,0xc0,0,17,8,height>>8,height&255,width>>8,width&255,3,1,0x22,0,2,0x11,1,3,0x11,1,0xff,0xd9]).buffer;
+ const sha256=Buffer.from(await webcrypto.subtle.digest('SHA-256',bytes)).toString('hex');
+ const asset={path:'textures/reference/earth-land-2004.jpg',bytes:bytes.byteLength,sha256,dimensions:[width,height],role:'surface',nodata:'none'};
+ const service={fetch:async()=>({ok:true,arrayBuffer:async()=>bytes}),digest:b=>webcrypto.subtle.digest('SHA-256',b)};
+ return {bytes,asset,service};
+}
+
+test('JPEG references decode from their frame grid as image/jpeg',async()=>{
+ const {asset,service}=await jpegFixture(),plan=planTextureDisplay(asset,300,1,16384);
+ const image={width:plan.width,height:plan.height,close(){throw Error('live image must not be closed');}};
+ const result=await decodeReferenceImage(asset,plan,new AbortController().signal,{...service,decode:async blob=>{assert.equal(blob.type,'image/jpeg');return image;}});
+ assert.equal(result,image);
+});
+
+test('container, extension and truncated-header drift fail closed before decode',async()=>{
+ const {referenceSourceGrid}=await import('../../apps/web/js/referenceImageLoader.js');
+ const {bytes,asset,service}=await jpegFixture();let calls=0;
+ const services={...service,decode:async()=>{calls++;return {};}};
+ await assert.rejects(decodeReferenceImage({...asset,dimensions:[4096,2048]},planTextureDisplay(asset),new AbortController().signal,services),/source grid/);
+ assert.equal(referenceSourceGrid(bytes,'textures/reference/earth.png'),null);
+ assert.equal(referenceSourceGrid(bytes.slice(0,22),asset.path),null);
+ assert.equal(referenceSourceGrid(bytes,'textures/reference/earth.webp'),null);
+ const png=(await fixture());
+ const pngBytes=await (await png.service.fetch()).arrayBuffer();
+ assert.equal(referenceSourceGrid(pngBytes,'textures/reference/earth.jpg'),null);
+ assert.equal(calls,0);
+});
