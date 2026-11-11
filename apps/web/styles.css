@@ -860,6 +860,8 @@ body[data-surface="sky"] #skyCanvas {
   border-left: 3px solid var(--muted);
   font-size: .75rem;
   line-height: 1.35;
+  /* The epoch prefix advances every frame; fixed-width digits keep its wrap stable. */
+  font-variant-numeric: tabular-nums;
   color: rgba(220, 226, 240, 0.8);
   background: rgba(255, 255, 255, 0.03);
 }
