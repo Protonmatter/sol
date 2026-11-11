@@ -70,3 +70,9 @@ test('touch finalizer retains successful acceptance when closing emits no error'
   const f=finalizerFixture();await f.run();
   assert.equal(f.evidence.contextClosed,true);assert.equal(f.written().status,'passed');assert.deepEqual(f.written().errors,[]);
 });
+
+test('surviving-finger move waits for queued frames before its delivery bound',()=>{
+  const source=fs.readFileSync(new URL('../../tools/touch_gesture_probe.mjs',import.meta.url),'utf8');
+  const lift=source.indexOf('const afterLift=await read();'),move=source.indexOf("await send('touchMove',[point(4,p.x-40,p.y)]);");
+  assert(lift>0&&move>lift);assert.match(source.slice(lift,move),/await frame\(\);/);
+});

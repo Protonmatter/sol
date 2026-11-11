@@ -128,6 +128,10 @@ export async function verifyTouchGestures(browser,url,directory,{backend,fixedUn
         await send('touchMove',[point(4,p.x-60,p.y),point(5,p.x+60,p.y)]);const pinched=await read();
         assert(Math.abs(pinched.camera.radius/before.camera.radius-2/3)<.01);
         await endContact(point(5,p.x+60,p.y),removed);await activeContacts([survivor]);const afterLift=await read();
+        // Non-blocking touchmoves are delivered with the next main frame. Drain the
+        // pinch's queued frames first so the 5 s bound times input delivery rather
+        // than software-GPU frame backlog.
+        await frame();
         const offset=(await trace()).length;await send('touchMove',[point(4,p.x-40,p.y)]);
         await page.waitForFunction(({offset,id})=>__solTouchTrace.slice(offset).some(e=>e.type==='pointermove'&&e.id===id),
           {timeout:5000},{offset,id:survivor});
