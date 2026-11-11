@@ -143,8 +143,11 @@ async function run() {
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     let program = programs.physical;
     gl.useProgram(program); gl.disable(gl.DITHER); gl.disable(gl.BLEND); gl.viewport(0, 0, 1, 1);
-    const textureFactory = new Function("gl", `${upload}; return makeTexture;`)(gl);
-    const flippedFactory = new Function("gl", `${upload.replace("UNPACK_FLIP_Y_WEBGL, false", "UNPACK_FLIP_Y_WEBGL, true")}; return makeTexture;`)(gl);
+    // makeTexture reads the renderer's per-context texture limit, which initGL
+    // records from MAX_TEXTURE_SIZE; supply the same value for this context.
+    const textureLimits = new WeakMap([[gl, gl.getParameter(gl.MAX_TEXTURE_SIZE)]]);
+    const textureFactory = new Function("gl", "textureLimits", `${upload}; return makeTexture;`)(gl, textureLimits);
+    const flippedFactory = new Function("gl", "textureLimits", `${upload.replace("UNPACK_FLIP_Y_WEBGL, false", "UNPACK_FLIP_Y_WEBGL, true")}; return makeTexture;`)(gl, textureLimits);
     const textures = {}, uploadPremultiplyStates = [];
     for (const name of images) {
       const image = new Image(); image.src = name; await image.decode();
