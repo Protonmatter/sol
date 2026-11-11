@@ -105,3 +105,29 @@ test('view owners cannot silently opt out of release bundling',async t=>{
  fs.cpSync(f.source,f.stage,{recursive:true});
  await assert.rejects(bundleWeb({sourceRoot:f.source,stageRoot:f.stage,roots:['app.js'],qaEntries:[]}),/view.*bundle/i);
 });
+test('a QA facade loads only its owning chunk closure, not the rest of the diagnostic aggregate',async t=>{
+ // esbuild groups modules by the entries that reach them. A pure module and a page
+ // module reached by different views land in different chunks; the facade for the
+ // pure one must not load the page one through the aggregate.
+ const {bundleWeb}=await import('../../tools/bundle_web.mjs');const f=fixture(t);
+ fs.writeFileSync(path.join(f.source,'js/pure.js'),'export const SHADER="void main(){}";');
+ fs.writeFileSync(path.join(f.source,'js/page.js'),'globalThis.__pageSideEffects=(globalThis.__pageSideEffects||0)+1;export const node=1;');
+ fs.writeFileSync(path.join(f.source,'js/other.js'),"import {node} from './page.js';export const page=()=>node;");
+ fs.appendFileSync(path.join(f.source,'js/view.js'),"\nimport {SHADER} from './pure.js';export const shader=()=>SHADER;");
+ fs.appendFileSync(path.join(f.source,'app.js'),"\nexport const other=()=>import('./js/other.js');");
+ fs.cpSync(f.source,f.stage,{recursive:true});
+ const descriptor=await bundleWeb({sourceRoot:f.source,stageRoot:f.stage,roots:['app.js'],qaEntries:['js/view.js','js/pure.js','js/page.js']});
+ const facade=fs.readFileSync(path.join(f.stage,'js/pure.js'),'utf8');
+ assert.doesNotMatch(facade,/_diagnostics/,'the facade imports its owning chunk directly');
+ assert.deepEqual(descriptor.outputs.find(item=>item.path==='js/pure.js').inputs,[]);
+ fs.writeFileSync(path.join(f.stage,'package.json'),'{"type":"module"}');
+ globalThis.__pageSideEffects=0;
+ const pure=await import(new URL('file://'+path.join(f.stage,'js/pure.js')));
+ assert.equal(pure.SHADER,'void main(){}');
+ assert.equal(globalThis.__pageSideEffects,0,'importing one diagnostic must not run another module with page side effects');
+ const view=await import(new URL('file://'+path.join(f.stage,'js/view.js')));
+ assert.equal(view.shader(),pure.SHADER,'view and facade share one binding owner');
+ const other=await import(new URL('file://'+path.join(f.stage,'js/other.js'))),page=await import(new URL('file://'+path.join(f.stage,'js/page.js')));
+ assert.equal(other.page(),page.node);assert.equal(globalThis.__pageSideEffects,1,'the page module still runs exactly once');
+ delete globalThis.__pageSideEffects;
+});

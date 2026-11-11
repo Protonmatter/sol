@@ -5,6 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import * as esbuild from 'esbuild';
+import ts from 'typescript';
 import {analyzeModules,moduleEdges,resolveModule,compilerGeneratedModuleKind} from './module_graph.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -25,6 +26,29 @@ export const QA_ENTRIES=[
  'systemWorker','terrain.worker','terrainAssets','terrainGeometry','terrainShadowShaders','view','visualAssetManifest','wavelength',
 ].map(name=>'js/'+name+'.js');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+// Resolve each public diagnostic alias to the chunk that owns its binding, so a
+// facade loads only its own implementation closure rather than the aggregate's.
+// Aliases defined in the aggregate itself keep importing the aggregate.
+function diagnosticAliasOwners(text){
+ const source=ts.createSourceFile('_diagnostics.js',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS);
+ if(source.parseDiagnostics.length)throw new Error('Unparseable compiler diagnostic aggregate');
+ const imported=new Map(),owners=new Map();
+ for(const node of source.statements){
+  if(ts.isImportDeclaration(node)&&node.importClause?.namedBindings&&ts.isNamedImports(node.importClause.namedBindings)&&!node.importClause.name){
+   const from=node.moduleSpecifier.text;
+   for(const item of node.importClause.namedBindings.elements)imported.set(item.name.text,{from,name:(item.propertyName||item.name).text});
+  }
+ }
+ for(const node of source.statements){
+  if(!ts.isExportDeclaration(node)||!node.exportClause||!ts.isNamedExports(node.exportClause))continue;
+  for(const item of node.exportClause.elements){
+   const local=(item.propertyName||item.name).text,alias=item.name.text;
+   if(node.moduleSpecifier)owners.set(alias,{from:node.moduleSpecifier.text,name:local});
+   else if(imported.has(local))owners.set(alias,imported.get(local));
+  }
+ }
+ return owners;
+}
 const sorted=values=>[...values].sort();
 function javascriptFiles(root){
  const result=[];
@@ -97,7 +121,7 @@ export async function bundleWeb({sourceRoot,stageRoot,roots,qaEntries=QA_ENTRIES
    if(!exports)throw new Error('Missing diagnostic module export inventory: '+name);
    const aliases=exports.map((exported,number)=>({exported,alias:`q${index}_${number}`}));
    statements.push(aliases.length?`export {${aliases.map(item=>`${item.exported} as ${item.alias}`).join(',')}} from './${name}';`:`import './${name}';`);
-   facades.set(name,aliases.length?`export {${aliases.map(item=>`${item.alias} as ${item.exported}`).join(',')}} from './_diagnostics.js';\n`:"import './_diagnostics.js';\n");
+   facades.set(name,aliases);
   }
   diagnosticSource=statements.join('\n');
   const grouped=Object.fromEntries(sorted(required).map(name=>[name.slice(3,-3),path.join(sourceRoot,name)]));
@@ -128,7 +152,20 @@ export async function bundleWeb({sourceRoot,stageRoot,roots,qaEntries=QA_ENTRIES
   if(inputs.some(name=>OPTIONAL_MODULES.has(name.slice('apps/web/'.length))))throw new Error('Optional catalogue leaked into compiled output');
   outputs.push({path:output,map:output+'.map',sha256:hash(outputBytes.get(output)),map_sha256:hash(outputBytes.get(output+'.map')),inputs});
  }
- for(const [name,code]of facades){
+ const aggregate=outputBytes.get('js/_diagnostics.js');
+ const owners=aggregate?diagnosticAliasOwners(Buffer.from(aggregate).toString('utf8')):new Map();
+ for(const [name,aliases]of facades){
+  let code="import './_diagnostics.js';\n";
+  if(aliases.length){
+   const groups=new Map();
+   for(const {alias,exported}of aliases){
+    const owner=owners.get(alias)||{from:'./_diagnostics.js',name:alias};
+    if(!/^\.\/(?:shared-[A-Z0-9]+|_diagnostics)\.js$/.test(owner.from))throw new Error('Unexpected diagnostic owner module: '+owner.from);
+    if(!groups.has(owner.from))groups.set(owner.from,[]);
+    groups.get(owner.from).push(owner.name===exported?exported:`${owner.name} as ${exported}`);
+   }
+   code=[...groups].sort(([a],[b])=>a<b?-1:a>b?1:0).map(([from,items])=>`export {${items.join(',')}} from '${from}';`).join('\n')+'\n';
+  }
   const map=JSON.stringify({version:3,sources:[],sourcesContent:[],names:[],mappings:''})+'\n';
   outputBytes.set(name,Buffer.from(code));outputBytes.set(name+'.map',Buffer.from(map));
   outputs.push({path:name,map:name+'.map',sha256:hash(code),map_sha256:hash(map),inputs:[]});
