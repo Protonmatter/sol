@@ -41,6 +41,8 @@ for(const parallel of [false,true])test('restoration base failure publishes owne
 test('late star publication during parallel graphics restore retains CPU catalogue facts without old-buffer uploads',async t=>{
  const h=await orreryHarness(t,{controls:true,reducedMotion:true,parallelPrograms:true,catalogues:{starcatalog:'held',moonelements:'pending'}});
  const entering=h.enterOrrery();await h.settle();h.completePrograms();h.frame(100);await entering;await h.settle();h.setAnimate(false);
+ // Named-star enrichment is demanded through the real catalogue control.
+ h.input('orreryObjectGroup','star','change');await h.settle();
  const index=h.heldCatalogues.findIndex(x=>x.specifier.includes('starcatalog'));assert.ok(index>=0);
  h.event('orreryCanvas','webglcontextlost');h.event('orreryCanvas','webglcontextrestored');await h.settle();assert.equal(h.state.programStatus.base,'loading');
  const uploads=h.bufferUploads.length;await h.releaseCatalogue(index);assert.equal(h.state.catalogueStatus.stars,'ready');

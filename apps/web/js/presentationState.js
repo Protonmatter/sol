@@ -1,5 +1,5 @@
 // Pure, immutable explanatory revision. No clock reads, DOM, I/O, or physical evolution.
-import { projectSolarPoint, regionAnchor } from "./solarProjection.js?v=dcca6290db";
+import { projectSolarPoint, regionAnchor } from "./solarProjection.js";
 
 const FEED_GRACE_MS = 6 * 3600 * 1000;
 

@@ -1,6 +1,6 @@
 // Live provider boundary. Historical v2 is isolated in ephemerisContractV2.js.
-import { ephemerisSchema } from "./ephemerisSchema.js?v=dcca6290db";
-import { parseStrictJson } from "./solarContract.js?v=dcca6290db";
+import { ephemerisSchema } from "./ephemerisSchema.js";
+import { parseStrictJson } from "./solarContract.js";
 const MAJOR = new Set(["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"]);
 const COMPASS_POINTS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
 const fail = (path, message) => { throw new TypeError(`Invalid ephemeris-snapshot.v3 at ${path}: ${message}`); };
@@ -84,6 +84,11 @@ export function assertEphemerisSnapshotV3(snapshot) {
   const offset=observer.terrestrial_lon_deg_east/360;
   const start=Math.floor(time.jd_utc-0.5+offset)+0.5-offset;
   if (window.start_jd!==start || window.end_jd!==start+1) fail("events_window","does not match observer local mean-solar day");
+  if (window.future_nominal_utc_after_jd!==undefined && (window.future_nominal_utc_after_jd<1721425.5 || window.future_nominal_utc_after_jd>=window.end_jd+1/144)) fail("events_window","future model boundary must intersect event calculation support");
+  const future=time.input_time_semantics==="future_nominal_utc", eop=time.earth_orientation;
+  if (future!==(eop.quality==="modeled_future")) fail("time","future nominal UTC requires modeled-future quality");
+  if (future ? eop.dut1_uncertainty_seconds!==null : eop.dut1_uncertainty_seconds===null) fail("time.earth_orientation","only the future model has unknown uncertainty");
+  if (!future && Math.abs(time.dut1_seconds)>.9) fail("time.dut1_seconds","DUT1 must remain within UTC steering bounds");
   if ((time.input_time_semantics==="historical_ut1_proxy")!==(time.jd_tai===null)) fail("time","historical approximation mismatch");
   if ((time.jd_tai===null)!==(time.tai_minus_utc_seconds===null)) fail("time","TAI values must both be null or numeric");
   if (time.input_time_semantics==="historical_ut1_proxy" && time.earth_orientation.quality!=="pre_utc_ut1_proxy") fail("time","historical approximation requires degraded UT1-proxy quality");
@@ -133,7 +138,7 @@ export function assertEphemerisRequestBinding(snapshot, unixSeconds, lat, lonEas
 export function mergeLocalEvents(remote,local) {
   assertEphemerisSnapshotV3(remote); assertEphemerisSnapshotV3(local);
   for (const key of ["terrestrial_lat_deg","terrestrial_lon_deg_east","elev_m"]) if (remote.observer[key]!==local.observer[key]) fail("observer","local backfill observer mismatch");
-  for (const key of Object.keys(remote.events_window)) if (remote.events_window[key]!==local.events_window[key]) fail("events_window","local backfill window mismatch");
+  for (const key of ["convention","time_scale","interval","start_jd","end_jd"]) if (remote.events_window[key]!==local.events_window[key]) fail("events_window","local backfill window mismatch");
   // This merger also appends instantaneous star geometry, not just daily events.
   assertSameEpoch(local.time.jd_utc,remote.time.jd_utc,"local backfill instantaneous");
   const result=structuredClone(remote), byName=new Map(local.bodies.map(body=>[body.name,body]));
@@ -143,6 +148,14 @@ export function mergeLocalEvents(remote,local) {
   }
   const present=new Set(result.bodies.map(body=>body.name));
   for (const body of local.bodies) if (!present.has(body.name)) result.bodies.push(structuredClone(body));
+  if (local.events_window.future_nominal_utc_after_jd!==undefined) {
+    result.events_window.future_nominal_utc_after_jd=Math.min(local.events_window.future_nominal_utc_after_jd,
+      remote.events_window.future_nominal_utc_after_jd??Infinity);
+    result.warnings.push("Some local event calculations use nominal UTC beyond bundled EOP coverage: the last tabulated leap offset is assumed; modeled UT1 uncertainty is unknown and polar motion is omitted.");
+  }
+  // The local frame carries its own sidereal time and corrected observer; server
+  // body provenance and Earth-orientation metadata remain authoritative for bodies.
+  if (local.star_frame) result.star_frame=structuredClone(local.star_frame);
   result.warnings.push("Event and catalogue-star provenance is retained per event; local events are not Horizons calculations.");
   return assertEphemerisSnapshotV3(result);
 }

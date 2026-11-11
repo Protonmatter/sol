@@ -1,17 +1,17 @@
 // Research bindings load only after deliberate Research intent.
-import { store } from "./store.js?v=dcca6290db";
-import { TOUR_STEPS } from "./config.js?v=dcca6290db";
-import { controls } from "./dom.js?v=dcca6290db";
-import { clamp } from "./format.js?v=dcca6290db";
-import { renderAll } from "./view.js?v=dcca6290de";
+import { store } from "./store.js";
+import { TOUR_STEPS } from "./config.js";
+import { controls } from "./dom.js";
+import { clamp } from "./format.js";
+import { renderAll } from "./view.js";
 import { updateModeButtons } from "./surfaceNavigation.js";
-import { loadState } from "./data.js?v=dcca6290db";
-import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay, cancelLiveEngine, stepTimeline } from "./timeline.js?v=dcca6290db";
-import { startTour, endTour, showTourStep } from "./tour.js?v=dcca6290db";
-import { buildWavelengthBar, setWavelength } from "./wavelength.js?v=dcca6290db";
-import { buildSunCutaway } from "./sunlayers.js?v=dcca6290db";
-import { nearestSeriesFrame } from "./seriesModel.js?v=dcca6290db";
-import { openInspector } from "./workspace.js?v=dcca6290db";
+import { loadState } from "./data.js";
+import { setTimelineFrame, goLive, togglePlay, runLiveEngine, stopPlay, cancelLiveEngine, stepTimeline } from "./timeline.js";
+import { startTour, endTour, showTourStep } from "./tour.js";
+import { buildWavelengthBar, setWavelength } from "./wavelength.js";
+import { buildSunCutaway } from "./sunlayers.js";
+import { nearestSeriesFrame } from "./seriesModel.js";
+import { openInspector } from "./workspace.js";
 import './researchView.js';
 
 // --- Layer toggles ---

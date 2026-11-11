@@ -14,6 +14,7 @@ const source = fs.readFileSync(moduleUrl, "utf8");
 // doubled; no lifecycle or rendering function is replaced with a test implementation.
 export async function orreryHarness(t, options = {}) {
   const events = [];
+  const sceneFrames=new Set();
   const frames = new Map(), requests = [], errors = [], warnings = [], positionEpochs = [], presentations = [];
   const images = [], textureUploads = [], bufferUploads = [], drawCalls = [], optionalLoads = [], canvasCommands = [];
   const catalogueRequests = [], heldCatalogues = [];
@@ -238,7 +239,7 @@ export async function orreryHarness(t, options = {}) {
     nodes.orrerySaturnControls=node();nodes.orrerySaturnLighting=node({value:'sun-directed'},'select');
     for(const id of ['InspectSun','PhysicalStatus','SolarControls','SolarMode','SolarPlay','SolarRestart','SolarTime','SolarEpoch','SunLookControls','SolarArchiveControls','SunResolution','SunProminences','SunLookPlay','SunLookRestart','SunLookStatus','Terrain','Optics'])nodes[`orrery${id}`]=node();
     if(options.phenomenonImage)nodes.orreryPlanetPhenomena=node();
-    for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "ObjectCount", "CataloguePanel", "CatalogueStatus", "CatalogueRetry", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "PlanetLook", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
+    for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "ObjectCount", "CataloguePanel", "CatalogueStatus", "CatalogueRetry", "Search", "ObjectGroup", "FocusSelected", "FocusSystem", "Time", "Size", "Quality", "QualityStatus", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "PlanetLook", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
       nodes[`orrery${id}`] = node();
     }
     for (const id of ["Textures", "EarthNight", "EarthWeather"]) nodes[`orrery${id}`].checked = true;
@@ -291,7 +292,7 @@ export async function orreryHarness(t, options = {}) {
   };
   const bindings = {}, namespaces = new Map();
   for (const [, names, path] of source.matchAll(/^import\s+([\s\S]*?)\s+from\s+"([^"]+)";/gm)) {
-    const namespace = /\/(skyEngine|systemWorkerClient)\.js\?/.test(path)
+    const namespace = /\/(skyEngine|systemWorkerClient)\.js(?:\?|$)/.test(path)
       ? boundary : await import(new URL(path, moduleUrl));
     namespaces.set(path, namespace);
     if (namespace.MOONS) {
@@ -344,10 +345,33 @@ export async function orreryHarness(t, options = {}) {
   const phenomenaBoundary={...phenomenaModule,renderPlanetPhenomena:(container,body)=>
     phenomenaModule.renderPlanetPhenomena(container,body,{loadImage:options.phenomenonImage})};
   const illustrativeBoundary=options.illustrativeMap?{...await import('../../../apps/web/js/illustrativeAppearance.js'),decodeIllustrativeMap:options.illustrativeMap}:null;
+  // Execute the real scheduler, observing only its browser scheduling boundary.
+  // Ordinary helpers represent a completed interaction plus one rendering opportunity;
+  // manualFrames leaves that opportunity under test control for burst/lifecycle tests.
+  const schedulerModule=await import('../../../apps/web/js/frameScheduler.js');
+  const schedulerBoundary={...schedulerModule,createFrameScheduler:config=>schedulerModule.createFrameScheduler({...config,
+    schedule:callback=>{let handle;handle=config.schedule(time=>{sceneFrames.delete(handle);callback(time);});sceneFrames.add(handle);return handle;},
+    cancel:handle=>{sceneFrames.delete(handle);config.cancel(handle);},
+  })};
+  const presentFrame=()=>{
+    if(options.manualFrames)return;
+    const handle=[...sceneFrames].find(id=>frames.has(id));if(handle===undefined)return;
+    const callback=frames.get(handle);frames.delete(handle);
+    callback(Math.max(monotonicNow,bindings.store.orrery.lastTick||0));
+  };
+  const referenceBoundary={requestReferenceImage:options.referenceImageLoader || ((asset,{plan,signal,onReady,onError})=>{
+    const img=new context.Image();img.src=asset.path;img.closed=0;img.close=()=>{img.closed++;};
+    img.onload=()=>{
+      if(img.width!==asset.dimensions[0]||img.height!==asset.dimensions[1]){onError(Error('Reference source grid mismatch'));presentFrame();return;}
+      img.width=plan.width;img.height=plan.height;onReady(img);presentFrame();
+    };
+    img.onerror=()=>{onError(Error('Reference image unavailable'));presentFrame();};
+    signal.addEventListener('abort',()=>{img.onload=null;img.onerror=null;img.src='';},{once:true});
+  })};
   const [lifecycle] = await loadSourceModules(context, [moduleUrl], {
     // Alternate admitted metadata exercises the real presenter without mutating
     // the shared, frozen production inventory or replacing its date logic.
-    resolveImport: (specifier,url) => options.referenceInventory && url.pathname.endsWith('/visualAssetManifest.js')
+    resolveImport: (specifier,url) => url.pathname.endsWith('/referenceImageLoader.js') ? referenceBoundary : url.pathname.endsWith('/frameScheduler.js') ? schedulerBoundary : options.referenceInventory && url.pathname.endsWith('/visualAssetManifest.js')
       ? {visualAssetManifest:options.referenceInventory}
       : options.referenceInventory && url.pathname.endsWith('/planetAppearance.js') ? undefined
       : illustrativeBoundary && url.pathname.endsWith('/illustrativeAppearance.js') ? illustrativeBoundary : options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
@@ -379,7 +403,7 @@ export async function orreryHarness(t, options = {}) {
     try { lifecycle.leaveOrrery(); }
     finally {globalThis.document=priorDocument;globalThis.window=priorWindow;}
   });
-  const settle = () => new Promise(resolve => setImmediate(resolve));
+  const settle = async () => {await new Promise(resolve => setImmediate(resolve));presentFrame();await new Promise(resolve => setImmediate(resolve));presentFrame();};
   // Existing scientific-material fixtures exercise the explicit Source-qualified
   // mode. Fresh-session tests bypass this fixture to exercise the product default.
   if (!options.useProductAppearanceDefault) bindings.store.orrery.planetLook = 'source-qualified';
@@ -388,14 +412,15 @@ export async function orreryHarness(t, options = {}) {
     completePrograms: (predicate=()=>true)=>{for(const program of programs)if(predicate(program))completedPrograms.add(program);},
     state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
     ...lifecycle, settle,
+    enterOrrery(){const pending=lifecycle.enterOrrery();pending.then(presentFrame);return pending;},
     event(id, type, properties = {}) {
       if(id==='orreryCanvas'&&type==='webglcontextlost'){graphicsLost=true;bufferRecords.clear();bufferBindings.clear();}
       if(id==='orreryCanvas'&&type==='webglcontextrestored'){graphicsLost=false;pendingBufferError=0;pendingTextureError=0;}
-      return nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties });
+      const result=nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties });presentFrame();return result;
     },
     input(id, value, type = "input") { nodes[id].value = value; return this.event(id, type); },
     check(id, checked) { nodes[id].checked = checked; return this.event(id, "change"); },
-    resize(width, height, dpr = context.window.devicePixelRatio) { Object.assign(nodes.orreryCanvas, { clientWidth: width, clientHeight: height }); context.window.devicePixelRatio = dpr; resizeCallback(); },
+    resize(width, height, dpr = context.window.devicePixelRatio) { Object.assign(nodes.orreryCanvas, { clientWidth: width, clientHeight: height }); context.window.devicePixelRatio = dpr; resizeCallback();presentFrame(); },
     async settleCatalogues() { await Promise.allSettled(optionalLoads); await settle(); },
     async flushIdleTasks() {
       for (let i = 0; idleTasks.size; i++) {
@@ -425,6 +450,6 @@ export async function orreryHarness(t, options = {}) {
     now() { nodes.orreryNow.handlers.get("click")(); },
     get draws() { return draws; }, get contexts() { return contexts; },
     async retry() { nodes.orreryRetry.handlers.get("click")(); await settle(); },
-    frame(now) { const [id, fn] = frames.entries().next().value; frames.delete(id); fn(now); },
+    frame(now) { const next=frames.entries().next().value;if(!next)return;const [id,fn]=next;frames.delete(id);fn(now); },
   };
 }

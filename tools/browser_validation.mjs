@@ -39,6 +39,7 @@ import {
   relativePageModules,
   releaseSourceMap,
   sourceCoverage,
+  bundleCoverageEntry,
   addUnexecutedCoverage,
   GENERATED_MODULES,
 } from "./js_coverage_scope.mjs";
@@ -203,6 +204,25 @@ async function clickMode(page, mode) {
   if (mode !== 'today') await page.$$eval('#viewInspector details', nodes => nodes.forEach(node => { node.open = true; }));
 }
 
+// Compilation now precedes the first worker message. Consume the existing idle
+// budget while checking pending UI work, then give only its remainder to the
+// message observer; message-idle alone cannot certify preparation is finished.
+async function waitForApplicationWorkerIdle(page) {
+  const deadline=performance.now()+10000;
+  await page.waitForFunction(async()=>{
+    const entry=document.querySelector('script[type="module"][src^="app.js"]');
+    const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+    const solar=document.getElementById('liveStatus')?.textContent||'';
+    const sky=document.getElementById('skyProvenance')?.textContent||'';
+    const surface=document.body.dataset.surface;
+    return !store.orrery?.entering&&!(surface==='today'&&solar.startsWith('Running the engine'))
+      &&!(surface==='sky'&&(sky.startsWith('Computing Sky')||sky.startsWith('Requesting positions')));
+  },{timeout:10000});
+  const remaining=deadline-performance.now();
+  if(!(remaining>0))throw new Error('Application preparation exceeded the original worker-idle deadline');
+  await waitForWorkerActivityIdle(page,{timeoutMs:remaining});
+}
+
 async function assertDisclosureContract(page) {
   await page.waitForFunction(()=>{
     const image=document.getElementById('observationImage');
@@ -364,6 +384,7 @@ async function exerciseSky(page) {
   await clickMode(page, "sky");
   await page.waitForFunction(
     () => document.querySelectorAll("#skyList .sky-row").length > 0
+      && document.getElementById("skyProvenance")?.textContent.startsWith("Source: computed on device")
       && !document.getElementById("skyInsight")?.textContent.includes("unavailable"),
     { timeout: 20_000 }
   );
@@ -1119,13 +1140,24 @@ async function exerciseOrrery(page, visualDirectory, observeContext, sunResoluti
   // but allow the instrumented initialization the same bounded headroom as the standalone
   // browser smoke's retry budget.
   try {
-    const remaining=await page.evaluate(deadlineMs=>deadlineMs-performance.now(),systemBudget.deadlineMs);
+    let remaining=await page.evaluate(deadlineMs=>deadlineMs-performance.now(),systemBudget.deadlineMs);
     if(!(remaining>0))throw new Error('Original System entry deadline elapsed');
     await page.waitForFunction(
-      () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2")
-        && document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21,
+      () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2"),
       { timeout: remaining }
     );
+    // Focusing a moon-bearing parent is genuine orbital-element demand. Compact
+    // moon identity rows alone no longer establish that enrichment was loaded.
+    await focusBody(page,'Jupiter');
+    remaining=await page.evaluate(deadlineMs=>deadlineMs-performance.now(),systemBudget.deadlineMs);
+    if(!(remaining>0))throw new Error('Original System entry deadline elapsed');
+    await page.waitForFunction(async()=>{
+      const entry=document.querySelector('script[type="module"][src^="app.js"]');
+      const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+      return !store.orrery?.entering&&store.orrery?.catalogueStatus.moons==='ready'
+        &&document.querySelectorAll("#orreryPositions .orrery-pos-moon").length>=21;
+    },{timeout:remaining});
+    await focusBody(page,'Sun');
   } catch (error) {
     const state = await page.evaluate(() => ({
       backend: document.getElementById("orreryBackend")?.textContent || "",
@@ -1252,7 +1284,12 @@ async function exerciseOrrery(page, visualDirectory, observeContext, sunResoluti
   // still exercises the production click handler and is independent of overlay geometry.
   await page.$eval("#orreryGalaxy", (button) => button.click());
   await page.waitForFunction(
-    () => document.getElementById("orreryGalaxy")?.textContent.includes("Back"),
+    async () => {
+      const entry=document.querySelector('script[type="module"][src^="app.js"]');
+      const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+      return document.getElementById("orreryGalaxy")?.textContent.includes("Back")
+        &&store.orrery?.catalogueStatus.stars==='ready';
+    },
     { timeout: 20_000 }
   );
   // Exercise the real star facts renderer with both a measured-distance star and the
@@ -1302,21 +1339,36 @@ function coverageLocalPath(entryUrl, webRoot, basePath = "/") {
 async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
   const mapping = releaseSourceMap(webRoot);
   const pageRoot = mapping ? path.join(webRoot, mapping.manifest.namespace) : webRoot;
-  const expectedLoaded = new Set(
+  const expectedLoaded = mapping?.javascript || new Set(
     relativePageModules({ includeGenerated: true }).map((file) => path.resolve(pageRoot, file))
   );
   const included = new Set(absolutePageModules().map((file) => path.resolve(file)));
-  const seen = new Set();
+  const seenSources = new Set(), compiledExecution = new Map();
   const coverage = createCoverageMap({});
 
   for (let entry of entries) {
     const local = coverageLocalPath(entry.url, webRoot, mapping?.manifest.base_path || "/");
-    if (!local || !expectedLoaded.has(local)) continue;
-    seen.add(local);
+    if (!local) continue;
+    if (!expectedLoaded.has(local)) {
+      if (mapping && local.startsWith(pageRoot + path.sep) && local.endsWith('.js')) throw new Error('executed release JavaScript is absent from coverage mapping: ' + local);
+      continue;
+    }
+    const compiled = mapping?.compiled.get(local);
+    if (compiled) {
+      const converted = await bundleCoverageEntry(entry, compiled);
+      compiledExecution.set(path.relative(pageRoot, local), { generated_kind: compiled.generatedKind, original_sources: compiled.sources.map(source => path.relative(ROOT, source)) });
+      for (const source of compiled.sources) seenSources.add(source);
+      for (const [source, record] of Object.entries(converted)) {
+        if (included.has(source)) coverage.merge({ [source]: record });
+        else if (!GENERATED_MODULES.has(path.relative(WEB, source).split(path.sep).join('/'))) throw new Error('compiled coverage escaped canonical source population');
+      }
+      continue;
+    }
     const declared = mapping?.assets.get(local);
     const source = declared?.source || local;
-    if (!included.has(source)) continue;
+    seenSources.add(source);
     if (declared) entry = sourceCoverage(entry, declared.original, mapping.manifest);
+    if (!included.has(source)) continue;
     const converter = v8ToIstanbul(source, 0, {
       source: entry.text || fs.readFileSync(local, "utf8"),
     });
@@ -1334,8 +1386,7 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
     coverage.merge(converter.toIstanbul());
   }
 
-  const missing = [...expectedLoaded].filter((file) => !seen.has(file)
-    && GENERATED_MODULES.has(path.relative(pageRoot, file).split(path.sep).join("/")));
+  const missing = [...GENERATED_MODULES].map(name => path.join(WEB, name)).filter(file => !seenSources.has(file));
   if (missing.length) {
     throw new Error(
       "production modules were omitted from Chromium's execution-collected denominator:\n"
@@ -1360,6 +1411,7 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
     path.join(outputDirectory, "coverage-final.json"),
     `${JSON.stringify(coverage.toJSON())}\n`
   );
+  if (mapping?.compiled.size) fs.writeFileSync(path.join(outputDirectory, "compiled-execution.json"), JSON.stringify(Object.fromEntries(compiledExecution), null, 2) + "\n");
   const summary = coverage.getCoverageSummary();
   console.log(
     `browser-only execution coverage: lines ${summary.lines.pct.toFixed(2)}%, `
@@ -1440,7 +1492,7 @@ async function main() {
     diagnosticPage=page;
     await page.setBypassServiceWorker(true);
     await page.evaluateOnNewDocument(installWorkerActivity);
-    workerCoverage=await startWorkerCoverage(page,{beforeCollect:()=>waitForWorkerActivityIdle(page)});
+    workerCoverage=await startWorkerCoverage(page,{beforeCollect:()=>waitForApplicationWorkerIdle(page)});
     coverageErrors=workerCoverage.errors;
     console.log("Browser validation: worker coverage armed");
     const networkSession=await page.createCDPSession();

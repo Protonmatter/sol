@@ -6,7 +6,8 @@
 //! selected upstream profile's coefficient values are preserved exactly.
 
 use super::binread::Reader;
-use super::vsop2013::{Planet, Series, Term};
+use super::vsop2013::{Phase, Planet, Series, Term};
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 static BLOB: &[u8] = include_bytes!("../data/vsop2013.bin");
@@ -27,8 +28,10 @@ fn all() -> &'static [Planet; 8] {
         for _ in 0..count {
             let gm = r.f64();
             let mut s: [Series; 6] = [&[]; 6];
+            let mut phase_ids = BTreeMap::new();
+            let mut phases = Vec::new();
             for slot in s.iter_mut() {
-                *slot = read_series(&mut r);
+                *slot = read_series(&mut r, &mut phase_ids, &mut phases);
             }
             planets.push(Planet {
                 gm,
@@ -38,6 +41,7 @@ fn all() -> &'static [Planet; 8] {
                 h: s[3],
                 q: s[4],
                 p: s[5],
+                phases: Box::leak(phases.into_boxed_slice()),
             });
         }
         planets
@@ -46,7 +50,11 @@ fn all() -> &'static [Planet; 8] {
     })
 }
 
-fn read_series(r: &mut Reader) -> Series {
+fn read_series(
+    r: &mut Reader,
+    phase_ids: &mut BTreeMap<Phase, usize>,
+    phases: &mut Vec<Phase>,
+) -> Series {
     let n_powers = r.u32();
     let mut powers: Vec<&'static [Term]> = Vec::with_capacity(n_powers);
     for _ in 0..n_powers {
@@ -60,11 +68,17 @@ fn read_series(r: &mut Reader) -> Series {
             for _ in 0..n_phi {
                 phi.push((r.u8(), r.i16()));
             }
-            terms.push(Term {
-                s,
-                c,
-                phi: Box::leak(phi.into_boxed_slice()),
-            });
+            let (phase, phi) = match phase_ids.get(phi.as_slice()) {
+                Some(&id) => (id, phases[id]),
+                None => {
+                    let phi: Phase = Box::leak(phi.into_boxed_slice());
+                    let id = phases.len();
+                    phase_ids.insert(phi, id);
+                    phases.push(phi);
+                    (id, phi)
+                }
+            };
+            terms.push(Term { s, c, phi, phase });
         }
         powers.push(Box::leak(terms.into_boxed_slice()));
     }

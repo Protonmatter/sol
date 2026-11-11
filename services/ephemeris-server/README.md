@@ -94,3 +94,13 @@ Offline verification (no network required):
 ```text
 python -m unittest discover -s services/ephemeris-server -p "test*.py"
 ```
+
+
+Future calendar requests after 2027-11-05 00:00 UTC (MJD 61714, the client EOP
+endpoint) return HTTP 422 with code `unsupported_time` before cache, queue or
+upstream access. Horizons UT requests do not establish the on-device model's
+explicit nominal-UTC mapping. Use the browser's **On your device** selection
+for future exploration; its held leap offset, modeled UT1 and unknown
+uncertainty are displayed. This server boundary is a request policy, not a
+claim that the server itself ingests the client's EOP table. Update the policy
+and its boundary-alignment test together when that supported interval changes.

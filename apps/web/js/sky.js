@@ -1,17 +1,20 @@
 // "My Sky": a local horizon dome built from the solar-ephemeris WASM engine.
 // Plots each body at its topocentric altitude/azimuth for the observer, "now".
 
-import { store } from "./store.js?v=dcca6290db";
-import { fetchServerSky, BODY_INDEX, SERVER_BASE } from "./skyEngine.js?v=dcca6290db";
-import { createSkyWorkerClient } from "./skyWorkerClient.js?v=dcca6290db";
-import { validateSkyWork } from "./skyLimits.js?v=dcca6290db";
-import { SkyConsent, makeSkyPreview, parseSkyLink } from "./skyPrivacy.js?v=dcca6290db";
-import { skyRows, parseSkyTime, formatSkyTimeInput } from "./skyPresentation.js?v=dcca6290db";
-import { syncObjectRows } from "./objectBrowser.js?v=dcca6290db";
-import { CONSTELLATIONS } from "./celestial.js?v=dcca6290db";
-import { epochAccuracyAtUnix, renderedEpochLabel } from "./accuracy.js?v=dcca6290db";
-import { resolveSkyPresentation } from "./presentationState.js?v=dcca6290db";
-import { assertEphemerisSnapshotV3, mergeLocalEvents } from "./ephemerisContract.js?v=dcca6290db";
+import { constellationFrame, altAz } from "./skyFrame.js";
+import { layoutLabels } from "./labelLayout.js";
+import { deploymentBasePath } from "./releaseContext.js";
+import { store } from "./store.js";
+import { fetchServerSky, BODY_INDEX, SERVER_BASE } from "./skyEngine.js";
+import { createSkyWorkerClient } from "./skyWorkerClient.js";
+import { validateSkyWork } from "./skyLimits.js";
+import { SkyConsent, makeSkyPreview, parseSkyLink } from "./skyPrivacy.js";
+import { skyRows, parseSkyTime, formatSkyTimeInput } from "./skyPresentation.js";
+import { syncObjectRows } from "./objectBrowser.js";
+import { CONSTELLATIONS } from "./celestial.js";
+import { epochAccuracyAtUnix, renderedEpochLabel } from "./accuracy.js";
+import { resolveSkyPresentation } from "./presentationState.js";
+import { assertEphemerisSnapshotV3, mergeLocalEvents } from "./ephemerisContract.js";
 
 function updateSkyAccuracy() {
   const node = document.getElementById("skyAccuracy"); if (!node) return;
@@ -19,7 +22,13 @@ function updateSkyAccuracy() {
   const renderedUnix = (lastSnap.time.jd_utc-2440587.5)*86400;
   const a = epochAccuracyAtUnix(renderedUnix, "sky");
   node.className = "epoch-accuracy acc-" + a.level;
-  node.textContent = `${renderedEpochLabel(renderedUnix)} — ${a.text}`;
+  const frameStatus = showConstellations ? ` ${constellationFrame(lastSnap).status}` : "";
+  const future = lastSnap.time.input_time_semantics === "future_nominal_utc";
+  const label = renderedEpochLabel(renderedUnix).replace(future ? / UTC|Z(?= \()/ : /$^/, " nominal UTC");
+  const clockStatus = future ? " Dates and event times use nominal UTC: the last tabulated leap offset is held as an assumption; UT1 is modeled, uncertainty is unknown and polar motion is omitted." : "";
+  const eventStatus = !future && lastSnap.events_window.future_nominal_utc_after_jd!==undefined
+    ? " This event window's calculation support extends beyond bundled Earth-orientation coverage. Some event calculations assume nominal UTC and the last tabulated leap offset; UT1 is modeled, uncertainty is unknown and polar motion is omitted. Instantaneous time metadata is unchanged." : "";
+  node.textContent = `${label} — ${a.text}${clockStatus}${eventStatus}${frameStatus}`;
 }
 
 const BODY_STYLE = {
@@ -34,21 +43,6 @@ const BODY_STYLE = {
   Neptune: { color: "#7da7ff", size: 0.011 }
 };
 
-
-// Topocentric altitude/azimuth (degrees, az from North through East) for a J2000 RA/Dec at a given
-// local sidereal time and latitude. Precession/nutation/refraction are dropped — sub-degree at the
-// dome's resolution. The engine's own bodies carry the full reduction; this is for the star figures
-// and the diurnal trajectory arcs (which sweep the hour angle from the body's current RA/Dec).
-function altAz(raDeg, decDeg, lstDeg, latDeg) {
-  const d = Math.PI / 180;
-  const H = (lstDeg - raDeg) * d, dec = decDeg * d, lat = latDeg * d;
-  const sinAlt = Math.sin(dec) * Math.sin(lat) + Math.cos(dec) * Math.cos(lat) * Math.cos(H);
-  const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
-  const cosA = (Math.sin(dec) - Math.sin(lat) * sinAlt) / (Math.cos(lat) * Math.cos(alt) || 1e-9);
-  let A = Math.acos(Math.max(-1, Math.min(1, cosA)));     // 0..π measured from North
-  if (Math.sin(H) > 0) A = 2 * Math.PI - A;               // east of meridian vs west
-  return { alt: alt / d, az: ((A / d) % 360 + 360) % 360 };
-}
 
 // UI/interaction state for hover tooltips, trajectory arcs, and the constellation overlay.
 let plotted = [];          // {name, x, y, hit, body} in backing-store px, for hover hit-testing
@@ -345,15 +339,21 @@ function drawDome(snap) {
   const g = { cx, cy, r, dpr };
   domeGeom = g;
   plotted = [];
+  const labels = [];
+  // Display-only daylight suppression, not a visibility or limiting-magnitude model.
+  const starAlpha = Math.max(0, Math.min(1, -sunAltitude(snap) / 18));
   const lst = snap.time ? snap.time.lst_deg : 0;
-  const lat = snap.observer ? snap.observer.terrestrial_lat_deg : observer.lat;
+  const lat = snap.observer.polar_motion_corrected_lat_deg;
 
   ctx.clearRect(0, 0, w, h);
   // Dome (sky) coloured by the Sun's altitude; constellation figures clipped inside it.
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
   ctx.fillStyle = skyColor(sunAltitude(snap)); ctx.fillRect(0, 0, w, h);
-  if (showConstellations) drawConstellations(ctx, g, lst, lat);
+  if (showConstellations && starAlpha > 0) {
+    ctx.globalAlpha = starAlpha;
+    drawConstellations(ctx, g, snap);
+  }
   ctx.restore();
 
   // Altitude rings (30 deg, 60 deg) + horizon.
@@ -363,15 +363,17 @@ function drawDome(snap) {
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
 
   // Cardinal directions (N up, clockwise - compass orientation).
-  ctx.fillStyle = "#f6f3e8"; ctx.font = `${Math.max(13, r * 0.05)}px Segoe UI, sans-serif`;
+  ctx.fillStyle = "#f6f3e8"; ctx.font = `${Math.max(13 * dpr, r * 0.05)}px Segoe UI, sans-serif`;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   const pad = r * 0.1;
   ctx.fillText("N", cx, cy - r - pad * 0.6); ctx.fillText("S", cx, cy + r + pad * 0.6);
   ctx.fillText("E", cx + r + pad * 0.6, cy); ctx.fillText("W", cx - r - pad * 0.6, cy);
 
   // Catalogue stars (full engine reduction) first, so Sun/Moon/planets draw on top.
+  ctx.save();
+  ctx.globalAlpha = starAlpha;
   for (const b of snap.bodies || []) {
-    if (BODY_STYLE[b.name] || !(b.alt_deg > 0)) continue; // BODY_STYLE = Sun/Moon/planets
+    if (!starAlpha || BODY_STYLE[b.name] || !(b.alt_deg > 0)) continue; // BODY_STYLE = Sun/Moon/planets
     const [x, y] = project(b.alt_deg, b.az_deg, g);
     const mag = b.magnitude == null ? 2 : b.magnitude;
     const size = Math.max(1.2, (2.6 - mag) * r * 0.0055);
@@ -379,11 +381,14 @@ function drawDome(snap) {
     ctx.fillStyle = activeName === b.name ? "#fff3c4" : "rgba(222,230,255,0.94)"; ctx.fill();
     plotted.push({ name: b.name, x, y, hit: Math.max(10 * dpr, size + 6 * dpr), body: b });
     if (mag < 1.5) {
-      ctx.font = `${Math.max(9, r * 0.024)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
+      ctx.font = `${Math.max(12 * dpr, r * 0.024)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
       ctx.fillStyle = "rgba(200,210,235,0.72)";
-      ctx.fillText(b.name, Math.max(4 * dpr, Math.min(x + size + 3, w - ctx.measureText(b.name).width - 4 * dpr)), y);
+      labels.push({id:b.name,x,y,width:ctx.measureText(b.name).width,height:parseFloat(ctx.font),
+        font:ctx.font,color:ctx.fillStyle,alpha:starAlpha,priority:b.name===selectedName||b.name===activeName?0:2});
     }
   }
+
+  ctx.restore();
 
   // Trajectory arc for the hovered / pinned object, under the body discs.
   if (showTrajectory && activeName) {
@@ -409,8 +414,9 @@ function drawDome(snap) {
       } else {
       ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fillStyle = style.color; ctx.fill();
       }
-      ctx.fillStyle = "rgba(246,243,232,0.95)"; ctx.font = `${Math.max(11, r * 0.033)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
-      ctx.fillText(b.name, Math.max(4 * dpr, Math.min(x + size + 4, w - ctx.measureText(b.name).width - 4 * dpr)), y);
+      ctx.fillStyle = "rgba(246,243,232,0.95)"; ctx.font = `${Math.max(12 * dpr, r * 0.033)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
+      labels.push({id:b.name,x,y,width:ctx.measureText(b.name).width,height:parseFloat(ctx.font),
+        font:ctx.font,color:ctx.fillStyle,alpha:1,priority:b.name===selectedName||b.name===activeName?0:1});
       plotted.push({ name: b.name, x, y, hit: Math.max(12 * dpr, size + 7 * dpr), body: b });
     } else {
       const a = b.az_deg * Math.PI / 180, rr = r * 1.05;
@@ -424,20 +430,30 @@ function drawDome(snap) {
       plotted.push({ name: b.name, x, y, hit: Math.max(11 * dpr, mk + 6 * dpr), body: b });
     }
   }
+  const byName = new Map(labels.map(label=>[label.id,label]));
+  ctx.save();ctx.textAlign="left";ctx.textBaseline="top";
+  for(const box of layoutLabels(labels,{width:w,height:h,clearance:4*dpr,limit:w/dpr<600?14:24})) {
+    const label=byName.get(box.id);
+    ctx.font=label.font;ctx.fillStyle=label.color;ctx.globalAlpha=label.alpha;
+    ctx.fillText(box.id,box.x,box.y);
+  }
+  ctx.restore();
 }
 
 // All 88 IAU figures as RA/Dec polylines (constellations.js). Each vertex is projected
 // independently, so nothing here needs to know about the 0h RA seam; a segment is skipped
 // only when BOTH ends are well below the horizon.
-function drawConstellations(ctx, g, lst, lat) {
+function drawConstellations(ctx, g, snap) {
+  const frame = constellationFrame(snap);
+  if (!frame.available) return;
   ctx.strokeStyle = "rgba(208,224,255,0.5)"; // bright enough to read over the daytime sky too
   ctx.lineWidth = Math.max(1, g.r * 0.0019);
   const vertices = [];
   for (const c of CONSTELLATIONS) {
     for (const poly of c.lines) {
       for (let i = 0; i + 3 < poly.length; i += 2) {
-        const p1 = altAz(poly[i], poly[i + 1], lst, lat);
-        const p2 = altAz(poly[i + 2], poly[i + 3], lst, lat);
+        const p1 = frame.project(poly[i], poly[i + 1]);
+        const p2 = frame.project(poly[i + 2], poly[i + 3]);
         if (p1.alt < -2 && p2.alt < -2) continue;
         const [x1, y1] = project(Math.max(p1.alt, -2), p1.az, g);
         const [x2, y2] = project(Math.max(p2.alt, -2), p2.az, g);
@@ -455,10 +471,8 @@ function drawConstellations(ctx, g, lst, lat) {
   }
 }
 
-// Diurnal path across the sky over the day, swept from the body's current RA/Dec. The hour angle runs
-// ±12 sidereal hours around "now"; the past half is dimmed/dashed and the future half is solid, with
-// rise/set crossings marked. RA/Dec are held fixed — exact for the Sun and planets over a day, a close
-// approximation for the fast Moon.
+// Geometric paths: fixed apparent star directions sweep the sidereal day;
+// solar-system trajectories are recomputed by the engine at each sample.
 let trajCache = { key: null, pts: null };
 
 // Trajectory sample points {alt, az}, centred on "now". Fixed stars use the exact diurnal sweep from
@@ -467,11 +481,17 @@ let trajCache = { key: null, pts: null };
 function trajectoryPoints(b, lstNow, lat) {
   if (!BODY_STYLE[b.name]) {
     if (b.ra_deg == null) return null;
+    // A mixed-provider snapshot retains the local catalogue frame separately.
+    if (lastSnap && constellationFrame(lastSnap).available) {
+      lstNow = lastSnap.star_frame.lst_deg;
+      lat = lastSnap.star_frame.observer.polar_motion_corrected_lat_deg;
+    }
     const N = 240, pts = [];
     for (let k = 0; k <= N; k++) pts.push(altAz(b.ra_deg, b.dec_deg, lstNow - 180 + 360 * (k / N), lat));
     return pts;
   }
-  if (!lastSnap||computingSnapshot||!active) return null;
+  // A retained snapshot after failure is display-only until an explicit recovery.
+  if (!lastSnap||computingSnapshot||!active||skyState.presentation?.error) return null;
   const now=(lastSnap.time.jd_utc-2440587.5)*86400;
   const o=lastSnap.observer;
   const key=JSON.stringify([b.name,lastSnap.time.jd_utc,o.terrestrial_lat_deg,o.terrestrial_lon_deg_east,o.elev_m]);
@@ -670,7 +690,7 @@ function previewSky(kind) {
   document.getElementById("skyShareManualCopy")?.remove();
   const o=lastSnap.observer;
   // Staged release URLs expire; the deployment root forwards the captured Sky hash.
-  const releaseBasePath="__SOL_BASE_PATH__";
+  const releaseBasePath=deploymentBasePath;
   const shareBase=releaseBasePath.startsWith("__")?location.href:new URL(releaseBasePath,location.href).href;
   const preview=makeSkyPreview({lat:o.terrestrial_lat_deg,lon:o.terrestrial_lon_deg_east,elev:o.elev_m,unix:(lastSnap.time.jd_utc-2440587.5)*86400},shareBase);
   pendingPreview={...preview,kind,snapshot:lastSnap};
@@ -711,7 +731,7 @@ document.getElementById("skyShareConfirm")?.addEventListener("click",async()=>{
 });
 
 // --- Overlay toggles ---
-document.getElementById("skyConst")?.addEventListener("change", (e) => { showConstellations = /** @type {HTMLInputElement} */ (e.target).checked; redraw(); });
+document.getElementById("skyConst")?.addEventListener("change", (e) => { showConstellations = /** @type {HTMLInputElement} */ (e.target).checked; redraw(); updateSkyAccuracy(); });
 document.getElementById("skyTraj")?.addEventListener("change", (e) => { showTrajectory = /** @type {HTMLInputElement} */ (e.target).checked; redraw(); });
 
 // --- Hover tooltip + click-to-pin on the dome (SkyView-style inspection) ---

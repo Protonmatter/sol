@@ -2,9 +2,9 @@ import {writeText,writeAttribute,writeBoolean} from './domWrites.js';
 
 // The render orchestrator + per-surface progressive disclosure.
 
-import { store } from "./store.js?v=dcca6290db";
-import { renderWorkspace } from "./workspace.js?v=dcca6290db";
-import { explorer, renderExplorer, currentObservationPresentation } from "./explorer.js?v=dcca6290db";
+import { store } from "./store.js";
+import { renderWorkspace } from "./workspace.js";
+import { explorer, renderExplorer, currentObservationPresentation } from "./explorer.js";
 import {getResearchRenderer,getDestinationRenderer} from './viewRegistry.js';
 
 /** @param {unknown} [intent] */
@@ -41,7 +41,13 @@ export function updateTaskHeader() {
   if (source) writeText(source, presentation ? `${presentation.sourceKind} · ${presentation.providerLabel || "sources and limits available"}` : "Source: awaiting validated data");
   if (time) writeText(time, presentation?.timeLabel || "Time: awaiting validated data");
   const availability = document.getElementById("viewAvailability");
-  if (availability) writeText(availability, observing ? (explorer.media === 'ready' ? 'Saved observation · false-color ultraviolet' : `Saved observation · ${explorer.media}`) : `View: ${(presentation?.availability || "awaiting validated data").replaceAll("_", " ")} · research and learning only${!sun && presentation?.error ? ` · ${presentation.error}` : ""}`);
+  if (availability) {
+    // Keep operational image status outside the optional About disclosure.
+    writeBoolean(availability, 'hidden', observing && explorer.media === 'ready');
+    writeText(availability, observing ? (explorer.media === 'failed' ? presentation.headline
+      : explorer.media === 'ready' ? 'Saved observation · false-color ultraviolet' : 'Saved observation · loading')
+      : `View: ${(presentation?.availability || "awaiting validated data").replaceAll("_", " ")} · research and learning only${!sun && presentation?.error ? ` · ${presentation.error}` : ""}`);
+  }
   const status = document.getElementById("snapshotStatus"), retry = document.getElementById("retrySnapshot");
   const failed = sun && !observing && Boolean(presentation?.error);
   if (status) {

@@ -1,11 +1,12 @@
-import { LatestWorkerClient, EngineError } from "./workerClient.js?v=dcca6290db";
-import { SKY_LIMITS, validateSkyWork } from "./skyLimits.js?v=dcca6290db";
-import { assertEphemerisSnapshotV3, assertEphemerisRequestBinding } from "./ephemerisContract.js?v=dcca6290db";
+import { compileEphemerisModule } from "./wasmBroker.js";
+import { LatestWorkerClient, EngineError } from "./workerClient.js";
+import { SKY_LIMITS, validateSkyWork } from "./skyLimits.js";
+import { assertEphemerisSnapshotV3, assertEphemerisRequestBinding } from "./ephemerisContract.js";
 
 export function createSkyWorkerClient(options = {}) {
   const client=new LatestWorkerClient({engine:"ephemeris",schema:"ephemeris-snapshot.v3",release:"__SOL_RELEASE_ID__",
-    initialize:true,
-    createWorker:()=>new Worker(new URL("./skyWorker.js?v=dcca6290db",import.meta.url),{type:"module",name:"Sol Sky engine"}),
+    initialize:true,prepareWorker:compileEphemerisModule,
+    createWorker:()=>new Worker(new URL("./skyWorker.js",import.meta.url),{type:"module",name:"Sol Sky engine"}),
     ...options,validateRequest:validateSkyWork,deadlineMs:SKY_LIMITS.deadlineMs});
   return {
     async request(value) {

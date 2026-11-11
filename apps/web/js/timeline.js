@@ -1,10 +1,10 @@
 // Timeline scrubber / cycle playback + the in-browser (WASM) live engine run.
 
-import { store } from "./store.js?v=dcca6290db";
-import { renderAll } from "./view.js?v=dcca6290db";
-import { requestSolarSimulation, cancelSolarSimulation } from "./solarWorkerClient.js?v=dcca6290db";
-import { nextAvailableFrame } from "./seriesModel.js?v=dcca6290db";
-import { assertSolarSnapshot } from "./solarContract.js?v=dcca6290db";
+import { store } from "./store.js";
+import { renderAll } from "./view.js";
+import { requestSolarSimulation, cancelSolarSimulation } from "./solarWorkerClient.js";
+import { nextAvailableFrame } from "./seriesModel.js";
+import { assertSolarSnapshot } from "./solarContract.js";
 
 // Monotonic counter bumped whenever the displayed state changes (scrub, Now, or a
 // new live run). runLiveEngine() captures it before awaiting the WASM load and

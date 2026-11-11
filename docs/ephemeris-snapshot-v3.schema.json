@@ -65,7 +65,8 @@
           "const": "observer_local_mean_solar_day"
         },
         "time_scale": {
-          "const": "UTC"
+          "const": "UTC",
+          "description": "Legacy name for the requested calendar axis. Instantaneous semantics are in time.input_time_semantics; future_nominal_utc_after_jd separately discloses modeled future support in a mixed event window."
         },
         "interval": {
           "const": "[start,end)"
@@ -75,8 +76,15 @@
         },
         "end_jd": {
           "type": "number"
+        },
+        "future_nominal_utc_after_jd": {
+          "type": "number",
+          "description": "Optional EOP endpoint: event calculations after it use modeled UT1 and nominal UTC with the last tabulated leap offset assumed, unknown model uncertainty and omitted polar motion. May be inside the solver support interval extending ten minutes after end_jd; instantaneous time semantics remain separate."
         }
       }
+    },
+    "star_frame": {
+      "$ref": "#/$defs/starFrame"
     }
   },
   "$defs": {
@@ -150,8 +158,7 @@
         },
         "dut1_seconds": {
           "type": "number",
-          "minimum": -0.9,
-          "maximum": 0.9
+          "description": "UT1 minus the input calendar axis in seconds; real UTC retains the 0.9 s steering bound, future_nominal_utc is a modeled offset without that bound."
         },
         "delta_t_seconds": {
           "type": "number"
@@ -175,7 +182,8 @@
         "input_time_semantics": {
           "enum": [
             "utc",
-            "historical_ut1_proxy"
+            "historical_ut1_proxy",
+            "future_nominal_utc"
           ]
         }
       }
@@ -200,7 +208,8 @@
             "rapid",
             "predicted",
             "degraded",
-            "pre_utc_ut1_proxy"
+            "pre_utc_ut1_proxy",
+            "modeled_future"
           ]
         },
         "xp_arcsec": {
@@ -210,8 +219,12 @@
           "type": "number"
         },
         "dut1_uncertainty_seconds": {
-          "type": "number",
-          "minimum": 0
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Null only for modeled_future, whose uncertainty is not qualified; otherwise a nonnegative EOP formal error or degraded allowance."
         }
       }
     },
@@ -285,7 +298,8 @@
             "rapid",
             "predicted",
             "degraded",
-            "pre_utc_ut1_proxy"
+            "pre_utc_ut1_proxy",
+            "modeled_future"
           ]
         },
         "validation_scope": {
@@ -457,6 +471,16 @@
               "$ref": "#/$defs/event"
             }
           }
+        },
+        "catalogue_ra_deg": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "catalogue_dec_deg": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
         }
       }
     },
@@ -566,6 +590,49 @@
           ],
           "minimum": -90,
           "maximum": 90
+        }
+      }
+    },
+    "starFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "source",
+        "jd_utc",
+        "lst_deg",
+        "observer",
+        "j2000_to_true_equatorial"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "jd_utc": {
+          "type": "number"
+        },
+        "lst_deg": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 360
+        },
+        "observer": {
+          "$ref": "#/$defs/observer"
+        },
+        "j2000_to_true_equatorial": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "items": {
+              "type": "number"
+            }
+          }
         }
       }
     }

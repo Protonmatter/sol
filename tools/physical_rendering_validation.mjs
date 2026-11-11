@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Full application qualification of a pinned, locally served web release. No
 // fixture replaces the ephemeris, Worker, source assets, or rendering pipeline.
+import {releaseSourceIdentities} from './release_module_urls.mjs';
 import assert from 'node:assert/strict';
 import {types as utilTypes} from 'node:util';
 import {createHash} from 'node:crypto';
@@ -50,12 +51,15 @@ for(const asset of manifest.assets){
   const bytes=fs.readFileSync(file);
   assert.equal(bytes.length,asset.size,`Staged byte count ${asset.path}`);
   assert.equal(digest(bytes),asset.sha256,`Staged hash ${asset.path}`);
-  if(asset.source_path&&asset.source_sha256){
-    const current=path.join(repo,asset.source_path);
-    if(fs.existsSync(current)){
-      const actual=digest(fs.readFileSync(current));
-      if(actual!==asset.source_sha256)evidence.source_differences.push({path:asset.source_path,staged_source_sha256:asset.source_sha256,current_sha256:actual});
-    }
+}
+const buildPath=path.join(webRoot,manifest.namespace,'web-build.v1.json');
+const buildSources=fs.existsSync(buildPath)?JSON.parse(fs.readFileSync(buildPath,'utf8')):null;
+for(const [name,expected]of Object.entries(releaseSourceIdentities(manifest,buildSources))){
+  const current=path.resolve(repo,name);
+  assert.ok(current.startsWith(path.join(repo,'apps/web')+path.sep),'Source identity escapes web source root');
+  if(fs.existsSync(current)){
+    const actual=digest(fs.readFileSync(current));
+    if(actual!==expected)evidence.source_differences.push({path:name,staged_source_sha256:expected,current_sha256:actual});
   }
 }
 fs.mkdirSync(out,{recursive:true});

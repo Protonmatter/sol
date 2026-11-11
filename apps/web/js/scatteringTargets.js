@@ -80,9 +80,9 @@ function uploadGrid(gl,locations,plan,ready){
  * No getError result or successful draw submission proves GPU completion/content.
  * @param {*} gl WebGL2 context, borrowed for this context generation.
  * @param {{contextGeneration:number,programGeneration:number,programs:{generation:number,get:Function},
- * generatorKey:string,generatorUniforms:Object,numeratorKey?:string,numeratorUniforms?:Object,admitPlan:Function,capacity?:number}} options
+ * generatorKey:string,generatorUniforms:Object,numeratorKey?:string,numeratorUniforms?:Object,admitPlan:Function,capacity?:number,diagnostics?:boolean}} options
  */
-export function createScatteringTargets(gl,{contextGeneration,programGeneration,programs,generatorKey,generatorUniforms,numeratorKey=null,numeratorUniforms=null,admitPlan,capacity=2}){
+export function createScatteringTargets(gl,{contextGeneration,programGeneration,programs,generatorKey,generatorUniforms,numeratorKey=null,numeratorUniforms=null,admitPlan,capacity=2,diagnostics=false}){
   if(!Number.isSafeInteger(contextGeneration)||contextGeneration<0||!Number.isSafeInteger(programGeneration)||programGeneration<0
     ||!Number.isInteger(capacity)||capacity<1||capacity>2)throw new RangeError('Invalid scattering resource identities or capacity');
   if(typeof admitPlan!=='function')throw new TypeError('Caller plan admission is required');
@@ -191,6 +191,9 @@ export function createScatteringTargets(gl,{contextGeneration,programGeneration,
     apply(()=>gl.activeTexture(value.activeTexture));return failure;
   }
   function checkedError(entry,phase){
+    // Allocation failures still need synchronous admission. Routine submission
+    // checks are opt-in diagnostics: getError can synchronize the driver.
+    if(phase!=='allocation'&&!diagnostics)return;
     const code=gl.getError();if(code!==gl.NO_ERROR){
       entry.glErrors.push({phase,code});if(entry.glErrors.length>8)entry.glErrors.shift();
       throw new Error(`Scattering GL error during ${phase}; see diagnostic glErrors`);

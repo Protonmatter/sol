@@ -1,4 +1,4 @@
-import { EngineError } from "./workerClient.js?v=dcca6290db";
+import { EngineError } from "./workerClient.js";
 
 export const SOLAR_LIMITS = Object.freeze({maxLon:128,maxLat:64,maxHours:336,maxCellSteps:10000000,deadlineMs:10000,minLon:8,minLat:4,minDtHours:0.001});
 

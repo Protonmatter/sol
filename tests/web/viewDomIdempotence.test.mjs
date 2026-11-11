@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import vm from 'node:vm';
+import fs from 'node:fs';
 import {loadSourceModules} from './helpers/sourceModuleHarness.mjs';
 
 async function fixture(){
@@ -80,4 +81,26 @@ test('resize retains fresh research preparation and draw intent even when the DO
   h.store.presentation.error='new failure';h.store.presentation.availability='last_valid';h.store.state.run.time_seconds=42;h.view.renderAll('resize');
   assert.equal(h.calls.prepare,3);assert.match(h.nodes.get('snapshotStatus').textContent,/elapsed time 42 s/);
   assert.match(h.nodes.get('snapshotStatus').textContent,/new failure/);assert.equal(h.nodes.get('retrySnapshot').hidden,false);
+});
+
+
+test('observation failure and retry stay visible in the header outside the closed view notes',async()=>{
+  const h=await fixture(),status=h.nodes.get('viewAvailability');
+  h.explorer.explorer.media='ready';h.view.updateTaskHeader();
+  assert.equal(status.hidden,true,'ready observation keeps the compact header');
+  for(const media of ['failed','loading','failed']){
+    h.explorer.explorer.media=media;h.view.updateTaskHeader();
+    assert.equal(status.hidden,false,`${media} must be visible without opening About`);
+    assert.match(status.textContent,media==='failed'?/could not.*load|unavailable|failed/i:/loading/i);
+    assert.match(h.nodes.get('viewSource').textContent,/observed.*NASA/);
+    h.writes.length=0;h.view.updateTaskHeader();assert.equal(h.writes.length,0,'unchanged status is idempotent');
+  }
+  h.explorer.explorer.media='ready';h.view.updateTaskHeader();assert.equal(status.hidden,true);
+  h.explorer.explorer.mode='research';h.view.updateTaskHeader();assert.equal(status.hidden,false,'other views retain availability');
+  const html=fs.readFileSync(new URL('../../apps/web/index.html',import.meta.url),'utf8');
+  assert.ok(html.indexOf('id="viewAvailability"')<html.indexOf('<details id="viewNotes"'),
+    'status is a header sibling before the collapsed disclosure');
+  const css=fs.readFileSync(new URL('../../apps/web/styles.css',import.meta.url),'utf8');
+  assert.doesNotMatch(css,/body\[data-surface="today"\]\[data-experience="observe"\]\s+#viewAvailability\s*[,{}]/,
+    'observe CSS cannot unconditionally suppress the visible status');
 });

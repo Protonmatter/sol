@@ -23,3 +23,8 @@ test("release stamping restores original coverage offsets without dropping runti
   assert.ok(!GENERATED_MODULES.has("js/solarContract.js"));
   assert.ok(!GENERATED_MODULES.has("sw.js"));
 });
+test('coverage cannot silently discard executable generated code with an empty source map',async()=>{
+  const {bundleCoverageEntry}=await import('../../tools/js_coverage_scope.mjs');
+  const text='globalThis.unmappedExecution=1;';
+  await assert.rejects(bundleCoverageEntry({text},{text,sources:[],file:'/compiled.js',map:{version:3,sources:[],sourcesContent:[],mappings:''}}),/unmapped.*executable/);
+});

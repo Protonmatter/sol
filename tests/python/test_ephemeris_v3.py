@@ -59,6 +59,35 @@ class V3Tests(unittest.TestCase):
         changed['time']['input_time_semantics'] = 'historical_ut1_proxy'
         changed['time']['earth_orientation']['quality'] = 'pre_utc_ut1_proxy'; changed['accuracy']['eop_status'] = 'pre_utc_ut1_proxy'
         self.assertTrue(validator.validate(changed))
+    def test_future_nominal_clock_rejects_false_precision_and_semantic_relabeling(self):
+        future = copy.deepcopy(json.loads((ROOT / 'tests/fixtures/ephemeris-v3-corpus.json').read_bytes())['snapshot'])
+        t = future['time']
+        t['input_time_semantics'] = 'future_nominal_utc'
+        t['delta_t_seconds'] = 442.3803816
+        t['dut1_seconds'] = t['tai_minus_utc_seconds'] + 32.184 - t['delta_t_seconds']
+        t['jd_ut1'] = t['jd_utc'] + t['dut1_seconds'] / 86400
+        t['earth_orientation'].update(quality='modeled_future', source='Endpoint-anchored delta-T model; nominal UTC', dut1_uncertainty_seconds=None)
+        future['accuracy']['eop_status'] = 'modeled_future'
+        self.assertEqual(validator.validate(future), [])
+        for field, value in [('input_time_semantics', 'utc'), ('jd_tai', None)]:
+            bad = copy.deepcopy(future); bad['time'][field] = value
+            self.assertTrue(validator.validate(bad), field)
+        for field, value in [('quality', 'predicted'), ('dut1_uncertainty_seconds', .9)]:
+            bad = copy.deepcopy(future); bad['time']['earth_orientation'][field] = value
+            self.assertTrue(validator.validate(bad), field)
+        bad = copy.deepcopy(future); bad['time']['input_time_semantics'] = 'utc'
+        bad['time']['earth_orientation']['quality'] = 'degraded'; bad['accuracy']['eop_status'] = 'degraded'
+        self.assertTrue(validator.validate(bad))
+
+    def test_mixed_event_window_discloses_future_model_without_relabeling_instant(self):
+        mixed = copy.deepcopy(json.loads((ROOT / 'tests/fixtures/ephemeris-v3-corpus.json').read_bytes())['snapshot'])
+        window = mixed['events_window']
+        window['future_nominal_utc_after_jd'] = window['start_jd'] + .25
+        self.assertEqual(validator.validate(mixed), [])
+        self.assertEqual(mixed['time']['input_time_semantics'], 'utc')
+        window['future_nominal_utc_after_jd'] = window['end_jd'] + 1 / 144
+        self.assertTrue(validator.validate(mixed))
+
     def test_shared_corpus(self):
         corpus = json.loads((ROOT / "tests/fixtures/ephemeris-v3-corpus.json").read_text())
         for case in corpus["cases"]:

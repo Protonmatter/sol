@@ -35,10 +35,13 @@ test("initial System fallback failure exposes recovery; obsolete failures cannot
   const nodes={orreryInsight:{},orreryCanvas:{style:{}},orreryRetry:{hidden:true}};
   const state={active:true,renderUnix:100,bodies:[],engineError:""};
   let request=async()=>{throw Error("worker unavailable");};
+  let cancelledFrames=0;
   const context=vm.createContext({state,systemGeneration:0,document:{getElementById:id=>nodes[id]},
+    frameScheduler:{cancel(){cancelledFrames++;}},
     requestSystemSnapshot:()=>request(),updateOrreryAccuracy(){nodes.orreryRetry.hidden=!state.engineError;},updateOrreryPositions(){}});
   vm.runInContext(fallback,context);
   await vm.runInContext('showFallback("3-D view failed to initialise: worker unavailable")',context);
+  assert.equal(cancelledFrames,1,'fallback cancels owned drawing before exposing recovery');
   assert.equal(nodes.orreryRetry.hidden,false);assert.match(state.engineError,/worker unavailable/);
   let reject;request=()=>new Promise((resolve,fail)=>{reject=fail;});
   const pending=vm.runInContext('showFallback("previous attempt")',context);

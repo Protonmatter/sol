@@ -7,42 +7,33 @@ test("deterministic labels prioritize selection, preserve clearance and never mo
   assert.deepEqual(a,b);assert.equal(a[0].id,"20");assert.ok(a.length<=8);assert.equal(JSON.stringify(rows),before);
   for(const r of a){assert.ok(r.x>=4&&r.y>=4&&r.x+r.width<=386&&r.y+r.height<=296);for(const other of a.filter(x=>x!==r))assert.ok(r.x+r.width+4<=other.x||other.x+other.width+4<=r.x||r.y+r.height+4<=other.y||other.y+other.height+4<=r.y);}
 });
-test("selected edge object gets a readable callout and offscreen focused moons keep a name",()=>{
-  const result=layoutLabels([
-    {id:"selected",priority:0,x:2,y:2,width:500,height:20},
-    {id:"Nereid",priority:1,x:-40,y:20,width:20,height:20},
-    {id:"Uranus",priority:2,x:-80,y:40,width:20,height:20},
-    {id:"star",priority:4,x:-8,y:40,width:20,height:20},
-  ],{width:320,height:180});
-  assert.ok(result.some(r=>r.id==="selected"));
-  assert.equal(result.find(r=>r.id==="selected").callout,true);
-  assert.ok(result.find(r=>r.id==="selected").width<=312);
-  assert.ok(result.some(r=>r.id==="Nereid"),"a focused-system moon off the 76% frame still gets a callout");
-  assert.ok(!result.some(r=>r.id==="Uranus"),"an unfocused planet off the frame stays culled");
-  assert.ok(!result.some(r=>r.id==="star"),"optional sky objects stay culled");
-  assert.deepEqual(layoutLabels([],{width:1440,height:900}),[]);
+test("offscreen anchors are suppressed regardless of selection priority",()=>{
+  for (const priority of [0,1,2,3,4]) {
+    for (const [x,y] of [[-1,90],[321,90],[160,-1],[160,181]]) {
+      assert.deepEqual(layoutLabels([{id:"body",priority,x,y,width:50,height:16}],{width:320,height:180}),[]);
+    }
+  }
 });
-test("crowded inner-planet labels still place beside the Sun instead of disappearing",()=>{
-  const rows=["Sun","Mercury","Venus","Earth"].map((id,i)=>({id,priority:id==="Sun"?0:2,x:160+i,y:90+i,width:70,height:16}));
-  rows.push({id:"Iapetus",priority:3,x:162,y:92,width:70,height:16});
-  const result=layoutLabels(rows,{width:320,height:180,limit:4});
-  const ids=result.map(r=>r.id);
-  assert.ok(ids.includes("Mercury"));
-  assert.ok(ids.includes("Venus"));
-  assert.ok(!ids.includes("Iapetus"),"an outer moon must not take a planet's last slot");
+test("visible edge anchors retain adjacent labels when there is room",()=>{
+  for (const [x,y] of [[2,90],[318,90],[160,2],[160,178]]) {
+    const result=layoutLabels([{id:"selected",priority:0,x,y,width:60,height:16}],{width:320,height:180});
+    assert.equal(result.length,1);
+    assert.equal(result[0].callout,false);
+  }
 });
-test("overflow planet callouts stay below a reserved top inset",()=>{
-  const rows=["Sun","Mercury","Venus"].map((id,i)=>({id,priority:id==="Sun"?0:2,x:160+i,y:20+i,width:70,height:16}));
-  const result=layoutLabels(rows,{width:320,height:220,limit:3,topInset:72});
-  const venus=result.find(r=>r.id==="Venus");
-  const mercury=result.find(r=>r.id==="Mercury");
-  assert.ok(venus&&venus.y>=76,"Venus must sit below the system-jump chips");
-  assert.ok(mercury&&mercury.y>=76,"Mercury must sit below the system-jump chips");
+test("crowded names are suppressed instead of detached into a corner list",()=>{
+  const rows=Array.from({length:12},(_,i)=>({id:String(i),priority:i===0?0:1,x:160,y:90,width:70,height:16}));
+  const result=layoutLabels(rows,{width:320,height:220,limit:12});
+  assert.equal(result.length,2);
+  assert.equal(result[0].id,"0");
+  assert.ok(result.every(r=>!r.callout));
 });
-test("focused-system moons keep callouts so a crowded Saturn system stays named",()=>{
-  const rows=["Saturn","Mimas","Enceladus","Tethys","Dione","Rhea","Titan","Iapetus"]
-    .map((id,i)=>({id,priority:1,x:160+i,y:90+i,width:70,height:16}));
-  const result=layoutLabels(rows,{width:320,height:220,limit:8});
-  assert.equal(result.length,8);
-  for (const id of rows.map(r=>r.id)) assert.ok(result.some(r=>r.id===id),id);
+test("anchors behind jump controls do not produce detached overflow labels",()=>{
+  const rows=["Sun","Mercury","Venus"].map((id,i)=>({id,priority:i,x:160+i,y:20+i,width:70,height:16}));
+  assert.deepEqual(layoutLabels(rows,{width:320,height:220,topInset:72}),[]);
+});
+test("oversized text and invalid anchors cannot fabricate a placement",()=>{
+  for(const edit of [{width:500},{x:NaN},{y:Infinity}]) {
+    assert.deepEqual(layoutLabels([{id:"body",priority:0,x:160,y:90,width:60,height:16,...edit}],{width:320,height:180}),[]);
+  }
 });

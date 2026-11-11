@@ -1,3 +1,4 @@
+import {createLabelPresenter} from '../../apps/web/js/labelPresenter.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -10,7 +11,7 @@ import {BODY} from '../../apps/web/js/bodyData.js';
 function fixture(){
   const source=fs.readFileSync(new URL('../../apps/web/js/orrery.js',import.meta.url),'utf8');
   const functionSource=source.slice(source.indexOf('function updateLabels('),source.indexOf('// ---------------------------------------------------------------- detail panel'));
-  const labels=[],writes=[],reads=[];
+  const labels=[],writes=[],reads=[],fontHandlers=new Map();
   class Label {
     constructor(){
       this.style={};this.childNodes=[];this._class='';
@@ -26,18 +27,19 @@ function fixture(){
     set className(value){writes.push(['class']);this._class=String(value);}
     getBoundingClientRect(){reads.push(this.textContent);return {width:this.textContent.length*7.125,height:15.25};}
   }
-  const host={style:{},appendChild(){}};
+  const host={style:{},appendChild(el){labels.push(el);}};
   const context=vm.createContext({labelEls:labels,updateOrreryAccuracy(){},writeText,layoutLabels,projectOpaqueDisc,isLabelOccluded,BODY,
     displayRadiusAU:()=>.03,state:{bodies:[{name:'Jupiter',p:[0,0,0]}],anchor:'Jupiter'},DRAW_LIST:['Jupiter'],
     moonMarkers:[],moonSet:{MOONS:[]},moonDisplayRadius:()=>.02,bodyWorldPos:body=>body.p,
     cel:{pulsars:[],deepsky:[],brightStars:[]},
-    document:{getElementById:id=>id==='orreryLabels'?host:null,createElement:()=>new Label()},
+    document:{fonts:{addEventListener:(name,fn)=>fontHandlers.set(name,fn)},getElementById:id=>id==='orreryLabels'?host:null,createElement:()=>new Label()},
   });
+  context.labelPresenter=createLabelPresenter({document:context.document});
   vm.runInContext(functionSource,context);
   const matrix=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
   const canvas={clientWidth:300,clientHeight:140,offsetLeft:0,offsetTop:0};
   const render=()=>context.updateLabels(canvas,matrix,matrix);
-  return {labels,writes,reads,context,matrix,canvas,render};
+  return {labels,writes,reads,context,matrix,canvas,render,fontHandlers};
 }
 
 test('unchanged projected label retains its plain native text node',()=>{
@@ -81,4 +83,25 @@ test('hidden and removed labels still clear their projected anchors',()=>{
   f.matrix[15]=1;f.render();assert.equal(label.style.display,'block');
   f.context.state.bodies=[];f.render();assert.equal(label.style.display,'none');
   assert.equal(label.dataset.projectionX,undefined);assert.equal(label.dataset.projectionY,undefined);
+});
+
+test('stable text metrics are reused while camera projection changes',()=>{
+  const f=fixture();f.render();const n=f.reads.length,left=f.labels[0].style.left;
+  f.matrix[12]=.2;f.render();
+  assert.equal(f.reads.length,n,'camera movement does not remeasure label text');
+  assert.notEqual(f.labels[0].style.left,left);assert.equal(f.labels[0].dataset.projectionX,'180');
+});
+
+
+test('font completion invalidates cached fractional metrics',()=>{
+  const f=fixture();f.render();const n=f.reads.length;
+  f.fontHandlers.get('loadingdone')();f.render();assert.ok(f.reads.length>n);
+  const count=f.reads.length;f.render();assert.equal(f.reads.length,count);
+});
+
+test('class and text changes invalidate metrics, and explicit resize invalidation refreshes unchanged dimensions',()=>{
+  const f=fixture();f.render();let n=f.reads.length;
+  f.labels[0].className='changed';f.render();assert.ok(f.reads.length>n);n=f.reads.length;
+  f.labels[0].textContent='changed';f.render();assert.ok(f.reads.length>n);n=f.reads.length;
+  f.context.labelPresenter.invalidate();f.render();assert.ok(f.reads.length>n);
 });

@@ -70,14 +70,17 @@ test('base sphere programs cover pending, disabled, moon and transparent draws a
 for(const route of ['leave','galaxy','hidden','selection','optics','context']){
   test(`incident field cancels through ${route}, ignores late output and admits fresh demand`,async t=>{
     const pending=[];
-    const h=await orreryHarness(t,{controls:true,incidentField:(body,{signal})=>new Promise(resolve=>pending.push({body,signal,resolve}))});
+    const h=await orreryHarness(t,{controls:true,manualFrames:route==='selection',incidentField:(body,{signal})=>new Promise(resolve=>pending.push({body,signal,resolve}))});
     await h.enterOrrery();h.setAnimate(false);h.input('orreryAnchor','Earth','change');
+    if(route==='selection')h.frame(100);
     assert.equal(pending.length,1);const old=pending[0];assert.equal(old.body,'Earth');
     const epoch=h.state.renderUnix,bodies=JSON.stringify(h.state.bodies);
     if(route==='leave')h.leaveOrrery();
     else if(route==='galaxy')h.event('orreryGalaxy','click');
     else if(route==='hidden')h.setHidden(true);
     else if(route==='selection'){
+      // Selection must cancel the old demand before the next animation frame;
+      // control-dispatch helpers must not advance the clock being asserted below.
       h.setAnimate(true);h.input('orrerySearch','Mars');h.nodes.orreryPositions.children[0].click();
     }else if(route==='optics')h.check('orreryOptics',false);
     else h.event('orreryCanvas','webglcontextlost');
@@ -91,9 +94,9 @@ for(const route of ['leave','galaxy','hidden','selection','optics','context']){
     else if(route==='hidden')h.setHidden(false);
     else if(route==='optics')h.check('orreryOptics',true);
     else if(route==='context')h.event('orreryCanvas','webglcontextrestored');
-    h.input('orreryAnchor','Earth','change');assert.ok(pending.length>=2);
+    h.input('orreryAnchor','Earth','change');if(route==='selection')h.frame(100);assert.ok(pending.length>=2);
     const current=pending.at(-1);assert.equal(current.body,'Earth');assert.equal(current.signal.aborted,false);
-    current.resolve(field());await h.settle();assert.equal(h.state.opticsStatus.Earth,'ready');
+    current.resolve(field());await h.settle();if(route==='selection')h.frame(100);assert.equal(h.state.opticsStatus.Earth,'ready');
     assert.ok(h.gpuDraws.some(draw=>draw.uniforms.u_incidentFieldReady===1));
     h.leaveOrrery();for(const entry of pending)entry.resolve(field());await h.settle();
   });

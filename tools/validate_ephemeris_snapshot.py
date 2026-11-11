@@ -81,7 +81,12 @@ def check_time(time: dict[str, Any]) -> list[str]:
         uncertainty = eop.get('dut1_uncertainty_seconds')
         if finite(uncertainty) and float(uncertainty) < 0:
             errors.append('EOP uncertainty must be non-negative')
-        if finite(dut1) and abs(float(dut1)) > .9:
+        future = time.get('input_time_semantics') == 'future_nominal_utc'
+        if future != (eop.get('quality') == 'modeled_future'):
+            errors.append('future nominal UTC requires modeled-future quality')
+        if (uncertainty is None) != future:
+            errors.append('only the future model has unknown uncertainty')
+        if not future and finite(dut1) and abs(float(dut1)) > .9:
             errors.append('DUT1 must remain within UTC steering bounds')
     return errors
 
@@ -111,6 +116,9 @@ def semantic_checks(data: dict[str, Any]) -> list[str]:
     window = data["events_window"]
     if window["start_jd"] != start or window["end_jd"] != start + 1:
         errors.append("events_window differs from observer local mean-solar day")
+    future_boundary = window.get('future_nominal_utc_after_jd')
+    if future_boundary is not None and not 1721425.5 <= future_boundary < window['end_jd'] + 1 / 144:
+        errors.append('events_window future model boundary must intersect event calculation support')
     if (time["input_time_semantics"] == "historical_ut1_proxy") != (time["jd_tai"] is None):
         errors.append("time input semantics disagree with historical approximation")
     if time["input_time_semantics"] == "historical_ut1_proxy" and time["earth_orientation"]["quality"] != "pre_utc_ut1_proxy":

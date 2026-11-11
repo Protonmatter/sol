@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -44,10 +45,29 @@ class WasmProvenanceTests(unittest.TestCase):
     def replace_receipt(self, document):
         (self.wasm / provenance.RECEIPT_NAME).write_text(json.dumps(document), encoding='utf-8')
 
+    def test_browser_profile_scopes_abort_and_speed_without_changing_native_optimization(self):
+        profiles = tomllib.loads((ROOT / 'Cargo.toml').read_text())['profile']
+        native = profiles['release']
+        self.assertEqual(native['opt-level'], 'z')
+        self.assertNotIn('panic', native)
+        self.assertNotIn('package', native)
+        browser = profiles['wasm-release']
+        self.assertEqual(browser['inherits'], 'release')
+        self.assertEqual(browser['panic'], 'abort')
+        self.assertEqual(browser['package']['solar-ephemeris']['opt-level'], 3)
+
+    def test_historical_release_receipt_remains_readable(self):
+        document = self.write()
+        document['profile'] = 'release'
+        self.replace_receipt(document)
+        self.assertEqual(provenance.read_receipt(self.wasm)[0], document)
+        provenance.validate_receipt(self.root, self.wasm)
+
     def test_repeat_receipts_are_deterministic_and_bind_both_binaries(self):
         first = self.write()
         raw = provenance.validate_receipt(self.root, self.wasm)
         self.assertEqual(provenance.read_receipt(self.wasm), (first, raw))
+        self.assertEqual(first['profile'], 'wasm-release')
         self.assertEqual(self.write(), first)
         self.assertEqual((self.wasm / provenance.RECEIPT_NAME).read_bytes(), raw)
         self.assertEqual(set(first['wasm_sha256']), {'solar_wasm.wasm', 'solar_ephemeris.wasm'})
@@ -124,7 +144,7 @@ class WasmProvenanceTests(unittest.TestCase):
 
     def test_malformed_documents_and_fields_fail_closed(self):
         original = self.write()
-        mutations = [('schema_version', 'other'), ('target', 'other'), ('profile', 'debug'), ('locked', 1),
+        mutations = [('schema_version', 'other'), ('target', 'other'), ('profile', 'debug'), ('profile', []), ('locked', 1),
                      ('source_inputs', {}), ('source_inputs_sha256', '0' * 64), ('wasm_sha256', {}),
                      ('source_inputs', {'../escape': 'a' * 64}), ('source_inputs', {'/absolute': 'a' * 64}),
                      ('source_inputs', {'crates/../escape': 'a' * 64}), ('source_inputs', {'crates/a': 'bad'}),

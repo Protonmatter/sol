@@ -65,6 +65,9 @@ for(const failure of ['gpu-error','frame-identity'])test(`HDR ${failure} preserv
   assert.equal(h.state.hdrStatus.estimatedBytes,0);assert.equal(h.state.hdrStatus.presented,null);
   assert.equal(h.state.hdrFrame,null);assert.ok(h.deletedTextures.length>released);
   const reason=h.state.hdrStatus.reason;
+  assert.ok(h.frames.size>0,'HDR rejection must schedule the SDR fallback frame');
+  await h.settle();
+  assert.equal(h.state.hdrStatus.reason,reason,'submitting the fallback preserves the original rejection');
   const draws=h.gpuSubmissions.slice(before);
   const fallback=draws.slice(draws.findLastIndex(draw=>draw.uniforms.u_linearOutput===1||draw.uniforms.u_frameSerial)+1);
   assert.ok(fallback.length>5);assert.ok(fallback.every(draw=>draw.uniforms.u_linearOutput===0&&draw.framebuffer===null),

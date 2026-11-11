@@ -58,6 +58,11 @@ test('every admitted surface reaches its color recipe and retains its own fallba
   h.check('orreryEarthNight', false); h.check('orreryEarthWeather', false);
   for (const [body, mode, premultiplied] of surfaceRoutes) {
     h.input('orreryAnchor', body, 'change');
+    // Focusing a parent/moon requests its optional orbit data; entry alone does not.
+    await h.settleCatalogues();
+    // This fixture places Mars at 4 AU; a larger viewport resolves Phobos above
+    // the map threshold without bypassing the camera's numerical distance floor.
+    if(body==='Phobos')h.resize(1600,1200);
     if (body === 'Venus') {
       // Visible light shows the cloud deck; the Magellan radar route is qualified as an opt-in layer.
       paint(h);
@@ -136,7 +141,9 @@ test('every catalogue moon without an admitted map keeps its display fallback an
   const unmapped = ['Deimos', 'Titan', 'Ariel', 'Umbriel', 'Titania', 'Oberon', 'Miranda', 'Triton', 'Nereid', 'Proteus'];
   assert.deepEqual(h.moons.filter(moon => !appearanceReference(moon.n)).map(moon => moon.n).sort(), [...unmapped].sort());
   for (const name of unmapped) {
-    h.input('orreryAnchor', name, 'change'); h.state.radius = 1e-5;
+    h.input('orreryAnchor', name, 'change');
+    await h.settleCatalogues();
+    h.state.radius = 1e-5;
     const moon = h.moons.find(moon => moon.n === name);
     const parent = h.state.bodies.find(body => body.name === moon.p);
     assert.ok(parent, `${name}: catalogue parent remains available`);

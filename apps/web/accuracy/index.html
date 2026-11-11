@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<title>Sol — astronomical comparison evidence</title>
+<style>
+  body { max-width: 48rem; margin: 2rem auto; padding: 0 1rem; background: #0d1727; color: #e7edf5; font: 1rem/1.6 system-ui, sans-serif; }
+  a { color: #b9d9ff; overflow-wrap: anywhere; }
+  code { overflow-wrap: anywhere; }
+  a:focus-visible { outline: 2px solid #f3ca7b; outline-offset: 4px; }
+  li { margin: .6rem 0; }
+</style>
+<main>
+  <p><a href="../index.html">Return to Sol</a></p>
+  <h1>Astronomical comparison evidence</h1>
+  <p>Sol records independent comparisons of its native geometric position output with retained NASA/JPL Horizons DE441 vectors. These are measurements at 160 discrete samples: 16 epochs for each of ten explicit target/origin pairs. They do not certify the current displayed UTC date or every date between the samples.</p>
+  <p><a href="../data/independent-vector-evidence.json">Read the complete independent native comparison records (JSON)</a>. Every record retains the exact epoch, target, origin, reference and native vectors, residuals and acceptance result. The registry also contains source and provenance hashes. The original responses, query URLs, acquisition metadata and predeclared comparison plan are retained under <code>tests/fixtures/horizons-vectors-20261104</code> in the <a href="../licenses/solar-ephemeris/index.html">corresponding source distribution</a>.</p>
+  <p>The retained full-calendar matrix includes failed samples at remote epochs. Failed observations remain in the registry with <code>passed: false</code>; they cannot qualify a selection. Evidence integrity and passing a numerical accuracy budget are separate results.</p>
+  <h2>What was compared</h2>
+  <p>The quantity is geometric Cartesian position in AU, using the ecliptic of J2000, ICRF X axis and IAU76 obliquity. Light-time and apparent-position corrections are absent. Nine cases are heliocentric; the tenth is the Moon relative to Earth's centre. Several planetary reference targets are system barycentres, as their explicit Horizons target IDs show.</p>
+  <p>The reference epochs are in TDB. The native probe sets its TT model argument numerically equal to that reference epoch, with recorded numerical mismatch below 0.001 seconds. This retains the approximate TT/TDB equivalence (up to about 2 milliseconds); it does not independently validate ancient or future UTC/UT1 conversion.</p>
+  <h2>Three distinct residuals</h2>
+  <ul>
+    <li><strong>Relative vector residual, arcsecond-equivalent:</strong> the length of the vector difference divided by reference distance, multiplied by arcseconds per radian. The predeclared sample budget is at most 10.0. This metric includes distance error and is not angular separation.</li>
+    <li><strong>Angular separation, arcseconds:</strong> the angle between the native and reference direction vectors. No separate acceptance threshold is assigned.</li>
+    <li><strong>Radial residual, parts per million:</strong> signed relative distance error. No separate acceptance threshold is assigned.</li>
+  </ul>
+  <h2>Limits and reproducibility</h2>
+  <p>Only the native f64 System ABI was numerically compared. A release's WASM receipt binds corresponding scientific sources and binary hashes; it does not measure agreement between native and WASM results. These records do not qualify apparent sky directions, observer altitude, refraction, velocities, events, image rendering or a continuous epoch range.</p>
+  <p>The offline validator rejects changed scientific sources, reference artifacts, sample identities and stored residuals. From the corresponding source tree, run <code>python tools/validate_independent_vector_evidence.py --replay</code> to reproduce the native comparison with the locked offline Rust toolchain. Add <code>--require-all-pass</code> to enforce the unchanged 10.0 sample budget for the complete matrix; retained deep-time failures make that gate fail. Regeneration after scientific changes uses <code>python tools/generate_independent_vector_evidence.py</code>.</p>
+  <p><a href="../data/accuracy-evidence.json">The separate TOP2013 source-theory parity records</a> compare an implementation with its source theory. They remain distinct from independent astronomical comparison evidence.</p>
+</main>
+</html>

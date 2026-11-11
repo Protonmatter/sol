@@ -8,7 +8,7 @@ const moduleURL = new URL("../../apps/web/js/skyEngine.js", import.meta.url);
 const snapshot = JSON.parse(fs.readFileSync(new URL("../fixtures/ephemeris-v3-corpus.json", import.meta.url))).snapshot;
 async function engine(extra = {}) {
   const context = vm.createContext({ URL, TextDecoder, Uint8Array, Float64Array,
-    AbortController, setTimeout, clearTimeout, ...extra });
+    AbortController, setTimeout, clearTimeout, performance, ...extra });
   const [api] = await loadSourceModules(context, [moduleURL]);
   return api;
 }
@@ -36,7 +36,7 @@ test("engine load shares one in-flight request, resets failure, and decodes vali
       return attempts === 1 ? new Promise((_, reject) => { rejectFirst = reject; })
         : Promise.resolve({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) });
     },
-    WebAssembly: { instantiate: async () => ({ instance: { exports } }) },
+    WebAssembly: { compile: async () => ({}), instantiate: async () => ({ exports }) },
   });
   assert.equal(api.systemPositions(0), null);
   assert.throws(() => api.skySnapshot(0, 0, 0, 0), /not loaded/);
@@ -60,13 +60,13 @@ test("engine load shares one in-flight request, resets failure, and decodes vali
 
 test("engine HTTP and typed track failures remain actionable", async () => {
   const http = await engine({ fetch: async () => ({ ok: false, status: 503 }) });
-  await assert.rejects(http.loadSkyEngine(), /ephemeris wasm HTTP 503/);
+  await assert.rejects(http.loadSkyEngine(), /wasm HTTP 503/);
   for (const payload of [{ error: "track rejected", code: "work_limit" }, { error: "track rejected" }]) {
     const bytes = new TextEncoder().encode(JSON.stringify(payload));
     const api = await engine({ fetch: async () => ({ ok: true, arrayBuffer: async () => bytes }),
-      WebAssembly: { instantiate: async () => ({ instance: { exports: {
+      WebAssembly: { compile: async () => ({}), instantiate: async () => ({ exports: {
         memory: { buffer: bytes.buffer }, body_track: () => 0, result_len: () => bytes.length,
-      } } }) } });
+      } }) } });
     await api.loadSkyEngine();
     assert.throws(() => api.bodyTrack(0, 0, 0, 0, 0, 60, 2), error =>
       error.message === "track rejected" && error.code === (payload.code || "engine_failed"));

@@ -29,7 +29,7 @@ browser.**
   settings-owned controls cannot be proven from this checkout.
 - Repo: github.com/Protonmatter/sol. Workflows under `.github/workflows/`:
   `ci.yml` (governance, tests, blocking fmt+clippy, WASM, browser/visual, determinism,
-  cache-bust sync, data regen gates), `coverage.yml` (90% Rust/Python/whole-web coverage),
+  immutable release staging, data regen gates), `coverage.yml` (90% Rust/Python/whole-web coverage),
   `docs.yml` (offline Markdown and SDLC validation), `deploy-pages.yml` (tested-SHA Pages
   deploy), `daily-ingest.yml` (public-data refresh — publishes via a data PR), `eop-freshness.yml`,
   `ephemeris-accuracy.yml` and `docs-links.yml` (weekly network checks vs IERS / JPL Horizons /
@@ -54,7 +54,7 @@ latitude-vs-time plot driven by a deterministic snapshot series.
 
 ## 4. How the code is organized (`apps/web/`)
 
-Native ES modules (no bundler). `apps/web/app.js` is a thin entry (event wiring + boot);
+Native source ES modules; pinned deferred-view release bundling. `apps/web/app.js` is a thin entry (event wiring + boot);
 the rest lives under `apps/web/js/`:
 
 | module | responsibility |
@@ -97,13 +97,33 @@ assertions, and browser execution coverage. Keep all three aligned when changing
 
 ## 5. Gotchas
 
-- **Cache-bust**: after editing anything under `apps/web/`, run **`python tools/build_web.py`**.
-  It stamps a single content-hash `?v=<hash>` across every HTML/JS reference, so the token changes
-  only when content changes and all references move together — no more hand-bumping `?v=N` per file
-  (which risked a stale-module mismatch if one was missed).
-- **Toolchains**: data is generated with Python; Node 22 installs locked development-only
-  validation tools; cargo builds the engines. The production web app itself deliberately
-  has no runtime package or bundler dependency.
+- **Release identity**: source modules use one query-free relative URL. A normal
+  `tools/build_web.py` build stages them under `releases/<release-id>/`, without
+  rewriting the checkout. Never hand-add module cache tokens: static imports,
+  dynamic imports, and worker URLs are checked together for duplicate identities.
+  Resource release stamps remain bound to the selected immutable namespace.
+- **Toolchains**: data uses Python and Cargo builds the engines. Node 22.12+ and
+  `npm ci --ignore-scripts` install the locked release compiler (esbuild 0.28.2)
+  and validation tools. With a populated npm cache, use
+  `npm ci --ignore-scripts --offline`; the initial install needs registry access,
+  including the platform-specific esbuild package. Standard current releases
+  require the compiler and fail if it is unavailable. Partial historical release
+  fixtures retain their original staging contract.
+- **Compiled modules**: the initial observation/static closure stays unchanged.
+  Deferred view implementations and shared code compile to ESM entries/chunks
+  under `js/`; workers retain separate entry URLs, and optional star/moon
+  catalogues remain lazy optional assets. Public QA module URLs export the same
+  compiled implementation used by the application. Inlined private originals
+  are removed, so a second copy cannot create another store or resource owner.
+- **Coverage and source delivery**: `web-build.v1.json` binds compiler/lock
+  identities, original input hashes, output hashes, and external sourcemaps.
+  Browser and worker coverage maps actual emitted bytes back to verified original
+  source through those maps. Tree shaking is disabled to preserve the original
+  executable denominator; generated module links and the pinned namespace helper
+  are explicitly identified, while unknown executable mapless chunks fail. Generated bundles do not claim a single original
+  `source_path`. Corresponding-source archives and component fingerprints use the
+  complete original source inventory, including modules removed after inlining.
+  Sourcemaps are hashed release assets but optional for offline installation.
 - **SDO images** load without `crossOrigin` (display-only draw; canvas is never read back).
   If you ever need `getImageData`, you'll need a CORS-enabled source.
 - **Cycle frames drop `observed_context`** to stay small, so Space-Weather chips read "n/a"
@@ -122,9 +142,11 @@ run it client-side (see "Migration" in [STATUS.md](STATUS.md)). `crates/solar-wa
 `cdylib` (no wasm-bindgen) built with `tools/build_wasm.py` to `apps/web/pkg/solar_wasm.wasm`;
 `apps/web/engine.js` loads it and `app.js` is now an ES module. Rebuild the wasm whenever
 `solar-core` or `solar-wasm` changes. The next step is splitting the rest of `app.js` into
-modules + `// @ts-check`. **Vite was not adopted** because a runtime bundler was unnecessary
-and would change the static architecture. Node is now an explicit validation tool only.
-The original trade-off analysis is kept below for context.
+modules + `// @ts-check`. Vite was not adopted. The current release pipeline uses
+pinned esbuild for deferred ESM bundling while keeping the static deployment and
+plain-source development workflow. Node is required for release compilation and
+validation. The original no-build trade-off below is historical; the current
+release requirements in section 5 supersede its build and dependency claims.
 
 `app.js` was ~1,357 lines of single-file vanilla JS with global state. **Two paths were weighed:**
 

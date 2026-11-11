@@ -36,6 +36,7 @@ test("held moon textures retain neutral albedo-scaled GPU inputs and eclipse att
   const h = await harness(t, { controls: true, catalogues: "ready", reducedMotion: true });
   await h.enterOrrery(); await h.settleCatalogues();
   h.input("orreryAnchor", "Jupiter", "change");
+  await h.settleCatalogues(); // Focusing the system requests the optional orbit data.
   h.check("orreryTrueScale", true);
   // The scale control refits the camera; apply the system-wide fixture afterward.
   h.state.radius = 0.1;
@@ -180,7 +181,7 @@ test("paused System recovery repaints but does not turn animation on", async t =
   assert.equal(h.state.engineError, "");
   assert.ok(h.draws > before);
   assert.equal(h.state.animate, false);
-  assert.equal(h.frames.size, 1);
+  assert.equal(h.frames.size, 0, "the recovery rendering opportunity has completed");
   const unix = h.state.renderUnix;
   h.frame(2000);
   assert.equal(h.state.renderUnix, unix);
@@ -217,10 +218,12 @@ for (const { edge, start, direction } of [
   // advance time. Admission must still protect the lower computational boundary.
   { edge: "lower", start: "-009999-01-01T00:01:00Z", direction: -1 },
 ]) test(`System animation retains its last valid epoch at the ${edge} bound and recovers through Now`, async t => {
-  const h = await harness(t);
+  const h = await harness(t,{manualFrames:true});
   const initialUnix = Date.parse(start) / 1000;
   h.setWallUnix(initialUnix);
   await h.enterOrrery();
+  h.frame(0);
+  assert.equal(h.state.renderUnix,initialUnix,'first owned frame validates the admitted scene before animation');
   h.state.yearsPerSec = direction / (24 * 365.25);
   h.holdSnapshots();
   h.advanceMonotonicTime(1000);
@@ -251,6 +254,7 @@ for (const { edge, start, direction } of [
   await h.settle();
   assert.equal(h.state.engineError, boundaryError, "a delayed pre-stop reply must not erase the boundary notice");
   assert.equal(h.state.bodies, validBodies);
+  h.frame(1060); // settle resource-completion redraws without advancing paused time
   assert.equal(h.frames.size, 0);
 
   h.holdSnapshots(false);
@@ -262,6 +266,7 @@ for (const { edge, start, direction } of [
   assert.equal(h.state.engineError, "");
   assert.equal(h.nodes.orreryRetry.hidden, true);
   assert.equal(h.state.animate, false, "choosing a valid time preserves the user's paused state");
+  h.frame(1070); // present the valid paused Now state
   assert.equal(h.frames.size, 0);
   h.state.yearsPerSec = 1 / (24 * 365.25);
   h.setAnimate(true);
@@ -333,7 +338,7 @@ for (const settlesBeforeShow of [false, true]) for (const animate of [true, fals
   });
 
 test("late engine loading from a cancelled entry cannot clear or publish over its replacement", async t => {
-  const h = await harness(t), releaseEngine = h.holdEngine();
+  const h = await harness(t,{manualFrames:true}), releaseEngine = h.holdEngine();
   const obsolete = h.enterOrrery();
   await h.settle(); // First worker reply is ready, but shared WASM loading is still pending.
   h.setHidden(true);

@@ -12,6 +12,19 @@ import validate_ephemeris_snapshot as validator
 
 
 class NativeV3Tests(unittest.TestCase):
+    def test_future_native_snapshot_in_both_live_readers(self):
+        jd = 2524593.5  # 2200-01-01, beyond bundled EOP and ordinary UTC steering bounds.
+        text = subprocess.run(["cargo", "run", "--release", "--quiet", "--locked", "-p", "solar-ephemeris", "--example", "snapshot", "--", str(jd), "0", "0", "0"], cwd=ROOT, check=True, capture_output=True, text=True).stdout
+        data = validator.parse_snapshot(text)
+        self.assertEqual(validator.validate(data), [])
+        self.assertEqual(data['time']['input_time_semantics'], 'future_nominal_utc')
+        self.assertGreater(data['time']['delta_t_seconds'], 400)
+        self.assertLess(data['time']['dut1_seconds'], -300)
+        self.assertIsNone(data['time']['earth_orientation']['dut1_uncertainty_seconds'])
+        self.assertEqual(data['accuracy']['evidence_status'], 'unvalidated')
+        check = subprocess.run(["node", "--input-type=module", "-e", "import fs from 'node:fs'; import {parseEphemerisSnapshot} from './apps/web/js/ephemerisContract.js'; parseEphemerisSnapshot(fs.readFileSync(0,'utf8'));"], input=text, cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(check.returncode, 0, check.stderr)
+
     def test_native_hybrid_cannot_combine_different_instants_in_one_day(self):
         snapshots = []
         for jd in [2461222.6,2461222.725]:

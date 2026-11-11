@@ -9,33 +9,33 @@
     <meta property="og:title" content="Solar Maximum Engine">
     <meta property="og:description" content="Three ways to explore: The Sun, My Sky and Solar System. Observations and models clearly separated, with evidence-scoped accuracy.">
     <meta property="og:type" content="website">
-    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=dcca6290db">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=dcca6290db">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="planet-phenomena.css">
     <!-- This pinned archival image must not wait for the application graph. -->
     <link rel="preload" as="image" href="textures/solar-observation-171.jpg" fetchpriority="high">
     <!-- Only the parsed observation/workspace startup closure is preloaded. -->
     <meta name="sol-startup-contract" content="startup-modules.v1.json">
     <link rel="modulepreload" href="js/catalogueLoader.js">
-    <link rel="modulepreload" href="js/config.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/config.js">
     <link rel="modulepreload" href="js/domWrites.js">
-    <link rel="modulepreload" href="js/explorer.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/explorer.js">
     <link rel="modulepreload" href="js/observationMedia.js">
     <link rel="modulepreload" href="js/offlineBoot.js">
-    <link rel="modulepreload" href="js/releaseClient.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/releaseClient.js">
     <link rel="modulepreload" href="js/solarObservation.js">
     <link rel="modulepreload" href="js/sourceRecords.js">
-    <link rel="modulepreload" href="js/store.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/store.js">
     <link rel="modulepreload" href="js/sunFacts.js">
     <link rel="modulepreload" href="js/surfaceNavigation.js">
-    <link rel="modulepreload" href="js/tooltip.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/view.js?v=dcca6290de">
-    <link rel="modulepreload" href="js/viewEvidence.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/tooltip.js">
+    <link rel="modulepreload" href="js/view.js">
+    <link rel="modulepreload" href="js/viewEvidence.js">
     <link rel="modulepreload" href="js/viewLoader.js">
     <link rel="modulepreload" href="js/viewRegistry.js">
-    <link rel="modulepreload" href="js/workspace.js?v=dcca6290db">
-    <script type="module" src="js/observationBoot.js?v=dcca6290db"></script>
+    <link rel="modulepreload" href="js/workspace.js">
+    <script type="module" src="js/observationBoot.js"></script>
   </head>
   <body class="panel-collapsed" data-experience="observe" data-surface="today">
     <main class="app-shell">
@@ -62,10 +62,14 @@
         <div>
           <p class="eyebrow">SOLAR MAXIMUM ENGINE <span class="brand-tagline">A closer Sun. A wider universe.</span></p>
           <h1 id="viewTitle" tabindex="-1">Explore the Sun</h1>
-          <p id="plainInsight" class="insight">Loading validated model and source evidence…</p>
-          <p id="surfaceInsight" class="insight" hidden></p>
           <div class="view-evidence"><span id="viewSource" class="state-pill">observed · NASA · SDO / AIA 171 Å</span><span id="viewTime">2026-09-12 00:07:22 UTC · archival</span></div>
           <p id="viewAvailability" class="workspace-availability">Saved observation · false-color ultraviolet</p>
+          <details id="viewNotes" class="view-notes">
+            <summary>About this view</summary>
+            <p id="plainInsight" class="insight">Loading validated model and source evidence…</p>
+            <p id="surfaceInsight" class="insight" hidden></p>
+            <p id="destinationReferenceNote"></p>
+          </details>
           <div class="state-row solar-runtime" aria-label="Solar model runtime state">
             <span id="dataState" class="state-pill">data: loading</span>
             <span id="ingestState" class="state-pill">feed: loading</span>
@@ -141,7 +145,7 @@
             <button type="button" data-camera-body="Jupiter" aria-pressed="false">Jupiter</button>
             <button type="button" data-camera-body="Saturn" aria-pressed="false">Saturn</button>
           </div>
-          <div class="destination-caption"><p id="destinationCaption"></p><p id="destinationCaveat"></p><p id="orreryPhysicalStatus" hidden></p>
+          <div class="destination-caption"><p id="destinationCaption"></p><p id="orrerySelectedEpoch" class="time-frame-label"></p><p id="destinationCaveat"></p><p id="orreryPhysicalStatus" hidden></p>
             <div id="orreryCataloguePanel" hidden><p id="orreryCatalogueStatus" role="status" tabindex="-1"></p><button id="orreryCatalogueRetry" class="time-btn" type="button" hidden>Retry catalogue downloads</button></div>
           </div>
           <div class="status-strip" aria-live="polite">
@@ -389,6 +393,16 @@
                     <label class="orrery-check"><input id="orreryOptics" type="checkbox" checked> Atmosphere (reference or illustrative)</label>
                     <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> Physical scale</label>
                   </div>
+                  <label class="orrery-field">Display resolution
+                    <select id="orreryQuality" class="sky-input" aria-describedby="orreryQualityStatus orreryQualityHelp">
+                      <option value="auto" selected>Auto</option>
+                      <option value="high">High</option>
+                      <option value="balanced">Balanced</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </label>
+                  <p id="orreryQualityStatus" class="time-frame-label">Auto · High display resolution</p>
+                  <p id="orreryQualityHelp" class="time-frame-label">Changes drawing sharpness; positions and physical data stay the same.</p>
                   <label class="orrery-field">Planet appearance
                     <select id="orreryPlanetLook" class="sky-input" aria-describedby="orreryPlanetLookHelp">
                       <option value="illustrative" selected>Illustrative look</option>
@@ -473,8 +487,8 @@
               <span class="label">Selected body</span>
               <div id="orreryDetail" class="sky-list" tabindex="-1"><div class="sky-row">Click the Sun or a planet to inspect its size, gravity, rotation, tilt, magnetic field, atmosphere, and live distance.</div></div>
               <p id="orrerySelectionStatus" class="sr-only" role="status"></p>
-              <p id="orrerySelectedEpoch" class="time-frame-label"></p>
               <button id="orreryFocusSelected" type="button" class="time-btn">Focus selected body</button>
+              <button id="orreryFocusSystem" type="button" class="time-btn" disabled>View satellite system</button>
 
             </div>
             <div class="sky-whatsup">
@@ -624,6 +638,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=dcca6290e0"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

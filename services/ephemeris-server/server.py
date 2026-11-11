@@ -158,6 +158,7 @@ class ProviderWork:
         problem = validate_params(*args)
         if problem:
             raise ValueError(problem)
+        require_supported_time(args[0])
         key = tuple(float(value).hex() for value in args)
         with self.lock:
             if self.closed:
@@ -492,10 +493,24 @@ def definitive_positions(when: dt.datetime, lat: float, lon: float, elev: float)
     return {name: fetch_body(when, lat, lon, elev, hid) for name, hid, _, _ in BODIES}
 
 
+# Matches the client EOP endpoint; this is a request-policy boundary, not a
+# claim that this service ingests that table. Horizons UT requests do not define
+# the client's modeled nominal-UTC future clock, so future requests are refused.
+SUPPORTED_TIME_END_JD = 2_400_000.5 + 61_714.0
+
+
+def require_supported_time(unix: float) -> None:
+    if unix / 86_400.0 + 2_440_587.5 > SUPPORTED_TIME_END_JD:
+        raise ProviderError("unsupported_time",
+                            "Future time is unsupported by this server after 2027-11-05 00:00 UTC; choose On your device for explicitly modeled nominal UTC",
+                            422)
+
+
 def build_snapshot(unix: float, lat: float, lon: float, elev: float) -> dict[str, Any]:
     problem = validate_params(unix, lat, lon, elev)
     if problem:
         raise ValueError(problem)
+    require_supported_time(unix)
     # Arithmetic conversion works for historical dates on Windows as well.
     when = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc) + dt.timedelta(seconds=unix)
     raw = definitive_positions(when, lat, lon, elev)
@@ -637,6 +652,7 @@ def snapshot_cached(unix: float, lat: float, lon: float, elev: float) -> dict[st
     problem = validate_params(unix, lat, lon, elev)
     if problem:
         raise ValueError(problem)
+    require_supported_time(unix)
     path = cache_path(unix, lat, lon, elev)
     request_identity = [float(value).hex() for value in (unix, lat, lon, elev)]
     if os.path.isfile(path):

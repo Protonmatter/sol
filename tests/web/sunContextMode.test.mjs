@@ -18,6 +18,8 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   h.input('orrerySolarMode','reconstructed-euv','change');
   assert.equal(h.state.solarMode, 'reconstructed-euv', 'EUV remains explicitly selectable');
 
+  // Hold the first presentation at rest; scheduled UI frames may otherwise advance flow.
+  h.setWindowReducedMotion(true);
   // Inspecting loads the atlas and makes the Sun the subject.
   h.event('orreryInspectSun', 'click'); await h.settleCatalogues();
   assert.equal(h.state.solarStatus, 'ready');
@@ -31,6 +33,7 @@ test('the Sun draws in visible light when it is context, and EUV only as the sub
   assert.ok(inspected.euv.every(draw => draw.uniforms.u_coronaGlow === 1), 'the whole-limb shell is on while the EUV Sun is showing');
   assert.equal(inspected.visible.length, 0);
   const unix = h.state.renderUnix;
+  h.setWindowReducedMotion(false);
   h.frame((h.state.lastTick || 0) + 1000);
   const flowing = repaint(h);
   assert.ok(flowing.euv[0].uniforms.u_phase > 0, 'corona flow advances while the EUV Sun is showing');
@@ -64,6 +67,7 @@ test('choosing a solar source mode makes the Sun the subject instead of doing no
   assert.equal(h.state.selected, null);
   const framing = {az: h.state.az, el: h.state.el, radius: h.state.radius};
 
+  h.setWindowReducedMotion(true);
   h.input('orrerySolarMode', 'visible', 'change');
   assert.equal(h.state.selected, 'Sun', 'using the control makes the Sun the subject');
   assert.equal(h.state.solarInspection, false, 'without the camera move Inspect performs');
@@ -86,7 +90,9 @@ test('choosing a solar source mode makes the Sun the subject instead of doing no
   assert.ok(pole[1] > Math.cos(7.25 * Math.PI / 180) - 1e-5, 'solar pole is the source +Y axis to within B0');
   const restSpots = photosphere[0].uniforms['u_spot[0]'];
 
-  // The harness window reports no reduced motion here, so the activity clock runs.
+  // Resume motion after recording the zero-clock rest positions, then present a frame
+  // so the continuous scheduler is armed before advancing its timestamp.
+  h.setWindowReducedMotion(false);repaint(h);
   const start = h.state.lastTick || 0;
   for (let step = 1; step <= 3; step++) h.frame(start + step * 1000);
   const running = repaint(h).visible[0].uniforms;
@@ -101,7 +107,9 @@ test('choosing a solar source mode makes the Sun the subject instead of doing no
   assert.deepEqual(held['u_spot[0]'], restSpots, 'spots return to their rest positions');
   h.setWindowReducedMotion(false);
   const resumed = repaint(h).visible[0].uniforms;
-  assert.equal(resumed.u_activityDays, running.u_activityDays, 'the clock resumes where it was');
+  assert.ok(resumed.u_activityDays >= running.u_activityDays
+    && resumed.u_activityDays - running.u_activityDays < 0.01,
+    'the clock resumes from its retained time, allowing the newly presented startup frame');
 
   // Switching back to EUV governs the Sun again. The atlas itself only loads once the Sun
   // is large enough on screen, so at overview distance the honest outcome is the disclosed

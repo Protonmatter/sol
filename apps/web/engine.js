@@ -3,31 +3,26 @@
 // memory and `result_len` gives the byte length; we decode the UTF-8 JSON, which
 // must pass the active solar schema and semantics before any caller receives it.
 
-import { parseSolarSnapshot, parseStrictJson } from "./js/solarContract.js?v=dcca6290db";
-import { validateSolarRequest } from "./js/engineLimits.js?v=dcca6290db";
-import { EngineError } from "./js/workerClient.js?v=dcca6290db";
+import { parseSolarSnapshot, parseStrictJson } from "./js/solarContract.js";
+import { validateSolarRequest } from "./js/engineLimits.js";
+import { EngineError } from "./js/workerClient.js";
+
+import { compileSolarModule } from "./js/wasmBroker.js";
 
 let wasmExports = null;
 let loadPromise = null;
 
-export function loadEngine() {
+/** @param {WebAssembly.Module} [compiledModule] */
+export function loadEngine(compiledModule = undefined) {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
-    // Use instantiate(arrayBuffer) rather than instantiateStreaming so it works
-    // even when the static server doesn't send the application/wasm MIME type.
-    // cache:"no-cache" (NOT no-store): the wasm is built at deploy and is not folded
-    // into the ?v= content hash (it's gitignored), so we must revalidate — but a 304
-    // lets the browser reuse the cached bytes instead of re-downloading every visit.
-    const response = await fetch(new URL("./pkg/solar_wasm.wasm?v=dcca6290db", import.meta.url), { cache: "no-cache" });
-    if (!response.ok) throw new Error(`wasm HTTP ${response.status}`);
-    const bytes = await response.arrayBuffer();
-    const { instance } = await WebAssembly.instantiate(bytes, {});
+    const module = compiledModule ?? await compileSolarModule();
+    // Module instantiation returns an Instance (the byte overload returns a pair).
+    // Each realm owns its own instance and memory, even when compiled code is shared.
+    const instance = await WebAssembly.instantiate(module, {});
     wasmExports = instance.exports;
     return wasmExports;
   })();
-  // If the load fails, clear the memoized promise so a later call can retry —
-  // otherwise one transient network blip disables the live engine for the tab's
-  // whole life. Callers still see this attempt's rejection via the returned promise.
   loadPromise.catch(() => { loadPromise = null; });
   return loadPromise;
 }

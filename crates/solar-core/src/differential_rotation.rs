@@ -3,9 +3,12 @@ use crate::constants::CARRINGTON_SIDEREAL_DEG_PER_DAY;
 /// Photospheric sidereal differential rotation in degrees/day:
 /// omega(lat) = A + B sin^2(lat) + C sin^4(lat).
 ///
-/// The coefficients are the Snodgrass/Ulrich-style magnetic-tracer fit used by
-/// this reduced model. Callers operating in a rotating coordinate system must
-/// subtract that frame's sidereal rate.
+/// Approximate degree/day coefficients for the Doppler-feature tracking fit in
+/// Snodgrass & Ulrich (1990), ApJ 351, 309–316, Table 1 (Doppler Residuals).
+/// They are not the magnetic-tracer or spectroscopic plasma fit in that table.
+/// This reduced model retains its existing coefficients; callers in a rotating
+/// coordinate system must subtract that frame's sidereal rate.
+/// Source: https://articles.adsabs.harvard.edu/pdf/1990ApJ...351..309S
 pub fn differential_rotation_deg_per_day(lat_deg: f64) -> f64 {
     let s = lat_deg.to_radians().sin();
     14.713 - 2.396 * s * s - 1.787 * s.powi(4)

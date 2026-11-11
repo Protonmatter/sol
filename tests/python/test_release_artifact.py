@@ -523,16 +523,18 @@ process.stdout.write(JSON.stringify({ redirects, link: link.href }));
 
     def test_wasm_wrapper_copies_compiler_outputs_and_always_enforces_lockfile(self):
         # Cargo is the external compiler boundary. Its known side effect is a
-        # target/release WASM file; the fixture models that output explicitly.
+        # target/wasm-release WASM file; the fixture models that output explicitly.
         def compiler(command, *, cwd, check, stdout, text, encoding):
             self.assertIn("--locked", command)
+            self.assertNotIn("--release", command)
+            self.assertEqual(command[command.index("--profile") + 1], "wasm-release")
             self.assertIn("--message-format=json", command)
             self.assertTrue(check)
             self.assertEqual(stdout, subprocess.PIPE)
             self.assertTrue(text)
             self.assertEqual(encoding, 'utf-8')
             crate = command[command.index("-p") + 1]
-            target = cwd / "target/wasm32-unknown-unknown/release" / (crate.replace("-", "_") + ".wasm")
+            target = cwd / "target/wasm32-unknown-unknown/wasm-release" / (crate.replace("-", "_") + ".wasm")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(b"\0asm\1\0\0\0")
             return SimpleNamespace(stdout=self.wasm_artifact_messages(crate, target))
@@ -683,7 +685,7 @@ process.stdout.write(JSON.stringify({ redirects, link: link.href }));
         ])
 
     def test_wasm_wrapper_stages_reported_artifacts_instead_of_stale_default_target(self):
-        actual_target = self.root / 'configured target/wasm32-unknown-unknown/release'
+        actual_target = self.root / 'configured target/wasm32-unknown-unknown/wasm-release'
         stale_target = self.root / 'target/wasm32-unknown-unknown/release'
         stale_target.mkdir(parents=True)
         for crate in build_wasm.CRATES:

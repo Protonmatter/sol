@@ -35,7 +35,10 @@ test('pending Earth programs cannot admit Mars, and returning to Earth reuses on
 test('both ready physical bodies keep their source, optical uniforms and target ownership in one frame',async t=>{
   const h=await boot(t);
   for(const body of ['Earth','Mars','Earth']){h.input('orreryAnchor',body,'change');await poll(h);}
-  h.input('orrerySize',2);h.state.radius=.5;
+  // Body inspection now uses true relative radii: at AU distances both globes
+  // would correctly be sub-pixel. Use the supported enlarged top-down map to
+  // admit both cached physical-optics programs in the same visible frame.
+  h.check('orreryTopDown',true);h.input('orrerySize',2);h.state.radius=2;
   const start=h.gpuDraws.length;h.resize(1440,1000);await h.settle();
   const draws=h.gpuDraws.slice(start).filter(draw=>draw.uniforms.u_atmosphereEnabled===1&&draw.uniforms.u_mode===0);
   const seen=new Set();
