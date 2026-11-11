@@ -514,9 +514,9 @@ async function canvasScreenshot(page, output) {
  *    is using (store.orrery holds the live object, not a copy). It is verified against the screen
  *    positions the renderer placed the planet's and each moon's DOM label at this same frame;
  *    the assertions reject any plan whose worst residual exceeds half a pixel.
- *  • That same check validates the one renderer constant duplicated here, the planet's display
- *    radius: systemScale() inflates the moon orbits to 1.7 display radii, so a wrong radius moves
- *    every moon marker and the label residual blows up immediately.
+ *  • That same check validates the display geometry assumed here. Focus selection inspects the
+ *    body at physical relative radii and moon offsets (systemDisplayPolicy.js), so a wrong radius
+ *    or moon scale moves the markers and the label residual blows up immediately.
  *
  * The clock is moved by rewriting the value the harness's fixed Date reads, then clicking "Now",
  * which is the app's own path back to renderUnix = Date.now(). Nothing here writes simulation
@@ -542,7 +542,6 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   const state = store.orrery;
   const AU_KM = 149597870.7;
   const FOVY = (42 * Math.PI) / 180;                 // orrery.js
-  const VISIBLE_DISPLAY_RADIUS_AU = { Jupiter: 0.170 }; // orrery.js VIS_RADIUS_AU
   const anchor = document.getElementById("orreryAnchor");
   anchor.value = planet;
   anchor.dispatchEvent(new Event("change", { bubbles: true }));
@@ -582,8 +581,11 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
     casters.map((c) => [c.name, shadowMath.sunlightOnMoon(c.offset, sunOffset, geom)])
   );
 
-  const rEq = (VISIBLE_DISPLAY_RADIUS_AU[planet] || 0.05) * state.exaggeration;
-  if (state.trueScale) throw new Error("moon-shadow frames assume the default visible-scale mode");
+  if (state.trueScale) throw new Error("moon-shadow frames assume Focus inspection, not true scale");
+  // Focus selection inspects the body at physical relative radii and moon offsets
+  // (systemDisplayPolicy.js). The enlarged overview geometry does not apply here.
+  if (state.focusMode !== "inspect-body") throw new Error(`moon-shadow frames expect body inspection, got ${state.focusMode}`);
+  const rEq = phys.radiusKm / AU_KM;
   if (camera.kind === "fixed") {
     state.az = camera.az;
     state.el = camera.el;
@@ -622,8 +624,10 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
     state.radius = rEq / (camera.discFraction * Math.tan(FOVY / 2));
   }
   // Repaint through a production handler rather than by reaching for paint(): the size slider's
-  // input listener re-reads its unchanged value and redraws.
+  // input listener re-reads its unchanged value and queues a frame. Labels and their projection
+  // anchors are written by that frame, so read them only after it has rendered.
   document.getElementById("orrerySize").dispatchEvent(new Event("input", { bubbles: true }));
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
   const canvas = document.getElementById("orreryCanvas");
   const cw = canvas.clientWidth, ch = canvas.clientHeight;
@@ -657,20 +661,16 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   }
   host.style.visibility = "hidden";
 
-  let innermost = Infinity;
-  for (const moon of moons) innermost = Math.min(innermost, (moon.a * (1 - moon.e)) / AU_KM);
-  const ringOuterAU = phys.rings ? (phys.rings.outerKm / phys.radiusKm) * rEq : 0;
-  const scale = Math.max(1, Math.max(rEq * 1.7, ringOuterAU * 1.12) / innermost); // systemScale()
   const forward = math.norm([P[0] - eye[0], P[1] - eye[1], P[2] - eye[2]]);
   const right = math.norm(math.cross(forward, [0, 0, 1]));
   const up = math.cross(right, forward);
   const residuals = [];
   const markers = casters.map((c) => {
     const world = [
-      P[0] + c.offsetAU[0] * scale, P[1] + c.offsetAU[1] * scale, P[2] + c.offsetAU[2] * scale,
+      P[0] + c.offsetAU[0], P[1] + c.offsetAU[1], P[2] + c.offsetAU[2],
     ];
     const at = project(world);
-    const drawn = Math.min(rEq * 0.42, Math.max(rEq * 0.055, rEq * (c.radius / phys.radiusKm) * 4));
+    const drawn = c.radius / AU_KM; // physical moon radius under inspection
     const edge = at
       ? project([world[0] + drawn * right[0], world[1] + drawn * right[1], world[2] + drawn * right[2]])
       : null;
@@ -824,8 +824,8 @@ async function moonShadowAssertions(page, visualDirectory) {
       }
     });
     const plan = await page.evaluate(planMoonShadowFrame, options);
-    // One settled frame: the repaint above is synchronous, but the compositor still has to hand
-    // the canvas to the screenshot.
+    // The plan already waited for its rendered frame; give the compositor time to hand the
+    // canvas to the screenshot.
     await new Promise((resolve) => setTimeout(resolve, 150));
     const bytes = await canvasScreenshot(page, path.join(visualDirectory, `${name}.png`));
     return { plan, bytes };
