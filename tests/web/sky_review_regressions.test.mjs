@@ -700,3 +700,35 @@ test('mixed event window shows a future-event caveat while retaining the UTC ins
   assert.doesNotMatch(text.split(' — ')[0],/nominal UTC/);
   assert.equal(h.context.window.__skyDebug().snap.time.input_time_semantics,'utc');
 });
+
+// The Sun east of the meridian on the celestial equator at a chosen altitude, with RA,
+// hour angle, altitude and azimuth mutually consistent for the snapshot's observer.
+function putSunAtAltitude(snap,altitudeDeg){
+  const d=Math.PI/180,lat=snap.observer.polar_motion_corrected_lat_deg*d,alt=altitudeDeg*d;
+  const H=-Math.acos(Math.sin(alt)/Math.cos(lat));
+  const az=Math.atan2(-Math.sin(H),-Math.cos(H)*Math.sin(lat));
+  const azDeg=((az/d)%360+360)%360,ra=((snap.time.lst_deg-H/d)%360+360)%360;
+  Object.assign(snap.bodies.find(b=>b.name==='Sun'),{alt_deg:altitudeDeg,alt_refracted_deg:altitudeDeg,above_horizon:false,
+    az_deg:azDeg,compass:'E',ra_deg:ra,dec_deg:0,topocentric_apparent_ra_deg:ra,topocentric_apparent_dec_deg:0});
+}
+
+test('faint twilight stars are not hit targets and a hidden star draws no daytime path', async t => {
+  const twilight=structuredClone(snapshot);putSunAtAltitude(twilight,-2);putOnSouthernMeridian(twilight,twilight.bodies.find(b=>b.name==='Sirius'));
+  const h=await skyHarness(t,{canvas:true});
+  await h.publishSnapshot(twilight);
+  const stars=new Set(twilight.bodies.filter(b=>b.kind==='star'&&b.name!=='Sun').map(b=>b.name));
+  assert.ok(twilight.bodies.some(b=>stars.has(b.name)&&b.alt_deg>0),'the fixture has a star above the horizon');
+  assert.ok(!h.context.window.__skyDebug().plotted.some(b=>stars.has(b.name)),'stars at 11% opacity are not hit targets');
+  const dusk=structuredClone(snapshot);putSunAtAltitude(dusk,-9);putOnSouthernMeridian(dusk,dusk.bodies.find(b=>b.name==='Sirius'));
+  h.context.renderSky();await h.publishSnapshot(dusk);
+  assert.ok(h.context.window.__skyDebug().plotted.some(b=>stars.has(b.name)),'stars at half opacity are hit targets again');
+
+  const day=structuredClone(snapshot);
+  for(const name of ['Sun','Sirius'])putOnSouthernMeridian(day,day.bodies.find(b=>b.name===name));
+  const d=await skyHarness(t,{canvas:true});
+  await d.publishSnapshot(day);
+  setOverlay(d,'skyConst',false);
+  const before=d.drawing.strokes.filter(s=>s.path.length>2).length;
+  d.nodes.get('skyList').children.find(row=>row.dataset.objectId==='Sirius').click();
+  assert.equal(d.drawing.strokes.filter(s=>s.path.length>2).length,before,'a daytime-hidden star draws no trajectory');
+});

@@ -342,6 +342,9 @@ function drawDome(snap) {
   const labels = [];
   // Display-only daylight suppression, not a visibility or limiting-magnitude model.
   const starAlpha = Math.max(0, Math.min(1, -sunAltitude(snap) / 18));
+  // Stars fainter than this in twilight are drawn but are not hover or click targets;
+  // the accessible list still offers every star.
+  const STAR_HIT_ALPHA = 0.25;
   const lst = snap.time ? snap.time.lst_deg : 0;
   const lat = snap.observer.polar_motion_corrected_lat_deg;
 
@@ -379,7 +382,7 @@ function drawDome(snap) {
     const size = Math.max(1.2, (2.6 - mag) * r * 0.0055);
     ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2);
     ctx.fillStyle = activeName === b.name ? "#fff3c4" : "rgba(222,230,255,0.94)"; ctx.fill();
-    plotted.push({ name: b.name, x, y, hit: Math.max(10 * dpr, size + 6 * dpr), body: b });
+    if (starAlpha >= STAR_HIT_ALPHA) plotted.push({ name: b.name, x, y, hit: Math.max(10 * dpr, size + 6 * dpr), body: b });
     if (mag < 1.5) {
       ctx.font = `${Math.max(12 * dpr, r * 0.024)}px Segoe UI, sans-serif`; ctx.textAlign = "left";
       ctx.fillStyle = "rgba(200,210,235,0.72)";
@@ -393,7 +396,9 @@ function drawDome(snap) {
   // Trajectory arc for the hovered / pinned object, under the body discs.
   if (showTrajectory && activeName) {
     const a = (snap.bodies || []).find((b) => b.name === activeName);
-    if (a) drawTrajectory(ctx, g, a, lst, lat);
+    // A catalogue star's path shares its daylight fade, so a hidden star draws no path.
+    const opacity = a && !BODY_STYLE[a.name] ? starAlpha : 1;
+    if (a && opacity > 0) drawTrajectory(ctx, g, a, lst, lat, opacity);
   }
 
   // Sun / Moon / planets — discs above the horizon, rim markers below ("objects outside the view").
@@ -504,7 +509,7 @@ function trajectoryPoints(b, lstNow, lat) {
   return null;
 }
 
-function drawTrajectory(ctx, g, b, lstNow, lat) {
+function drawTrajectory(ctx, g, b, lstNow, lat, opacity = 1) {
   const pts = trajectoryPoints(b, lstNow, lat);
   if (!pts || pts.length < 3) return;
   const N = pts.length - 1, mid = Math.floor(N / 2);
@@ -517,7 +522,7 @@ function drawTrajectory(ctx, g, b, lstNow, lat) {
       const [x, y] = project(q.alt, q.az, g);
       if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = style.color; ctx.globalAlpha = past ? 0.32 : 0.82;
+    ctx.strokeStyle = style.color; ctx.globalAlpha = (past ? 0.32 : 0.82) * opacity;
     ctx.lineWidth = Math.max(1.3, g.r * 0.004); ctx.setLineDash(past ? [4 * g.dpr, 4 * g.dpr] : []);
     ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
   };
@@ -527,7 +532,8 @@ function drawTrajectory(ctx, g, b, lstNow, lat) {
     if ((pts[i - 1].alt < 0) !== (pts[i].alt < 0)) {
       const [x, y] = project(0, pts[i].az, g);
       ctx.beginPath(); ctx.arc(x, y, 4 * g.dpr, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(247,183,51,0.9)"; ctx.lineWidth = 1.4 * g.dpr; ctx.stroke();
+      ctx.strokeStyle = "rgba(247,183,51,0.9)"; ctx.lineWidth = 1.4 * g.dpr;
+      ctx.globalAlpha = opacity; ctx.stroke(); ctx.globalAlpha = 1;
     }
   }
 }
