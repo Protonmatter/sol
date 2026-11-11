@@ -522,7 +522,7 @@ async function canvasScreenshot(page, output) {
  * which is the app's own path back to renderUnix = Date.now(). Nothing here writes simulation
  * state; only the camera (the same three numbers a drag would set) is assigned.
  */
-async function planMoonShadowFrame({ unixMs, planet, camera }) {
+async function planMoonShadowFrame({ unixMs, planet, target = planet, camera }) {
   globalThis.__solPinnedUnixMs = unixMs;
   const entry = document.querySelector('script[type="module"][src^="app.js"]');
   const token = entry ? new URL(entry.src).search : "";
@@ -542,8 +542,13 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   const state = store.orrery;
   const AU_KM = 149597870.7;
   const FOVY = (42 * Math.PI) / 180;                 // orrery.js
+  // The camera follows whatever the real Focus control selects: the planet itself, or one of
+  // its moons for the eclipse pair, so the eclipsed moon stays centred in both frames.
+  const targetMoon = target === planet ? null : catalogue.MOONS.find((moon) => moon.n === target && moon.p === planet);
+  if (target !== planet && !targetMoon) throw new Error(`${target} is not a catalogue moon of ${planet}`);
   const anchor = document.getElementById("orreryAnchor");
-  anchor.value = planet;
+  anchor.value = target;
+  if (anchor.value !== target) throw new Error(`the Focus control offers no ${target} option`);
   anchor.dispatchEvent(new Event("change", { bubbles: true }));
   document.getElementById("orreryNow").click();
 
@@ -586,13 +591,22 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   // (systemDisplayPolicy.js). The enlarged overview geometry does not apply here.
   if (state.focusMode !== "inspect-body") throw new Error(`moon-shadow frames expect body inspection, got ${state.focusMode}`);
   const rEq = phys.radiusKm / AU_KM;
+  // The camera orbits the Focus target: the planet, or the moon at its physical offset.
+  const targetOffset = targetMoon ? orbits.moonOffsetAU(targetMoon, unix) : [0, 0, 0];
+  const C = [P[0] + targetOffset[0], P[1] + targetOffset[1], P[2] + targetOffset[2]];
+  const targetRadius = targetMoon ? targetMoon.r / AU_KM : rEq;
   if (camera.kind === "fixed") {
     state.az = camera.az;
     state.el = camera.el;
     state.radius = camera.radius;
   } else {
     let direction;
-    if (camera.kind === "polar") {
+    if (camera.kind === "sunward") {
+      // From the Sun's side of the target, looking away from the Sun. The moon shows its fully
+      // lit face, so its disc can be measured directly, and its planet lies behind the camera;
+      // the plan below rejects any frame in which the planet reaches the canvas.
+      direction = math.norm([-C[0], -C[1], -C[2]]);
+    } else if (camera.kind === "polar") {
       // Straight down the spin axis. Every moon then rides a face-on circle well clear of the
       // disc, and because the Sun is within a few degrees of the equatorial plane every marker
       // shows the same phase — which is what makes two eclipse frames photometrically comparable.
@@ -620,8 +634,8 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
     }
     state.az = Math.atan2(direction[1], direction[0]);
     state.el = Math.asin(Math.max(-1, Math.min(1, direction[2])));
-    // Put the equatorial radius at `discFraction` of the canvas half-height.
-    state.radius = rEq / (camera.discFraction * Math.tan(FOVY / 2));
+    // Put the target's equatorial radius at `discFraction` of the canvas half-height.
+    state.radius = targetRadius / (camera.discFraction * Math.tan(FOVY / 2));
   }
   // Repaint through a production handler rather than by reaching for paint(): the size slider's
   // input listener re-reads its unchanged value and queues a frame. Labels and their projection
@@ -632,13 +646,13 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   const canvas = document.getElementById("orreryCanvas");
   const cw = canvas.clientWidth, ch = canvas.clientHeight;
   const eye = [
-    P[0] + state.radius * Math.cos(state.el) * Math.cos(state.az),
-    P[1] + state.radius * Math.cos(state.el) * Math.sin(state.az),
-    P[2] + state.radius * Math.sin(state.el),
+    C[0] + state.radius * Math.cos(state.el) * Math.cos(state.az),
+    C[1] + state.radius * Math.cos(state.el) * Math.sin(state.az),
+    C[2] + state.radius * Math.sin(state.el),
   ];
   const vp = math.mul(
     math.perspective(FOVY, canvas.width / canvas.height, 0.008, 800),
-    math.lookAt(eye, P, [0, 0, 1])
+    math.lookAt(eye, C, [0, 0, 1])
   );
   const project = (p) => {
     const x = vp[0] * p[0] + vp[4] * p[1] + vp[8] * p[2] + vp[12];
@@ -661,7 +675,7 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   }
   host.style.visibility = "hidden";
 
-  const forward = math.norm([P[0] - eye[0], P[1] - eye[1], P[2] - eye[2]]);
+  const forward = math.norm([C[0] - eye[0], C[1] - eye[1], C[2] - eye[2]]);
   const right = math.norm(math.cross(forward, [0, 0, 1]));
   const up = math.cross(right, forward);
   const residuals = [];
@@ -681,12 +695,25 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
       name: c.name, at, radiusPx: at && edge ? Math.hypot(edge[0] - at[0], edge[1] - at[1]) : null,
     };
   });
-  if (placed[planet]) {
-    const at = project(P);
-    residuals.push(Math.hypot(placed[planet][0] - at[0], placed[planet][1] - at[1]));
+  const planetAt = project(P);
+  if (placed[planet] && planetAt) {
+    residuals.push(Math.hypot(placed[planet][0] - planetAt[0], placed[planet][1] - planetAt[1]));
   }
 
-  if (!placed[planet] || residuals.length < 2) throw new Error("camera calibration requires the planet and at least one visible moon anchor");
+  if (targetMoon) {
+    // A moon target leaves its planet off screen, so the label anchors fix only the moon's
+    // position. The eclipse assertion measures the lit disc's centre and radius from pixels,
+    // which independently checks the camera distance and field of view.
+    if (!placed[target] || !residuals.length) throw new Error(`camera calibration requires the ${target} label anchor`);
+    const planetEdge = planetAt ? project(math.add(P, [rEq * right[0], rEq * right[1], rEq * right[2]])) : null;
+    const planetPx = planetAt && planetEdge ? Math.hypot(planetEdge[0] - planetAt[0], planetEdge[1] - planetAt[1]) : 0;
+    if (planetAt && planetAt[0] + planetPx > 0 && planetAt[0] - planetPx < cw
+        && planetAt[1] + planetPx > 0 && planetAt[1] - planetPx < ch) {
+      throw new Error(`${planet} reaches the ${target} frame, so its sky is not black`);
+    }
+  } else if (!placed[planet] || residuals.length < 2) {
+    throw new Error("camera calibration requires the planet and at least one visible moon anchor");
+  }
   const projectedShadows = shadows.map((shadow) => {
     const c = shadow.center;
     const world = math.add(P, toWorld([rEq * c[0], rEq * c[1], rEq * c[2] * oblate]));
@@ -757,7 +784,14 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   return {
     unix, iso: new Date(unix * 1000).toISOString(),
     az: state.az, el: state.el, radius: state.radius,
-    P, rEq, oblate, sunward, rot, eye, right, up, fwd: forward,
+    P, target, C, rEq, oblate, sunward, rot, eye, right, up, fwd: forward,
+    // The exact perspective silhouette of a focused moon: a sphere of radius R seen from
+    // distance d subtends asin(R/d), so its outline is wider than the centre-to-edge chord.
+    targetDisc: targetMoon && project(C) ? {
+      at: project(C),
+      radiusPx: Math.tan(Math.asin(Math.min(1, targetRadius / Math.hypot(C[0] - eye[0], C[1] - eye[1], C[2] - eye[2]))))
+        / Math.tan(FOVY / 2) * ch / 2,
+    } : null,
     tanHalf: Math.tan(FOVY / 2), aspect: canvas.width / canvas.height,
     cw, ch, shadows: projectedShadows, sunlit, markers,
     labelResidual: Math.max(0, ...residuals),
@@ -850,17 +884,21 @@ async function moonShadowAssertions(page, visualDirectory) {
     control.bytes, control.plan, transit.plan.shadows[0].umbraPx
   );
 
-  // The eclipse pair looks down Jupiter's spin axis, where the Galileans ride a face-on circle
-  // outside the disc and cannot be occluded by it. 0.45 keeps Io's marker on the canvas at that
-  // 1.7-display-radii orbit while still drawing it ~20 px across.
+  // The eclipse pair focuses Io itself through the Focus control and looks at it from the
+  // Sun's side. At physical scale Io orbits 5.9 Jupiter radii out, so any framing that keeps
+  // Jupiter in view draws Io about a pixel wide. Focused, Io's disc spans half the canvas
+  // half-height, stays centred in both frames, and Jupiter lies behind the camera, leaving the
+  // sky around Io black. The control reuses the camera, so the pair differs only in sunlight.
   const eclipse = await frame("jupiter-io-eclipse", {
     unixMs: MOON_ECLIPSE_MS,
     planet: "Jupiter",
-    camera: { kind: "polar", discFraction: 0.45 },
+    target: "Io",
+    camera: { kind: "sunward", discFraction: 0.5 },
   });
   const eclipseControl = await frame("jupiter-io-eclipse-control", {
     unixMs: MOON_ECLIPSE_CONTROL_MS,
     planet: "Jupiter",
+    target: "Io",
     camera: { kind: "fixed", az: eclipse.plan.az, el: eclipse.plan.el, radius: eclipse.plan.radius },
   });
   const eclipseStats = assertEclipsedMoonMarker(
@@ -1128,7 +1166,10 @@ async function visualAssertions(page, visualDirectory, observeContext, systemBud
     ).join(" "),
     `no-transit control darkest local contrast=${moonShadow.control.darkest.toFixed(3)};`,
     `Io in Jupiter's umbra keeps ${moonShadow.eclipse.ratio.toFixed(4)} of its light `
-    + `(shipped ramp ${moonShadow.eclipse.expected.toFixed(4)})`
+    + `(shipped ramp ${moonShadow.eclipse.expected.toFixed(4)}); lit disc radius `
+    + `${moonShadow.eclipse.disc.measuredRadiusPx.toFixed(2)} px vs predicted `
+    + `${moonShadow.eclipse.disc.predictedRadiusPx.toFixed(2)} px, centre error `
+    + `${moonShadow.eclipse.disc.centreError.toFixed(2)} px`
   );
 }
 
