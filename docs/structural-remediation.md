@@ -1,6 +1,6 @@
 # Structural remediation status — November 11, 2026
 
-Implementation on `fix/structural-label-policy`, based on `02aaec8eebfd714fc9000e32fdd4e5d15ec60b91`. This report records local validation; source publication does not grant merge or deployment qualification. The original review and extracted attachment are retained in `/workspace/sol-review` in this workspace. The [ordered implementation plan](superpowers/plans/2026-11-10-structural-completion.md) records the integration sequence.
+Implementation on `fix/structural-label-policy`, based on `02aaec8eebfd714fc9000e32fdd4e5d15ec60b91`. This report records local validation; source publication does not grant merge or deployment qualification. The original review and extracted attachment were kept in `/workspace/sol-review` on the authoring workstation; that directory is not part of this repository (see [evidence retention](#evidence-retention)). The [ordered implementation plan](superpowers/plans/2026-11-10-structural-completion.md) records the integration sequence.
 
 ## Recommendation matrix
 
@@ -41,7 +41,7 @@ Final source-to-staged static closure measurements with tree shaking disabled to
 | Sky | 28 | 24 | 223,055 | 210,235 |
 | Research | 40 | 35 | 326,962 | 321,825 |
 
-These are static closure measurements, not network timing or GPU benchmarks. The 16-byte startup difference comes from release stamping. Full catalogues remain outside ordinary System startup. Evidence: `/workspace/sol-review/final-bundle-measurement.json`.
+These are static closure measurements, not network timing or GPU benchmarks. The 16-byte startup difference comes from release stamping. Full catalogues remain outside ordinary System startup. Evidence: `final-bundle-measurement.json` in the authoring workstation's `/workspace/sol-review`, not retained in this repository.
 
 ## Integrated verification
 
@@ -58,7 +58,19 @@ Final application artifact: `build/site-structural-final10`, manifest SHA-256 `1
 - **Static checks:** 151 application files typecheck clean; static web, UX/accessibility structure and governance checks pass. All 286 Markdown files pass reference/style validation. `git diff --check` is clean.
 - **Review:** independent review accepted the coordinate/display policies, frame and presenter ownership, loading/build changes, science policies, lifecycle fixes, build profiles and exact phase reuse. No material finding remains in that reviewed scope.
 
-Primary logs and reports are retained in `/workspace/sol-review`, with browser evidence under `build/experience-structural-final10`, `build/structural-acceptance-final10`, `build/sky-structural-final10` and `build/cache-structural-final10`.
+Primary logs and reports were written to `/workspace/sol-review`, with browser evidence under `build/experience-structural-final10`, `build/structural-acceptance-final10`, `build/sky-structural-final10` and `build/cache-structural-final10`. All of these are local to the authoring workstation and are not retained in this repository.
+
+## Evidence retention
+
+The paths above under `/workspace/sol-review` and `build/` name files on the workstation where this remediation was written. `build/` is ignored by Git and `/workspace/sol-review` lies outside the checkout, so none of those logs, traces or measurement files can be inspected from this repository or from a CI artifact. Treat every figure in this report that cites only such a path as the author's recorded local result, not as retained evidence.
+
+What can be checked from the repository and from CI:
+
+- **Tests and gates:** the Rust, JavaScript and Python suites, the governance, documentation and static web validators, and the coverage gates run in CI on every push and pull request. The run for the merge of this remediation is CI run 43061040875 on `precision/verified-readiness-20261109` at `2d26c8e`; its artifacts (staged site, release evidence, coverage and browser visuals) are kept for 90 days.
+- **Independent accuracy:** the 160 comparison records, with reference and native vectors, are committed in `apps/web/data/independent-vector-evidence.json`, and the original Horizons responses are under `tests/fixtures/horizons-vectors-20261104`.
+- **Position timing:** the 16 ms raw-position p95 assertion is in `tools/experience_validation.mjs`. No CI workflow runs that tool, so the gate and the 45.3 ms and 8.8 ms figures are local results only.
+- **Old and new WASM parity, bundle sizes, responsive layouts and the interaction diagnostics below:** local measurements only. Reproduce them before relying on them.
+
 
 ## Interaction qualification remains open
 
