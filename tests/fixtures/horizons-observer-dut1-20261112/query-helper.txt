@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""Acquire the high-DUT1 Horizons observer reference pack.
+
+Run once from the repository root with network access:
+
+    python query-helper.py OUTPUT_DIRECTORY
+
+It reuses the request builder and row parser of tools/validate_ephemeris.py, so
+the request shape, quantities (2, 4, 49), airless apparent coordinates and
+geodetic sites are exactly those of the 2026-07-01 pack. Only the instants
+differ: they are chosen where |DUT1| is large and of both signs, so a pointing
+comparison detects UT1 = UTC + DUT1 being dropped or applied with the wrong sign.
+
+This file is retained as acquisition provenance. Replay never runs it.
+"""
+from __future__ import annotations
+
+import csv
+import datetime as dt
+import hashlib
+import io
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path.cwd()
+sys.path.insert(0, str(ROOT / 'tools'))
+import validate_ephemeris as helper  # noqa: E402
+
+UTC = dt.timezone.utc
+# (label, UTC, lat_deg, lon_deg_east, elev_m). Two weeks after the 1973-01-01 leap second
+# DUT1 is near +0.8 s; ten days before the 2015-07-01 leap second it is near -0.7 s.
+CASES = [
+    ('Boston1973', dt.datetime(1973, 1, 15, 3, 21, 9, tzinfo=UTC), 42.36, -71.06, 10.0),
+    ('Sydney1973', dt.datetime(1973, 1, 15, 9, 47, 33, tzinfo=UTC), -33.87, 151.21, 20.0),
+    ('Boston2015', dt.datetime(2015, 6, 20, 16, 5, 27, tzinfo=UTC), 42.36, -71.06, 10.0),
+    ('Sydney2015', dt.datetime(2015, 6, 20, 22, 38, 51, tzinfo=UTC), -33.87, 151.21, 20.0),
+]
+BODIES = {'Sun': '10', 'Moon': '301', 'Jupiter': '599'}
+FIELDS = ['case', 'body', 'jd_utc', 'latitude_deg', 'longitude_deg_east', 'elevation_m',
+          'ra_deg', 'dec_deg', 'az_deg', 'alt_deg', 'dut1_seconds', 'raw_sha256']
+
+
+def now() -> str:
+    return dt.datetime.now(UTC).isoformat()
+
+
+def main() -> int:
+    out = Path(sys.argv[1]).resolve()
+    out.mkdir(parents=True, exist_ok=False)
+    started, records, rows, api_versions = now(), [], [], set()
+    for label, when, lat, lon, elev in CASES:
+        for body, command in BODIES.items():
+            url = helper.horizons_request_url(command, when, lat, lon, elev)
+            text = helper.fetch_with_retry(url)
+            acquired = now()
+            raw = text.encode('utf-8')
+            api_versions.add(text.split('\n', 1)[0].removeprefix('API VERSION: '))
+            reference = helper.horizons_observation(command, when, lat, lon, elev, fetch=lambda _url, reply=text: reply)
+            name = f'{label.lower()}-{body.lower()}.txt'
+            (out / name).write_bytes(raw)
+            digest = hashlib.sha256(raw).hexdigest()
+            records.append({'case': label, 'body': body, 'request_url': url, 'path': name,
+                            'bytes': len(raw), 'sha256': digest, 'acquired_at_utc': acquired})
+            rows.append({'case': label, 'body': body, 'jd_utc': repr(when.timestamp() / 86400 + 2440587.5),
+                         'latitude_deg': repr(lat), 'longitude_deg_east': repr(lon), 'elevation_m': repr(elev),
+                         'ra_deg': repr(reference['ra_deg']), 'dec_deg': repr(reference['dec_deg']),
+                         'az_deg': repr(reference['az_deg']), 'alt_deg': repr(reference['el_deg']),
+                         'dut1_seconds': repr(reference['dut1_seconds']), 'raw_sha256': digest})
+    finished = now()
+    if len(api_versions) != 1:
+        raise SystemExit('responses disagree on the API version')
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, FIELDS, lineterminator='\n')
+    writer.writeheader()
+    writer.writerows(rows)
+    matrix = buffer.getvalue().encode('utf-8')
+    (out / 'observer-matrix.csv').write_bytes(matrix)
+    helper_raw = Path(__file__).read_bytes()
+    (out / 'query-helper.txt').write_bytes(helper_raw)
+    revision = subprocess.run(['git', 'rev-parse', 'HEAD'], check=True, capture_output=True, text=True).stdout.strip()
+    manifest = {
+        'schema_version': 'horizons-observer-reference.v1', 'source': 'NASA/JPL Horizons API',
+        'api_version': api_versions.pop(), 'endpoint': helper_endpoint(), 'quantities': [2, 4, 49],
+        'scope': 'airless topocentric apparent coordinates and DUT1 at the recorded sites/instants only',
+        'limitations': 'Two days (1973-01-15 and 2015-06-20), two sites, three targets; chosen for large DUT1 of '
+                       'both signs. No continuous span, range, event, catalogue-star or heliocentric orbit '
+                       'qualification. Not accepted UI accuracy registry evidence.',
+        'acquisition_started_utc': started, 'acquisition_finished_utc': finished,
+        'query_helper': {'path': 'query-helper.txt', 'sha256': hashlib.sha256(helper_raw).hexdigest(),
+                         'base_git_revision': revision},
+        'derived_matrix': {'path': 'observer-matrix.csv', 'bytes': len(matrix),
+                           'sha256': hashlib.sha256(matrix).hexdigest()},
+        'records': records,
+    }
+    (out / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    for row in rows:
+        print(row['case'], row['body'], row['dut1_seconds'], row['alt_deg'], row['az_deg'])
+    return 0
+
+
+def helper_endpoint() -> str:
+    from horizons_reference import ENDPOINT
+    return ENDPOINT
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
