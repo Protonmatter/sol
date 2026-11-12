@@ -105,11 +105,14 @@ def main() -> int:
     except (OSError, ValueError) as error:
         parser.exit(1, f"ERROR: WASM source inventory: {error}\n")
 
+    # One name selects the Cargo profile and is then recorded in the receipt, so the
+    # receipt cannot name a profile other than the one these commands requested.
+    profile = BUILD_PROFILE
     for crate in CRATES:
-        print(f"Building {crate} ({BUILD_PROFILE}, {TARGET})...")
+        print(f"Building {crate} ({profile}, {TARGET})...")
         try:
             result = subprocess.run(
-                ["cargo", "build", "-p", crate, "--target", TARGET, "--profile", BUILD_PROFILE, "--locked", "--message-format=json"],
+                ["cargo", "build", "-p", crate, "--target", TARGET, "--profile", profile, "--locked", "--message-format=json"],
                 cwd=ROOT,
                 check=True,
                 stdout=subprocess.PIPE,
@@ -133,7 +136,7 @@ def main() -> int:
         print(f"Staged {dst} ({dst.stat().st_size / 1024:.1f} KB)")
 
     try:
-        write_receipt(ROOT, dst_dir, expected_inputs=inputs)
+        write_receipt(ROOT, dst_dir, profile=profile, expected_inputs=inputs)
     except (OSError, ValueError) as error:
         parser.exit(1, f"ERROR: WASM source receipt: {error}\n")
     return 0

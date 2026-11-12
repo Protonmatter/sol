@@ -31,6 +31,14 @@ manifest validator checks receipt-to-binary identity and, when corresponding
 source metadata is present, requires every declared source hash to match it.
 Changing an outer asset hash alone cannot clear those semantic checks.
 
+The receipt names the Cargo profile that `tools/build_wasm.py` requested, and
+`write_receipt` refuses any profile other than the dedicated browser profile
+`wasm-release`. A receipt naming Cargo's plain `release` profile is readable only
+when its recorded root `Cargo.toml` digest is the one manifest that predates the
+browser profile (pinned in `LEGACY_PROFILE_MANIFESTS`); for any later manifest
+the reader rejects it, so a size-optimized `--release` build cannot pass the
+post-build manifest validator. No published release carries a `release` receipt.
+
 Historical shells without the component portal keep their existing build and
 manifest contract. A receipt supplied to such a build is still validated. This
 backward compatibility does not qualify an old artifact or grant a release.
