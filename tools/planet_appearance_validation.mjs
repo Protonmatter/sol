@@ -54,6 +54,8 @@ const fixtures = new Map([
   // Matching dark edges and a bright interior: a false coarse mip at the
   // longitude wrap becomes a bright strip in the actual moon contrast mode.
   ["/spatial-seam.png", fixture(64, 32, x => x < 4 || x >= 60 ? [32,32,32,255] : [224,224,224,255])],
+  // Subpixel alternating texels must retain mip smoothing after the wrap fix.
+  ["/checker.png", fixture(1024, 512, (x,y) => [...Array(3).fill((x+y)%2 ? 255 : 0),255])],
   // A geographically bounded dark-red deposit against brighter terrain tests
   // valid dark RGB and the uncompressed part of the relative-contrast display.
   ["/color-deposits.png", fixture(64, 32, x => x < 8 ? [48,12,6,255] : [192,192,192,255])],
@@ -154,7 +156,7 @@ async function run() {
       // Coordinate-gradient probes use nearest to make source texel identity explicit.
       // Quadrants and seam exercise the renderer's actual linear/mipmap upload path.
       const maskedPhoto = ["/transparent.png", "/half-white.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name);
-      textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/spatial-seam.png", "/color-deposits.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
+      textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/spatial-seam.png", "/checker.png", "/color-deposits.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
       uploadPremultiplyStates.push({name, expected:maskedPhoto, actual:gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)});
       if (name === "/quadrants.png") textures.flipped = flippedFactory(image, true, false);
       if (['/opaque-edge.png','/saturated-edge.png'].includes(name)) {
@@ -180,6 +182,7 @@ async function run() {
       gl.bindFramebuffer(gl.FRAMEBUFFER,options.linearOutput ? linearTarget : null);
       i('u_linearOutput',options.linearOutput ? 1 : 0);
       i('u_textureLinear',options.textureLinear ? 1 : 0);
+      i('u_illustrativeLinear',options.illustrative ? 1 : 0);
       const p = options.position || [0, 1, 1], e = .0001;
       const vertices = [[-1,-1], [1,-1], [-1,1], [-1,1], [1,-1], [1,1]];
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices.flatMap(([x,y]) => [p[0]+e*x,p[1]+e*y,p[2]])), gl.STATIC_DRAW);
@@ -314,13 +317,18 @@ async function run() {
   for (const side of [-1,1]) check(`continuous source seam side ${side}`,
     await probe({position:[-1,side*.001,0],texture:"/seam.png"}), [40,120,220,255]);
   const spatialCases = [
+    ['display map',0,'/seam.png',[40,120,220,255]],
+    ['illustrative planet',0,'/seam.png',[40,120,220,255],undefined,{illustrative:true}],
+    ['minified display map',0,'/checker.png',[128,128,128,255]],
+    ['legacy moon',2,'/spatial-seam.png',rgba([.2,.3,.4].map(c=>255*c*(32/200)**.6))],
+    ['Venus cloud shell',0,'/seam.png',[40,120,220,97],undefined,{mode:4,camera:[0,0,1e6]}],
     ['registered colour',3,'/seam.png',[40,120,220,255]],
     ['registered moon',4,'/spatial-seam.png',rgba([.2,.3,.4].map(c=>255*c*(32/200)**.6))],
     ['registered color moon',5,'/seam.png',rgba([40/220,120/220,1].map(c=>255*.6*c)),[.6,.6,.6]],
   ];
-  for (const [name,texMode,texture,expected,base] of spatialCases) {
+  for (const [name,texMode,texture,expected,base,extra] of spatialCases) {
     for (const crossing of [false,true]) {
-      const spatial = await pairedProbe('spatialSeamProbe',{texMode,texture,crossing,base});
+      const spatial = await pairedProbe('spatialSeamProbe',{texMode,texture,crossing,base,...extra});
       check(`${name} spatial ${crossing ? 'longitude-wrap' : 'non-wrapping'} patch retains edge texels`,
         spatial.pixels, Array.from({length:spatial.width*spatial.height},()=>expected).flat(), 2);
     }
