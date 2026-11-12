@@ -131,3 +131,14 @@ test('a QA facade loads only its owning chunk closure, not the rest of the diagn
  assert.equal(other.page(),page.node);assert.equal(globalThis.__pageSideEffects,1,'the page module still runs exactly once');
  delete globalThis.__pageSideEffects;
 });
+
+test('bundled recovery graph names emitted shared dependencies, not inlined originals',async t=>{
+ const {bundleWeb}=await import('../../tools/bundle_web.mjs');const f=fixture(t);
+ await bundleWeb({sourceRoot:f.source,stageRoot:f.stage,roots:['app.js'],qaEntries:['js/view.js']});
+ const graph=JSON.parse(fs.readFileSync(path.join(f.stage,'module-dependencies.v1.json'),'utf8'));
+ const queue=['js/view.js'],seen=new Set();
+ while(queue.length){const name=queue.pop();if(seen.has(name))continue;seen.add(name);queue.push(...graph.modules[name]);}
+ assert.ok([...seen].some(name=>name.startsWith('js/shared-')));
+ assert.ok(!seen.has('js/private.js'));assert.ok(!seen.has('js/moonelements.js'));
+ assert.ok([...seen].every(name=>fs.existsSync(path.join(f.stage,name))));
+});

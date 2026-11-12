@@ -34,11 +34,15 @@ test('point marker DPR follows the backing-resolution tier at high density',asyn
 
 test('Auto uses sustained continuous delivery evidence and manual choices remain deterministic',async t=>{
   const h=await paused(t);h.setAnimate(true);
+  // The first drawn frame was at 100 ms. Slow delivery during the three-second start-up
+  // window is loading, so the same evidence only lowers resolution once that window has passed.
   for(let i=1;i<=14;i++)h.frame(100+i*34);
+  assert.equal(h.state.renderQuality.tier,'high');assert.match(h.nodes.orreryQualityStatus.textContent,/Auto.*High/);
+  for(let i=1;i<=14;i++)h.frame(4000+i*34);
   assert.equal(h.state.renderQuality.tier,'balanced');assert.match(h.nodes.orreryQualityStatus.textContent,/Auto.*Balanced/);
   assert.equal(h.frames.size,1,'quality sampling shares the animation owner');
   h.input('orreryQuality','high','change');
-  for(let i=15;i<=40;i++)h.frame(100+i*34);
+  for(let i=15;i<=40;i++)h.frame(4000+i*34);
   assert.equal(h.state.renderQuality.tier,'high');assert.equal(h.nodes.orreryCanvas.width,800);
 });
 

@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import * as esbuild from 'esbuild';
 import ts from 'typescript';
-import {analyzeModules,moduleEdges,resolveModule,compilerGeneratedModuleKind} from './module_graph.mjs';
+import {analyzeModules,moduleEdges,resolveModule,compilerGeneratedModuleKind,moduleDependencies} from './module_graph.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export const BUILD_DESCRIPTOR='web-build.v1.json';
@@ -175,7 +175,8 @@ export async function bundleWeb({sourceRoot,stageRoot,roots,qaEntries=QA_ENTRIES
  for(const name of Object.keys(result.metafile.inputs).filter(name=>name!=='sol-diagnostic:exports'))fs.rmSync(path.join(stageRoot,name),{force:true});
  for(const [name,bytes]of outputBytes){const file=path.join(stageRoot,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,bytes);}
  for(const [name,text]of raw)if(fs.readFileSync(path.join(sourceRoot,name),'utf8')!==text)throw new Error('Compiler source changed during build');
- analyzeModules(stageRoot,sorted(new Set([...roots,...entries,...retained])),{includeDeferred:true});
+ const recovery=moduleDependencies(stageRoot,sorted(new Set([...roots,...entries,...retained])));
+ fs.writeFileSync(path.join(stageRoot,'module-dependencies.v1.json'),JSON.stringify(recovery,null,2)+'\n');
  const stagedStartup=analyzeModules(stageRoot,roots);
  if(JSON.stringify(stagedStartup.modules.map(m=>m.path))!==JSON.stringify(startup.modules.map(m=>m.path)))throw new Error('Bundling changed initial static closure');
  const descriptor={schema_version:'web-build.v1',compiler:{name:'esbuild',version:ESBUILD_VERSION,

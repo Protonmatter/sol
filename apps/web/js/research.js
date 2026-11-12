@@ -1,3 +1,4 @@
+import {butterflyPlot} from './butterflyGeometry.js';
 // Research bindings load only after deliberate Research intent.
 import { store } from "./store.js";
 import { TOUR_STEPS } from "./config.js";
@@ -66,8 +67,9 @@ document.getElementById("butterflyCanvas")?.addEventListener("click", (event) =>
   const rect = canvas.getBoundingClientRect();
   const x = (event.clientX - rect.left) * (canvas.width / rect.width);
   if (store.seriesFrames.length) {
-    const usable = canvas.width - 38 - 14;
-    const frac = clamp((x - 38) / usable, 0, 1);
+    const textScale = Math.max(canvas.width/rect.width,canvas.height/rect.height);
+    const plot = butterflyPlot(canvas.width,textScale);
+    const frac = clamp((x - plot.left) / plot.width, 0, 1);
     stopPlay();
     const index = nearestSeriesFrame(store.seriesRecords, frac);
     if (index !== null) setTimelineFrame(index);

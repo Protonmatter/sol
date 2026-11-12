@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -51,12 +53,12 @@ class ReleaseArtifactTests(unittest.TestCase):
         for name in ("solar_wasm.wasm", "solar_ephemeris.wasm"):
             (self.wasm / name).write_bytes(b"\0asm\1\0\0\0")
 
-    def build(self, name="ci-abc-123-1", previous=None):
+    def build(self, name="ci-abc-123-1", previous=None, schemas=None):
         out = self.root / name
         build_web.build_site(self.source, self.wasm, out, release_id=name,
             source_sha="a" * 40, repository="owner/repo", run_id=123, run_attempt=1,
             base_path="/sol/", previous_root=previous,
-            schemas=["solar-state-snapshot.v2", "ephemeris-snapshot.v2"])
+            schemas=schemas or ["solar-state-snapshot.v2", "ephemeris-snapshot.v2"])
         return out
 
     def test_final_bytes_and_namespace_manifest_validate_without_source_mutation(self):
@@ -548,14 +550,29 @@ process.stdout.write(JSON.stringify({ redirects, link: link.href }));
                 build_wasm.main()
 
 
-    def source_bound_build(self, name='source-bound'):
+    def source_bound_build(self, name='source-bound', schemas=None):
         portal = self.source / 'licenses/solar-ephemeris/index.html'
         portal.parent.mkdir(parents=True, exist_ok=True)
         portal.write_text('Explicit source-portal I/O fixture', encoding='utf-8')
         # Source-archive construction is a separate tested I/O boundary. Keep
-        # real source-receipt, binary copying and staged manifest admission.
-        with patch.object(build_web, 'ROOT', self.root), patch.object(build_web, 'stage_distribution', return_value=None):
-            return self.build(name)
+        # real source-receipt, binary copying and staged manifest admission, and stage a
+        # stand-in distribution with the same shape: an archive and the manifest that binds it.
+        def staged_distribution(project, web, staged, **_):
+            destination = Path(staged) / 'licenses/solar-ephemeris'
+            archive = b'stand-in source archive'
+            (destination / 'sol-source.tar.gz').write_bytes(archive)
+            result = {'archive': 'sol-source.tar.gz', 'archive_bytes': len(archive),
+                'archive_sha256': hashlib.sha256(archive).hexdigest(),
+                'files': {name: {'sha256': digest} for name, digest in wasm_provenance.capture_source_inputs(self.root).items()}}
+            (destination / 'SOURCE-MANIFEST.json').write_text(json.dumps(result), encoding='utf-8')
+            return result
+        with patch.object(build_web, 'ROOT', self.root), patch.object(build_web, 'stage_distribution', staged_distribution):
+            return self.build(name, schemas=schemas)
+
+    def drop_test_asset(self, out, manifest, relative):
+        (out / relative).unlink()
+        manifest['assets'] = [row for row in manifest['assets'] if row['path'] != relative]
+        self.restamp_test_manifest(out, manifest)
 
     @staticmethod
     def restamp_test_manifest(out, manifest):
@@ -640,14 +657,71 @@ process.stdout.write(JSON.stringify({ redirects, link: link.href }));
         manifest = validator.validate_manifest(out / 'web-release-manifest.json')
         relative = manifest['namespace'] + 'licenses/solar-ephemeris/SOURCE-MANIFEST.json'
         p = out / relative
+        staged = json.loads(p.read_bytes())
         files = {name: {'sha256': digest} for name, digest in doc['source_inputs'].items()}
-        p.write_text(json.dumps({'files': files}), encoding='utf-8')
+        p.write_text(json.dumps({**staged, 'files': files}), encoding='utf-8')
         self.refresh_test_asset(out, manifest, relative)
         validator.validate_manifest(out / 'web-release-manifest.json')
         files['Cargo.lock']['sha256'] = '0' * 64
-        p.write_text(json.dumps({'files': files}), encoding='utf-8')
+        p.write_text(json.dumps({**staged, 'files': files}), encoding='utf-8')
         self.refresh_test_asset(out, manifest, relative)
         with self.assertRaisesRegex(ValueError, 'archived source'):
+            validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_component_release_cannot_drop_its_receipt_source_manifest_or_archive(self):
+        # Each file is removed from disk and from the outer manifest, as a build that simply
+        # stopped staging it would do. The outer inventory stays self-consistent every time.
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        for index, name in enumerate(['pkg/' + wasm_provenance.RECEIPT_NAME, 'licenses/solar-ephemeris/SOURCE-MANIFEST.json',
+                'licenses/solar-ephemeris/sol-source.tar.gz']):
+            out = self.source_bound_build('dropped-%d' % index)
+            manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+            self.drop_test_asset(out, manifest, manifest['namespace'] + name)
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'component release is missing ' + re.escape(name)):
+                validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_source_archive_is_bound_to_its_published_manifest_not_only_the_outer_hash(self):
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        out = self.source_bound_build()
+        manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+        portal = manifest['namespace'] + 'licenses/solar-ephemeris/'
+        archive, source_manifest = out / (portal + 'sol-source.tar.gz'), out / (portal + 'SOURCE-MANIFEST.json')
+        original, staged = archive.read_bytes(), json.loads(source_manifest.read_bytes())
+        # Replaced bytes, with the outer manifest rehashed to match them.
+        for replacement in [b'13 junk bytes', original + b'!', original[:-1]]:
+            archive.write_bytes(replacement)
+            self.refresh_test_asset(out, manifest, portal + 'sol-source.tar.gz')
+            with self.subTest(size=len(replacement)), self.assertRaisesRegex(ValueError, 'source archive differs'):
+                validator.validate_manifest(out / 'web-release-manifest.json')
+        archive.write_bytes(original)
+        self.refresh_test_asset(out, manifest, portal + 'sol-source.tar.gz')
+        validator.validate_manifest(out / 'web-release-manifest.json')
+        # A source manifest that stops naming, sizing or hashing its archive is not a binding.
+        for edit in [{'archive_sha256': None}, {'archive_sha256': '0' * 64}, {'archive_bytes': str(len(original))},
+                {'archive_bytes': len(original) + 1}, {'archive': 'other.tar.gz'}]:
+            source_manifest.write_text(json.dumps({**staged, **edit}), encoding='utf-8')
+            self.refresh_test_asset(out, manifest, portal + 'SOURCE-MANIFEST.json')
+            with self.subTest(edit=edit), self.assertRaisesRegex(ValueError, 'source archive differs'):
+                validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_current_ephemeris_contract_requires_the_component_portal(self):
+        # v2 and v3 shells predate the portal and stay valid without it.
+        validator.validate_manifest(self.build('historical-shell') / 'web-release-manifest.json')
+        with self.assertRaisesRegex(ValueError, 'component release is missing licenses/solar-ephemeris/index.html'):
+            self.build('current-shell', schemas=['solar-state-snapshot.v2', 'ephemeris-snapshot.v4'])
+        # With the portal, receipt and distribution staged, the same contract validates.
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        out = self.source_bound_build('current-component', schemas=['solar-state-snapshot.v2', 'ephemeris-snapshot.v4'])
+        self.assertIn('ephemeris-snapshot.v4', validator.validate_manifest(out / 'web-release-manifest.json')['schemas'])
+
+    def test_a_historical_shell_cannot_stage_half_a_source_distribution(self):
+        out = self.build('half-distribution')
+        manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+        relative = manifest['namespace'] + 'licenses/solar-ephemeris/sol-source.tar.gz'
+        (out / relative).parent.mkdir(parents=True)
+        (out / relative).write_bytes(b'archive without a manifest')
+        self.refresh_test_asset(out, manifest, relative)
+        with self.assertRaisesRegex(ValueError, 'staged together'):
             validator.validate_manifest(out / 'web-release-manifest.json')
 
     def test_failed_or_source_drifted_compiler_cannot_leave_a_success_receipt(self):

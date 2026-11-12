@@ -10,6 +10,8 @@ from typing import Any
 
 VERSION = "web-release-manifest.v1"
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+# Releases on these contracts could be built without the ephemeris component portal.
+HISTORICAL_EPHEMERIS_SCHEMAS = frozenset({"ephemeris-snapshot.v2", "ephemeris-snapshot.v3"})
 RELEASE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 
 
@@ -114,15 +116,38 @@ def validate_data(data: dict, root: Path) -> dict:
         if not (root / asset["path"]).read_bytes().startswith(b"\0asm\1\0\0\0"):
             raise ValueError("invalid WASM header")
     receipt_path = namespace + "pkg/wasm-build.v1.json"
+    portal = namespace + 'licenses/solar-ephemeris/'
+    source_manifest_path, archive_path = portal + 'SOURCE-MANIFEST.json', portal + 'sol-source.tar.gz'
+    # The builder stages the ephemeris component portal, its build receipt and its
+    # corresponding-source distribution together. An artifact that offers the portal, or that
+    # speaks an ephemeris contract newer than the last portal-less release, must carry all of
+    # them: absence is a build regression, not a historical shell.
+    component_release = (portal + 'index.html' in listed or any(
+        version.startswith('ephemeris-snapshot.') and version not in HISTORICAL_EPHEMERIS_SCHEMAS
+        for version in data['schemas']))
+    if component_release:
+        for required in (portal + 'index.html', receipt_path, source_manifest_path, archive_path):
+            if required not in listed:
+                raise ValueError('component release is missing ' + required.removeprefix(namespace))
+    elif (source_manifest_path in listed) != (archive_path in listed):
+        raise ValueError('source manifest and source archive must be staged together')
     if receipt_path in listed:
         from wasm_provenance import read_receipt, validate_archived_sources
         receipt_asset = next(asset for asset in assets if asset['path'] == receipt_path)
         if receipt_asset['role'] != 'critical':
             raise ValueError('WASM build receipt must be critical')
         receipt, _ = read_receipt(root / namespace / 'pkg')
-        source_manifest = root / namespace / 'licenses/solar-ephemeris/SOURCE-MANIFEST.json'
-        if source_manifest.is_file():
-            validate_archived_sources(receipt, load_json(source_manifest).get('files', {}))
+        if source_manifest_path in listed:
+            validate_archived_sources(receipt, load_json(root / source_manifest_path).get('files', {}))
+    if source_manifest_path in listed:
+        # The outer asset hash only says the archive is the file that was staged. This binds it
+        # to the inventory the portal publishes for it.
+        source = load_json(root / source_manifest_path)
+        archive = root / archive_path
+        if (source.get('archive') != 'sol-source.tar.gz' or not SHA256.fullmatch(str(source.get('archive_sha256', '')))
+                or type(source.get('archive_bytes')) is not int or archive.stat().st_size != source['archive_bytes']
+                or digest(archive) != source['archive_sha256']):
+            raise ValueError('source archive differs from its published source manifest')
     if "solar-state-snapshot.v3" in data["schemas"]:
         from data_bundles import resolve_derived_manifest
         descriptor = data.get("data_bundle")

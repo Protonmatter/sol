@@ -27,9 +27,22 @@ Current web builds carrying the ephemeris source portal require a matching
 receipt before creating a staging directory. The builder rechecks the copied
 binaries and source bindings, retains the receipt as a critical asset, and
 checks again before publishing the local artifact directory. The immutable
-manifest validator checks receipt-to-binary identity and, when corresponding
-source metadata is present, requires every declared source hash to match it.
+manifest validator requires the receipt, the source manifest and the source
+archive whenever the artifact carries the component portal or speaks an
+ephemeris contract newer than v3; a release that omits any of them is rejected,
+not treated as a historical shell. It checks receipt-to-binary identity,
+requires every source hash in the receipt to match the source manifest, and
+requires the archive's size and SHA-256 to match the values that manifest
+publishes.
 Changing an outer asset hash alone cannot clear those semantic checks.
+
+The receipt names the Cargo profile that `tools/build_wasm.py` requested, and
+`write_receipt` refuses any profile other than the dedicated browser profile
+`wasm-release`. A receipt naming Cargo's plain `release` profile is readable only
+when its recorded root `Cargo.toml` digest is the one manifest that predates the
+browser profile (pinned in `LEGACY_PROFILE_MANIFESTS`); for any later manifest
+the reader rejects it, so a size-optimized `--release` build cannot pass the
+post-build manifest validator. No published release carries a `release` receipt.
 
 Historical shells without the component portal keep their existing build and
 manifest contract. A receipt supplied to such a build is still validated. This

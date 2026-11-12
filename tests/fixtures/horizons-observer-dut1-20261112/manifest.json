@@ -1,0 +1,135 @@
+{
+  "schema_version": "horizons-observer-reference.v1",
+  "source": "NASA/JPL Horizons API",
+  "api_version": "1.2",
+  "endpoint": "https://ssd.jpl.nasa.gov/api/horizons.api",
+  "quantities": [
+    2,
+    4,
+    49
+  ],
+  "scope": "airless topocentric apparent coordinates and DUT1 at the recorded sites/instants only",
+  "limitations": "Two days (1973-01-15 and 2015-06-20), two sites, three targets; chosen for large DUT1 of both signs. No continuous span, range, event, catalogue-star or heliocentric orbit qualification. Not accepted UI accuracy registry evidence.",
+  "acquisition_started_utc": "2026-11-12T03:37:12.552861+00:00",
+  "acquisition_finished_utc": "2026-11-12T03:37:20.443461+00:00",
+  "query_helper": {
+    "path": "query-helper.txt",
+    "sha256": "d607bdb11b9ded5c9c18010d80362fe6c1c480c748fb5de72f2ce65dc5d99456",
+    "base_git_revision": "ba1ef17cd7a7a9c87ac2324d312e209ed20f4009"
+  },
+  "derived_matrix": {
+    "path": "observer-matrix.csv",
+    "bytes": 2279,
+    "sha256": "0b9a2f5b684490b1bb66224228c8ccfe354f9d9b60a3ce10aea82ee0bf77ed7a"
+  },
+  "records": [
+    {
+      "case": "Boston1973",
+      "body": "Sun",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272441697.639687499963%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "boston1973-sun.txt",
+      "bytes": 7925,
+      "sha256": "940e9337ed108871806c6b857e45ef88ed18ceffbee2d5306336394ccf4edabb",
+      "acquired_at_utc": "2026-11-12T03:37:13.383370+00:00"
+    },
+    {
+      "case": "Boston1973",
+      "body": "Moon",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272441697.639687499963%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "boston1973-moon.txt",
+      "bytes": 7927,
+      "sha256": "eb6176577e492cfc0a510053ae58faf16b636880c78f6fc22c06a891f2c7af74",
+      "acquired_at_utc": "2026-11-12T03:37:14.005754+00:00"
+    },
+    {
+      "case": "Boston1973",
+      "body": "Jupiter",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272441697.639687499963%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "boston1973-jupiter.txt",
+      "bytes": 7949,
+      "sha256": "bd33022155465179d41f3b14dbf8a7c6053277e51140480e5b6ce2ef78279d93",
+      "acquired_at_utc": "2026-11-12T03:37:14.686507+00:00"
+    },
+    {
+      "case": "Sydney1973",
+      "body": "Sun",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272441697.908020833507%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "sydney1973-sun.txt",
+      "bytes": 7925,
+      "sha256": "9acf8ffb6195a1c24b59056ca9824ef2f2a14a21c4fe2f3b07bc41b48646c0e7",
+      "acquired_at_utc": "2026-11-12T03:37:15.313521+00:00"
+    },
+    {
+      "case": "Sydney1973",
+      "body": "Moon",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272441697.908020833507%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "sydney1973-moon.txt",
+      "bytes": 7927,
+      "sha256": "b46f2d0253a8f98115ae06b2a796e2be5a10a92acaa6a866542c6fb17b0a405b",
+      "acquired_at_utc": "2026-11-12T03:37:15.975302+00:00"
+    },
+    {
+      "case": "Sydney1973",
+      "body": "Jupiter",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272441697.908020833507%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "sydney1973-jupiter.txt",
+      "bytes": 7949,
+      "sha256": "7228fb0e02ccf6d351d2c1c46cdd0adbcb1c1d0207473c95b229d7f06fefb472",
+      "acquired_at_utc": "2026-11-12T03:37:16.612821+00:00"
+    },
+    {
+      "case": "Boston2015",
+      "body": "Sun",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272457194.170451388694%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "boston2015-sun.txt",
+      "bytes": 7925,
+      "sha256": "40b2c550ad7274559f79505589d8aaf344850d0a27136574ad874a0563400454",
+      "acquired_at_utc": "2026-11-12T03:37:17.269621+00:00"
+    },
+    {
+      "case": "Boston2015",
+      "body": "Moon",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272457194.170451388694%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "boston2015-moon.txt",
+      "bytes": 7927,
+      "sha256": "9adfd88a66f03168a3d3f0e9f503fd50fc8f62fd3efb62879c13dac5472d4b1d",
+      "acquired_at_utc": "2026-11-12T03:37:17.903305+00:00"
+    },
+    {
+      "case": "Boston2015",
+      "body": "Jupiter",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27288.94%2C42.36%2C0.01%27&TLIST=%272457194.170451388694%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "boston2015-jupiter.txt",
+      "bytes": 7949,
+      "sha256": "5c8da018fbec859149f33db1e85949e570dc555f419afa2526ecd51c572eb3f9",
+      "acquired_at_utc": "2026-11-12T03:37:18.546272+00:00"
+    },
+    {
+      "case": "Sydney2015",
+      "body": "Sun",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272457194.443645833526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "sydney2015-sun.txt",
+      "bytes": 7925,
+      "sha256": "b0f7e70e3f59ea88965df22a5e6833b96e624e0ab57adc8febfdafb424fec189",
+      "acquired_at_utc": "2026-11-12T03:37:19.169616+00:00"
+    },
+    {
+      "case": "Sydney2015",
+      "body": "Moon",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272457194.443645833526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "sydney2015-moon.txt",
+      "bytes": 7927,
+      "sha256": "5f6744d8e5356e4df47f4202042ae103c00458a74c0ae330adef524c4004b555",
+      "acquired_at_utc": "2026-11-12T03:37:19.797505+00:00"
+    },
+    {
+      "case": "Sydney2015",
+      "body": "Jupiter",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27&TLIST=%272457194.443645833526%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C49%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&EXTRA_PREC=%27YES%27&CSV_FORMAT=%27YES%27&ELEV_CUT=%27-90%27",
+      "path": "sydney2015-jupiter.txt",
+      "bytes": 7949,
+      "sha256": "2e203b2648fef8bd5a0cb515d9209e4ba1673f452a5223a684bdd22dcbb20554",
+      "acquired_at_utc": "2026-11-12T03:37:20.442728+00:00"
+    }
+  ]
+}

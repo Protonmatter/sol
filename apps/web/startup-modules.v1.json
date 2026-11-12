@@ -8,12 +8,12 @@
     {
       "url": "app.js",
       "path": "app.js",
-      "sha256": "ceaf6d064a296305e0a830d7aecdef397fc9cfa0cf6b82117e72a83a6ee7574a"
+      "sha256": "1df02b4f05740e1b8c06c66c77e1cb5f7603b0d302dd700674d1dd57a55bda55"
     },
     {
       "url": "js/catalogueLoader.js",
       "path": "js/catalogueLoader.js",
-      "sha256": "743bad2a968abae7aae9c9cee83382ceba48f8b49a068f784e629678c60134b6"
+      "sha256": "62677775907b57b61e45e34a4a252dc5664712b69e3987bdecb9bce7f789b55b"
     },
     {
       "url": "js/config.js",
@@ -93,7 +93,7 @@
     {
       "url": "js/viewLoader.js",
       "path": "js/viewLoader.js",
-      "sha256": "600640ff72a90f6ecdf3216ff170b486552aeb1af94bf3ff505e989ed7c832dc"
+      "sha256": "8ce1fc9d33e975f35c38d23e55c132b1cb739255f604b61181035e4274bda9e0"
     },
     {
       "url": "js/viewRegistry.js",

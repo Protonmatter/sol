@@ -13,6 +13,7 @@ test('first Research entry selects model; destination reentry preserves the chos
   const [research]=await loadSourceModules(context,[new URL('../../apps/web/js/research.js',import.meta.url)],{
     resolveImport:(_,url)=>{
       if(url.pathname.endsWith('/researchView.js'))return {};
+      if(url.pathname.endsWith('/butterflyGeometry.js'))return undefined;
       return bindings;
     },
   });

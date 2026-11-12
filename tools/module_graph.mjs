@@ -104,3 +104,15 @@ export function compilerGeneratedModuleKind(text,name) {
   if(moduleLinkageOnly(text,name))return 'module-linkage';
   return text.trim()===EXPORT_HELPER?'esbuild-namespace-exports':null;
 }
+
+// Recovery fetches a requested entry's static closure, never its deferred payloads.
+// Generate from parsed imports/reexports for both source and compiled modules.
+export function moduleDependencies(root,roots){
+  const complete=analyzeModules(root,roots,{includeDeferred:true});
+  const modules=Object.fromEntries(complete.modules.map(item=>{
+    if(item.url!==item.path)throw new Error('Recovery requires query-free canonical module identities');
+    const edges=moduleEdges(fs.readFileSync(sourceFile(root,item.path),'utf8'),item.path);
+    return [item.path,[...new Set(edges.static.map(specifier=>resolveModule(specifier,item.path).path))].sort()];
+  }));
+  return {schema_version:'module-dependencies.v1',modules};
+}

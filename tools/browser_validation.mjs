@@ -1243,6 +1243,10 @@ async function exerciseOrrery(page, visualDirectory, observeContext, sunResoluti
   // The existing source-image, terrain and moon-shadow baselines qualify the
   // Source-qualified option; select it explicitly after checking the product default.
   await page.select('#orreryPlanetLook','source-qualified');
+  // Pixel comparisons and canvas alignment require a fixed backing resolution.
+  // Auto legitimately downshifts under software rendering or coverage overhead;
+  // its adaptation is exercised separately by the render-quality integration tests.
+  await page.select('#orreryQuality','high');
   await setChecked(page, "#orreryAnimate", false);
   // Settle the current visible demand; distant and disabled maps remain deferred.
   const appearance = await waitForReferenceReadiness(page);

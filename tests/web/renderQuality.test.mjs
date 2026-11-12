@@ -2,11 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRenderQuality,effectiveRenderDpr} from '../../apps/web/js/renderQuality.js';
 
+const STARTUP_GRACE_MS=3000;
+const healthy=timestamp=>({timestamp,intervalMs:16,frameMs:5,inputToSubmitMs:null,continuous:true,rendered:true,completed:true});
+// A controller whose start-up window has already passed: one frame opens the window,
+// then an idle gap longer than the window leaves the usual two-frame warm-up in force.
+function settled(){
+  const policy=createRenderQuality();policy.observe(healthy(16));
+  return {policy,timestamp:16+STARTUP_GRACE_MS+2000};
+}
 function fixture(){
-  const policy=createRenderQuality();let timestamp=0;
+  const start=settled(),policy=start.policy;let timestamp=start.timestamp;
   function feed(count,overrides={}){for(let i=0;i<count;i++){
     timestamp+=overrides.step??16;
-    policy.observe({timestamp,intervalMs:16,frameMs:5,inputToSubmitMs:null,continuous:true,rendered:true,completed:true,...overrides});
+    policy.observe({...healthy(timestamp),...overrides});
   }}
   return {policy,feed,jump:ms=>{timestamp+=ms;}};
 }
@@ -71,7 +79,7 @@ test('very slow continuous CPU frames can still lower resolution when delivery i
 
 test('an upgrade the device cannot sustain backs off instead of oscillating',()=>{
   // Too slow at High (34 ms delivery), comfortable below it (16 ms).
-  const policy=createRenderQuality();let timestamp=0;const changes=[];
+  const start=settled(),policy=start.policy;let timestamp=start.timestamp;const changes=[];
   for(let i=0;i<120000/16;i++){
     const interval=policy.current.tier==='high'?34:16;timestamp+=interval;
     if(policy.observe({timestamp,intervalMs:interval,frameMs:5,inputToSubmitMs:null,continuous:true,continuation:true,rendered:true,completed:true}))changes.push(timestamp);
@@ -85,7 +93,7 @@ test('an upgrade the device cannot sustain backs off instead of oscillating',()=
 });
 
 test('a paused scene lowered during slow interaction recovers on fast input-driven frames',()=>{
-  const policy=createRenderQuality();let timestamp=0;
+  const start=settled(),policy=start.policy;let timestamp=start.timestamp;
   const frame=(frameMs,inputToSubmitMs,step)=>{timestamp+=step;
     policy.observe({timestamp,intervalMs:null,frameMs,inputToSubmitMs,continuous:false,continuation:false,rendered:true,completed:true});};
   for(let i=0;i<12;i++)frame(30,30,30);
@@ -95,7 +103,7 @@ test('a paused scene lowered during slow interaction recovers on fast input-driv
 });
 
 test('returning to Auto clears the upgrade backoff',()=>{
-  const policy=createRenderQuality();let timestamp=0;
+  const start=settled(),policy=start.policy;let timestamp=start.timestamp;
   for(let i=0;i<60000/16;i++){const interval=policy.current.tier==='high'?34:16;timestamp+=interval;
     policy.observe({timestamp,intervalMs:interval,frameMs:5,inputToSubmitMs:null,continuous:true,continuation:true,rendered:true,completed:true});}
   policy.setMode('auto');assert.equal(policy.current.tier,'high');
@@ -105,4 +113,61 @@ test('returning to Auto clears the upgrade backoff',()=>{
   while(policy.current.tier!=='high'&&timestamp-droppedAt<20000){timestamp+=16;
     policy.observe({timestamp,intervalMs:16,frameMs:5,inputToSubmitMs:null,continuous:true,continuation:true,rendered:true,completed:true});}
   assert.ok(timestamp-droppedAt<=6100,`fresh Auto restored the 6 s hold, took ${timestamp-droppedAt} ms`);
+});
+
+test('slow frames inside the start-up window cannot lower resolution',()=>{
+  const policy=createRenderQuality();let timestamp=0;
+  const slow=()=>{timestamp+=30;return policy.observe({...healthy(timestamp),intervalMs:30,frameMs:30});};
+  // 2.4 s of load-time hitches: far more than the eight slow frames that lower a settled view.
+  for(let i=0;i<80;i++)assert.equal(slow(),false);
+  assert.equal(policy.current.tier,'high');
+  // The window bounds the exemption. A device that stays slow is still lowered just after it.
+  while(timestamp<STARTUP_GRACE_MS+30*9)slow();
+  assert.equal(policy.current.tier,'balanced');
+  assert.ok(timestamp>=STARTUP_GRACE_MS&&timestamp<=STARTUP_GRACE_MS+30*9,`lowered at ${timestamp} ms`);
+});
+
+test('the start-up window opens with the first rendered Auto frame, not at construction',()=>{
+  const policy=createRenderQuality();
+  // Failed, skipped and manual-mode frames do not open it.
+  policy.observe({...healthy(100),rendered:false});
+  policy.setMode('low');policy.observe(healthy(200));policy.setMode('auto');
+  let timestamp=60000;
+  for(let i=0;i<60;i++){timestamp+=30;policy.observe({...healthy(timestamp),intervalMs:30,frameMs:30});}
+  assert.equal(policy.current.tier,'high','a view first drawn a minute after load still gets its window');
+});
+
+test('a paused scene recovers from short drag bursts separated by idle gaps',()=>{
+  const start=settled(),policy=start.policy;let timestamp=start.timestamp;
+  const frame=(frameMs,inputToSubmitMs,step)=>{timestamp+=step;
+    return policy.observe({timestamp,intervalMs:null,frameMs,inputToSubmitMs,continuous:false,continuation:false,rendered:true,completed:true});};
+  for(let i=0;i<12;i++)frame(30,30,30);
+  assert.equal(policy.current.tier,'balanced');
+  // Four one-second drags, each followed by two idle seconds. No single burst holds 180 fast frames.
+  let bursts=0;
+  while(policy.current.tier!=='high'&&bursts<4){bursts++;for(let i=0;i<60;i++)frame(4,8,16);timestamp+=2000;}
+  assert.equal(policy.current.tier,'high');assert.equal(bursts,4);
+});
+
+test('one slow frame between bursts discards the headroom a paused scene had gathered',()=>{
+  const start=settled(),policy=start.policy;let timestamp=start.timestamp;
+  const frame=(frameMs,inputToSubmitMs,step)=>{timestamp+=step;
+    policy.observe({timestamp,intervalMs:null,frameMs,inputToSubmitMs,continuous:false,continuation:false,rendered:true,completed:true});};
+  for(let i=0;i<12;i++)frame(30,30,30);
+  assert.equal(policy.current.tier,'balanced');
+  for(let burst=0;burst<12;burst++){for(let i=0;i<50;i++)frame(4,8,16);frame(30,8,16);timestamp+=2000;}
+  assert.equal(policy.current.tier,'balanced');
+});
+
+test('headroom from a paused scene does not carry into a resumed animation',()=>{
+  const start=settled(),policy=start.policy;let timestamp=start.timestamp;
+  const paused=(frameMs,inputToSubmitMs,step)=>{timestamp+=step;
+    policy.observe({timestamp,intervalMs:null,frameMs,inputToSubmitMs,continuous:false,continuation:false,rendered:true,completed:true});};
+  for(let i=0;i<12;i++)paused(30,30,30);
+  for(let i=0;i<170;i++)paused(4,8,16);
+  assert.equal(policy.current.tier,'balanced');
+  // Animate is switched on: the first continuous frame has no interval and restarts the assessment.
+  timestamp+=2000;policy.observe({...healthy(timestamp),intervalMs:null});
+  for(let i=0;i<30;i++){timestamp+=16;policy.observe(healthy(timestamp));}
+  assert.equal(policy.current.tier,'balanced','thirty animated frames are not sustained headroom');
 });

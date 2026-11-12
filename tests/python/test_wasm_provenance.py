@@ -60,13 +60,39 @@ class WasmProvenanceTests(unittest.TestCase):
         document = self.write()
         document['profile'] = 'release'
         self.replace_receipt(document)
-        self.assertEqual(provenance.read_receipt(self.wasm)[0], document)
+        # The fixture manifest stands in for the one root manifest that predates the browser profile.
+        with patch.object(provenance, 'LEGACY_PROFILE_MANIFESTS', frozenset({document['source_inputs']['Cargo.toml']})):
+            self.assertEqual(provenance.read_receipt(self.wasm)[0], document)
+
+    def test_release_profile_receipt_is_refused_for_any_later_root_manifest(self):
+        document = self.write()
+        document['profile'] = 'release'
+        self.replace_receipt(document)
+        with self.assertRaisesRegex(ValueError, 'profile release is not valid for this root manifest'):
+            provenance.read_receipt(self.wasm)
+        # The repository's own manifest defines the browser profile, so it can never be a legacy one.
+        current = hashlib.sha256((ROOT / 'Cargo.toml').read_bytes()).hexdigest()
+        self.assertNotIn(current, provenance.LEGACY_PROFILE_MANIFESTS)
+        self.assertEqual(provenance.LEGACY_PROFILE_MANIFESTS, frozenset({
+            '98f5c3251cdc1e4f37011ead4c9bc510bd0cd36e5ccecf8f3a540109082e6b34'}))
+
+    def test_receipt_records_the_requested_profile_and_refuses_any_other(self):
+        self.assertEqual(provenance.write_receipt(self.root, self.wasm, profile='wasm-release')['profile'], 'wasm-release')
+        (self.wasm / provenance.RECEIPT_NAME).unlink()
+        for profile in ('release', 'dev', ''):
+            with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, 'no receipt written'):
+                provenance.write_receipt(self.root, self.wasm, profile=profile)
+            self.assertFalse((self.wasm / provenance.RECEIPT_NAME).exists())
 
     def test_current_sources_require_the_browser_profile_receipt(self):
         document = self.write()
         document['profile'] = 'release'
         self.replace_receipt(document)
-        with self.assertRaisesRegex(ValueError, 'is not wasm-release; rebuild WASM'):
+        with self.assertRaisesRegex(ValueError, 'profile release is not valid for this root manifest'):
+            provenance.validate_receipt(self.root, self.wasm)
+        # Even a manifest admitted for legacy receipts cannot satisfy current-source validation.
+        with patch.object(provenance, 'LEGACY_PROFILE_MANIFESTS', frozenset({document['source_inputs']['Cargo.toml']})), \
+                self.assertRaisesRegex(ValueError, 'is not wasm-release; rebuild WASM'):
             provenance.validate_receipt(self.root, self.wasm)
 
     def test_repeat_receipts_are_deterministic_and_bind_both_binaries(self):

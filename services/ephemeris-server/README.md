@@ -53,6 +53,22 @@ There is no bulk cache deletion. Rollback to an earlier server revision restores
 that revision's cache namespace and its older admission behavior; it does not
 change observed-source data or browser-selected snapshots.
 
+## Upgrading from a v3 server
+
+The web app and this server must be updated together. A web app built from this tree
+requests `/v4/sky` and accepts only `ephemeris-snapshot.v4`. This server answers the three
+earlier routes with HTTP 409, so:
+
+- a new web app pointed at an older server gets no remote sky data (the older server has no
+  `/v4/sky` route);
+- an older web app pointed at this server gets HTTP 409 on `/v3/sky`.
+
+In both cases the app reports the provider as unavailable and on-device computation keeps
+working. Deploy the server first, then the web app, and expect remote sky data to be
+unavailable to already-open pages until they reload. A deployment that does not set
+`SOL_EPHEMERIS_SERVER` is unaffected. Cached entries from the earlier contract are rebuilt
+on demand; there is nothing to migrate.
+
 ## Contract notes
 
 - Bodies and field names match the WASM engine's snapshot; `provider`/`accuracy` blocks mark

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust/WASM, JavaScript browser modules, Python release tooling, Node tests, Chromium acceptance.
 
-**Spec:** [Structural remediation status](../../structural-remediation.md); original review in `/workspace/sol-review/SOL-structural-review.md`.
+**Spec:** [Structural remediation status](../../structural-remediation.md); original review in `/workspace/sol-review/SOL-structural-review.md` on the authoring workstation (not retained in this repository; see the status report's evidence retention section).
 
 ## Global Constraints
 
@@ -85,11 +85,11 @@ Ruling: the user's explicit instruction to complete the remaining work supersede
 
 Pre-flight: Task 1 camera policy and Task 2 scheduler both touch `orrery.js`; execute them sequentially. Task 1 Sky engine metadata and Task 3 broker both touch engine loading; execute them sequentially. Task 3 module canonicalization must follow new module additions from Task 2, and final graph generation must follow Task 4 additions.
 
-Task 1: camera integration passed 50 focused tests; Sky frame/contract/renderer checks passed 70 focused tests, plus native frame parity at three epochs. Evidence under `/workspace/sol-review/stage1-*.md`.
+Task 1: camera integration passed 50 focused tests; Sky frame/contract/renderer checks passed 70 focused tests, plus native frame parity at three epochs. Evidence under `/workspace/sol-review/stage1-*.md` (authoring workstation only).
 
 Task 2: scattering driver polling removed from normal steady-state, allocation/error diagnostics retained; 33 tests passed after observed red regression (7 polls versus 0 required). Frame/presenter extraction in progress.
 
-Task 2: complete in focused validation: 82 integration tests and 23 scheduler/label/presenter unit tests passed, plus root 33 scattering lifecycle/diagnostic tests. Typecheck green at this boundary. Evidence `/workspace/sol-review/stage2-frames.md`. Full integrated suite remains Task 6.
+Task 2: complete in focused validation: 82 integration tests and 23 scheduler/label/presenter unit tests passed, plus root 33 scattering lifecycle/diagnostic tests. Typecheck green at this boundary. Evidence `/workspace/sol-review/stage2-frames.md` (authoring workstation only). Full integrated suite remains Task 6.
 
 Task 3: implementing three independent areas: module/build/coverage tooling, compiled WASM broker, and catalogue/source-texture demand. Binary catalogue conversion rejected on measured compressed size: moon Float64 payload alone is 23.4% larger than whole JS gzip; star payload plus metadata also grows. Preserve generated full precision JS.
 

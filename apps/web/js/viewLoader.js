@@ -6,16 +6,16 @@ import {createModuleLoader} from './catalogueLoader.js';
  * Own a selected view's code activation. Cancellation resolves null; failures
  * reject. onState is synchronous; async onReady must honor isCurrent/signal
  * before publishing after an await. Existing viewers own their compute work.
- * @param {{loaders:Record<string,()=>any>,onState?:(state:ViewCodeState)=>void,
+ * @param {{loaders:Record<string,()=>any>,recoveries?:Record<string,()=>Promise<boolean>>,onState?:(state:ViewCodeState)=>void,
  * onReady?:(name:string,module:any,owner:{signal:AbortSignal,isCurrent:()=>boolean})=>any,
  * timeoutMs?:number,now?:()=>number,setTimer?:(callback:()=>void,delay:number)=>any,
  * clearTimer?:(timer:any)=>void}} options
  */
-export function createViewLoader({loaders,onState=()=>{},onReady=()=>{},...timing}) {
+export function createViewLoader({loaders,recoveries={},onState=()=>{},onReady=()=>{},...timing}) {
   const imports=new Map();
   for(const [name,load]of Object.entries(loaders)){
     if(name==='observe'||typeof load!=='function')throw new TypeError('View loaders must be named functions');
-    imports.set(name,createModuleLoader({load,...timing}));
+    imports.set(name,createModuleLoader({load,recover:recoveries[name]??null,...timing}));
   }
   // Namespace caching does not establish successful view entry.
   const enteredViews=new Set();
@@ -28,7 +28,9 @@ export function createViewLoader({loaders,onState=()=>{},onReady=()=>{},...timin
     if(!pending)return;
     const attempt=pending;pending=null;attempt.controller.abort();imports.get(attempt.name).cancel();if(settle)attempt.resolve(null);
   };
-  const start=()=>{
+  // explicitRetry is true only for retry(): selecting or returning to a view never replaces
+  // the document on its own.
+  const start=(explicitRetry=false)=>{
     if(selected==='observe'){publish('idle');return Promise.resolve(null);}
     if(paused){publish('paused');return Promise.resolve(null);}
     let resolve,reject;
@@ -49,7 +51,7 @@ export function createViewLoader({loaders,onState=()=>{},onReady=()=>{},...timin
     try{
       publish('loading');
       if(!isCurrent())return promise;
-      imports.get(selected).request().then(async module=>{
+      imports.get(selected).request({recover:explicitRetry}).then(async module=>{
         if(!isCurrent())return;
         publish('activating');
         if(!isCurrent())return;
@@ -71,7 +73,7 @@ export function createViewLoader({loaders,onState=()=>{},onReady=()=>{},...timin
       if(name===selected&&state.status==='ready')return Promise.resolve(imports.get(name).value);
       cancel();selected=name;return start();
     },
-    retry(){if(pending)return pending.promise;return start();},
+    retry(){if(pending)return pending.promise;return start(true);},
     pauseLoading(){
       paused=true;
       if(pending){

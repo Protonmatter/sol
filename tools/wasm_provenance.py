@@ -15,8 +15,15 @@ from typing import Any
 
 RECEIPT_NAME = 'wasm-build.v1.json'
 BUILD_PROFILE = 'wasm-release'
-# Historical receipts remain readable; exact source/output binding still applies.
-SUPPORTED_PROFILES = ('release', BUILD_PROFILE)
+# Receipts written before the dedicated browser profile existed name Cargo's plain
+# release profile. They stay readable only for the root manifest that had no browser
+# profile to select; exact source/output binding still applies. A plain release build of
+# any later manifest optimizes the ephemeris for size and must not pass as a receipt.
+LEGACY_PROFILE = 'release'
+LEGACY_PROFILE_MANIFESTS = frozenset({
+    '98f5c3251cdc1e4f37011ead4c9bc510bd0cd36e5ccecf8f3a540109082e6b34',  # Cargo.toml through 02aaec8
+})
+SUPPORTED_PROFILES = (LEGACY_PROFILE, BUILD_PROFILE)
 WASM_FILES = ('solar_wasm.wasm', 'solar_ephemeris.wasm')
 CRATES = ('solar-core', 'solar-wasm', 'solar-ephemeris')
 ROOT_FILES = ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml',
@@ -88,12 +95,16 @@ def _wasm_hashes(root: Path) -> dict[str, str]:
     return result
 
 
-def write_receipt(project: Path, wasm_root: Path, *, expected_inputs: dict[str, str] | None = None) -> dict:
+def write_receipt(project: Path, wasm_root: Path, *, profile: str = BUILD_PROFILE,
+                  expected_inputs: dict[str, str] | None = None) -> dict:
+    """Record the profile the caller requested from Cargo; only the browser profile is admitted."""
+    if profile != BUILD_PROFILE:
+        raise ValueError(f'WASM built with profile {profile!r}, not {BUILD_PROFILE}; no receipt written')
     inputs = capture_source_inputs(project)
     if expected_inputs is not None and inputs != expected_inputs:
         raise ValueError('WASM source materials changed during build')
     document = {'schema_version': 'wasm-build.v1', 'target': 'wasm32-unknown-unknown',
-                'profile': BUILD_PROFILE, 'locked': True, 'source_inputs': inputs,
+                'profile': profile, 'locked': True, 'source_inputs': inputs,
                 'source_inputs_sha256': hashlib.sha256(_canonical(inputs)).hexdigest(),
                 'wasm_sha256': _wasm_hashes(wasm_root)}
     raw = _canonical(document)
@@ -151,6 +162,8 @@ def read_receipt(wasm_root: Path) -> tuple[dict, bytes]:
         folded.add(name.casefold())
     if document.get('source_inputs_sha256') != hashlib.sha256(_canonical(inputs)).hexdigest():
         raise ValueError('WASM source inventory digest mismatch')
+    if document['profile'] == LEGACY_PROFILE and inputs['Cargo.toml'] not in LEGACY_PROFILE_MANIFESTS:
+        raise ValueError(f'WASM receipt profile {LEGACY_PROFILE} is not valid for this root manifest; rebuild WASM')
     if document.get('wasm_sha256') != _wasm_hashes(wasm_root):
         raise ValueError('WASM output differs from source receipt')
     return document, raw
