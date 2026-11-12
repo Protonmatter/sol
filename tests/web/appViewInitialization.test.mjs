@@ -16,6 +16,8 @@ function fixture(t,{enterResearch=null,enterSky=()=>{},enterOrrery=async()=>{}}=
   // The production Research entry renders itself, including its initial model selection.
   const module={enterResearch:enterResearch??(()=>context.renderAll()),enterSky,enterOrrery,leaveResearch(){},leaveSky(){},leaveOrrery(){}};
   const context=vm.createContext({document:doc,store:{activeMode:'today'},explorer:{mode:'research'},updateModeButtons(){},registerDestinationRenderer(){},updateTaskHeader(){},renderAll(){renderedFlags.push(attrs.get('data-view-initialized'));if(renderFailure)throw Error('render failed');},
+    // The fixture replaces every loader, so document recovery has nothing to probe or reload.
+    createDocumentRecovery:()=>async()=>false,
     createViewLoader(options){return createViewLoader({...options,loaders:Object.fromEntries(['research','sky','orrery'].map(name=>[name,async()=>{imports.push(name);return module;} ])),
       now:()=>0,setTimer(fn){timers.set(++serial,fn);return serial;},clearTimer(id){timers.delete(id);}});},
   });

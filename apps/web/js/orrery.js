@@ -85,7 +85,7 @@ import { buildEarthMapSliced, buildFeatureMap } from "./surfacemap.js";
 import { resolveDisplayRadii, moonGuideVisible } from "./displayGeometry.js";
 import { textureEligible, missingDetailColor } from "./visualAssets.js";
 import { catalogueDemand } from "./catalogueDemand.js";
-import { createCatalogueLoader } from "./catalogueLoader.js";
+import { createCatalogueLoader, createDocumentRecovery } from "./catalogueLoader.js";
 import { moonOffsetAU, moonOrbitPath, systemScale, satelliteSystemExtent, withinMoonValidity, aliasedByClock, synchronousMoonRotation } from "./moonorbits.js";
 import { MAX_MOON_SHADOWS, moonShadowsOnPlanet, packMoonShadows, sunlightOnMoon } from "./moonshadows.js";
 import * as moonCatalogue from "./moons.js";
@@ -282,12 +282,15 @@ let starCataloguePromise = null;
 const catalogueRetryOwners=new Set();
 let catalogueRetryGeneration=0,catalogueRecoveryNotice=false;
 let catalogueFocusIntent=null;
-const moonLoader=createCatalogueLoader({load:async()=>{
+// "Retry catalogue downloads" re-imports first. If the browser still holds the earlier
+// failure and the catalogue is reachable again, the page reloads into Solar System.
+const reloadWhenReachable=path=>createDocumentRecovery({urls:()=>[new URL(path,import.meta.url).href]});
+const moonLoader=createCatalogueLoader({recover:reloadWhenReachable("./moonelements.js"),load:async()=>{
   const module=await import("./moonelements.js");
   if(!moonSet.MOONS.every(m=>Array.isArray(module.MOON_ELEMENTS?.[m.n]?.el)&&module.MOON_ELEMENTS[m.n].el.length>0))throw new Error('Moon orbital catalogue is incomplete');
   return module;
 }});
-const starLoader=createCatalogueLoader({load:async()=>{
+const starLoader=createCatalogueLoader({recover:reloadWhenReachable("./starcatalog.js"),load:async()=>{
   const module=await import("./starcatalog.js");
   if(!Array.isArray(module.NAMED_STARS)||!module.NAMED_STARS.length||!Number.isSafeInteger(module.STAR_COUNT)||module.STAR_COUNT<=0
       ||!Number.isSafeInteger(module.STAR_STRIDE)||module.STAR_STRIDE<3||module.STARS_PACKED?.length!==module.STAR_COUNT*module.STAR_STRIDE)throw new Error('Named-star catalogue is incomplete');
@@ -344,7 +347,7 @@ function retryCatalogues(){
   const generation=catalogueRetryGeneration,button=document.getElementById('orreryCatalogueRetry');
   catalogueFocusIntent=button&&document.activeElement===button?{generation}:null;
   for(const load of jobs){
-    const pending=load();catalogueRetryOwners.add(pending);
+    const pending=load(true);catalogueRetryOwners.add(pending);
     void pending.finally(()=>{
       if(generation!==catalogueRetryGeneration||!state.active)return;
       catalogueRetryOwners.delete(pending);updateCatalogueStatus();
@@ -1036,12 +1039,12 @@ async function buildGeneratedMaps() {
  * the knots are deferred, and they are ~99% of the bytes, so the first-paint cost of widening the
  * validated window is a few KB rather than a megabyte.
  */
-function loadMoonCatalogue() {
+function loadMoonCatalogue(explicitRetry=false) {
   if(moonElementsReady)return Promise.resolve(moonSet);
   if (moonElementsPromise) return moonElementsPromise;
   // Retry retains the immutable release URL. The loader bounds logical ownership;
   // the browser may share an existing physical import with a later attempt.
-  const request=moonLoader.request();
+  const request=moonLoader.request({recover:explicitRetry});
   const pending = request
     .then((mod) => {
       if(moonElementsPromise!==pending)return moonSet;
@@ -1060,10 +1063,10 @@ function loadMoonCatalogue() {
   return moonElementsPromise;
 }
 
-function loadStarCatalogue(){
+function loadStarCatalogue(explicitRetry=false){
   if(starCat)return Promise.resolve(starCat);
   if(starCataloguePromise)return starCataloguePromise;
-  const request=starLoader.request();
+  const request=starLoader.request({recover:explicitRetry});
   const pending=request.then(catalogue=>{
     if(starCataloguePromise!==pending)return null;
     starCat=catalogue;updateOrreryPositions();

@@ -32,6 +32,21 @@ test('failure is visible and retry starts a fresh owned attempt',async()=>{
   assert.equal(h.loader.state.status,'failed');const b=h.loader.retry();await tick();h.requests[1].resolve({name:'sky'});await b;
   assert.equal(h.loader.state.status,'ready');assert.equal(h.loader.state.error,null);
 });
+test('Retry may reload a view whose import fails twice; selecting or returning to it never does',async()=>{
+  const recoveries=[];let visible=false;
+  const h=harness({loaders:{sky:()=>Promise.reject(new Error('unavailable')),orrery:async()=>({name:'orrery'})},
+    recoveries:{sky:async()=>{recoveries.push('sky');return visible;}}});
+  await assert.rejects(h.loader.activate('sky'),/unavailable/);
+  // Leaving and returning is navigation, not consent to replace the page.
+  await h.loader.activate('orrery');await assert.rejects(h.loader.activate('sky'),/unavailable/);
+  h.loader.pauseLoading();await h.loader.resumeLoading();
+  assert.deepEqual(recoveries,[]);
+  // The module is still unreachable: the failure stays visible and the page stays.
+  await assert.rejects(h.loader.retry(),/unavailable/);assert.deepEqual(recoveries,['sky']);assert.equal(h.loader.state.status,'failed');
+  // Reachable again: the retry stays pending while the document is replaced.
+  visible=true;const retry=h.loader.retry();let settled=false;retry.then(()=>{settled=true;},()=>{settled=true;});await tick();
+  assert.deepEqual(recoveries,['sky','sky']);assert.equal(settled,false);assert.equal(h.loader.state.status,'loading');
+});
 test('logical deadline rejects and a late physical success cannot enter',async()=>{
   const h=harness(),a=h.loader.activate('sky');await tick();h.advance(30);await assert.rejects(a,/deadline/);
   h.requests[0].resolve({});await tick();assert.deepEqual(h.entered,[]);assert.equal(h.loader.state.status,'failed');assert.equal(h.timers.size,0);

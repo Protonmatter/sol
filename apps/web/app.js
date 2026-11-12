@@ -10,6 +10,7 @@ import { createViewEvidence } from "./js/viewEvidence.js";
 import { workspace, renderWorkspace, openInspector, revealWorkspaceControl } from "./js/workspace.js";
 import { explorer, initExplorer } from "./js/explorer.js";
 import {createViewLoader} from './js/viewLoader.js';
+import {createDocumentRecovery} from './js/catalogueLoader.js';
 import {registerDestinationRenderer} from './js/viewRegistry.js';
 import {initObservationMedia} from './js/observationMedia.js';
 import {afterObservationPaint} from './js/offlineBoot.js';
@@ -22,11 +23,20 @@ export const offlineStartup=new Promise(resolve=>{markOfflineStartup=resolve;});
 const loadedViews={research:null,sky:null,orrery:null};
 const viewNames={research:'Solar research',sky:'My Sky',orrery:'Solar System'};
 let activeView='observe',retryFocus=false;
+// "Retry this view" re-imports first. If the browser still holds the earlier failure and
+// the view's code is reachable again, the page reloads into the saved view. This module
+// and the page that loads it share a directory, so the page's base resolves the same URLs.
+const reloadWhenReachable=(...paths)=>createDocumentRecovery({urls:()=>paths.map(path=>new URL(path,document.baseURI).href)});
 const viewCode=createViewLoader({
   loaders:{
     research:()=>import('./js/research.js'),
     sky:async()=>{const [view,overview]=await Promise.all([import('./js/sky.js'),import('./js/destinationOverview.js')]);return {...view,overview};},
     orrery:async()=>{const [view,overview]=await Promise.all([import('./js/orrery.js'),import('./js/destinationOverview.js')]);return {...view,overview};},
+  },
+  recoveries:{
+    research:reloadWhenReachable('./js/research.js'),
+    sky:reloadWhenReachable('./js/sky.js','./js/destinationOverview.js'),
+    orrery:reloadWhenReachable('./js/orrery.js','./js/destinationOverview.js'),
   },
   onState(state){
     document.body.setAttribute('data-view-code',state.status);

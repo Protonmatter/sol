@@ -35,6 +35,8 @@ async function fixture(t){
     if(name==='workspace.js')return {openInspector:noop};
     if(name==='researchView.js')return {};
   }});
+  // The fixture replaces every loader, so document recovery has nothing to probe or reload.
+  context.createDocumentRecovery=()=>async()=>false;
   context.createViewLoader=options=>createViewLoader({...options,loaders:{research:async()=>research,sky:async()=>({}),orrery:async()=>({})},
     now:()=>0,setTimer(fn){timers.set(++timer,fn);return timer;},clearTimer(id){timers.delete(id);}});
   const app=fs.readFileSync(new URL('../../apps/web/app.js',import.meta.url),'utf8');
