@@ -26,7 +26,7 @@ let activeView='observe',retryFocus=false;
 // "Retry this view" re-imports first. If the browser still holds the earlier failure and
 // the view's code is reachable again, the page reloads into the saved view. This module
 // and the page that loads it share a directory, so the page's base resolves the same URLs.
-const reloadWhenReachable=(...paths)=>createDocumentRecovery({urls:()=>paths.map(path=>new URL(path,document.baseURI).href)});
+const reloadWhenReachable=(...paths)=>createDocumentRecovery({urls:()=>paths.map(path=>new URL(path,document.baseURI).href),graphUrl:()=>new URL('./module-dependencies.v1.json',document.baseURI).href});
 const viewCode=createViewLoader({
   loaders:{
     research:()=>import('./js/research.js'),

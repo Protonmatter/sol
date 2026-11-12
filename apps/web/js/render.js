@@ -1,3 +1,4 @@
+import {butterflyPlot} from './butterflyGeometry.js';
 // All canvas rendering: the solar disk, its overlays, and the butterfly diagram.
 
 import { store } from "./store.js";
@@ -339,8 +340,9 @@ export function drawButterfly() {
 
 // A real butterfly diagram: sunspot latitude (y) against cycle time (x).
 function drawButterflySeries(ctx, width, height, textScale) {
-  const padLeft = 38 * textScale;
-  const padRight = 14 * textScale;
+  const plot = butterflyPlot(width,textScale);
+  const padLeft = plot.left;
+  const padRight = width-plot.left-plot.width;
   const top = 14 * textScale;
   const bottom = height - 24 * textScale;
   const plotH = bottom - top;

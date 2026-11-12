@@ -7,13 +7,48 @@ export const CATALOGUE_DEADLINE_MS = 30000;
 // new document. When every listed module is reachable now, replace the document and
 // report true. When one is not, report false and leave the page, and any offline state,
 // exactly as it is: reloading an unreachable page would trade an error for a blank one.
-export function createDocumentRecovery({urls,fetchModule=(url,init)=>fetch(url,init),reload=()=>location.reload()}) {
+export function createDocumentRecovery({urls,graphUrl=null,fetchModule=(url,init)=>fetch(url,init),reload=()=>location.reload()}) {
   if(typeof urls!=='function'||typeof fetchModule!=='function'||typeof reload!=='function')throw new TypeError('Document recovery needs urls, fetchModule and reload functions');
-  return async()=>{
-    for(const url of urls()){
-      const response=await fetchModule(url,{cache:'no-store'});
-      if(!response||response.ok!==true)return false;
+  return async({signal=undefined,isCurrent=()=>true}={})=>{
+    const current=()=>!signal?.aborted&&isCurrent();
+    if(!current())return false;
+    let targets=urls();
+    if(graphUrl){
+      const graphLocation=typeof graphUrl==='function'?graphUrl():graphUrl;
+      const response=await fetchModule(graphLocation,{cache:'no-store',signal});
+      if(!current()||!response?.ok)return false;
+      const graph=await response.json();
+      if(!current())return false;
+      if(graph?.schema_version!=='module-dependencies.v1'||!graph.modules||typeof graph.modules!=='object'
+        ||Array.isArray(graph.modules)||Object.keys(graph.modules).length>4096)return false;
+      const root=new URL('./',graphLocation),queue=[...targets],seen=new Set();
+      const local=/^(?:js\/)?[A-Za-z0-9_.-]+\.js$/;
+      for(let i=0;i<queue.length;i++){
+        const url=new URL(queue[i],root);
+        if(url.origin!==root.origin||!url.pathname.startsWith(root.pathname)||url.search||url.hash)return false;
+        const name=url.pathname.slice(root.pathname.length);
+        if(!local.test(name)||!Object.hasOwn(graph.modules,name))return false;
+        if(seen.has(url.href))continue;
+        seen.add(url.href);
+        const dependencies=graph.modules[name];
+        if(!Array.isArray(dependencies)||dependencies.length>4096)return false;
+        for(const dependency of dependencies){
+          if(typeof dependency!=='string'||!local.test(dependency))return false;
+          const next=new URL(dependency,root).href;
+          if(!seen.has(next))queue.push(next);
+        }
+        if(queue.length>16384)return false;
+      }
+      targets=[...seen];
     }
+    for(const url of targets){
+      const response=await fetchModule(url,{cache:'no-store',signal});
+      if(!current())return false;
+      if(!response||response.ok!==true){void response?.body?.cancel().catch(()=>{});return false;}
+      await response.arrayBuffer();
+      if(!current())return false;
+    }
+    if(!current())return false;
     reload();return true;
   };
 }
@@ -36,13 +71,13 @@ export function createCatalogueLoader({load,recover=null,timeoutMs=CATALOGUE_DEA
       if(!Number.isFinite(start))throw new TypeError('Catalogue clock must be finite');
       let resolve,reject;
       const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});
-      const attempt={promise,resolve,reject,timer:null,deadline:start+timeoutMs};
+      const attempt={promise,resolve,reject,timer:null,deadline:start+timeoutMs,controller:new AbortController()};
       pending=attempt;status='loading';error=null;
       const timeout=()=>new Error('Catalogue request exceeded its deadline');
       const finish=(ok,result)=>{
         if(pending!==attempt)return;
         if(now()>=attempt.deadline){ok=false;result=timeout();}
-        clearTimer(attempt.timer);pending=null;
+        clearTimer(attempt.timer);pending=null;attempt.controller.abort();
         if(ok){value=result;status='ready';error=null;resolve(value);}
         else {status='failed';error=result instanceof Error?result:new Error(String(result));reject(error);}
       };
@@ -64,7 +99,7 @@ export function createCatalogueLoader({load,recover=null,timeoutMs=CATALOGUE_DEA
         loadRejected=true;
         if(explicitRetry&&recover&&rejectedBefore&&pending===attempt){
           let reloading=false;
-          try{reloading=await recover()===true;}catch(_){ /* the import failure below is the report */ }
+          try{reloading=await recover({signal:attempt.controller.signal,isCurrent:()=>pending===attempt&&now()<attempt.deadline})===true;}catch(_){ /* the import failure below is the report */ }
           // The document is being replaced. The deadline still bounds this attempt.
           if(reloading)return;
         }
@@ -74,7 +109,7 @@ export function createCatalogueLoader({load,recover=null,timeoutMs=CATALOGUE_DEA
     },
     cancel(){
       if(!pending)return;
-      const attempt=pending;pending=null;clearTimer(attempt.timer);
+      const attempt=pending;pending=null;clearTimer(attempt.timer);attempt.controller.abort();
       status='idle';error=null;
       const failure=new Error('Catalogue request cancelled');failure.name='AbortError';attempt.reject(failure);
     },

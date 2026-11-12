@@ -54,3 +54,9 @@ test('complete graph refuses worker construction whose module URL cannot be admi
   const root=fixture(t,{'app.js':"const workerURL='./worker.js';new Worker(workerURL,{type:'module'});",'worker.js':'export {};'});
   assert.throws(()=>analyzeModules(root,['app.js'],{includeDeferred:true}),/literal.*worker/i);
 });
+
+test('recovery inventory follows static reexports and records deferred roots without making them eager',async t=>{
+  const {moduleDependencies}=await import('../../tools/module_graph.mjs');
+  const root=fixture(t,{'app.js':"import('./view.js');",'view.js':"export * from './shared.js';",'shared.js':"import './view.js';export const x=1;"});
+  assert.deepEqual(moduleDependencies(root,['app.js']),{schema_version:'module-dependencies.v1',modules:{'app.js':[],'shared.js':['view.js'],'view.js':['shared.js']}});
+});

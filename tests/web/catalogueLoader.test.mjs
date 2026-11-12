@@ -116,7 +116,7 @@ test('a rejection that arrives after cancellation still counts toward the next e
 test('document recovery probes every module without the HTTP cache and reloads only when all respond',async()=>{
   const seen=[];let reloads=0;
   const recovery=responses=>createDocumentRecovery({urls:()=>['https://example.test/sol/js/a.js','https://example.test/sol/js/b.js'],
-    fetchModule:async(url,init)=>{seen.push([url,init.cache]);const next=responses.shift();if(next instanceof Error)throw next;return next;},reload:()=>{reloads++;}});
+    fetchModule:async(url,init)=>{seen.push([url,init.cache]);const next=responses.shift();if(next instanceof Error)throw next;return next?.ok===true?new Response('export {};'):next;},reload:()=>{reloads++;}});
   assert.equal(await recovery([{ok:true},{ok:true}])(),true);assert.equal(reloads,1);
   assert.deepEqual(seen,[['https://example.test/sol/js/a.js','no-store'],['https://example.test/sol/js/b.js','no-store']]);
   // HTTP 409 is what the service worker answers offline; 404 is a release that has been replaced.
@@ -125,4 +125,55 @@ test('document recovery probes every module without the HTTP cache and reloads o
   }
   await assert.rejects(recovery([new TypeError('Failed to fetch')])(),/Failed to fetch/);assert.equal(reloads,1);
   assert.throws(()=>createDocumentRecovery({urls:['a.js']}),TypeError);
+});
+
+for(const end of ['cancel','deadline','delayed-timer'])test(`recovery cannot reload after ${end}`,async()=>{
+  const time=clock(),probe=deferred();let reloads=0,signal;
+  const recover=createDocumentRecovery({urls:()=>['https://example.test/a.js'],
+    fetchModule:(_url,init)=>{signal=init.signal;return probe.promise;},reload:()=>{reloads++;}});
+  const loader=createCatalogueLoader({load:()=>Promise.reject(Error('cached failure')),recover,...time});
+  await assert.rejects(loader.request(),/cached/);
+  const retry=loader.request({recover:true}),failed=assert.rejects(retry,end==='cancel'?/cancelled/:/deadline/);
+  await flush();
+  if(end==='cancel')loader.cancel();else time.advance(30000,end!=='delayed-timer');
+  probe.resolve(new Response('export {};'));await flush();time.advance(0);await failed;
+  assert.equal(reloads,0);assert.equal(signal?.aborted,true);
+});
+
+test('recovery checks the static dependency closure and leaves the document while a shared chunk is unavailable',async()=>{
+  const graphUrl='https://example.test/sol/module-dependencies.v1.json',seen=[];let reloads=0,available=false;
+  const graph={schema_version:'module-dependencies.v1',modules:{'js/view.js':['js/shared.js'],'js/shared.js':['js/view.js'],'js/optional.js':[]}};
+  const recover=createDocumentRecovery({urls:()=>['https://example.test/sol/js/view.js'],graphUrl,
+    fetchModule:async url=>{seen.push(url);return url===graphUrl?Response.json(graph):new Response('export {};',{status:url.endsWith('/shared.js')&&!available?503:200});},
+    reload:()=>{reloads++;}});
+  assert.equal(await recover(),false);assert.equal(reloads,0);
+  assert.ok(seen.includes('https://example.test/sol/js/shared.js'));
+  assert.ok(!seen.some(url=>url.endsWith('/optional.js')));
+  available=true;seen.length=0;assert.equal(await recover(),true);assert.equal(reloads,1);
+  assert.equal(seen.filter(url=>url.endsWith('/view.js')).length,1,'cycles are visited once');
+});
+
+test('recovery waits for complete response bytes before reloading',async()=>{
+  let reloads=0;
+  const recover=createDocumentRecovery({urls:()=>['https://example.test/a.js'],
+    fetchModule:async()=>new Response(new ReadableStream({start(controller){controller.error(Error('body disconnected'));}})),reload:()=>{reloads++;}});
+  await assert.rejects(recover(),/disconnected/);assert.equal(reloads,0);
+});
+
+for(const graph of [null,{}, {schema_version:'module-dependencies.v1',modules:[]},
+  {schema_version:'module-dependencies.v1',modules:{}},
+  {schema_version:'module-dependencies.v1',modules:{'js/a.js':'bad'}},
+  {schema_version:'module-dependencies.v1',modules:{'js/a.js':['../foreign.js']}},
+  {schema_version:'module-dependencies.v1',modules:{'js/a.js':['js/missing.js']}},
+])test(`invalid or incomplete recovery inventory retains the document: ${JSON.stringify(graph)}`,async()=>{
+ let reloads=0;
+ const recover=createDocumentRecovery({urls:()=>['https://sol.test/js/a.js'],graphUrl:'https://sol.test/module-dependencies.v1.json',
+   fetchModule:async()=>Response.json(graph),reload:()=>{reloads++;}});
+ assert.equal(await recover(),false);assert.equal(reloads,0);
+});
+
+test('unavailable dependency inventory retains the document',async()=>{
+ const recover=createDocumentRecovery({urls:()=>['https://sol.test/js/a.js'],graphUrl:'https://sol.test/module-dependencies.v1.json',
+   fetchModule:async()=>new Response('',{status:503}),reload:()=>assert.fail('must not reload')});
+ assert.equal(await recover(),false);
 });

@@ -8,12 +8,12 @@
     {
       "url": "app.js",
       "path": "app.js",
-      "sha256": "f9133130cdedcc05494a11bc6c552b46a02d5dce2b51a49de1fcb5185ac42cb6"
+      "sha256": "1df02b4f05740e1b8c06c66c77e1cb5f7603b0d302dd700674d1dd57a55bda55"
     },
     {
       "url": "js/catalogueLoader.js",
       "path": "js/catalogueLoader.js",
-      "sha256": "83df0ec4c7415d4820dd3f6d11454204701c00947c0c2314d5986a0164324df3"
+      "sha256": "62677775907b57b61e45e34a4a252dc5664712b69e3987bdecb9bce7f789b55b"
     },
     {
       "url": "js/config.js",

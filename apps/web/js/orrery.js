@@ -284,7 +284,7 @@ let catalogueRetryGeneration=0,catalogueRecoveryNotice=false;
 let catalogueFocusIntent=null;
 // "Retry catalogue downloads" re-imports first. If the browser still holds the earlier
 // failure and the catalogue is reachable again, the page reloads into Solar System.
-const reloadWhenReachable=path=>createDocumentRecovery({urls:()=>[new URL(path,import.meta.url).href]});
+const reloadWhenReachable=path=>createDocumentRecovery({urls:()=>[new URL(path,import.meta.url).href],graphUrl:()=>new URL("../module-dependencies.v1.json",import.meta.url).href});
 const moonLoader=createCatalogueLoader({recover:reloadWhenReachable("./moonelements.js"),load:async()=>{
   const module=await import("./moonelements.js");
   if(!moonSet.MOONS.every(m=>Array.isArray(module.MOON_ELEMENTS?.[m.n]?.el)&&module.MOON_ELEMENTS[m.n].el.length>0))throw new Error('Moon orbital catalogue is incomplete');
