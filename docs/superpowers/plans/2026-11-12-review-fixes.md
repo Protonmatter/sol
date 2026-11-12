@@ -36,4 +36,5 @@ Changes target the six-fix head of PR 138 so they also cover PR 137 when integra
 - Typecheck: 152 files; source graphs, SDLC, docs, UX and static checks passed.
 - Chromium compiled-bundle check: shared chunk HTTP 503 retains document; restoring chunk permits view import; fresh document import succeeds.
 - Fresh independent review: no actionable findings; additional all-frame click checks covered DPR, capped widths, and fractional sizes.
+- CI follow-up: fixed the visual driver's resolution selection. Auto legitimately reduced backing resolution under coverage overhead, violating the driver's full-resolution screenshot contract. Visual comparisons now select High explicitly; all 33 canvas-capture and render-quality unit/integration tests passed, including Auto adaptation and deterministic manual mode. The parallel CI browser run also passed the original visual gate, confirming the timing-dependent trigger.
 - Limits: no physical-device/native-GPU checks, no local Rust toolchain, no full WASM release rebuild. The patch changes JavaScript and its bundle tooling only.
