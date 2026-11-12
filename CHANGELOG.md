@@ -69,6 +69,13 @@ crate follows [SemVer](https://semver.org/).
 - **WASM build receipts.** A receipt naming Cargo's plain `release` profile is readable only
   for the root manifest that predates the browser profile, and `write_receipt` refuses any
   profile other than the one `build_wasm.py` requested.
+- **The release manifest validator no longer passes a component release with missing parts.**
+  An artifact that carries the ephemeris component portal, or speaks an ephemeris contract
+  newer than v3, must include the WASM build receipt, the source manifest and the source
+  archive, and the archive must match the size and SHA-256 its source manifest publishes.
+- **Retry recovers from a failed download.** "Retry this view" and "Retry catalogue downloads"
+  reload the page when the browser still holds an earlier failed download and the file is
+  reachable again. While it is not reachable, the page and its error stay as they were.
 
 ### Added
 
