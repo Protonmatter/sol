@@ -17,7 +17,7 @@ export const OPTIONAL_MODULES=new Set(['js/moonelements.js','js/starcatalog.js']
 export const QA_ENTRIES=[
  'atmosphereColumnField','atmosphereColumnManifest','atmosphereIncident','atmosphereIncidentManifest',
  'atmosphereOptics','atmosphereScattering','atmosphereShaders','bodyData','constellations','data',
- 'destinationOverview','ephemerisContract','ephemerisSchema','explorer','galacticobjects','geography',
+ 'destinationOverview','earthLookShaders','ephemerisContract','ephemerisSchema','explorer','galacticobjects','geography',
  'hdrPresentation','moonelements','moonorbits','moons','moonshadows','orbitCamera','orrery','orreryMath',
  'orreryShaders','orreryTime','physicalProgramSources','planetAppearance','planetPhenomena','planetPhenomenaManifest',
  'referenceDemand','releaseClient','ringTransportShaders','shaderPrograms','sky','skyEngine','skyPrivacy',
