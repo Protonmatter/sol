@@ -38,7 +38,7 @@ export const VENUS_ATMOSPHERE_SHELL_GLSL = `
   if(u_mode==4){
     float uu=0.5+atan(p.y,p.x)*0.1591549431;
     float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862;
-    vec3 clouds=decodeSRGB(texture(u_tex,vec2(uu,vv)).rgb);
+    vec3 clouds=decodeSRGB(equirectangularSample(u_tex,p,vec2(uu,vv)).rgb);
     float sun=max(dot(N,normalize(u_light)),0.0);
     float cover=smoothstep(0.05,0.22,sun);
     float ndv=clamp(dot(N,V),0.0,1.0);
