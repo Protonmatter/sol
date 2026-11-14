@@ -9,16 +9,27 @@
 // even with all three implemented it missed Saturn's and Uranus's moons by tens to 165° at their
 // own epoch. tools/ephemeris-data/moons/README.md records that in full.
 
-import { eccentricAnomaly } from "./smallbodies.js?v=dcca6290db";
+import { eccentricAnomaly } from "./smallbodies.js";
 
 const AU_KM = 149597870.7;
 const D2R = Math.PI / 180;
 const JD_UNIX_EPOCH = 2440587.5;
 const DAY = 86400;
 
-/** Julian date (TDB, near enough) for a Unix time. */
+/** Julian date (UTC) for a Unix time. */
 export function jdFromUnix(unixSeconds) {
   return unixSeconds / DAY + JD_UNIX_EPOCH;
+}
+
+// The shipped Horizons satellite knots/validation bounds span 2021–2030 in TDB.
+// In this interval use TT = UTC + (TAI−UTC) + 32.184 s, with the engine's latest
+// known TAI−UTC = 37 s (effective 2017-01-01; future leap seconds are unknown).
+// TT approximates TDB to <2 ms, negligible against the 0.15° interpolation
+// budget. Treating UTC as TDB instead loses 69 s, ~0.91° for Phobos.
+// Source: https://ssd.jpl.nasa.gov/horizons/manual.html#time-scales
+// This is scoped to these modern moon tables, not a historical time service.
+function moonDynamicalJd(unixSeconds) {
+  return jdFromUnix(unixSeconds) + (37 + 32.184) / DAY;
 }
 
 /**
@@ -30,7 +41,7 @@ export function jdFromUnix(unixSeconds) {
  * eccentricity vector, p/q describe the orbital plane, and L is unwrapped mean longitude.
  */
 export function moonElementsAt(m, unixSeconds) {
-  const jd = jdFromUnix(unixSeconds);
+  const jd = moonDynamicalJd(unixSeconds);
   const count = m.el.length / 6;
   let index = Math.floor((jd - m.t0) / m.step);
   index = Math.max(0, Math.min(count - 2, index));
@@ -82,7 +93,7 @@ function offsetFromElements(el, meanAnomalyDeg) {
  * Is `unixSeconds` inside the exact interval independently validated for every moon?
  */
 export function withinMoonValidity(unixSeconds, minJd, maxJd) {
-  const jd = jdFromUnix(unixSeconds);
+  const jd = moonDynamicalJd(unixSeconds);
   return jd >= minJd && jd <= maxJd;
 }
 

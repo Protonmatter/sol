@@ -1,0 +1,52 @@
+Owner-approved precision target: complete UTC calendar years1900 through2200,
+with years1 through9999 retained as approximate exploration outside the target.
+Qualification is pending. This plan is frozen before reference acquisition.
+
+The model-argument sweep pads those calendar bounds by one day:
+1899-Dec-31 00:00 through2201-Jan-02 00:00, JD Gregorian.
+Primary instants: every30 days beginning at the padded start, not exceeding the
+padded end. Additional instants: exact core start1900-Jan-01, exclusive core
+end2201-Jan-01 and padded end, plus257 unique deterministic irregular instants.
+Irregular generation: unsigned32-bit LCG, seed0x534F4C32,
+state=(1664525*state+1013904223) mod2^32;
+offset_seconds=floor(state*core_span_seconds/2^32), offset from core start;
+JD values serialized to9 decimal places. Skip duplicates and regular-grid hits
+until257 irregular instants are collected; add the three boundary probes.
+No epoch is selected using native residuals or reference outcomes.
+
+Reference endpoint: https://ssd.jpl.nasa.gov/api/horizons.api
+Raw responses are retained unchanged with exact requests/source identities,
+acquisition times, byte counts and SHA256. Bounded serial requests, at most2
+attempts,30-second per-attempt deadline, at least0.3seconds between requests,
+1MiB per response and64MiB total raw cap. TLIST batches contain at most64 epochs.
+
+Geometric queries: ecliptic J2000/ICRF, NONE correction, AU-D, vector table1,
+TDB model arguments. Target/origin pairs: Mercury199/10,Venus299/10,Earth399/10,
+Mars-system4/10,Jupiter-system5/10,Saturn-system6/10,Uranus-system7/10,
+Neptune-system8/10,Moon301/10 and geocentric Moon301/399.
+Native TT is evaluated at the numerical TDB argument; TT-TDB is at most2ms in
+this interval, below the model comparison budget. This is not UTC qualification.
+Primary metric: full vector-norm residual divided by reference norm, times
+206264.80624709636; maximum10 arcsecond-equivalent, unchanged from the existing
+independent geometric-vector budget. Angular/radial diagnostics remain separate.
+
+Apparent queries: Earth geocenter500@399, airless, Gregorian JD/TT, decimal degrees,
+quantities2,20,30,45. Targets: Sun10,Moon301,Mercury199,Venus299,planetary systems
+4/5/6/7/8. Primary Q2 great-circle budgets:10arcseconds Sun/planets,12 Moon.
+Primary Q20 geocentric apparent-range budget:max(1km,10ppm*reference range).
+Q30(TDB-UT) andQ45(apparent ICRF directions) are separate retained diagnostics.
+All budgets are unchanged; every admitted numerical result is retained.
+
+Native observation must use the actual Rust model source, including the existing
+System ABI and the geocentric function used by Sky. A bounded isolated observer
+may append a read-only entry point to an exact source copy; it must preserve all
+original numerical functions/assets, bind their hashes, and demonstrate parity
+with actual serialized snapshots at independent selected epochs. No duplicate
+or refitted planetary/lunar algorithm may serve as the production observation.
+
+All samples are validation data, not coefficient-fitting data. Any failed
+admission or failed numerical check holds qualification. Data absence does not
+qualify. No source-parity result becomes independent evidence by relabeling.
+The full-range failing characterization remains retained. No continuous-error
+proof, physical future UTC/EOP guarantee, observed-event, catalogue-star,
+major-moon-knot, navigation or full-release qualification is inferred.

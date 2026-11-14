@@ -1,0 +1,12 @@
+{
+  "schema_version": "sol-canonical-bootstrap.v1",
+  "source_archive_bytes": 1344912,
+  "source_archive_sha256": "8f3aa8a2c9ec829272b4643f03cfb19b4686705cc704c72a67dbde81b2c68f50",
+  "bootstrap_sha256": "a2d1651325f72d8cf77f56e38e26cdc9818e08242eed2015ccc76f320a3a6c68",
+  "driver_sha256": "07d57d21f080e9e5137221d7fe069af16413bcb7b796d7118286050646476b91",
+  "input_manifest_sha256": "19e43d8f75e94ce39c50ed8d32421f4b63d71a45728fc8d0fee2da9dce2aa598",
+  "members": 12,
+  "environment_policy": "Minimal PATH/HOME/LANG and explicit local Unix Docker socket; no Cloud SDK/context environment inherited.",
+  "docker_host": "unix:///var/run/docker.sock",
+  "root": "/tmp/sol-moon-refresh-pending-20261104-0qpp81f1"
+}

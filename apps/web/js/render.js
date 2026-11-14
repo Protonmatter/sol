@@ -1,17 +1,108 @@
+import {butterflyPlot} from './butterflyGeometry.js';
 // All canvas rendering: the solar disk, its overlays, and the butterfly diagram.
 
-import { store } from "./store.js?v=dcca6290db";
-import { controls, text } from "./dom.js?v=dcca6290db";
-import { clamp, hash01 } from "./format.js?v=dcca6290db";
-import { selectedRegion } from "./selectors.js?v=dcca6290db";
-import { currentBaseImage } from "./data.js?v=dcca6290db";
-import { projectSolarPoint, regionAnchor, confidenceEncoding } from "./solarProjection.js?v=dcca6290db";
-import { seriesPosition } from "./seriesModel.js?v=dcca6290db";
-import { updateWavelengthCaption } from "./wavelength.js?v=dcca6290db";
+import { store } from "./store.js";
+import { controls, text } from "./dom.js";
+import { clamp, hash01 } from "./format.js";
+import { selectedRegion } from "./selectors.js";
+import { currentBaseImage } from "./data.js";
+import { projectSolarPoint, regionAnchor, confidenceEncoding } from "./solarProjection.js";
+import { seriesPosition } from "./seriesModel.js";
+import { updateWavelengthCaption } from "./wavelength.js";
 
-export function drawSolarDisk() {
+
+// Resize may retain the canvas's own pixels; it never copies or resamples them.
+// Full source/control renders remain unconditional. Mutable or unsupported
+// snapshots, observed images and uncertain draw/context state render fully.
+/** @type {WeakMap<object,any>} */
+const solarFrames=new WeakMap();
+/** @type {WeakMap<object,boolean>} */
+const immutableInputs=new WeakMap();
+
+function canvasDisplaySize(canvas,maxSize){
+  const rect=canvas.getBoundingClientRect();
+  if(rect.width<=0||rect.height<=0)return null;
+  const scale=Math.min(window.devicePixelRatio||1,2,maxSize/Math.max(rect.width,1));
+  const width=Math.max(1,Math.round(rect.width*scale)),height=Math.max(1,Math.round(rect.height*scale));
+  return {width,height,textScale:Math.max(width/rect.width,height/rect.height)};
+}
+
+function immutableSnapshot(root){
+  if(!root||typeof root!=='object')return false;
+  if(immutableInputs.has(root))return immutableInputs.get(root);
+  let valid=true,budget=0;
+  const pending=[root],seen=new WeakSet();
+  try{
+    while(pending.length&&valid){
+      const value=pending.pop(),proto=Object.getPrototypeOf(value);
+      if(seen.has(value)||!Object.isFrozen(value)||(Array.isArray(value)?proto!==Array.prototype:proto!==Object.prototype&&proto!==null)){valid=false;break;}
+      seen.add(value);
+      for(const key of Reflect.ownKeys(value)){
+        const descriptor=Object.getOwnPropertyDescriptor(value,key);
+        if(++budget>100000||!descriptor||!('value'in descriptor)||typeof descriptor.value==='function'){valid=false;break;}
+        if(descriptor.value&&typeof descriptor.value==='object')pending.push(descriptor.value);
+      }
+    }
+  }catch{valid=false;}
+  immutableInputs.set(root,valid);return valid;
+}
+
+function solarFrameState(canvas){
+  let frame=solarFrames.get(canvas);
+  if(frame)return frame;
+  frame={valid:false,trackable:false};solarFrames.set(canvas,frame);
+  if(typeof canvas.addEventListener==='function'){
+    const invalidate=()=>{frame.valid=false;};
+    try{canvas.addEventListener('contextlost',invalidate);canvas.addEventListener('contextrestored',invalidate);frame.trackable=true;}
+    catch{frame.trackable=false;}
+  }
+  return frame;
+}
+
+function solarDrawInputs(base){
+  if(base||!immutableSnapshot(store.state))return null;
+  return [store.state,store.activeMode,store.timelineIndex,store.liveEngineRun,store.wavelength,store.selectedRegionId,
+    controls?.regions?.checked,controls?.confidence?.checked];
+}
+
+function contextUsable(ctx){
+  try{return typeof ctx?.isContextLost==='function'&&ctx.isContextLost()===false;}
+  catch{return false;}
+}
+
+function rememberSolarFrame(canvas,ctx,base,frame,textScale){
+  const inputs=solarDrawInputs(base);
+  // A procedural Sun always ends with a nondefault rim/region stroke.
+  // Native width/height and context resets restore lineWidth to1, so equal
+  // backing dimensions alone cannot qualify a frame after such a reset.
+  frame.lineWidth=ctx.lineWidth;frame.strokeStyle=ctx.strokeStyle;
+  frame.valid=Boolean(frame.trackable&&inputs&&contextUsable(ctx)&&Number.isFinite(frame.lineWidth)&&frame.lineWidth>=1.5&&typeof frame.strokeStyle==='string');
+  frame.textScale=textScale;frame.inputs=inputs;frame.ctx=ctx;frame.width=canvas.width;frame.height=canvas.height;
+  frame.projected=store.projectedRegions;frame.kind=store.activeBaseKind;frame.label=store.activeBaseLabel;
+}
+
+function reuseSolarFrame(canvas,size){
+  const frame=solarFrames.get(canvas);
+  if(!frame?.valid)return false;
+  if(!size||size.textScale!==frame.textScale||size.width!==canvas.width||size.height!==canvas.height||frame.width!==canvas.width||frame.height!==canvas.height)return false;
+  const ctx=canvas.getContext('2d');
+  if(ctx!==frame.ctx||!contextUsable(ctx)||!Object.is(ctx.lineWidth,frame.lineWidth)||ctx.strokeStyle!==frame.strokeStyle){frame.valid=false;return false;}
+  const inputs=solarDrawInputs(currentBaseImage());
+  if(!inputs||inputs.some((value,index)=>!Object.is(value,frame.inputs[index]))||frame.projected!==store.projectedRegions
+    ||frame.kind!==store.activeBaseKind||frame.label!==store.activeBaseLabel)return false;
+  try{updateWavelengthCaption();}catch(error){frame.valid=false;throw error;}
+  return true;
+}
+
+/** @param {any} [options] */
+export function drawSolarDisk(options=null) {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("solarCanvas"));
-  resizeCanvasToDisplaySize(canvas, 720);
+  const size=canvasDisplaySize(canvas,720);
+  const textScale=size?.textScale||1;
+  if(options?.resizeOnly===true&&reuseSolarFrame(canvas,size))return;
+  const frame=solarFrameState(canvas);
+  frame.valid=false;
+  resizeCanvasToDisplaySize(canvas,size);
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
@@ -55,7 +146,7 @@ export function drawSolarDisk() {
   }
 
   if (!base && controls.regions.checked) {
-    drawActiveRegions(ctx, cx, cy, radius);
+    drawActiveRegions(ctx, cx, cy, radius, textScale);
   }
 
   const observed = store.activeBaseKind === "observed";
@@ -65,6 +156,7 @@ export function drawSolarDisk() {
   // Timeline/local-model transitions can reuse a ready image without a load event.
   // Refresh its source disclosure whenever the displayed disk changes.
   updateWavelengthCaption();
+  rememberSolarFrame(canvas,ctx,base,frame,textScale);
 }
 
 function drawObservedBase(ctx, entry, width, height) {
@@ -186,7 +278,7 @@ function drawSpot(ctx, x, y, radius, inner, outer) {
   ctx.fill();
 }
 
-function drawActiveRegions(ctx, cx, cy, radius) {
+function drawActiveRegions(ctx, cx, cy, radius, textScale) {
   const selected = selectedRegion();
   for (const region of store.state.active_regions || []) {
     const point = projectRegion(region, cx, cy, radius);
@@ -204,8 +296,8 @@ function drawActiveRegions(ctx, cx, cy, radius) {
 
     if (isSelected) {
       ctx.fillStyle = "rgba(246,243,232,0.92)";
-      ctx.font = `${Math.max(11, radius * 0.032)}px Segoe UI, sans-serif`;
-      ctx.fillText(`AR ${region.id}`, point.x + size + 5, point.y - size - 4);
+      ctx.font = `${Math.max(12 * textScale, radius * 0.032)}px Segoe UI, sans-serif`;
+      ctx.fillText(`AR ${region.id}`, point.x + size + 5 * textScale, point.y - size - 4 * textScale);
     }
   }
 }
@@ -229,7 +321,9 @@ function drawLatitudeBands(ctx, cx, cy, radius, color) {
 
 export function drawButterfly() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("butterflyCanvas"));
-  resizeCanvasToDisplaySize(canvas, 980);
+  const size=canvasDisplaySize(canvas,980);
+  resizeCanvasToDisplaySize(canvas,size);
+  const textScale=size?.textScale||1;
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
@@ -238,18 +332,19 @@ export function drawButterfly() {
   ctx.fillStyle = "#08090c";
   ctx.fillRect(0, 0, width, height);
   if (store.seriesFrames.length) {
-    drawButterflySeries(ctx, width, height);
+    drawButterflySeries(ctx, width, height, textScale);
   } else {
-    drawButterflySnapshot(ctx, width, height);
+    drawButterflySnapshot(ctx, width, height, textScale);
   }
 }
 
 // A real butterfly diagram: sunspot latitude (y) against cycle time (x).
-function drawButterflySeries(ctx, width, height) {
-  const padLeft = 38;
-  const padRight = 14;
-  const top = 14;
-  const bottom = height - 24;
+function drawButterflySeries(ctx, width, height, textScale) {
+  const plot = butterflyPlot(width,textScale);
+  const padLeft = plot.left;
+  const padRight = width-plot.left-plot.width;
+  const top = 14 * textScale;
+  const bottom = height - 24 * textScale;
   const plotH = bottom - top;
   const count = store.seriesFrames.length;
   const latToY = (lat) => top + (1 - (lat + 45) / 90) * plotH;
@@ -296,15 +391,15 @@ function drawButterflySeries(ctx, width, height) {
   });
 
   ctx.fillStyle = "#aeb4bd";
-  ctx.font = "13px Segoe UI, sans-serif";
-  ctx.fillText("+45°", 4, latToY(45) + 4);
-  ctx.fillText("eq", 12, latToY(0) + 4);
-  ctx.fillText("-45°", 4, latToY(-45) + 4);
-  ctx.fillText("time →  (one idealized ~11-year cycle)", padLeft, height - 7);
+  ctx.font = `${13 * textScale}px Segoe UI, sans-serif`;
+  ctx.fillText("+45°", 4 * textScale, latToY(45) + 4 * textScale);
+  ctx.fillText("eq", 12 * textScale, latToY(0) + 4 * textScale);
+  ctx.fillText("-45°", 4 * textScale, latToY(-45) + 4 * textScale);
+  ctx.fillText("time →  (one idealized ~11-year cycle)", padLeft, height - 7 * textScale);
 }
 
 // Fallback used before the series loads: today's regions plotted by latitude.
-function drawButterflySnapshot(ctx, width, height) {
+function drawButterflySnapshot(ctx, width, height, textScale) {
   ctx.strokeStyle = "#313742";
   ctx.lineWidth = 1;
   for (let i = 1; i < 6; i += 1) {
@@ -328,18 +423,15 @@ function drawButterflySnapshot(ctx, width, height) {
     ctx.fill();
   });
   ctx.fillStyle = "#aeb4bd";
-  ctx.font = "14px Segoe UI, sans-serif";
-  ctx.fillText("+45 deg", 14, 22);
-  ctx.fillText("equator", 14, height / 2 - 8);
-  ctx.fillText("-45 deg", 14, height - 14);
+  ctx.font = `${14 * textScale}px Segoe UI, sans-serif`;
+  ctx.fillText("+45 deg", 14 * textScale, 22 * textScale);
+  ctx.fillText("equator", 14 * textScale, height / 2 - 8 * textScale);
+  ctx.fillText("-45 deg", 14 * textScale, height - 14 * textScale);
 }
 
-function resizeCanvasToDisplaySize(canvas, maxSize) {
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
-  const scale = Math.min(window.devicePixelRatio || 1, 2, maxSize / Math.max(rect.width, 1));
-  const width = Math.max(1, Math.round(rect.width * scale));
-  const height = Math.max(1, Math.round(rect.height * scale));
+function resizeCanvasToDisplaySize(canvas, size) {
+  if(!size)return;
+  const {width,height}=size;
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;

@@ -4,6 +4,14 @@ import { MessageChannel } from "node:worker_threads";
 import { registerOfflineRelease, identifyWaitingRelease } from "../../apps/web/js/releaseClient.js";
 import {harness,release,origin} from "./helpers/releaseCacheHarness.mjs";
 
+test('offline registration failure retains the current release without claiming network use',async()=>{
+  const status={};
+  await registerOfflineRelease({serviceWorker:{addEventListener(){},register:async()=>{throw new Error('offline');}},
+    location:{},document:{getElementById:id=>id==='releaseStatus'?status:null},basePath:'/sol/',releaseId:'A'});
+  assert.match(status.textContent,/current release.*retained|retains.*current release/i);
+  assert.doesNotMatch(status.textContent,/using.*online|network.validated/i);
+});
+
 test("A registration with B worker content activates B using verified identity, not script URL",async()=>{
   const b=harness("B",await release("B"));await b.event("install");
   const messages=[],button={hidden:true},status={},listeners={},navigations=[];

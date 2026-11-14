@@ -222,17 +222,18 @@ test("no-transit control assertion passes on a clean disc and catches a stray sh
   );
 });
 
-function markerFrame(brightness) {
+function markerFrame(brightness, { centre = [120, 150], radius = 60 } = {}) {
   const image = new PNG({ width: SYNTHETIC_WIDTH, height: SYNTHETIC_HEIGHT });
   for (let y = 0; y < image.height; y += 1) {
     for (let x = 0; x < image.width; x += 1) {
       const offset = (y * image.width + x) * 4;
       image.data[offset + 3] = 255;
-      const r = Math.hypot(x - 120, y - 150);
-      if (r > 12) continue;
-      // A half-lit sphere, which is what the eclipse pair sees from over the planet's pole.
-      const shade = Math.max(0, (120 - x) / 12 + 0.6);
-      const level = Math.round(Math.min(255, 210 * brightness * Math.min(1, shade)));
+      const r = Math.hypot(x - centre[0], y - centre[1]);
+      if (r > radius) continue;
+      // A fully lit Lambert sphere with the shader's ambient floor, which is what the focused
+      // eclipse pair sees from the Sun's side of the moon.
+      const shade = 0.05 + 0.95 * Math.sqrt(Math.max(0, 1 - (r / radius) ** 2));
+      const level = Math.round(Math.min(255, 210 * brightness * shade));
       image.data[offset] = level;
       image.data[offset + 1] = level;
       image.data[offset + 2] = level;
@@ -241,14 +242,22 @@ function markerFrame(brightness) {
   return PNG.sync.write(image);
 }
 
+// Pixel x spans [x, x + 1), so a disc drawn around pixel index 120 is centred at 120.5. At 60 px
+// the 1% radius tolerance, not the 1 px floor, binds, as it does for the ~156 px browser frame.
+const ECLIPSE_DISC = { at: [120.5, 150.5], radiusPx: 60 };
+function eclipsePlan(sunlit, disc = ECLIPSE_DISC) {
+  const marker = { name: "Io", at: [120, 150], radiusPx: 60 };
+  return syntheticPlan({ markers: [marker], sunlit: { Io: sunlit }, target: "Io", targetDisc: disc });
+}
+
 test("moon eclipse assertion measures the shipped ramp and catches a deleted one", () => {
-  const marker = { name: "Io", at: [120, 150], radiusPx: 12 };
-  const eclipsedPlan = syntheticPlan({ markers: [marker], sunlit: { Io: 0 } });
-  const sunlitPlan = syntheticPlan({ markers: [marker], sunlit: { Io: 1 } });
+  const eclipsedPlan = eclipsePlan(0);
+  const sunlitPlan = eclipsePlan(1);
   const stats = assertEclipsedMoonMarker(
     markerFrame(TOTAL_ECLIPSE_MARKER_FACTOR), markerFrame(1), eclipsedPlan, sunlitPlan, "Io"
   );
   assert.ok(Math.abs(stats.ratio - TOTAL_ECLIPSE_MARKER_FACTOR) < 0.02, `ratio ${stats.ratio}`);
+  assert.ok(stats.disc.centreError < 0.2, `disc centre error ${stats.disc.centreError}`);
   // `const eclipsed = 1.0` — the moon never dims.
   assert.throws(
     () => assertEclipsedMoonMarker(markerFrame(1), markerFrame(1), eclipsedPlan, sunlitPlan, "Io"),
@@ -263,9 +272,32 @@ test("moon eclipse assertion measures the shipped ramp and catches a deleted one
   // before any pixel is read, so the gate can never quietly measure the wrong moment.
   assert.throws(
     () => assertEclipsedMoonMarker(
-      markerFrame(TOTAL_ECLIPSE_MARKER_FACTOR), markerFrame(1),
-      syntheticPlan({ markers: [marker], sunlit: { Io: 0.4 } }), sunlitPlan, "Io"
+      markerFrame(TOTAL_ECLIPSE_MARKER_FACTOR), markerFrame(1), eclipsePlan(0.4), sunlitPlan, "Io"
     ),
     /not in total umbra/
+  );
+});
+
+test("moon eclipse assertion checks the camera against the measured lit disc", () => {
+  const eclipsedPlan = eclipsePlan(0);
+  const dark = markerFrame(TOTAL_ECLIPSE_MARKER_FACTOR);
+  // A camera 10% too far or too near draws a disc of the wrong size.
+  assert.throws(
+    () => assertEclipsedMoonMarker(dark, markerFrame(1, { radius: 66 }), eclipsedPlan, eclipsePlan(1), "Io"),
+    /lit disc does not match the predicted camera/
+  );
+  assert.throws(
+    () => assertEclipsedMoonMarker(dark, markerFrame(1), eclipsedPlan, eclipsePlan(1, { at: [120.5, 150.5], radiusPx: 54 }), "Io"),
+    /lit disc does not match the predicted camera/
+  );
+  // A camera aimed 3 px off the moon.
+  assert.throws(
+    () => assertEclipsedMoonMarker(dark, markerFrame(1, { centre: [123, 150] }), eclipsedPlan, eclipsePlan(1), "Io"),
+    /lit disc does not match the predicted camera/
+  );
+  // A plan that frames the planet instead of the eclipsed moon is refused outright.
+  assert.throws(
+    () => assertEclipsedMoonMarker(dark, markerFrame(1), eclipsedPlan, { ...eclipsePlan(1), target: "Jupiter" }, "Io"),
+    /must focus Io itself/
   );
 });

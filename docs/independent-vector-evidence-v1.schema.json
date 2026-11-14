@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Discrete independent native System vector evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "method",
+    "execution",
+    "domain",
+    "native_command",
+    "native_host",
+    "native_source_sha256",
+    "native_source_digest",
+    "validation_source_sha256",
+    "validation_source_digest",
+    "reference",
+    "reference_artifacts_sha256",
+    "acceptance",
+    "records",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "independent-vector-evidence.v1"
+    },
+    "method": {
+      "const": "independent_reference"
+    },
+    "execution": {
+      "const": "native_f64_system_abi"
+    },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "quantity",
+        "frame",
+        "units",
+        "time_scale",
+        "observer_domain",
+        "corrections",
+        "model_argument_policy"
+      ],
+      "properties": {
+        "quantity": {
+          "const": "geometric_cartesian_position"
+        },
+        "frame": {
+          "const": "ecliptic_J2000_ICRF_IAU76"
+        },
+        "units": {
+          "const": "AU"
+        },
+        "time_scale": {
+          "const": "TDB"
+        },
+        "observer_domain": {
+          "const": "body_center"
+        },
+        "corrections": {
+          "const": "NONE"
+        },
+        "model_argument_policy": {
+          "const": "TT_equal_to_reference_TDB"
+        }
+      }
+    },
+    "native_command": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "native_host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system",
+        "machine"
+      ],
+      "properties": {
+        "system": {
+          "type": "string",
+          "minLength": 1
+        },
+        "machine": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "native_source_sha256": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 64,
+        "maxLength": 64
+      }
+    },
+    "native_source_digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "validation_source_sha256": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 64,
+        "maxLength": 64
+      }
+    },
+    "validation_source_digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "ephemeris",
+        "manifest_path",
+        "manifest_sha256"
+      ],
+      "properties": {
+        "authority": {
+          "const": "NASA/JPL Horizons API"
+        },
+        "ephemeris": {
+          "const": "DE441"
+        },
+        "manifest_path": {
+          "const": "tests/fixtures/horizons-vectors-20261104/manifest.json"
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64
+        }
+      }
+    },
+    "reference_artifacts_sha256": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 64,
+        "maxLength": 64
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "maximum",
+        "comparison",
+        "arcsec_per_radian"
+      ],
+      "properties": {
+        "metric": {
+          "const": "relative_vector_norm_arcsec"
+        },
+        "maximum": {
+          "const": 10.0
+        },
+        "comparison": {
+          "const": "<="
+        },
+        "arcsec_per_radian": {
+          "const": 206264.80624709636
+        }
+      }
+    },
+    "records": {
+      "type": "array",
+      "minItems": 160,
+      "maxItems": 160,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "case",
+          "body",
+          "target_id",
+          "returned_target_id",
+          "center_id",
+          "jd_tdb",
+          "raw_response_sha256",
+          "reference_vector_au",
+          "native_vector_au",
+          "relative_vector_norm_arcsec",
+          "angular_error_arcsec",
+          "radial_error_ppm",
+          "tt_argument_error_seconds",
+          "passed"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "case": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_id": {
+            "type": "integer"
+          },
+          "returned_target_id": {
+            "type": "integer"
+          },
+          "center_id": {
+            "type": "integer"
+          },
+          "jd_tdb": {
+            "type": "number"
+          },
+          "raw_response_sha256": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "reference_vector_au": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number"
+            }
+          },
+          "native_vector_au": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number"
+            }
+          },
+          "relative_vector_norm_arcsec": {
+            "type": "number",
+            "minimum": 0
+          },
+          "angular_error_arcsec": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 648000
+          },
+          "radial_error_ppm": {
+            "type": "number"
+          },
+          "tt_argument_error_seconds": {
+            "type": "number",
+            "minimum": -0.001,
+            "maximum": 0.001
+          },
+          "passed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

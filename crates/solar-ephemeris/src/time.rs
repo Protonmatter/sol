@@ -139,14 +139,15 @@ pub fn nutation_deg(t: f64) -> (f64, f64) {
 /// Greenwich mean sidereal time in degrees from JD(UT) (Meeus 12.4).
 pub fn gmst_deg(jd_ut: f64) -> f64 {
     let t = centuries(jd_ut);
-    (280.46061837 + 360.98564736629 * (jd_ut - J2000) + 0.000387933 * t * t
-        - t * t * t / 38710000.0)
-        .rem_euclid(360.0)
+    crate::coords::wrap_degrees(
+        280.46061837 + 360.98564736629 * (jd_ut - J2000) + 0.000387933 * t * t
+            - t * t * t / 38710000.0,
+    )
 }
 
 /// Greenwich apparent sidereal time in degrees (mean + equation of the equinoxes).
 pub fn gast_deg(jd_ut: f64, dpsi_deg: f64, eps_deg: f64) -> f64 {
-    (gmst_deg(jd_ut) + dpsi_deg * (eps_deg * D2R).cos()).rem_euclid(360.0)
+    crate::coords::wrap_degrees(gmst_deg(jd_ut) + dpsi_deg * (eps_deg * D2R).cos())
 }
 
 #[cfg(test)]

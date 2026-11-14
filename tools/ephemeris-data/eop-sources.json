@@ -1,0 +1,50 @@
+{
+  "schema_version": "earth-orientation-source.v1",
+  "source_directory": "tests/fixtures/iers-eop-20261104",
+  "source_url": "https://maia.usno.navy.mil/ser7/finals2000A.all",
+  "captured_at_utc": "2026-11-04T08:40:24.562331+00:00",
+  "files": {
+    "finals2000A.all": {
+      "bytes": 3775228,
+      "sha256": "f7c0e9e5033b92ecd2488cf20cdf015c8aa2229f3153eceafd17d862b19fc961"
+    },
+    "readme.finals2000A": {
+      "bytes": 1830,
+      "sha256": "3efb2c610012360391aed5c057489ff74539b78494a66b7f9b342d1843db9254"
+    },
+    "checksums-before.sha512": {
+      "bytes": 1746,
+      "sha256": "30e4a4e769cf2a599503fad6d5cc49846ea1bca348cdccd754d0719ac2c364d2"
+    },
+    "checksums-after.sha512": {
+      "bytes": 1746,
+      "sha256": "30e4a4e769cf2a599503fad6d5cc49846ea1bca348cdccd754d0719ac2c364d2"
+    },
+    "plan.json": {
+      "bytes": 1134,
+      "sha256": "c25157e2adb3e06f215f5cd3aedb61c93dff573a065c532ac0e6332cd7d10c71"
+    },
+    "acquisition.json": {
+      "bytes": 2436,
+      "sha256": "06542da6d3d71139663a2da48488a32512bf2646e95a37861fc0d6c669a39071"
+    }
+  },
+  "source_sha512": "ec1b23eadc029abe3c6bb3e7b2a2d519774c3b02edb457802d8369690b334f325d113d28c8dc7ff3e27ad89641b0e69da30c5830525eef2b92d1b9b375b71b0a",
+  "selection": "Bulletin A xp, yp, UT1-UTC, reported DUT1 formal error and PM/UT1 I/P flags; no Bulletin B splice or celestial-pole offsets",
+  "expected": {
+    "complete_rows": 20031,
+    "empty_tail_rows": 50,
+    "start_mjd": 41684,
+    "observed_end_mjd": 61342,
+    "prediction_end_mjd": 61714
+  },
+  "binary": {
+    "path": "crates/solar-ephemeris/data/earth-orientation.bin",
+    "magic": "SOLEOP01",
+    "header": "8s,u32count,i32start_mjd little endian",
+    "row": "xp,yp,dut1,dut1_formal_error as four little-endian binary64; one byte PM/UT1 prediction flags",
+    "row_bytes": 33,
+    "bytes": 661039,
+    "sha256": "994c3fe24df38b54dc404bc6c1d1b7db86aab6aae4d2f311d7ad8207b0a9038a"
+  }
+}

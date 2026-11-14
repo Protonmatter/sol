@@ -1,0 +1,56 @@
+"""Admit one public snapshot archive, then launch its reviewed native driver."""
+from pathlib import Path, PurePosixPath
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import tarfile
+import tempfile
+
+sha=lambda raw:hashlib.sha256(raw).hexdigest()
+archive=Path.home()/'sol-moon-refresh-qualified-20261104-01.tar.gz'
+if archive.is_symlink() or archive.stat().st_size!=1345075:
+    raise ValueError('source transfer size/path differs')
+raw=archive.read_bytes()
+if sha(raw)!='a3f71be75411e1376523cb74ac628ab03737afe54cc58f53a96f7029b48b630c':
+    raise ValueError('source transfer digest differs')
+with tarfile.open(archive) as tar:
+    members=tar.getmembers()
+    if len(members)!=12 or sum(m.size for m in members)>8*1024**2:
+        raise ValueError('source transfer inventory budget differs')
+    files={}
+    for member in members:
+        p=PurePosixPath(member.name)
+        if not member.isfile() or p.is_absolute() or '..' in p.parts or str(p)!=member.name \
+                or ':' in member.name or '\\' in member.name or member.name in files:
+            raise ValueError('unsafe source member')
+        files[member.name]=tar.extractfile(member).read()
+spec=json.loads(files['input-manifest.json'])
+expected={'inputs/'+r['path'] for r in spec['files']}|{'driver.py','input-manifest.json'}
+if len(spec['files'])!=10 or len(expected)!=12 or set(files)!=expected or spec['phase']!='qualified':
+    raise ValueError('source manifest association differs')
+for item in spec['files']:
+    data=files['inputs/'+item['path']]
+    if len(data)!=item['bytes'] or sha(data)!=item['sha256']:
+        raise ValueError('source manifest identity differs')
+if sha(files['driver.py'])!='07d57d21f080e9e5137221d7fe069af16413bcb7b796d7118286050646476b91':
+    raise ValueError('reviewed driver differs')
+root=Path(tempfile.mkdtemp(prefix='sol-moon-refresh-qualified-20261104-'))
+for name,data in files.items():
+    destination=root/name
+    if not destination.resolve().is_relative_to(root):raise ValueError('source path escapes owned root')
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    with destination.open('xb') as stream:stream.write(data)
+environment={'PATH':os.environ['PATH'],'HOME':str(Path.home()),'LANG':'C.UTF-8','DOCKER_HOST':'unix:///var/run/docker.sock'}
+record=dict(schema_version='sol-canonical-bootstrap.v1',source_archive_bytes=len(raw),source_archive_sha256=sha(raw),
+    bootstrap_sha256=sha(Path(__file__).read_bytes()),driver_sha256=sha(files['driver.py']),
+    input_manifest_sha256=sha(files['input-manifest.json']),members=len(files),
+    environment_policy='Minimal PATH/HOME/LANG and explicit local Unix Docker socket; no Cloud SDK/context environment inherited.',
+    docker_host=environment['DOCKER_HOST'],root=str(root))
+with (root/'bootstrap-receipt.json').open('x') as stream:json.dump(record,stream,indent=2);stream.write('\n')
+with (root/'bootstrap.py.txt').open('xb') as stream:stream.write(Path(__file__).read_bytes())
+with (root/'launcher.log').open('x') as log:
+    child=subprocess.Popen([sys.executable,str(root/'driver.py')],cwd=root,env=environment,stdin=subprocess.DEVNULL,
+        stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+print('SOL_CANONICAL_STARTED='+json.dumps(dict(root=str(root),pid=child.pid,bootstrap_sha256=record['bootstrap_sha256'])),flush=True)

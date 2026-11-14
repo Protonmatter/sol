@@ -1,3 +1,4 @@
+import {createLabelPresenter} from '../../apps/web/js/labelPresenter.js';
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
@@ -5,6 +6,7 @@ import test from "node:test";
 import { layoutLabels } from "../../apps/web/js/labelLayout.js";
 import { projectOpaqueDisc, isLabelOccluded } from "../../apps/web/js/labelOcclusion.js";
 import { BODY } from "../../apps/web/js/bodyData.js";
+import { writeText } from "../../apps/web/js/domWrites.js";
 import { perspective } from "../../apps/web/js/orreryMath.js";
 
 // Execute the production label function, with only its DOM/scene dependencies
@@ -14,7 +16,7 @@ function fixture() {
   const functionSource = source.slice(source.indexOf("function updateLabels("), source.indexOf("// ---------------------------------------------------------------- detail panel"));
   const labels = [];
   const context = vm.createContext({
-    labelEls: labels, updateOrreryAccuracy() {}, layoutLabels, projectOpaqueDisc, isLabelOccluded, BODY,
+    labelEls: labels, updateOrreryAccuracy() {}, writeText, layoutLabels, projectOpaqueDisc, isLabelOccluded, BODY,
     // The scene boundary supplies a known enlarged display radius. Projection
     // and occlusion still execute their actual production implementations.
     displayRadiusAU: () => 0.3,
@@ -22,9 +24,11 @@ function fixture() {
     DRAW_LIST: ["Jupiter"], moonMarkers: [], moonSet: { MOONS: [] },
     moonDisplayRadius: () => 0.02, bodyWorldPos: body => body.p,
     cel: { pulsars: [], deepsky: [], brightStars: [] },
-    document: { getElementById: () => ({ style: {}, appendChild() {} }),
-      createElement: () => ({ style: {}, dataset: {}, offsetWidth: 40, offsetHeight: 16, classList: { toggle() {} } }) },
+    document: { getElementById: () => ({ style: {}, appendChild(el) {labels.push(el);}  }),
+      createElement: () => ({ style: {}, dataset: {}, offsetWidth: 40, offsetHeight: 16,
+        getBoundingClientRect: () => ({width:40,height:16}), classList: { toggle() {} } }) },
   });
+  context.labelPresenter=createLabelPresenter({document:context.document});
   vm.runInContext(functionSource, context);
   const matrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
   const render = () => context.updateLabels({ clientWidth: 200, clientHeight: 100, offsetLeft: 0, offsetTop: 0 }, matrix, matrix);
@@ -39,6 +43,39 @@ test("packed label exposes the actual pre-layout projection without moving its b
   assert.equal(f.labels[0].style.top, "42px");
 });
 
+test("fractional text boxes retain clearance when integer offset sizes round down", () => {
+  // Actual Chromium widths from the retained Earth/Mars scene. offsetWidth
+  // rounds to integer CSS pixels; visible text boxes retain these fractions.
+  const widths={Earth:27.453125,Mars:25.96875};
+  const failures=[];
+  // The second case also exercises a constructed fractional line-box height.
+  for(const {height,mars} of [{height:15,mars:[.31,0,0]},{height:15.453125,mars:[0,-.38,0]}]) {
+    const f=fixture(),create=f.context.document.createElement;
+    f.context.document.createElement=()=>{
+      const label=create();
+      Object.defineProperty(label,'offsetWidth',{get:()=>Math.round(widths[label.textContent])});
+      label.offsetHeight=Math.round(height);
+      label.getBoundingClientRect=()=>({x:parseFloat(label.style.left)||0,y:parseFloat(label.style.top)||0,
+        width:widths[label.textContent],height});
+      return label;
+    };
+    f.context.DRAW_LIST=['Earth','Mars'];
+    f.context.state.bodies=[{name:'Earth',p:[0,0,0]},{name:'Mars',p:mars}];
+    f.context.state.anchor='Earth';f.context.state.selected='Earth';
+    f.render();
+    const boxes=f.labels.filter(label=>label.style.display==='block').map(label=>label.getBoundingClientRect());
+    assert.ok(boxes.length>=1,'the selected planet retains a readable label');
+    assert.equal(f.labels[0].style.display,'block');
+    if (boxes.length===1) {
+      assert.equal(f.labels[1].dataset.projectionX,undefined,'suppressed name clears its anchor');
+      continue;
+    }
+    const [a,b]=boxes;
+    if(!(a.x+a.width+3.9<=b.x||b.x+b.width+3.9<=a.x||a.y+a.height+3.9<=b.y||b.y+b.height+3.9<=a.y))failures.push(boxes);
+  }
+  assert.deepEqual(failures,[],'fractional label clearance');
+});
+
 test("hidden, invalid and removed labels clear stale projection anchors", () => {
   for (const mode of ["behind", "outside", "invalid", "removed"]) {
     const f = fixture(); f.render();
@@ -47,12 +84,6 @@ test("hidden, invalid and removed labels clear stale projection anchors", () => 
     if (mode === "invalid") f.context.state.bodies[0].p = [NaN, 0, 0];
     if (mode === "removed") f.context.state.bodies = [];
     f.render();
-    if (mode === "outside") {
-      assert.equal(f.labels[0].style.display, "block", "the focused body keeps an overflow name when it leaves the frame");
-      assert.ok(Number.isFinite(Number(f.labels[0].dataset.projectionX)), mode);
-      assert.ok(Number.isFinite(Number(f.labels[0].dataset.projectionY)), mode);
-      continue;
-    }
     assert.equal(f.labels[0].style.display, "none", mode);
     assert.equal(f.labels[0].dataset.projectionX, undefined, mode);
     assert.equal(f.labels[0].dataset.projectionY, undefined, mode);

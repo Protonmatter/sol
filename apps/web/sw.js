@@ -6,7 +6,7 @@ const PREFIX = "sol-release-";
 const CACHE = PREFIX + RELEASE_ID;
 const base = new URL(BASE_PATH, self.location.origin);
 const marker = new URL("__complete_release__", base).href;
-const supported = new Set(["solar-state-snapshot.v2", "solar-state-snapshot.v3", "ephemeris-snapshot.v2", "ephemeris-snapshot.v3"]);
+const supported = new Set(["solar-state-snapshot.v2", "solar-state-snapshot.v3", "ephemeris-snapshot.v2", "ephemeris-snapshot.v3", "ephemeris-snapshot.v4"]);
 const absolute = path => new URL(path, base).href;
 const cleanPath = path => typeof path === "string" && /^(?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+$/.test(path) && !path.split("/").some(part => part === "." || part === "..");
 

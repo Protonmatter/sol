@@ -1,0 +1,170 @@
+API VERSION: 1.2
+API SOURCE: NASA/JPL Horizons API
+
+
+
+*******************************************************************************
+Ephemeris / API_USER Wed Nov  4 10:23:24 2026 Pasadena, USA      / Horizons    
+*******************************************************************************
+Target body name: Saturn (699)                    {source: sat441l}
+Center body name: Earth (399)                     {source: DE441}
+Center-site name: (user defined site below)
+*******************************************************************************
+Start time      : A.D. 2026-Jan-15 02:13:47.0000 UT      
+Stop  time      : A.D. 2026-Dec-15 02:13:47.0000 UT      
+Step-size       : 0 steps
+*******************************************************************************
+Target pole/equ : IAU_SATURN                      {West-longitude positive}
+Target radii    : 60268.0, 60268.0, 54364.0 km    {Equator_a, b, pole_c}       
+Center geodetic : 288.94, 42.36, .010             {E-lon(deg),Lat(deg),Alt(km)}
+Center cylindric: 288.94, 4720.15622, 4275.24293  {E-lon(deg),Dxy(km),Dz(km)}
+Center pole/equ : ITRF93                          {East-longitude positive}
+Center radii    : 6378.137, 6378.137, 6356.752 km {Equator_a, b, pole_c}       
+Target primary  : Sun
+Vis. interferer : MOON (R_eq= 1737.400) km        {source: DE441}
+Rel. light bend : Sun                             {source: DE441}
+Rel. lght bnd GM: 1.3271E+11 km^3/s^2                                          
+Atmos refraction: NO (AIRLESS)
+RA format       : DEG
+Time format     : JD  
+Calendar mode   : Gregorian
+EOP file        : eop.261103.p270130                                           
+EOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-NOV-03. PREDICTS-> 2027-JAN-29
+Units conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s 
+Table cut-offs 1: Elevation (-90.0deg=NO ),Airmass (>38.000=NO), Daylight (NO )
+Table cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )
+Table cut-offs 3: RA/DEC angular rate (     0.0=NO )                           
+Table format    : Comma Separated Values (spreadsheet)
+**********************************************************************************************************************************
+Date_________JDUT, , , R.A.__(a-app), DEC___(a-app), Azimuth_(a-app), Elevation_(a-app),             delta,     deldot,   UT1-UTC,
+**********************************************************************************************************************************
+$$SOE
+2461055.592905093, , , 358.252819475,  -3.172111907,   259.986747038,       6.168651340,  9.93266968912115, 25.7395724,   0.07192,
+2461086.592905093, , ,   0.964150745,  -1.922495241,   279.876252884,     -13.457702963,  10.3097172136877, 16.2560429,   0.06947,
+2461114.592905093, , ,   4.000770686,  -0.581344957,   300.013386744,     -29.503883319,  10.4763386906608,  4.6904690,   0.06192,
+2461145.592905093, , ,   7.532694254,   0.920345005,   329.668989745,     -42.435594823,  10.4356257526282, -8.7210040,   0.04373,
+2461175.592905093, , ,  10.666430645,   2.189778297,     6.466476651,     -45.260476928,  10.1827008466998,-19.8897130,   0.02684,
+2461206.592905093,A, ,  13.148987745,   3.121584877,    41.573143003,     -35.784336381,  9.75420996365457,-27.3418622,   0.01169,
+2461236.592905093,A, ,  14.419643075,   3.509387993,    66.900070714,     -18.493583452,  9.26315804504409,-28.7815366,   0.01151,
+2461267.592905093, , ,  14.292834367,   3.303890352,    88.636417940,       3.410143036,  8.79388372606869,-23.0487068,   0.00912,
+2461298.592905093, , ,  12.802524687,   2.568680076,   112.228679532,      26.054772126,  8.49171322903267,-10.3667458,  -0.00745,
+2461328.592905093, , ,  10.694094637,   1.653503528,   144.762576249,      43.679779823,  8.45124478260850,  5.4540202,  -0.03702,
+2461359.592905093, , ,   8.871259667,   0.947928353,   191.559475361,      48.013442540,  8.68723395475563, 20.0625890,  -0.06838,
+2461389.592905093, ,m,   8.295342479,   0.828792866,   229.647163905,      36.381119022,  9.11186034450768, 27.9721001,  -0.09816,
+$$EOE
+**********************************************************************************************************************************
+Column meaning:
+ 
+TIME
+
+  Times PRIOR to 1962 are UT1, a mean-solar time closely related to the
+prior but now-deprecated GMT. Times AFTER 1962 are in UTC, the current
+civil or "wall-clock" time-scale. UTC is kept within 0.9 seconds of UT1
+using integer leap-seconds for 1972 and later years.
+
+  Conversion from the internal Barycentric Dynamical Time (TDB) of solar
+system dynamics to the non-uniform civil UT time-scale requested for output
+has not been determined for UTC times after the next July or January 1st.
+Therefore, the last known leap-second is used as a constant over future
+intervals.
+
+  Time tags refer to the UT time-scale conversion from TDB on Earth
+regardless of observer location within the solar system, although clock
+rates may differ due to the local gravity field and no analog to "UT"
+may be defined for that location.
+
+  Any 'b' symbol in the 1st-column denotes a B.C. date. First-column blank
+(" ") denotes an A.D. date.
+ 
+CALENDAR SYSTEM
+
+  Calendar dates are given in the modern Gregorian system, extended prior to
+its 1582-Oct-15 adoption. The Gregorian calendar more closely corresponds to
+physical Earth seasons and orbital motion, but can differ by up to 10 days with
+historical records made under the prior Julian calendar, more if the Julian
+calendar was extended prior to its 45-Jan-1 BC adoption to label the historical
+event. Select "mixed" calendar mode if correlation with historical dates prior
+to A.D. 1582 is important.
+
+  NOTE: "n.a." in output means quantity "not available" at the print-time.
+ 
+SOLAR PRESENCE (OBSERVING SITE)
+  Time tag is followed by a blank, then a solar-presence symbol:
+
+       '*'  Daylight (refracted solar upper-limb on or above apparent horizon)
+       'C'  Civil twilight/dawn
+       'N'  Nautical twilight/dawn
+       'A'  Astronomical twilight/dawn
+       ' '  Night OR geocentric ephemeris
+
+LUNAR PRESENCE (OBSERVING SITE)
+  The solar-presence symbol is immediately followed by a lunar-presence symbol:
+
+       'm'  Refracted upper-limb of Moon on or above apparent horizon
+       ' '  Refracted upper-limb of Moon below apparent horizon OR geocentric
+            ephemeris
+ 
+ 'R.A.__(a-app), DEC___(a-app),' =
+  Airless apparent right ascension and declination of the target center
+with respect to an instantaneous reference frame defined by the Earth equator
+of-date (z-axis) and meridian containing the Earth equinox of-date (x-axis,
+EOP-corrected IAU76/80). Compensated for down-leg light-time delay,
+gravitational deflection of light, stellar aberration, precession & nutation.
+Note: equinox (RA origin) is offset -53 mas from the of-date frame defined by
+the IAU06/00a P & N system.
+
+  Units: RA  in decimal degrees, ddd.fffff{ffff}
+         DEC in decimal degrees  sdd.fffff{ffff}
+
+ 
+ 'Azimuth_(a-app), Elevation_(a-app),' =
+  Airless apparent azimuth and elevation of target center. Compensated
+for light-time, the gravitational deflection of light, stellar aberration,
+precession and nutation. Azimuth is measured clockwise from north:
+
+  North(0) -> East(90) -> South(180) -> West(270) -> North (360)
+
+Elevation angle is with respect to a plane perpendicular to the reference
+surface local zenith direction. TOPOCENTRIC ONLY.  Units: DEGREES
+ 
+ 'delta,     deldot,' =
+   Apparent range ("delta", light-time aberrated) and range-rate ("delta-dot")
+of the target center relative to the observer. A positive "deldot" means the
+target center is moving away from the observer, negative indicates movement
+toward the observer.  Units: AU and KM/S
+ 
+ 'UT1-UTC,' =
+   Difference between the UT1 and UTC timescales ("DUT1"). UT1 is the
+Earth-rotation dependent mean solar time on the Greenwich meridian sometimes
+referred to as GMT. UTC is a discontinuous timescale derived from the atomic
+TAI timescale, adjusted by leap seconds to provide a civil timescale
+maintained within 0.9 seconds of UT1. Therefore, the difference UT1-UTC will
+have discontinuities where leap-seconds are inserted in UTC. UTC is not
+well-defined prior to 1962, so "n.a." will be returned for earlier dates.
+The UT1 here is a JPL fit to measurements of the Earth rotation which can
+change rapidly and unpredictably at the 10^-4 second level due to tides and
+other factors affecting Earth rotation. Values for the 14 days prior to the
+present date are considered provisional and may change at up to the 0.002
+second level as data accumulates, corresponding to about 1-meter (3-sigma)
+for an Earth equatorial site. Values from the present date forward through
+the next ~78 days are predictions. Beyond that prediction interval, the last
+prediction is taken as a constant for all future dates.  Units: SECONDS
+
+Computations by ...
+
+    Solar System Dynamics Group, Horizons On-Line Ephemeris System
+    4800 Oak Grove Drive, Jet Propulsion Laboratory
+    Pasadena, CA  91109   USA
+
+    General site: https://ssd.jpl.nasa.gov/
+    Mailing list: https://ssd.jpl.nasa.gov/email_list.html
+    System news : https://ssd.jpl.nasa.gov/horizons/news.html
+    User Guide  : https://ssd.jpl.nasa.gov/horizons/manual.html
+    Connect     : browser        https://ssd.jpl.nasa.gov/horizons/app.html#/x
+                  API            https://ssd-api.jpl.nasa.gov/doc/horizons.html
+                  command-line   telnet ssd.jpl.nasa.gov 6775
+                  e-mail/batch   https://ssd.jpl.nasa.gov/ftp/ssd/horizons_batch.txt
+                  scripts        https://ssd.jpl.nasa.gov/ftp/ssd/SCRIPTS
+    Inquiries   : Jon.D.Giorgini@jpl.nasa.gov
+
+**********************************************************************************************************************************

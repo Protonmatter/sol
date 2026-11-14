@@ -11,10 +11,10 @@ async function harness(options={}){
     getExtension:()=>parallel?{COMPLETION_STATUS_KHR:5}:null,isContextLost:()=>lost,
     createProgram:()=>{if(failure==='program-allocation')return null;const p={done:false};programs.push(p);return p;},
     createShader:()=>{if(failure==='shader-allocation')return null;const s={};shaders.push(s);return s;},
-    shaderSource:(s,source)=>{s.source=source;},compileShader:()=>{},attachShader:(p,s)=>{s.owner=p;},linkProgram:()=>{},
+    shaderSource:(s,source)=>{s.source=source;},compileShader:()=>{},attachShader:(p,s)=>{s.owner=p;},linkProgram:()=>{clock+=options.linkMs??0;},
     getProgramParameter:(p,parameter)=>{queries.push(parameter);if(parameter===5)return p.done;
       assert.ok(!parallel||p.done,'early LINK_STATUS');return failure!=='link';},
-    getShaderParameter:s=>{queries.push(3);assert.ok(!parallel||s.owner.done,'early COMPILE_STATUS');return failure!=='shader';},
+    getShaderParameter:s=>{queries.push(3);assert.ok(!parallel||s.owner.done,'early COMPILE_STATUS');clock+=options.shaderStatusMs??0;return failure!=='shader';},
     getProgramInfoLog:()=>failure,getShaderInfoLog:()=>failure,
     detachShader:(p,s)=>{assert.equal(s.owner,p);detachedShaders.push(s);},
     deleteProgram:p=>deletedPrograms.push(p),deleteShader:s=>deletedShaders.push(s),
@@ -139,4 +139,58 @@ test('context loss invalidates retired allocations before a restored owner reque
   h.gl.isContextLost=()=>false;
   const restored=createShaderPrograms(h.gl,{schedule:()=>1,cancel:()=>{}});restored.request('first','v','f');
   assert.equal(h.programs.length,2,'restoration must not reuse the invalid object from the lost context');restored.dispose();
+});
+
+test('paired requests share their first-demand deadline despite later submission',async()=>{
+  const h=await harness(),first=h.manager.request('numerator','v','n',{startedAt:0});
+  h.time(1000);const second=h.manager.request('resolve','v','r',{startedAt:0});
+  h.time(30000);h.tick();
+  assert.equal(h.manager.status('numerator'),'unavailable');assert.equal(h.manager.status('resolve'),'unavailable');
+  assert.equal((await first.done).status,'unavailable');assert.equal((await second.done).status,'unavailable');h.manager.dispose();
+});
+test('invalid or future demand clocks cannot allocate shader work',async()=>{
+  for(const startedAt of [-1,NaN,Infinity,1]){
+    const h=await harness();assert.throws(()=>h.manager.request('p','v','f',{startedAt}),/start|deadline/i);
+    assert.equal(h.programs.length,0);h.manager.dispose();
+  }
+});
+test('a repeated request cannot extend an already loading shared deadline',async()=>{
+  const h=await harness(),first=h.manager.request('p','v','f',{startedAt:0});
+  h.time(1000);assert.equal(h.manager.request('p','v','f',{startedAt:1000}),first);
+  h.time(30000);h.tick();assert.equal(h.manager.status('p'),'unavailable');h.manager.dispose();
+});
+
+for(const parallel of [true,false])test(`already expired shared demand allocates no work (parallel=${parallel})`,async()=>{
+  const h=await harness({parallel});h.time(30000);
+  const ticket=h.manager.request('expired','v','f',{startedAt:0});
+  assert.equal(h.manager.status('expired'),'unavailable');assert.equal(h.programs.length,0);
+  assert.equal((await ticket.done).status,'unavailable');h.manager.dispose();
+});
+for(const options of [{linkMs:30000},{shaderStatusMs:15000}])test(`synchronous completion cannot publish after the shared deadline ${JSON.stringify(options)}`,async()=>{
+  const h=await harness({parallel:false,...options}),ticket=h.manager.request('late','v','f',{startedAt:0});
+  assert.equal((await ticket.done).status,'unavailable');assert.equal(h.manager.get('late'),null);
+  assert.equal(h.deletedPrograms.length,1);h.manager.dispose();
+});
+test('parallel status validation crossing the deadline does not publish late readiness',async()=>{
+  const h=await harness({shaderStatusMs:15000}),ticket=h.manager.request('late','v','f',{startedAt:0});h.complete();h.tick();
+  assert.equal((await ticket.done).status,'unavailable');assert.equal(h.manager.get('late'),null);h.manager.dispose();
+});
+
+for(const action of ['cancel','timeout'])for(const outcome of ['retry','dispose'])test(`expired re-entry preserves retained ${action} work for ${outcome}`,async()=>{
+  const h=await harness({capacity:1}),first=h.manager.request('p','v','f');
+  if(action==='cancel')h.manager.cancelPending();else{h.time(30000);h.tick();h.manager.retry('p');}
+  assert.equal((await first.done).status,action==='cancel'?'cancelled':'unavailable');h.time(30000);
+  const expired=h.manager.request('p','v','f',{startedAt:0});assert.equal((await expired.done).status,'unavailable');
+  assert.equal(h.programs.length,1);assert.equal(h.deletedPrograms.length,0);
+  if(outcome==='retry'){
+    h.manager.retry('p');const fresh=h.manager.request('p','v','f',{startedAt:30000});
+    assert.equal(h.programs.length,1,'the retained pending allocation remains reusable');
+    h.complete();h.tick();assert.equal((await fresh.done).status,'ready');h.manager.dispose();
+  }else{
+    h.manager.dispose();const {createShaderPrograms}=await import('../../apps/web/js/shaderPrograms.js');const frames=[];
+    const next=createShaderPrograms(h.gl,{generation:8,capacity:1,now:()=>30000,schedule:fn=>{frames.push(fn);return frames.length;},cancel:()=>{}});
+    const fresh=next.request('p','v','f',{startedAt:30000});assert.equal(h.programs.length,1,'disposal retires retained work for the next owner');
+    h.complete();frames.shift()();assert.equal((await fresh.done).status,'ready');next.dispose();
+  }
+  assert.equal(h.deletedPrograms.length,1);
 });

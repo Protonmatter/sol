@@ -1,0 +1,70 @@
+{
+  "schema_version": "sol-canonical-refresh-native-pending-review.v1",
+  "passed": true,
+  "outcome": "No actionable findings; sufficient finite pinned-image/source/output evidence for a local qualification-metadata update followed by fresh strict qualified-state validation.",
+  "scope": "Retained native pending run evidence only; no new Docker/network/native execution and no qualification mutation by reviewer.",
+  "outer_archive_sha256": "a0b0a8efc2070c72eefe0f28e04bd7c6acd6c272fd21136728a0287258a3dd29",
+  "outer_members": 13,
+  "inner_archive_sha256": "f3215e40dba81dc16fc91791a4b5c18546a21e967f523b20467c253785004091",
+  "inner_members": 25,
+  "native_metadata_sha256": "681106e249685436a8fe82b682f8ff3a91c200f3299d2e96b09a70a09c11c33b",
+  "driver_sha256": "07d57d21f080e9e5137221d7fe069af16413bcb7b796d7118286050646476b91",
+  "bootstrap_sha256": "a2d1651325f72d8cf77f56e38e26cdc9818e08242eed2015ccc76f320a3a6c68",
+  "input_manifest_sha256": "19e43d8f75e94ce39c50ed8d32421f4b63d71a45728fc8d0fee2da9dce2aa598",
+  "exact_current_source_sha256": {
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f",
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "tools/collect_moon_evidence.py": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf",
+    "tools/ephemeris-data/generation-manifest.json": "577459d803e9519f3d2ce696bdd2656b1d3831ac4f9b8986edec00bbe85467cf",
+    "tools/ephemeris-data/moons/horizons_satellite_elements.csv": "cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f",
+    "tools/ephemeris-data/moons/horizons_satellite_vectors.csv": "ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918",
+    "tools/ephemeris-data/moons/jpl_satellite_physical.csv": "03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99",
+    "tools/generate_moons.py": "ee3712f01c49f79fa325e7c11898fab530476c1de91596426936a3a3b26dc028",
+    "tools/moon_model.py": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445",
+    "tools/validate_moons.py": "4358258af1f855297b0575da21bd2d7d373030ac2614ddf6d0a47987a82ba3bb"
+  },
+  "source_files": 10,
+  "image_ref": "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+  "image_id": "sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+  "official_oci_acquisition_matches_prior": true,
+  "daemon": "linux/x86_64",
+  "fixed_local_socket": "unix:///var/run/docker.sock",
+  "reports": [
+    {
+      "index": 1,
+      "report_sha256": "a0b628eb56f51e1b11c83bf65855e0eea9ffb64e25af82d5e1bc8d5f8024bf9f",
+      "elapsed_seconds": 4.029342468999857,
+      "checks": 11985,
+      "generated_sha256": {
+        "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+        "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+      }
+    },
+    {
+      "index": 2,
+      "report_sha256": "ee790217d8e6ccd19c5b08a0453db4b2c1e96514ab208efd7f4c5e8ee874c859",
+      "elapsed_seconds": 2.9758565279998948,
+      "checks": 11985,
+      "generated_sha256": {
+        "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+        "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+      }
+    }
+  ],
+  "owned_containers_confirmed_absent": [
+    "sol-moon-104-0qpp81f1-1",
+    "sol-moon-104-0qpp81f1-2"
+  ],
+  "minimum_followup": [
+    "Metadata-only qualification declaration tied to this evidence and independent review; preserve raw pending reports.",
+    "New snapshot/full source hashes for qualified manifest, unchanged generator/model/data/output and numerical limits.",
+    "Fresh native pinned-image strict qualified-state comparison(s) with no noncanonical-warning path; retain and review raw results before claiming strict follow-up complete."
+  ],
+  "limitations": [
+    "No hosted commit/CI/release or UI status qualification inferred; source revision is deliberately null.",
+    "Physical validation is finite11985 held-out checks in declared JD span; no continuous/event/full-date-range claim.",
+    "Remote45MB image bytes were not rehashed locally; reviewed executed driver and retained acquisition ledger bind them.",
+    "Driver/listener PID and transfer-port liveness are not independently represented in this returned bundle; parent reports those separately."
+  ],
+  "review_script_sha256": "d630b616121438d2d4eead096bfcc450a00ed5d96302f41d4f684e75e9b9abc0"
+}

@@ -249,7 +249,11 @@ def validate(root: Path) -> list[str]:
     js = app_path.read_text(encoding="utf-8")
     workspace_path = root / "js" / "workspace.js"
     workspace_js = workspace_path.read_text(encoding="utf-8") if workspace_path.is_file() else ""
-    if not any(token in js + workspace_js for token in ('setAttribute("aria-expanded"', "setAttribute('aria-expanded'")):
+    panel_attribute_writers = (
+        'setAttribute("aria-expanded"', "setAttribute('aria-expanded'",
+        'writeAttribute(toggle, "aria-expanded",', "writeAttribute(toggle, 'aria-expanded',",
+    )
+    if not any(token in js + workspace_js for token in panel_attribute_writers):
         errors.append("panel collapse must update aria-expanded at runtime")
     module_text = "\n".join(
         path.read_text(encoding="utf-8")

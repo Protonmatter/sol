@@ -1,28 +1,21 @@
+import {writeText,writeAttribute,writeBoolean} from './domWrites.js';
+
 // The render orchestrator + per-surface progressive disclosure.
 
-import { store } from "./store.js?v=dcca6290db";
-import { updateText } from "./panels.js?v=dcca6290db";
-import { drawSolarDisk, drawButterfly } from "./render.js?v=dcca6290db";
-import { currentBaseImage, baseImageState } from "./data.js?v=dcca6290db";
-import { resolvePresentation } from "./presentationState.js?v=dcca6290db";
-import { renderWorkspace } from "./workspace.js?v=dcca6290db";
-import { explorer, renderExplorer, currentObservationPresentation } from "./explorer.js?v=dcca6290db";
-import { renderDestinationOverview } from './destinationOverview.js?v=dcca6290de';
+import { store } from "./store.js";
+import { renderWorkspace } from "./workspace.js";
+import { explorer, renderExplorer, currentObservationPresentation } from "./explorer.js";
+import {getResearchRenderer,getDestinationRenderer} from './viewRegistry.js';
 
-export function renderAll() {
+/** @param {unknown} [intent] */
+export function renderAll(intent=null) {
   applySurfaceVisibility();
   const observing = store.activeMode === 'today' && explorer.mode === 'observe';
   const researching = store.activeMode === 'today' && !observing;
-  if (researching) currentBaseImage();
-  store.presentation = resolvePresentation({ snapshot: store.state, wavelength: store.wavelength,
-    imageState: baseImageState(store.wavelength), feedStatus: store.feedStatus,
-    timeline: store.timelineIndex >= 0 ? store.seriesRecords[store.timelineIndex] : null,
-    liveEngineRun: store.liveEngineRun, dataError: store.dataError, nowMs: Date.now() });
-  document.getElementById("solarExport")?.toggleAttribute("disabled",store.state.schema_version !== "solar-state-snapshot.v3");
-  updateText();
+  const research=getResearchRenderer();
+  if(researching)research?.prepare(true);
   updateTaskHeader();
-  if (researching) drawSolarDisk();
-  drawButterfly();
+  if(researching)research?.draw(true,intent==="resize");
 }
 
 export function currentViewPresentation() {
@@ -34,32 +27,52 @@ export function updateTaskHeader() {
   const sun = store.activeMode === "today";
   const observing = sun && explorer.mode === 'observe';
   renderExplorer(store.activeMode);
-  renderDestinationOverview(store.activeMode, store.sky, store.orrery);
+  const destination=getDestinationRenderer();
+  if(destination&&(sun||(store.activeMode==='sky'?store.sky:store.orrery)))destination(store.activeMode,store.sky,store.orrery);
+  else if(!sun)renderPendingDestination();
   const presentation = currentViewPresentation();
   const title = document.getElementById("viewTitle");
-  if (title) title.textContent = sun ? (observing ? 'The Sun' : 'Solar research') : store.activeMode === "sky" ? "My Sky" : "Solar System";
+  if (title) writeText(title, sun ? (observing ? 'The Sun' : 'Solar research') : store.activeMode === "sky" ? "My Sky" : "Solar System");
   const plain = document.getElementById("plainInsight"), surface = document.getElementById("surfaceInsight");
-  if (plain) { plain.hidden = !sun; if (observing) plain.textContent = presentation.headline; }
-  if (surface) { surface.hidden = sun; surface.textContent = presentation?.headline || "Loading this view on your device…"; }
+  if (plain) { writeBoolean(plain, 'hidden', !sun); if (observing) writeText(plain, presentation.headline);
+    else if(!presentation)writeText(plain, 'The solar model is separate from the saved observation.'); }
+  if (surface) { writeBoolean(surface, 'hidden', sun); writeText(surface, presentation?.headline || "Loading this view on your device…"); }
   const source = document.getElementById("viewSource"), time = document.getElementById("viewTime");
-  if (source) source.textContent = presentation ? `${presentation.sourceKind} · ${presentation.providerLabel || "sources and limits available"}` : "Source: awaiting validated data";
-  if (time) time.textContent = presentation?.timeLabel || "Time: awaiting validated data";
+  if (source) writeText(source, presentation ? `${presentation.sourceKind} · ${presentation.providerLabel || "sources and limits available"}` : "Source: awaiting validated data");
+  if (time) writeText(time, presentation?.timeLabel || "Time: awaiting validated data");
   const availability = document.getElementById("viewAvailability");
-  if (availability) availability.textContent = observing ? (explorer.media === 'ready' ? 'Saved observation · false-color ultraviolet' : `Saved observation · ${explorer.media}`) : `View: ${(presentation?.availability || "awaiting validated data").replaceAll("_", " ")} · research and learning only${!sun && presentation?.error ? ` · ${presentation.error}` : ""}`;
+  if (availability) {
+    // Keep operational image status outside the optional About disclosure.
+    writeBoolean(availability, 'hidden', observing && explorer.media === 'ready');
+    writeText(availability, observing ? (explorer.media === 'failed' ? presentation.headline
+      : explorer.media === 'ready' ? 'Saved observation · false-color ultraviolet' : 'Saved observation · loading')
+      : `View: ${(presentation?.availability || "awaiting validated data").replaceAll("_", " ")} · research and learning only${!sun && presentation?.error ? ` · ${presentation.error}` : ""}`);
+  }
   const status = document.getElementById("snapshotStatus"), retry = document.getElementById("retrySnapshot");
   const failed = sun && !observing && Boolean(presentation?.error);
   if (status) {
-    status.hidden = !failed;
-    status.textContent = !failed ? "" : `Model-data update failed. ${presentation.availability === "last_valid" ? `Last validated model retained at elapsed time ${store.state.run?.time_seconds ?? "unknown"} s.` : "No validated model is available; the fallback is illustrative."} ${presentation.error} Observed imagery, when selected, remains a separate source.`;
+    writeBoolean(status, 'hidden', !failed);
+    writeText(status, !failed ? "" : `Model-data update failed. ${presentation.availability === "last_valid" ? `Last validated model retained at elapsed time ${store.state.run?.time_seconds ?? "unknown"} s.` : "No validated model is available; the fallback is illustrative."} ${presentation.error} Observed imagery, when selected, remains a separate source.`);
   }
-  if (retry) retry.hidden = !failed;
+  if (retry) writeBoolean(retry, 'hidden', !failed);
+}
+
+function renderPendingDestination(){
+  const text=(id,value)=>{const node=document.getElementById(id);if(node)node.textContent=value;};
+  text('destinationEyebrow','ON YOUR DEVICE');
+  text('destinationTitle',store.activeMode==='sky'?'My Sky':'Solar System');
+  text('destinationDescription','Preparing this view…');text('destinationNote','');text('destinationCaption','Preparing this view…');
+  const facts=document.getElementById('destinationFacts');if(facts){facts.replaceChildren();delete facts.dataset.content;}
+  for(const id of ['destinationPreview','destinationAppearance','destinationFocus','destinationEarthLayers','systemJumps']){
+    const node=document.getElementById(id);if(node)node.hidden=true;
+  }
 }
 
 export function applySurfaceVisibility() {
   // Surface visibility is entirely CSS-driven off body[data-surface]; the Sun's depth lives in the
   // collapsible `.sun-section` drawers (hidden on My Sky / Solar System). Just set the attribute.
   const panel = document.querySelector(".control-panel");
-  if (panel) panel.setAttribute("data-surface", store.activeMode);
-  document.body.setAttribute("data-surface", store.activeMode);
+  if (panel) writeAttribute(panel, "data-surface", store.activeMode);
+  writeAttribute(document.body, "data-surface", store.activeMode);
   renderWorkspace(store.activeMode);
 }

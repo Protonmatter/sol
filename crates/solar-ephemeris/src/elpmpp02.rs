@@ -121,7 +121,24 @@ pub fn moon_apparent_ecliptic(jd_tt: f64, dpsi_deg: f64) -> (f64, f64, f64) {
     let m0 = moon_xyz(jy2k);
     let dist_au = (m0[0] * m0[0] + m0[1] * m0[1] + m0[2] * m0[2]).sqrt();
     // Retarded geocentric position one light-time earlier (~1.3 s, ≈0.7″).
-    let m = moon_xyz(jy2k - dist_au * LIGHT_YEARS_PER_AU);
+    let emitted = jy2k - dist_au * LIGHT_YEARS_PER_AU;
+    let m = moon_xyz(emitted);
+
+    // Observer-table range connects the emitted Moon to Earth's centre at
+    // reception. ELP coordinates co-move with Earth: their norm alone omits
+    // Earth's translation during the light-time (up to tens of km). Restore
+    // that translation for range without adding annual aberration to the
+    // geocentric apparent direction, where its first-order effect cancels.
+    // Heliocentric Earth motion supplies this normal-tier correction; this is
+    // not a full barycentric/relativistic ranging model.
+    let earth_reception = crate::planets::earth_center(jy2k);
+    let earth_emission = crate::planets::earth_center(emitted);
+    let range_xyz = [
+        m[0] + earth_emission[0] - earth_reception[0],
+        m[1] + earth_emission[1] - earth_reception[1],
+        m[2] + earth_emission[2] - earth_reception[2],
+    ];
+    let range_au = range_xyz[0].hypot(range_xyz[1]).hypot(range_xyz[2]);
 
     let lon_j2000 = m[1].atan2(m[0]).to_degrees();
     let lat_j2000 = m[2].atan2((m[0] * m[0] + m[1] * m[1]).sqrt()).to_degrees();
@@ -129,7 +146,7 @@ pub fn moon_apparent_ecliptic(jd_tt: f64, dpsi_deg: f64) -> (f64, f64, f64) {
     let (lon_date, lat_date) =
         crate::coords::precess_ecliptic_from_j2000(lon_j2000, lat_j2000, jy2k / 100.0);
     let lon = lon_date + dpsi_deg;
-    (lon.rem_euclid(360.0), lat_date, dist_au * 149_597_870.7)
+    (lon.rem_euclid(360.0), lat_date, range_au * 149_597_870.7)
 }
 
 #[cfg(test)]

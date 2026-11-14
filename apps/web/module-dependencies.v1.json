@@ -1,0 +1,531 @@
+{
+  "schema_version": "module-dependencies.v1",
+  "modules": {
+    "app.js": [
+      "js/catalogueLoader.js",
+      "js/explorer.js",
+      "js/observationMedia.js",
+      "js/offlineBoot.js",
+      "js/releaseClient.js",
+      "js/store.js",
+      "js/surfaceNavigation.js",
+      "js/tooltip.js",
+      "js/view.js",
+      "js/viewEvidence.js",
+      "js/viewLoader.js",
+      "js/viewRegistry.js",
+      "js/workspace.js"
+    ],
+    "engine.js": [
+      "js/engineLimits.js",
+      "js/solarContract.js",
+      "js/wasmBroker.js",
+      "js/workerClient.js"
+    ],
+    "js/accuracy.js": [
+      "js/independentEvidenceBinding.js"
+    ],
+    "js/atmosphereColumnField.js": [
+      "js/atmosphereColumnManifest.js",
+      "js/atmosphereIncident.js",
+      "js/atmosphereOptics.js",
+      "js/atmosphereShaders.js"
+    ],
+    "js/atmosphereColumnManifest.js": [],
+    "js/atmosphereIncident.js": [
+      "js/atmosphereColumnField.js",
+      "js/atmosphereIncidentManifest.js",
+      "js/atmosphereOptics.js"
+    ],
+    "js/atmosphereIncidentManifest.js": [],
+    "js/atmosphereOptics.js": [],
+    "js/atmosphereScattering.js": [
+      "js/atmosphereColumnField.js",
+      "js/atmosphereOptics.js"
+    ],
+    "js/atmosphereShaders.js": [],
+    "js/aurora.js": [],
+    "js/bodyData.js": [
+      "js/sunFacts.js"
+    ],
+    "js/butterflyGeometry.js": [],
+    "js/catalogueDemand.js": [],
+    "js/catalogueLoader.js": [],
+    "js/celestial.js": [
+      "js/bodyData.js",
+      "js/constellations.js",
+      "js/starphysics.js"
+    ],
+    "js/config.js": [],
+    "js/constellations.js": [],
+    "js/data.js": [
+      "js/config.js",
+      "js/dataBundle.js",
+      "js/store.js",
+      "js/timeline.js",
+      "js/tour.js",
+      "js/view.js",
+      "js/visualAssets.js"
+    ],
+    "js/dataBundle.js": [
+      "js/seriesModel.js",
+      "js/solarContract.js",
+      "js/sourceAttribution.js"
+    ],
+    "js/destinationCards.js": [
+      "js/bodyData.js",
+      "js/moonorbits.js",
+      "js/moons.js",
+      "js/planetAppearance.js",
+      "js/sunLook.js",
+      "js/sunPhotometry.js",
+      "js/systemDisplayPolicy.js",
+      "js/visualAssets.js"
+    ],
+    "js/destinationOverview.js": [
+      "js/bodyData.js",
+      "js/destinationCards.js",
+      "js/moons.js",
+      "js/orreryTime.js",
+      "js/planetAppearance.js",
+      "js/systemDisplayPolicy.js"
+    ],
+    "js/displayGeometry.js": [],
+    "js/dom.js": [
+      "js/domWrites.js"
+    ],
+    "js/domWrites.js": [],
+    "js/earthLook.js": [
+      "js/earthOceanMask.js",
+      "js/orreryTime.js"
+    ],
+    "js/earthLookClouds.js": [],
+    "js/earthLookShaders.js": [
+      "js/earthLookClouds.js",
+      "js/materialColor.js"
+    ],
+    "js/earthOceanMask.js": [],
+    "js/engineLimits.js": [
+      "js/workerClient.js"
+    ],
+    "js/ephemerisContract.js": [
+      "js/ephemerisSchema.js",
+      "js/solarContract.js"
+    ],
+    "js/ephemerisSchema.js": [],
+    "js/explorer.js": [
+      "js/domWrites.js",
+      "js/observationMedia.js",
+      "js/solarObservation.js",
+      "js/sunFacts.js"
+    ],
+    "js/format.js": [],
+    "js/frameScheduler.js": [],
+    "js/galacticobjects.js": [],
+    "js/geography.js": [],
+    "js/hdrPresentation.js": [
+      "js/hdrPresentationShaders.js"
+    ],
+    "js/hdrPresentationShaders.js": [],
+    "js/illustrativeAppearance.js": [
+      "js/illustrativeAssetManifest.js",
+      "js/orreryMath.js"
+    ],
+    "js/illustrativeAssetManifest.js": [],
+    "js/illustrativeHaze.js": [],
+    "js/independentEvidenceBinding.js": [],
+    "js/labelLayout.js": [],
+    "js/labelOcclusion.js": [],
+    "js/labelPresenter.js": [
+      "js/domWrites.js",
+      "js/labelLayout.js",
+      "js/labelOcclusion.js"
+    ],
+    "js/materialColor.js": [],
+    "js/moonAppearance.js": [],
+    "js/moonelements.js": [],
+    "js/moonorbits.js": [
+      "js/smallbodies.js"
+    ],
+    "js/moons.js": [],
+    "js/moonshadows.js": [],
+    "js/objectBrowser.js": [],
+    "js/observationBoot.js": [
+      "js/observationMedia.js"
+    ],
+    "js/observationMedia.js": [],
+    "js/offlineBoot.js": [],
+    "js/orbitCamera.js": [],
+    "js/orbitLines.js": [],
+    "js/orrery.js": [
+      "js/accuracy.js",
+      "js/atmosphereColumnField.js",
+      "js/atmosphereColumnManifest.js",
+      "js/atmosphereIncident.js",
+      "js/atmosphereOptics.js",
+      "js/atmosphereScattering.js",
+      "js/atmosphereShaders.js",
+      "js/bodyData.js",
+      "js/catalogueDemand.js",
+      "js/catalogueLoader.js",
+      "js/celestial.js",
+      "js/displayGeometry.js",
+      "js/domWrites.js",
+      "js/earthLook.js",
+      "js/earthLookShaders.js",
+      "js/frameScheduler.js",
+      "js/hdrPresentation.js",
+      "js/illustrativeAppearance.js",
+      "js/illustrativeHaze.js",
+      "js/labelOcclusion.js",
+      "js/labelPresenter.js",
+      "js/materialColor.js",
+      "js/moonAppearance.js",
+      "js/moonorbits.js",
+      "js/moons.js",
+      "js/moonshadows.js",
+      "js/objectBrowser.js",
+      "js/orbitCamera.js",
+      "js/orbitLines.js",
+      "js/orreryDetail.js",
+      "js/orreryGalaxy.js",
+      "js/orreryMath.js",
+      "js/orreryShaders.js",
+      "js/orreryTime.js",
+      "js/physicalPresenter.js",
+      "js/physicalProgramSources.js",
+      "js/physicalRendering.js",
+      "js/planetAppearance.js",
+      "js/presentationState.js",
+      "js/profiledScatteringTargets.js",
+      "js/referenceDemand.js",
+      "js/referenceImageLoader.js",
+      "js/renderQuality.js",
+      "js/scatteringTargets.js",
+      "js/shaderPrograms.js",
+      "js/skyEngine.js",
+      "js/smallbodies.js",
+      "js/solarAppearance.js",
+      "js/solarAssetLoader.js",
+      "js/solarVolumeShaders.js",
+      "js/sphereMeshPolicy.js",
+      "js/sphereMeshPool.js",
+      "js/starDetail.js",
+      "js/store.js",
+      "js/sunLook.js",
+      "js/sunLookRenderer.js",
+      "js/surfaceMapping.js",
+      "js/surfacemap.js",
+      "js/systemContract.js",
+      "js/systemDisplayPolicy.js",
+      "js/systemWorkerClient.js",
+      "js/terrainAssets.js",
+      "js/terrainResources.js",
+      "js/terrainWorkerClient.js",
+      "js/textureDisplayBudget.js",
+      "js/visualAssets.js"
+    ],
+    "js/orreryDetail.js": [
+      "js/bodyData.js",
+      "js/domWrites.js",
+      "js/earthLook.js",
+      "js/illustrativeAppearance.js",
+      "js/moonAppearance.js",
+      "js/moonorbits.js",
+      "js/planetAppearance.js",
+      "js/sunPhotometry.js",
+      "js/visualAssets.js"
+    ],
+    "js/orreryGalaxy.js": [
+      "js/galacticobjects.js",
+      "js/starphysics.js"
+    ],
+    "js/orreryMath.js": [
+      "js/bodyData.js"
+    ],
+    "js/orreryShaders.js": [
+      "js/atmosphereColumnField.js",
+      "js/atmosphereIncident.js",
+      "js/atmosphereScattering.js",
+      "js/illustrativeAppearance.js",
+      "js/materialColor.js",
+      "js/ringTransportShaders.js",
+      "js/terrainShadowShaders.js"
+    ],
+    "js/orreryTime.js": [],
+    "js/panels.js": [
+      "js/aurora.js",
+      "js/config.js",
+      "js/dom.js",
+      "js/format.js",
+      "js/objectBrowser.js",
+      "js/presentationState.js",
+      "js/selectors.js",
+      "js/store.js",
+      "js/surfaceNavigation.js"
+    ],
+    "js/physicalPresenter.js": [
+      "js/atmosphereOptics.js",
+      "js/domWrites.js",
+      "js/earthLook.js",
+      "js/illustrativeAppearance.js",
+      "js/planetPhenomena.js",
+      "js/solarAppearance.js",
+      "js/sunLook.js",
+      "js/terrainAssets.js"
+    ],
+    "js/physicalProgramSources.js": [
+      "js/atmosphereOptics.js",
+      "js/atmosphereScattering.js",
+      "js/atmosphereShaders.js",
+      "js/orreryShaders.js"
+    ],
+    "js/physicalRendering.js": [],
+    "js/planetAppearance.js": [
+      "js/earthLook.js",
+      "js/illustrativeAppearance.js",
+      "js/visualAssetManifest.js"
+    ],
+    "js/planetPhenomena.js": [
+      "js/planetPhenomenaManifest.js"
+    ],
+    "js/planetPhenomenaManifest.js": [],
+    "js/presentationState.js": [
+      "js/solarProjection.js"
+    ],
+    "js/profiledScatteringTargets.js": [],
+    "js/referenceDemand.js": [
+      "js/planetAppearance.js"
+    ],
+    "js/referenceImageLoader.js": [],
+    "js/releaseClient.js": [],
+    "js/releaseContext.js": [],
+    "js/render.js": [
+      "js/butterflyGeometry.js",
+      "js/data.js",
+      "js/dom.js",
+      "js/format.js",
+      "js/selectors.js",
+      "js/seriesModel.js",
+      "js/solarProjection.js",
+      "js/store.js",
+      "js/wavelength.js"
+    ],
+    "js/renderQuality.js": [],
+    "js/research.js": [
+      "js/butterflyGeometry.js",
+      "js/config.js",
+      "js/data.js",
+      "js/dom.js",
+      "js/format.js",
+      "js/researchView.js",
+      "js/seriesModel.js",
+      "js/store.js",
+      "js/sunlayers.js",
+      "js/surfaceNavigation.js",
+      "js/timeline.js",
+      "js/tour.js",
+      "js/view.js",
+      "js/wavelength.js",
+      "js/workspace.js"
+    ],
+    "js/researchView.js": [
+      "js/data.js",
+      "js/panels.js",
+      "js/presentationState.js",
+      "js/render.js",
+      "js/store.js",
+      "js/viewRegistry.js"
+    ],
+    "js/ringTransportShaders.js": [],
+    "js/scatteringTargets.js": [
+      "js/atmosphereOptics.js"
+    ],
+    "js/selectors.js": [
+      "js/config.js",
+      "js/dom.js",
+      "js/format.js",
+      "js/presentationState.js",
+      "js/solarRegionFacts.js",
+      "js/store.js"
+    ],
+    "js/seriesModel.js": [],
+    "js/shaderPrograms.js": [],
+    "js/sky.js": [
+      "js/accuracy.js",
+      "js/celestial.js",
+      "js/ephemerisContract.js",
+      "js/labelLayout.js",
+      "js/objectBrowser.js",
+      "js/presentationState.js",
+      "js/releaseContext.js",
+      "js/skyEngine.js",
+      "js/skyFrame.js",
+      "js/skyLimits.js",
+      "js/skyPresentation.js",
+      "js/skyPrivacy.js",
+      "js/skyWorkerClient.js",
+      "js/store.js"
+    ],
+    "js/skyEngine.js": [
+      "js/ephemerisContract.js",
+      "js/skyLimits.js",
+      "js/skyPrivacy.js",
+      "js/wasmBroker.js",
+      "js/workerClient.js"
+    ],
+    "js/skyFrame.js": [],
+    "js/skyLimits.js": [
+      "js/workerClient.js"
+    ],
+    "js/skyPresentation.js": [
+      "js/skyLimits.js"
+    ],
+    "js/skyPrivacy.js": [
+      "js/skyLimits.js"
+    ],
+    "js/skyWorker.js": [
+      "js/skyEngine.js",
+      "js/skyLimits.js"
+    ],
+    "js/skyWorkerClient.js": [
+      "js/ephemerisContract.js",
+      "js/skyLimits.js",
+      "js/wasmBroker.js",
+      "js/workerClient.js"
+    ],
+    "js/smallbodies.js": [],
+    "js/solarAppearance.js": [
+      "js/solarAppearanceManifest.js"
+    ],
+    "js/solarAppearanceManifest.js": [],
+    "js/solarAssetLoader.js": [
+      "js/solarAppearance.js"
+    ],
+    "js/solarContract.js": [
+      "js/solarSchema.js",
+      "js/sourceAttribution.js"
+    ],
+    "js/solarObservation.js": [
+      "js/sourceRecords.js"
+    ],
+    "js/solarProjection.js": [],
+    "js/solarRegionFacts.js": [],
+    "js/solarSchema.js": [],
+    "js/solarVolumeShaders.js": [
+      "js/materialColor.js"
+    ],
+    "js/solarWorker.js": [
+      "engine.js",
+      "js/engineLimits.js",
+      "js/solarContract.js"
+    ],
+    "js/solarWorkerClient.js": [
+      "js/engineLimits.js",
+      "js/solarContract.js",
+      "js/wasmBroker.js",
+      "js/workerClient.js"
+    ],
+    "js/sourceAttribution.js": [],
+    "js/sourceRecords.js": [],
+    "js/sphereMeshPolicy.js": [],
+    "js/sphereMeshPool.js": [
+      "js/sphereMeshPolicy.js"
+    ],
+    "js/starDetail.js": [
+      "js/starphysics.js"
+    ],
+    "js/starcatalog.js": [],
+    "js/starphysics.js": [],
+    "js/store.js": [
+      "js/config.js"
+    ],
+    "js/sunFacts.js": [],
+    "js/sunLook.js": [],
+    "js/sunLookRecipe.js": [],
+    "js/sunLookRenderer.js": [
+      "js/shaderPrograms.js",
+      "js/sunLook.js",
+      "js/sunLookShaders.js"
+    ],
+    "js/sunLookShaders.js": [
+      "js/materialColor.js",
+      "js/sunLookRecipe.js"
+    ],
+    "js/sunPhotometry.js": [],
+    "js/sunlayers.js": [],
+    "js/surfaceMapping.js": [],
+    "js/surfaceNavigation.js": [
+      "js/store.js"
+    ],
+    "js/surfacemap.js": [],
+    "js/systemContract.js": [],
+    "js/systemDisplayPolicy.js": [],
+    "js/systemWorker.js": [
+      "js/skyEngine.js",
+      "js/systemContract.js"
+    ],
+    "js/systemWorkerClient.js": [
+      "js/systemContract.js",
+      "js/wasmBroker.js",
+      "js/workerClient.js"
+    ],
+    "js/terrain.worker.js": [
+      "js/terrainAssets.js",
+      "js/terrainGeometry.js"
+    ],
+    "js/terrainAssets.js": [],
+    "js/terrainGeometry.js": [],
+    "js/terrainResources.js": [],
+    "js/terrainShadowShaders.js": [],
+    "js/terrainWorkerClient.js": [
+      "js/terrainAssets.js"
+    ],
+    "js/textureDisplayBudget.js": [],
+    "js/timeline.js": [
+      "js/seriesModel.js",
+      "js/solarContract.js",
+      "js/solarWorkerClient.js",
+      "js/store.js",
+      "js/view.js"
+    ],
+    "js/tooltip.js": [
+      "js/config.js",
+      "js/store.js"
+    ],
+    "js/tour.js": [
+      "js/config.js",
+      "js/dom.js",
+      "js/panels.js",
+      "js/store.js",
+      "js/view.js"
+    ],
+    "js/view.js": [
+      "js/domWrites.js",
+      "js/explorer.js",
+      "js/store.js",
+      "js/viewRegistry.js",
+      "js/workspace.js"
+    ],
+    "js/viewEvidence.js": [],
+    "js/viewLoader.js": [
+      "js/catalogueLoader.js"
+    ],
+    "js/viewRegistry.js": [],
+    "js/visualAssetManifest.js": [],
+    "js/visualAssets.js": [
+      "js/visualAssetManifest.js"
+    ],
+    "js/wasmBroker.js": [],
+    "js/wavelength.js": [
+      "js/config.js",
+      "js/data.js",
+      "js/store.js",
+      "js/view.js"
+    ],
+    "js/workerClient.js": [],
+    "js/workspace.js": [
+      "js/domWrites.js"
+    ]
+  }
+}

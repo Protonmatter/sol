@@ -5,13 +5,22 @@
 #![allow(clippy::type_complexity)] // the [a,L,k,h,q,p][power][term] shape is the domain, not accidental
 
 use super::binread::Reader;
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 static BLOB: &[u8] = include_bytes!("../data/top2013.bin");
 
+pub struct TopTerm {
+    pub mult: i32,
+    pub phase: usize,
+    pub cc: f64,
+    pub cs: f64,
+}
+
 pub struct TopPlanet {
-    pub mm: f64, // mean motion (rad / 1000 yr), added to L
-    pub elems: [&'static [&'static [(i32, f64, f64)]]; 6], // [a,L,k,h,q,p][power][term=(mult,Ccos,Csin)]
+    pub mm: f64,                                   // mean motion (rad / 1000 yr), added to L
+    pub elems: [&'static [&'static [TopTerm]]; 6], // [a,L,k,h,q,p][power][term]
+    pub multipliers: &'static [i32],               // distinct phase arguments, in first-use order
 }
 
 /// Jupiter, Saturn, Uranus, Neptune in blob order.
@@ -27,11 +36,17 @@ fn all() -> &'static [TopPlanet; 4] {
         let mut planets = Vec::with_capacity(count);
         for _ in 0..count {
             let mm = r.f64();
-            let mut elems: [&'static [&'static [(i32, f64, f64)]]; 6] = [&[]; 6];
+            let mut elems: [&'static [&'static [TopTerm]]; 6] = [&[]; 6];
+            let mut phase_ids = BTreeMap::new();
+            let mut multipliers = Vec::new();
             for el in elems.iter_mut() {
-                *el = read_element(&mut r);
+                *el = read_element(&mut r, &mut phase_ids, &mut multipliers);
             }
-            planets.push(TopPlanet { mm, elems });
+            planets.push(TopPlanet {
+                mm,
+                elems,
+                multipliers: Box::leak(multipliers.into_boxed_slice()),
+            });
         }
         planets
             .try_into()
@@ -39,9 +54,13 @@ fn all() -> &'static [TopPlanet; 4] {
     })
 }
 
-fn read_element(r: &mut Reader) -> &'static [&'static [(i32, f64, f64)]] {
+fn read_element(
+    r: &mut Reader,
+    phase_ids: &mut BTreeMap<i32, usize>,
+    multipliers: &mut Vec<i32>,
+) -> &'static [&'static [TopTerm]] {
     let n_powers = r.u32();
-    let mut powers: Vec<&'static [(i32, f64, f64)]> = Vec::with_capacity(n_powers);
+    let mut powers: Vec<&'static [TopTerm]> = Vec::with_capacity(n_powers);
     for _ in 0..n_powers {
         let n_terms = r.u32();
         let mut terms = Vec::with_capacity(n_terms);
@@ -49,7 +68,17 @@ fn read_element(r: &mut Reader) -> &'static [&'static [(i32, f64, f64)]] {
             let mult = r.i32();
             let cc = r.f64();
             let cs = r.f64();
-            terms.push((mult, cc, cs));
+            let phase = *phase_ids.entry(mult).or_insert_with(|| {
+                let id = multipliers.len();
+                multipliers.push(mult);
+                id
+            });
+            terms.push(TopTerm {
+                mult,
+                phase,
+                cc,
+                cs,
+            });
         }
         powers.push(Box::leak(terms.into_boxed_slice()));
     }

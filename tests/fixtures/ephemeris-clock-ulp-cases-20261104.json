@@ -1,0 +1,113 @@
+{
+  "scope": "Clock-coherence policy cases around the existing2e-9day cutoff; synthetic mutations of the native contract fixture, not astronomy truth. Expected decisions follow the unchanged live-JS JD residual forms.",
+  "cases": [
+    {
+      "field": "jd_ut1",
+      "ulp_shift": -5,
+      "value": 2444329.4994124616,
+      "valid": false
+    },
+    {
+      "field": "jd_ut1",
+      "ulp_shift": -4,
+      "value": 2444329.499412462,
+      "valid": false
+    },
+    {
+      "field": "jd_ut1",
+      "ulp_shift": -3,
+      "value": 2444329.4994124626,
+      "valid": true
+    },
+    {
+      "field": "jd_ut1",
+      "ulp_shift": 3,
+      "value": 2444329.4994124654,
+      "valid": true
+    },
+    {
+      "field": "jd_ut1",
+      "ulp_shift": 4,
+      "value": 2444329.499412466,
+      "valid": true
+    },
+    {
+      "field": "jd_ut1",
+      "ulp_shift": 5,
+      "value": 2444329.4994124663,
+      "valid": false
+    },
+    {
+      "field": "jd_tai",
+      "ulp_shift": -5,
+      "value": 2444329.4996274975,
+      "valid": false
+    },
+    {
+      "field": "jd_tai",
+      "ulp_shift": -4,
+      "value": 2444329.499627498,
+      "valid": false
+    },
+    {
+      "field": "jd_tai",
+      "ulp_shift": -3,
+      "value": 2444329.4996274984,
+      "valid": true
+    },
+    {
+      "field": "jd_tai",
+      "ulp_shift": 3,
+      "value": 2444329.4996275012,
+      "valid": true
+    },
+    {
+      "field": "jd_tai",
+      "ulp_shift": 4,
+      "value": 2444329.4996275017,
+      "valid": false
+    },
+    {
+      "field": "jd_tai",
+      "ulp_shift": 5,
+      "value": 2444329.499627502,
+      "valid": false
+    },
+    {
+      "field": "jd_tt",
+      "ulp_shift": -5,
+      "value": 2444329.4999999977,
+      "valid": false
+    },
+    {
+      "field": "jd_tt",
+      "ulp_shift": -4,
+      "value": 2444329.499999998,
+      "valid": true
+    },
+    {
+      "field": "jd_tt",
+      "ulp_shift": -3,
+      "value": 2444329.4999999986,
+      "valid": true
+    },
+    {
+      "field": "jd_tt",
+      "ulp_shift": 3,
+      "value": 2444329.5000000014,
+      "valid": true
+    },
+    {
+      "field": "jd_tt",
+      "ulp_shift": 4,
+      "value": 2444329.500000002,
+      "valid": false
+    },
+    {
+      "field": "jd_tt",
+      "ulp_shift": 5,
+      "value": 2444329.5000000023,
+      "valid": false
+    }
+  ]
+}

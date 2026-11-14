@@ -1,0 +1,109 @@
+{
+  "schema_version": "startup-modules.v1",
+  "roots": [
+    "app.js",
+    "js/observationBoot.js"
+  ],
+  "modules": [
+    {
+      "url": "app.js",
+      "path": "app.js",
+      "sha256": "1df02b4f05740e1b8c06c66c77e1cb5f7603b0d302dd700674d1dd57a55bda55"
+    },
+    {
+      "url": "js/catalogueLoader.js",
+      "path": "js/catalogueLoader.js",
+      "sha256": "62677775907b57b61e45e34a4a252dc5664712b69e3987bdecb9bce7f789b55b"
+    },
+    {
+      "url": "js/config.js",
+      "path": "js/config.js",
+      "sha256": "3fa0ef84525d7947f81ec0a7c669d9fd93c7786749e1325af432a90f56d3ddde"
+    },
+    {
+      "url": "js/domWrites.js",
+      "path": "js/domWrites.js",
+      "sha256": "7dc82e6bedec3426a39df4bd558a9e9c432b7ecb13a04a4c65c65d2ca40956ce"
+    },
+    {
+      "url": "js/explorer.js",
+      "path": "js/explorer.js",
+      "sha256": "11dfa8825362839a66c682636749537a3821f03b22d3282b45c9b927fd061ffc"
+    },
+    {
+      "url": "js/observationBoot.js",
+      "path": "js/observationBoot.js",
+      "sha256": "beefc68b31d3d4b49f3453b517507afef156db0bc1d7b2d8ae8c1efbcbf34ee4"
+    },
+    {
+      "url": "js/observationMedia.js",
+      "path": "js/observationMedia.js",
+      "sha256": "ef383a36239866eed8fdf6503562a252a0ff707bbb890d34d87e201bcc38d0c9"
+    },
+    {
+      "url": "js/offlineBoot.js",
+      "path": "js/offlineBoot.js",
+      "sha256": "711ca3a796c8217bdf4aecc1558c6c2c4f227296d139f86b286954519e11e439"
+    },
+    {
+      "url": "js/releaseClient.js",
+      "path": "js/releaseClient.js",
+      "sha256": "ac1c391e5ce106060a7e5f0eae8de3b6fc0cf04808eefc02e6413d06f80ba37b"
+    },
+    {
+      "url": "js/solarObservation.js",
+      "path": "js/solarObservation.js",
+      "sha256": "fbf3e7f5d1f027a9a83b675b6059e9541ea8f6dece8b8be699bf9730717eebd3"
+    },
+    {
+      "url": "js/sourceRecords.js",
+      "path": "js/sourceRecords.js",
+      "sha256": "252b04edce38306f3d9e3181118b14296e73b46dc96fd04a87289ffe7938a6dc"
+    },
+    {
+      "url": "js/store.js",
+      "path": "js/store.js",
+      "sha256": "f105054bfe38ad5524e537129e39a5b48a0c76b474b26881916c6deaed47af11"
+    },
+    {
+      "url": "js/sunFacts.js",
+      "path": "js/sunFacts.js",
+      "sha256": "2775809c77d173167402cd9b197ea6af8d16768c40d1ed959b302b543e276aac"
+    },
+    {
+      "url": "js/surfaceNavigation.js",
+      "path": "js/surfaceNavigation.js",
+      "sha256": "f7af32cc0c9485108df006266a9c54857966b988be31356dc06c2200b2c836fc"
+    },
+    {
+      "url": "js/tooltip.js",
+      "path": "js/tooltip.js",
+      "sha256": "8a2085120af34f6d90c676280a1d47cbf8170075301764139ad48341f3171082"
+    },
+    {
+      "url": "js/view.js",
+      "path": "js/view.js",
+      "sha256": "aa36dce4b49d5c49c45567ede784d34e23662bfd8d90cc9dafc0edbcfe8e02ab"
+    },
+    {
+      "url": "js/viewEvidence.js",
+      "path": "js/viewEvidence.js",
+      "sha256": "bf610027dd205742a5a661391e96d2b21d12e2831b0ef481884ea932a1de3803"
+    },
+    {
+      "url": "js/viewLoader.js",
+      "path": "js/viewLoader.js",
+      "sha256": "8ce1fc9d33e975f35c38d23e55c132b1cb739255f604b61181035e4274bda9e0"
+    },
+    {
+      "url": "js/viewRegistry.js",
+      "path": "js/viewRegistry.js",
+      "sha256": "76687ca3e04e6f82274ccc0252090b1b82e7e7077d8aee1bba4095ec21f9dcbc"
+    },
+    {
+      "url": "js/workspace.js",
+      "path": "js/workspace.js",
+      "sha256": "0508a68983631ed441dc05b78642c0ffb599f649d6c5c25650077a263681a3cf"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "schema_version": "canonical-moon-native-fixture.v1",
+  "scope": "Two fresh native Linux x86_64 pinned-image comparisons of the unchanged moon source/model/output contract; candidate reports were captured while qualification was pending.",
+  "execution_environment": "Google Cloud Shell native Linux x86_64 VM",
+  "source_revision_base": "3a55a795767f3043112673ea561cdaf6dc7e2d0f",
+  "completed_at_utc": "2026-11-04T00:56:26.524322+00:00",
+  "files": {
+    "native-metadata.json": {
+      "bytes": 3047,
+      "sha256": "b40f0ce09089050ab0cbbadf4a05787ef43e22f453313a7bb416a0dbf8456a33"
+    },
+    "comparison-1.json": {
+      "bytes": 3940,
+      "sha256": "52b6f06fd685f62a7df432aecc13522b22167a428fc28e59cb7b96a3f29611cd"
+    },
+    "comparison-2.json": {
+      "bytes": 3940,
+      "sha256": "127b885984893f3f011be9897ae87371c00629491638d8fb07bd4b77081c7d4f"
+    },
+    "comparison-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "comparison-2.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "upload-acquisition.json": {
+      "bytes": 1165,
+      "sha256": "c43446bbb076ba45d20f9f2cc1d07f8afc1354625f6ce6a6732b94b87d52f7d2"
+    },
+    "generation-manifest.pending.json": {
+      "bytes": 3292,
+      "sha256": "00848b3b835128c28b40dd7b5a05990bb0d22bdecb2796cb360cf71dbf0bb649"
+    },
+    "launcher-original.py.txt": {
+      "bytes": 12251,
+      "sha256": "1e9674ac8cafa345ab76c6aeb3f81d75079541f3ea2e29c7fa83ca0ca2f22c2a"
+    },
+    "launcher-resume.py.txt": {
+      "bytes": 2293,
+      "sha256": "6e09a39655a5baea42b4569a9cc89d8ba9e7e3008f9a7e9617f92dea54064145"
+    },
+    "launcher-resume.log": {
+      "bytes": 1143,
+      "sha256": "6fcc4c321f1bdabea8b0a5ddf64cfe412844224fb0c8ad721a7c4d31020d7219"
+    },
+    "image-load.log": {
+      "bytes": 89,
+      "sha256": "23ef1a66c33203a7ade81c96dbce739b3574b390069c35d284b45d980a142fc7"
+    },
+    "digest-registration.log": {
+      "bytes": 417,
+      "sha256": "aeb22a31ad44e35f2e7307f7ffe3189900762ef2613fc5dcbb1ab5e0d61eaccc"
+    }
+  }
+}

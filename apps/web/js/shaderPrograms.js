@@ -71,6 +71,7 @@ export function createShaderPrograms(gl, {
         throw new Error(`Shader compile failure: ${gl.getShaderInfoLog(shader)||'no driver diagnostic'}`);
       if(!gl.getProgramParameter(entry.program,gl.LINK_STATUS))
         throw new Error(`Shader link failure: ${gl.getProgramInfoLog(entry.program)||'no driver diagnostic'}`);
+      if(now()-entry.started>=timeoutMs)throw new Error(`Shader completion exceeded ${timeoutMs} ms`);
       finish(entry,'ready');
     }catch(error){finish(entry,'unavailable',describeError(error));}
   }
@@ -90,11 +91,16 @@ export function createShaderPrograms(gl, {
     }
     arm();
   }
-  function request(key,vertexSource,fragmentSource){
+  /** @param {string} key @param {string} vertexSource @param {string} fragmentSource
+   * @param {{startedAt?:number}} [options] */
+  function request(key,vertexSource,fragmentSource,options={}){
     if(disposed)throw new Error('Shader program context is disposed');
     if(typeof key!=='string'||!key||key.length>80)throw new Error('Invalid shader program identity');
     if([vertexSource,fragmentSource].some(source=>typeof source!=='string'||!source||source.length>1000000))
       throw new Error('Invalid shader program source');
+    const {startedAt}=options;
+    const stamp=now(),started=startedAt===undefined?stamp:startedAt;
+    if(!Number.isFinite(started)||started<0||started>stamp)throw new Error('Invalid shader demand start/deadline');
     const prior=entries.get(key);
     // Key reuse cannot silently substitute source bytes within a live context.
     if(prior&&(prior.vertexSource!==vertexSource||prior.fragmentSource!==fragmentSource))throw new Error('Shader source identity changed');
@@ -102,10 +108,14 @@ export function createShaderPrograms(gl, {
     if(!prior&&entries.size>=capacity)throw new Error('Shader program capacity exceeded');
     let resolve;
     const done=new Promise(finishRequest=>{resolve=finishRequest;});
-    const entry={key,vertexSource,fragmentSource,program:null,shaders:[],resource:null,status:'loading',error:'',notificationError:'',started:now(),resolve,
+    // Transfer retained pending work before an expired re-entry can finish.
+    // Otherwise its context-ledger allocation would lose its entry owner.
+    const retained=prior?.resource??null;
+    const entry={key,vertexSource,fragmentSource,program:retained?.program??null,shaders:retained?.shaders??[],resource:retained,status:'loading',error:'',notificationError:'',started,resolve,
       ticket:Object.freeze({key,generation,done})};
     entries.set(key,entry);
     try{
+      if(now()-entry.started>=timeoutMs)throw new Error(`Shader completion exceeded ${timeoutMs} ms`);
       if(gl.isContextLost())throw new Error('Shader graphics context lost');
       entry.resource=prior?.resource||acquire(vertexSource,fragmentSource);
       entry.program=entry.resource.program;entry.shaders=entry.resource.shaders;

@@ -27,8 +27,8 @@ separate artifacts and have not been revalidated as matching this checkout. Pass
 tests do not establish hosted CI, accepted scientific/manual evidence or production approval.
 
 Live contracts are [solar-state-snapshot.v3](docs/solar-state-snapshot-v3.schema.json),
-[ephemeris-snapshot.v3](docs/ephemeris-snapshot-v3.schema.json), and
-`system-snapshot.v1`. Historical v2 remains separately inspectable; live readers reject
+[ephemeris-snapshot.v4](docs/ephemeris-snapshot-v4.schema.json), and
+`system-snapshot.v1`. Historical ephemeris v3 and v2 remain separately inspectable; live readers reject
 unsupported versions rather than silently relabelling data.
 
 ## What the application does
@@ -86,7 +86,7 @@ location/time before copying or downloading.
 
 ## Run a local preview
 
-Use an existing locked Rust toolchain with the WASM target, Python 3.11+, and Node 22
+Use an existing locked Rust toolchain with the WASM target, Python 3.11+, and Node 22.12+
 with this repository's pinned development tooling. Building is offline once dependencies
 and toolchains are installed. New output directories prevent accidental replacement.
 
@@ -120,11 +120,16 @@ bundle identities. Freshly generated does not mean freshly observed or published
 - [Validation plan](docs/VALIDATION_PLAN.md), [accuracy contract](docs/ACCURACY_CONTRACT.md)
   and [requirements](docs/REQUIREMENTS.md)
 
-The three analytic coefficient blobs have immutable local hashes but missing original
-upstream inputs/serialization correspondence. They are explicitly non-regenerable from
-this checkout. The current eight TOP2013 records prove source-theory parity at recorded
-samples only, not independent pointing/range/event accuracy. Canonical moon generation
-qualification and new independent reference acquisition remain held.
+The three analytic coefficient blobs now have pinned upstream identities and an offline
+reconstruction path that reproduces the shipped bytes. A clean checkout still needs
+separately acquired, hash-matching upstream inputs; distribution/notice clearance and
+independent continuous-accuracy qualification remain held. See
+[coefficient provenance and reconstruction](docs/COEFFICIENT_PROVENANCE.md).
+The eight TOP2013 registry records prove source-theory parity at recorded samples only,
+not independent pointing/range/event accuracy. The separate
+[canonical moon asset contract](docs/CANONICAL_GENERATION.md) is qualified for its pinned
+Linux x86_64 image and exact current sources; Windows ARM64 regeneration is diagnostic
+and may differ. Those results do not qualify the full production release.
 
 ## Development checks
 
@@ -144,6 +149,10 @@ this local tree currently passes every coverage/platform gate. No full accessibi
 conformance or operational forecast authority is claimed.
 
 Sol is not for navigation, occultation prediction, mission safety or operational
-space-weather warnings. `space_weather_operational` remains false. Project code is
-MIT OR Apache-2.0; third-party data attribution and outstanding coefficient notice
-correspondence are documented separately and are not resolved by that project license.
+space-weather warnings. `space_weather_operational` remains false. The application's
+original code retains MIT OR Apache-2.0 terms. The
+[solar-ephemeris component](crates/solar-ephemeris/NOTICE-EPHEMERIS.md) is declared
+LGPL-3.0-only and includes its complete notices and preferred coefficient inputs.
+Third-party visual/data notices retain their own scope. See the
+[component source and delivery work](docs/LGPL_COMPONENT_20261106.md) for current
+engineering verification and distribution limits.

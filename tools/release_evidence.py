@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -9,6 +10,22 @@ import sys
 import xml.etree.ElementTree as ET
 
 from validate_release_manifest import digest, validate_manifest, relative_path
+
+QUALIFICATION_RUST_VERSION = "1.96.0"
+
+
+def validate_toolchains(toolchains: object) -> None:
+    """Release receipts must describe the explicitly qualified released compiler."""
+    if not isinstance(toolchains, dict) or not isinstance(toolchains.get("python"), str) or not toolchains["python"].strip():
+        raise ValueError("qualification toolchain identities are missing")
+    for binary in ("rustc", "cargo"):
+        value = toolchains.get(binary)
+        if not isinstance(value, str) or not value.splitlines():
+            raise ValueError("qualification toolchain identity is missing: " + binary)
+        first = re.fullmatch(re.escape(binary) + r" (\d+\.\d+\.\d+)(?: \([^()\r\n]+\))?", value.splitlines()[0])
+        releases = re.findall(r"^release: (.+)$", value, re.MULTILINE)
+        if not first or first[1] != QUALIFICATION_RUST_VERSION or releases not in ([], [QUALIFICATION_RUST_VERSION]):
+            raise ValueError(f"qualification toolchain {binary} must be released {QUALIFICATION_RUST_VERSION}")
 
 
 def source_path(value: str) -> str:
@@ -75,6 +92,7 @@ def collect(manifest_path: Path, coverage_root: Path, provenance: dict, *, sourc
     if not provenance.get("toolchains") or not provenance.get("locks") or any(
             not re.fullmatch("[0-9a-f]{64}", value) for value in provenance["locks"].values()):
         raise ValueError("missing toolchain/lock provenance")
+    validate_toolchains(provenance["toolchains"])
     def report(name: str) -> Path:
         paths = list(coverage_root.rglob(name))
         if len(paths) != 1 or paths[0].is_symlink() or paths[0].stat().st_size > 32 * 1024 * 1024:
@@ -107,9 +125,11 @@ def collect(manifest_path: Path, coverage_root: Path, provenance: dict, *, sourc
 def capture(root: Path) -> dict:
     def command(*args: str) -> str:
         return subprocess.run(args, cwd=root, check=True, capture_output=True, text=True, timeout=30).stdout.strip()
+    toolchains = {"rustc": command(os.environ.get("RUSTC") or "rustc", "--version", "--verbose"),
+        "cargo": command("cargo", "--version"), "python": command(sys.executable, "--version")}
+    validate_toolchains(toolchains)
     return {"schema_version": "build-provenance.v1", "source_sha": command("git", "rev-parse", "HEAD"),
-        "toolchains": {"rustc": command("rustc", "--version", "--verbose"), "cargo": command("cargo", "--version"),
-            "python": command(sys.executable, "--version")},
+        "toolchains": toolchains,
         "locks": {name: digest(root / name) for name in ("Cargo.lock", "package-lock.json")}}
 
 
@@ -126,6 +146,7 @@ def validate_outer(evidence: dict, manifest_path: Path) -> None:
         raise ValueError("outer critical asset inventory mismatch")
     if not evidence.get("toolchains") or set(evidence.get("lock_sha256", {})) != {"Cargo.lock", "package-lock.json"}:
         raise ValueError("outer toolchain/lock evidence missing")
+    validate_toolchains(evidence["toolchains"])
     coverage = evidence.get("coverage", {})
     if set(coverage) != {"rust", "python", "web"}:
         raise ValueError("outer coverage evidence missing")

@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import argparse
+import ast
+import hashlib
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
+
+from release_evidence import QUALIFICATION_RUST_VERSION
 
 REQUIREMENT_ID = re.compile(r"^SOL-[A-Z]+-\d{3}$")
 RFC_FILE = re.compile(r"^\d{4}-[a-z0-9-]+\.md$")
@@ -379,13 +384,246 @@ def validate_node_coverage_job(text: str) -> list[str]:
     return []
 
 
+def validate_eop_generation_job(text: str) -> list[str]:
+    """The required web job must execute the complete offline EOP reproduction."""
+    match = re.search(r'^  web:\n(.*?)(?=^  [\w-]+:|\Z)', text, re.MULTILINE | re.DOTALL)
+    if not match:
+        return ['ci.yml: required web EOP source/table check is missing']
+    job = match[1]
+    blocks = re.findall(r'^      - [^\n]+\n.*?(?=^      - |\Z)', job, re.MULTILINE | re.DOTALL)
+    selected = [block for block in blocks if re.search(
+        r'^        run: python tools/generate_eop\.py --check[ \t]*$', block, re.MULTILINE)]
+    if len(selected) != 1 or re.search(r'^    (?:if|continue-on-error):', job, re.MULTILINE) \
+            or any(re.search(r'^(?:        |      - )(?:if|continue-on-error):', block, re.MULTILINE) for block in selected):
+        return ['ci.yml: EOP source/table check must be one unconditional blocking web step']
+    return []
+
+
+def validate_rust_toolchain_file(root: Path) -> list[str]:
+    path = root / "rust-toolchain.toml"
+    legacy = root / "rust-toolchain"
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 4096 or legacy.exists() or legacy.is_symlink():
+        return ["canonical qualification Rust toolchain file is missing, ambiguous or unsafe"]
+    try:
+        policy = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+        return ["canonical qualification Rust toolchain file is malformed"]
+    if policy != {"toolchain": {"channel": QUALIFICATION_RUST_VERSION, "profile": "minimal"}}:
+        return [f"canonical qualification Rust toolchain must select released {QUALIFICATION_RUST_VERSION}, minimal profile"]
+    return []
+
+
+def validate_rust_toolchain_steps(text: str, workflow: str) -> list[str]:
+    """Action SHA pins the installer; every compiler selection must also be explicit."""
+    blocks = re.findall(r"^      - [^\n]+\n.*?(?=^      - |^  [\w-]+:|\Z)", text, re.MULTILINE | re.DOTALL)
+    expected = "nightly" if workflow == "fuzz.yml" else QUALIFICATION_RUST_VERSION
+    errors = []; setups = 0
+    for step in blocks:
+        uses = [match for match in ACTION_USE.finditer(step) if match[1] == "dtolnay/rust-toolchain"]
+        if not uses:
+            continue
+        setups += len(uses)
+        inputs = re.findall(r"^(?:        |      - )with:[ \t]*(?:#[^\n]*)?\n((?:^          [^\n]*(?:\n|$))*)", step, re.MULTILINE)
+        versions = [value.strip().strip("\"'") for value in re.findall(r"^          toolchain:\s*([^\r\n#]+)",
+            inputs[0] if len(inputs) == 1 else "", re.MULTILINE)]
+        if len(uses) != 1 or len(inputs) != 1 or versions != [expected]:
+            errors.append(f"{workflow}: Rust toolchain setup must explicitly select {expected}")
+    references = sum(line.count("dtolnay/rust-toolchain@") for line in text.splitlines() if not line.lstrip().startswith("#"))
+    if setups != references:
+        errors.append(f"{workflow}: unrecognized Rust toolchain setup syntax cannot bypass qualification policy")
+    if workflow == "fuzz.yml" and not re.search(r"^        run: cargo \+nightly install cargo-fuzz --locked(?:[ \t]+#[^\n]*)?$", text, re.MULTILINE):
+        errors.append("fuzz.yml: cargo-fuzz installation must use the explicit nightly exception")
+    return errors
+
+
+def validate_minimum_rust_job(root: Path, text: str) -> list[str]:
+    """Keep the declared compatibility floor distinct from the release compiler."""
+    try:
+        floor = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))["workspace"]["package"]["rust-version"]
+    except (OSError, KeyError, TypeError, tomllib.TOMLDecodeError):
+        return ["ci.yml: workspace Rust minimum is missing or invalid"]
+    if not isinstance(floor, str) or not re.fullmatch(r"[1-9]\d*\.(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))?", floor):
+        return ["ci.yml: workspace Rust minimum must be a concrete stable version"]
+    version = floor + ".0" if floor.count(".") == 1 else floor
+    sections = list(re.finditer(r"^jobs:[ \t]*\n", text, re.MULTILINE))
+    if len(sections) != 1:
+        return ["ci.yml: declared Rust minimum requires one canonical top-level jobs mapping"]
+    mapping = text[sections[0].end():]
+    next_root = re.search(r"^[^ \t\r\n#]", mapping, re.MULTILINE)
+    if next_root:
+        mapping = mapping[:next_root.start()]
+    jobs = list(re.finditer(r"^  test:[ \t]*\n", mapping, re.MULTILINE))
+    if len(jobs) != 1:
+        return ["ci.yml: declared Rust minimum needs the existing required test job"]
+    job = mapping[jobs[0].end():]
+    next_job = re.search(r"^  [^ \t\r\n#]", job, re.MULTILINE)
+    if next_job:
+        job = job[:next_job.start()]
+    job_fields = [line[4:] for line in job.splitlines()
+                  if line.startswith("    ") and len(line) > 4 and not line[4].isspace() and line[4] != "#"]
+    if any(not re.match(r"(?:name|runs-on|timeout-minutes|steps):", field) for field in job_fields):
+        return ["ci.yml: declared Rust minimum test job must retain its unconditional canonical shape"]
+    expected = "\n".join((
+        "set -euo pipefail",
+        f"rustup toolchain install {version} --profile minimal --target wasm32-unknown-unknown --no-self-update",
+        f"cargo +{version} check --workspace --all-targets --locked --offline",
+        f"cargo +{version} test --workspace --locked --offline",
+        f"cargo +{version} check -p solar-wasm -p solar-ephemeris --target wasm32-unknown-unknown --locked --offline",
+    ))
+    expected_tail = ("        shell: bash\n        env:\n"
+                     f"          CARGO_TARGET_DIR: target/msrv-{version}\n        run: |\n"
+                     + "".join("          " + line + "\n" for line in expected.splitlines()))
+    blocks = re.findall(r"^      - [^\n]+\n.*?(?=^      - |\Z)", job, re.MULTILINE | re.DOTALL)
+    selected = [block for block in blocks if re.match(r"^      - name:[^\n]+\n", block)
+                and block.split("\n", 1)[1].rstrip() == expected_tail.rstrip()]
+    if len(selected) != 1:
+        return ["ci.yml: declared Rust minimum needs one unconditional blocking test step"]
+    return []
+
+
+def local_python_imports(node: ast.AST, source: Path, root: Path, inventory: set[str]) -> set[str]:
+    """Conservatively resolve repository, PYTHONPATH and package-relative imports."""
+    resolved: set[str] = set()
+    def add_candidate(candidate: Path) -> None:
+        if not candidate.is_relative_to(root) or candidate.relative_to(root).as_posix() not in inventory:
+            return
+        resolved.add(candidate.relative_to(root).as_posix())
+        parent = candidate.parent
+        while parent.is_relative_to(root):
+            initializer = (parent / "__init__.py").relative_to(root).as_posix()
+            if initializer in inventory:
+                resolved.add(initializer)
+            if parent == root:
+                break
+            parent = parent.parent
+    if isinstance(node, ast.Module):
+        add_candidate(source)
+        return resolved
+    names = []
+    bases = [root, root / "tools", source.parent]
+    if isinstance(node, ast.Import):
+        names = [alias.name for alias in node.names]
+    elif isinstance(node, ast.ImportFrom):
+        module = node.module or ""
+        names = ([module] if module else []) + [".".join(filter(None, (module, alias.name)))
+                                                  for alias in node.names if alias.name != "*"]
+        if node.level:
+            base = source.parent
+            for _ in range(node.level - 1):
+                base = base.parent
+            if not base.resolve().is_relative_to(root.resolve()):
+                raise ValueError(f"relative Python import leaves the source tree: {source}")
+            bases = [base]
+    else:
+        return set()
+    for base in bases:
+        for name in names:
+            target = base / name.replace(".", "/")
+            for candidate in (target.with_suffix(".py"), target / "__init__.py"):
+                add_candidate(candidate)
+    return resolved
+
+
+def validate_python_coverage_scope(root: Path, text: str) -> list[str]:
+    """Bind coverage commands to an explicit source inventory/import closure."""
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate policy key: {key}")
+            result[key] = value
+        return result
+
+    try:
+        path = root / "tools/python_coverage_scope.json"
+        if path.is_symlink():
+            raise ValueError("scope declaration must be an ordinary file")
+        with path.open("rb") as stream:
+            raw = stream.read(65537)
+        if len(raw) > 65536:
+            raise ValueError("scope declaration exceeds its byte budget")
+        policy = json.loads(raw.decode("utf-8"), object_pairs_hook=unique)
+        if not isinstance(policy, dict) or set(policy) != {
+                "schema_version", "minimum_coverage", "modules", "legacy_exclusions_reason", "legacy_exclusions"}:
+            raise ValueError("scope fields differ")
+        if policy["schema_version"] != "sol-python-coverage-scope.v1" \
+                or type(policy["minimum_coverage"]) is not int or policy["minimum_coverage"] != 90:
+            raise ValueError("scope version or unchanged 90% floor differs")
+        modules, excluded = policy["modules"], policy["legacy_exclusions"]
+        if not isinstance(modules, list) or not modules or not all(isinstance(p, str) for p in modules) \
+                or modules != sorted(set(modules)) or not isinstance(excluded, dict):
+            raise ValueError("scope modules must be a unique sorted list with explicit legacy exclusions")
+        if not isinstance(policy["legacy_exclusions_reason"], str) or not policy["legacy_exclusions_reason"].strip():
+            raise ValueError("legacy exclusions require a reason")
+        inventory = {p.relative_to(root).as_posix(): p for directory in ("tools", "services")
+                     for p in (root / directory).rglob("*.py")
+                     if "__pycache__" not in p.parts and not p.name.startswith("test_")}
+        if set(modules) & set(excluded) or set(modules) | set(excluded) != set(inventory):
+            raise ValueError("new, missing or overlapping Python source inventory; reconcile the scope")
+        for name, source in inventory.items():
+            if source.is_symlink() or not source.resolve().is_relative_to(root.resolve()):
+                raise ValueError(f"source escapes the ordinary repository inventory: {name}")
+            if name in excluded:
+                digest = excluded[name]
+                if not isinstance(digest, str) or re.fullmatch(r"[a-f0-9]{64}", digest) is None \
+                        or hashlib.sha256(source.read_bytes()).hexdigest() != digest:
+                    raise ValueError(f"changed legacy source needs coverage/scope reconciliation: {name}")
+            else:
+                for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+                    for local in local_python_imports(node, source, root, set(inventory)):
+                        if local not in modules:
+                            raise ValueError(f"local runtime dependency needs coverage: {name} imports {local}")
+    except (OSError, UnicodeError, ValueError, TypeError, SyntaxError) as error:
+        return [f"Python coverage: {error}"]
+
+    sections = list(re.finditer(r"^jobs:[ \t]*\n", text, re.MULTILINE))
+    if len(sections) != 1:
+        return ["Python coverage: requires one canonical top-level jobs mapping"]
+    mapping = text[sections[0].end():]
+    next_root = re.search(r"^[^ \t\r\n#]", mapping, re.MULTILINE)
+    if next_root:
+        mapping = mapping[:next_root.start()]
+    jobs = list(re.finditer(r"^  python:[ \t]*\n", mapping, re.MULTILINE))
+    if len(jobs) != 1:
+        return ["Python coverage: requires the existing python job"]
+    job = mapping[jobs[0].end():]
+    next_job = re.search(r"^  [^ \t\r\n#]", job, re.MULTILINE)
+    if next_job:
+        job = job[:next_job.start()]
+    fields = [line[4:] for line in job.splitlines()
+              if line.startswith("    ") and len(line) > 4 and not line[4].isspace() and line[4] != "#"]
+    if any(not re.match(r"(?:name|runs-on|timeout-minutes|steps):", field) for field in fields) \
+            or len({field.split(":", 1)[0] for field in fields}) != len(fields):
+        return ["Python coverage: job must retain its unconditional canonical shape"]
+    include = ",".join(modules)
+    slash = chr(92)
+    script = ["set -euo pipefail", "coverage erase", f"PYTHONPATH=tools coverage run --branch {slash}",
+              f"  --source=services/ephemeris-server,tools {slash}",
+              "  -m unittest discover -s services/ephemeris-server -p 'test_*.py' -v",
+              f"PYTHONPATH=tools coverage run --branch --append {slash}",
+              f"  --source=services/ephemeris-server,tools {slash}",
+              "  -m unittest discover -s tests/python -p 'test_*.py' -v", f"coverage report {slash}",
+              f"  --include='{include}' {slash}", "  --fail-under=90 --show-missing", "mkdir -p coverage",
+              f"coverage xml -o coverage/python.xml {slash}", f"  --include='{include}'"]
+    expected = ("      - name: Provider, schema, and semantic contract tests\n"
+                "        shell: bash\n        run: |\n" + "".join("          " + line + "\n" for line in script))
+    blocks = re.findall(r"^      - [^\n]+\n.*?(?=^      - |\Z)", job, re.MULTILINE | re.DOTALL)
+    if sum(block.rstrip() == expected.rstrip() for block in blocks) != 1:
+        return ["Python coverage: needs one unconditional test/report/XML step with the declared complete scope"]
+    return []
+
+
 def validate_workflows(root: Path) -> list[str]:
     errors: list[str] = []
     workflow_dir = root / ".github" / "workflows"
     for path in sorted(workflow_dir.glob("*.yml")):
-        errors.extend(validate_action_pins(path, path.read_text(encoding="utf-8"), root))
+        text = path.read_text(encoding="utf-8")
+        errors.extend(validate_action_pins(path, text, root))
+        errors.extend(validate_rust_toolchain_steps(text, path.name))
 
     ci = (workflow_dir / "ci.yml").read_text(encoding="utf-8")
+    errors.extend(validate_minimum_rust_job(root, ci))
+    errors.extend(validate_eop_generation_job(ci))
     errors.extend(validate_release_graph(ci))
     errors.extend(validate_required_wasm_job(ci))
     errors.extend(require_tokens(".github/workflows/ci.yml", ci, (
@@ -393,6 +631,7 @@ def validate_workflows(root: Path) -> list[str]:
         "python tools/validate_sdlc.py",
         "python tools/validate_docs.py",
         "python tools/validate_ux_contract.py",
+        "python tools/generate_eop.py --check",
         "python tools/build_wasm.py",
         "tools/release_policy.py",
         "--coverage-root build/coverage-evidence",
@@ -400,6 +639,7 @@ def validate_workflows(root: Path) -> list[str]:
     )))
 
     coverage = (workflow_dir / "coverage.yml").read_text(encoding="utf-8")
+    errors.extend(validate_python_coverage_scope(root, coverage))
     errors.extend(validate_node_coverage_job(coverage))
     errors.extend(require_tokens(".github/workflows/coverage.yml", coverage, (
         "--fail-under-lines 90",
@@ -464,6 +704,7 @@ def validate(root: Path) -> list[str]:
         for relative in REQUIRED_DOCS
         if not (root / relative).is_file()
     ]
+    errors.extend(validate_rust_toolchain_file(root))
     requirements_path = root / "docs" / "requirements.json"
     if not requirements_path.is_file():
         return errors

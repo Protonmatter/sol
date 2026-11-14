@@ -14,15 +14,20 @@ const source = fs.readFileSync(moduleUrl, "utf8");
 // doubled; no lifecycle or rendering function is replaced with a test implementation.
 export async function orreryHarness(t, options = {}) {
   const events = [];
+  const sceneFrames=new Set();
   const frames = new Map(), requests = [], errors = [], warnings = [], positionEpochs = [], presentations = [];
   const images = [], textureUploads = [], bufferUploads = [], drawCalls = [], optionalLoads = [], canvasCommands = [];
+  const catalogueRequests = [], heldCatalogues = [];
   const textureRecords = [], textureParameters = [], mipmapTextures = [], deletedTextures = [], gpuDraws = [], gpuSubmissions=[];
   let depthWrites=true,blend=[];
   const pixelStoreCalls = [], pixelStore = new Map();
   const textureBindings = new Map(); let activeTextureUnit = 0, textureId = 0, pendingTextureError = 0;
   const samplerBindings=new Map(),enabledCapabilities=new Set([3024]);
+  const bufferRecords=new Map(),bufferBindings=new Map(),deletedBuffers=[],bufferErrors=[];
+  let bufferId=0,graphicsLost=false;
   let drawFramebuffer=null,readFramebuffer=null,vertexArray=null,viewport=[0,0,800,600],colorMask=[true,true,true,true],framebufferId=0;
   let textureUploadError = options.textureUploadError || 0;
+  let baseSphereUploadFailures=options.baseSphereUploadFailures||0,optionalSphereUploadFailures=options.optionalSphereUploadFailures||0,pendingBufferError=0;
   const uniformDraws = [], uniforms = new Map(); let currentProgram;
   const recordUniform = (location, value) => {
     assert.equal(location.program,currentProgram,'Uniform map must belong to the active program');
@@ -41,13 +46,14 @@ export async function orreryHarness(t, options = {}) {
   // observable; a generic constant value would make LINEAR and NEAREST identical.
   const graphicsConstants = {
     NO_ERROR: 0, INVALID_VALUE: 1281, OUT_OF_MEMORY: 1285, MAX_TEXTURE_SIZE: 3379,
+    ARRAY_BUFFER:34962,ELEMENT_ARRAY_BUFFER:34963,STATIC_DRAW:35044,DYNAMIC_DRAW:35048,UNSIGNED_SHORT:5123,UNSIGNED_INT:5125,
     TEXTURE_2D: 3553, TEXTURE0: 33984, TEXTURE1: 33985,
     TEXTURE_MIN_FILTER: 10241, TEXTURE_MAG_FILTER: 10240,
     TEXTURE_WRAP_S: 10242, TEXTURE_WRAP_T: 10243,
     NEAREST: 9728, LINEAR: 9729, LINEAR_MIPMAP_LINEAR: 9987,
     REPEAT: 10497, CLAMP_TO_EDGE: 33071,
     UNPACK_ALIGNMENT: 3317, UNPACK_FLIP_Y_WEBGL: 37440, UNPACK_PREMULTIPLY_ALPHA_WEBGL: 37441,
-    R8: 33321, RED: 6403, UNSIGNED_BYTE: 5121,
+    R8: 33321, RED: 6403, RGBA: 6408, SRGB8_ALPHA8: 35907, UNSIGNED_BYTE: 5121,
     ZERO:0,ONE:1,SRC_ALPHA:770,ONE_MINUS_SRC_ALPHA:771,TRIANGLES:4,LINES:1,LINE_STRIP:3,POINTS:0,
     COMPILE_STATUS:35713,LINK_STATUS:35714,VERTEX_SHADER:35633,FRAGMENT_SHADER:35632,
     MAX_TEXTURE_IMAGE_UNITS:34930,MAX_COMBINED_TEXTURE_IMAGE_UNITS:35661,ACTIVE_TEXTURE:34016,
@@ -59,7 +65,21 @@ export async function orreryHarness(t, options = {}) {
   };
   const gl = new Proxy({
     ...graphicsConstants,
-    isContextLost: () => false,
+    isContextLost: () => graphicsLost,
+    createBuffer:()=>{const buffer={bufferId:++bufferId};bufferRecords.set(buffer,{target:null,bytes:0});return buffer;},
+    isBuffer:buffer=>!graphicsLost&&bufferRecords.has(buffer)&&bufferRecords.get(buffer).target!==null,
+    bindBuffer:(target,buffer)=>{
+      if(graphicsLost)return;
+      if(buffer==null){bufferBindings.set(target,null);return;}
+      const record=bufferRecords.get(buffer);
+      if(!record||(record.target!==null&&record.target!==target)){bufferErrors.push({operation:"bind",target});pendingBufferError=1282;return;}
+      record.target=target;bufferBindings.set(target,buffer);
+    },
+    deleteBuffer:buffer=>{
+      if(graphicsLost||!bufferRecords.has(buffer))return;
+      bufferRecords.delete(buffer);deletedBuffers.push(buffer);
+      for(const [target,bound]of bufferBindings)if(bound===buffer)bufferBindings.set(target,null);
+    },
     getExtension: name => name==='KHR_parallel_shader_compile' ? options.parallelPrograms ? {COMPLETION_STATUS_KHR:37297} : null
       : name==='EXT_color_buffer_float'&&options.floatTargets!==false ? {}
       : name==='WEBGL_debug_renderer_info'&&options.renderer ? { UNMASKED_RENDERER_WEBGL: 37446 } : null,
@@ -77,7 +97,7 @@ export async function orreryHarness(t, options = {}) {
     bindFramebuffer:(target,value)=>{if(target!==36008)drawFramebuffer=value;if(target!==36009)readFramebuffer=value;},
     bindVertexArray:value=>{vertexArray=value;},bindSampler:(unit,value)=>samplerBindings.set(unit,value),
     checkFramebufferStatus:()=>options.scatteringFramebufferFailure?0:36053,
-    getError: () => { const error = pendingTextureError; pendingTextureError = 0; return error; },
+    getError: () => { if(pendingBufferError){const error=pendingBufferError;pendingBufferError=0;return error;}const error = pendingTextureError; pendingTextureError = 0; return error; },
     getShaderParameter: (shader,parameter) => {
       shaderQueries.push({method:'getShaderParameter',shader,parameter});
       assert.ok(!options.parallelPrograms||parallelComplete(shader.program),'COMPILE_STATUS queried before KHR completion');
@@ -123,7 +143,7 @@ export async function orreryHarness(t, options = {}) {
       gpuSubmissions.push({kind:'elements',uniforms:drawUniforms,depthWrites,blend:[...blend],framebuffer:drawFramebuffer,
         viewport:[...viewport],vertexArray,textures:new Map(textureBindings),enabled:new Set(enabledCapabilities)});
     },
-    drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]);gpuSubmissions.push({kind:'arrays',uniforms:{...uniforms.get(currentProgram)},
+    drawArrays: (...args) => { draws++; drawCalls.push(["arrays", ...args]);gpuSubmissions.push({kind:'arrays',program:currentProgram,uniforms:{...uniforms.get(currentProgram)},
       depthWrites,blend:[...blend],framebuffer:drawFramebuffer,viewport:[...viewport],vertexArray,textures:new Map(textureBindings),enabled:new Set(enabledCapabilities)}); },
     createTexture: () => ({ textureId: ++textureId }),
     activeTexture: unit => { activeTextureUnit = unit - graphicsConstants.TEXTURE0; },
@@ -135,7 +155,15 @@ export async function orreryHarness(t, options = {}) {
       textureRecords.push({ texture: textureBindings.get(activeTextureUnit), pixels, args, pixelStore: new Map(pixelStore) });
       pendingTextureError = typeof textureUploadError === "function" ? textureUploadError(pixels) : textureUploadError;
     },
-    bufferData: (...args) => { bufferUploads.push(args); },
+    bufferData: (...args) => {
+      bufferUploads.push(args);if(graphicsLost)return;
+      const [target,data]=args,record=bufferRecords.get(bufferBindings.get(target));
+      if(!record){bufferErrors.push({operation:"upload",target});pendingBufferError=1282;return;}
+      record.bytes=typeof data==='number'?data:data.byteLength;
+      const indices=ArrayBuffer.isView(data)&&Object.prototype.toString.call(data)==='[object Uint16Array]';
+      if(indices&&data.length===27648&&baseSphereUploadFailures){baseSphereUploadFailures--;pendingBufferError=1285;}
+      if(indices&&data.length===768&&optionalSphereUploadFailures){optionalSphereUploadFailures--;pendingBufferError=1285;}
+    },
     texParameteri: (_target, name, value) => { textureParameters.push({ texture: textureBindings.get(activeTextureUnit), name, value }); },
     generateMipmap: () => { mipmapTextures.push(textureBindings.get(activeTextureUnit)); },
     deleteTexture: texture => { deletedTextures.push(texture); },
@@ -168,6 +196,15 @@ export async function orreryHarness(t, options = {}) {
     element.append = (...children) => append(...children.map(child => typeof child === "string" ? document.createTextNode(child) : child));
     element.replaceChildren = (...children) => { element.textContent='';element.append(...children); };
     element.offsetWidth = 70; element.offsetHeight = 16;
+    if(tag==='span') {
+      const rect=element.getBoundingClientRect.bind(element);
+      element.getBoundingClientRect=()=>{
+        if(!String(element.className).split(/\s+/).includes('orrery-label'))return rect();
+        const left=parseFloat(element.style.left)||0,top=parseFloat(element.style.top)||0;
+        return {x:left,y:top,left,top,width:element.offsetWidth,height:element.offsetHeight,
+          right:left+element.offsetWidth,bottom:top+element.offsetHeight};
+      };
+    }
     if (tag === "canvas") {
       const context2d = {};
       // Command-recording canvas boundary, not a rasterizer. Pixel/visual correctness
@@ -202,7 +239,7 @@ export async function orreryHarness(t, options = {}) {
     nodes.orrerySaturnControls=node();nodes.orrerySaturnLighting=node({value:'sun-directed'},'select');
     for(const id of ['InspectSun','PhysicalStatus','SolarControls','SolarMode','SolarPlay','SolarRestart','SolarTime','SolarEpoch','SunLookControls','SolarArchiveControls','SunResolution','SunProminences','SunLookPlay','SunLookRestart','SunLookStatus','Terrain','Optics'])nodes[`orrery${id}`]=node();
     if(options.phenomenonImage)nodes.orreryPlanetPhenomena=node();
-    for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "Search", "ObjectGroup", "FocusSelected", "Time", "Size", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "PlanetLook", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
+    for (const id of ["Backend", "MetadataEpoch", "ScaleStatus", "SelectedEpoch", "SelectionStatus", "Detail", "Labels", "Positions", "ObjectCount", "CataloguePanel", "CatalogueStatus", "CatalogueRetry", "Search", "ObjectGroup", "FocusSelected", "FocusSystem", "Time", "Size", "Quality", "QualityStatus", "TrueScale", "Speed", "SpeedLabel", "SpeedExtras", "SpeedEntry", "SpeedUnit", "SpeedPresets", "ShowOrbits", "ShowSky", "ShowConst", "ShowLabels", "ShowSunEq", "ShowSmall", "ShowMoons", "DeepSky", "Textures", "PlanetLook", "EarthNight", "EarthWeather", "EarthIce", "EarthLayerStatus", "IceLegend", "IceLegendCaption", "TopDown", "Anchor", "FreeFly", "Galaxy", "Local"]) {
       nodes[`orrery${id}`] = node();
     }
     for (const id of ["Textures", "EarthNight", "EarthWeather"]) nodes[`orrery${id}`].checked = true;
@@ -255,7 +292,7 @@ export async function orreryHarness(t, options = {}) {
   };
   const bindings = {}, namespaces = new Map();
   for (const [, names, path] of source.matchAll(/^import\s+([\s\S]*?)\s+from\s+"([^"]+)";/gm)) {
-    const namespace = /\/(skyEngine|systemWorkerClient)\.js\?/.test(path)
+    const namespace = /\/(skyEngine|systemWorkerClient)\.js(?:\?|$)/.test(path)
       ? boundary : await import(new URL(path, moduleUrl));
     namespaces.set(path, namespace);
     if (namespace.MOONS) {
@@ -308,10 +345,33 @@ export async function orreryHarness(t, options = {}) {
   const phenomenaBoundary={...phenomenaModule,renderPlanetPhenomena:(container,body)=>
     phenomenaModule.renderPlanetPhenomena(container,body,{loadImage:options.phenomenonImage})};
   const illustrativeBoundary=options.illustrativeMap?{...await import('../../../apps/web/js/illustrativeAppearance.js'),decodeIllustrativeMap:options.illustrativeMap}:null;
+  // Execute the real scheduler, observing only its browser scheduling boundary.
+  // Ordinary helpers represent a completed interaction plus one rendering opportunity;
+  // manualFrames leaves that opportunity under test control for burst/lifecycle tests.
+  const schedulerModule=await import('../../../apps/web/js/frameScheduler.js');
+  const schedulerBoundary={...schedulerModule,createFrameScheduler:config=>schedulerModule.createFrameScheduler({...config,
+    schedule:callback=>{let handle;handle=config.schedule(time=>{sceneFrames.delete(handle);callback(time);});sceneFrames.add(handle);return handle;},
+    cancel:handle=>{sceneFrames.delete(handle);config.cancel(handle);},
+  })};
+  const presentFrame=()=>{
+    if(options.manualFrames)return;
+    const handle=[...sceneFrames].find(id=>frames.has(id));if(handle===undefined)return;
+    const callback=frames.get(handle);frames.delete(handle);
+    callback(Math.max(monotonicNow,bindings.store.orrery.lastTick||0));
+  };
+  const referenceBoundary={requestReferenceImage:options.referenceImageLoader || ((asset,{plan,signal,onReady,onError})=>{
+    const img=new context.Image();img.src=asset.path;img.closed=0;img.close=()=>{img.closed++;};
+    img.onload=()=>{
+      if(img.width!==asset.dimensions[0]||img.height!==asset.dimensions[1]){onError(Error('Reference source grid mismatch'));presentFrame();return;}
+      img.width=plan.width;img.height=plan.height;onReady(img);presentFrame();
+    };
+    img.onerror=()=>{onError(Error('Reference image unavailable'));presentFrame();};
+    signal.addEventListener('abort',()=>{img.onload=null;img.onerror=null;img.src='';},{once:true});
+  })};
   const [lifecycle] = await loadSourceModules(context, [moduleUrl], {
     // Alternate admitted metadata exercises the real presenter without mutating
     // the shared, frozen production inventory or replacing its date logic.
-    resolveImport: (specifier,url) => options.referenceInventory && url.pathname.endsWith('/visualAssetManifest.js')
+    resolveImport: (specifier,url) => url.pathname.endsWith('/referenceImageLoader.js') ? referenceBoundary : url.pathname.endsWith('/frameScheduler.js') ? schedulerBoundary : options.referenceInventory && url.pathname.endsWith('/visualAssetManifest.js')
       ? {visualAssetManifest:options.referenceInventory}
       : options.referenceInventory && url.pathname.endsWith('/planetAppearance.js') ? undefined
       : illustrativeBoundary && url.pathname.endsWith('/illustrativeAppearance.js') ? illustrativeBoundary : options.solarAtlas && url.pathname.endsWith('/solarAssetLoader.js')
@@ -323,25 +383,44 @@ export async function orreryHarness(t, options = {}) {
           :url.pathname.endsWith('/atmosphereColumnField.js')?columnBoundary:namespaces.get(specifier),
     // Optional catalogue downloads remain pending, as they can during first paint.
     importModuleDynamically: specifier => {
-      const mode = specifier.includes("geography") ? options.geography || "pending" : optionalMode;
+      const name = specifier.split('/').at(-1).split('?')[0].replace(/\.js$/, '');
+      const mode = specifier.includes("geography") ? options.geography || "pending"
+        : typeof optionalMode === 'object' ? optionalMode[name] || 'pending' : optionalMode;
+      catalogueRequests.push({specifier, mode});
       if (mode === "pending") return new Promise(() => {});
+      if (mode === 'held') {
+        const promise=new Promise((resolve,reject)=>heldCatalogues.push({specifier,resolve,reject}));
+        optionalLoads.push(promise);return promise;
+      }
       const promise = mode === "failed" ? Promise.reject(new Error("test catalogue transfer failed")) : import(new URL(specifier, moduleUrl));
       optionalLoads.push(promise);
       return promise;
     },
   });
-  const settle = () => new Promise(resolve => setImmediate(resolve));
+  t.after(() => {
+    const priorDocument=globalThis.document,priorWindow=globalThis.window;
+    globalThis.document=document;globalThis.window=context.window;
+    try { lifecycle.leaveOrrery(); }
+    finally {globalThis.document=priorDocument;globalThis.window=priorWindow;}
+  });
+  const settle = async () => {await new Promise(resolve => setImmediate(resolve));presentFrame();await new Promise(resolve => setImmediate(resolve));presentFrame();};
   // Existing scientific-material fixtures exercise the explicit Source-qualified
   // mode. Fresh-session tests bypass this fixture to exercise the product default.
   if (!options.useProductAppearanceDefault) bindings.store.orrery.planetLook = 'source-qualified';
-  return { events, nodes, frames, requests, errors, warnings, images, textureUploads, bufferUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations,shaderQueries,programs,deletedPrograms,deletedShaders,
+  return { bufferRecords,bufferBindings,deletedBuffers,bufferErrors,events, nodes, frames, requests, errors, warnings, images, textureUploads, bufferUploads, textureRecords, textureParameters, pixelStoreCalls, mipmapTextures, deletedTextures, gpuDraws, gpuSubmissions, gl, drawCalls, uniformDraws, canvasCommands, idleTasks, positionEpochs, presentations,shaderQueries,programs,deletedPrograms,deletedShaders,catalogueRequests,heldCatalogues,
+    async releaseCatalogue(index,reject=false){const item=heldCatalogues[index];if(reject)item.reject(new Error('late catalogue transfer failure'));else item.resolve(await import(new URL(item.specifier,moduleUrl)));await settle();},
     completePrograms: (predicate=()=>true)=>{for(const program of programs)if(predicate(program))completedPrograms.add(program);},
     state: bindings.store.orrery, moons: bindings.moonCatalogue.MOONS,
     ...lifecycle, settle,
-    event(id, type, properties = {}) { return nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties }); },
+    enterOrrery(){const pending=lifecycle.enterOrrery();pending.then(presentFrame);return pending;},
+    event(id, type, properties = {}) {
+      if(id==='orreryCanvas'&&type==='webglcontextlost'){graphicsLost=true;bufferRecords.clear();bufferBindings.clear();}
+      if(id==='orreryCanvas'&&type==='webglcontextrestored'){graphicsLost=false;pendingBufferError=0;pendingTextureError=0;}
+      const result=nodes[id].dispatch(type, { currentTarget: nodes[id], ...properties });presentFrame();return result;
+    },
     input(id, value, type = "input") { nodes[id].value = value; return this.event(id, type); },
     check(id, checked) { nodes[id].checked = checked; return this.event(id, "change"); },
-    resize(width, height, dpr = context.window.devicePixelRatio) { Object.assign(nodes.orreryCanvas, { clientWidth: width, clientHeight: height }); context.window.devicePixelRatio = dpr; resizeCallback(); },
+    resize(width, height, dpr = context.window.devicePixelRatio) { Object.assign(nodes.orreryCanvas, { clientWidth: width, clientHeight: height }); context.window.devicePixelRatio = dpr; resizeCallback();presentFrame(); },
     async settleCatalogues() { await Promise.allSettled(optionalLoads); await settle(); },
     async flushIdleTasks() {
       for (let i = 0; idleTasks.size; i++) {
@@ -353,6 +432,7 @@ export async function orreryHarness(t, options = {}) {
     setCatalogueMode(value) { optionalMode = value; },
     setGraphicsFailure(value) { graphicsFailure = value; },
     setTextureUploadError(value) { textureUploadError = value; },
+    setBaseSphereUploadFailures(value) { baseSphereUploadFailures=value; },
     advanceMonotonicTime(value) { monotonicNow = value; },
     failWorker(value) { workerFailure = value; },
     setWallUnix(value) { wallUnix = value; },
@@ -370,6 +450,6 @@ export async function orreryHarness(t, options = {}) {
     now() { nodes.orreryNow.handlers.get("click")(); },
     get draws() { return draws; }, get contexts() { return contexts; },
     async retry() { nodes.orreryRetry.handlers.get("click")(); await settle(); },
-    frame(now) { const [id, fn] = frames.entries().next().value; frames.delete(id); fn(now); },
+    frame(now) { const next=frames.entries().next().value;if(!next)return;const [id,fn]=next;frames.delete(id);fn(now); },
   };
 }

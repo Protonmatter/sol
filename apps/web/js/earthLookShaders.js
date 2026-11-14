@@ -29,7 +29,29 @@ const float PI=3.14159265359;
 // SOL's north axis is +z; the lab's is +y. No view-driven texture rotation.
 vec3 local(vec3 p){return p.xzy;}
 vec2 earthUv(vec3 p){p=normalize(p);return vec2(fract(atan(p.y,p.x)/(2.*PI)+.5),acos(clamp(p.z,-1.,1.))/PI);}
-float earthCloud(vec3 point){vec2 uv=earthUv(point);uv.x=fract(uv.x-uCloudPhase);return texture(uCloudMap,uv).a;}
+// Capture ray derivatives before any discard or divergent volume traversal.
+// Cloud density/shadow lookups may execute in different iterations per pixel;
+// they must not ask implicit derivatives to differentiate a wrapped UV there.
+vec3 earthRayDx,earthRayDy;
+vec3 earthPointGradient(vec3 point,vec3 rayGradient){
+  vec3 delta=point-u_camObj;float distance=length(delta);
+  vec3 direction=delta/max(distance,1e-8);
+  float incidence=dot(point,direction);
+  incidence=incidence<0.?min(incidence,-1e-4):max(incidence,1e-4);
+  // Differentiate a ray's intersection with the local spherical shell.
+  // Displaced cloud-lighting taps use that shell's local footprint too.
+  return distance*(rayGradient-direction*dot(point,rayGradient)/incidence);
+}
+vec2 earthUvGradient(vec3 point,vec3 gradient){
+  float horizontal2=dot(point.xy,point.xy),radius2=max(dot(point,point),1e-8);
+  return vec2(dot(vec2(-point.y,point.x),gradient.xy)/(2.*PI*max(horizontal2,1e-8)),
+    (point.z*dot(point.xy,gradient.xy)-horizontal2*gradient.z)/(PI*radius2*sqrt(max(horizontal2,1e-8))));
+}
+vec4 earthSample(sampler2D source,vec3 point,vec2 uv){
+  return textureGrad(source,uv,earthUvGradient(point,earthPointGradient(point,earthRayDx)),
+    earthUvGradient(point,earthPointGradient(point,earthRayDy)));
+}
+float earthCloud(vec3 point){vec2 uv=earthUv(point);uv.x=fract(uv.x-uCloudPhase);return earthSample(uCloudMap,point,uv).a;}
 ${EARTH_GLSL}
 ${volume}
 vec3 lookTone(vec3 value){value*=u_earthLookExposure;return pow(clamp((value*(2.51*value+.03))/(value*(2.43*value+.59)+.14),0.,1.),vec3(1./2.2));}
@@ -57,6 +79,7 @@ vec2 perspectiveCloudVolume(vec3 closest,vec3 ray,float distance2,vec3 light,boo
 }
 void main(){
   vec3 ray=normalize(v_obj-u_camObj);
+  earthRayDx=dFdx(ray);earthRayDy=dFdy(ray);
   vec3 closest=u_camObj-ray*dot(u_camObj,ray);
   // Cross-product form avoids subtracting two large squared camera distances.
   vec3 perpendicular=cross(u_camObj,ray);float distance2=dot(perpendicular,perpendicular);
@@ -68,19 +91,19 @@ void main(){
   vec3 color=vec3(0.);
   if(ground){
     vec3 point=closest-ray*sqrt(max(0.,1.-distance2)),normal=normalize(point);
-    vec2 uv=earthUv(normal);vec3 encoded=texture(u_tex,uv).rgb;
-    vec3 albedo=gradeOcean(pow(encoded,vec3(2.2)),texture(u_oceanMask,uv).r);
+    vec2 uv=earthUv(normal);vec3 encoded=earthSample(u_tex,point,uv).rgb;
+    vec3 albedo=gradeOcean(pow(encoded,vec3(2.2)),earthSample(u_oceanMask,point,uv).r);
     // Texture-derived relief is a display choice, as in the Sites reference.
     float base=dot(encoded,vec3(.333));
-    float dx=dot(texture(u_tex,uv+vec2(.001,0.)).rgb,vec3(.333))-base;
-    float dy=dot(texture(u_tex,uv+vec2(0.,.001)).rgb,vec3(.333))-base;
+    float dx=dot(earthSample(u_tex,point,uv+vec2(.001,0.)).rgb,vec3(.333))-base;
+    float dy=dot(earthSample(u_tex,point,uv+vec2(0.,.001)).rgb,vec3(.333))-base;
     vec3 right=normalize(cross(abs(cameraDirection.z)>.99?vec3(0.,1.,0.):vec3(0.,0.,1.),cameraDirection));
     vec3 up=normalize(cross(cameraDirection,right));
     vec3 shadingNormal=normalize(vec3(normal.xy,normal.z/u_oblate)+(right*dx+up*dy)*.375);
     float ndl=dot(shadingNormal,normalize(u_lightObj)),lighting=max(ndl,0.);
     if(u_earthWeather==1&&dot(normal,light)>0.)lighting*=mix(.18,1.,volumeTransmission(normal,light));
     color=albedo*(lighting*.95+.018);
-    if(u_earthNight==1)color+=pow(texture(u_nightTex,uv).rgb,vec3(1.5))*(1.-smoothstep(-.18,.12,ndl))*.72;
+    if(u_earthNight==1)color+=pow(earthSample(u_nightTex,point,uv).rgb,vec3(1.5))*(1.-smoothstep(-.18,.12,ndl))*.72;
     if(u_earthAtmosphere==1)color+=air*pow(1.-max(dot(normal,-ray),0.),4.5)*.28*smoothstep(-.15,.5,dot(normal,light));
     vec4 clip=u_mvp*vec4(point,1.);gl_FragDepth=clamp(.5+.5*clip.z/clip.w,0.,1.);
   }

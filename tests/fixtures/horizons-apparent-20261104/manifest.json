@@ -1,0 +1,36 @@
+{
+  "schema_version": "horizons-apparent-reference.v1",
+  "source": "NASA/JPL Horizons API",
+  "scope": "144 geocentric true-equator/equinox-of-date apparent directions at16 fixed JD/TT epochs, nine explicit DE441 targets; Q30 and Q45 diagnostics retained",
+  "limitations": "Discrete TT-argument model characterization only; no continuous span, physical event, historical UTC/UT1, future EOP, UI-registry or release qualification.",
+  "acceptance": {
+    "metric": "great_circle_arcsec",
+    "sun_planet_arcsec": 10.0,
+    "moon_arcsec": 12.0
+  },
+  "predeclared_plan": {
+    "path": "predeclared-plan.txt",
+    "bytes": 2600,
+    "sha256": "abea667213681f709bd67a35cd6676ce320fe7180eabc4f0efeda180761bf88d"
+  },
+  "query_spec": {
+    "path": "query-spec.json",
+    "bytes": 7905,
+    "sha256": "2ec961b8fee36b2d2f01c7b78a8029fe58477885d1c4e48901dce94274bca2c3"
+  },
+  "query_builder": {
+    "path": "query-builder.py.txt",
+    "bytes": 4054,
+    "sha256": "24d1cf29685c440a7300fa96e8ae2b0aa40128c9dd858389c14340ecf4f4d1f6"
+  },
+  "acquisition": {
+    "path": "acquisition.json",
+    "bytes": 9845,
+    "sha256": "3f1fddc359a56e33f6b2656db988ef6ef65925ce5489788d219b069955738feb"
+  },
+  "derived_matrix": {
+    "path": "apparent.csv",
+    "bytes": 24115,
+    "sha256": "b98196468203f96efbb2adc106aa5b008b19091295d3ca5f165b29d760ba8c7a"
+  }
+}

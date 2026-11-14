@@ -1,11 +1,12 @@
 import {sunLookDescription} from './sunLook.js';
+import {resolveSystemDisplayPolicy} from './systemDisplayPolicy.js';
 // Concise orientation from admitted scene state and reference facts. No calculation or I/O.
-import { BODY } from './bodyData.js?v=dcca6290db';
-import { MOONS } from './moons.js?v=dcca6290db';
-import { SYNCHRONOUS_MOONS } from './moonorbits.js?v=dcca6290db';
+import { BODY } from './bodyData.js';
+import { MOONS } from './moons.js';
+import { SYNCHRONOUS_MOONS } from './moonorbits.js';
 import { visualBrowsePreview, textureEligible } from './visualAssets.js';
 import { appearanceReference, appearanceDescription, appearanceSummary } from './planetAppearance.js';
-import { earthSunDistanceAu, formatApparentV, formatIrradiance } from './sunPhotometry.js?v=dcca6290de';
+import { earthSunDistanceAu, formatApparentV, formatIrradiance } from './sunPhotometry.js';
 
 /** @typedef {{eyebrow:string,title:string,description:string,facts:{label:string,value:string}[],note:string,preview:ReturnType<typeof visualBrowsePreview>,focusBody:string|null}} DestinationCard */
 const unavailable = 'Unavailable';
@@ -39,7 +40,10 @@ export function skyCard({snapshot = null, selectedName = null, presentation = nu
 
 /** @param {any} state @returns {DestinationCard} */
 export function systemCard(state = {}) {
-  const scale = state.trueScale ? 'Physical scale; small bodies may be sub-pixel.'
+  const anchor=state.anchor||state.selected||'Sun';
+  const policy=resolveSystemDisplayPolicy({...state,anchor,focus:state.focusMode||'overview',
+    inspectable:Object.hasOwn(BODY,anchor)||MOONS.some(moon=>moon.n===anchor)});
+  const scale = policy.physicalGeometry ? 'Physical scale; small bodies may be sub-pixel.'
     : 'Bodies are enlarged for visibility; physical positions are unchanged.';
   const retained = state.engineError || state.presentation?.availability === 'last_valid'
     ? ' Showing the last validated scene; reference facts remain separate.' : '';

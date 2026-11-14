@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import assert from "node:assert/strict";
+import {types as utilTypes} from 'node:util';
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -8,22 +10,27 @@ import { createHash } from 'node:crypto';
 import coverageModule from "istanbul-lib-coverage";
 import puppeteer from "puppeteer-core";
 import v8ToIstanbul from "v8-to-istanbul";
-import { startWorkerCoverage, closeOwnedBrowser } from "./worker_coverage.mjs";
+import { startWorkerCoverage, closeOwnedBrowserVerified } from "./worker_coverage.mjs";
+import { installWorkerActivity, waitForWorkerActivityIdle } from "./worker_activity.mjs";
 import { waitForCanvasGeometry } from "./canvas_capture.mjs";
 import { collectSubmittedEarthSpin } from "./earth_spin_probe.mjs";
 import { collectFrameCostDiagnostic } from './frame_cost_diagnostic.mjs';
 import { installProgramSourceEvidence, preparePhysicalSpinEvidence, waitForPhysicalSpinReadiness } from './physical_spin_probe.mjs';
 import { installPhysicalTextureEvidence } from './physical_texture_probe.mjs';
 import { installScatteringProducerEvidence, beginScatteringProducerHold, endScatteringProducerHold } from './scattering_producer_probe.mjs';
-import { browserBackendFromArgs, browserBackendArgs, assertBrowserBackend, captureBrowserCapabilities } from './browser_backend.mjs';
+import { browserBackendFromArgs, browserBackendArgs, assertBrowserBackend, captureBrowserCapabilities, withBrowserFeatureStatus, sunLookProbeResolutions } from './browser_backend.mjs';
 import { classifyTextureBackend } from './texture_device_telemetry.mjs';
 import {memoryRequested,runFullFeatureMemoryCheckpoints} from './full_feature_memory.mjs';
 import { assertCaptionLayouts } from "./caption_layout.mjs";
-import { assertMobileOfflineUpdate, assertManifestRequestIdentity } from "./review_ui_contract.mjs";
+import { assertMobileOfflineUpdate, assertManifestRequestIdentity, assertSceneCanvasFocus, assertReducedMotionPlacement, assertTourViewport } from "./review_ui_contract.mjs";
 import { waitForReferenceReadiness } from "./reference_readiness.mjs";
+import {readRenderPairState,waitForRenderPairState,assertRenderPairStable} from "./render_pair_state.mjs";
 import {verifyEarthLook} from './earth_look_probe.mjs';
 import {verifySunLook} from './sun_look_probe.mjs';
+import {verifyOrbitGuide} from './orbit_guide_probe.mjs';
 import {verifyIllustrativeLooks} from './illustrative_look_probe.mjs';
+import {verifyTouchGestures} from './touch_gesture_probe.mjs';
+import {verifyResearchDisclosures} from './research_disclosure_probe.mjs';
 import {verifySaturnMaterial,verifySaturnScene} from './saturn_look_probe.mjs';
 import {
   ROOT,
@@ -32,6 +39,7 @@ import {
   relativePageModules,
   releaseSourceMap,
   sourceCoverage,
+  bundleCoverageEntry,
   addUnexecutedCoverage,
   GENERATED_MODULES,
 } from "./js_coverage_scope.mjs";
@@ -186,12 +194,33 @@ async function clickMode(page, mode) {
     mode
   );
   if (mode === 'today') await page.click('#exploreResearch');
+  await page.waitForFunction(expected=>document.body.dataset.viewCode==='ready'&&document.body.dataset.viewCodeName===expected,
+    {timeout:60000},mode==='today'?'research':mode);
   if (await page.$eval('#panelToggle', node => node.getAttribute('aria-expanded') === 'false')) {
     await page.click('#panelToggle');
   }
   // These scenarios deliberately exercise full research controls; the separate
   // experience suite verifies their initial disclosure and context-card entry.
   if (mode !== 'today') await page.$$eval('#viewInspector details', nodes => nodes.forEach(node => { node.open = true; }));
+}
+
+// Compilation now precedes the first worker message. Consume the existing idle
+// budget while checking pending UI work, then give only its remainder to the
+// message observer; message-idle alone cannot certify preparation is finished.
+async function waitForApplicationWorkerIdle(page) {
+  const deadline=performance.now()+10000;
+  await page.waitForFunction(async()=>{
+    const entry=document.querySelector('script[type="module"][src^="app.js"]');
+    const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+    const solar=document.getElementById('liveStatus')?.textContent||'';
+    const sky=document.getElementById('skyProvenance')?.textContent||'';
+    const surface=document.body.dataset.surface;
+    return !store.orrery?.entering&&!(surface==='today'&&solar.startsWith('Running the engine'))
+      &&!(surface==='sky'&&(sky.startsWith('Computing Sky')||sky.startsWith('Requesting positions')));
+  },{timeout:10000});
+  const remaining=deadline-performance.now();
+  if(!(remaining>0))throw new Error('Application preparation exceeded the original worker-idle deadline');
+  await waitForWorkerActivityIdle(page,{timeoutMs:remaining});
 }
 
 async function assertDisclosureContract(page) {
@@ -210,6 +239,7 @@ async function assertDisclosureContract(page) {
     throw new Error(`initial observed Explore provenance or separation failed: ${JSON.stringify(observed)}`);
   }
   await page.click('#exploreResearch');
+  await page.waitForFunction(()=>document.body.dataset.viewCode==='ready'&&document.body.dataset.viewCodeName==='research',{timeout:30000});
   if(await page.$eval('#solarObservation',node=>node.getClientRects().length>0)) throw new Error('Research must hide the separate observation surface');
   const initial = await page.evaluate(() => ({
     modes: Array.from(document.querySelectorAll(".mode-button")).map((button) => ({
@@ -247,6 +277,9 @@ async function assertDisclosureContract(page) {
 
   // Native disclosure controls must work from the keyboard and expose their state.
   await page.click('#panelToggle');
+  await page.waitForFunction(()=>document.getElementById('schemaVersion')?.textContent==='solar-state-snapshot.v3'
+    &&document.querySelector('#regionList button[data-object-id]'),{timeout:20000});
+  const nativeResearchDisclosures=await verifyResearchDisclosures(page);
   await page.click('#timelineToggle');
   await page.focus("#sunResearch > summary");
   await page.keyboard.press("Enter");
@@ -262,6 +295,7 @@ async function assertDisclosureContract(page) {
   await page.waitForFunction(() => document.getElementById("sunWeather")?.open === true);
   await page.$eval("#sunWeather > summary", (node) => node.click());
   await page.waitForFunction(() => document.getElementById("sunWeather")?.open === false);
+  return nativeResearchDisclosures;
 }
 
 async function exerciseSun(page, solarSchema, workerCoverage) {
@@ -350,6 +384,7 @@ async function exerciseSky(page) {
   await clickMode(page, "sky");
   await page.waitForFunction(
     () => document.querySelectorAll("#skyList .sky-row").length > 0
+      && document.getElementById("skyProvenance")?.textContent.startsWith("Source: computed on device")
       && !document.getElementById("skyInsight")?.textContent.includes("unavailable"),
     { timeout: 20_000 }
   );
@@ -365,6 +400,9 @@ async function exerciseSky(page) {
   await setValue(page, "#skyTime", "", "change");
   await setValue(page, "#skyTime", "2026-07-08T12:00", "change");
   await page.click("#skyNow");
+  // Exercise Now, then retain that same displayed epoch as an explicit choice.
+  // The 60-second live refresh must not start new timed work during coverage.
+  await setValue(page, "#skyTime", await page.$eval("#skyTime", input => input.value), "change");
 
   for (const id of ["#skyConst", "#skyTraj"]) {
     await setChecked(page, id, false);
@@ -405,6 +443,11 @@ async function exerciseSky(page) {
     { timeout: 10_000 }
   );
   await page.click("#skyProviderLocal");
+  await page.waitForFunction(
+    () => document.getElementById("skyProvenance")?.textContent.startsWith("Source: computed on device")
+      && document.getElementById("skyInputError")?.textContent === "",
+    { timeout: 20_000 }
+  );
 }
 
 async function focusBody(page, name) {
@@ -471,15 +514,15 @@ async function canvasScreenshot(page, output) {
  *    is using (store.orrery holds the live object, not a copy). It is verified against the screen
  *    positions the renderer placed the planet's and each moon's DOM label at this same frame;
  *    the assertions reject any plan whose worst residual exceeds half a pixel.
- *  • That same check validates the one renderer constant duplicated here, the planet's display
- *    radius: systemScale() inflates the moon orbits to 1.7 display radii, so a wrong radius moves
- *    every moon marker and the label residual blows up immediately.
+ *  • That same check validates the display geometry assumed here. Focus selection inspects the
+ *    body at physical relative radii and moon offsets (systemDisplayPolicy.js), so a wrong radius
+ *    or moon scale moves the markers and the label residual blows up immediately.
  *
  * The clock is moved by rewriting the value the harness's fixed Date reads, then clicking "Now",
  * which is the app's own path back to renderUnix = Date.now(). Nothing here writes simulation
  * state; only the camera (the same three numbers a drag would set) is assigned.
  */
-async function planMoonShadowFrame({ unixMs, planet, camera }) {
+async function planMoonShadowFrame({ unixMs, planet, target = planet, camera }) {
   globalThis.__solPinnedUnixMs = unixMs;
   const entry = document.querySelector('script[type="module"][src^="app.js"]');
   const token = entry ? new URL(entry.src).search : "";
@@ -499,9 +542,13 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   const state = store.orrery;
   const AU_KM = 149597870.7;
   const FOVY = (42 * Math.PI) / 180;                 // orrery.js
-  const VISIBLE_DISPLAY_RADIUS_AU = { Jupiter: 0.170 }; // orrery.js VIS_RADIUS_AU
+  // The camera follows whatever the real Focus control selects: the planet itself, or one of
+  // its moons for the eclipse pair, so the eclipsed moon stays centred in both frames.
+  const targetMoon = target === planet ? null : catalogue.MOONS.find((moon) => moon.n === target && moon.p === planet);
+  if (target !== planet && !targetMoon) throw new Error(`${target} is not a catalogue moon of ${planet}`);
   const anchor = document.getElementById("orreryAnchor");
-  anchor.value = planet;
+  anchor.value = target;
+  if (anchor.value !== target) throw new Error(`the Focus control offers no ${target} option`);
   anchor.dispatchEvent(new Event("change", { bubbles: true }));
   document.getElementById("orreryNow").click();
 
@@ -539,15 +586,27 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
     casters.map((c) => [c.name, shadowMath.sunlightOnMoon(c.offset, sunOffset, geom)])
   );
 
-  const rEq = (VISIBLE_DISPLAY_RADIUS_AU[planet] || 0.05) * state.exaggeration;
-  if (state.trueScale) throw new Error("moon-shadow frames assume the default visible-scale mode");
+  if (state.trueScale) throw new Error("moon-shadow frames assume Focus inspection, not true scale");
+  // Focus selection inspects the body at physical relative radii and moon offsets
+  // (systemDisplayPolicy.js). The enlarged overview geometry does not apply here.
+  if (state.focusMode !== "inspect-body") throw new Error(`moon-shadow frames expect body inspection, got ${state.focusMode}`);
+  const rEq = phys.radiusKm / AU_KM;
+  // The camera orbits the Focus target: the planet, or the moon at its physical offset.
+  const targetOffset = targetMoon ? orbits.moonOffsetAU(targetMoon, unix) : [0, 0, 0];
+  const C = [P[0] + targetOffset[0], P[1] + targetOffset[1], P[2] + targetOffset[2]];
+  const targetRadius = targetMoon ? targetMoon.r / AU_KM : rEq;
   if (camera.kind === "fixed") {
     state.az = camera.az;
     state.el = camera.el;
     state.radius = camera.radius;
   } else {
     let direction;
-    if (camera.kind === "polar") {
+    if (camera.kind === "sunward") {
+      // From the Sun's side of the target, looking away from the Sun. The moon shows its fully
+      // lit face, so its disc can be measured directly, and its planet lies behind the camera;
+      // the plan below rejects any frame in which the planet reaches the canvas.
+      direction = math.norm([-C[0], -C[1], -C[2]]);
+    } else if (camera.kind === "polar") {
       // Straight down the spin axis. Every moon then rides a face-on circle well clear of the
       // disc, and because the Sun is within a few degrees of the equatorial plane every marker
       // shows the same phase — which is what makes two eclipse frames photometrically comparable.
@@ -575,23 +634,25 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
     }
     state.az = Math.atan2(direction[1], direction[0]);
     state.el = Math.asin(Math.max(-1, Math.min(1, direction[2])));
-    // Put the equatorial radius at `discFraction` of the canvas half-height.
-    state.radius = rEq / (camera.discFraction * Math.tan(FOVY / 2));
+    // Put the target's equatorial radius at `discFraction` of the canvas half-height.
+    state.radius = targetRadius / (camera.discFraction * Math.tan(FOVY / 2));
   }
   // Repaint through a production handler rather than by reaching for paint(): the size slider's
-  // input listener re-reads its unchanged value and redraws.
+  // input listener re-reads its unchanged value and queues a frame. Labels and their projection
+  // anchors are written by that frame, so read them only after it has rendered.
   document.getElementById("orrerySize").dispatchEvent(new Event("input", { bubbles: true }));
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
   const canvas = document.getElementById("orreryCanvas");
   const cw = canvas.clientWidth, ch = canvas.clientHeight;
   const eye = [
-    P[0] + state.radius * Math.cos(state.el) * Math.cos(state.az),
-    P[1] + state.radius * Math.cos(state.el) * Math.sin(state.az),
-    P[2] + state.radius * Math.sin(state.el),
+    C[0] + state.radius * Math.cos(state.el) * Math.cos(state.az),
+    C[1] + state.radius * Math.cos(state.el) * Math.sin(state.az),
+    C[2] + state.radius * Math.sin(state.el),
   ];
   const vp = math.mul(
     math.perspective(FOVY, canvas.width / canvas.height, 0.008, 800),
-    math.lookAt(eye, P, [0, 0, 1])
+    math.lookAt(eye, C, [0, 0, 1])
   );
   const project = (p) => {
     const x = vp[0] * p[0] + vp[4] * p[1] + vp[8] * p[2] + vp[12];
@@ -614,20 +675,16 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   }
   host.style.visibility = "hidden";
 
-  let innermost = Infinity;
-  for (const moon of moons) innermost = Math.min(innermost, (moon.a * (1 - moon.e)) / AU_KM);
-  const ringOuterAU = phys.rings ? (phys.rings.outerKm / phys.radiusKm) * rEq : 0;
-  const scale = Math.max(1, Math.max(rEq * 1.7, ringOuterAU * 1.12) / innermost); // systemScale()
-  const forward = math.norm([P[0] - eye[0], P[1] - eye[1], P[2] - eye[2]]);
+  const forward = math.norm([C[0] - eye[0], C[1] - eye[1], C[2] - eye[2]]);
   const right = math.norm(math.cross(forward, [0, 0, 1]));
   const up = math.cross(right, forward);
   const residuals = [];
   const markers = casters.map((c) => {
     const world = [
-      P[0] + c.offsetAU[0] * scale, P[1] + c.offsetAU[1] * scale, P[2] + c.offsetAU[2] * scale,
+      P[0] + c.offsetAU[0], P[1] + c.offsetAU[1], P[2] + c.offsetAU[2],
     ];
     const at = project(world);
-    const drawn = Math.min(rEq * 0.42, Math.max(rEq * 0.055, rEq * (c.radius / phys.radiusKm) * 4));
+    const drawn = c.radius / AU_KM; // physical moon radius under inspection
     const edge = at
       ? project([world[0] + drawn * right[0], world[1] + drawn * right[1], world[2] + drawn * right[2]])
       : null;
@@ -638,12 +695,25 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
       name: c.name, at, radiusPx: at && edge ? Math.hypot(edge[0] - at[0], edge[1] - at[1]) : null,
     };
   });
-  if (placed[planet]) {
-    const at = project(P);
-    residuals.push(Math.hypot(placed[planet][0] - at[0], placed[planet][1] - at[1]));
+  const planetAt = project(P);
+  if (placed[planet] && planetAt) {
+    residuals.push(Math.hypot(placed[planet][0] - planetAt[0], placed[planet][1] - planetAt[1]));
   }
 
-  if (!placed[planet] || residuals.length < 2) throw new Error("camera calibration requires the planet and at least one visible moon anchor");
+  if (targetMoon) {
+    // A moon target leaves its planet off screen, so the label anchors fix only the moon's
+    // position. The eclipse assertion measures the lit disc's centre and radius from pixels,
+    // which independently checks the camera distance and field of view.
+    if (!placed[target] || !residuals.length) throw new Error(`camera calibration requires the ${target} label anchor`);
+    const planetEdge = planetAt ? project(math.add(P, [rEq * right[0], rEq * right[1], rEq * right[2]])) : null;
+    const planetPx = planetAt && planetEdge ? Math.hypot(planetEdge[0] - planetAt[0], planetEdge[1] - planetAt[1]) : 0;
+    if (planetAt && planetAt[0] + planetPx > 0 && planetAt[0] - planetPx < cw
+        && planetAt[1] + planetPx > 0 && planetAt[1] - planetPx < ch) {
+      throw new Error(`${planet} reaches the ${target} frame, so its sky is not black`);
+    }
+  } else if (!placed[planet] || residuals.length < 2) {
+    throw new Error("camera calibration requires the planet and at least one visible moon anchor");
+  }
   const projectedShadows = shadows.map((shadow) => {
     const c = shadow.center;
     const world = math.add(P, toWorld([rEq * c[0], rEq * c[1], rEq * c[2] * oblate]));
@@ -714,7 +784,14 @@ async function planMoonShadowFrame({ unixMs, planet, camera }) {
   return {
     unix, iso: new Date(unix * 1000).toISOString(),
     az: state.az, el: state.el, radius: state.radius,
-    P, rEq, oblate, sunward, rot, eye, right, up, fwd: forward,
+    P, target, C, rEq, oblate, sunward, rot, eye, right, up, fwd: forward,
+    // The exact perspective silhouette of a focused moon: a sphere of radius R seen from
+    // distance d subtends asin(R/d), so its outline is wider than the centre-to-edge chord.
+    targetDisc: targetMoon && project(C) ? {
+      at: project(C),
+      radiusPx: Math.tan(Math.asin(Math.min(1, targetRadius / Math.hypot(C[0] - eye[0], C[1] - eye[1], C[2] - eye[2]))))
+        / Math.tan(FOVY / 2) * ch / 2,
+    } : null,
     tanHalf: Math.tan(FOVY / 2), aspect: canvas.width / canvas.height,
     cw, ch, shadows: projectedShadows, sunlit, markers,
     labelResidual: Math.max(0, ...residuals),
@@ -781,8 +858,8 @@ async function moonShadowAssertions(page, visualDirectory) {
       }
     });
     const plan = await page.evaluate(planMoonShadowFrame, options);
-    // One settled frame: the repaint above is synchronous, but the compositor still has to hand
-    // the canvas to the screenshot.
+    // The plan already waited for its rendered frame; give the compositor time to hand the
+    // canvas to the screenshot.
     await new Promise((resolve) => setTimeout(resolve, 150));
     const bytes = await canvasScreenshot(page, path.join(visualDirectory, `${name}.png`));
     return { plan, bytes };
@@ -807,17 +884,21 @@ async function moonShadowAssertions(page, visualDirectory) {
     control.bytes, control.plan, transit.plan.shadows[0].umbraPx
   );
 
-  // The eclipse pair looks down Jupiter's spin axis, where the Galileans ride a face-on circle
-  // outside the disc and cannot be occluded by it. 0.45 keeps Io's marker on the canvas at that
-  // 1.7-display-radii orbit while still drawing it ~20 px across.
+  // The eclipse pair focuses Io itself through the Focus control and looks at it from the
+  // Sun's side. At physical scale Io orbits 5.9 Jupiter radii out, so any framing that keeps
+  // Jupiter in view draws Io about a pixel wide. Focused, Io's disc spans half the canvas
+  // half-height, stays centred in both frames, and Jupiter lies behind the camera, leaving the
+  // sky around Io black. The control reuses the camera, so the pair differs only in sunlight.
   const eclipse = await frame("jupiter-io-eclipse", {
     unixMs: MOON_ECLIPSE_MS,
     planet: "Jupiter",
-    camera: { kind: "polar", discFraction: 0.45 },
+    target: "Io",
+    camera: { kind: "sunward", discFraction: 0.5 },
   });
   const eclipseControl = await frame("jupiter-io-eclipse-control", {
     unixMs: MOON_ECLIPSE_CONTROL_MS,
     planet: "Jupiter",
+    target: "Io",
     camera: { kind: "fixed", az: eclipse.plan.az, el: eclipse.plan.el, radius: eclipse.plan.radius },
   });
   const eclipseStats = assertEclipsedMoonMarker(
@@ -877,31 +958,56 @@ async function visualAssertions(page, visualDirectory, observeContext, systemBud
   await zoomIn(page, 8);
   await waitForReferenceReadiness(page, "Earth");
   await new Promise((resolve) => setTimeout(resolve, 300));
-  const earthBefore = await canvasScreenshot(page, path.join(visualDirectory, "earth-before-orbit.png"));
-  const earthStats = assertBlueEarth(earthBefore);
+  let earthBefore,earthAfter,earthStats,orbitStats;
+  const pairOptions={requirePhysical:argument('hdr-candidate','false')==='true'||argument('physical-spin','false')==='true'};
+  const pair={schema:'earth-orbit-render-pair.v1',qualification_granted:false,passed:false,states:{},comparisons:{}};
+  try{
+    pair.states.settled=await waitForRenderPairState(page,{...systemBudget,...pairOptions});
+    pair.states.beforeImage=await page.evaluate(readRenderPairState);
+    pair.comparisons.settled=assertRenderPairStable(pair.states.settled,pair.states.beforeImage,pairOptions);
+    earthBefore = await canvasScreenshot(page, path.join(visualDirectory, "earth-before-orbit.png"));
+    pair.states.afterFirstImage=await page.evaluate(readRenderPairState);
+    pair.comparisons.firstImage=assertRenderPairStable(pair.states.beforeImage,pair.states.afterFirstImage,pairOptions);
+    earthStats = assertBlueEarth(earthBefore);
 
-  // A single synthetic pointer gesture changes azimuth by exactly 2π. With animation
-  // paused and the simulation clock fixed, the rendered scene must return to its initial
-  // image; a camera-basis flip or hidden fast Earth rotation causes a material pixel delta.
-  await page.$eval("#orreryCanvas", (canvas) => {
-    const rect = canvas.getBoundingClientRect();
-    const startX = rect.left + 20;
-    const y = rect.top + rect.height / 2;
-    const common = { bubbles: true, pointerId: 91, pointerType: "mouse", clientY: y };
-    canvas.dispatchEvent(new PointerEvent("pointerdown", { ...common, clientX: startX, buttons: 1 }));
-    canvas.dispatchEvent(new PointerEvent("pointermove", {
-      ...common,
-      clientX: startX + Math.PI * 2 / 0.008,
-      buttons: 1,
-    }));
-    canvas.dispatchEvent(new PointerEvent("pointerup", {
-      ...common,
-      clientX: startX + Math.PI * 2 / 0.008,
-      buttons: 0,
-    }));
-  });
-  const earthAfter = await canvasScreenshot(page, path.join(visualDirectory, "earth-after-orbit.png"));
-  const orbitStats = assertOrbitRoundTrip(earthBefore, earthAfter);
+    // A single synthetic pointer gesture changes azimuth by exactly 2π. With animation
+    // paused and the simulation clock fixed, the rendered scene must return to its initial
+    // image; a camera-basis flip or hidden fast Earth rotation causes a material pixel delta.
+    await page.$eval("#orreryCanvas", (canvas) => {
+      const rect = canvas.getBoundingClientRect();
+      const startX = rect.left + 20;
+      const y = rect.top + rect.height / 2;
+      const common = { bubbles: true, pointerId: 91, pointerType: "mouse", clientY: y };
+      canvas.dispatchEvent(new PointerEvent("pointerdown", { ...common, clientX: startX, buttons: 1 }));
+      canvas.dispatchEvent(new PointerEvent("pointermove", {
+        ...common,
+        clientX: startX + Math.PI * 2 / 0.008,
+        buttons: 1,
+      }));
+      canvas.dispatchEvent(new PointerEvent("pointerup", {
+        ...common,
+        clientX: startX + Math.PI * 2 / 0.008,
+        buttons: 0,
+      }));
+    });
+    pair.states.afterGesture=await page.evaluate(readRenderPairState);
+    pair.comparisons.gesture=assertRenderPairStable(pair.states.afterFirstImage,pair.states.afterGesture,pairOptions);
+    earthAfter = await canvasScreenshot(page, path.join(visualDirectory, "earth-after-orbit.png"));
+    pair.states.afterSecondImage=await page.evaluate(readRenderPairState);
+    pair.comparisons.secondImage=assertRenderPairStable(pair.states.afterGesture,pair.states.afterSecondImage,pairOptions);
+    orbitStats = assertOrbitRoundTrip(earthBefore, earthAfter);
+
+    pair.passed=true;
+  }catch(error){
+    if(error?.renderPairReadiness)pair.readinessFailure=error.renderPairReadiness;
+    pair.failure=error instanceof Error?error.message:String(error);throw error;
+  }finally{
+    try{fs.writeFileSync(path.join(visualDirectory,'earth-orbit-state.json'),JSON.stringify(pair,null,2)+'\n');}
+    catch(writeError){
+      if(Object.hasOwn(pair,'failure'))console.error('Round-trip state evidence could not be saved:',writeError);
+      else throw writeError;
+    }
+  }
 
   // At one day per second, duplicate/short rAF intervals used to toggle the limiter warning
   // and reflow the navigation panel. Sample consecutive production frames and require both
@@ -934,6 +1040,19 @@ async function visualAssertions(page, visualDirectory, observeContext, systemBud
   // A uniform low-detail sphere has no azimuthal texture from which pixels can prove spin.
   // Background/orbit movement can also satisfy a pixel-change check while the globe is frozen.
   // Keep both PNG artifacts, but inspect the actual Earth draw uniforms for this regression.
+  // The spin gates read submitted uniforms, not pixels, so frame the physical-scale Earth at
+  // 30% of the canvas half-height instead of the zoomed full-canvas view: on a software GPU a
+  // full-canvas Earth costs over a second per frame and starves the unchanged 5 s window.
+  await page.evaluate(async () => {
+    const entry = document.querySelector('script[type="module"][src^="app.js"]');
+    const { store } = await import(`./js/store.js${entry ? new URL(entry.src).search : ""}`);
+    if (store.orrery.anchor !== "Earth" || store.orrery.focusMode !== "inspect-body") {
+      throw new Error(`Earth spin framing expects Earth inspection, got ${store.orrery.anchor}/${store.orrery.focusMode}`);
+    }
+    store.orrery.radius = 6378.137 / 149597870.7 / (0.3 * Math.tan(21 * Math.PI / 180));
+    document.getElementById("orrerySize").dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
   await page.$eval('#orrerySpeedPresets button[data-dps="7"]', (button) => button.click());
   await new Promise((resolve) => setTimeout(resolve, 250));
   await canvasScreenshot(page, path.join(visualDirectory, "earth-week-per-second-before.png"));
@@ -1060,11 +1179,14 @@ async function visualAssertions(page, visualDirectory, observeContext, systemBud
     ).join(" "),
     `no-transit control darkest local contrast=${moonShadow.control.darkest.toFixed(3)};`,
     `Io in Jupiter's umbra keeps ${moonShadow.eclipse.ratio.toFixed(4)} of its light `
-    + `(shipped ramp ${moonShadow.eclipse.expected.toFixed(4)})`
+    + `(shipped ramp ${moonShadow.eclipse.expected.toFixed(4)}); lit disc radius `
+    + `${moonShadow.eclipse.disc.measuredRadiusPx.toFixed(2)} px vs predicted `
+    + `${moonShadow.eclipse.disc.predictedRadiusPx.toFixed(2)} px, centre error `
+    + `${moonShadow.eclipse.disc.centreError.toFixed(2)} px`
   );
 }
 
-async function exerciseOrrery(page, visualDirectory, observeContext) {
+async function exerciseOrrery(page, visualDirectory, observeContext, sunResolutions=[1024]) {
   const systemBudget=await page.evaluate(()=>{const systemStartedMs=performance.now();return {systemStartedMs,deadlineMs:systemStartedMs+75000};});
   await clickMode(page, "orrery");
   // V8 block-coverage collection instruments the large lazy star/moon catalogues and can
@@ -1072,13 +1194,24 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   // but allow the instrumented initialization the same bounded headroom as the standalone
   // browser smoke's retry budget.
   try {
-    const remaining=await page.evaluate(deadlineMs=>deadlineMs-performance.now(),systemBudget.deadlineMs);
+    let remaining=await page.evaluate(deadlineMs=>deadlineMs-performance.now(),systemBudget.deadlineMs);
     if(!(remaining>0))throw new Error('Original System entry deadline elapsed');
     await page.waitForFunction(
-      () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2")
-        && document.querySelectorAll("#orreryPositions .orrery-pos-moon").length >= 21,
+      () => document.getElementById("orreryBackend")?.textContent.includes("WebGL2"),
       { timeout: remaining }
     );
+    // Focusing a moon-bearing parent is genuine orbital-element demand. Compact
+    // moon identity rows alone no longer establish that enrichment was loaded.
+    await focusBody(page,'Jupiter');
+    remaining=await page.evaluate(deadlineMs=>deadlineMs-performance.now(),systemBudget.deadlineMs);
+    if(!(remaining>0))throw new Error('Original System entry deadline elapsed');
+    await page.waitForFunction(async()=>{
+      const entry=document.querySelector('script[type="module"][src^="app.js"]');
+      const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+      return !store.orrery?.entering&&store.orrery?.catalogueStatus.moons==='ready'
+        &&document.querySelectorAll("#orreryPositions .orrery-pos-moon").length>=21;
+    },{timeout:remaining});
+    await focusBody(page,'Sun');
   } catch (error) {
     const state = await page.evaluate(() => ({
       backend: document.getElementById("orreryBackend")?.textContent || "",
@@ -1089,6 +1222,9 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
     throw new Error(`3-D readiness timed out: ${JSON.stringify(state)}`, { cause: error });
   }
   await observeContext('initial');
+  fs.mkdirSync(visualDirectory, { recursive: true });
+  const sceneFocus = await assertSceneCanvasFocus(page, '#orreryCanvas', path.join(visualDirectory, 'keyboard-canvas-focus.png'));
+  fs.writeFileSync(path.join(visualDirectory, 'keyboard-canvas-focus.json'), JSON.stringify(sceneFocus, null, 2) + '\n');
   const initialAppearance = await page.evaluate(async () => {
     const entry = document.querySelector('script[type="module"][src^="app.js"]');
     const {store} = await import(`./js/store.js${new URL(entry.src).search}`);
@@ -1107,6 +1243,10 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   // The existing source-image, terrain and moon-shadow baselines qualify the
   // Source-qualified option; select it explicitly after checking the product default.
   await page.select('#orreryPlanetLook','source-qualified');
+  // Pixel comparisons and canvas alignment require a fixed backing resolution.
+  // Auto legitimately downshifts under software rendering or coverage overhead;
+  // its adaptation is exercised separately by the render-quality integration tests.
+  await page.select('#orreryQuality','high');
   await setChecked(page, "#orreryAnimate", false);
   // Settle the current visible demand; distant and disabled maps remain deferred.
   const appearance = await waitForReferenceReadiness(page);
@@ -1120,6 +1260,8 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   const captionLayouts = await assertCaptionLayouts(page);
   fs.writeFileSync(path.join(visualDirectory, 'caption-layout.json'), `${JSON.stringify(captionLayouts, null, 2)}\n`);
   await visualAssertions(page, visualDirectory, observeContext, systemBudget);
+  const orbitGuide=await verifyOrbitGuide(page,visualDirectory,{capture:canvasScreenshot});
+  console.log(`Orbit-guide regression: ${orbitGuide.pixels.changedPixels} changed pixels, ${(100*orbitGuide.pixels.sampleCoverage).toFixed(1)}% expected-curve coverage; model/camera restored`);
 
   for (const id of [
     "orreryTrueScale",
@@ -1200,7 +1342,12 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   // still exercises the production click handler and is independent of overlay geometry.
   await page.$eval("#orreryGalaxy", (button) => button.click());
   await page.waitForFunction(
-    () => document.getElementById("orreryGalaxy")?.textContent.includes("Back"),
+    async () => {
+      const entry=document.querySelector('script[type="module"][src^="app.js"]');
+      const {store}=await import(`./js/store.js${entry?new URL(entry.src).search:''}`);
+      return document.getElementById("orreryGalaxy")?.textContent.includes("Back")
+        &&store.orrery?.catalogueStatus.stars==='ready';
+    },
     { timeout: 20_000 }
   );
   // Exercise the real star facts renderer with both a measured-distance star and the
@@ -1222,7 +1369,12 @@ async function exerciseOrrery(page, visualDirectory, observeContext) {
   await page.$eval("#orreryGalaxy", (button) => button.click());
   console.log('Browser validation: recovered Sites Earth look');
   await verifyEarthLook(page,visualDirectory,canvasScreenshot);
-  await verifySunLook(page,visualDirectory,canvasScreenshot);
+  const captureSunLook=async(subject,output)=>{
+    await observeContext('sun-look:'+path.basename(output));
+    return canvasScreenshot(subject,output);
+  };
+  const sunLookEvidence=await verifySunLook(page,visualDirectory,captureSunLook,{resolutions:sunResolutions});
+  assert.deepEqual(Object.keys(sunLookEvidence.resolutions).map(Number),sunResolutions,'Sun quality evidence must cover the selected backend profile');
   console.log('Browser validation: illustrative Mercury and layered Venus');
   await verifyIllustrativeLooks(page,visualDirectory,canvasScreenshot);
   fs.writeFileSync(path.join(visualDirectory,'saturn-material.json'),JSON.stringify(await verifySaturnMaterial(page),null,2)+'\n');
@@ -1245,21 +1397,36 @@ function coverageLocalPath(entryUrl, webRoot, basePath = "/") {
 async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
   const mapping = releaseSourceMap(webRoot);
   const pageRoot = mapping ? path.join(webRoot, mapping.manifest.namespace) : webRoot;
-  const expectedLoaded = new Set(
+  const expectedLoaded = mapping?.javascript || new Set(
     relativePageModules({ includeGenerated: true }).map((file) => path.resolve(pageRoot, file))
   );
   const included = new Set(absolutePageModules().map((file) => path.resolve(file)));
-  const seen = new Set();
+  const seenSources = new Set(), compiledExecution = new Map();
   const coverage = createCoverageMap({});
 
   for (let entry of entries) {
     const local = coverageLocalPath(entry.url, webRoot, mapping?.manifest.base_path || "/");
-    if (!local || !expectedLoaded.has(local)) continue;
-    seen.add(local);
+    if (!local) continue;
+    if (!expectedLoaded.has(local)) {
+      if (mapping && local.startsWith(pageRoot + path.sep) && local.endsWith('.js')) throw new Error('executed release JavaScript is absent from coverage mapping: ' + local);
+      continue;
+    }
+    const compiled = mapping?.compiled.get(local);
+    if (compiled) {
+      const converted = await bundleCoverageEntry(entry, compiled);
+      compiledExecution.set(path.relative(pageRoot, local), { generated_kind: compiled.generatedKind, original_sources: compiled.sources.map(source => path.relative(ROOT, source)) });
+      for (const source of compiled.sources) seenSources.add(source);
+      for (const [source, record] of Object.entries(converted)) {
+        if (included.has(source)) coverage.merge({ [source]: record });
+        else if (!GENERATED_MODULES.has(path.relative(WEB, source).split(path.sep).join('/'))) throw new Error('compiled coverage escaped canonical source population');
+      }
+      continue;
+    }
     const declared = mapping?.assets.get(local);
     const source = declared?.source || local;
-    if (!included.has(source)) continue;
+    seenSources.add(source);
     if (declared) entry = sourceCoverage(entry, declared.original, mapping.manifest);
+    if (!included.has(source)) continue;
     const converter = v8ToIstanbul(source, 0, {
       source: entry.text || fs.readFileSync(local, "utf8"),
     });
@@ -1277,8 +1444,7 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
     coverage.merge(converter.toIstanbul());
   }
 
-  const missing = [...expectedLoaded].filter((file) => !seen.has(file)
-    && GENERATED_MODULES.has(path.relative(pageRoot, file).split(path.sep).join("/")));
+  const missing = [...GENERATED_MODULES].map(name => path.join(WEB, name)).filter(file => !seenSources.has(file));
   if (missing.length) {
     throw new Error(
       "production modules were omitted from Chromium's execution-collected denominator:\n"
@@ -1303,6 +1469,7 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
     path.join(outputDirectory, "coverage-final.json"),
     `${JSON.stringify(coverage.toJSON())}\n`
   );
+  if (mapping?.compiled.size) fs.writeFileSync(path.join(outputDirectory, "compiled-execution.json"), JSON.stringify(Object.fromEntries(compiledExecution), null, 2) + "\n");
   const summary = coverage.getCoverageSummary();
   console.log(
     `browser-only execution coverage: lines ${summary.lines.pct.toFixed(2)}%, `
@@ -1312,7 +1479,8 @@ async function writeBrowserCoverage(entries, webRoot, outputDirectory) {
 
 async function main() {
   let phase="setup";
-  const backend=browserBackendFromArgs(process.argv.slice(2));
+  const backend=browserBackendFromArgs(process.argv.slice(2),{allowSoftwareFallback:true});
+  const sunResolutions=sunLookProbeResolutions(backend);
   const memory=memoryRequested(process.argv.slice(2));
   const webRoot = path.resolve(argument("web-root", WEB));
   const outputDirectory = path.resolve(argument("output-dir", path.join(ROOT, "coverage", "browser")));
@@ -1337,14 +1505,17 @@ async function main() {
   let browser;
   let workerCoverage;
   let diagnosticPage;
+  let validationError=null,coverageErrors=null;
   const failures = [];
   const evidence={schema_version:'browser-validation.v1',status:'running',started_at:new Date().toISOString(),
-    requested_backend:backend,memory_requested:memory,scope:'Complete existing application gates; native execution requires actual application-context renderer identity.',
+    requested_backend:backend,sun_look_resolutions:sunResolutions,memory_requested:memory,scope:'Complete existing application gates; native execution requires actual application-context renderer identity.',
     artifact:mapping?{release_id:mapping.manifest.release_id,source_sha:mapping.manifest.source_sha,
       manifest_sha256:createHash('sha256').update(fs.readFileSync(path.join(webRoot,'web-release-manifest.json'))).digest('hex')}:null,
-    validation_source_sha256:Object.fromEntries(['browser_validation.mjs','browser_backend.mjs','texture_device_telemetry.mjs',
+    validation_source_sha256:Object.fromEntries(['browser_validation.mjs','browser_backend.mjs','worker_coverage.mjs','worker_activity.mjs','texture_device_telemetry.mjs',
       'earth_spin_probe.mjs','physical_spin_probe.mjs','physical_texture_probe.mjs','scattering_producer_probe.mjs','frame_cost_diagnostic.mjs',
-      'full_feature_memory.mjs','texture_device_memory.ps1','context_restore.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs'].map(name=>[name,
+      'full_feature_memory.mjs','texture_device_memory.ps1','context_restore.mjs','mars_terrain_probe.mjs','mars_spin_assertions.mjs',
+      'review_ui_contract.mjs','render_pair_state.mjs','orbit_guide_probe.mjs','canvas_capture.mjs',
+      'earth_look_probe.mjs','illustrative_look_probe.mjs','touch_gesture_probe.mjs','research_disclosure_probe.mjs'].map(name=>[name,
       createHash('sha256').update(fs.readFileSync(path.join(ROOT,'tools',name))).digest('hex')])),
   };
   const saveEvidence=()=>fs.writeFileSync(path.join(outputDirectory,'browser-evidence.json'),JSON.stringify(evidence,null,2)+'\n');
@@ -1365,8 +1536,10 @@ async function main() {
       ...browserBackendArgs(backend),
       "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
     ];
-  evidence.browser_launch_args=launchArgs;saveEvidence();
+  // Puppeteer merges feature switches by mutating its input array.
+  evidence.browser_launch_args=[...launchArgs];saveEvidence();
   browser = await puppeteer.launch({executablePath:browserBinary(),headless:true,args:launchArgs});
+  evidence.browser_process_args=[...browser.process().spawnargs];
   evidence.browser_version=await browser.version();saveEvidence();
 
     console.log("Browser validation: Chromium launched");
@@ -1376,7 +1549,9 @@ async function main() {
     await page.evaluateOnNewDocument(installScatteringProducerEvidence);
     diagnosticPage=page;
     await page.setBypassServiceWorker(true);
-    workerCoverage=await startWorkerCoverage(page);
+    await page.evaluateOnNewDocument(installWorkerActivity);
+    workerCoverage=await startWorkerCoverage(page,{beforeCollect:()=>waitForApplicationWorkerIdle(page)});
+    coverageErrors=workerCoverage.errors;
     console.log("Browser validation: worker coverage armed");
     const networkSession=await page.createCDPSession();
     await networkSession.send("Network.enable");
@@ -1435,8 +1610,14 @@ async function main() {
       waitUntil: "networkidle0",
       timeout: 30_000,
     });
+    phase="reduced-motion placement";console.log(`Browser validation: ${phase}`);
+    const reducedMotionPlacement=await assertReducedMotionPlacement(page);
+    fs.writeFileSync(path.join(outputDirectory,"reduced-motion-placement.json"),JSON.stringify(reducedMotionPlacement,null,2)+"\n");
     phase="disclosure";console.log(`Browser validation: ${phase}`);
-    await assertDisclosureContract(page);
+    evidence.research_disclosures=await assertDisclosureContract(page);saveEvidence();
+    phase="tour viewport and keyboard";console.log(`Browser validation: ${phase}`);
+    const tourViewport=await assertTourViewport(page);
+    fs.writeFileSync(path.join(outputDirectory,"tour-viewport.json"),JSON.stringify(tourViewport,null,2)+"\n");
     const mobileUpdate = await assertMobileOfflineUpdate(page);
     fs.writeFileSync(path.join(outputDirectory, "mobile-update.json"), JSON.stringify(mobileUpdate, null, 2) + "\n");
     const solarSchema = mapping ? mapping.manifest.schemas.find((schema) => schema.startsWith("solar-state-snapshot."))
@@ -1449,13 +1630,13 @@ async function main() {
     await workerCoverage.collect();
     phase="System/WebGL";console.log(`Browser validation: ${phase}`);
     await exerciseOrrery(page, path.join(outputDirectory, "visual"),async label=>{
-      evidence.capabilities=await page.evaluate(captureBrowserCapabilities);
+      evidence.capabilities=await withBrowserFeatureStatus(backend,browser,await page.evaluate(captureBrowserCapabilities));
       evidence.observed_backend=classifyTextureBackend(evidence.capabilities.renderer);
       const observation={label,requested_backend:backend,capabilities:evidence.capabilities,observed_backend:evidence.observed_backend};
       (evidence.application_contexts??=[]).push(observation);saveEvidence();
       assertBrowserBackend(backend,evidence.capabilities);
       return observation;
-    });
+    },sunResolutions);
     // Mapping holds intentionally prevent these archived vectors becoming a globe
     // texture. Exercise their module contract separately, without enabling that
     // unqualified rendering path or adding a first-paint runtime download.
@@ -1476,6 +1657,9 @@ async function main() {
     phase="coverage mapping";console.log(`Browser validation: ${phase}`);
     await writeBrowserCoverage(entries, webRoot, outputDirectory);
     evidence.original_gates={passed:true,completed_at:new Date().toISOString()};saveEvidence();
+    phase='touch gesture follow-up';console.log(`Browser validation: ${phase}; original gates complete`);
+    evidence.touch=await verifyTouchGestures(browser,`${server.base}/index.html`,path.join(outputDirectory,'touch'),{backend,fixedUnixMs:FIXED_UNIX_MS});
+    await page.bringToFront();saveEvidence();
     if(memory){
       phase='optional memory follow-up';console.log(`Browser validation: ${phase}; original gates complete`);
       await workerCoverage.dispose();workerCoverage=null;
@@ -1489,6 +1673,8 @@ async function main() {
     }
     evidence.status='passed';
   } catch(error) {
+    error=utilTypes.isNativeError(error)?error:new Error('Non-Error rejection: '+String(error));
+    validationError=error;
     evidence.status='failed';evidence.failure={phase,error:error.message};
     // Preserve the original failed gate before any separate instrumented replay.
     try{saveEvidence();}catch(failure){console.error('Could not persist original failure:',failure);}
@@ -1532,15 +1718,25 @@ async function main() {
   } finally {
     clearInterval(progress);
     console.log(`Browser validation: cleanup after ${phase}`);
-    try {
-      try{if (workerCoverage) await workerCoverage.dispose();}
-      finally{if (browser) await closeOwnedBrowser(browser);}
-    } catch(error){evidence.status='failed';evidence.cleanup_error=error.message;throw error;}
-    finally {
-      try{await server.close();}
-      catch(error){evidence.status='failed';evidence.server_cleanup_error=error.message;throw error;}
-      finally{evidence.completed_at=new Date().toISOString();saveEvidence();}
+    evidence.cleanup={};
+    const close=async(name,action)=>{
+      try{await action();evidence.cleanup[name]={status:'completed'};}
+      catch(error){const failure=utilTypes.isNativeError(error)?error:new Error('Non-Error rejection: '+String(error));
+        evidence.cleanup[name]={status:'failed',message:failure.message};if(!validationError)validationError=failure;}
+    };
+    if(workerCoverage)await close('workers',()=>workerCoverage.dispose());
+    else evidence.cleanup.workers={status:coverageErrors?'already_disposed':'not_started'};
+    if(browser)await close('browser',()=>closeOwnedBrowserVerified(browser));
+    else evidence.cleanup.browser={status:'not_started'};
+    await close('server',()=>server.close());
+    for(const error of coverageErrors||[]){
+      const detail='worker coverage: '+error;if(!failures.includes(detail))failures.push(detail);
     }
+    evidence.runtime_errors=[...failures];
+    if(failures.length&&!validationError)validationError=new Error('browser runtime errors during cleanup:\n'+failures.join('\n'));
+    if(validationError){evidence.status='failed';if(!evidence.failure)evidence.failure={phase:'cleanup',error:validationError.message};}
+    evidence.completed_at=new Date().toISOString();saveEvidence();
+    if(validationError)throw validationError;
   }
   console.log("OK: Chromium runtime coverage and WebGL visual assertions passed");
 }

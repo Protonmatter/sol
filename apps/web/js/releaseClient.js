@@ -43,10 +43,10 @@ export async function registerOfflineRelease({serviceWorker,location,document,ba
       const worker = registration.installing;
       if(status) status.textContent = "Verifying offline release…";
       worker?.addEventListener("statechange",()=>{
-        if(worker.state==="installed") { if(status) status.textContent = "Complete release installed for offline use."; offerUpdate(); }
+        if(worker.state==="installed") { if(status) status.textContent = "Verified core saved for offline use. Extra Moon and star tables may need a connection."; offerUpdate(); }
         else if(worker.state==="redundant" && status) status.textContent = "Offline update failed; existing complete release retained.";
       });
     });
     return registration;
-  } catch(_) { if(status) status.textContent = "Offline installation unavailable; using network-validated release."; return null; }
+  } catch(_) { if(status) status.textContent = "Offline installation unavailable; this tab retains its current release."; return null; }
 }

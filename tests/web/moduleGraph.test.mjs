@@ -1,0 +1,62 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {analyzeModules} from '../../tools/module_graph.mjs';
+function fixture(t,files){const root=fs.mkdtempSync(path.join(os.tmpdir(),'sol-module-graph-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));for(const [name,text]of Object.entries(files)){const file=path.join(root,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,text);}return root;}
+test('static closure includes cycles and reexports, preserves URL identity and excludes dynamic imports',t=>{
+  const root=fixture(t,{'app.js':`import './js/a.js?v=pinned'; import('./js/later.js'); // import './fake.js'
+export * from './js/a.js?v=pinned'; const lookalike="import './absent.js'";`,
+    'js/a.js':`export {x} from '../shared.js';`,'shared.js':`import './js/a.js?v=pinned';export const x=1;`,'js/later.js':'export default 1;'});
+  const value=analyzeModules(root,['app.js?v=pinned']);
+  assert.deepEqual(value.modules.map(item=>item.url),['app.js?v=pinned','js/a.js?v=pinned','shared.js']);
+  assert.deepEqual(value.roots,['app.js?v=pinned']);
+  const before=value.modules.find(item=>item.path==='shared.js').sha256;fs.appendFileSync(path.join(root,'shared.js'),'\n// change');
+  assert.notEqual(analyzeModules(root,['app.js?v=pinned']).modules.find(item=>item.path==='shared.js').sha256,before);
+});
+for(const [label,statement,files,pattern]of [
+  ['missing',"import './missing.js';",{},/missing/i],
+  ['wrong case',"import './Shared.js';",{'shared.js':'export {};'},/case|missing/i],
+  ['malformed',"import {",{},/syntax/i],
+  ['escaped boundary',"import '../outside.js';",{},/boundary/i],
+  ['encoded escape',"import './%2e%2e/outside.js';",{},/boundary|encoded/i],
+  ['encoded separator',"import './js%2fshared.js';",{},/encoded/i],
+  ['external',"import 'https://example.test/code.js';",{},/local|external/i],
+  ['bare',"import 'package';",{},/local|bare/i],
+  ['fragment',"import './shared.js#other';",{'shared.js':'export {};'},/identity/i],
+  ['unsupported query',"import './shared.js?cache=1';",{'shared.js':'export {};'},/identity/i],
+])test(`graph rejects ${label}`,t=>{const root=fixture(t,{'app.js':statement,...files});assert.throws(()=>analyzeModules(root,['app.js']),pattern);});
+test('graph rejects symlinked source even when the target is local',t=>{
+  const root=fixture(t,{'app.js':"import './linked.js';",'real.js':'export {};'});
+  try{fs.symlinkSync(path.join(root,'real.js'),path.join(root,'linked.js'));}catch(error){if(error.code==='EPERM'){t.skip('Windows symlink privilege unavailable');return;}throw error;}
+  assert.throws(()=>analyzeModules(root,['app.js']),/symlink/i);
+});
+test('one source path cannot have two URL identities in static closure',t=>{
+  const root=fixture(t,{'app.js':"import './shared.js';import './shared.js?v=old';",'shared.js':'export {};'});
+  assert.throws(()=>analyzeModules(root,['app.js']),/multiple.*identit/i);
+});
+for(const edge of ["import('./later.js')","new Worker(new URL('./later.js',import.meta.url),{type:'module'})"])
+  test(`complete graph rejects duplicate identity through ${edge}`,t=>{
+    const root=fixture(t,{'app.js':`import './shared.js';${edge};`,'later.js':"import './shared.js?v=old';",'shared.js':'export {};'});
+    assert.equal(analyzeModules(root,['app.js']).modules.length,2);
+    assert.throws(()=>analyzeModules(root,['app.js'],{includeDeferred:true}),/multiple.*identit/i);
+  });
+test('complete graph follows literal dynamic imports and module URL workers but ignores asset URLs',t=>{
+  const root=fixture(t,{'app.js':"import('./view.js');new Worker(new URL('./worker.js',import.meta.url));new URL('./data.json',import.meta.url);",'view.js':'export {};','worker.js':"import './shared.js';",'shared.js':'export {};'});
+  assert.deepEqual(analyzeModules(root,['app.js'],{includeDeferred:true}).modules.map(x=>x.path),['app.js','shared.js','view.js','worker.js']);
+});
+test('complete graph refuses computed imports that cannot be admitted',t=>{
+  const root=fixture(t,{'app.js':"const name='./view.js';import(name);",'view.js':'export {};'});
+  assert.throws(()=>analyzeModules(root,['app.js'],{includeDeferred:true}),/literal.*dynamic/i);
+});
+test('complete graph refuses worker construction whose module URL cannot be admitted',t=>{
+  const root=fixture(t,{'app.js':"const workerURL='./worker.js';new Worker(workerURL,{type:'module'});",'worker.js':'export {};'});
+  assert.throws(()=>analyzeModules(root,['app.js'],{includeDeferred:true}),/literal.*worker/i);
+});
+
+test('recovery inventory follows static reexports and records deferred roots without making them eager',async t=>{
+  const {moduleDependencies}=await import('../../tools/module_graph.mjs');
+  const root=fixture(t,{'app.js':"import('./view.js');",'view.js':"export * from './shared.js';",'shared.js':"import './view.js';export const x=1;"});
+  assert.deepEqual(moduleDependencies(root,['app.js']),{schema_version:'module-dependencies.v1',modules:{'app.js':[],'shared.js':['view.js'],'view.js':['shared.js']}});
+});

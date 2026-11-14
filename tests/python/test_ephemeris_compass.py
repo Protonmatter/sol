@@ -20,7 +20,7 @@ assert SPEC is not None and SPEC.loader is not None
 server = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(server)
 
-SNAPSHOT = json.loads((ROOT / "tests/fixtures/ephemeris-v3-corpus.json").read_text(encoding="utf-8"))["snapshot"]
+SNAPSHOT = json.loads((ROOT / "tests/fixtures/ephemeris-v4-corpus.json").read_text(encoding="utf-8"))["snapshot"]
 # North is zero, increasing clockwise through east; each midpoint selects clockwise.
 DIRECTIONS = [
     (0, "N"), (22.5, "NNE"), (45, "NE"), (67.5, "ENE"),

@@ -56,7 +56,8 @@ test('runtime uploads mode and neutral style before the admitted physical body s
   const style=draw.indexOf('gl.uniform1i(sphereUniforms.u_style, -1);');
   const mode=draw.indexOf('gl.uniform1i(sphereUniforms.u_mode, b.name === "Sun" ? 1 : 0);');
   assert.ok(style>=0&&mode>style);
-  assert.match(draw,/profile\?P\.physicalSphere:P\.sphere/);
+  assert.match(draw,/const physical=P\.physicalSets\?\.\[b\.name\]/);
+  assert.match(draw,/profile\?physical\.physicalSphere:P\.sphere/);
   assert.match(draw,/getAtmosphereProfile\(b.name\)/);
 });
 

@@ -98,7 +98,7 @@ test("loader preserves the entire last publication after rehashed series or feed
   const store = { state: null, timelineIndex: -1, selectedRegionId: null };
   const source = fs.readFileSync(new URL("../../apps/web/js/data.js", import.meta.url), "utf8")
     .replace(/^import .*;\r?\n/gm, "").replaceAll("export ", "").replaceAll("import.meta.url", '"https://example.invalid/js/data.js"');
-  const context = vm.createContext({ store, URL, Image: class {}, FALLBACK_STATE: {}, BASE_IMAGES: {},
+  const context = vm.createContext({ store, URL, AbortController, Image: class {}, FALLBACK_STATE: {}, BASE_IMAGES: {},
     document: { getElementById: () => null }, window: {}, renderAll: () => {}, maybeAutoStartTour: () => {}, prepareBundlePublication: () => {},
     readDataBundle: () => selected.read() });
   vm.runInContext(source, context);

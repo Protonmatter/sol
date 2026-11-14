@@ -10,6 +10,8 @@ from typing import Any
 
 VERSION = "web-release-manifest.v1"
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+# Releases on these contracts could be built without the ephemeris component portal.
+HISTORICAL_EPHEMERIS_SCHEMAS = frozenset({"ephemeris-snapshot.v2", "ephemeris-snapshot.v3"})
 RELEASE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 
 
@@ -113,6 +115,39 @@ def validate_data(data: dict, root: Path) -> dict:
             raise ValueError("WASM identity mismatch")
         if not (root / asset["path"]).read_bytes().startswith(b"\0asm\1\0\0\0"):
             raise ValueError("invalid WASM header")
+    receipt_path = namespace + "pkg/wasm-build.v1.json"
+    portal = namespace + 'licenses/solar-ephemeris/'
+    source_manifest_path, archive_path = portal + 'SOURCE-MANIFEST.json', portal + 'sol-source.tar.gz'
+    # The builder stages the ephemeris component portal, its build receipt and its
+    # corresponding-source distribution together. An artifact that offers the portal, or that
+    # speaks an ephemeris contract newer than the last portal-less release, must carry all of
+    # them: absence is a build regression, not a historical shell.
+    component_release = (portal + 'index.html' in listed or any(
+        version.startswith('ephemeris-snapshot.') and version not in HISTORICAL_EPHEMERIS_SCHEMAS
+        for version in data['schemas']))
+    if component_release:
+        for required in (portal + 'index.html', receipt_path, source_manifest_path, archive_path):
+            if required not in listed:
+                raise ValueError('component release is missing ' + required.removeprefix(namespace))
+    elif (source_manifest_path in listed) != (archive_path in listed):
+        raise ValueError('source manifest and source archive must be staged together')
+    if receipt_path in listed:
+        from wasm_provenance import read_receipt, validate_archived_sources
+        receipt_asset = next(asset for asset in assets if asset['path'] == receipt_path)
+        if receipt_asset['role'] != 'critical':
+            raise ValueError('WASM build receipt must be critical')
+        receipt, _ = read_receipt(root / namespace / 'pkg')
+        if source_manifest_path in listed:
+            validate_archived_sources(receipt, load_json(root / source_manifest_path).get('files', {}))
+    if source_manifest_path in listed:
+        # The outer asset hash only says the archive is the file that was staged. This binds it
+        # to the inventory the portal publishes for it.
+        source = load_json(root / source_manifest_path)
+        archive = root / archive_path
+        if (source.get('archive') != 'sol-source.tar.gz' or not SHA256.fullmatch(str(source.get('archive_sha256', '')))
+                or type(source.get('archive_bytes')) is not int or archive.stat().st_size != source['archive_bytes']
+                or digest(archive) != source['archive_sha256']):
+            raise ValueError('source archive differs from its published source manifest')
     if "solar-state-snapshot.v3" in data["schemas"]:
         from data_bundles import resolve_derived_manifest
         descriptor = data.get("data_bundle")
@@ -133,9 +168,79 @@ def validate_data(data: dict, root: Path) -> dict:
     return data
 
 
+def validate_web_build(data: dict, root: Path) -> None:
+    """Bind compiler outputs/maps to the same manifest and corresponding source."""
+    namespace = data['namespace']
+    assets = {asset['path']: asset for asset in data['assets']}
+    descriptor_name = namespace + 'web-build.v1.json'
+    if descriptor_name not in assets:
+        return  # Historical releases remain independently verifiable.
+    if assets[descriptor_name]['role'] != 'critical':
+        raise ValueError('compiled web build descriptor must be critical')
+    build = load_json(root / descriptor_name)
+    if (set(build) != {'schema_version', 'compiler', 'sources', 'retained', 'entries', 'outputs'}
+            or build['schema_version'] != 'web-build.v1' or not isinstance(build['sources'], dict)
+            or not isinstance(build['outputs'], list) or not isinstance(build['entries'], dict)
+            or not isinstance(build['retained'], list)):
+        raise ValueError('invalid compiled web build descriptor')
+    compiler = build['compiler']
+    if (not isinstance(compiler, dict) or set(compiler) != {'name', 'version', 'compiler_sha256', 'module_graph_sha256', 'lock_sha256'}
+            or compiler['name'] != 'esbuild' or compiler['version'] != '0.28.2'
+            or any(not SHA256.fullmatch(str(compiler[key])) for key in ('compiler_sha256', 'module_graph_sha256', 'lock_sha256'))):
+        raise ValueError('invalid compiled web build compiler')
+    for name, expected in build['sources'].items():
+        relative_path(name)
+        if not re.fullmatch(r'apps/web/(?:js/)?[A-Za-z0-9_.-]+\.js', name) or not SHA256.fullmatch(str(expected)):
+            raise ValueError('invalid compiled web source identity')
+    retained = build['retained']
+    if any(not isinstance(name, str) for name in retained) or retained != sorted(set(retained)):
+        raise ValueError('invalid retained module identities')
+    for name in retained:
+        if 'apps/web/' + name not in build['sources'] or namespace + name not in assets:
+            raise ValueError('unbound retained compiled module')
+    emitted = set()
+    for output in build['outputs']:
+        if not isinstance(output, dict) or set(output) != {'path', 'map', 'sha256', 'map_sha256', 'inputs'}:
+            raise ValueError('invalid compiled output record')
+        name = relative_path(output['path'])
+        if not re.fullmatch(r'js/[A-Za-z0-9_.-]+\.js', name) or name in emitted or name in retained or output['map'] != name + '.map':
+            raise ValueError('duplicate or unsafe compiled output identity')
+        emitted.add(name)
+        for key, hash_key in (('path', 'sha256'), ('map', 'map_sha256')):
+            asset = assets.get(namespace + output[key], {})
+            if asset.get('sha256') != output[hash_key] or not SHA256.fullmatch(str(output[hash_key])):
+                raise ValueError('compiled output differs from release asset hash')
+        if assets[namespace + name]['role'] != 'critical':
+            raise ValueError('compiled executable output must be critical')
+        inputs = output['inputs']
+        if (not isinstance(inputs, list) or any(not isinstance(item, str) for item in inputs)
+                or inputs != sorted(set(inputs)) or any(item not in build['sources'] for item in inputs)
+                or any(item in {'apps/web/js/moonelements.js', 'apps/web/js/starcatalog.js'} for item in inputs)):
+            raise ValueError('invalid or optional compiled input')
+        mapping = load_json(root / namespace / output['map'])
+        sources, contents = mapping.get('sources'), mapping.get('sourcesContent')
+        if (mapping.get('version') != 3 or mapping.get('sourceRoot') or not isinstance(mapping.get('mappings'), str)
+                or not isinstance(sources, list) or not isinstance(contents, list) or len(sources) != len(contents)
+                or any(not isinstance(item, str) for item in sources + contents) or len(set(sources)) != len(sources)):
+            raise ValueError('invalid compiled source map')
+        for source, text in zip(sources, contents):
+            if source not in inputs or hashlib.sha256(text.encode('utf-8')).hexdigest() != build['sources'][source]:
+                raise ValueError('compiled source map differs from original input')
+    for source, output in build['entries'].items():
+        if source != output or 'apps/web/' + source not in build['sources'] or output not in emitted:
+            raise ValueError('compiled entry identity mismatch')
+    source_manifest = root / namespace / 'licenses/solar-ephemeris/SOURCE-MANIFEST.json'
+    if source_manifest.is_file():
+        original = load_json(source_manifest).get('files', {})
+        expected = {**build['sources'], 'tools/bundle_web.mjs': compiler['compiler_sha256'], 'tools/module_graph.mjs': compiler['module_graph_sha256'], 'package-lock.json': compiler['lock_sha256']}
+        if any(original.get(name, {}).get('sha256') != digest for name, digest in expected.items()):
+            raise ValueError('compiled build differs from corresponding source archive')
+
+
 def validate_manifest(path: Path) -> dict:
     path = Path(path)
     data = validate_data(load_json(path), path.parent)
+    validate_web_build(data, path.parent)
     nested = path.parent / data["namespace"] / "web-release-manifest.json"
     if not nested.is_file() or path.read_bytes() != nested.read_bytes():
         raise ValueError("current namespace manifest copy differs")

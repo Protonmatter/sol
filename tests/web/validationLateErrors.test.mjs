@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
@@ -14,7 +15,7 @@ function between(source, start, end, includeEnd = false) {
   return source.slice(begin, finish + (includeEnd ? end.length : 0));
 }
 
-function fixture(caller, {memory = true, inject = () => {}} = {}) {
+function fixture(caller, {memory = true, inject = () => {}, injectTouch = () => {}} = {}) {
   const browserCaller = caller === 'browser';
   const file = browserCaller ? 'browser_validation.mjs' : 'physical_rendering_validation.mjs';
   const source = fs.readFileSync(new URL(`../../tools/${file}`, import.meta.url), 'utf8');
@@ -25,10 +26,18 @@ function fixture(caller, {memory = true, inject = () => {}} = {}) {
     browserCaller ? "evidence.status='passed';" : 'evidence.passed=true;', true);
   const evidence = {status: 'running', passed: false, errors: [], console_errors: []};
   const page = new EventEmitter(), failures = [];
-  let followups = 0, disposed = 0;
-  const context = vm.createContext({assert, page, evidence, failures, memory,
+  let followups = 0, disposed = 0, touchCalls = 0;
+  page.bringToFront=async()=>{};
+  const context = vm.createContext({assert, page, evidence, failures, memory, path,
     browser: {}, backend: 'native', console: {log() {}}, phase: '',
+    server:{base:'http://127.0.0.1:123/sol'},outputDirectory:'/owned-output',FIXED_UNIX_MS:1783512000000,
     save() {}, saveEvidence() {}, workerCoverage: {async dispose() { disposed++; }},
+    async verifyTouchGestures(_browser,url,directory,options){
+      touchCalls++;assert.equal(evidence.original_gates.passed,true);
+      assert.equal(url,'http://127.0.0.1:123/sol/index.html');assert.match(directory,/touch$/);
+      assert.equal(options.backend,'native');assert.equal(options.fixedUnixMs,1783512000000);
+      await Promise.resolve();injectTouch(page);return {status:'passed'};
+    },
     async runFullFeatureMemoryCheckpoints({originalReceipt, save}) {
       followups++;
       assert.equal(originalReceipt.passed, true);
@@ -43,7 +52,7 @@ function fixture(caller, {memory = true, inject = () => {}} = {}) {
   vm.runInContext(listeners, context, {filename: file});
   return {evidence, failures, page, execute: () => vm.runInContext(`(async()=>{${acceptance}})()`, context, {filename: file}),
     accepted: () => browserCaller ? evidence.status === 'passed' : evidence.passed,
-    counts: () => ({followups, disposed})};
+    counts: () => ({followups, disposed}),touchCalls:()=>touchCalls};
 }
 
 const consoleEvent = (level, text) => ({type: () => level, text: () => text, location: () => ({lineNumber: 1})});
@@ -75,11 +84,25 @@ for (const caller of ['browser', 'physical']) {
     await withoutMemory.execute();
     assert.equal(withoutMemory.accepted(), true);
     assert.deepEqual(withoutMemory.counts(), {followups: 0, disposed: 0});
+    assert.equal(withoutMemory.touchCalls(),caller==='browser'?1:0);
     const warning = fixture(caller, {inject: page => page.emit('console', consoleEvent('warning', 'expected warning'))});
     await warning.execute();
     assert.equal(warning.accepted(), true);
   });
 }
+
+test('browser rejects a late runtime error during successful touch work after original acceptance',async()=>{
+  const f=fixture('browser',{memory:false,injectTouch:page=>page.emit('pageerror',new Error('late touch runtime error'))});
+  await assert.rejects(f.execute(),/late touch runtime error/);
+  assert.equal(f.evidence.original_gates.passed,true);assert.equal(f.evidence.touch.status,'passed');
+  assert.equal(f.accepted(),false);assert.equal(f.touchCalls(),1);assert.deepEqual(f.counts(),{followups:0,disposed:0});
+});
+
+test('browser propagates touch-probe failure without erasing the original acceptance',async()=>{
+  const f=fixture('browser',{memory:false,injectTouch:()=>{throw new Error('touch probe rejected');}});
+  await assert.rejects(f.execute(),/touch probe rejected/);
+  assert.equal(f.evidence.original_gates.passed,true);assert.equal(f.accepted(),false);assert.equal(f.touchCalls(),1);
+});
 
 test('browser preserves its existing expected resource-error filter during memory work', async () => {
   const f = fixture('browser', {inject: page => page.emit('console', consoleEvent('error', 'Failed to load resource: 404'))});

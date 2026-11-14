@@ -7,10 +7,13 @@ import { startWorkerCoverage, closeOwnedBrowser } from "../../tools/worker_cover
 function fixture(failure) {
   const calls = [];
   const child = new EventEmitter();
+  const scripts = [{ scriptId: "1", url: "http://127.0.0.1/js/worker.js" }];
+  const state = { scripts, parsedScripts: scripts };
   child.send = async (method) => {
     calls.push(method);
     if (method === failure) throw new Error("instrumentation failed");
-    if (method === "Profiler.takePreciseCoverage") return { result: [{ scriptId: "1", functions: [] }] };
+    if (method === "Profiler.takePreciseCoverage") return { result: state.scripts.map(script => ({ ...script, functions: [] })) };
+    if (method === "Debugger.enable") for (const script of state.parsedScripts) child.emit("Debugger.scriptParsed", script);
     if (method === "Debugger.getScriptSource") return { scriptSource: "export const value = 1;" };
     return {};
   };
@@ -18,7 +21,7 @@ function fixture(failure) {
   parent.connection = () => ({ session: () => child });
   parent.send = async (method) => { calls.push(method); };
   parent.detach = async () => { calls.push("detach"); };
-  return { calls, child, parent, page: { createCDPSession: async () => parent } };
+  return { calls, child, parent, state, page: { createCDPSession: async () => parent } };
 }
 
 test("worker coverage arms before resume and captures precise source", async () => {
@@ -35,7 +38,7 @@ test("worker coverage arms before resume and captures precise source", async () 
 });
 
 test("instrumentation failure still resumes worker and remains visible", async () => {
-  const f = fixture("Debugger.enable"); const capture = await startWorkerCoverage(f.page);
+  const f = fixture("Profiler.enable"); const capture = await startWorkerCoverage(f.page);
   f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
   await capture.collect();
   assert.ok(f.calls.includes("Runtime.runIfWaitingForDebugger"));
@@ -61,7 +64,7 @@ test("normal cleanup and already exited browser never kill a process", async () 
 
 test("stalled instrumentation has a deadline and still resumes the worker", async () => {
   const f = fixture(); const send = f.child.send;
-  f.child.send = method => method === "Debugger.enable" ? new Promise(() => {}) : send(method);
+  f.child.send = method => method === "Profiler.enable" ? new Promise(() => {}) : send(method);
   const capture = await startWorkerCoverage(f.page, { timeoutMs: 5 });
   f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
   await capture.collect();
@@ -83,8 +86,117 @@ test("unexpected collection Target errors are not silently treated as cancellati
 
 const workerCommands = [
   "Debugger.enable", "Profiler.enable", "Profiler.startPreciseCoverage",
-  "Runtime.runIfWaitingForDebugger", "Profiler.takePreciseCoverage", "Debugger.getScriptSource",
+  "Runtime.runIfWaitingForDebugger", "Profiler.takePreciseCoverage", "Debugger.getScriptSource", "Debugger.disable",
 ];
+
+test("Debugger stays disabled during worker execution and source collection preserves module coverage", async () => {
+  const f = fixture();
+  f.state.scripts.push({ scriptId: "2", url: "http://127.0.0.1/js/imported.js" });
+  const capture = await startWorkerCoverage(f.page);
+  try {
+    f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
+    await new Promise(setImmediate);
+    assert.ok(f.calls.includes("Profiler.startPreciseCoverage"));
+    assert.ok(f.calls.includes("Runtime.runIfWaitingForDebugger"));
+    assert.ok(!f.calls.includes("Debugger.enable"), "Debugger must not slow timed WASM execution");
+    await capture.collect();
+    assert.ok(f.calls.indexOf("Profiler.takePreciseCoverage") < f.calls.indexOf("Debugger.enable"));
+    assert.ok(f.calls.indexOf("Debugger.getScriptSource") < f.calls.indexOf("Debugger.disable"));
+    assert.deepEqual(capture.entries.map(entry => entry.url), f.state.scripts.map(script => script.url));
+    assert.deepEqual(capture.entries.map(entry => entry.rawScriptCoverage.scriptId), ["1", "2"]);
+    assert.deepEqual(capture.errors, []);
+  } finally { await capture.dispose(); }
+});
+
+test("repeated worker collection stops Debugger each time without restarting precise coverage", async () => {
+  const f = fixture(); const capture = await startWorkerCoverage(f.page);
+  try {
+    f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
+    await capture.collect();
+    assert.equal(f.calls.at(-1), "Debugger.disable");
+    await capture.collect();
+    assert.equal(f.calls.at(-1), "Debugger.disable");
+    assert.equal(f.calls.filter(method => method === "Profiler.startPreciseCoverage").length, 1);
+    assert.equal(f.calls.filter(method => method === "Profiler.takePreciseCoverage").length, 2);
+    assert.equal(capture.entries.length, 2);
+    assert.deepEqual(capture.errors, []);
+  } finally { await capture.dispose(); }
+});
+
+test("covered module metadata must exist and agree with its parsed script identity", async t => {
+  for (const parsedScripts of [[], [{ scriptId: "1", url: "http://127.0.0.1/js/other.js" }]]) {
+    await t.test(JSON.stringify(parsedScripts), async () => {
+      const f = fixture(); f.state.parsedScripts = parsedScripts;
+      const capture = await startWorkerCoverage(f.page);
+      try {
+        f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
+        await capture.collect();
+        assert.deepEqual(capture.entries, []);
+        assert.match(capture.errors.join(" "), /source identity/);
+        assert.ok(f.calls.includes("Debugger.disable"));
+      } finally { await capture.dispose(); }
+    });
+  }
+});
+
+test("source failure cannot publish a partial collection and always disables Debugger", async () => {
+  const f = fixture();
+  f.state.scripts.push({ scriptId: "2", url: "http://127.0.0.1/js/imported.js" });
+  const send = f.child.send;
+  f.child.send = (method, params) => method === "Debugger.getScriptSource" && params.scriptId === "2"
+    ? Promise.reject(new Error("second source failed")) : send(method, params);
+  const capture = await startWorkerCoverage(f.page);
+  try {
+    f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
+    await capture.collect();
+    assert.deepEqual(capture.entries, []);
+    assert.match(capture.errors.join(" "), /second source failed/);
+    assert.equal(f.calls.at(-1), "Debugger.disable");
+  } finally { await capture.dispose(); }
+});
+
+test("failed Debugger shutdown remains visible and cannot publish a completed collection", async () => {
+  const f = fixture("Debugger.disable"); const capture = await startWorkerCoverage(f.page);
+  try {
+    f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
+    await capture.collect();
+    assert.deepEqual(capture.entries, []);
+    assert.match(capture.errors.join(" "), /instrumentation failed/);
+  } finally { await capture.dispose(); }
+});
+
+test("collection waits for the caller's pending recovery barrier before touching the worker", async () => {
+  const f = fixture(); let release;
+  const idle = new Promise(resolve => { release = resolve; });
+  const capture = await startWorkerCoverage(f.page, { beforeCollect: () => idle });
+  try {
+    f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
+    await new Promise(setImmediate);
+    const collection = capture.collect();
+    await new Promise(setImmediate);
+    try {
+      assert.ok(!f.calls.includes("Profiler.takePreciseCoverage"));
+      assert.ok(!f.calls.includes("Debugger.enable"));
+    } finally { release(); await collection; }
+    assert.equal(capture.entries.length, 1);
+    assert.deepEqual(capture.errors, []);
+  } finally { release(); await capture.dispose(); }
+});
+
+test("a failed or stalled quiescence barrier cannot enable Debugger or publish coverage", async t => {
+  for (const beforeCollect of [() => Promise.reject(new Error("recovery is not idle")), () => new Promise(() => {})]) {
+    await t.test(beforeCollect.toString(), async () => {
+      const f = fixture(); const capture = await startWorkerCoverage(f.page, { beforeCollect, timeoutMs: 10 });
+      try {
+        f.parent.emit("Target.attachedToTarget", { sessionId: "worker" });
+        await capture.collect();
+        assert.ok(!f.calls.includes("Debugger.enable"));
+        assert.deepEqual(capture.entries, []);
+        assert.match(capture.errors.join(" "), /recovery is not idle|quiescence deadline/);
+      } finally { await capture.dispose(); }
+    });
+  }
+});
 
 async function interruptedCapture(method, { error, detachSession = "worker", stall = false } = {}) {
   const f = fixture(); const send = f.child.send;

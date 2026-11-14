@@ -1,0 +1,64 @@
+"""One frozen diagnostic batch using the existing Horizons transport."""
+from pathlib import Path
+import datetime as dt
+import hashlib
+import json
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parents[2]
+OUT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / 'tools'))
+import validate_ephemeris
+
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def main() -> None:
+    plan = json.loads((OUT / 'plan.json').read_bytes())
+    if sha(OUT / 'plan.json') != '90b5e6d6fd4f953122c3df9498696a8e524cda27fe7e8e8933423b91d20b8a67':
+        raise ValueError('frozen diagnostic plan differs')
+    if sha(ROOT / 'tools/validate_ephemeris.py') != plan['helper_sha256']:
+        raise ValueError('existing transport helper differs')
+    if (OUT / 'acquisition.json').exists():
+        raise ValueError('fresh acquisition required')
+    started = time.monotonic()
+    receipt = {'schema_version': 'fine-event-reference-acquisition.v1',
+        'plan_sha256': sha(OUT / 'plan.json'), 'acquirer_sha256': sha(Path(__file__)),
+        'started_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
+        'attempts_per_query': 1, 'between_request_deadline_seconds': 480,
+        'transport_timeout_seconds': 40, 'records': [], 'complete': False}
+    try:
+        for index, query in enumerate(plan['queries']):
+            if time.monotonic() - started > 480:
+                raise TimeoutError('bounded diagnostic acquisition expired')
+            destination = OUT / query['response']
+            if destination.exists():
+                raise ValueError('existing response cannot be overwritten')
+            stamp = dt.datetime.now(dt.timezone.utc).isoformat()
+            # Existing exact public NASA/JPL destination; no new app transport.
+            raw = validate_ephemeris.fetch_with_retry(query['url'], attempts=1).encode('utf-8')
+            if not 0 < len(raw) <= plan['controls']['maximum_response_bytes']:
+                raise ValueError('diagnostic response byte bound exceeded')
+            with destination.open('xb') as stream:
+                stream.write(raw)
+            receipt['records'].append({'response': query['response'], 'bytes': len(raw),
+                'sha256': sha(destination), 'requested_at_utc': stamp,
+                'received_at_utc': dt.datetime.now(dt.timezone.utc).isoformat()})
+            print(f'retained {index + 1}/{len(plan["queries"])} original responses', flush=True)
+        receipt['complete'] = True
+    except Exception as error:
+        receipt['error_type'] = type(error).__name__
+        raise
+    finally:
+        receipt['elapsed_seconds'] = time.monotonic() - started
+        receipt['finished_at_utc'] = dt.datetime.now(dt.timezone.utc).isoformat()
+        with (OUT / 'acquisition.json').open('x', encoding='utf-8') as stream:
+            json.dump(receipt, stream, indent=2, allow_nan=False)
+            stream.write('\n')
+
+
+if __name__ == '__main__':
+    main()

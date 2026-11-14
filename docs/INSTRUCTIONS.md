@@ -6,7 +6,7 @@ not permission to acquire data, publish, deploy or install a resident service.
 ## Prerequisites
 
 Use Python 3.11+, the locked Rust toolchain with an already installed
-`wasm32-unknown-unknown` target, Node 22 and this repository's locked development packages.
+`wasm32-unknown-unknown` target, Node 22.12+ and this repository's locked development packages.
 Initial toolchain/dependency installation requires network access and is separate from
 offline validation. `npm ci --ignore-scripts` is the locked install command when authorized.
 No Node runtime is needed by the static deployed app.

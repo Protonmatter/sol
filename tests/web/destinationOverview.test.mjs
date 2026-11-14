@@ -8,7 +8,7 @@ import {loadSourceModules} from './helpers/sourceModuleHarness.mjs';
 const ids = ['destinationEyebrow', 'destinationTitle', 'destinationDescription', 'destinationNote',
   'destinationFacts', 'destinationPreview', 'destinationImage', 'destinationImageStatus',
   'destinationImageSource', 'destinationFocus', 'destinationLocation', 'systemJumps',
-  'destinationCaption', 'destinationCaveat', 'destinationAppearance', 'destinationAppearanceText',
+  'destinationCaption', 'destinationCaveat', 'destinationReferenceNote', 'destinationAppearance', 'destinationAppearanceText',
   'destinationAppearanceSources', 'destinationEarthLayers', 'destinationDetails'];
 
 // Model the DOM operations the card owns, including the observable cost of replacing
@@ -397,4 +397,27 @@ test('Not-yet-created states and absent optional card elements remain safe', () 
   for (const id of ids) delete nodes[id];
   assert.doesNotThrow(() => renderDestinationOverview('sky', skyState()));
   assert.doesNotThrow(() => renderDestinationOverview('orrery', undefined, {selected: 'Earth'}));
+}));
+
+test('inspection captions use the same physical scale policy as body and satellite framing',()=>withDocument(({nodes})=>{
+ for(const anchor of ['Earth','Saturn','Moon','Io'])for(const focusMode of ['inspect-body','inspect-system']){
+  renderDestinationOverview('orrery',undefined,{anchor,selected:anchor,focusMode,trueScale:false});
+  assert.match(nodes.destinationCaption.textContent,/Physical relative sizes and distances/);
+  assert.doesNotMatch(nodes.destinationCaption.textContent,/enlarged/);
+ }
+ renderDestinationOverview('orrery',undefined,{anchor:'Pluto',focusMode:'inspect-body'});
+ assert.match(nodes.destinationCaption.textContent,/Sizes enlarged/);
+ renderDestinationOverview('orrery',undefined,{anchor:'Sun',focusMode:'inspect-body',solarInspection:true});
+ assert.doesNotMatch(nodes.destinationCaption.textContent,/Physical relative sizes and distances/);
+}));
+
+
+test('secondary reference notes are separate from visible motion and availability warnings',()=>withDocument(({nodes})=>{
+ renderDestinationOverview('orrery',undefined,{anchor:'Earth',selected:'Earth',focusMode:'inspect-body',
+  useTextures:true,moonsHiddenReason:'Moon data unavailable',animate:true,spinLimitedCount:1});
+ assert.match(nodes.destinationReferenceNote.textContent,/Reference layers:/);
+ assert.match(nodes.destinationCaveat.textContent,/Moon data unavailable/);
+ assert.match(nodes.destinationCaveat.textContent,/Rotation display rate-limited/);
+ assert.doesNotMatch(nodes.destinationCaveat.textContent,/Reference layers:/);
+ renderDestinationOverview('sky',skyState());assert.equal(nodes.destinationReferenceNote.textContent,'');
 }));

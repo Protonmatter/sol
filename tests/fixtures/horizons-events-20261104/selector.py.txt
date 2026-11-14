@@ -1,0 +1,75 @@
+"""Freeze finer event-reference requests from the retained independent minute grid."""
+from pathlib import Path
+import csv
+import datetime as dt
+import hashlib
+import io
+import json
+import math
+import urllib.parse
+
+ROOT = Path(__file__).resolve().parents[2]
+OUT = Path(__file__).resolve().parent
+OLD = ROOT/'build/event-semantics-horizons-20261104'
+sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+old = json.loads((OLD/'plan.json').read_bytes())
+acq = json.loads((OLD/'acquisition.json').read_bytes())
+assert sha(OLD/'plan.json') == 'bcea0a00174f462a3b9da29a6beb951a0d1d5f2343412113f162bb5bae1465b5'
+assert sha(OLD/'acquisition.json') == '42c94a80ac12de804e7b91882c896a3046d3e69b695b6107dd0d300f968a8884'
+assert acq['complete'] is True and len(acq['records']) == 12
+records = {r['response']:r for r in acq['records']}
+plan = dict(schema_version='sol-fine-event-reference-plan.v1',
+    frozen_at_utc=dt.datetime.now(dt.timezone.utc).isoformat(),
+    scope='Independent finite configured-model event checks; selected refinements of retained diagnostic cases, not held-out, continuous or physical horizon-visibility qualification.',
+    selector_source_sha256=sha(Path(__file__)), parent_plan_sha256=sha(OLD/'plan.json'),
+    parent_acquisition_sha256=sha(OLD/'acquisition.json'), helper_sha256=sha(ROOT/'tools/validate_ephemeris.py'),
+    conventions=dict(time_scale='UT/UTC',calendar='Gregorian',observer='terrestrial geodetic',apparent='AIRLESS',
+        crossing='airless apparent centre altitude + 34/60 degrees + asin(radius/observer range)',
+        radii_km={'Sun':695700.0,'Moon':1737.4},au_km=149597870.7,
+        peak='earliest genuine airless altitude maximum; not meridian crossing',window='[start,start+1) observer local mean solar day'),
+    controls=dict(interval_seconds=1,intervals_per_response=360,rows_per_response=361,
+        maximum_response_bytes=160000,maximum_time_difference_seconds=10,
+        sun_pointing_arcsec=10,moon_pointing_arcsec=12,dut1_seconds=0.003,
+        range_floor_km=1,range_relative=1e-5,reference_peak_interval_max_seconds=2.001,
+        reference_crossing_interval_max_seconds=1.001),
+    limitations=['Dates/sites selected from earlier diagnostic tables, not an independent validation selection.',
+        'Rise/set uses the fixed configured refraction model; weather, topography and physical visibility remain outside scope.',
+        'Dense grids bracket a sampled unimodal local maximum; no continuous interpolation theorem or observed-event bound is asserted.',
+        'No-event coarse cases are retained for context, not independent continuous absence certification.'],cases=[],queries=[])
+for q in old['queries']:
+    p = OLD/q['response'];r=records[p.name]
+    assert sha(p) == r['sha256'] and p.stat().st_size == r['bytes']
+    text=p.read_text(encoding='utf-8')
+    rows=list(csv.reader(io.StringIO(text.split('$$SOE')[1].split('$$EOE')[0].strip())))
+    assert len(rows)==1441
+    alts=[float(row[6]) for row in rows]
+    peaks=[i for i in range(1,1440) if alts[i]>alts[i-1] and alts[i]>=alts[i+1]]
+    assert len(peaks)==1
+    i=peaks[0];a,b,c=alts[i-1:i+2]
+    offset=.5*(a-c)/(a-2*b+c)
+    selections=[('peak',i*60+offset*60)]
+    # Coarse selection only. Dynamic exact semidiameter is applied to the new,
+    # independently returned observer ranges, never borrowed from native output.
+    margins=[a+50/60 for a in alts]
+    for kind,sign in [('rise',1),('set',-1)]:
+        roots=[j for j in range(1440) if sign*margins[j]<0<sign*margins[j+1]]
+        if roots:
+            j=roots[0];fraction=-margins[j]/(margins[j+1]-margins[j])
+            selections.append((kind,(j+fraction)*60))
+    case_id=q['response'].removesuffix('.txt')
+    plan['cases'].append(dict(id=case_id,body=q['name'],target=q['target'],
+        start_jd_utc=q['start_jd_utc'],latitude_deg=q['latitude_deg'],longitude_east_deg=0.0,elevation_m=0.0,
+        selector_response=q['response'],selector_response_sha256=r['sha256'],selected_events=[x[0] for x in selections]))
+    for kind,seconds in selections:
+        centre=round(seconds);first=centre-180;last=centre+180
+        start=q['start_jd_utc']+first/86400;stop=q['start_jd_utc']+last/86400
+        params=dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(q['url']).query))
+        params.update(QUANTITIES="'2,4,20,49'",START_TIME=f"'JD{start:.12f}'",STOP_TIME=f"'JD{stop:.12f}'",STEP_SIZE="'360'")
+        url=urllib.parse.urlunsplit(('https','ssd.jpl.nasa.gov','/api/horizons.api',urllib.parse.urlencode(params),''))
+        plan['queries'].append(dict(case_id=case_id,event=kind,response=f'{case_id}-{kind}.txt',url=url,
+            body=q['name'],target=q['target'],latitude_deg=q['latitude_deg'],longitude_east_deg=0.0,elevation_m=0.0,
+            day_start_jd_utc=q['start_jd_utc'],start_jd_utc=float(f'{start:.12f}'),stop_jd_utc=float(f'{stop:.12f}'),
+            selected_centre_seconds=centre))
+with (OUT/'plan.json').open('x',encoding='utf-8') as stream:
+    json.dump(plan,stream,indent=2,allow_nan=False);stream.write('\n')
+print(json.dumps(dict(cases=len(plan['cases']),queries=len(plan['queries']),plan_sha256=sha(OUT/'plan.json'))))

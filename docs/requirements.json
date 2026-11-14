@@ -1,6 +1,6 @@
 {
   "schema_version": "sol-requirements.v1",
-  "updated": "2026-09-29",
+  "updated": "2026-11-06",
   "requirements": [
     {
       "id": "SOL-DATA-002",
@@ -60,7 +60,7 @@
       "source": "docs/SDLC.md#contract-and-schema-changes",
       "implementation": [
         "docs/solar-state-snapshot-v3.schema.json",
-        "docs/ephemeris-snapshot-v3.schema.json",
+        "docs/ephemeris-snapshot-v4.schema.json",
         "crates/solar-core/src/contracts.rs",
         "apps/web/js/ephemerisContract.js"
       ],
@@ -93,6 +93,7 @@
       ],
       "verification": [
         "tools/validate_operational_readiness.py",
+        "tests/python/test_operational_readiness.py",
         "tools/validate_snapshot.py",
         "tools/validate_body_constants.py",
         "tests/web/solarTruth.test.mjs",
@@ -122,7 +123,9 @@
         "tests/python/test_contract_validators.py",
         "tests/python/test_data_bundles.py",
         "tests/python/test_bundle_build.py",
-        "tests/web/dataBundle.test.mjs"
+        "tests/web/dataBundle.test.mjs",
+        "tests/web/dataBundleTransport.test.mjs",
+        "tests/web/dataPublication.test.mjs"
       ],
       "ci_gates": [
         "CI / Web, provider, and browser validation",
@@ -215,6 +218,8 @@
         "tools/browser_validation.mjs",
         "tests/web/workerClient.test.mjs",
         "tests/web/skyWorker.test.mjs",
+        "tests/web/dataBundleTransport.test.mjs",
+        "tests/web/dataPublication.test.mjs",
         "tools/sky_validation.mjs"
       ],
       "ci_gates": [
@@ -438,6 +443,7 @@
         ".github/workflows/coverage.yml",
         ".github/workflows/deploy-pages.yml",
         "tools/release_evidence.py",
+        "tools/release_crate.py",
         "tools/verify_served_release.py",
         "docs/RELEASE_DELIVERY.md"
       ],
@@ -445,6 +451,7 @@
         "tools/validate_sdlc.py",
         "tests/python/test_sdlc_contract.py",
         "tests/python/test_release_evidence.py",
+        "tests/python/test_release_crate.py",
         "tests/python/test_release_served.py"
       ],
       "ci_gates": [
@@ -524,7 +531,7 @@
     },
     {
       "id": "SOL-VIS-008",
-      "status": "planned",
+      "status": "implemented",
       "statement": "Fresh sessions MUST default to attributed, resource-bounded Illustrative look for the seven supported planets, with Source-qualified selectable and registered imagery and physical computations kept separate.",
       "source": "docs/rfcs/0007-illustrative-planet-looks.md#requirements",
       "implementation": [
@@ -538,12 +545,13 @@
         "tools/illustrative_look_probe.mjs"
       ],
       "ci_gates": [
-        "CI / Web, provider, and browser validation"
+        "CI / Web, provider, and browser validation",
+        "Coverage / JavaScript coverage (Node + Chromium, >= 90%)"
       ]
     },
     {
       "id": "SOL-VIS-010",
-      "status": "planned",
+      "status": "implemented",
       "statement": "Illustrative Earth MUST retain the recovered Sites v7 July surface and display recipe with bounded resources, truthful attribution and unchanged physical scene state, while preserving Source-qualified and scientific layer options.",
       "source": "docs/rfcs/0009-sites-earth-v7.md#requirements",
       "implementation": [
@@ -561,12 +569,13 @@
         "tools/earth_look_probe.mjs"
       ],
       "ci_gates": [
-        "CI / Web, provider, and browser validation"
+        "CI / Web, provider, and browser validation",
+        "Coverage / JavaScript coverage (Node + Chromium, >= 90%)"
       ]
     },
     {
       "id": "SOL-VIS-011",
-      "status": "planned",
+      "status": "implemented",
       "statement": "Solar System MUST default to the approved illustrative Sun at 1K with selectable 2K and 4K, preserve the approved surface and wisps, keep prominences optional and preserve physical state and reference modes with bounded resources.",
       "source": "docs/rfcs/0010-approved-sun-look.md#requirements",
       "implementation": [
@@ -578,12 +587,14 @@
       ],
       "verification": [
         "tests/web/sunLook.test.mjs",
+        "tests/web/sunContextMode.test.mjs",
         "tests/python/test_sun_look_extraction.py",
         "tools/sun_look_probe.mjs",
         "tools/browser_validation.mjs"
       ],
       "ci_gates": [
-        "CI / Web, provider, and browser validation"
+        "CI / Web, provider, and browser validation",
+        "Coverage / JavaScript coverage (Node + Chromium, >= 90%)"
       ]
     }
   ]

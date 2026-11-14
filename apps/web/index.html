@@ -9,126 +9,33 @@
     <meta property="og:title" content="Solar Maximum Engine">
     <meta property="og:description" content="Three ways to explore: The Sun, My Sky and Solar System. Observations and models clearly separated, with evidence-scoped accuracy.">
     <meta property="og:type" content="website">
-    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=dcca6290db">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=dcca6290db">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="planet-phenomena.css">
-    <!-- Flatten the ES-module waterfall: without these, the ~28-module import graph
-         loads serially by depth. Keep in sync with apps/web/js/ (validate_web_static checks). -->
-    <link rel="modulepreload" href="engine.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/accuracy.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/aurora.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/bodyData.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/celestial.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/config.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/constellations.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/data.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/dataBundle.js">
-    <link rel="modulepreload" href="js/illustrativeHaze.js">
-    <link rel="modulepreload" href="js/sourceAttribution.js">
-    <link rel="modulepreload" href="js/viewEvidence.js">
-    <link rel="modulepreload" href="js/dom.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/ephemerisContract.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/ephemerisSchema.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/format.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/galacticobjects.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/orrery.js?v=dcca6290e0">
-    <link rel="modulepreload" href="js/shaderPrograms.js">
-    <link rel="modulepreload" href="js/labelLayout.js?v=dcca6290df">
-    <link rel="modulepreload" href="js/labelOcclusion.js">
-    <link rel="modulepreload" href="js/planetAppearance.js">
-    <link rel="modulepreload" href="js/illustrativeAppearance.js">
-    <link rel="modulepreload" href="js/illustrativeAssetManifest.js">
-    <link rel="modulepreload" href="js/earthLook.js">
-    <link rel="modulepreload" href="js/earthLookClouds.js">
-    <link rel="modulepreload" href="js/earthLookShaders.js">
-    <link rel="modulepreload" href="js/earthOceanMask.js">
-    <link rel="modulepreload" href="js/atmosphereOptics.js">
-    <link rel="modulepreload" href="js/atmosphereShaders.js">
-    <link rel="modulepreload" href="js/atmosphereIncident.js">
-    <link rel="modulepreload" href="js/atmosphereIncidentManifest.js">
-    <link rel="modulepreload" href="js/atmosphereColumnField.js">
-    <link rel="modulepreload" href="js/atmosphereColumnManifest.js">
-    <link rel="modulepreload" href="js/atmosphereScattering.js">
-    <link rel="modulepreload" href="js/scatteringTargets.js">
-    <link rel="modulepreload" href="js/physicalRendering.js">
-    <link rel="modulepreload" href="js/hdrPresentation.js">
-    <link rel="modulepreload" href="js/hdrPresentationShaders.js">
-    <link rel="modulepreload" href="js/materialColor.js">
-    <link rel="modulepreload" href="js/ringTransport.js">
-    <link rel="modulepreload" href="js/ringTransportShaders.js">
-    <link rel="modulepreload" href="js/surfaceReflection.js">
-    <link rel="modulepreload" href="js/surfaceReflectionShaders.js">
-    <link rel="modulepreload" href="js/terrainResources.js">
-    <link rel="modulepreload" href="js/planetPhenomena.js">
-    <link rel="modulepreload" href="js/planetPhenomenaManifest.js">
-    <link rel="modulepreload" href="js/solarAppearance.js">
-    <link rel="modulepreload" href="js/sunLook.js">
-    <link rel="modulepreload" href="js/sunLookRenderer.js">
-    <link rel="modulepreload" href="js/sunLookShaders.js">
-    <link rel="modulepreload" href="js/sunLookRecipe.js">
-    <link rel="modulepreload" href="js/solarAppearanceManifest.js">
-    <link rel="modulepreload" href="js/solarAssetLoader.js">
-    <link rel="modulepreload" href="js/solarVolumeShaders.js">
-    <link rel="modulepreload" href="js/terrain.worker.js">
-    <link rel="modulepreload" href="js/terrainAssets.js">
-    <link rel="modulepreload" href="js/terrainGeometry.js">
-    <link rel="modulepreload" href="js/terrainShadowShaders.js">
-    <link rel="modulepreload" href="js/terrainWorkerClient.js">
-    <link rel="modulepreload" href="js/surfaceMapping.js">
-    <link rel="modulepreload" href="js/solarRegionFacts.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/systemContract.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/systemWorkerClient.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/skyLimits.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/skyWorkerClient.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/skyPrivacy.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/skyPresentation.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/orreryDetail.js?v=dcca6290de">
-    <link rel="modulepreload" href="js/orreryGalaxy.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/moonAppearance.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/moonorbits.js?v=dcca6290df">
-    <link rel="modulepreload" href="js/moons.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/moonshadows.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/orreryMath.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/orbitCamera.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/orreryShaders.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/orreryTime.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/panels.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/objectBrowser.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/presentationState.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/seriesModel.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/solarContract.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/solarProjection.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/solarSchema.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/releaseClient.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/workerClient.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/engineLimits.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/solarWorkerClient.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/render.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/selectors.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/sky.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/skyEngine.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/smallbodies.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/starDetail.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/starphysics.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/store.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/surfacemap.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/sunlayers.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/timeline.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/tooltip.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/tour.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/view.js?v=dcca6290de">
-    <link rel="modulepreload" href="js/workspace.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/explorer.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/destinationCards.js?v=dcca6290de">
-    <link rel="modulepreload" href="js/destinationOverview.js?v=dcca6290de">
-    <link rel="modulepreload" href="js/sunPhotometry.js?v=dcca6290de">
+    <!-- This pinned archival image must not wait for the application graph. -->
+    <link rel="preload" as="image" href="textures/solar-observation-171.jpg" fetchpriority="high">
+    <!-- Only the parsed observation/workspace startup closure is preloaded. -->
+    <meta name="sol-startup-contract" content="startup-modules.v1.json">
+    <link rel="modulepreload" href="js/catalogueLoader.js">
+    <link rel="modulepreload" href="js/config.js">
+    <link rel="modulepreload" href="js/domWrites.js">
+    <link rel="modulepreload" href="js/explorer.js">
+    <link rel="modulepreload" href="js/observationMedia.js">
+    <link rel="modulepreload" href="js/offlineBoot.js">
+    <link rel="modulepreload" href="js/releaseClient.js">
     <link rel="modulepreload" href="js/solarObservation.js">
-    <link rel="modulepreload" href="js/displayGeometry.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/visualAssetManifest.js">
-    <link rel="modulepreload" href="js/referenceDemand.js">
-    <link rel="modulepreload" href="js/visualAssets.js?v=dcca6290db">
-    <link rel="modulepreload" href="js/wavelength.js?v=dcca6290db">
+    <link rel="modulepreload" href="js/sourceRecords.js">
+    <link rel="modulepreload" href="js/store.js">
+    <link rel="modulepreload" href="js/sunFacts.js">
+    <link rel="modulepreload" href="js/surfaceNavigation.js">
+    <link rel="modulepreload" href="js/tooltip.js">
+    <link rel="modulepreload" href="js/view.js">
+    <link rel="modulepreload" href="js/viewEvidence.js">
+    <link rel="modulepreload" href="js/viewLoader.js">
+    <link rel="modulepreload" href="js/viewRegistry.js">
+    <link rel="modulepreload" href="js/workspace.js">
+    <script type="module" src="js/observationBoot.js"></script>
   </head>
   <body class="panel-collapsed" data-experience="observe" data-surface="today">
     <main class="app-shell">
@@ -155,10 +62,14 @@
         <div>
           <p class="eyebrow">SOLAR MAXIMUM ENGINE <span class="brand-tagline">A closer Sun. A wider universe.</span></p>
           <h1 id="viewTitle" tabindex="-1">Explore the Sun</h1>
-          <p id="plainInsight" class="insight">Loading validated model and source evidence…</p>
-          <p id="surfaceInsight" class="insight" hidden></p>
-          <div class="view-evidence"><span id="viewSource" class="state-pill">Source: loading</span><span id="viewTime">Time: loading</span></div>
-          <p id="viewAvailability" class="workspace-availability">View: awaiting validated data · research and learning only</p>
+          <div class="view-evidence"><span id="viewSource" class="state-pill">observed · NASA · SDO / AIA 171 Å</span><span id="viewTime">2026-09-12 00:07:22 UTC · archival</span></div>
+          <p id="viewAvailability" class="workspace-availability">Saved observation · false-color ultraviolet</p>
+          <details id="viewNotes" class="view-notes">
+            <summary>About this view</summary>
+            <p id="plainInsight" class="insight">Loading validated model and source evidence…</p>
+            <p id="surfaceInsight" class="insight" hidden></p>
+            <p id="destinationReferenceNote"></p>
+          </details>
           <div class="state-row solar-runtime" aria-label="Solar model runtime state">
             <span id="dataState" class="state-pill">data: loading</span>
             <span id="ingestState" class="state-pill">feed: loading</span>
@@ -176,12 +87,16 @@
         </div>
         <p id="snapshotStatus" class="snapshot-status" role="status" hidden></p>
         <button id="retrySnapshot" class="time-btn" type="button" hidden>Retry model-data update</button>
+        <div id="viewCodePanel" class="view-code-panel" hidden>
+          <p id="viewCodeStatus" role="status" tabindex="-1"></p>
+          <button id="viewCodeRetry" class="time-btn" type="button" hidden>Retry this view</button>
+        </div>
       </section>
       <section class="stage-band" aria-label="Solar maximum engine">
         <div class="viewport">
           <section id="solarObservation" class="solar-observation" aria-label="NASA solar observation">
             <div id="observationMedia" class="observation-image-wrap" aria-busy="true">
-              <img id="observationImage" width="1024" height="1024" alt="Saved NASA SDO solar observation" fetchpriority="high" hidden>
+              <img id="observationImage" src="textures/solar-observation-171.jpg" width="1024" height="1024" alt="The Sun in extreme ultraviolet. AIA 171 angstrom extreme ultraviolet reveals structure in the solar corona. Gold is the channel's false color, not the Sun's visible-light appearance.. Saved observation, not a live image." fetchpriority="high" hidden>
               <p id="observationLoading" class="observation-loading" role="status">Loading the saved NASA observation…</p>
               <div id="observationUnavailable" class="observation-unavailable" role="status" hidden>
                 <h2>Observation unavailable</h2><p>The saved NASA image could not be loaded.</p>
@@ -205,12 +120,12 @@
                 <summary>About this image <span aria-hidden="true">+</span></summary>
                 <p>NASA Solar Dynamics Observatory · AIA 171 Å. False-color extreme ultraviolet, shown in its original image plane. This saved browse image is for exploration and education.</p>
                 <p>Model regions and magnetic fields are not overlaid on this observation.</p>
-                <a id="observationSource" target="_blank" rel="noopener noreferrer">NASA / SDO</a>
+                <a id="observationSource" href="https://sdo.gsfc.nasa.gov/assets/img/browse/2026/09/12/20260912_000722_1024_0171.jpg" target="_blank" rel="noopener noreferrer">Courtesy of NASA/SDO and the AIA, EVE, and HMI science teams.</a>
               </details>
               <button id="openResearchTools" class="research-entry" type="button">Explore the solar model <span aria-hidden="true">→</span></button>
               <button id="openEarthContext" class="earth-context-link" type="button">How the Sun influences Earth <span aria-hidden="true">↗</span></button>
             </aside>
-            <div class="observation-caption"><span class="archive-label">SAVED OBSERVATION</span><span id="observationStatus">Loading capture time…</span><span id="observationCredit">NASA / SDO</span></div>
+            <div class="observation-caption"><span class="archive-label">SAVED OBSERVATION</span><span id="observationStatus">2026-09-12 00:07:22 UTC · archival</span><span id="observationCredit">Courtesy of NASA/SDO and the AIA, EVE, and HMI science teams.</span></div>
           </section>
           <div id="stageRail" class="stage-rail" role="group" aria-label="Solar cycle stage (click a stage to learn about it)">
             <span class="stage-step" data-stage="minimum" data-term="stage-minimum" role="button" tabindex="0">Minimum</span>
@@ -230,7 +145,9 @@
             <button type="button" data-camera-body="Jupiter" aria-pressed="false">Jupiter</button>
             <button type="button" data-camera-body="Saturn" aria-pressed="false">Saturn</button>
           </div>
-          <div class="destination-caption"><p id="destinationCaption"></p><p id="destinationCaveat"></p><p id="orreryPhysicalStatus" hidden></p></div>
+          <div class="destination-caption"><p id="destinationCaption"></p><p id="orrerySelectedEpoch" class="time-frame-label"></p><p id="destinationCaveat"></p><p id="orreryPhysicalStatus" hidden></p>
+            <div id="orreryCataloguePanel" hidden><p id="orreryCatalogueStatus" role="status" tabindex="-1"></p><button id="orreryCatalogueRetry" class="time-btn" type="button" hidden>Retry catalogue downloads</button></div>
+          </div>
           <div class="status-strip" aria-live="polite">
             <div>
               <span class="label">Stage</span>
@@ -246,7 +163,10 @@
       <section id="timeline" class="timeline-band" aria-label="Solar cycle timeline" hidden>
         <div class="timeline-inner">
           <div class="timeline-copy">
-            <h2 id="journeyTitle">Solar cycle timeline</h2>
+            <div class="timeline-heading">
+              <h2 id="journeyTitle" tabindex="-1">Solar cycle timeline</h2>
+              <button id="timelineClose" class="time-btn ghost" type="button">Close timeline</button>
+            </div>
             <p id="journeyText">Play through an idealized 11-year cycle and watch the sunspot bands drift toward the equator.</p>
             <div class="timeline-controls">
               <button id="playToggle" class="time-btn" type="button">▶ Play cycle</button>
@@ -473,6 +393,16 @@
                     <label class="orrery-check"><input id="orreryOptics" type="checkbox" checked> Atmosphere (reference or illustrative)</label>
                     <label class="orrery-check"><input id="orreryTrueScale" type="checkbox"> Physical scale</label>
                   </div>
+                  <label class="orrery-field">Display resolution
+                    <select id="orreryQuality" class="sky-input" aria-describedby="orreryQualityStatus orreryQualityHelp">
+                      <option value="auto" selected>Auto</option>
+                      <option value="high">High</option>
+                      <option value="balanced">Balanced</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </label>
+                  <p id="orreryQualityStatus" class="time-frame-label">Auto · High display resolution</p>
+                  <p id="orreryQualityHelp" class="time-frame-label">Changes drawing sharpness; positions and physical data stay the same.</p>
                   <label class="orrery-field">Planet appearance
                     <select id="orreryPlanetLook" class="sky-input" aria-describedby="orreryPlanetLookHelp">
                       <option value="illustrative" selected>Illustrative look</option>
@@ -557,8 +487,8 @@
               <span class="label">Selected body</span>
               <div id="orreryDetail" class="sky-list" tabindex="-1"><div class="sky-row">Click the Sun or a planet to inspect its size, gravity, rotation, tilt, magnetic field, atmosphere, and live distance.</div></div>
               <p id="orrerySelectionStatus" class="sr-only" role="status"></p>
-              <p id="orrerySelectedEpoch" class="time-frame-label"></p>
               <button id="orreryFocusSelected" type="button" class="time-btn">Focus selected body</button>
+              <button id="orreryFocusSystem" type="button" class="time-btn" disabled>View satellite system</button>
 
             </div>
             <div class="sky-whatsup">
@@ -683,6 +613,7 @@
         <p>Sol is for research and learning, not operational forecasting, navigation or safety decisions. SDO browse imagery is observed; magnetic model regions and cycle frames are synthetic. Without capture-time registration, those views stay separate.</p>
         <p>Sky calculations stay on your device by default. A configured external recipient requires explicit consent before receiving location and time. Accuracy depends on the body, quantity, epoch and reference evidence; no blanket arcsecond accuracy or full accessibility conformance is asserted.</p>
         <p>Inspect the selected view's source and time, then open its model/data disclosure for raw evidence. Snapshot export is a scientific record, not a resumable transport checkpoint.</p>
+        <p>Ephemeris component: LGPL-3.0-only. <a href="licenses/solar-ephemeris/index.html">Licenses, attribution and source</a>.</p>
         <button id="viewEvidencePreview" class="time-btn ghost" type="button">Preview current view summary</button>
         <section id="viewEvidencePanel" hidden aria-label="View summary export preview">
           <p>This file includes the source/time labels and any observer name shown below, but no raw coordinates. Review the complete contents before downloading. The preview is frozen even if the live view changes.</p>
@@ -707,6 +638,6 @@
       </div>
     </div>
     <div id="termTip" class="term-tip" role="tooltip" hidden></div>
-    <script type="module" src="app.js?v=dcca6290e0"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>

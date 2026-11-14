@@ -1,0 +1,107 @@
+API VERSION: 1.2
+API SOURCE: NASA/JPL Horizons API
+
+
+
+*******************************************************************************
+Ephemeris / API_USER Tue Nov  3 17:32:19 2026 Pasadena, USA      / Horizons
+*******************************************************************************
+Target body name: Jupiter Barycenter (5)          {source: DE441}
+Center body name: Sun (10)                        {source: DE441}
+Center-site name: BODY CENTER
+*******************************************************************************
+Start time      : A.D. 0001-Jan-01 00:00:00.0000 TDB
+Stop  time      : A.D. 9999-Jan-01 00:00:00.0000 TDB
+Step-size       : DISCRETE TIME-LIST
+*******************************************************************************
+Center geodetic : 0.0, 0.0, 0.0                   {E-lon(deg),Lat(deg),Alt(km)}
+Center cylindric: 0.0, 0.0, 0.0                   {E-lon(deg),Dxy(km),Dz(km)}
+Center radii    : 695700.0, 695700.0, 695700.0 km {Equator_a, b, pole_c}
+Output units    : AU-D
+Calendar mode   : Gregorian
+Output type     : GEOMETRIC cartesian states
+Output format   : 1 (position only)
+Reference frame : Ecliptic of J2000.0
+*******************************************************************************
+            JDTDB,            Calendar Date (TDB),                      X,                      Y,                      Z,
+**************************************************************************************************************************
+$$SOE
+1721425.500000000, A.D. 0001-Jan-01 00:00:00.0000, -4.853314557378541E+00, -2.431703331493654E+00,  1.212482497231872E-01,
+2086302.500000000, A.D. 1000-Jan-01 00:00:00.0000,  9.722176520960080E-01, -5.106217262560801E+00, -4.241472034857925E-03,
+2305447.500000000, A.D. 1600-Jan-01 00:00:00.0000, -4.067265493668612E+00,  3.466515181681562E+00,  7.832967031773971E-02,
+2378496.500000000, A.D. 1800-Jan-01 00:00:00.0000, -2.950367180452556E-02,  5.132251005824536E+00, -1.979011721300067E-02,
+2415020.500000000, A.D. 1900-Jan-01 00:00:00.0000, -3.016040410743296E+00, -4.460193700714686E+00,  8.580442433439912E-02,
+2433282.500000000, A.D. 1950-Jan-01 00:00:00.0000,  3.406606567761871E+00, -3.760530074704583E+00, -6.089143087800919E-02,
+2451545.000000000, A.D. 2000-Jan-01 12:00:00.0000,  4.001177161126058E+00,  2.938576106966103E+00, -1.017852766337440E-01,
+2461222.500000000, A.D. 2026-Jul-01 00:00:00.0000, -2.931110550863879E+00,  4.386852279340316E+00,  4.735652881673637E-02,
+2469807.500000000, A.D. 2050-Jan-01 00:00:00.0000, -2.391046344931990E+00,  4.664074051129192E+00,  3.396564221877785E-02,
+2488069.500000000, A.D. 2100-Jan-01 00:00:00.0000, -5.373760625167001E+00, -9.084811839584034E-01,  1.238877216653095E-01,
+2524593.500000000, A.D. 2200-Jan-01 00:00:00.0000,  4.707046667734004E+00, -1.644426315299550E+00, -9.782717487331415E-02,
+2597641.500000000, A.D. 2400-Jan-01 00:00:00.0000,  1.598947811539629E+00, -4.922589316776698E+00, -1.383598863690450E-02,
+2816787.500000000, A.D. 3000-Jan-01 00:00:00.0000, -4.505118072987974E+00,  2.911627875567703E+00,  8.492143038952185E-02,
+3547272.500000000, A.D. 5000-Jan-01 00:00:00.0000,  4.939595879010943E+00, -2.639930777831151E-01, -1.038289563643950E-01,
+4277757.500000000, A.D. 7000-Jan-01 00:00:00.0000, -4.489929747285657E+00, -3.154523927834060E+00,  1.197957706691715E-01,
+5373119.500000000, A.D. 9999-Jan-01 00:00:00.0000, -4.919999138935429E+00,  2.108151858602270E+00,  8.470616410229728E-02,
+$$EOE
+**************************************************************************************************************************
+ 
+TIME
+
+  Barycentric Dynamical Time ("TDB" or T_eph) output was requested. This
+continuous coordinate time is equivalent to the relativistic proper time
+of a clock at rest in a reference frame co-moving with the solar system
+barycenter but outside the system's gravity well. It is the independent
+variable in the solar system relativistic equations of motion.
+
+  TDB runs at a uniform rate of one SI second per second and is independent
+of irregularities in Earth's rotation.
+ 
+CALENDAR SYSTEM
+
+  Calendar dates are given in the modern Gregorian system, extended prior to
+its 1582-Oct-15 adoption. The Gregorian calendar more closely corresponds to
+physical Earth seasons and orbital motion, but can differ by up to 10 days with
+historical records made under the prior Julian calendar, more if the Julian
+calendar was extended prior to its 45-Jan-1 BC adoption to label the historical
+event. Select "mixed" calendar mode if correlation with historical dates prior
+to A.D. 1582 is important.
+
+REFERENCE FRAME AND COORDINATES
+
+  Ecliptic at the standard reference epoch
+
+    Reference epoch: J2000.0
+    X-Y plane: adopted Earth orbital plane at the reference epoch
+               Note: IAU76 obliquity of 84381.448 arcseconds wrt ICRF X-Y plane
+    X-axis   : ICRF
+    Z-axis   : perpendicular to the X-Y plane in the directional (+ or -) sense
+               of Earth's north pole at the reference epoch.
+
+  Symbol meaning [1 au= 149597870.700 km, 1 day= 86400.0 s]:
+
+    JDTDB    Julian Day Number, Barycentric Dynamical Time
+      X      X-component of position vector (au)
+      Y      Y-component of position vector (au)
+      Z      Z-component of position vector (au)
+
+ABERRATIONS AND CORRECTIONS
+
+ Geometric state vectors have NO corrections or aberrations applied.
+
+Computations by ...
+
+    Solar System Dynamics Group, Horizons On-Line Ephemeris System
+    4800 Oak Grove Drive, Jet Propulsion Laboratory
+    Pasadena, CA  91109   USA
+
+    General site: https://ssd.jpl.nasa.gov/
+    Mailing list: https://ssd.jpl.nasa.gov/email_list.html
+    System news : https://ssd.jpl.nasa.gov/horizons/news.html
+    User Guide  : https://ssd.jpl.nasa.gov/horizons/manual.html
+    Connect     : browser        https://ssd.jpl.nasa.gov/horizons/app.html#/x
+                  API            https://ssd-api.jpl.nasa.gov/doc/horizons.html
+                  command-line   telnet ssd.jpl.nasa.gov 6775
+                  e-mail/batch   https://ssd.jpl.nasa.gov/ftp/ssd/horizons_batch.txt
+                  scripts        https://ssd.jpl.nasa.gov/ftp/ssd/SCRIPTS
+    Inquiries   : Jon.D.Giorgini@jpl.nasa.gov
+*******************************************************************************

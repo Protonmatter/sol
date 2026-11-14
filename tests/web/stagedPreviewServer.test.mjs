@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {createStagedPreviewServer} from '../../tools/staged_preview_server.mjs';
+import * as preview from '../../tools/staged_preview_server.mjs';
 
 async function fixture(t, basePath) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sol-staged-preview-'));
@@ -56,4 +57,23 @@ test('staged preview rejects malformed manifest mount paths before listening', (
   for (const basePath of ['', 'sol/', '/sol', '/sol//', '/../', '/sol/./', '/sol\\/', '/sol?query/', '/%73ol/']) {
     assert.throws(() => createStagedPreviewServer(os.tmpdir(), basePath), /normalized absolute URL path/);
   }
+});
+
+test('the shared resolver maps URL namespaces to the same root and subpath files',()=>{
+  assert.equal(typeof preview.resolvePreviewFile,'function');
+  const root=path.resolve(os.tmpdir(),'preview-resolver');
+  for(const basePath of ['/','/sol/']){
+    assert.equal(preview.resolvePreviewFile(root,basePath,basePath),path.join(root,'index.html'));
+    assert.equal(preview.resolvePreviewFile(root,basePath,basePath+'releases/id/js/sky.js'),path.join(root,'releases/id/js/sky.js'));
+    assert.equal(preview.resolvePreviewFile(root,basePath,basePath+'../outside.js'),null);
+  }
+  for(const outside of ['/','/index.html','/releases/id/app.js','/solitude/app.js'])
+    assert.equal(preview.resolvePreviewFile(root,'/sol/',outside),null);
+});
+
+test('mount validation is shared by harnesses and rejects unsafe paths before server startup',()=>{
+  assert.equal(typeof preview.validatePreviewBasePath,'function');
+  for(const basePath of ['/','/sol/','/nested/sol/'])assert.equal(preview.validatePreviewBasePath(basePath),basePath);
+  for(const basePath of [null,3,'','sol/','/sol','/../','/sol//','/sol/./','/sol?query/'])
+    assert.throws(()=>preview.validatePreviewBasePath(basePath),/normalized absolute URL path/);
 });

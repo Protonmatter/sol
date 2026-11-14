@@ -62,6 +62,11 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
             return
         index = (Path(self.directory) / self.namespace / "index.html").read_text(encoding="utf-8")
+        module_result = subprocess.run(
+            ["node", str(ROOT / "tools/smoke_module_urls.mjs"), str(Path(self.directory) / self.namespace)],
+            cwd=ROOT, text=True, encoding="utf-8", capture_output=True, timeout=10, check=True,
+        )
+        module_urls = json.loads(module_result.stdout)
         setup = """<script>
 localStorage.setItem("sol-surface", "orrery");
 // No reliance on animation speed: a synchronous state machine is advanced by BOTH
@@ -83,50 +88,62 @@ addEventListener("unhandledrejection", e =>
 
 let smokeStore = null;
 let smokeTime = null;
+let smokeOrrery = null;
 let smokeMoons = null;
 let smokeLifecycleReady = false;
+// paint() only queues a frame. A deterministic check reads renderer state after
+// the first rendered frame that follows its input, never in the same task.
+const lastRenderedFrame = () => {
+  const timings = smokeOrrery?.orreryFrameTimings?.() || [];
+  for (let i = timings.length - 1; i >= 0; i--) if (timings[i].rendered) return timings[i].timestamp;
+  return -Infinity;
+};
+let frameAfter = null;
+const inputFrameRendered = () => frameAfter !== null && lastRenderedFrame() > frameAfter;
 const smokeMoonReady = __SOL_SMOKE_READY__;
-addEventListener("load", () => {
-  const storeLink = document.querySelector('link[href^="js/store.js"]');
-  const timeLink = document.querySelector('link[href^="js/orreryTime.js"]');
-  const orreryLink = document.querySelector('link[href^="js/orrery.js"]');
-  const moonsLink = document.querySelector('link[href^="js/moons.js"]');
-  if (storeLink && timeLink && orreryLink && moonsLink) {
-    Promise.all([
-      import("./" + storeLink.getAttribute("href")),
-      import("./" + timeLink.getAttribute("href")),
-      import("./" + orreryLink.getAttribute("href")),
-      import("./" + moonsLink.getAttribute("href")),
-    ])
-      .then(async ([storeModule, timeModule, orreryModule, moonsModule]) => {
-        smokeStore = storeModule.store;
-        smokeTime = timeModule;
-        smokeMoons = moonsModule.MOONS;
-        // Exercise the real destination control. The previous localStorage-only setup could
-        // initialize the renderer through this harness while leaving the application tab in
-        // its default state, which made the aggregate assertion both brittle and incomplete.
-        const tab = document.querySelector('.mode-button[data-mode="orrery"]');
-        tab?.click();
-        // Join core WASM/WebGL initialization. The separate readiness predicate waits
-        // for the product's optional knot loader to populate this shared catalogue;
-        // the harness never imports or merges the knots itself.
-        await orreryModule.enterOrrery();
-        if (tab?.getAttribute("aria-pressed") === "true"
-            && document.body.dataset.surface === "orrery") {
-          document.body.dataset.smokeMode = "yes";
-          smokeLifecycleReady = true;
-        } else {
-          smokeErr("orrery destination did not activate");
-          document.body.dataset.smokeMode = "no";
-        }
-      })
-      .catch(e => smokeErr("smoke module import: " + e.message));
+const smokeModuleUrls = __SOL_SMOKE_MODULE_URLS__;
+addEventListener("load", async () => {
+  try {
+    const tab = document.querySelector('.mode-button[data-mode="orrery"]');
+    if (!tab) throw new Error("orrery destination control missing");
+    tab.click();
+    const deadline = performance.now() + 45000;
+    while (document.body.dataset.viewCodeName !== "orrery"
+        || document.body.dataset.viewCode !== "ready") {
+      if (document.body.dataset.viewCodeName === "orrery"
+          && document.body.dataset.viewCode === "failed") throw new Error("orrery initialization failed");
+      if (performance.now() >= deadline) throw new Error("orrery lifecycle readiness deadline");
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    // These exact identities are parsed from the owning app/System sources.
+    // A bare import and a versioned import can share a pathname, so a resource
+    // timing pathname alone is insufficient to identify the correct instance.
+    const urls = smokeModuleUrls.map(url => new URL(url, location.href).href);
+    const [storeModule, timeModule, orreryModule, moonsModule] = await Promise.all(urls.map(url => import(url)));
+    smokeStore = storeModule.store;
+    smokeTime = timeModule;
+    smokeOrrery = orreryModule;
+    smokeMoons = moonsModule.MOONS;
+    if (tab.getAttribute("aria-pressed") === "true"
+        && document.body.dataset.surface === "orrery") {
+      document.body.dataset.smokeMode = "yes";
+      // Moon orbital elements load on demand when a satellite system is viewed.
+      // Request them through the real Focus control; loaded elements stay in MOONS.
+      const anchor = document.getElementById("orreryAnchor");
+      anchor.value = "Saturn";
+      anchor.dispatchEvent(new Event("change", { bubbles: true }));
+      smokeLifecycleReady = true;
+    } else {
+      throw new Error("orrery destination did not activate");
+    }
+  } catch (error) {
+    smokeErr("smoke module join: " + error.message);
   }
 });
 
-// Synchronous repaint with a chosen frame step. The time slider's real input handler
-// rebuilds positions, paints, and refreshes the user-visible accuracy line while Animate is
-// off, so the smoke verifies both renderer state and the warning presented to the user.
+// Repaint with a chosen frame step. The time slider's real input handler rebuilds
+// positions, queues a frame, and refreshes the user-visible accuracy line while Animate
+// is off; callers check renderer state and the warning after that frame renders.
 const repaintWithStep = (stepSeconds) => {
   smokeStore.orrery.simStepSeconds = stepSeconds;
   const time = document.getElementById("orreryTime");
@@ -149,6 +166,11 @@ const advance = () => {
     ].join(" ");
   }
   if (phase === "ready") {
+    if (o?.catalogueStatus?.moons === "failed") {
+      smokeErr("moon catalogue failed to load");
+      phase = "end";
+      return;
+    }
     // Includes Earth's Moon plus the 21 catalogue moons in the current object browser.
     const rows = document.querySelectorAll("#orreryPositions .orrery-pos-moon").length;
     body.dataset.smokeMoonRows = String(rows);
@@ -219,7 +241,11 @@ const advance = () => {
   } else if (phase === "alias") {
     // A frame that covers 5 days must alias every inner moon (Phobos P/3 is 0.106 d)
     // through the real drawMoons path, and the resulting warning must be rendered.
+    frameAfter = lastRenderedFrame();
     repaintWithStep(5 * 86400);
+    phase = "alias-check";
+  } else if (phase === "alias-check") {
+    if (!inputFrameRendered()) return;
     const rendered = acc ? acc.textContent : "";
     if (o.moonsAliasedCount > 0
         && o.moonsHiddenReason.includes("inner moon")
@@ -236,7 +262,11 @@ const advance = () => {
   } else if (phase === "reset") {
     // Direct step injection is used only for deterministic renderer coverage; pause behavior
     // was already proven above through the actual Animate control.
+    frameAfter = lastRenderedFrame();
     repaintWithStep(0);
+    phase = "reset-check";
+  } else if (phase === "reset-check") {
+    if (!inputFrameRendered()) return;
     const rendered = acc ? acc.textContent : "";
     if (o.moonsAliasedCount === 0 && !o.moonsHiddenReason
         && !rendered.includes("inner moon")) {
@@ -264,6 +294,7 @@ const rafPump = () => { advance(); requestAnimationFrame(rafPump); };
 requestAnimationFrame(rafPump);
 </script>"""
         setup = setup.replace("__SOL_SMOKE_READY__", MOON_READINESS_JS)
+        setup = setup.replace("__SOL_SMOKE_MODULE_URLS__", json.dumps(module_urls))
         index = index.replace('<script type="module" src="app.js', setup + '\n    <script type="module" src="app.js')
         payload = index.encode("utf-8")
         self.send_response(200)
@@ -320,10 +351,15 @@ def serve(directory: Path, base_path: str = "/", namespace: str = ""):
             thread.join(timeout=2)
 
 
-def dump_dom(browser: str, url: str, *, screenshot_path: Path | None = None) -> tuple[str, str]:
+def dump_dom(browser: str, url: str, *, screenshot_path: Path | None = None,
+             solar_schema: str = "solar-state-snapshot.v3") -> tuple[str, str]:
     command = ["node", str(ROOT / "tools/browser_smoke_driver.mjs"), browser, url]
     if screenshot_path is not None:
         command.append(str(screenshot_path))
+    if solar_schema != "solar-state-snapshot.v3":
+        if screenshot_path is None:
+            command.append("")
+        command.append(solar_schema)
     result = subprocess.run(
         command,
         cwd=ROOT, text=True, encoding="utf-8", stdout=subprocess.PIPE,
@@ -400,7 +436,8 @@ def assert_no_runtime_failure(dom: str, stderr: str, surface: str) -> None:
 
 
 def run_smoke(base: str, browser: str, solar_schema: str = "solar-state-snapshot.v3") -> None:
-    sun_dom, sun_stderr = dump_dom(browser, f"{base}/index.html")
+    sun_options = {} if solar_schema == "solar-state-snapshot.v3" else {"solar_schema": solar_schema}
+    sun_dom, sun_stderr = dump_dom(browser, f"{base}/index.html", **sun_options)
     assert_no_runtime_failure(sun_dom, sun_stderr, "Sun")
     # The initial Observe surface intentionally leaves this hidden model label
     # uninitialized. It must resolve only after the driver's native Research entry.

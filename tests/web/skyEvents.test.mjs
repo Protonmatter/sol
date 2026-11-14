@@ -12,7 +12,8 @@ test("unavailable culmination does not render an invented zero altitude", () => 
   fillTooltip(target, {name:"Venus", above_horizon:false, compass:"E",
     events:{rise:{jd:null},set:{jd:null},transit:{jd:null,altitude_deg:null}}});
   const text = target.children.map(child => child.textContent).join(" ");
-  assert.match(text, /transits --/);
+  assert.match(text, /peak altitude --/);
+  assert.doesNotMatch(text, /transits/);
   assert.doesNotMatch(text, /\(0°\)/);
 });
 
@@ -20,7 +21,9 @@ test("available culmination retains its measured altitude", () => {
   const target = element();
   fillTooltip(target, {name:"Venus", above_horizon:false, compass:"E",
     events:{rise:{jd:null},set:{jd:null},transit:{jd:2460000.75,altitude_deg:30.2}}});
-  assert.match(target.children.map(child => child.textContent).join(" "), /\(30°\)/);
+  const text=target.children.map(child => child.textContent).join(" ");
+  assert.ok(text.includes(`peak altitude ${eventLabel({jd:2460000.75})} (30°)`));
+  assert.doesNotMatch(text, /transits/);
 });
 
 test("event null states remain distinguishable in visible text",()=>{

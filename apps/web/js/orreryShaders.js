@@ -176,6 +176,16 @@ ${ATMOSPHERE_GLSL}
 ${TERRAIN_SHADOW_GLSL}
 ${RING_TRANSPORT_GLSL}
 ${NOISE}
+// Display maps wrap at the back meridian. Differentiate longitude along the
+// local tangent so the 1-to-0 UV jump cannot select a whole-map mip level.
+// Keep ordinary mip filtering and the source pixels on both sides of the join.
+vec4 equirectangularSample(sampler2D source,vec3 p,vec2 uv){
+  vec2 tangent=vec2(-p.y,p.x);
+  float gain=0.1591549431/max(dot(p.xy,p.xy),1e-8);
+  vec2 dx=vec2(dot(tangent,dFdx(p.xy))*gain,dFdx(uv.y));
+  vec2 dy=vec2(dot(tangent,dFdy(p.xy))*gain,dFdy(uv.y));
+  return textureGrad(source,uv,dx,dy);
+}
 // Every registered layer of a body shares one source grid. main computes this
 // once per fragment (u, v, source latitude) and passes it to each lookup, so the
 // same atan pair is not re-evaluated for every layer and coverage test.
@@ -353,7 +363,7 @@ ${VENUS_ATMOSPHERE_SHELL_GLSL}
     col=u_base*mix(vec3(1.0),material,referenceCoverage(referenceGridValue,mapped));
   }
   else if(u_useTex==1&&u_texMode==0){
-    col=texture(u_tex,vec2(uu,vv)).rgb;
+    col=equirectangularSample(u_tex,p,vec2(uu,vv)).rgb;
     if(u_illustrativeLinear==1) col=u_saturnLook==1 ? pow(col,vec3(2.2)) : decodeSRGB(col);
   }
   else if(u_useTex==1&&u_texMode==2){ // real USGS moon mosaic
@@ -365,7 +375,7 @@ ${VENUS_ATMOSPHERE_SHELL_GLSL}
     // The clamp stops the brightest few texels of a low-mean map from blowing out.
     vec3 avg=textureLod(u_tex,vec2(0.5,0.5),20.0).rgb;
     float mean=max(dot(avg,vec3(0.299,0.587,0.114)),0.02);
-    float here=dot(texture(u_tex,vec2(uu,vv)).rgb,vec3(0.299,0.587,0.114));
+    float here=dot(equirectangularSample(u_tex,p,vec2(uu,vv)).rgb,vec3(0.299,0.587,0.114));
     // The 0.6 exponent softens the map's OWN contrast, and it is load-bearing rather than
     // cosmetic. Each browse rendering is stretched independently — Callisto's sits at mean
     // 0.18 with a full-scale tail, Europa's at 0.57 with a narrow one — so at full strength
@@ -464,7 +474,7 @@ ${VENUS_ATMOSPHERE_SHELL_GLSL}
   // should lead, with the noise surviving only as surface texture under it.
   if(u_useTex==1&&u_texMode==1){
     col=mix(col,u_base,0.55);
-    col*=texture(u_tex,vec2(uu,vv)).rgb*2.0;
+    col*=equirectangularSample(u_tex,p,vec2(uu,vv)).rgb*2.0;
   }
   // Legacy fallback/material recipes are display RGB. Only the enabled optical
   // path opts them into linear transport; historical disabled uniforms retain

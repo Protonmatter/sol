@@ -38,14 +38,19 @@ export async function preparePhysicalSpinEvidence({body='Earth',terrain=false}={
   if(!globalThis.__solProgramSourceEvidence||!globalThis.__solPhysicalTextureEvidence||!globalThis.__solScatteringProducerEvidence)
     throw new Error('Physical draw observers must be installed before application startup');
   const entry=document.querySelector('script[type="module"][src^="app.js"]'),token=entry?new URL(entry.src).search:'';
-  const [{SCATTERING_SPHERE_VS:SPHERE_VS,SCATTERING_SPHERE_FS:SPHERE_FS},{getAtmosphereProfile,serializeAtmosphereProfile},{BODY},
-    {INCIDENT_FIELDS},{ATMOSPHERE_COLUMN_FIELDS},{store},{SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS,planAtmosphereScattering},{terrainReference}]=await Promise.all([
-      import(`./js/orreryShaders.js${token}`),import(`./js/atmosphereOptics.js${token}`),import(`./js/bodyData.js${token}`),
+  const [{physicalProgramSources},{getAtmosphereProfile,serializeAtmosphereProfile},{BODY},
+    {INCIDENT_FIELDS},{ATMOSPHERE_COLUMN_FIELDS},{store},{planAtmosphereScattering},{terrainReference}]=await Promise.all([
+      import(`./js/physicalProgramSources.js${token}`),import(`./js/atmosphereOptics.js${token}`),import(`./js/bodyData.js${token}`),
       import(`./js/atmosphereIncidentManifest.js${token}`),import(`./js/atmosphereColumnManifest.js${token}`),import(`./js/store.js${token}`),
       import(`./js/atmosphereScattering.js${token}`),import(`./js/terrainAssets.js${token}`),
     ]);
   const profile=getAtmosphereProfile(body),catalogue=BODY[body],incident=INCIDENT_FIELDS[body],columns=ATMOSPHERE_COLUMN_FIELDS[body];
   if(!profile||!catalogue||!incident||!columns)throw new Error('Physical spin body is not admitted');
+  const programs=physicalProgramSources(body),SPHERE_VS=programs.physicalSphere.vertex,SPHERE_FS=programs.physicalSphere.fragment;
+  const numerator=programs.scatteringNumerator,resolve=programs.scatteringResolve;
+  if(!!numerator!==!!resolve)throw Error('Incomplete live scattering source pair');
+  const generator=resolve||programs.scatteringGenerator;
+  const SCATTERING_GENERATOR_VS=generator.vertex,SCATTERING_GENERATOR_FS=generator.fragment;
   const terrainSource=terrain?terrainReference(body):null;
   if(terrain&&!terrainSource)throw new Error('Physical spin terrain source is not admitted');
   const datum=catalogue.radiusKm-profile.radiusKm;
@@ -62,8 +67,9 @@ export async function preparePhysicalSpinEvidence({body='Earth',terrain=false}={
   if(profileHash!==incident.profile_sha256||profileHash!==columns.profile_sha256)throw new Error('Physical spin source profile identity mismatch');
   await globalThis.__solPhysicalTextureEvidence.settle();
   globalThis.__solScatteringProducerEvidence.configure({vertexSource:SCATTERING_GENERATOR_VS,fragmentSource:SCATTERING_GENERATOR_FS,
-    getFrame:()=>store.orrery.scatteringFrame});
+    getFrame:()=>store.orrery.scatteringFrame,...(numerator?{numeratorVertexSource:numerator.vertex,numeratorFragmentSource:numerator.fragment}:{})});
   const summary={body,terrain,scattering_height_range_km:heightRange,scattering_sizes:sizes,
+    ...(numerator?{numerator_shader_sha256:{vertex:await hash(numerator.vertex),fragment:await hash(numerator.fragment)}}:{}),
     generator_shader_sha256:{vertex:generatorVertexHash,fragment:generatorFragmentHash},shader_sha256:{vertex:vertexHash,fragment:fragmentHash},profile_sha256:profileHash,
     fields:{incident:{sha256:incident.sha256,dimensions:incident.dimensions},columns:{sha256:columns.sha256,dimensions:columns.dimensions}}};
   const knownPrograms=new WeakMap(),locations=new WeakMap();
@@ -78,6 +84,7 @@ export async function preparePhysicalSpinEvidence({body='Earth',terrain=false}={
     u_atmosphereRayleighKm:profile.betaRayleighKm,u_atmosphereAerosolKm:profile.betaAerosolExtinctionKm,
     u_atmosphereAerosolSSA:profile.aerosolSingleScatteringAlbedo,
     u_incidentFieldHeight:[incident.domain.minHeightKm,incident.domain.maxHeightKm,Number(incident.domain.quadratic)]};
+  if(numerator){scalar.u_atmosphereOzoneField=10;vectors.u_atmosphereOzoneKm=profile.betaOzoneKm;}
   // Independently uploaded matrices, world camera and optical geometry are each
   // rounded to binary32. Propagate their rounding bins instead of comparing a
   // reconstruction with an arbitrary km/angle tolerance. The tiny outward pad

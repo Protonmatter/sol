@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {skyCard, systemCard} from '../../apps/web/js/destinationCards.js';
-import {BODY} from '../../apps/web/js/bodyData.js?v=dcca6290db';
+import {BODY} from '../../apps/web/js/bodyData.js';
 import {visualBrowsePreview} from '../../apps/web/js/visualAssets.js';
 import {MOONS} from '../../apps/web/js/moons.js';
 import {SYNCHRONOUS_MOONS} from '../../apps/web/js/moonorbits.js';
@@ -116,6 +116,15 @@ test('System missing, unknown and nonfinite facts remain unavailable without uns
     const card=systemCard({selected:'Mars'});
     assert.ok(card.facts.every(f=>f.value==='Unavailable'));
   } finally {Object.assign(BODY.Mars,original);}
+});
+
+test('System reference notes describe the same physical scale as body and system inspection',()=>{
+  for(const focusMode of ['inspect-body','inspect-system']){
+    const card=systemCard({selected:'Saturn',anchor:'Saturn',focusMode,trueScale:false});
+    assert.match(card.note,/Physical scale/);
+    assert.doesNotMatch(card.note,/enlarged for visibility/);
+  }
+  assert.match(systemCard({selected:'Saturn',anchor:'Sun',focusMode:'overview'}).note,/enlarged for visibility/);
 });
 
 test('Every catalogued moon has a useful inspector with reference facts and an honest shape/orientation limit',()=>{

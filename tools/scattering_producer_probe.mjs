@@ -5,11 +5,13 @@
 export function installScatteringProducerEvidence(){
   const prototype=globalThis.WebGL2RenderingContext?.prototype;
   if(!prototype||globalThis.__solScatteringProducerEvidence)return;
-  const contexts=new WeakMap(),allocations=new WeakMap();let outputs=new WeakMap(),sequence=0,configuration=null;
+  const contexts=new WeakMap(),allocations=new WeakMap(),mutations=new WeakMap(),protectedInputs=new WeakSet();let outputs=new WeakMap(),sequence=0,configuration=null;
   const counters={draws:0,sourceFiltered:0,candidateQueries:0,accepted:0,rejected:0};
   const atmosphereNames=['u_atmosphereEnabled','u_atmosphereRadiusKm','u_atmosphereTopKm','u_atmospherePolarRatio',
     'u_atmosphereDensityScaleKm','u_atmosphereRayleighKm','u_atmosphereAerosolKm','u_atmosphereAerosolSSA',
     'u_atmosphereG','u_atmosphereCameraKm','u_atmosphereSunDirection','u_atmosphereSolarScale','u_atmosphereExposure'];
+  const opticalNames=['u_atmosphereOzoneKm','u_atmosphereOzoneField'];
+  const paired=()=>typeof configuration?.numeratorFragmentSource==='string';
   const gridNames=['u_scatteringAxis','u_scatteringU','u_scatteringV','u_scatteringCameraRadius',
     'u_scatteringHeightRange','u_scatteringSurfaceSize','u_scatteringLimbSize'];
   const consumerGrids={surface:['u_scatteringU','u_scatteringV','u_scatteringHeightRange','u_scatteringSurfaceSize'],
@@ -19,16 +21,16 @@ export function installScatteringProducerEvidence(){
     const native=prototype[name];if(typeof native!=='function')return;
     prototype[name]=function(...args){const result=native.apply(this,args);try{after(this,args);}catch{outputs=new WeakMap();counters.rejected++;}return result;};
   };
-  const invalidateTexture=texture=>{if(texture)outputs.delete(texture);};
+  const invalidateTexture=texture=>{if(texture){outputs.delete(texture);mutations.set(texture,(mutations.get(texture)||0)+1);}};
   wrap('useProgram',(gl,[program])=>{state(gl).program=program;});
   wrap('activeTexture',(gl,[unit])=>{state(gl).unit=unit;});
   wrap('bindTexture',(gl,[target,texture])=>{if(target===gl.TEXTURE_2D){
     const s=state(gl),prior=s.textures.get(s.unit);
-    s.textures.set(s.unit,allocations.has(prior)||allocations.has(texture)?gl.getParameter(gl.TEXTURE_BINDING_2D):texture);
+    s.textures.set(s.unit,allocations.has(prior)||allocations.has(texture)||protectedInputs.has(prior)||protectedInputs.has(texture)?gl.getParameter(gl.TEXTURE_BINDING_2D):texture);
   }});
   wrap('bindFramebuffer',(gl,[target,framebuffer])=>{
     if(target===gl.DRAW_FRAMEBUFFER||target===gl.FRAMEBUFFER){
-      const s=state(gl),known=value=>allocations.has(s.attachments.get(value));
+      const s=state(gl),known=value=>allocations.has(s.attachments.get(value))||protectedInputs.has(s.attachments.get(value));
       // Query only transitions involving a known output FBO. An invalid native
       // bind must not let a CPU hint hide later writes to an admitted texture.
       s.framebuffer=known(s.framebuffer)||known(framebuffer)?gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING):framebuffer;
@@ -37,7 +39,7 @@ export function installScatteringProducerEvidence(){
   wrap('framebufferTexture2D',(gl,[target,attachment,_textureTarget,texture])=>{
     if((target===gl.DRAW_FRAMEBUFFER||target===gl.FRAMEBUFFER)&&attachment===gl.COLOR_ATTACHMENT0){
       const s=state(gl),prior=s.attachments.get(s.framebuffer);
-      s.attachments.set(s.framebuffer,allocations.has(prior)||allocations.has(texture)?
+      s.attachments.set(s.framebuffer,allocations.has(prior)||allocations.has(texture)||protectedInputs.has(prior)||protectedInputs.has(texture)?
         gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME):texture);
     }
   });
@@ -53,10 +55,13 @@ export function installScatteringProducerEvidence(){
     });
   for(const name of ['texParameteri','texParameterf'])wrap(name,gl=>{const s=state(gl);invalidateTexture(s.textures.get(s.unit));});
   wrap('deleteTexture',(_gl,[texture])=>{invalidateTexture(texture);if(texture)allocations.delete(texture);});
-  const matches=(gl,program)=>{
-    const linked=configuration&&globalThis.__solProgramSourceEvidence?.snapshot(gl,program);
-    return linked?.sources.length===2&&linked.sources.some(s=>s?.type===gl.VERTEX_SHADER&&s.source===configuration.vertexSource)
-      &&linked.sources.some(s=>s?.type===gl.FRAGMENT_SHADER&&s.source===configuration.fragmentSource)?linked:null;
+  const matches=(gl,program,stage='resolve')=>{
+    const vertex=stage==='numerator'?configuration?.numeratorVertexSource:configuration?.vertexSource;
+    const fragment=stage==='numerator'?configuration?.numeratorFragmentSource:configuration?.fragmentSource;
+    if(typeof vertex!=='string'||typeof fragment!=='string')return null;
+    const linked=globalThis.__solProgramSourceEvidence?.snapshot(gl,program);
+    return linked?.sources.length===2&&linked.sources.some(s=>s?.type===gl.VERTEX_SHADER&&s.source===vertex)
+      &&linked.sources.some(s=>s?.type===gl.FRAGMENT_SHADER&&s.source===fragment)?linked:null;
   };
   const sameFrame=(a,b)=>a&&b&&a.contextGeneration===b.contextGeneration&&a.sceneSerial===b.sceneSerial&&Object.is(a.epoch,b.epoch);
   const validFrame=frame=>frame&&Number.isSafeInteger(frame.contextGeneration)&&Number.isSafeInteger(frame.sceneSerial)
@@ -106,7 +111,7 @@ export function installScatteringProducerEvidence(){
     // Only known target FBOs need a driver attachment query; otherwise an
     // unrelated clear cannot establish or refresh any producer evidence.
     const s=state(gl),hint=s.attachments.get(s.framebuffer);
-    if(hint&&allocations.has(hint)){
+    if(hint&&(allocations.has(hint)||protectedInputs.has(hint))){
       try{if(gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING))invalidateTexture(attachment(gl));}
       catch{outputs=new WeakMap();}
     }
@@ -117,7 +122,8 @@ export function installScatteringProducerEvidence(){
   for(const name of ['drawElements','drawElementsInstanced','drawArraysInstanced','drawRangeElements'])wrap(name,gl=>invalidateAttached(gl));
   wrap('drawArrays',(gl,args)=>{
     if(!configuration)return;
-    counters.draws++;const hinted=state(gl).program,linked=matches(gl,hinted);
+    counters.draws++;const hinted=state(gl).program,numeratorLinked=matches(gl,hinted,'numerator'),linked=numeratorLinked||matches(gl,hinted);
+    const stage=numeratorLinked?'numerator':'resolve';
     if(!linked){counters.sourceFiltered++;invalidateAttached(gl);return;}
     counters.candidateQueries++;
     let texture;
@@ -136,7 +142,7 @@ export function installScatteringProducerEvidence(){
       if(!Array.from(gl.getParameter(gl.COLOR_WRITEMASK)).every(value=>value===true)||gl.getParameter(gl.DEPTH_WRITEMASK)!==false
         ||['BLEND','DEPTH_TEST','CULL_FACE','SCISSOR_TEST','STENCIL_TEST','RASTERIZER_DISCARD',
           'SAMPLE_COVERAGE','SAMPLE_ALPHA_TO_COVERAGE','DITHER'].some(name=>gl.isEnabled(gl[name])))throw Error('Producer write-state mismatch');
-      const uniforms=values(gl,hinted,[...atmosphereNames,...gridNames,'u_scatteringPass','u_atmosphereColumnField']);
+      const uniforms=values(gl,hinted,[...atmosphereNames,...gridNames,...(paired()?opticalNames:[]),'u_scatteringPass','u_atmosphereColumnField']);
       if(uniforms.u_atmosphereEnabled!==1)throw Error('Producer atmosphere disabled');
       const pass=uniforms.u_scatteringPass,dimensions=pass===0?
         [uniforms.u_scatteringSurfaceSize[0],uniforms.u_scatteringSurfaceSize[1]*uniforms.u_scatteringSurfaceSize[2]]:
@@ -151,7 +157,29 @@ export function installScatteringProducerEvidence(){
       }finally{gl.activeTexture(selector);}
       if(!column||column.status!=='ready'||column.internalFormat!==gl.RG32F)throw Error('Producer column upload absent');
       const frame=configuration.getFrame();if(!validFrame(frame))throw Error('Producer scene identity absent');
-      outputs.set(texture,{gl,texture,storageSequence:storage.sequence,sequence:++sequence,program:hinted,programSequence:linked.sequence,
+      let packedTexture=null,packedRevision=0,numerator=null;
+      if(paired()){
+        if(uniforms.u_atmosphereOzoneField!==10)throw Error('Producer packed optical sampler mismatch');
+        const selector=gl.getParameter(gl.ACTIVE_TEXTURE);
+        try{
+          gl.activeTexture(gl.TEXTURE0+10);packedTexture=gl.getParameter(gl.TEXTURE_BINDING_2D);
+          if(!packedTexture||gl.getParameter(gl.SAMPLER_BINDING)!==null)throw Error('Producer packed optical input absent or overridden');
+          protectedInputs.add(packedTexture);packedRevision=mutations.get(packedTexture)||0;
+          if(stage==='resolve'){
+            if(values(gl,hinted,['u_scatteringNumerator']).u_scatteringNumerator!==6)throw Error('Resolve numerator sampler mismatch');
+            gl.activeTexture(gl.TEXTURE0+6);const scratch=gl.getParameter(gl.TEXTURE_BINDING_2D),record=outputs.get(scratch);
+            if(gl.getParameter(gl.SAMPLER_BINDING)!==null||scratch===texture||!record||record.stage!=='numerator'||record.gl!==gl
+              ||record.pass!==pass||!sameFrame(record.frame,frame)||allocations.get(scratch)?.sequence!==record.storageSequence
+              ||matches(gl,record.program,'numerator')?.sequence!==record.programSequence
+              ||record.columnTexture!==columnTexture||record.column.sha256!==column.sha256||record.column.sequence!==column.sequence
+              ||record.packedTexture!==packedTexture||record.packedRevision!==packedRevision
+              ||[...atmosphereNames,...gridNames,...opticalNames].some(name=>JSON.stringify(record.uniforms[name])!==JSON.stringify(uniforms[name])))
+              throw Error('Resolve lacks the exact current numerator dependency');
+            numerator=record;
+          }
+        }finally{gl.activeTexture(selector);}
+      }
+      outputs.set(texture,{gl,texture,stage,numerator,packedTexture,packedRevision,storageSequence:storage.sequence,sequence:++sequence,program:hinted,programSequence:linked.sequence,
         pass,uniforms,columnTexture,column:{sha256:column.sha256,sequence:column.sequence},frame:{...frame}});
       counters.accepted++;
     }catch{invalidateTexture(texture);counters.rejected++;}
@@ -160,6 +188,10 @@ export function installScatteringProducerEvidence(){
     configure(value){
       if(!value||typeof value.vertexSource!=='string'||typeof value.fragmentSource!=='string'||typeof value.getFrame!=='function')
         throw Error('Immutable scattering generator configuration required');
+      const hasNumerator=value.numeratorVertexSource!==undefined||value.numeratorFragmentSource!==undefined;
+      if(hasNumerator&&(typeof value.numeratorVertexSource!=='string'||!value.numeratorVertexSource||typeof value.numeratorFragmentSource!=='string'
+        ||!value.numeratorFragmentSource||(value.numeratorVertexSource===value.vertexSource&&value.numeratorFragmentSource===value.fragmentSource)))
+        throw Error('Complete distinct paired numerator source required');
       configuration={...value};outputs=new WeakMap();
     },
     capture(gl,program,consumerUniforms,{frame,columnTexture,published,heightRange,sizes,consumerKind='surface'}){
@@ -175,12 +207,19 @@ export function installScatteringProducerEvidence(){
         if(!Array.isArray(heightRange)||heightRange.length!==2||!heightRange.every(Number.isFinite)
           ||!Array.isArray(sizes?.surface)||sizes.surface.length!==3||!Array.isArray(sizes?.limb)||sizes.limb.length!==2)
           return rejected('Admitted scattering source plan is absent');
+        let packedTexture=null,packedRevision=0;
+        if(paired()){
+          if(values(gl,program,['u_atmosphereOzoneField']).u_atmosphereOzoneField!==10)return rejected('Consumer packed optical sampler mismatch');
+          gl.activeTexture(gl.TEXTURE0+10);packedTexture=gl.getParameter(gl.TEXTURE_BINDING_2D);
+          if(!packedTexture||gl.getParameter(gl.SAMPLER_BINDING)!==null)return rejected('Consumer packed optical input absent or overridden');
+          packedRevision=mutations.get(packedTexture)||0;
+        }
         for(const pass of [0,1]){
           gl.activeTexture(gl.TEXTURE0+8+pass);const texture=gl.getParameter(gl.TEXTURE_BINDING_2D),record=outputs.get(texture),storage=allocations.get(texture);
           if(gl.getParameter(gl.SAMPLER_BINDING)!==null||!record||record.gl!==gl||record.pass!==pass||storage?.sequence!==record.storageSequence
             ||!sameFrame(record.frame,frame)||record.columnTexture!==columnTexture||matches(gl,record.program)?.sequence!==record.programSequence)
             return rejected('Actual bound scattering texture lacks a matching current producer draw');
-          if([...atmosphereNames,...consumerGridNames].some(name=>JSON.stringify(record.uniforms[name])!==JSON.stringify(consumerGridNames.includes(name)?grid[name]:consumerUniforms[name])))
+          if([...atmosphereNames,...consumerGridNames,...(paired()?['u_atmosphereOzoneKm']:[])].some(name=>JSON.stringify(record.uniforms[name])!==JSON.stringify(consumerGridNames.includes(name)?grid[name]:consumerUniforms[name])))
             return rejected('Producer geometry, profile or grid does not match the actual consumer');
           if(heightRange.some((value,i)=>record.uniforms.u_scatteringHeightRange[i]!==Math.fround(value))
             ||JSON.stringify(record.uniforms.u_scatteringSurfaceSize)!==JSON.stringify(sizes.surface)
@@ -190,13 +229,15 @@ export function installScatteringProducerEvidence(){
           const column=globalThis.__solPhysicalTextureEvidence?.snapshot(gl,columnTexture);
           if(column?.status!=='ready'||column.sha256!==record.column.sha256||column.sequence!==record.column.sequence)
             return rejected('Producer column upload changed');
+          if(paired()&&(!record.numerator||matches(gl,record.numerator.program,'numerator')?.sequence!==record.numerator.programSequence
+            ||record.packedTexture!==packedTexture||record.packedRevision!==packedRevision))return rejected('Paired producer dependency or packed optical revision changed');
           records.push(record);
         }
         if(records[0].sequence>=records[1].sequence||records[0].program!==records[1].program||records[0].programSequence!==records[1].programSequence)
           return rejected('Scattering pass pair is incomplete or mismatched');
         return {passed:true,consumerKind,observedConsumerUniforms:grid,frame:{...frame},programSequence:records[0].programSequence,counters:{...counters},
           passes:records.map(record=>({pass:record.pass,drawSequence:record.sequence,storageSequence:record.storageSequence,
-            uniforms:record.uniforms,column:record.column}))};
+            uniforms:record.uniforms,column:record.column,...(record.numerator?{numerator:{drawSequence:record.numerator.sequence,storageSequence:record.numerator.storageSequence,programSequence:record.numerator.programSequence,uniforms:record.numerator.uniforms,column:record.numerator.column}}:{})}))};
       }catch(error){return rejected(`Scattering producer inspection failed: ${error.message}`);}
       finally{gl.activeTexture(selector);}
     },
@@ -207,10 +248,17 @@ export function installScatteringProducerEvidence(){
  * and status checks continue, while its observed actual triangle draws are held.
  * Call endScatteringProducerHold in finally after the normal five-second probe.
  */
-export async function beginScatteringProducerHold(){
+export async function beginScatteringProducerHold({stage='all'}={}){
+  if(!['all','numerator','resolve'].includes(stage))throw Error('Unknown scattering hold stage');
   if(globalThis.__solScatteringProducerHold)throw Error('Scattering hold control already active');
   const entry=document.querySelector('script[type="module"][src^="app.js"]'),query=entry?new URL(entry.src).search:'';
-  const {SCATTERING_GENERATOR_VS,SCATTERING_GENERATOR_FS}=await import(`./js/atmosphereScattering.js${query}`);
+  const {physicalProgramSources}=await import(`./js/physicalProgramSources.js${query}`);
+  const generators=['Earth','Mars'].flatMap(body=>{
+    const p=physicalProgramSources(body);
+    if(p.scatteringNumerator&&p.scatteringResolve)return stage==='all'?[p.scatteringNumerator,p.scatteringResolve]:[stage==='numerator'?p.scatteringNumerator:p.scatteringResolve];
+    return stage==='numerator'?[]:[p.scatteringGenerator];
+  });
+  if(!generators.length)throw Error('Requested scattering hold stage is unavailable');
   const gl=document.getElementById('orreryCanvas').getContext('webgl2'),sources=globalThis.__solProgramSourceEvidence;
   if(!gl||gl.isContextLost()||!sources)throw Error('Observed live scattering context required');
   const nativeDraw=gl.drawArrays,nativeUse=gl.useProgram;
@@ -219,9 +267,9 @@ export async function beginScatteringProducerHold(){
   const draw=function(...args){
     if(this===gl&&args[0]===gl.TRIANGLES&&args[1]===0&&args[2]===3){
       const linked=sources.snapshot(gl,hint);
-      const matches=linked?.sources.length===2
-        &&linked.sources.some(s=>s?.type===gl.VERTEX_SHADER&&s.source===SCATTERING_GENERATOR_VS)
-        &&linked.sources.some(s=>s?.type===gl.FRAGMENT_SHADER&&s.source===SCATTERING_GENERATOR_FS);
+      const matches=linked?.sources.length===2&&generators.some(source=>
+        linked.sources.some(s=>s?.type===gl.VERTEX_SHADER&&s.source===source.vertex)
+        &&linked.sources.some(s=>s?.type===gl.FRAGMENT_SHADER&&s.source===source.fragment));
       if(matches){
         counts.candidateQueries++;
         if(gl.getParameter(gl.CURRENT_PROGRAM)===hint){counts.held++;return;}

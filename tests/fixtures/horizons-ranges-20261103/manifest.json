@@ -1,0 +1,752 @@
+{
+  "schema_version": "horizons-range-reference.v1",
+  "source": "NASA/JPL Horizons API",
+  "api_version": "1.2",
+  "endpoint": "https://ssd.jpl.nasa.gov/api/horizons.api",
+  "scope": "Q20 apparent down-leg light-time-aberrated Earth-geocentric and Earth-geodetic observer ranges at recorded instants/sites only",
+  "limitations": "Four instants on 2026-07-01, nine bodies. No continuous span, heliocentric vector, event or UI registry qualification.",
+  "acquisition_started_utc": "2026-11-03T23:13:29.144363+00:00",
+  "acquisition_finished_utc": "2026-11-03T23:14:22.750226+00:00",
+  "acceptance": {
+    "relative_range": 1e-05,
+    "absolute_floor_km": 1.0,
+    "au_km": 149597870.7
+  },
+  "query_provider": {
+    "path": "query-provider.txt",
+    "bytes": 33771,
+    "sha256": "0246a19cf1593643deaea8e540831c8d5808854904b27a486761b0ed2e410c15"
+  },
+  "predeclared_plan": {
+    "path": "predeclared-plan.txt",
+    "bytes": 2861,
+    "sha256": "da29e30a47e4f06b7386af575d2d7702fddfb0c46107d3913b92e93c076acd28"
+  },
+  "derived_matrix": {
+    "path": "ranges.csv",
+    "bytes": 8673,
+    "sha256": "2cf479560c643f17435f4e6c66062d3283cfb4cbce5b2f9168aed5c7cee656db"
+  },
+  "records": [
+    {
+      "case": "Boston",
+      "body": "Sun",
+      "kind": "observer",
+      "path": "boston-sun-observer.txt",
+      "bytes": 7754,
+      "sha256": "c6908a3d31a479c7f81216779643154fde3bc7e3b1cb99ebd8ba7bb93e00a8ea",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:29.606141+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Sun",
+      "kind": "geocentric",
+      "path": "boston-sun-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "89a6dfc1566f517328fed264f26d20f9f3eb2c4c218fc895afdce9e053adad20",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:30.340810+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Moon",
+      "kind": "observer",
+      "path": "boston-moon-observer.txt",
+      "bytes": 7756,
+      "sha256": "183e57165c4af4b364193179528a72dc70afe0071735becd7e07fc739e5261a3",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:31.058749+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Moon",
+      "kind": "geocentric",
+      "path": "boston-moon-geocentric.txt",
+      "bytes": 5785,
+      "sha256": "a3091ff3dea2b9d7beefcb4b352d0305dae7297bda6c77f78f6baf5787771ed0",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:31.772214+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Mercury",
+      "kind": "observer",
+      "path": "boston-mercury-observer.txt",
+      "bytes": 7754,
+      "sha256": "955a0792c9ab87906bd015947bf70e36f187c88b955d84dd0d467f3593f594dd",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:32.481186+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Mercury",
+      "kind": "geocentric",
+      "path": "boston-mercury-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "3f0064c0da3c9e187546388ed938c3af6eeffcc015d1e5aa47f7b5fc9d1b325a",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:33.190304+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Venus",
+      "kind": "observer",
+      "path": "boston-venus-observer.txt",
+      "bytes": 7754,
+      "sha256": "f42fdce2419747a6196f5720a4538740721c680b3e6db5936338242e2ff295cc",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:33.926255+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Venus",
+      "kind": "geocentric",
+      "path": "boston-venus-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "229a140ca7fb1c466411cdd1b3d5b331151e1a7d751c829939eed21f75a85343",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:34.644052+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Mars",
+      "kind": "observer",
+      "path": "boston-mars-observer.txt",
+      "bytes": 7755,
+      "sha256": "d631182e6c80880d424ab49d7664311d56be8505057d511a78184312f6c1622e",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:35.363646+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Mars",
+      "kind": "geocentric",
+      "path": "boston-mars-geocentric.txt",
+      "bytes": 5784,
+      "sha256": "cd2696ea6692c0e3dad559aba98bf76e9dd192f83ee8649d1861c6fae3ff945d",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:36.105075+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Jupiter",
+      "kind": "observer",
+      "path": "boston-jupiter-observer.txt",
+      "bytes": 7778,
+      "sha256": "4275941f6349f324c1b8b7544c2921800e269c10fa57c53c1beaee999ad35c21",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:36.843172+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Jupiter",
+      "kind": "geocentric",
+      "path": "boston-jupiter-geocentric.txt",
+      "bytes": 5807,
+      "sha256": "4ff64713a88f805e623e04e1845d8e75cd6e6952f9cb3846fc22dfaee7e3fc50",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:37.556755+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Saturn",
+      "kind": "observer",
+      "path": "boston-saturn-observer.txt",
+      "bytes": 7756,
+      "sha256": "82472b023e919961e3eb8b9820783b7ea2426137fb53e8d89d4d2218f0d6f957",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:38.282980+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Saturn",
+      "kind": "geocentric",
+      "path": "boston-saturn-geocentric.txt",
+      "bytes": 5785,
+      "sha256": "8a97a2b494f87ad7ff117e83ca3982934513a2e67007d86833db7f34e6ccdc4d",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:38.997738+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Uranus",
+      "kind": "observer",
+      "path": "boston-uranus-observer.txt",
+      "bytes": 7762,
+      "sha256": "544800e15e4909104959fb36c7d4ce0d1bb4da64905c27b7880f9185aaae6773",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:39.756184+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Uranus",
+      "kind": "geocentric",
+      "path": "boston-uranus-geocentric.txt",
+      "bytes": 5791,
+      "sha256": "a845142281998470d3b74489b620a33a604b55cd1f3e31f19faec36d29898d39",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:40.503697+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Neptune",
+      "kind": "observer",
+      "path": "boston-neptune-observer.txt",
+      "bytes": 7778,
+      "sha256": "40d4dd662bcaac99f0a031365c44590c835220f78d777e52ba3518162a65a159",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-71.06%2C42.36%2C0.01%27",
+      "acquired_at_utc": "2026-11-03T23:13:41.219815+00:00"
+    },
+    {
+      "case": "Boston",
+      "body": "Neptune",
+      "kind": "geocentric",
+      "path": "boston-neptune-geocentric.txt",
+      "bytes": 5807,
+      "sha256": "9d462d0bee539a01a2dbe3c0a4b17282f9bb2b643894d24b20770eba61541d74",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.5929050925%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:41.978356+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Sun",
+      "kind": "observer",
+      "path": "sydney-sun-observer.txt",
+      "bytes": 7754,
+      "sha256": "f4dd717e2ad5c2aaffc076ee6003967238f0dd02e16fd4c559654772e8401573",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:42.696402+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Sun",
+      "kind": "geocentric",
+      "path": "sydney-sun-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "0749cce77bf40fabc2aa0141b19a876f92f776cbf685bd0453e9fa5e4e7ef15e",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:43.433355+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Moon",
+      "kind": "observer",
+      "path": "sydney-moon-observer.txt",
+      "bytes": 7756,
+      "sha256": "6931790236a0a76818dc24ea7e3773af3aaab43d0bf0c67c49420323ecfe1495",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:44.144652+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Moon",
+      "kind": "geocentric",
+      "path": "sydney-moon-geocentric.txt",
+      "bytes": 5785,
+      "sha256": "0a9a5f9b3fed3172e3c1744e6a01ffba5781f225f17b8292b084199cbbe8c1ee",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:44.879207+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Mercury",
+      "kind": "observer",
+      "path": "sydney-mercury-observer.txt",
+      "bytes": 7754,
+      "sha256": "5c9602f65081c99368a1ea9560966d0fe4fc27d4854f1a2228dcbc633383a93e",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:45.617995+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Mercury",
+      "kind": "geocentric",
+      "path": "sydney-mercury-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "0408d0aa953fa971d90f5506bdf8755253b91c9c87a0dd226674d88055cd7cfb",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:46.334138+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Venus",
+      "kind": "observer",
+      "path": "sydney-venus-observer.txt",
+      "bytes": 7754,
+      "sha256": "1cfeb83c3e5b9177732c91a54f11815074f1cd788490af6155a36ae1e0515efc",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:47.068362+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Venus",
+      "kind": "geocentric",
+      "path": "sydney-venus-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "6d13627e23cf2ae91916e0e38b092f8de85531d20ca38201ec0940ec5634b4d9",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:47.779995+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Mars",
+      "kind": "observer",
+      "path": "sydney-mars-observer.txt",
+      "bytes": 7755,
+      "sha256": "521a1630850d1e78c8c2b5fbd86c6656b1da2e87dbf9c8081b58a8bb9c234211",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:48.491219+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Mars",
+      "kind": "geocentric",
+      "path": "sydney-mars-geocentric.txt",
+      "bytes": 5784,
+      "sha256": "8b47c037d192c0084429607ad478eb727f6d5101b164f361412e01e99196e03e",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:49.222076+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Jupiter",
+      "kind": "observer",
+      "path": "sydney-jupiter-observer.txt",
+      "bytes": 7778,
+      "sha256": "1fec71a917fada659b038e14e48e4e8624e28b6b042949c13737a82e12b43b0e",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:49.945218+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Jupiter",
+      "kind": "geocentric",
+      "path": "sydney-jupiter-geocentric.txt",
+      "bytes": 5807,
+      "sha256": "0922999d0e41bf2e7cd50b59f01de9e73855866d2d22540ed84667d7223445d1",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:50.660149+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Saturn",
+      "kind": "observer",
+      "path": "sydney-saturn-observer.txt",
+      "bytes": 7756,
+      "sha256": "84730d628f81da5c525691fc9cf8cb71f4554917ec66ff70106e0a00075f7782",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:51.388057+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Saturn",
+      "kind": "geocentric",
+      "path": "sydney-saturn-geocentric.txt",
+      "bytes": 5785,
+      "sha256": "32402fb59a8b925719898cc345934fda9ae671c4e6c8c76073e1bccb2497363b",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:52.100316+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Uranus",
+      "kind": "observer",
+      "path": "sydney-uranus-observer.txt",
+      "bytes": 7762,
+      "sha256": "79fa846599179c58b3479d3e189078d4a75ecd3b8ee0a70c56d203e0100d2cb3",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:52.833693+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Uranus",
+      "kind": "geocentric",
+      "path": "sydney-uranus-geocentric.txt",
+      "bytes": 5791,
+      "sha256": "8495211ec01ecfcff047dc983c20232db2687f9be7cfa1e259ce5b056a315a91",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:53.553107+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Neptune",
+      "kind": "observer",
+      "path": "sydney-neptune-observer.txt",
+      "bytes": 7778,
+      "sha256": "72700314fb9c486564de08be692443fdf11c53d6577c7d43ba0aefd64b6116c5",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27151.21%2C-33.87%2C0.02%27",
+      "acquired_at_utc": "2026-11-03T23:13:54.305424+00:00"
+    },
+    {
+      "case": "Sydney",
+      "body": "Neptune",
+      "kind": "geocentric",
+      "path": "sydney-neptune-geocentric.txt",
+      "bytes": 5807,
+      "sha256": "1b8410b15efbda98bda2b5e4511397905e55bf552469782463597c0555f6a452",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461222.8550810185%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:55.069083+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Sun",
+      "kind": "observer",
+      "path": "reykjavik-sun-observer.txt",
+      "bytes": 7754,
+      "sha256": "da966fcdcffe75b89caa121ec60b77cdb6039ca0e77cd7b3c6576943295be2ed",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:13:55.826279+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Sun",
+      "kind": "geocentric",
+      "path": "reykjavik-sun-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "e0accba898895d82e6319bce772d4637e567ca0ffa06fbeeaa0649b5753268ef",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:56.558735+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Moon",
+      "kind": "observer",
+      "path": "reykjavik-moon-observer.txt",
+      "bytes": 7756,
+      "sha256": "35a0cadfb3ce24666bf7a4a751543c84d64e72268aa32c657dc3c247177fa2da",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:13:57.294241+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Moon",
+      "kind": "geocentric",
+      "path": "reykjavik-moon-geocentric.txt",
+      "bytes": 5785,
+      "sha256": "2c10edf2cfd0d54570d517de8f76b7382b524033e48ed9cbc7076155e23552ce",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:58.011120+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Mercury",
+      "kind": "observer",
+      "path": "reykjavik-mercury-observer.txt",
+      "bytes": 7754,
+      "sha256": "dce7596acb1f6f9d31bc2c438a5ae00b68dcf3a51e2f128578d96bf433a4bd24",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:13:58.784291+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Mercury",
+      "kind": "geocentric",
+      "path": "reykjavik-mercury-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "918c0e90f444ac4e541b29b66ce4587b2b456806a0ba48867dc3a173dc44adc7",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:13:59.496954+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Venus",
+      "kind": "observer",
+      "path": "reykjavik-venus-observer.txt",
+      "bytes": 7754,
+      "sha256": "e94306e6462c51864fd1d6314db2f8c14fe962e0ca84fa7c3064b2582c869cd1",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:14:00.226501+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Venus",
+      "kind": "geocentric",
+      "path": "reykjavik-venus-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "b68bc5cea8a8528a6f35694312d86b375cabd9001ec354d12298cdd3c92b8150",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:00.945833+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Mars",
+      "kind": "observer",
+      "path": "reykjavik-mars-observer.txt",
+      "bytes": 7755,
+      "sha256": "42fe89ca97747ba8b279de26aeb59e370b4730379b8873042df207657b32b9c1",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:14:01.663423+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Mars",
+      "kind": "geocentric",
+      "path": "reykjavik-mars-geocentric.txt",
+      "bytes": 5784,
+      "sha256": "ad11c61a9d8070947e87d8b65e2bc3a4a8903054f582240223b4195cc17152e7",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:02.377555+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Jupiter",
+      "kind": "observer",
+      "path": "reykjavik-jupiter-observer.txt",
+      "bytes": 7778,
+      "sha256": "44152ca60f3836ba43d5ba30643d4edb2ce958fa272f54372f2d1cf357d842ab",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:14:03.139278+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Jupiter",
+      "kind": "geocentric",
+      "path": "reykjavik-jupiter-geocentric.txt",
+      "bytes": 5807,
+      "sha256": "3f9c23c8f4905e11acdb1441a9e3559f5b4e633370570db02f545f57e23936ae",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:03.880264+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Saturn",
+      "kind": "observer",
+      "path": "reykjavik-saturn-observer.txt",
+      "bytes": 7756,
+      "sha256": "f00f88f49ed72d1650c0c289b8483aefc5e3958432791433acc5f9402ab85a53",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:14:04.603534+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Saturn",
+      "kind": "geocentric",
+      "path": "reykjavik-saturn-geocentric.txt",
+      "bytes": 5785,
+      "sha256": "8737804a7e664955dfcd71a544e2b9e16f6e72b77fa7613b8d8e8da70b1f98eb",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:05.324515+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Uranus",
+      "kind": "observer",
+      "path": "reykjavik-uranus-observer.txt",
+      "bytes": 7762,
+      "sha256": "4b7c74870e90a5c39dfc237dd5b602ad6b8aac6d7146a6fced3d1a848c23c37a",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:14:06.060384+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Uranus",
+      "kind": "geocentric",
+      "path": "reykjavik-uranus-geocentric.txt",
+      "bytes": 5791,
+      "sha256": "00d79291d42ecce83f6b0a65861e3dbd2996e1d8dbb92a3956a98bda4b40def8",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:06.776893+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Neptune",
+      "kind": "observer",
+      "path": "reykjavik-neptune-observer.txt",
+      "bytes": 7778,
+      "sha256": "36eb054ee8c50b174f93a83fa69c528a269b22e804678e90da40321c79e705bc",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27-21.9%2C64.13%2C0.025%27",
+      "acquired_at_utc": "2026-11-03T23:14:07.521839+00:00"
+    },
+    {
+      "case": "Reykjavik",
+      "body": "Neptune",
+      "kind": "geocentric",
+      "path": "reykjavik-neptune-geocentric.txt",
+      "bytes": 5807,
+      "sha256": "14a29103600f50b33de08f3bf826edeb6ca5b4ebbc7c673bfc675bfd77575dab",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.1139236111%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:08.285187+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Sun",
+      "kind": "observer",
+      "path": "nairobi-sun-observer.txt",
+      "bytes": 7754,
+      "sha256": "4470486f50b83bb6fd213922b94550211cf66f6a90b2b3073fc13e6e9529673a",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:09.013544+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Sun",
+      "kind": "geocentric",
+      "path": "nairobi-sun-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "3b18039766e41ada944a7bd66f3ce9f78adf0f550a7f701bc66ad4c3e03cc7e0",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:09.759938+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Moon",
+      "kind": "observer",
+      "path": "nairobi-moon-observer.txt",
+      "bytes": 7756,
+      "sha256": "5a6b25c0d6857070a902ea9c83dcb2307238b657de72a7df77bdbd8fa35eddfa",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:10.483873+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Moon",
+      "kind": "geocentric",
+      "path": "nairobi-moon-geocentric.txt",
+      "bytes": 5785,
+      "sha256": "e2857fc35718424805de97f7175c380714eb1e8405a00543f2d9b57de3f0f4d8",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:11.241570+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Mercury",
+      "kind": "observer",
+      "path": "nairobi-mercury-observer.txt",
+      "bytes": 7754,
+      "sha256": "7ee42720bcf637e649fa37d41c753e60612b391c891f97a1537196349e8e72e1",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:11.959253+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Mercury",
+      "kind": "geocentric",
+      "path": "nairobi-mercury-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "e22fb10b90b6543bfd129385db89c479d06c215ece84b9ad913101e32738773a",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27199%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:12.680491+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Venus",
+      "kind": "observer",
+      "path": "nairobi-venus-observer.txt",
+      "bytes": 7754,
+      "sha256": "34398924329ac37492b0479e1f1d0e390b3a9512b96f41930eb89cb6f308dd55",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:13.405529+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Venus",
+      "kind": "geocentric",
+      "path": "nairobi-venus-geocentric.txt",
+      "bytes": 5783,
+      "sha256": "b24350a53acbf04bb972b09d7c6b2d596a49a46588cc3737ef90728444bbc73e",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27299%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:14.125748+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Mars",
+      "kind": "observer",
+      "path": "nairobi-mars-observer.txt",
+      "bytes": 7755,
+      "sha256": "f5dc802d805a563d6765565133241f67142f1a5dd54283b4d98f14a9f761dc3c",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:14.837452+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Mars",
+      "kind": "geocentric",
+      "path": "nairobi-mars-geocentric.txt",
+      "bytes": 5784,
+      "sha256": "b148c025c20cc6520a723df00e1010579a152d4a771814553ac9ec5dbd7c1c2b",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27499%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:15.562676+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Jupiter",
+      "kind": "observer",
+      "path": "nairobi-jupiter-observer.txt",
+      "bytes": 7778,
+      "sha256": "9348f39e4453e56904e23b6607429166e89f5151e79e43956b3ce1ba4ea3daa5",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:16.310053+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Jupiter",
+      "kind": "geocentric",
+      "path": "nairobi-jupiter-geocentric.txt",
+      "bytes": 5807,
+      "sha256": "266adfaf34fc742e2a1898924a3be6f60909fe38cb295e8343a435f981587c16",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27599%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:17.037867+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Saturn",
+      "kind": "observer",
+      "path": "nairobi-saturn-observer.txt",
+      "bytes": 7756,
+      "sha256": "77ec23cae21d7ac652c435871f9d01b578d8957c944d185e86fe864c6954f8d5",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:17.767757+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Saturn",
+      "kind": "geocentric",
+      "path": "nairobi-saturn-geocentric.txt",
+      "bytes": 5785,
+      "sha256": "d037c0da0254e656712526fdde685e92643b3ca47adfcf1092d18d5dde3b9b3f",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27699%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:18.484956+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Uranus",
+      "kind": "observer",
+      "path": "nairobi-uranus-observer.txt",
+      "bytes": 7762,
+      "sha256": "f5fd3ba539f74111783c6a3d036542d8592a619ffd4495888757a80a4b21e89f",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:19.216536+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Uranus",
+      "kind": "geocentric",
+      "path": "nairobi-uranus-geocentric.txt",
+      "bytes": 5791,
+      "sha256": "c85a58c961997e1631136f41a15fcf392ba105c90ff054162eb4efa92a4662e7",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27799%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:20.982732+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Neptune",
+      "kind": "observer",
+      "path": "nairobi-neptune-observer.txt",
+      "bytes": 7778,
+      "sha256": "fdea9a5eb96bef2f08cdb88ead7279838fe6f08563259ead4e9a22326ac37d01",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C4%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2736.82%2C-1.29%2C1.66%27",
+      "acquired_at_utc": "2026-11-03T23:14:21.729343+00:00"
+    },
+    {
+      "case": "Nairobi",
+      "body": "Neptune",
+      "kind": "geocentric",
+      "path": "nairobi-neptune-geocentric.txt",
+      "bytes": 5807,
+      "sha256": "a6ac7e82273e87619b757c06d1f4fe649b5069ea545cec3c257a04932e32177f",
+      "request_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND=%27899%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27500%40399%27&TLIST=%272461223.3733912036%27&TLIST_TYPE=%27JD%27&TIME_TYPE=%27UT%27&CAL_FORMAT=%27JD%27&CAL_TYPE=%27GREGORIAN%27&TIME_DIGITS=%27FRACSEC%27&QUANTITIES=%272%2C20%27&ANG_FORMAT=%27DEG%27&APPARENT=%27AIRLESS%27",
+      "acquired_at_utc": "2026-11-03T23:14:22.449506+00:00"
+    }
+  ]
+}

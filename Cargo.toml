@@ -21,11 +21,21 @@ repository = "https://github.com/Protonmatter/sol"
 # job (and lower this deliberately) before the first crates.io release if older matters.
 rust-version = "1.85"
 
-# The two cdylibs ship to browsers on every page load — optimize the artifact, not the
-# compile: z + fat LTO + one codegen unit + abort typically ~halves a raw wasm binary.
+# Keep compact native release builds; tests and native consumers use the default
+# unwind strategy. Browser-specific abort and speed settings live below.
 [profile.release]
 opt-level = "z"
 lto = true
 codegen-units = 1
-panic = "abort"
 strip = true
+
+# Browser builds keep the release size/LTO settings but never unwind across the
+# raw WASM ABI. A separate profile avoids native test abort/unwind collisions.
+[profile.wasm-release]
+inherits = "release"
+panic = "abort"
+
+# Full-precision ephemeris evaluation is a measured per-frame hot path. This
+# speed optimization is WASM-only; no fast-math flags or accuracy changes.
+[profile.wasm-release.package.solar-ephemeris]
+opt-level = 3

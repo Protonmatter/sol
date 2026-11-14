@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
-import { accuracyForSelection, epochAccuracy, renderedEpochLabel } from "../../apps/web/js/accuracy.js";
+import { accuracyForSelection, epochAccuracy, epochAccuracyAtUnix, renderedEpochLabel } from "../../apps/web/js/accuracy.js";
 const catalog=JSON.parse(fs.readFileSync(new URL("../../apps/web/data/accuracy-evidence.json",import.meta.url),"utf8"));
 test("source parity does not claim independent accuracy even at the recorded epoch",()=>{
   const r=catalog.records[0], selection={body:r.body,quantity:r.quantity,jd:r.tested_epochs_jd[0],observerDomain:r.observer_domain};
@@ -15,6 +15,45 @@ test("source parity does not claim independent accuracy even at the recorded epo
 test("UI epoch labels do not promote an untested span",()=>{
   for(const kind of ["helio","sky"]) for(const years of [0,100,5000,6000]) assert.match(epochAccuracy(years,kind).text,/unvalidated/i);
   assert.match(renderedEpochLabel(0),/1970-01-01.*proleptic Gregorian/);
+});
+
+test("approved precision target includes every UTC instant of years 1900 through 2200",()=>{
+  for(const kind of ["helio","sky"]) {
+    for(const iso of ["1900-01-01T00:00:00.000Z","2000-02-29T12:00:00.000Z","2200-12-31T23:59:59.999Z"]) {
+      const result=epochAccuracyAtUnix(Date.parse(iso)/1000,kind);
+      assert.equal(result.level,"ok");
+      assert.match(result.text,/1900–2200/);
+      assert.match(result.text,/pending/i);
+      assert.match(result.text,/unvalidated/i);
+      assert.doesNotMatch(result.text,/approximate exploration/i);
+    }
+    for(const iso of ["0001-01-01T00:00:00.000Z","1899-12-31T23:59:59.999Z","2201-01-01T00:00:00.000Z","9999-12-31T23:59:59.000Z"]) {
+      const result=epochAccuracyAtUnix(Date.parse(iso)/1000,kind);
+      assert.equal(result.level,"rough");
+      assert.match(result.text,/approximate exploration/i);
+      assert.match(result.text,/1900–2200/);
+      assert.match(result.text,/unvalidated/i);
+    }
+  }
+});
+
+test("absolute precision classification is independent of wall-clock time and rejects invalid instants",()=>{
+  const original=Date.now;
+  const unix=Date.parse("1900-01-01T00:00:00Z")/1000;
+  const expected=epochAccuracyAtUnix(unix,"helio");
+  try {
+    for(const now of [Date.parse("2026-11-04T00:00:00Z"),Date.parse("2300-06-01T00:00:00Z")]) {
+      Date.now=()=>now;
+      assert.deepEqual(epochAccuracyAtUnix(unix,"helio"),expected);
+      assert.deepEqual(epochAccuracy((unix-now/1000)/(365.25*86400),"helio"),expected);
+    }
+  } finally {Date.now=original;}
+  for(const value of [NaN,Infinity,-Infinity,null,"1900",undefined]) {
+    const result=epochAccuracyAtUnix(value,"sky");
+    assert.equal(result.level,"rough");
+    assert.match(result.text,/unavailable/i);
+    assert.match(result.text,/unvalidated/i);
+  }
 });
 
 const evidenceSelection={body:catalog.records[0].body,quantity:catalog.records[0].quantity,jd:catalog.records[0].tested_epochs_jd[0],observerDomain:catalog.records[0].observer_domain};

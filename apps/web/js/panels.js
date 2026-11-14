@@ -1,18 +1,18 @@
 // DOM text / panel updates driven by the current snapshot.
 
-import { store } from "./store.js?v=dcca6290db";
-import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js?v=dcca6290db";
-import { text, textWithTitle, setPill } from "./dom.js?v=dcca6290db";
-import { auroraAssessment } from "./aurora.js?v=dcca6290db";
-import { syncObjectRows, matchesObject } from "./objectBrowser.js?v=dcca6290db";
-import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js?v=dcca6290db";
-import { assessFeedFreshness } from "./presentationState.js?v=dcca6290db";
+import { store } from "./store.js";
+import { MODE_COPY, APPLICATION_COPY, STAGE_PLAIN, SIGNAL_TERMS, LEGEND_TERMS } from "./config.js";
+import { text, textWithTitle, setPill } from "./dom.js";
+import { auroraAssessment } from "./aurora.js";
+import { syncObjectRows, matchesObject } from "./objectBrowser.js";
+import { stageFromActivity, plural, number, numberOrNa, compactNumberOrNa, humanizeId, formatUtc } from "./format.js";
+import { assessFeedFreshness } from "./presentationState.js";
 import {
   fieldValues, meanField, selectedRegion, visibleLayers, visibleLayerSummary,
   dataStateLabel, dataStateClass, readinessLabel, readinessClass, feedStateLabel, feedStateClass,
   regionLocation, selectedRegionSummary, selectedRegionSentence,
   observationSummary, adapterSummary, layerSummary
-} from "./selectors.js?v=dcca6290db";
+} from "./selectors.js";
 
 export function updateText() {
   const run = store.state.run || {};
@@ -90,36 +90,60 @@ function updateSnapshotSummary(brMax, confidenceMean) {
   setPill("readinessState", `readiness: ${readiness}`, readinessClass());
 }
 
+// Each container owns its keyed controls; replacing a container never reuses
+// detached controls. Derived values and freshness are still recomputed each call.
+const panelChipRows = new WeakMap();
+function syncPanelChips(target, records) {
+  const keys = new Set();
+  for (const record of records) {
+    if (keys.has(record.key)) throw new Error(`Duplicate panel chip identity: ${record.key}`);
+    keys.add(record.key);
+  }
+  const previous = panelChipRows.get(target) || new Map(), next = new Map();
+  for (const record of records) {
+    let chip = previous.get(record.key);
+    const tagName = (record.tagName || "span").toUpperCase();
+    if (!chip || chip.parentElement !== target || chip.tagName !== tagName) chip = document.createElement(tagName);
+    if (record.className === undefined) { if (chip.getAttribute("class") !== null) chip.removeAttribute("class"); }
+    else if (chip.className !== record.className) chip.className = record.className;
+    if (tagName === "BUTTON" && chip.type !== "button") chip.type = "button";
+    const children = chip.childNodes;
+    const plain = children && (children.length === 0 || (children.length === 1 && children[0]?.nodeType === 3));
+    if (!plain || chip.textContent !== record.label) chip.textContent = record.label;
+    for (const [name, value] of [["data-term", record.term || null], ["tabindex", record.term && tagName !== "BUTTON" ? "0" : null],
+      ["role", record.term && tagName !== "BUTTON" ? "button" : null], ["aria-label", record.ariaLabel || null]]) {
+      if (value === null) { if (chip.getAttribute(name) !== null) chip.removeAttribute(name); }
+      else if (chip.getAttribute(name) !== value) chip.setAttribute(name, value);
+    }
+    if (record.help && chip.style.cursor !== "help") chip.style.cursor = "help";
+    else if (!record.help && chip.style.cursor) chip.style.cursor = "";
+    next.set(record.key, chip);
+  }
+  const kept = new Set(next.values());
+  for (const child of Array.from(target.childNodes || target.children)) if (!kept.has(child)) child.remove();
+  for (const [index, chip] of [...next.values()].entries()) {
+    if (target.children[index] === chip) continue;
+    if (chip.parentElement === target && target.ownerDocument.activeElement === chip) {
+      // Reorder the other siblings around the focused control. Moving a focused
+      // node itself with insertBefore can drop native focus, even in one parent.
+      while (target.children[index] !== chip) target.appendChild(target.children[index]);
+    } else target.insertBefore(chip, target.children[index] || null);
+  }
+  panelChipRows.set(target, next);
+}
+
 function updateLayerLegend() {
   const legend = document.getElementById("layerLegend");
   if (!legend) return;
-  legend.textContent = "";
   const layers = visibleLayers();
-  if (!layers.length) {
-    const chip = document.createElement("span");
-    chip.className = "legend-chip degraded";
-    chip.textContent = "no rendered layers";
-    legend.appendChild(chip);
-    return;
-  }
-  for (const layer of layers) {
-    const chip = document.createElement("span");
-    chip.className = `legend-chip ${layer.kind || "degraded"}`;
-    chip.textContent = `${layer.label || layer.id}: ${layer.kind || "unknown"}`;
-    const term = LEGEND_TERMS[layer.id];
-    if (term) {
-      chip.setAttribute("data-term", term);
-      chip.setAttribute("tabindex", "0");
-      chip.setAttribute("role", "button");
-    }
-    legend.appendChild(chip);
-  }
+  const records = layers.map(layer => ({key: `layer:${layer.id}`, className: `legend-chip ${layer.kind || "degraded"}`,
+    label: `${layer.label || layer.id}: ${layer.kind || "unknown"}`, term: LEGEND_TERMS[layer.id]}));
+  if (!layers.length) records.push({key: "empty", className: "legend-chip degraded", label: "no rendered layers", term: undefined});
   if (store.presentation?.showModelOverlays && layers.some(layer => layer.id === "confidence")) {
-    const scale = document.createElement("span");
-    scale.className = "score-scale";
-    scale.textContent = "Heuristic model score — not probability: 0 · 0.25 · 0.5 · 0.75 · 1 (increasing opacity)";
-    legend.appendChild(scale);
+    records.push({key: "score-scale", className: "score-scale",
+      label: "Heuristic model score — not probability: 0 · 0.25 · 0.5 · 0.75 · 1 (increasing opacity)", term: undefined});
   }
+  syncPanelChips(legend, records);
 }
 
 function updateApplicationPanel() {
@@ -129,21 +153,9 @@ function updateApplicationPanel() {
   text("applicationText", app.text);
   const target = document.getElementById("applicationSignals");
   if (!target) return;
-  target.textContent = "";
   const signalValues = signalLabels(app.signals);
-  app.signals.forEach((signal, index) => {
-    const chip = document.createElement("span");
-    chip.className = "signal-chip";
-    chip.textContent = signalValues[index];
-    const term = SIGNAL_TERMS[signal];
-    if (term) {
-      chip.setAttribute("data-term", term);
-      chip.setAttribute("tabindex", "0");
-      chip.setAttribute("role", "button");
-      chip.style.cursor = "help";
-    }
-    target.appendChild(chip);
-  });
+  syncPanelChips(target, app.signals.map((signal, index) => ({key: `signal:${signal}`, className: "signal-chip",
+    label: signalValues[index], term: SIGNAL_TERMS[signal], help: Boolean(SIGNAL_TERMS[signal])})));
   renderAuroraOutlook();
 }
 
@@ -162,11 +174,7 @@ function renderAuroraOutlook() {
     unixSeconds: Date.now() / 1000,
     locationLabel: observer.label,
   });
-  target.textContent = "";
   target.className = `aurora-outlook aurora-${outlook.status}`;
-  const headline = document.createElement("strong");
-  headline.textContent = outlook.headline;
-  const detail = document.createElement("span");
   let detailText = outlook.detail;
   // A verdict from stale or freshness-unknown Kp must say so — same honesty rule as the feed pill.
   // (latest_kp != null guard first: Number(null) is 0, which is finite — the caveat
@@ -176,14 +184,12 @@ function renderAuroraOutlook() {
     if (freshness === "stale") detailText += " (Kp is from the last completed feed run — it may have changed since.)";
     else if (freshness === "unknown") detailText += " (Kp is retained from the displayed snapshot; current feed freshness is unknown because the next recommended run time is missing or invalid.)";
   }
-  detail.textContent = ` ${detailText}`;
-  const term = document.createElement("button");
-  term.className = "term";
-  term.type = "button";
-  term.textContent = "?";
-  term.setAttribute("data-term", "geomagnetic-latitude");
-  term.setAttribute("aria-label", "What is geomagnetic latitude?");
-  target.append(headline, detail, term);
+  syncPanelChips(target, [
+    {key: "headline", tagName: "strong", label: outlook.headline},
+    {key: "detail", label: ` ${detailText}`},
+    {key: "glossary", tagName: "button", className: "term", label: "?", term: "geomagnetic-latitude",
+      ariaLabel: "What is geomagnetic latitude?"},
+  ]);
 }
 
 function signalLabels(signals) {
@@ -338,13 +344,4 @@ function feedHealthSummary() {
   return `Last feed report: status ${store.feedStatus.status || "unknown"}; ${okCount} of ${sources.length} public sources succeeded. Last run: ${lastRun}. Next suggested run: ${nextRun}.${freshnessText}${failureText}`;
 }
 
-export function updateModeButtons() {
-  document.querySelectorAll(".mode-button").forEach((node) => {
-    const isActive = /** @type {HTMLElement} */ (node).dataset.mode === store.activeMode;
-    node.classList.toggle("active", isActive);
-    // aria-pressed, not aria-selected: aria-selected is only valid on tab/option/gridcell/
-    // row roles, so AT ignored it on these plain buttons — the active destination was
-    // invisible to screen-reader users.
-    node.setAttribute("aria-pressed", isActive ? "true" : "false");
-  });
-}
+export {updateModeButtons} from './surfaceNavigation.js';

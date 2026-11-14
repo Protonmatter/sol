@@ -335,12 +335,37 @@ class ReleasePolicyTests(unittest.TestCase):
             "determinism": ["Engine determinism (ubuntu-latest)", "Engine determinism (macos-latest)",
                             "Engine determinism (windows-latest)"],
             "determinism-compare": ["Engine determinism (cross-OS byte compare + schema)"],
+            "moon-image-evidence": ["Moon pinned-image evidence (1)", "Moon pinned-image evidence (2)"],
             "release-gate": ["Release gate"],
         }
         jobs = [{"id": index + 1, "name": name, "run_id": 123, "run_attempt": 1,
                  "head_sha": "a" * 40, "status": "completed", "conclusion": "success"}
                 for index, name in enumerate(name for group in names.values() for name in group)]
         return names, jobs
+
+    def test_both_native_moon_samples_and_the_aggregate_gate_are_required(self):
+        self.assertIn('moon-image-evidence', policy.REQUIRED_JOBS)
+        _, jobs = self.authoritative_jobs()
+        run = dict(id=123, run_attempt=1, head_sha='a'*40, head_branch='master',
+            repository={'full_name':'owner/repo'}, path='.github/workflows/ci.yml', event='push', conclusion='success')
+        candidate = copy.deepcopy(self.candidate)
+        candidate['jobs']['moon-image-evidence'] = 'success'
+        policy.require_authoritative_jobs(run, jobs, candidate['jobs'])
+        artifact = dict(id=456, name='web-candidate-123-1', expired=False, workflow_run={'id':123})
+        self.assertTrue(policy.publish_master(candidate, run, artifact, jobs, 'a'*40, 'b'*64).candidate_verified)
+        for name in ('Moon pinned-image evidence (1)', 'Moon pinned-image evidence (2)'):
+            for outcome in ('missing', 'failure', 'skipped', 'cancelled'):
+                bad = copy.deepcopy(jobs)
+                if outcome == 'missing': bad = [job for job in bad if job['name'] != name]
+                else: next(job for job in bad if job['name'] == name)['conclusion'] = outcome
+                with self.subTest(name=name, outcome=outcome), self.assertRaises(ValueError):
+                    policy.require_authoritative_jobs(run, bad, candidate['jobs'])
+        for outcome in (None, 'failure', 'skipped', 'cancelled'):
+            bad = copy.deepcopy(candidate)
+            if outcome is None: bad['jobs'].pop('moon-image-evidence')
+            else: bad['jobs']['moon-image-evidence'] = outcome
+            with self.subTest(aggregate=outcome):
+                self.assertFalse(policy.evaluate(bad, self.trusted, [], self.today).candidate_verified)
 
     def test_every_authoritative_job_and_matrix_child_must_succeed_in_exact_attempt(self):
         records = self.qualify()

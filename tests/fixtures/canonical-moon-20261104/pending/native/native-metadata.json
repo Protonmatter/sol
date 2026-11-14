@@ -1,0 +1,291 @@
+{
+  "schema_version": "sol-canonical-moon-native.v2",
+  "passed": true,
+  "scope": "Native local qualification evidence for uncommitted exact-hash inputs; no hosted commit/release assertion.",
+  "phase": "pending",
+  "started_at_utc": "2026-11-04T15:57:32.021014+00:00",
+  "host_system": "Linux",
+  "host_machine": "x86_64",
+  "image_ref": "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+  "driver_sha256": "07d57d21f080e9e5137221d7fe069af16413bcb7b796d7118286050646476b91",
+  "input_manifest_sha256": "19e43d8f75e94ce39c50ed8d32421f4b63d71a45728fc8d0fee2da9dce2aa598",
+  "current_source_sha256": {
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f",
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "tools/collect_moon_evidence.py": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf",
+    "tools/ephemeris-data/generation-manifest.json": "577459d803e9519f3d2ce696bdd2656b1d3831ac4f9b8986edec00bbe85467cf",
+    "tools/ephemeris-data/moons/horizons_satellite_elements.csv": "cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f",
+    "tools/ephemeris-data/moons/horizons_satellite_vectors.csv": "ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918",
+    "tools/ephemeris-data/moons/jpl_satellite_physical.csv": "03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99",
+    "tools/generate_moons.py": "ee3712f01c49f79fa325e7c11898fab530476c1de91596426936a3a3b26dc028",
+    "tools/moon_model.py": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445",
+    "tools/validate_moons.py": "4358258af1f855297b0575da21bd2d7d373030ac2614ddf6d0a47987a82ba3bb"
+  },
+  "commands": [
+    {
+      "name": "docker-native",
+      "command": [
+        "docker",
+        "info",
+        "--format",
+        "{{.OSType}}/{{.Architecture}}"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 0,
+      "elapsed_seconds": 0.11603997200018057,
+      "stdout_sha256": "71888e1918e6c6c70ea2c4520d8bdc63c7b4649e50626cef452d83f8a29f6ee6",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "image-before",
+      "command": [
+        "docker",
+        "image",
+        "inspect",
+        "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 1,
+      "elapsed_seconds": 0.03350164200037398,
+      "stdout_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "stderr_sha256": "36aeaf17302100fe524797bb03652e5111980cb2b0bf05c6f58f6953ececef65"
+    },
+    {
+      "name": "image-load",
+      "command": [
+        "docker",
+        "image",
+        "load",
+        "--platform",
+        "linux/amd64",
+        "--input",
+        "/home/mgkang1991/python-canonical-20261103.tar"
+      ],
+      "timeout_seconds": 120,
+      "exit_code": 0,
+      "elapsed_seconds": 3.5775175429998853,
+      "stdout_sha256": "23ef1a66c33203a7ade81c96dbce739b3574b390069c35d284b45d980a142fc7",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "digest-registration",
+      "command": [
+        "docker",
+        "pull",
+        "--platform",
+        "linux/amd64",
+        "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301"
+      ],
+      "timeout_seconds": 90,
+      "exit_code": 0,
+      "elapsed_seconds": 0.3163487639999403,
+      "stdout_sha256": "aeb22a31ad44e35f2e7307f7ffe3189900762ef2613fc5dcbb1ab5e0d61eaccc",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "image-inspect",
+      "command": [
+        "docker",
+        "image",
+        "inspect",
+        "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 0,
+      "elapsed_seconds": 0.06552733999978955,
+      "stdout_sha256": "67c873eef8cecb14f96e7fbf523afd0f066ecc85850d81ca486872c6829a82db",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "container-before-1",
+      "command": [
+        "docker",
+        "container",
+        "inspect",
+        "sol-moon-104-0qpp81f1-1"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 1,
+      "elapsed_seconds": 0.0329448309998952,
+      "stdout_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "stderr_sha256": "523c965264ac4de2570e239c038f0ac20869c8912fe31682c9afdf332419ee92"
+    },
+    {
+      "name": "comparison-1",
+      "command": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "sol-moon-104-0qpp81f1-1",
+        "--platform",
+        "linux/amd64",
+        "--read-only",
+        "--network",
+        "none",
+        "--cpus",
+        "2",
+        "--memory",
+        "1g",
+        "--pids-limit",
+        "128",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--mount",
+        "type=bind,src=/tmp/sol-moon-refresh-pending-20261104-0qpp81f1/inputs,dst=/work,readonly",
+        "--workdir",
+        "/work",
+        "--env",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "--env",
+        "SOL_MOON_GENERATOR_IMAGE_DIGEST=sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+        "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+        "python",
+        "-B",
+        "tools/collect_moon_evidence.py"
+      ],
+      "timeout_seconds": 120,
+      "exit_code": 0,
+      "elapsed_seconds": 4.029342468999857,
+      "stdout_sha256": "a0b628eb56f51e1b11c83bf65855e0eea9ffb64e25af82d5e1bc8d5f8024bf9f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "container-before-2",
+      "command": [
+        "docker",
+        "container",
+        "inspect",
+        "sol-moon-104-0qpp81f1-2"
+      ],
+      "timeout_seconds": 60,
+      "exit_code": 1,
+      "elapsed_seconds": 0.032904217000123026,
+      "stdout_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "stderr_sha256": "dea6b9fee160dc8628e606db188b66547f354b916525c588ad4b502ff6f01c9d"
+    },
+    {
+      "name": "comparison-2",
+      "command": [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        "sol-moon-104-0qpp81f1-2",
+        "--platform",
+        "linux/amd64",
+        "--read-only",
+        "--network",
+        "none",
+        "--cpus",
+        "2",
+        "--memory",
+        "1g",
+        "--pids-limit",
+        "128",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--mount",
+        "type=bind,src=/tmp/sol-moon-refresh-pending-20261104-0qpp81f1/inputs,dst=/work,readonly",
+        "--workdir",
+        "/work",
+        "--env",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "--env",
+        "SOL_MOON_GENERATOR_IMAGE_DIGEST=sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+        "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+        "python",
+        "-B",
+        "tools/collect_moon_evidence.py"
+      ],
+      "timeout_seconds": 120,
+      "exit_code": 0,
+      "elapsed_seconds": 2.9758565279998948,
+      "stdout_sha256": "ee790217d8e6ccd19c5b08a0453db4b2c1e96514ab208efd7f4c5e8ee874c859",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "container-after-1",
+      "command": [
+        "docker",
+        "container",
+        "inspect",
+        "sol-moon-104-0qpp81f1-1"
+      ],
+      "timeout_seconds": 20,
+      "exit_code": 1,
+      "elapsed_seconds": 0.03280293999978312,
+      "stdout_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "stderr_sha256": "523c965264ac4de2570e239c038f0ac20869c8912fe31682c9afdf332419ee92"
+    },
+    {
+      "name": "container-after-2",
+      "command": [
+        "docker",
+        "container",
+        "inspect",
+        "sol-moon-104-0qpp81f1-2"
+      ],
+      "timeout_seconds": 20,
+      "exit_code": 1,
+      "elapsed_seconds": 0.03311315100017964,
+      "stdout_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "stderr_sha256": "dea6b9fee160dc8628e606db188b66547f354b916525c588ad4b502ff6f01c9d"
+    }
+  ],
+  "runs": [
+    {
+      "index": 1,
+      "exit_code": 0,
+      "comparison_passed": true,
+      "report_sha256": "a0b628eb56f51e1b11c83bf65855e0eea9ffb64e25af82d5e1bc8d5f8024bf9f",
+      "runtime": {
+        "system": "Linux",
+        "machine": "x86_64",
+        "implementation": "CPython",
+        "python_version": "3.12.12"
+      },
+      "generated_sha256": {
+        "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+        "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+      }
+    },
+    {
+      "index": 2,
+      "exit_code": 0,
+      "comparison_passed": true,
+      "report_sha256": "ee790217d8e6ccd19c5b08a0453db4b2c1e96514ab208efd7f4c5e8ee874c859",
+      "runtime": {
+        "system": "Linux",
+        "machine": "x86_64",
+        "implementation": "CPython",
+        "python_version": "3.12.12"
+      },
+      "generated_sha256": {
+        "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+        "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+      }
+    }
+  ],
+  "image_id": "sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+  "image_os": "linux",
+  "image_architecture": "amd64",
+  "repo_digests": [
+    "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301"
+  ],
+  "cleanup_checks": [
+    {
+      "name": "sol-moon-104-0qpp81f1-1",
+      "confirmed_absent": true
+    },
+    {
+      "name": "sol-moon-104-0qpp81f1-2",
+      "confirmed_absent": true
+    }
+  ],
+  "finished_at_utc": "2026-11-04T15:57:43.839033+00:00"
+}

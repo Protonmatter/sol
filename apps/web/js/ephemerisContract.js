@@ -1,9 +1,9 @@
 // Live provider boundary. Historical v2 is isolated in ephemerisContractV2.js.
-import { ephemerisSchema } from "./ephemerisSchema.js?v=dcca6290db";
-import { parseStrictJson } from "./solarContract.js?v=dcca6290db";
+import { ephemerisSchema } from "./ephemerisSchema.js";
+import { parseStrictJson } from "./solarContract.js";
 const MAJOR = new Set(["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"]);
 const COMPASS_POINTS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-const fail = (path, message) => { throw new TypeError(`Invalid ephemeris-snapshot.v3 at ${path}: ${message}`); };
+const fail = (path, message) => { throw new TypeError(`Invalid ephemeris-snapshot.v4 at ${path}: ${message}`); };
 // Inclusive serialization/float allowance: 2^-29 day (~0.161ms), four binary64
 // ulps at modern JD or two at the upper supported epoch. Never a day/window allowance.
 const EPOCH_TOLERANCE_DAYS = 2 ** -29;
@@ -12,6 +12,20 @@ const EPOCH_TOLERANCE_DAYS = 2 ** -29;
 // One arcminute accommodates that metadata; vector distance stays conditioned
 // at zenith/nadir and across azimuth 0/360. Roundoff margin is 1e-12 in unit space.
 const HORIZONTAL_CHORD_LIMIT = 2*Math.sin(Math.PI/(180*60*2))+1e-12;
+function deltaTConsistent(time) {
+  // Preserve legacy producers that derived delta-T from their rounded JDs.
+  if (Math.abs(time.delta_t_seconds-(time.jd_tt-time.jd_ut1)*86400)<=5e-5) return true;
+  if (time.tai_minus_utc_seconds===null) return false;
+  // Three large-JD additions can exceed 50 microseconds of construction
+  // roundoff. Atomic offsets give a well-conditioned, independent identity.
+  // Two 9-decimal-second fields contribute at most 1 ns; the remaining term
+  // conservatively bounds scalar parse/arithmetic rounding, not EOP accuracy.
+  const scale=Math.max(32.184,Math.abs(time.delta_t_seconds),Math.abs(time.tai_minus_utc_seconds),Math.abs(time.dut1_seconds));
+  const tolerance=1e-9+16*Number.EPSILON*scale;
+  if (tolerance>5e-5) return false;
+  const expected=time.tai_minus_utc_seconds+32.184-time.dut1_seconds;
+  return Math.abs(time.delta_t_seconds-expected)<=tolerance;
+}
 function horizontalDirectionAgrees(body,time,observer) {
   const radians=Math.PI/180;
   const hour=(time.lst_deg-body.topocentric_apparent_ra_deg)*radians;
@@ -62,7 +76,7 @@ function validateSchema(value, schema, path="$") {
   }
 }
 export function assertEphemerisSnapshotV3(snapshot) {
-  if (!snapshot || snapshot.schema_version !== "ephemeris-snapshot.v3") fail("schema_version","upgrade required: live provider must emit ephemeris-snapshot.v3");
+  if (!snapshot || snapshot.schema_version !== "ephemeris-snapshot.v4") fail("schema_version","upgrade required: live provider must emit ephemeris-snapshot.v4");
   validateSchema(snapshot,ephemerisSchema);
   const {time,observer,events_window:window,accuracy}=snapshot;
   if (time.jd_utc < 1721425.5 || time.jd_utc >= 5373484.5) fail("time.jd_utc","unsupported proleptic Gregorian epoch");
@@ -70,10 +84,15 @@ export function assertEphemerisSnapshotV3(snapshot) {
   const offset=observer.terrestrial_lon_deg_east/360;
   const start=Math.floor(time.jd_utc-0.5+offset)+0.5-offset;
   if (window.start_jd!==start || window.end_jd!==start+1) fail("events_window","does not match observer local mean-solar day");
+  if (window.future_nominal_utc_after_jd!==undefined && (window.future_nominal_utc_after_jd<1721425.5 || window.future_nominal_utc_after_jd>=window.end_jd+1/144)) fail("events_window","future model boundary must intersect event calculation support");
+  const future=time.input_time_semantics==="future_nominal_utc", eop=time.earth_orientation;
+  if (future!==(eop.quality==="modeled_future")) fail("time","future nominal UTC requires modeled-future quality");
+  if (future ? eop.dut1_uncertainty_seconds!==null : eop.dut1_uncertainty_seconds===null) fail("time.earth_orientation","only the future model has unknown uncertainty");
+  if (!future && Math.abs(time.dut1_seconds)>.9) fail("time.dut1_seconds","DUT1 must remain within UTC steering bounds");
   if ((time.input_time_semantics==="historical_ut1_proxy")!==(time.jd_tai===null)) fail("time","historical approximation mismatch");
   if ((time.jd_tai===null)!==(time.tai_minus_utc_seconds===null)) fail("time","TAI values must both be null or numeric");
   if (time.input_time_semantics==="historical_ut1_proxy" && time.earth_orientation.quality!=="pre_utc_ut1_proxy") fail("time","historical approximation requires degraded UT1-proxy quality");
-  if (Math.abs(time.jd_ut1-time.jd_utc-time.dut1_seconds/86400)>2e-9 || Math.abs(time.delta_t_seconds-(time.jd_tt-time.jd_ut1)*86400)>5e-5) fail("time","inconsistent time scales");
+  if (Math.abs(time.jd_ut1-time.jd_utc-time.dut1_seconds/86400)>2e-9 || !deltaTConsistent(time)) fail("time","inconsistent time scales");
   if (time.jd_tai!==null && (Math.abs(time.jd_tai-time.jd_utc-time.tai_minus_utc_seconds/86400)>2e-9 || Math.abs(time.jd_tt-time.jd_tai-32.184/86400)>2e-9)) fail("time","inconsistent TAI/TT");
   if (accuracy.eop_status!==time.earth_orientation.quality) fail("accuracy","EOP status mismatch");
   if ((accuracy.evidence_status==="unvalidated")!==(accuracy.evidence_record_ids.length===0)) fail("accuracy","evidence status mismatch");
@@ -119,7 +138,7 @@ export function assertEphemerisRequestBinding(snapshot, unixSeconds, lat, lonEas
 export function mergeLocalEvents(remote,local) {
   assertEphemerisSnapshotV3(remote); assertEphemerisSnapshotV3(local);
   for (const key of ["terrestrial_lat_deg","terrestrial_lon_deg_east","elev_m"]) if (remote.observer[key]!==local.observer[key]) fail("observer","local backfill observer mismatch");
-  for (const key of Object.keys(remote.events_window)) if (remote.events_window[key]!==local.events_window[key]) fail("events_window","local backfill window mismatch");
+  for (const key of ["convention","time_scale","interval","start_jd","end_jd"]) if (remote.events_window[key]!==local.events_window[key]) fail("events_window","local backfill window mismatch");
   // This merger also appends instantaneous star geometry, not just daily events.
   assertSameEpoch(local.time.jd_utc,remote.time.jd_utc,"local backfill instantaneous");
   const result=structuredClone(remote), byName=new Map(local.bodies.map(body=>[body.name,body]));
@@ -129,6 +148,14 @@ export function mergeLocalEvents(remote,local) {
   }
   const present=new Set(result.bodies.map(body=>body.name));
   for (const body of local.bodies) if (!present.has(body.name)) result.bodies.push(structuredClone(body));
+  if (local.events_window.future_nominal_utc_after_jd!==undefined) {
+    result.events_window.future_nominal_utc_after_jd=Math.min(local.events_window.future_nominal_utc_after_jd,
+      remote.events_window.future_nominal_utc_after_jd??Infinity);
+    result.warnings.push("Some local event calculations use nominal UTC beyond bundled EOP coverage: the last tabulated leap offset is assumed; modeled UT1 uncertainty is unknown and polar motion is omitted.");
+  }
+  // The local frame carries its own sidereal time and corrected observer; server
+  // body provenance and Earth-orientation metadata remain authoritative for bodies.
+  if (local.star_frame) result.star_frame=structuredClone(local.star_frame);
   result.warnings.push("Event and catalogue-star provenance is retained per event; local events are not Horizons calculations.");
   return assertEphemerisSnapshotV3(result);
 }

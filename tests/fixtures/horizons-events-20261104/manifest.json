@@ -1,0 +1,206 @@
+{
+  "schema_version": "horizons-event-reference.v1",
+  "source": "NASA/JPL Horizons API",
+  "api_version": "1.2",
+  "endpoint": "https://ssd.jpl.nasa.gov/api/horizons.api",
+  "quantities": [
+    2,
+    4,
+    20,
+    49
+  ],
+  "scope": "Independent finite configured-model event checks; selected refinements of retained diagnostic cases, not held-out, continuous or physical horizon-visibility qualification.",
+  "limitations": "Dates/sites selected from earlier diagnostic tables, not an independent validation selection.; Rise/set uses the fixed configured refraction model; weather, topography and physical visibility remain outside scope.; Dense grids bracket a sampled unimodal local maximum; no continuous interpolation theorem or observed-event bound is asserted.; No-event coarse cases are retained for context, not independent continuous absence certification.",
+  "plan": {
+    "path": "plan.json",
+    "bytes": 39892,
+    "sha256": "90b5e6d6fd4f953122c3df9498696a8e524cda27fe7e8e8933423b91d20b8a67"
+  },
+  "acquisition": {
+    "path": "acquisition.json",
+    "bytes": 9988,
+    "sha256": "681a33066bde4fe87f5f1cc88273fe8bc8228a028b700238793e254a6d258087"
+  },
+  "selector": {
+    "path": "selector.py.txt",
+    "bytes": 5150,
+    "sha256": "24ee9a4ce8e1e4ae6233fc4ca390c14ff0e44d4ceb059333af53353bb248e32e"
+  },
+  "acquirer": {
+    "path": "acquirer.py.txt",
+    "bytes": 3036,
+    "sha256": "ba8fb9a4caf283d37eb6ffa9d23a99b5013b80385e90c7643e5b6211ea5e81dd"
+  },
+  "query_helper": {
+    "path": "query-helper.py.txt",
+    "bytes": 13115,
+    "sha256": "7cfe31ecf26b4d1a3008dfb537a67f63436723ac883ba1487cfad3fbd78f7732"
+  },
+  "derived_matrix": {
+    "path": "events.csv",
+    "bytes": 6144,
+    "sha256": "699e457cb7b6f050b261ae3fbd35321f62b54788b55f8b29690373be02848248"
+  },
+  "records": [
+    {
+      "path": "sun-0-20260321-peak.txt",
+      "bytes": 56343,
+      "sha256": "0848197cecfab32c2cf07f8fc813f8fb8c2080dddf281ae1974214cf6b9cae90"
+    },
+    {
+      "path": "sun-0-20260321-rise.txt",
+      "bytes": 56343,
+      "sha256": "ae87b2c628d1960ffa8c17618bffdc18be57394fba778b77d3de6be7d28e8a6b"
+    },
+    {
+      "path": "sun-0-20260321-set.txt",
+      "bytes": 56343,
+      "sha256": "e9c56bae5c23c090fb0b3e26b8f4e6e5a4cee7f3b79923131c24bef42c219111"
+    },
+    {
+      "path": "sun-0-20260621-peak.txt",
+      "bytes": 56343,
+      "sha256": "3166933be30e9cb53ae7416e4561c021f97623254e21711cde34536ebb5205bc"
+    },
+    {
+      "path": "sun-0-20260621-rise.txt",
+      "bytes": 56343,
+      "sha256": "183ff85c92544d55ab5a670580dce058d528dd0d21eeb31f455dbbe06cb5f34c"
+    },
+    {
+      "path": "sun-0-20260621-set.txt",
+      "bytes": 56343,
+      "sha256": "2536ca5e2c890adcf852c2daa52115675d8d1b4e8bd6eb9cca9b430b74e0b9c4"
+    },
+    {
+      "path": "sun-42.36-20260321-peak.txt",
+      "bytes": 56343,
+      "sha256": "7c39eeb437f6b7854c62fcd083b03cdf5bc64ad14a5269d1cef2035148dbffb9"
+    },
+    {
+      "path": "sun-42.36-20260321-rise.txt",
+      "bytes": 56343,
+      "sha256": "f03d78e6bce35747a9c704085238518f7fddda6d1d7b258ba4deda232fe001bd"
+    },
+    {
+      "path": "sun-42.36-20260321-set.txt",
+      "bytes": 56343,
+      "sha256": "c06dc345a01e38f5be746c4cf48ec04817ca9dd2c0af9762f3914b99d29334c4"
+    },
+    {
+      "path": "sun-42.36-20260621-peak.txt",
+      "bytes": 56343,
+      "sha256": "fc46b6adb1cad3855ff171bdc54793bd3e9b52724f8b071c77f65ffae025d982"
+    },
+    {
+      "path": "sun-42.36-20260621-rise.txt",
+      "bytes": 56343,
+      "sha256": "fc300ddc0f2b164f7a415f77e550a2f8d4cd217d6601bd45cdcffbcb0848e867"
+    },
+    {
+      "path": "sun-42.36-20260621-set.txt",
+      "bytes": 56343,
+      "sha256": "d42a5b140dcc8efce462d933b865799ee53f7fe6fb18ea5bd3065c4b076740bd"
+    },
+    {
+      "path": "sun-75-20260321-peak.txt",
+      "bytes": 56343,
+      "sha256": "f226188c6291d5f742ba2a9c84e3bbfc339299204fc281fa8fcdc90c07e850e4"
+    },
+    {
+      "path": "sun-75-20260321-rise.txt",
+      "bytes": 56343,
+      "sha256": "ca1da0c011da880b54f7ffc35abeff1211d63b8ee3c255089101d63b4a025807"
+    },
+    {
+      "path": "sun-75-20260321-set.txt",
+      "bytes": 56343,
+      "sha256": "6701294e7f704954ea7facd97b23b9b2acaf1fbaeac0492d0eebd767a30a8fcc"
+    },
+    {
+      "path": "sun-75-20260621-peak.txt",
+      "bytes": 56343,
+      "sha256": "bedbde94e0cece57211e961f3772246a8f1e901d9c17121ea85d90d685589ec0"
+    },
+    {
+      "path": "moon-0-20260321-peak.txt",
+      "bytes": 56345,
+      "sha256": "db384e6cdfad33bdf31d5920ff1d7bc3132bb969ec55ca614f7428307b8081e6"
+    },
+    {
+      "path": "moon-0-20260321-rise.txt",
+      "bytes": 56345,
+      "sha256": "30d65e3ed7a697333e00e187d0c39db6001b70fc849d4819babb32c180825952"
+    },
+    {
+      "path": "moon-0-20260321-set.txt",
+      "bytes": 56345,
+      "sha256": "5e4b0a88f5f26b43042a7c0e4a27cfa6bae1b28777360b27e91db673ec85eb51"
+    },
+    {
+      "path": "moon-0-20260621-peak.txt",
+      "bytes": 56345,
+      "sha256": "7ab353553818c5569bdf8f9a027328d9ed7ded1d67e9790ed6a0cc2494038484"
+    },
+    {
+      "path": "moon-0-20260621-rise.txt",
+      "bytes": 56345,
+      "sha256": "94f8a2d2277ecea4ba7f1e8a859b6b63914bfe0d3406aa5b1cb2ff46fdc45b63"
+    },
+    {
+      "path": "moon-42.36-20260321-peak.txt",
+      "bytes": 56345,
+      "sha256": "ac2333c09cf6b661780f33dcb79a5715880ff0f3e382e464fef8d22c94c690ec"
+    },
+    {
+      "path": "moon-42.36-20260321-rise.txt",
+      "bytes": 56345,
+      "sha256": "18e43a2a10e9a9ac5a3459d45c69e54589bb5c7260c87e11f4bbf45900d71f0d"
+    },
+    {
+      "path": "moon-42.36-20260321-set.txt",
+      "bytes": 56345,
+      "sha256": "bffe80a33b2da43edbcea3ba6225fd25f0e8f66e493d18efef28d50ea1f79387"
+    },
+    {
+      "path": "moon-42.36-20260621-peak.txt",
+      "bytes": 56345,
+      "sha256": "c4611dd9c3bb42d0e8578d4b1905aa6cff95f61b4d1b1daa442b2fd10be55273"
+    },
+    {
+      "path": "moon-42.36-20260621-rise.txt",
+      "bytes": 56345,
+      "sha256": "ad001df8259c80d6f932a651b898e8037a4c72a0af3e2debb9f20e50caa4504e"
+    },
+    {
+      "path": "moon-42.36-20260621-set.txt",
+      "bytes": 56345,
+      "sha256": "3eb0a2bde1d7a2afa00373a78d5cf743c73283d3b1dbad3fb71d3e7df148c3ba"
+    },
+    {
+      "path": "moon-75-20260321-peak.txt",
+      "bytes": 56345,
+      "sha256": "dff9e9ddd54dd8c13865fec0553e98e543584a2282f9e3d8f64c028435ac9001"
+    },
+    {
+      "path": "moon-75-20260321-rise.txt",
+      "bytes": 56345,
+      "sha256": "234ef7dac80abacb503ef44d23a9e805af0d87544d1782a4b916af377d6bb309"
+    },
+    {
+      "path": "moon-75-20260621-peak.txt",
+      "bytes": 56345,
+      "sha256": "456c2eb97ed64f92102c61bdb5482a7fdedea7ca0f0fc483dff1b1b24583e713"
+    },
+    {
+      "path": "moon-75-20260621-rise.txt",
+      "bytes": 56345,
+      "sha256": "9485327904eac144f9cc67dd4f231cbc141d4eb7a3273c62e97300157e781cad"
+    },
+    {
+      "path": "moon-75-20260621-set.txt",
+      "bytes": 56345,
+      "sha256": "0b14fad69eca2244ff247304b314f95662d2ecee1e04d1c30825e01496f99b5a"
+    }
+  ]
+}

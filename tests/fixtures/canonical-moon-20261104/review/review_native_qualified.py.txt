@@ -1,0 +1,152 @@
+"""Offline independent review of actual strict qualified native moon evidence."""
+from pathlib import Path, PurePosixPath
+import hashlib
+import copy
+import io
+import json
+import math
+import re
+import tarfile
+
+HERE=Path(__file__).resolve().parent;ROOT=HERE.parents[1]
+BASE=ROOT/'build/moon-canonical-refresh-20261104';RECEIVED=BASE/'qualified-received'
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+digest=lambda b:hashlib.sha256(b).hexdigest()
+def unpack(raw,ledger,count):
+    with tarfile.open(fileobj=io.BytesIO(raw),mode='r:gz') as tar:
+        members=tar.getmembers();assert len(members)==count and sum(m.size for m in members)<=2*1024**2
+        data={}
+        for m in members:
+            p=PurePosixPath(m.name)
+            assert m.isfile() and not p.is_absolute() and '..' not in p.parts and str(p)==m.name
+            assert ':' not in m.name and '\\' not in m.name and m.name not in data
+            data[m.name]=tar.extractfile(m).read()
+    records=json.loads(data[ledger])['files']
+    assert len({r['path'] for r in records})==len(records)
+    assert set(data)=={r['path'] for r in records}|{ledger}
+    for row in records:assert len(data[row['path']])==row['bytes'] and digest(data[row['path']])==row['sha256']
+    return data
+archive=BASE/'qualified-return.tar.gz';raw=archive.read_bytes()
+assert len(raw)==26525 and digest(raw)=='23bb6b9d562f790079bafb3cbae3c932441d61369005cc95e952a79a3b640b45'
+outer=unpack(raw,'return-manifest.json',13)
+assert len(outer['native-evidence.tar.gz'])==4136 and digest(outer['native-evidence.tar.gz'])=='09b5116f2b9095c8a3404afe5e4c724a845a05bc85e195f40d10b73d2ef05688'
+inner=unpack(outer['native-evidence.tar.gz'],'evidence-manifest.json',20)
+for name,value in outer.items():assert (RECEIVED/name).read_bytes()==value
+for name,value in inner.items():assert (RECEIVED/'native'/name).read_bytes()==value
+native=json.loads(inner['native-metadata.json'])
+assert digest(inner['native-metadata.json'])=='d6d1a334756b942b1f5f9fa4cc521742d0e374c2144f97d41028bbecb2b1cdae'
+assert native['passed'] is True and native['phase']=='qualified' and len(native['runs'])==2
+assert (native['host_system'],native['host_machine'],native['image_os'],native['image_architecture'])==('Linux','x86_64','linux','amd64')
+assert native['driver_sha256']==digest(outer['driver.py.txt'])==sha(BASE/'driver.py')=='07d57d21f080e9e5137221d7fe069af16413bcb7b796d7118286050646476b91'
+spec=json.loads(outer['input-manifest.json']);expected={r['path']:r['sha256'] for r in spec['files']}
+assert len(expected)==len(spec['files'])==10 and spec['phase']=='qualified'
+snapshot_receipt=json.loads((BASE/'qualified-snapshot.json').read_bytes())
+assert sha(BASE/'qualified-snapshot.json')==spec['snapshot_receipt_sha256']
+assert snapshot_receipt['source_sha256']==expected and snapshot_receipt['qualification_granted'] is False
+assert native['current_source_sha256']==expected
+assert native['input_manifest_sha256']==digest(outer['input-manifest.json'])==sha(BASE/'input-manifest.qualified.json')
+transfer=BASE/'sol-moon-refresh-qualified-20261104-01.tar.gz'
+assert transfer.stat().st_size==1345075 and sha(transfer)=='a3f71be75411e1376523cb74ac628ab03737afe54cc58f53a96f7029b48b630c'
+with tarfile.open(transfer,'r:gz') as tar:
+    members=tar.getmembers();assert len(members)==12
+    assert all(m.isfile() and str(PurePosixPath(m.name))==m.name and not PurePosixPath(m.name).is_absolute()
+               and '..' not in PurePosixPath(m.name).parts and ':' not in m.name and '\\' not in m.name for m in members)
+    transfer_data={m.name:tar.extractfile(m).read() for m in members}
+assert set(transfer_data)=={'driver.py','input-manifest.json'}|{'inputs/'+r['path'] for r in spec['files']}
+assert transfer_data['driver.py']==outer['driver.py.txt'] and transfer_data['input-manifest.json']==outer['input-manifest.json']
+for row in spec['files']:
+    current=ROOT/row['path'];snapshot=transfer_data['inputs/'+row['path']]
+    assert current.stat().st_size==len(snapshot)==row['bytes'] and sha(current)==digest(snapshot)==row['sha256']
+manifest=json.loads(outer['generation-manifest.qualified.json'])
+assert digest(outer['generation-manifest.qualified.json'])==expected['tools/ephemeris-data/generation-manifest.json']=='e994a31d8043bc33ff640b01825bdf2ceed75970073ff6df46bcb257785e4dcb'
+assert manifest['canonical']['status']=='qualified' and manifest['canonical']['qualification']['identical_runs']==2
+qualification=manifest['canonical']['qualification']
+assert qualification['evidence_id']=='canonical-moon-20261104' and qualification['reviewed_evidence']=='docs/CANONICAL_MOON_REFRESH_20261104.md'
+assert qualification['pending_native_metadata_sha256']=='681106e249685436a8fe82b682f8ff3a91c200f3299d2e96b09a70a09c11c33b'
+assert qualification['review_receipt_sha256']==sha(HERE/'native-pending-receipt.json')=='7c4dfd4f5dcded033dc0329a29dd9891762456b27af18eb2fcc4e29c034c7361'
+pending_manifest=json.loads((BASE/'pending-received/generation-manifest.pending.json').read_bytes())
+reconstructed=copy.deepcopy(manifest)
+reconstructed['canonical']['status']=pending_manifest['canonical']['status']
+reconstructed['canonical']['qualification']=pending_manifest['canonical']['qualification']
+assert reconstructed==pending_manifest
+pending=json.loads((BASE/'pending-received/native/native-metadata.json').read_bytes())
+assert {name for name in expected if expected[name]!=pending['current_source_sha256'][name]}=={'tools/ephemeris-data/generation-manifest.json'}
+assert manifest['validation']['max_angle_deg']==.15 and manifest['validation']['max_radius_fraction']==.0025
+assert manifest['validation']['minimum_checks_per_moon']==100 and manifest['validation']['expected_held_out_checks']==11985
+for name in ('generate_moons.py','moon_model.py','validate_moons.py','collect_moon_evidence.py'):
+    assert digest(outer['source/'+name+'.txt'])==expected['tools/'+name]
+boot=json.loads(outer['bootstrap-receipt.json']);root=PurePosixPath(boot['root'])
+assert root.parent==PurePosixPath('/tmp') and root.name.startswith('sol-moon-refresh-qualified-20261104-')
+assert boot['source_archive_bytes']==1345075 and boot['source_archive_sha256']==sha(transfer)
+assert boot['bootstrap_sha256']==digest(outer['bootstrap.py.txt'])==sha(BASE/'sol-canonical-bootstrap-qualified-20261104.py')
+bootstrap_reconstructed=outer['bootstrap.py.txt'].replace(b'sol-moon-refresh-qualified-20261104-01.tar.gz',b'sol-moon-refresh-pending-20261104-02.tar.gz').replace(b'1345075',b'1344912').replace(b'a3f71be75411e1376523cb74ac628ab03737afe54cc58f53a96f7029b48b630c',b'8f3aa8a2c9ec829272b4643f03cfb19b4686705cc704c72a67dbde81b2c68f50').replace(b"spec['phase']!='qualified'",b"spec['phase']!='pending'").replace(b'sol-moon-refresh-qualified-20261104-',b'sol-moon-refresh-pending-20261104-')
+assert bootstrap_reconstructed==(BASE/'pending-received/bootstrap.py.txt').read_bytes()
+assert boot['driver_sha256']==native['driver_sha256'] and boot['input_manifest_sha256']==native['input_manifest_sha256']
+assert boot['members']==12 and boot['docker_host']=='unix:///var/run/docker.sock'
+assert digest(outer['return-control.py.txt'])==sha(BASE/'sol-canonical-return-20261104.py')
+image_digest=manifest['canonical']['image_digest'];image_ref='python@'+image_digest
+assert native['image_ref']==image_ref and image_ref in native['repo_digests']
+assert native['image_id']==pending['image_id'] and native['repo_digests']==pending['repo_digests']
+assert inner['docker-native.stdout.txt'].strip()==b'linux/x86_64'
+image=json.loads(inner['image-inspect.stdout.txt']);assert len(image)==1;image=image[0]
+assert (image['Os'],image['Architecture'])==('linux','amd64') and image_ref in image['RepoDigests']
+assert image['Id']==native['image_id'] and image['Descriptor']['digest']==image_digest
+assert image['Config']['Env'].count('PYTHON_VERSION=3.12.12')==1
+assert json.loads(inner['image-before.stdout.txt'])==[image]
+commands={r['name']:r for r in native['commands']}
+assert len(commands)==len(native['commands'])==9
+for name,row in commands.items():
+    assert row['exit_code']==(1 if name.startswith('container-') else 0)
+    assert not row.get('timed_out') and math.isfinite(row['elapsed_seconds']) and 0<=row['elapsed_seconds']<=row['timeout_seconds']
+    for stream in ('stdout','stderr'):assert digest(inner[name+'.'+stream+'.txt'])==row[stream+'_sha256']
+assert commands['image-before']['exit_code']==0 and inner['image-before.stderr.txt']==b''
+reports=[];container_names=[]
+for index in (1,2):
+    row=commands['comparison-'+str(index)];command=row['command'];name='sol-moon-'+root.name[-12:]+'-'+str(index)
+    expected_command=['docker','run','--rm','--name',name,'--platform','linux/amd64','--read-only','--network','none',
+      '--cpus','2','--memory','1g','--pids-limit','128','--cap-drop','ALL','--security-opt','no-new-privileges',
+      '--mount','type=bind,src='+str(root/'inputs')+',dst=/work,readonly','--workdir','/work','--env','PYTHONDONTWRITEBYTECODE=1',
+      '--env','SOL_MOON_GENERATOR_IMAGE_DIGEST='+image_digest,image_ref,'python','-B','tools/collect_moon_evidence.py']
+    assert command==expected_command and row['timeout_seconds']==120
+    container_names.append(name)
+    for stage in ('before','after'):
+        check=commands[f'container-{stage}-{index}']
+        assert check['command']==['docker','container','inspect',name] and check['exit_code']==1
+        assert 'No such container: '+name in inner[f'container-{stage}-{index}.stderr.txt'].decode()
+    assert inner[f'comparison-{index}.stderr.txt']==b''
+    report_raw=inner[f'comparison-{index}.stdout.txt'];report=json.loads(report_raw)
+    run=native['runs'][index-1]
+    assert run['index']==index and run['exit_code']==0 and run['report_sha256']==digest(report_raw)
+    assert report['status']=='comparison_passed' and report['comparison_passed'] is True
+    assert report['qualification_status']=='qualified' and report['qualification_granted'] is False and report['source_revision'] is None
+    assert report['runtime']==run['runtime']==dict(system='Linux',machine='x86_64',implementation='CPython',python_version='3.12.12')
+    assert report['source_sha256_before']==report['source_sha256_after']==expected
+    assert report['generated_sha256']==report['committed_sha256']==run['generated_sha256']==manifest['outputs']
+    assert report['launcher_asserted_image_digest']==image_digest and type(report['numerical_validator_exit']) is int and report['numerical_validator_exit']==0
+    assert 'OK: 21 moons' in report['validator_log'] and '11985 interleaved Horizons checks' in report['validator_log']
+    assert 'across JD 2459219.0–2462859.0' in report['validator_log']
+    assert 'noncanonical' not in report['validator_log'].lower() and 'qualification is pending' not in report['validator_log']
+    reports.append(dict(index=index,report_sha256=digest(report_raw),elapsed_seconds=row['elapsed_seconds'],checks=11985,generated_sha256=report['generated_sha256']))
+assert len(set(container_names))==2
+assert native['cleanup_checks']==[dict(name=n,confirmed_absent=True) for n in container_names]
+assert b'SOL_MOON_COMPLETE=' in outer['launcher.log'] and native['phase']=='qualified'
+assert sha(HERE/'receipt.json')=='766775af1829730cf8a5bd26a13faf58f728ae45d3af7ca117a4936084c2d130'
+result=dict(schema_version='sol-canonical-refresh-native-qualified-review.v1',passed=True,
+    outcome='No actionable findings; actual two-run strict qualified-state follow-up verified for current exact-hash local major-moon generation contract.',
+    scope='Retained strict native qualified-state evidence only; no new Docker/network/native execution and no qualification mutation by reviewer.',
+    outer_archive_sha256=digest(raw),outer_members=len(outer),inner_archive_sha256=digest(outer['native-evidence.tar.gz']),inner_members=len(inner),
+    native_metadata_sha256=digest(inner['native-metadata.json']),driver_sha256=native['driver_sha256'],bootstrap_sha256=boot['bootstrap_sha256'],
+    input_manifest_sha256=native['input_manifest_sha256'],exact_current_source_sha256=expected,source_files=10,
+    image_ref=image_ref,image_id=native['image_id'],same_cached_image_as_reviewed_pending=True,daemon='linux/x86_64',
+    fixed_local_socket=boot['docker_host'],reports=reports,owned_containers_confirmed_absent=container_names,
+    pending_review_receipt_sha256=sha(HERE/'native-pending-receipt.json'),
+    metadata_only_phase_change_verified=True,qualification_evidence_id=qualification['evidence_id'],
+    strict_followup_complete=True,
+    limitations=['No hosted commit/CI/release or UI status qualification inferred; source revision is deliberately null.',
+      'Physical validation is finite11985 held-out checks in declared JD span; no continuous/event/full-date-range claim.',
+      'Remote45MB image bytes were not rehashed locally; reviewed pending acquisition plus exact cached image ID/repo digest bind the strict runs.',
+      'Driver/listener PID and transfer-port liveness are not independently represented in this returned bundle; parent reports those separately.'],
+    review_script_sha256=sha(Path(__file__)))
+with (HERE/'native-qualified-receipt.json').open('x',encoding='utf-8',newline='\n') as stream:
+    json.dump(result,stream,indent=2);stream.write('\n')
+print(json.dumps(dict(passed=True,outer_members=len(outer),inner_members=len(inner),native_runs=len(reports),receipt_sha256=sha(HERE/'native-qualified-receipt.json'))))

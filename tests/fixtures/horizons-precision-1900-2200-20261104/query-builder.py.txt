@@ -1,0 +1,83 @@
+"""One bounded read-only acquisition of the predeclared precision matrix."""
+from pathlib import Path
+import datetime as dt
+import hashlib
+import json
+import math
+import re
+import time
+import urllib.parse
+import urllib.request
+
+ROOT=Path(__file__).resolve().parents[1]
+PACK=ROOT/'tests/fixtures/horizons-precision-1900-2200-20261104'
+ENDPOINT='https://ssd.jpl.nasa.gov/api/horizons.api'
+if hashlib.sha256((PACK/'predeclared-plan.txt').read_bytes()).hexdigest()!='e18f2b66cb60fd06d4f8a9ed15c4ddc0b44a28602af803bb204be5d81e4ab8c1':
+    raise RuntimeError('Predeclared plan differs')
+VECTOR_CASES=[('mercury','Mercury',199,10),('venus','Venus',299,10),('earth','Earth',399,10),
+ ('mars','Mars',4,10),('jupiter','Jupiter',5,10),('saturn','Saturn',6,10),('uranus','Uranus',7,10),
+ ('neptune','Neptune',8,10),('moon','Moon',301,10),('geocentric-moon','GeocentricMoon',301,399)]
+APPARENT_CASES=[('sun','Sun',10,399),('moon','Moon',301,399),('mercury','Mercury',199,399),
+ ('venus','Venus',299,399),('mars','Mars',4,399),('jupiter','Jupiter',5,399),('saturn','Saturn',6,399),
+ ('uranus','Uranus',7,399),('neptune','Neptune',8,399)]
+jd=lambda year,month,day:dt.datetime(year,month,day).toordinal()+1721424.5
+start,end,core0,core1=jd(1899,12,31),jd(2201,1,2),jd(1900,1,1),jd(2201,1,1)
+grid=[start+30*i for i in range(int((end-start)//30)+1)]
+span_seconds=int((core1-core0)*86400);state=0x534F4C32;irregular=set()
+while len(irregular)<257:
+    state=(1664525*state+1013904223)%(2**32)
+    value=float(f'{core0+(state*span_seconds//(2**32))/86400:.9f}')
+    if value not in grid:irregular.add(value)
+irregular.update((core0,core1,end));irregular=sorted(irregular)
+batches=[{'id':'grid','epochs_jd':grid}]+[{'id':f'irregular-{i//64}','epochs_jd':irregular[i:i+64]} for i in range(0,len(irregular),64)]
+queries=[]
+for kind,cases in [('vectors',VECTOR_CASES),('apparent',APPARENT_CASES)]:
+    for case,body,target,center in cases:
+        for batch in batches:
+            params={'format':'text','COMMAND':f"'{target}'",'OBJ_DATA':"'NO'",'MAKE_EPHEM':"'YES'",
+                'EPHEM_TYPE':"'VECTORS'" if kind=='vectors' else "'OBSERVER'",'CENTER':f"'500@{center}'"}
+            if batch['id']=='grid':params.update(START_TIME=f"'JD{start:.9f}'",STOP_TIME=f"'JD{end:.9f}'",STEP_SIZE="'30 d'")
+            else:params.update(TLIST=' '.join(f"'{epoch:.9f}'" for epoch in batch['epochs_jd']),TLIST_TYPE="'JD'")
+            params.update(TIME_TYPE="'TDB'" if kind=='vectors' else "'TT'",CAL_TYPE="'GREGORIAN'",TIME_DIGITS="'FRACSEC'",REF_SYSTEM="'ICRF'",CSV_FORMAT="'YES'")
+            if kind=='vectors':params.update(REF_PLANE="'ECLIPTIC'",VEC_CORR="'NONE'",OUT_UNITS="'AU-D'",VEC_TABLE="'1'",VEC_LABELS="'YES'")
+            else:params.update(CAL_FORMAT="'JD'",QUANTITIES="'2,20,30,45'",ANG_FORMAT="'DEG'",APPARENT="'AIRLESS'",EXTRA_PREC="'YES'",ELEV_CUT="'-90'")
+            queries.append({'kind':kind,'case':case,'body':body,'target':target,'center':center,'batch':batch['id'],
+                'request_url':ENDPOINT+'?'+urllib.parse.urlencode(params,quote_via=urllib.parse.quote)})
+spec={'schema_version':'precision-window-query-spec.v1','target_start_jd_utc':core0,'target_end_jd_utc':core1,
+      'model_start_jd':start,'model_end_jd':end,'epochs_jd':sorted(set(grid)|set(irregular)),'batches':batches,'queries':queries}
+with (PACK/'query-spec.json').open('x',encoding='utf-8',newline='\n') as stream:json.dump(spec,stream,indent=2,allow_nan=False);stream.write('\n')
+with (PACK/'query-builder.py.txt').open('xb') as stream:stream.write(Path(__file__).read_bytes())
+started=dt.datetime.now(dt.timezone.utc).isoformat();records=[];total=0
+for index,query in enumerate(queries,1):
+    for attempt in range(2):
+        try:
+            request=urllib.request.Request(query['request_url'],headers={'User-Agent':'Sol-bounded-precision-reference/1'})
+            with urllib.request.urlopen(request,timeout=30) as response:
+                if response.status!=200:raise RuntimeError('Non-success response')
+                raw=response.read(1048577)
+            break
+        except (OSError,TimeoutError):
+            if attempt==1:raise
+            time.sleep(1)
+    if len(raw)>1048576 or total+len(raw)>64*1048576:raise RuntimeError('Response/acquisition byte bound exceeded')
+    text=raw.decode('utf-8')
+    if text.count('$$SOE')!=1 or text.count('$$EOE')!=1 or text.index('$$SOE')>text.index('$$EOE'):
+        raise RuntimeError('No unique ordered table: '+query['case']+' '+text[:900])
+    rows=text.split('$$SOE',1)[1].split('$$EOE',1)[0].strip().splitlines()
+    expected=next(batch for batch in batches if batch['id']==query['batch'])['epochs_jd']
+    if len(rows)!=len(expected):raise RuntimeError(f'Incomplete epoch table {query["case"]}: {len(rows)} expected {len(expected)}')
+    version=re.findall(r'^API VERSION: ([^\r\n]+)',text,re.M)
+    if len(version)!=1:raise RuntimeError('Missing API version')
+    filename=f"{query['kind']}-{query['case']}-{query['batch']}.txt"
+    with (PACK/filename).open('xb') as stream:stream.write(raw)
+    record=dict(query,path=filename,bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),api_version=version[0],
+                attempts=attempt+1,acquired_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())
+    records.append(record);total+=len(raw)
+    progress={'started_at_utc':started,'records':records,'raw_bytes':total,'expected_queries':len(queries)}
+    (ROOT/'build/precision-acquisition-progress-20261104.json').write_text(json.dumps(progress,indent=2)+'\n',encoding='utf-8',newline='\n')
+    print(f"CAPTURED {index}/{len(queries)} {filename} {len(rows)} rows {len(raw)} bytes",flush=True)
+    time.sleep(.3)
+ledger={'schema_version':'precision-window-acquisition.v1','source':'NASA/JPL Horizons API','endpoint':ENDPOINT,
+        'started_at_utc':started,'completed_at_utc':dt.datetime.now(dt.timezone.utc).isoformat(),'records':records,'raw_bytes':total}
+with (PACK/'acquisition.json').open('x',encoding='utf-8',newline='\n') as stream:json.dump(ledger,stream,indent=2,allow_nan=False);stream.write('\n')
+print('COMPLETE',len(records),'responses',len(spec['epochs_jd']),'epochs',total,'raw bytes',flush=True)

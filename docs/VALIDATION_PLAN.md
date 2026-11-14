@@ -39,7 +39,47 @@ as proof of the whole system.
 | Workflow/deployment | SDLC workflow validator, least privilege, immutable pins, rollback/evidence update |
 | Documentation only | Offline link/style validation and claim-to-tree review |
 
+Current coefficient-tier changes must retain immutable preferred source/output
+pins, all canonical/component/web manifest copies, historical profiles and literal
+bindings. Rebuild twice from delivered preferred sources on each declared native
+platform; test the standalone delivered kit, altered large-source rejection and
+actual current native source parity without weakening its reporting tolerance.
+The [TOP08 follow-up](TOP2013_PRECISION_20261106.md) records a caught stale fourth
+manifest, corrected source kit, 12-step app campaign and complete109,900-comparison
+actual-WASM renewal. Empty-page timings, cross-build paired outputs, finite-domain
+checks and first-shard preflight remain separate from final reference acceptance.
+The existing 16 ms raw p95 and all coverage/physical gates remain unchanged. Freeze
+source through terminal collection, analysis and posthash; only then update final
+documentation, retaining its separate construction/runtime/archive cohorts.
+
 ## Browser and visual regression
+
+Coordinate regressions cover zenith/nadir, transformed coordinate poles,
+precessed poles and nonfinite inputs. A valid pole/zenith case must also produce
+strict JSON through the actual native and WASM snapshot interfaces and pass
+the original frontend reader. Served-app evidence must exercise the original
+worker and publication path. The
+[coordinate-pole correction](COORDINATE_POLES_20261106.md) retains original
+failures, paired browser recovery, fresh 234-test Rust coverage and the complete
+109,900-comparison candidate-WASM replay. LLVM-reported coverage and unique LCOV
+line-entry diagnostics remain distinct; the existing 90% gate is unchanged.
+Post-execution source verification precedes documentation edits, whose snapshot
+must remain separate from the runtime/source-archive construction snapshot.
+
+Model-data transport tests cover stalled fetches, streams, hashing and reader
+cancellation; one transaction-wide deadline; late response disposal; superseded
+loads and old-owner completion. Existing byte/hash/schema and publication tests
+remain mandatory. Served-app checks in Solar research must show a bounded failure, preservation of
+the last valid view and recovery through the real Retry control, including first
+load. The default budget is 30 seconds; synchronous work is rejected as overdue
+when execution resumes rather than being preempted.
+
+The [bundle-loading correction](BUNDLE_TRANSPORT_20261106.md) retains the original
+unbounded-load experiment, final deadline/Retry/cancellation browser receipts and
+current unit/coverage results. The deterministic hash test must prove hash entry;
+an earlier timeout before the digest starts is insufficient evidence for that case.
+Source archives, runtime captures and subsequent test/report changes retain their
+separate snapshots.
 
 Browser validation builds both WASM engines and serves the staged candidate, blocks uncontrolled
 external requests, freezes time, and exercises the Sun, My Sky, Solar System, timeline,
@@ -50,11 +90,114 @@ uses two local origins and requires zero requests to the unapproved destination.
 These checks do not certify actual screen readers, touch platforms, contrast, system
 clipboard permissions or general performance SLOs.
 
+Both additional harnesses honor the staged manifest's declared mount, including
+`/sol/`. Context checks exclude only explicitly hidden conditional context
+controls; CSS-hidden active actions and required navigation remain failures.
+System label checks use the renderer's integer client width for its existing
+14/24 narrow/desktop caps, separately verify actual canvas bounds, and retain
+four-pixel pairwise clearance with the existing 0.1-pixel rounding allowance.
+Desktop and phone captures are independent checks. The experience tool retains
+failure state and geometry when available. See the
+[2026-11-06 local audit](READINESS_AUDIT_20261106.md) for completed checks and the
+unresolved focus, label-clearance, diagnostic timing and intermittent export Cancel failures.
+These local tool runs do not
+establish hosted execution or a completed experience milestone.
+
+The normal browser command also checks immediate scene-label placement under
+reduced motion before rendering gates. It measures the actual styled box in the
+same task as a coordinate update, requires the requested displacement and no
+active CSS transitions, and removes its temporary fixture in `finally`. A frame
+wait would conceal the reproduced defect. See the
+[reduced-motion correction](REDUCED_MOTION_CORRECTION_20261106.md) for the retained
+before/after experiment and later passing candidate; the earlier failures remain
+in their separate cohorts.
+
+Label-packing inputs use fractional DOM rectangles, not integer offset sizes.
+The projection regression executes the production renderer with measured text
+widths and an explicitly constructed fractional line height, checks both labels
+remain readable, and rejects sub-target horizontal/vertical clearance. See the
+[fractional clearance correction](LABEL_CLEARANCE_CORRECTION_20261106.md) for the
+retained negative cases, precise scene-label fixture repair and final candidate.
+
+The native backend profile requests all approved Sun qualities (1K/2K/4K); the
+software profile keeps 1K. The requested list is recorded and checked against
+actual probe results, and application renderer identity is observed at each Sun
+capture. This affects qualification routing, not the application's 1K default.
+The separate [native resource experiment](SUN_QUALITY_RESOURCE_VALIDATION_20261106.md)
+records bounded logical allocations and active-4K context recovery outside the
+original performance gates. It does not measure physical VRAM or all-app memory.
+
+The [tour viewport regression](TOUR_ACCESSIBILITY_CORRECTION_20261106.md) exercises
+all seven steps at portrait, landscape and short viewport sizes. It checks card
+bounds, current-action visibility and hit testing, actual keyboard outline ink,
+modal isolation, Tab wrapping and Escape focus restoration. Short-card overflow
+must actually occur; fitting an unscrolled tall viewport is insufficient. Native
+accessibility-tree name inspection remains bounded browser evidence and does not
+replace manual screen-reader or WCAG acceptance.
+
+The [trusted-touch regression](TOUCH_SELECTION_CORRECTION_20261106.md) runs after
+the original browser gates in an isolated context. It observes transient selection
+intents as well as final state, requires a live visible hit-testable canvas, and
+checks drag, stationary contacts, pinch continuation, added contacts, cancellation,
+view re-entry and a positive single-tap selection. Epoch and positions must remain
+unchanged. Acceptance requires actual selective contact release, expected
+surviving-finger movement with unchanged zoom, and a child-error/request check
+through context closure. Work/context-closure deadlines and the new producer hash
+are explicit; a follow-up failure fails the complete command. Both renderer runs,
+1,534 Node tests and unchanged coverage floors pass for the recorded local stage.
+Browser emulation does not establish physical-device acceptance.
+
+The [export input/reflow diagnostic](EXPORT_READINESS_20261106.md) retains 24
+pointer/keyboard Cancel cases across four viewport sizes and both motion
+preferences. It observes actual trusted Cancel activation, frozen-preview
+invariance and focus recovery after a180ms observation delay. Passed cases remain
+finite current-candidate evidence and do not explain the older intermittent timeout
+or replace physical-device/manual acceptance.
+
+The [experience terminal-error correction](EXPERIENCE_CLOSURE_CORRECTION_20261106.md)
+retains the historical Cancel question separately. Seven focused cases and a real
+browser microtask-error control prove that a late page error must fail the complete
+command. Browser/server cleanup is attempted independently; the final receipt
+includes cleanup failures and is written before success output. Capture-only mode
+remains diagnostic. The ordinary staged workflow passes all 24 original groups;
+no interaction, layout or performance gate is relaxed.
+
+The [integrated workflow finalizers](WORKFLOW_CLOSURE_CORRECTION_20261106.md)
+apply the terminal-error requirement to Sky, the main browser and full physical
+rendering. Every owned cleanup action is attempted before final error collection
+and receipt persistence. Real late-error controls must reject after original
+acceptance; individual preflight success does not establish whole-command success.
+Worker error references survive earlier disposal, and native errors retain identity
+across contexts. The final ordinary software workflows and Windows/Linux unit
+checks pass within their recorded source cohorts.
+
+The Earth and planet look probes also observe the exact sampled illustrative
+texture handles. Distinct Earth surface/mask and Mercury/Venus maps must be live
+when drawn and invalid after selecting Source-qualified. Their producer hashes
+are included in the browser receipt's selected input inventory. The separate
+[appearance resource experiment](APPEARANCE_RESOURCE_VALIDATION_20261106.md)
+records the seven-map sweep, nominal mip allocations, late Earth decode rejection
+and active-context Earth recovery. Test-owned suppressed-deletion controls must
+make both permanent probes reject; no product source is patched for those controls.
+
+The [pending-decode recovery experiment](APPEARANCE_CONTEXT_VALIDATION_20261106.md)
+holds native decoded Earth/Mars results across context replacement, waits for
+fresh-owner draws, then verifies obsolete completion closes without uploading or
+displacing current resources. All seven artistic maps must draw their own pinned
+images at their physical positions after recovery. The Earth lifecycle regression
+also rejects a test-owned loader mutation that suppresses the early upload guard;
+production/staged source remains unchanged. These cases complement active-resource
+loss and do not imply every cancellation interleaving or whole-device memory bounds.
+
 The visual checks are semantic rather than brittle full-page golden screenshots:
 
 - the Sun must remain warm white instead of an incorrect orange cast;
 - Earth must contain a meaningful visible blue-ocean population;
 - a mathematically exact full camera orbit must return to a materially equivalent image.
+- a physical-scale Neptune orbit guide must remain visible along its expected ellipse,
+  while the opaque planet core remains unchanged and the fixed scene is restored;
+  backing-buffer points are mapped through the recorded CSS rectangle and screenshot
+  crop. See [the permanent orbit regression](ORBIT_CURVE_RENDERING_20261105.md#permanent-browser-regression).
 
 Screenshots and browser coverage are uploaded even when the job fails. A future visual
 assertion must explain the user-visible invariant, deterministic setup, tolerance, and
@@ -83,6 +226,15 @@ percentage so data rows cannot inflate application coverage. Generated schema ob
 require canonical-equality tests for exclusion; hand-written guards and workers stay in
 the denominator. Coverage is a guardrail, not
 a substitute for assertions or risk-based tests.
+
+The [combined gate correction](MERGED_COVERAGE_CORRECTION_20261106.md) additionally
+requires canonical runtime paths and the exact current V8 source-derived executable
+line sets. Empty or reduced named-file maps and excluded/unrelated files cannot
+replace or inflate that denominator. Paired maps/counters, branch arity and
+nonnegative safe hit values are checked before and after merge. The default 90%
+floor and supported higher floors use actual counts rather than truncated display
+percentages. These checks do not authenticate execution; collector and source/CI
+provenance remain separate requirements.
 
 ## Determinism and generated data
 
@@ -133,14 +285,18 @@ For every candidate SHA, GitHub Actions retains:
 - crash artifacts from scheduled fuzzing when present;
 - workflow logs that identify commands, toolchains, and the source SHA.
 
-GitHub Pages verifies and promotes the exact same candidate artifact, with no source
-rebuild on the privileged runner. Same-run mandatory jobs, artifact identity, protected
-profiles/accepted evidence, reference freshness and settings are checked before and after
-environment approval. Served critical-byte verification is a further distinct result.
-Repository settings, accepted manual/scientific evidence, registry status and actual
-rollback require independent authoritative evidence; missing inputs hold promotion.
-See [RELEASE_DELIVERY.md](RELEASE_DELIVERY.md). Local synthetic policy fixtures do not
-qualify hosted execution.
+Normal GitHub Pages publication verifies and deploys the exact successful master CI
+artifact, with no source rebuild on the privileged runner. Authoritative run/job/artifact
+identity, current master, the manifest and rich outer evidence are rechecked before and
+after environment approval. Served critical-byte verification follows deployment as a
+distinct result.
+
+That publication path does not consult manual/scientific qualification profiles. The
+separate protected promotion/rollback evaluator retains its required profile, accepted
+evidence, reference-freshness and settings checks; missing required inputs hold that
+evaluation. Full production-readiness claims still require authoritative manual/scientific,
+registry, settings and rollback evidence. See [RELEASE_DELIVERY.md](RELEASE_DELIVERY.md).
+Local synthetic policy fixtures do not qualify hosted execution.
 
 ## Local validation
 
@@ -148,6 +304,21 @@ Run general repository checks and the relevant feature gates against the same so
 and staged artifact. Record missing toolchains separately from passing checks.
 
 ## Physical rendering validation
+
+The [Linux software-browser campaign](LINUX_BROWSER_VALIDATION_20261106.md) executes
+the existing smoke, full browser/touch, Sky, experience and eight GPU commands against
+the exact retained Windows-tested artifact. All 16 recorded steps pass, including
+denominator-complete Node/Chromium coverage. Its source/stage/dependency invariants,
+failed first output-path invocation and actual software renderer are retained separately;
+physical GPU/device, hosted and manual qualification remain outside that campaign.
+
+The [component-LGPL delivery checks](LGPL_COMPONENT_20261106.md) preserve original
+application terms, validate actual package/source/notice bytes and require a
+deterministic, bounded source archive in the staged web inventory. The source
+archive is optional for caching; complete artifact validation still requires its
+physical bytes and digest. Git-free offline rebuilding and an interface-compatible
+modified-library load are distinct engineering proofs, with their own source and
+artifact identities. Legal and release qualification are not inferred from them.
 
 RFC 0005 source and numerical contracts add the following offline commands. Use the
 same immutable staged directory for all GPU passes; the tools verify selected module

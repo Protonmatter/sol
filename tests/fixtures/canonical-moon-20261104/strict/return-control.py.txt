@@ -1,0 +1,67 @@
+"""One bounded, loopback-only transfer of completed canonical test evidence."""
+from pathlib import Path
+from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
+import argparse
+import gzip
+import hashlib
+import io
+import json
+import tarfile
+import threading
+
+parser=argparse.ArgumentParser();parser.add_argument('--root',type=Path,required=True);args=parser.parse_args()
+root=args.root.resolve()
+if root.parent!=Path('/tmp') or not root.name.startswith('sol-moon-refresh-'):
+    raise ValueError('owned canonical test root required')
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+record=json.loads((root/'evidence/native-metadata.json').read_bytes())
+if record['phase'] not in ('pending','qualified') or record['passed'] is not True or len(record['runs'])!=2 \
+        or not all(c['confirmed_absent'] for c in record['cleanup_checks']):
+    raise ValueError('successful completed runs and absent containers required')
+bootstrap=json.loads((root/'bootstrap-receipt.json').read_bytes())
+if bootstrap['root']!=str(root):raise ValueError('bootstrap root differs')
+pairs=[('native-evidence.tar.gz',root/'evidence.tar.gz'),('bootstrap-receipt.json',root/'bootstrap-receipt.json'),
+    ('bootstrap.py.txt',root/'bootstrap.py.txt'),('driver.py.txt',root/'driver.py'),
+    ('input-manifest.json',root/'input-manifest.json'),('launcher.log',root/'launcher.log'),
+    ('return-control.py.txt',Path(__file__))]
+for name in ('generate_moons.py','validate_moons.py','collect_moon_evidence.py','moon_model.py'):
+    pairs.append(('source/'+name+'.txt',root/'inputs/tools'/name))
+pairs.append(('generation-manifest.'+record['phase']+'.json',root/'inputs/tools/ephemeris-data/generation-manifest.json'))
+if any(p.is_symlink() or not p.is_file() or p.stat().st_size>1024**2 for _,p in pairs):
+    raise ValueError('evidence transfer path/size differs')
+ledger=root/'return-manifest.json'
+with ledger.open('x') as stream:json.dump(dict(files=[dict(path=name,bytes=p.stat().st_size,sha256=sha(p)) for name,p in pairs]),stream,indent=2);stream.write('\n')
+pairs.append(('return-manifest.json',ledger))
+archive=root/'canonical-return.tar.gz'
+with archive.open('xb') as stream,gzip.GzipFile(fileobj=stream,mode='wb',mtime=0) as zipped,tarfile.open(fileobj=zipped,mode='w') as tar:
+    for name,p in sorted(pairs):
+        data=p.read_bytes();item=tarfile.TarInfo(name);item.size=len(data);item.mode=0o644;tar.addfile(item,io.BytesIO(data))
+DATA=archive.read_bytes();SHA=sha(archive)
+print('SOL_CANONICAL_RETURN='+json.dumps(dict(archive_bytes=len(DATA),archive_sha256=SHA,
+    native_metadata_sha256=sha(root/'evidence/native-metadata.json'),native_archive_sha256=sha(root/'evidence.tar.gz'))),flush=True)
+HTML=('<!doctype html><meta charset="utf-8"><title>Sol canonical moon evidence</title>'
+    '<h1>Sol canonical moon evidence</h1><p>'+str(len(DATA))+' bytes; SHA-256 '+SHA+'</p>'
+    '<p><a href="/evidence.tar.gz" download="sol-canonical-moon-'+record['phase']+'-20261104.tar.gz">Download verified canonical evidence</a></p>'
+    '<form method="post" action="/complete"><input type="hidden" name="sha256" value="'+SHA+'">'
+    '<button>Finish verified transfer</button></form>').encode()
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self,*args):pass
+    def do_GET(self):
+        if self.path=='/':body,kind=HTML,'text/html; charset=utf-8'
+        elif self.path=='/evidence.tar.gz':body,kind=DATA,'application/gzip'
+        else:self.send_error(404);return
+        self.send_response(200);self.send_header('Content-Type',kind);self.send_header('Content-Length',str(len(body)))
+        self.send_header('Cache-Control','no-store')
+        if self.path=='/evidence.tar.gz':self.send_header('Content-Disposition','attachment; filename="sol-canonical-moon-'+record['phase']+'-20261104.tar.gz"')
+        self.end_headers();self.wfile.write(body)
+    def do_POST(self):
+        if self.path!='/complete' or not 0<=int(self.headers.get('Content-Length','-1'))<=256:
+            self.send_error(400);return
+        if self.rfile.read(int(self.headers['Content-Length']))!=('sha256='+SHA).encode():
+            self.send_error(400);return
+        self.send_response(200);self.end_headers();self.wfile.write(b'Verified transfer acknowledged; server closing.')
+        threading.Thread(target=self.server.shutdown,daemon=True).start()
+server=ThreadingHTTPServer(('127.0.0.1',8081),Handler)
+timer=threading.Timer(600,server.shutdown);timer.daemon=True;timer.start()
+try:server.serve_forever()
+finally:timer.cancel();server.server_close()

@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Validate ephemeris-snapshot.v3 against JPL Horizons observer quantities 2, 4, and 49.
+"""Validate ephemeris-snapshot.v4 against JPL Horizons observer quantities 2, 4, and 49.
 
 Runs the `sky` CLI (apparent topocentric alt/az from the engine) and compares to
 Horizons' airless Az/El for the same instant + site. This is the "grounded in
-facts" gate from docs/SOLAR_SYSTEM_SPEC.md. Needs network for Horizons; the
-deterministic Meeus unit tests gate CI offline.
+facts" gate from docs/SOLAR_SYSTEM_SPEC.md. The default mode queries Horizons;
+--reference-dir replays a complete, hashed raw-response pack without network I/O.
 
 Build the CLI first:  cargo build --release -p solar-ephemeris --bin sky
 Run:                   python tools/validate_ephemeris.py
+Offline:               python tools/validate_ephemeris.py --reference-dir tests/fixtures/horizons-observer-20261103
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import json
 import math
@@ -23,9 +25,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from typing import Callable
 
-# (label, UTC, lat_deg, lon_deg_east, elev_m) — spread over season, hemisphere, and latitude
-# (equatorial → sub-arctic) so the gate characterises an envelope, not one geometry.
+from validation_output import admit_report_path, write_report
+
+ROOT = Path(__file__).resolve().parents[1]
+
+# (label, UTC, lat_deg, lon_deg_east, elev_m) — both hemispheres, equatorial to
+# sub-arctic. These are four sites on one UTC day, not a seasonal envelope.
 CASES = [
     ("Boston", dt.datetime(2026, 7, 1, 2, 13, 47, tzinfo=dt.timezone.utc), 42.36, -71.06, 10.0),
     ("Sydney", dt.datetime(2026, 7, 1, 8, 31, 19, tzinfo=dt.timezone.utc), -33.87, 151.21, 20.0),
@@ -65,12 +72,12 @@ def engine_snapshot(binary: Path, when: dt.datetime, lat: float, lon: float, ele
         check=True,
     ).stdout
     snapshot = json.loads(out)
-    if snapshot.get("schema_version") != "ephemeris-snapshot.v3":
-        raise RuntimeError("engine did not emit ephemeris-snapshot.v3")
+    if snapshot.get("schema_version") != "ephemeris-snapshot.v4":
+        raise RuntimeError("engine did not emit ephemeris-snapshot.v4")
     return snapshot
 
 
-def horizons_observation(command: str, when: dt.datetime, lat: float, lon: float, elev_m: float) -> dict:
+def horizons_request_url(command: str, when: dt.datetime, lat: float, lon: float, elev_m: float) -> str:
     jd_utc = (when - dt.datetime(1970,1,1,tzinfo=dt.timezone.utc)).total_seconds() / 86400.0 + 2440587.5
     params = {
         "format": "text", "COMMAND": f"'{command}'", "OBJ_DATA": "'NO'", "MAKE_EPHEM": "'YES'",
@@ -81,12 +88,30 @@ def horizons_observation(command: str, when: dt.datetime, lat: float, lon: float
         "TIME_DIGITS": "'FRACSEC'", "QUANTITIES": "'2,4,49'", "ANG_FORMAT": "'DEG'",
         "APPARENT": "'AIRLESS'", "EXTRA_PREC": "'YES'", "CSV_FORMAT": "'YES'", "ELEV_CUT": "'-90'",
     }
-    url = "https://ssd.jpl.nasa.gov/api/horizons.api?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
-    payload = fetch_with_retry(url)
-    if "$$SOE" not in payload or "$$EOE" not in payload:
+    return "https://ssd.jpl.nasa.gov/api/horizons.api?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+
+
+def horizons_observation(command: str, when: dt.datetime, lat: float, lon: float, elev_m: float,
+                         *, fetch: Callable[[str], str] | None = None) -> dict:
+    jd_utc = (when - dt.datetime(1970,1,1,tzinfo=dt.timezone.utc)).total_seconds() / 86400.0 + 2440587.5
+    url = horizons_request_url(command, when, lat, lon, elev_m)
+    payload = (fetch_with_retry if fetch is None else fetch)(url)
+    if payload.count("$$SOE") != 1 or payload.count("$$EOE") != 1 or payload.index("$$SOE") > payload.index("$$EOE"):
         raise RuntimeError(f"Horizons response lacks ephemeris block: {payload[:500]}")
-    line = payload.split("$$SOE", 1)[1].split("$$EOE", 1)[0].strip().splitlines()[0]
-    token = line.split(",",1)[0].strip()
+    rows = payload.split("$$SOE", 1)[1].split("$$EOE", 1)[0].strip().splitlines()
+    if len(rows) != 1:
+        raise RuntimeError("Horizons response must contain exactly the requested instant")
+    line = rows[0]
+    try:
+        columns = next(csv.reader([line], strict=True))
+    except csv.Error as exc:
+        raise RuntimeError("Horizons response row is not valid CSV") from exc
+    # JD, solar-presence flag, lunar-presence flag, Q2 RA/Dec, Q4 Az/El,
+    # Q49 DUT1 and the Horizons trailing comma. Match quantity columns exactly;
+    # scanning for numeric substrings can turn malformed text into coordinates.
+    if len(columns) != 9 or columns[-1].strip():
+        raise RuntimeError("Horizons response row differs from quantities 2,4,49")
+    token = columns[0].strip()
     if not re.fullmatch(r"[+-]?\d+(?:\.\d+)?",token):
         raise RuntimeError("Horizons response epoch is not a numeric JD")
     returned_jd = float(token)
@@ -94,11 +119,16 @@ def horizons_observation(command: str, when: dt.datetime, lat: float, lon: float
     tolerance = min(1/86400,0.5*10**(-precision)+2*math.ulp(jd_utc))
     if not math.isfinite(returned_jd) or abs(returned_jd-jd_utc)>tolerance:
         raise RuntimeError("Horizons returned an epoch different from the requested JD/UT")
-    values = [float(value) for value in re.findall(r"[-+]?\d+(?:\.\d+)(?:[Ee][-+]?\d+)?", line)]
-    if len(values) < 5:
+    quantities = [value.strip() for value in columns[3:8]]
+    if not all(re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?", value) for value in quantities):
         raise RuntimeError(f"could not parse Horizons quantities 2,4,49: {line}")
-    ra, dec, az, el, dut1 = values[-5:]
-    return {"ra_deg": ra, "dec_deg": dec, "az_deg": az, "el_deg": el, "dut1_seconds": dut1}
+    values = [float(value) for value in quantities]
+    if not all(math.isfinite(value) for value in values):
+        raise RuntimeError(f"could not parse Horizons quantities 2,4,49: {line}")
+    ra, dec, az, el, dut1 = values
+    if not (0 <= ra <= 360 and -90 <= dec <= 90 and 0 <= az <= 360 and -90 <= el <= 90 and abs(dut1) <= .9):
+        raise RuntimeError("Horizons coordinates or DUT1 are outside their quantity domains")
+    return {"ra_deg": ra % 360.0, "dec_deg": dec, "az_deg": az % 360.0, "el_deg": el, "dut1_seconds": dut1}
 
 
 def fetch_with_retry(url: str, attempts: int = 4) -> str:
@@ -110,7 +140,8 @@ def fetch_with_retry(url: str, attempts: int = 4) -> str:
     last: Exception | None = None
     for attempt in range(attempts):
         try:
-            text = urllib.request.urlopen(url, timeout=40).read().decode()
+            with urllib.request.urlopen(url, timeout=40) as response:
+                text = response.read().decode()
             time.sleep(0.3)  # be gentle between the serial queries
             return text
         except urllib.error.HTTPError as exc:
@@ -132,6 +163,8 @@ def angular_sep(alt1: float, az1: float, alt2: float, az2: float) -> float:
     """Great-circle separation (deg) between two horizontal directions — the true pointing
     error, which (unlike raw d_az) stays finite near the zenith/nadir."""
     import math
+    if not all(math.isfinite(value) for value in (alt1, az1, alt2, az2)):
+        raise ValueError("pointing comparison requires finite directions")
     a1, a2 = math.radians(alt1), math.radians(alt2)
     daz = math.radians(az_diff(az1, az2))
     c = math.sin(a1) * math.sin(a2) + math.cos(a1) * math.cos(a2) * math.cos(daz)
@@ -141,9 +174,21 @@ def angular_sep(alt1: float, az1: float, alt2: float, az2: float) -> float:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", help="path to the sky CLI")
-    parser.add_argument("--report", help="write machine-readable validation evidence")
+    parser.add_argument("--report", type=Path, help="new JSON file strictly under this checkout's build/ or coverage/")
+    parser.add_argument("--reference-dir", type=Path, help="replay an exact raw-reference pack without network access")
     args = parser.parse_args()
+    try:
+        report_path = admit_report_path(ROOT, args.report) if args.report is not None else None
+    except (ValueError, OSError) as exc:
+        print(f"FAIL: report publication: {exc}", file=sys.stderr)
+        return 1
     binary = find_binary(args.binary)
+    reference_pack = None
+    if args.reference_dir:
+        from horizons_reference import load_reference_pack
+        expected = {(label, name): horizons_request_url(command, when, lat, lon, elev)
+                    for label, when, lat, lon, elev in CASES for name, command in BODIES.items()}
+        reference_pack = load_reference_pack(args.reference_dir, expected)
 
     records = []
     failures = []
@@ -153,7 +198,8 @@ def main() -> int:
         bodies = {body["name"]: body for body in snapshot["bodies"]}
         engine_dut1 = float(snapshot["time"]["dut1_seconds"])
         for name, command in BODIES.items():
-            reference = horizons_observation(command, when, lat, lon, elev)
+            reference = horizons_observation(command, when, lat, lon, elev,
+                fetch=reference_pack.fetch if reference_pack else None)
             body = bodies[name]
             radec = angular_sep(
                 body["topocentric_apparent_dec_deg"],
@@ -196,6 +242,8 @@ def main() -> int:
 
     report = {
         "schema_version": "ephemeris-validation-report.v2",
+        "reference_mode": "offline_replay" if reference_pack else "live_horizons",
+        "reference_manifest_sha256": reference_pack.manifest_sha256 if reference_pack else None,
         "reference": "JPL Horizons observer quantities 2,4,49; airless; exact UT TLIST",
         "matrix_size": len(records),
         "thresholds": {
@@ -212,10 +260,12 @@ def main() -> int:
         "passed": not failures,
         "records": records,
     }
-    if args.report:
-        report_path = Path(args.report)
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if report_path is not None:
+        try:
+            write_report(ROOT, report_path, report)
+        except (ValueError, OSError) as exc:
+            print(f"FAIL: report publication: {exc}", file=sys.stderr)
+            return 1
 
     if failures:
         for failure in failures:

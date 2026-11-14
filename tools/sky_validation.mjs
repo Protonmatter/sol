@@ -4,12 +4,16 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
+import {types as utilTypes} from 'node:util';
 import puppeteer from "puppeteer-core";
+import {resolvePreviewFile,validatePreviewBasePath} from './staged_preview_server.mjs';
+import {readContextLayout} from './context_layout.mjs';
 
 const option=(name,fallback)=>process.argv.find(v=>v.startsWith(`--${name}=`))?.slice(name.length+3)||fallback;
 const root=path.resolve(option("web-root","build/p12-preview")),out=path.resolve(option("out","coverage/p12-sky"));
 const manifest=JSON.parse(fs.readFileSync(path.join(root,"web-release-manifest.json"),"utf8"));
-const evidence={checks:[],errors:[],workers:[],mockRequests:0,redirectTargetRequests:0};
+const basePath=validatePreviewBasePath(manifest.base_path);
+const evidence={checks:[],errors:[],workers:[],mockRequests:0,redirectTargetRequests:0,basePath};
 const redirectTarget=http.createServer((_req,res)=>{evidence.redirectTargetRequests++;res.writeHead(502,{"Access-Control-Allow-Origin":"*"}).end("local redirect destination");});
 await new Promise(resolve=>redirectTarget.listen(0,"127.0.0.1",resolve));
 const redirectOrigin=`http://127.0.0.1:${redirectTarget.address().port}`;
@@ -17,14 +21,15 @@ const server=http.createServer((req,res)=>{
   const pathname=new URL(req.url,"http://localhost").pathname;
   if(pathname.startsWith("/redirect-provider/")){res.writeHead(302,{Location:redirectOrigin+req.url,"Access-Control-Allow-Origin":"*"}).end();return;}
   if(pathname.startsWith("/mock-")){evidence.mockRequests++;res.writeHead(502,{"Content-Type":"application/json","Access-Control-Allow-Origin":"*"}).end('{"error":"offline test provider","code":"upstream_failed"}');return;}
-  const file=path.resolve(root,`.${pathname.endsWith("/")?pathname+"index.html":pathname}`);
-  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404).end();return;}
+  let file;
+  try{file=resolvePreviewFile(root,basePath,decodeURIComponent(pathname));}catch{res.writeHead(400).end();return;}
+  if(!file||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404).end();return;}
   res.setHeader("Content-Type",({".js":"text/javascript",".html":"text/html",".wasm":"application/wasm",".json":"application/json",".css":"text/css"})[path.extname(file)]||"application/octet-stream");
   fs.createReadStream(file).pipe(res);
 });
 await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
 const origin=`http://127.0.0.1:${server.address().port}`;
-let browser;
+let browser,validationError=null,finalCheck;
 fs.mkdirSync(out,{recursive:true});
 try {
   browser=await puppeteer.launch({executablePath:process.env.CHROME_BIN,headless:true,args:["--no-sandbox","--use-angle=swiftshader","--enable-unsafe-swiftshader","--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"]});
@@ -38,7 +43,7 @@ try {
     window.__copies=[];Object.defineProperty(navigator,"clipboard",{configurable:true,value:{writeText:async value=>window.__copies.push(value)}});
   },origin);
   await page.setViewport({width:1440,height:900});
-  await page.goto(origin,{waitUntil:"networkidle0"});
+  await page.goto(origin+basePath,{waitUntil:"networkidle0"});
   const prefix=new URL(".",page.url()).pathname;
   const token=await page.evaluate(async()=> (await (await fetch("app.js")).text()).match(/sky\.js(\?v=[A-Za-z0-9._-]+)/)?.[1]||"");
   const moduleUrl=`${prefix}js/sky.js${token}`;
@@ -56,16 +61,13 @@ try {
   for(const width of [1440,900,390,320]) {
     await page.setViewport({width,height:900});
     await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,300)));
-    const layout=await page.evaluate(()=>({
-      overflow:document.documentElement.scrollWidth>innerWidth+1,
-      clipped:[...document.querySelectorAll('#destinationOverview button:not([hidden]), .mode-button')].filter(n=>{const r=n.getBoundingClientRect();return !r.width||r.left<0||r.right>innerWidth+1;}).map(n=>n.id||n.textContent),
-      visible:['destinationTitle','destinationFacts','viewSource','viewTime','destinationCaption'].every(id=>document.getElementById(id).getClientRects().length>0),
-    }));
+    const {layout,hiddenContextControls}=await page.evaluate(readContextLayout,{requiredControls:'.mode-button',
+      visibleIds:['destinationTitle','destinationFacts','viewSource','viewTime','destinationCaption']});
+    evidence.checks.push({skyContextWidth:width,layout,hiddenContextControls});
     assert.deepEqual(layout,{overflow:false,clipped:[],visible:true},`${width}: Sky context and evidence remain readable`);
     assert.equal(await page.evaluate(()=>document.getElementById('skyCanvas').getBoundingClientRect().bottom<=document.querySelector('.destination-caption').getBoundingClientRect().top+1),true,`${width}: Sky caption reserves space outside the canvas`);
     assert.equal(await page.$$eval('#destinationOverview .overview-cta:not([hidden])',nodes=>nodes.every(node=>node.getBoundingClientRect().height>=44)),true,`${width}: primary context actions meet the 44px target`);
     await page.screenshot({path:path.join(out,`sky-context-${width}.png`),fullPage:true});
-    evidence.checks.push({skyContextWidth:width,layout});
   }
   await page.setViewport({width:1440,height:900});
   await page.click('#destinationLocation');
@@ -250,9 +252,25 @@ try {
     return s.observer.terrestrial_lat_deg===lat&&s.observer.terrestrial_lon_deg_east===lon&&s.observer.elev_m===elev&&Math.abs(s.time.jd_utc-(unix/86400+2440587.5))<=2**-29;
   });assert.equal(roundtrip,true,"copied precise location/time survives an actual page reload");
   assert.deepEqual(evidence.errors,[]);
-  evidence.checks.push({focus,geometry,lifecycle,clipboardFallbacks,shareStablePath:manifest.base_path,capturedSnapshot:true,bootstrapPath:immutablePath,fragmentPreserved:true,roundtrip,remoteRequests:evidence.mockRequests,result:"passed"});
-  console.log("PASS: actual Sky worker, keyed focus, privacy, recovery, cancellation and reflow");
+  finalCheck={focus,geometry,lifecycle,clipboardFallbacks,shareStablePath:manifest.base_path,capturedSnapshot:true,bootstrapPath:immutablePath,fragmentPreserved:true,roundtrip,remoteRequests:evidence.mockRequests};
+} catch(error) {
+  validationError=utilTypes.isNativeError(error)?error:new Error('Non-Error rejection: '+String(error));
 } finally {
+  evidence.cleanup={};
+  const close=async(name,action)=>{
+    try{await action();evidence.cleanup[name]={status:'completed'};}
+    catch(error){const failure=utilTypes.isNativeError(error)?error:new Error('Non-Error rejection: '+String(error));
+      evidence.cleanup[name]={status:'failed',message:failure.message};if(!validationError)validationError=failure;}
+  };
+  if(browser)await close('browser',()=>browser.close());
+  else evidence.cleanup.browser={status:'not_started'};
+  await close('server',()=>new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve())));
+  await close('redirect',()=>new Promise((resolve,reject)=>redirectTarget.close(error=>error?reject(error):resolve())));
+  if(evidence.errors.length&&!validationError)validationError=new Error('Sky page errors during cleanup: '+evidence.errors.join('; '));
+  evidence.status=validationError?'failed':'passed';
+  if(validationError)evidence.failure={name:validationError.name,message:validationError.message,stack:validationError.stack};
+  evidence.checks.push({...finalCheck,result:evidence.status});
   fs.writeFileSync(path.join(out,"evidence.json"),JSON.stringify(evidence,null,2)+"\n");
-  if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));await new Promise(resolve=>redirectTarget.close(resolve));
 }
+if(validationError)throw validationError;
+console.log("PASS: actual Sky worker, keyed focus, privacy, recovery, cancellation and reflow");

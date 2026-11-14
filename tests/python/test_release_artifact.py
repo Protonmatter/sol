@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -12,6 +14,8 @@ import os
 import runpy
 import subprocess
 import shutil
+from html import escape
+from types import SimpleNamespace
 from unittest.mock import patch
 from pathlib import Path
 
@@ -21,6 +25,7 @@ import validate_release_manifest as validator
 import browser_smoke
 import release_policy
 import build_wasm
+import wasm_provenance
 
 
 class ReleaseArtifactTests(unittest.TestCase):
@@ -30,6 +35,14 @@ class ReleaseArtifactTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.source = self.root / "source"
         self.source.mkdir()
+        # Source files model the external Cargo compiler fixture's inputs.
+        for name in ['Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'tools/build_wasm.py', 'tools/wasm_provenance.py',
+                     'crates/solar-core/Cargo.toml', 'crates/solar-core/src/lib.rs',
+                     'crates/solar-wasm/Cargo.toml', 'crates/solar-wasm/src/lib.rs',
+                     'crates/solar-ephemeris/Cargo.toml', 'crates/solar-ephemeris/src/lib.rs']:
+            material = self.root / name
+            material.parent.mkdir(parents=True, exist_ok=True)
+            material.write_text('fixture compiler input: ' + name, encoding='utf-8')
         (self.source / "index.html").write_text('<script type="module" src="app.js?v=old"></script>', encoding="utf-8")
         (self.source / "app.js").write_text('fetch("pkg/solar_wasm.wasm?v=old"); const release="__SOL_RELEASE_ID__";', encoding="utf-8")
         (self.source / "sw.js").write_text('const release="__SOL_RELEASE_ID__";', encoding="utf-8")
@@ -40,12 +53,12 @@ class ReleaseArtifactTests(unittest.TestCase):
         for name in ("solar_wasm.wasm", "solar_ephemeris.wasm"):
             (self.wasm / name).write_bytes(b"\0asm\1\0\0\0")
 
-    def build(self, name="ci-abc-123-1", previous=None):
+    def build(self, name="ci-abc-123-1", previous=None, schemas=None):
         out = self.root / name
         build_web.build_site(self.source, self.wasm, out, release_id=name,
             source_sha="a" * 40, repository="owner/repo", run_id=123, run_attempt=1,
             base_path="/sol/", previous_root=previous,
-            schemas=["solar-state-snapshot.v2", "ephemeris-snapshot.v2"])
+            schemas=schemas or ["solar-state-snapshot.v2", "ephemeris-snapshot.v2"])
         return out
 
     def test_final_bytes_and_namespace_manifest_validate_without_source_mutation(self):
@@ -64,11 +77,16 @@ class ReleaseArtifactTests(unittest.TestCase):
         """Exercise staged digests, not only membership in the classifier's set."""
         import release_changes
         modules = (
+            "sunFacts.js", "sourceRecords.js",
+            "research.js", "researchView.js", "viewRegistry.js", "viewLoader.js",
+            "catalogueLoader.js",
             "orrery.js", "moonAppearance.js", "materialColor.js",
             "ringTransport.js", "ringTransportShaders.js",
             "surfaceReflection.js", "surfaceReflectionShaders.js",
             "terrainResources.js", "shaderPrograms.js", "referenceDemand.js",
+            "physicalProgramSources.js", "profiledScatteringTargets.js", "orbitLines.js",
             "hdrPresentation.js", "hdrPresentationShaders.js",
+            "sphereMeshPolicy.js", "sphereMeshPool.js",
             "earthLook.js", "earthLookClouds.js", "earthLookShaders.js", "earthOceanMask.js",
             "sunLook.js", "sunLookRenderer.js", "sunLookShaders.js", "sunLookRecipe.js",
         )
@@ -92,6 +110,7 @@ class ReleaseArtifactTests(unittest.TestCase):
                 self.assertEqual(release_changes.category("apps/web/js/" + name), "scientific", name)
                 self.assertEqual(before["wasm_sha256"], after["wasm_sha256"])
                 self.assertEqual(before["data_bundle_id"], after["data_bundle_id"])
+                self.assertNotEqual(before["components"]["ui"], after["components"]["ui"])
         stylesheet.write_text("body { color: black; }\n", encoding="utf-8")
         cosmetic = validator.validate_manifest(self.build("fingerprint-ui") / "web-release-manifest.json")
         self.assertEqual(before["components"]["science"], cosmetic["components"]["science"])
@@ -99,7 +118,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 
     def install_observation_fixture(self):
         """Retain actual reviewed bytes, with two local paths to test default selection."""
-        from validate_visual_assets import browser_module
+        from validate_visual_assets import browser_module, observation_module
         web = Path(__file__).resolve().parents[2] / "apps/web"
         data = json.loads((web / "visual-assets.v1.json").read_text(encoding="utf-8"))
         primary_source = data["observed_images"][0]["path"]
@@ -121,7 +140,38 @@ class ReleaseArtifactTests(unittest.TestCase):
             shutil.copyfile(web / primary_source, self.source / observation["path"])
         (self.source / "visual-assets.v1.json").write_text(json.dumps(data), encoding="utf-8")
         (self.source / "js/visualAssetManifest.js").write_text(browser_module(data), encoding="utf-8")
+        (self.source / "js/sourceRecords.js").write_text(observation_module(data), encoding="utf-8")
         return primary["path"], other["path"]
+
+    def test_small_observation_record_is_required_and_exact_before_staging(self):
+        self.install_observation_fixture()
+        record = self.source / "js/sourceRecords.js"
+        expected = record.read_bytes()
+        for index, contents in enumerate((None, expected.replace(b'"SDO"', b'"different"', 1))):
+            with self.subTest(index=index):
+                if contents is None:
+                    record.unlink()
+                else:
+                    record.write_bytes(contents)
+                with self.assertRaisesRegex(ValueError, "observation record"):
+                    self.build(f"observation-record-invalid-{index}")
+                self.assertFalse((self.root / f"observation-record-invalid-{index}").exists())
+        record.write_bytes(expected)
+
+    def test_copied_observation_record_is_rechecked_before_publication(self):
+        self.install_observation_fixture()
+        validate_physical = build_web.validate_physical_source
+
+        def mutate_copied_record(root):
+            validate_physical(root)
+            if root != self.source:
+                record = root / "js/sourceRecords.js"
+                record.write_bytes(record.read_bytes() + b"// unexpected copied drift\n")
+
+        with patch.object(build_web, "validate_physical_source", side_effect=mutate_copied_record):
+            with self.assertRaisesRegex(ValueError, "observation record"):
+                self.build("observation-record-copy-drift")
+        self.assertFalse((self.root / "observation-record-copy-drift").exists())
 
     def test_default_observation_is_critical_without_precaching_other_rasters(self):
         primary, other = self.install_observation_fixture()
@@ -148,12 +198,84 @@ class ReleaseArtifactTests(unittest.TestCase):
             self.build("observation-corrupt")
         self.assertFalse((self.root / "observation-corrupt").exists())
 
+    def test_early_observation_request_is_bound_to_the_reviewed_primary(self):
+        primary, other = self.install_observation_fixture()
+        # The early-media entry opts into parser discovery. Historical shells do
+        # not require this markup, but an early entry cannot request another image.
+        (self.source / "js/observationBoot.js").write_text('// early entry\n', encoding="utf-8")
+        valid = self.early_observation_markup(primary)
+        (self.source / "index.html").write_text(valid, encoding="utf-8")
+        self.build("early-observation-valid")
+        for index, markup in enumerate((valid.replace(f'src="{primary}"', f'src="{other}"'),
+                                        valid.replace(f'href="{primary}"', f'href="{other}"'),
+                                        valid.replace('rel="preload"', 'rel="prefetch"'),
+                                        valid.replace('fetchpriority="high"', 'fetchpriority="low"'),
+                                        valid + f'<img id="observationImage" src="{other}">',
+                                        valid.replace(f'src="{primary}"', f'src="{other}" src="{primary}"'),
+                                        valid.replace(f'href="{primary}"', f'href="{other}" href="{primary}"'),
+                                        valid.replace('<img ', f'<img srcset="{other} 1x" '),
+                                        valid.replace('as="image"', f'as="image" imagesrcset="{other} 1x"'),
+                                        valid.replace('<img ', f'<picture><source srcset="{other}"><img ').replace(' hidden>', ' hidden></picture>'),
+                                        '<base href="https://different.example/">' + valid,
+                                        valid.replace('2026-09-12 00:07:22', '2026-09-11 00:07:22'),
+                                        valid.replace('id="observationSource" href="https://sdo.gsfc.nasa.gov/', 'id="observationSource" href="https://different.example/'),
+                                        valid.replace('id="observationCredit"', 'id="missingCredit"'),
+                                        valid.replace('Saved observation, not a live image.', 'Live image.'))):
+            with self.subTest(index=index):
+                (self.source / "index.html").write_text(markup, encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "early observation"):
+                    self.build(f"early-observation-invalid-{index}")
+
+    def early_observation_markup(self, primary):
+        data = json.loads((self.source / "visual-assets.v1.json").read_text(encoding="utf-8"))
+        asset = data["observed_images"][0]
+        capture = asset["captured_at"].replace("T", " ").replace("Z", " UTC") + " · archival"
+        alt = f'{asset["label"]}. {asset["interpretation"]}. Saved observation, not a live image.'
+        return (f'<link rel="preload" as="image" href="{primary}" fetchpriority="high">'
+                f'<img id="observationImage" src="{primary}" alt="{escape(alt, quote=True)}" fetchpriority="high" hidden>'
+                f'<span id="observationStatus">{escape(capture)}</span><span id="viewTime">{escape(capture)}</span>'
+                '<span id="viewSource">observed · NASA · SDO / AIA 171 Å</span>'
+                f'<span id="observationCredit">{escape(asset["credits"])}</span>'
+                f'<a id="observationSource" href="{escape(asset["source_url"], quote=True)}">{escape(asset["credits"])}</a>')
+
+    def test_copied_early_observation_markup_is_rechecked_before_publication(self):
+        primary, other = self.install_observation_fixture()
+        (self.source / "js/observationBoot.js").write_text('// early entry\n', encoding="utf-8")
+        markup = self.early_observation_markup(primary)
+        (self.source / "index.html").write_text(markup, encoding="utf-8")
+        validate_physical = build_web.validate_physical_source
+
+        for index, changed in enumerate((markup.replace(primary, other),
+                                        markup.replace('<img ', f'<img srcset="{other} 1x" '),
+                                        markup.replace(f'src="{primary}"', f'src="{other}" src="{primary}"'),
+                                        markup.replace('2026-09-12 00:07:22', '2026-09-11 00:07:22'))):
+            def mutate_copied_markup(root):
+                validate_physical(root)
+                if root != self.source:
+                    (root / "index.html").write_text(changed, encoding="utf-8")
+
+            with self.subTest(index=index), patch.object(build_web, "validate_physical_source", side_effect=mutate_copied_markup):
+                with self.assertRaisesRegex(ValueError, "early observation"):
+                    self.build(f"early-observation-copy-drift-{index}")
+            self.assertFalse((self.root / f"early-observation-copy-drift-{index}").exists())
+
     def test_historical_texture_name_alone_does_not_enter_the_critical_set(self):
         (self.source / "textures").mkdir()
         (self.source / "textures/solar-observation-171.jpg").write_bytes(b"historical optional fixture")
         manifest = validator.validate_manifest(self.build("historical-texture") / "web-release-manifest.json")
         asset = next(item for item in manifest["assets"] if item["path"].endswith("textures/solar-observation-171.jpg"))
         self.assertEqual(asset["role"], "optional")
+
+    def test_only_named_catalogue_data_are_optional_with_verified_core(self):
+        primary,_=self.install_observation_fixture()
+        for name in ['moonelements.js','starcatalog.js','moons.js','moonorbits.js','skyWorker.js','systemWorker.js','geography.js']:
+            (self.source/'js'/name).write_text('export const fixture = 1;\n',encoding='utf-8')
+        manifest=validator.validate_manifest(self.build('catalogue-roles')/'web-release-manifest.json')
+        roles={item['path'].removeprefix(manifest['namespace']):item['role']for item in manifest['assets']if item['path'].startswith(manifest['namespace'])}
+        for name in ['moonelements.js','starcatalog.js']:self.assertEqual(roles['js/'+name],'optional')
+        for name in ['moons.js','moonorbits.js','skyWorker.js','systemWorker.js','geography.js']:self.assertEqual(roles['js/'+name],'critical')
+        self.assertEqual(roles[primary],'critical')
+        for name in ['solar_wasm.wasm','solar_ephemeris.wasm']:self.assertEqual(roles['pkg/'+name],'critical')
 
     def test_visual_inventory_without_observation_runtime_keeps_images_optional(self):
         self.install_observation_fixture()
@@ -403,14 +525,21 @@ process.stdout.write(JSON.stringify({ redirects, link: link.href }));
 
     def test_wasm_wrapper_copies_compiler_outputs_and_always_enforces_lockfile(self):
         # Cargo is the external compiler boundary. Its known side effect is a
-        # target/release WASM file; the fixture models that output explicitly.
-        def compiler(command, *, cwd, check):
+        # target/wasm-release WASM file; the fixture models that output explicitly.
+        def compiler(command, *, cwd, check, stdout, text, encoding):
             self.assertIn("--locked", command)
+            self.assertNotIn("--release", command)
+            self.assertEqual(command[command.index("--profile") + 1], "wasm-release")
+            self.assertIn("--message-format=json", command)
             self.assertTrue(check)
+            self.assertEqual(stdout, subprocess.PIPE)
+            self.assertTrue(text)
+            self.assertEqual(encoding, 'utf-8')
             crate = command[command.index("-p") + 1]
-            target = cwd / "target/wasm32-unknown-unknown/release" / (crate.replace("-", "_") + ".wasm")
+            target = cwd / "target/wasm32-unknown-unknown/wasm-release" / (crate.replace("-", "_") + ".wasm")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(b"\0asm\1\0\0\0")
+            return SimpleNamespace(stdout=self.wasm_artifact_messages(crate, target))
         output = self.root / "compiled-wasm"
         with patch.object(build_wasm, "ROOT", self.root), patch.object(build_wasm.subprocess, "run", compiler), \
             patch.object(sys, "argv", ["build_wasm.py", "--out-root", str(output), "--locked"]), contextlib.redirect_stdout(io.StringIO()):
@@ -419,6 +548,311 @@ process.stdout.write(JSON.stringify({ redirects, link: link.href }));
         with patch.object(build_wasm, "ROOT", self.root), patch.object(sys, "argv", ["build_wasm.py", "--out-root", str(self.root / "apps/web/pkg")]), contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):
                 build_wasm.main()
+
+
+    def source_bound_build(self, name='source-bound', schemas=None):
+        portal = self.source / 'licenses/solar-ephemeris/index.html'
+        portal.parent.mkdir(parents=True, exist_ok=True)
+        portal.write_text('Explicit source-portal I/O fixture', encoding='utf-8')
+        # Source-archive construction is a separate tested I/O boundary. Keep
+        # real source-receipt, binary copying and staged manifest admission, and stage a
+        # stand-in distribution with the same shape: an archive and the manifest that binds it.
+        def staged_distribution(project, web, staged, **_):
+            destination = Path(staged) / 'licenses/solar-ephemeris'
+            archive = b'stand-in source archive'
+            (destination / 'sol-source.tar.gz').write_bytes(archive)
+            result = {'archive': 'sol-source.tar.gz', 'archive_bytes': len(archive),
+                'archive_sha256': hashlib.sha256(archive).hexdigest(),
+                'files': {name: {'sha256': digest} for name, digest in wasm_provenance.capture_source_inputs(self.root).items()}}
+            (destination / 'SOURCE-MANIFEST.json').write_text(json.dumps(result), encoding='utf-8')
+            return result
+        with patch.object(build_web, 'ROOT', self.root), patch.object(build_web, 'stage_distribution', staged_distribution):
+            return self.build(name, schemas=schemas)
+
+    def drop_test_asset(self, out, manifest, relative):
+        (out / relative).unlink()
+        manifest['assets'] = [row for row in manifest['assets'] if row['path'] != relative]
+        self.restamp_test_manifest(out, manifest)
+
+    @staticmethod
+    def restamp_test_manifest(out, manifest):
+        raw = (json.dumps(manifest, sort_keys=True) + '\n').encode()
+        (out / 'web-release-manifest.json').write_bytes(raw)
+        (out / manifest['namespace'] / 'web-release-manifest.json').write_bytes(raw)
+
+    def refresh_test_asset(self, out, manifest, relative):
+        p = out / relative
+        row = next((x for x in manifest['assets'] if x['path'] == relative), None)
+        if row is None:
+            row = {'path': relative, 'role': 'critical'}
+            manifest['assets'].append(row)
+        row.update(size=p.stat().st_size, sha256=validator.digest(p))
+        self.restamp_test_manifest(out, manifest)
+
+    def test_component_build_rejects_unreceipted_old_wasm_before_output_creation(self):
+        with self.assertRaises((ValueError, OSError)):
+            self.source_bound_build()
+        self.assertFalse((self.root / 'source-bound').exists())
+
+    def test_component_build_stages_bound_receipt_as_critical_asset(self):
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        out = self.source_bound_build()
+        manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+        relative = manifest['namespace'] + 'pkg/' + wasm_provenance.RECEIPT_NAME
+        self.assertEqual((out / relative).read_bytes(), (self.wasm / wasm_provenance.RECEIPT_NAME).read_bytes())
+        self.assertEqual(next(x['role'] for x in manifest['assets'] if x['path'] == relative), 'critical')
+
+    def test_component_build_rejects_source_or_binary_drift_before_output(self):
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        for name in ['crates/solar-core/src/lib.rs', 'wasm/solar_ephemeris.wasm']:
+            p = self.root / name
+            original = p.read_bytes()
+            p.write_bytes(original + b'changed')
+            with self.assertRaisesRegex(ValueError, 'source|WASM'):
+                self.source_bound_build()
+            p.write_bytes(original)
+            self.assertFalse((self.root / 'source-bound').exists())
+
+    def test_component_build_rechecks_source_and_wasm_after_copy(self):
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        original_copy = shutil.copyfile
+        for cause in ['source', 'binary']:
+            material = self.root / 'crates/solar-core/src/lib.rs' if cause == 'source' else self.wasm / 'solar_ephemeris.wasm'
+            original = material.read_bytes()
+            def copying(src, dst, **kwargs):
+                if Path(src) == self.wasm / 'solar_ephemeris.wasm':
+                    material.write_bytes(original + b'copy-time change')
+                return original_copy(src, dst, **kwargs)
+            with patch.object(build_web.shutil, 'copyfile', copying), self.assertRaisesRegex(ValueError, 'source|WASM'):
+                self.source_bound_build('copy-' + cause)
+            material.write_bytes(original)
+            self.assertFalse((self.root / ('copy-' + cause)).exists())
+
+    def test_staged_receipt_binary_binding_survives_outer_manifest_rehash(self):
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        out = self.source_bound_build()
+        manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+        relative = manifest['namespace'] + 'pkg/' + wasm_provenance.RECEIPT_NAME
+        p = out / relative
+        document = json.loads(p.read_bytes())
+        document['wasm_sha256']['solar_ephemeris.wasm'] = '0' * 64
+        p.write_text(json.dumps(document), encoding='utf-8')
+        self.refresh_test_asset(out, manifest, relative)
+        with self.assertRaisesRegex(ValueError, 'WASM'):
+            validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_staged_receipt_cannot_be_optional(self):
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        out = self.source_bound_build()
+        manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+        relative = manifest['namespace'] + 'pkg/' + wasm_provenance.RECEIPT_NAME
+        next(x for x in manifest['assets'] if x['path'] == relative)['role'] = 'optional'
+        self.restamp_test_manifest(out, manifest)
+        with self.assertRaisesRegex(ValueError, 'receipt.*critical'):
+            validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_staged_source_manifest_must_match_receipt_even_after_rehash(self):
+        doc = wasm_provenance.write_receipt(self.root, self.wasm)
+        out = self.source_bound_build()
+        manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+        relative = manifest['namespace'] + 'licenses/solar-ephemeris/SOURCE-MANIFEST.json'
+        p = out / relative
+        staged = json.loads(p.read_bytes())
+        files = {name: {'sha256': digest} for name, digest in doc['source_inputs'].items()}
+        p.write_text(json.dumps({**staged, 'files': files}), encoding='utf-8')
+        self.refresh_test_asset(out, manifest, relative)
+        validator.validate_manifest(out / 'web-release-manifest.json')
+        files['Cargo.lock']['sha256'] = '0' * 64
+        p.write_text(json.dumps({**staged, 'files': files}), encoding='utf-8')
+        self.refresh_test_asset(out, manifest, relative)
+        with self.assertRaisesRegex(ValueError, 'archived source'):
+            validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_component_release_cannot_drop_its_receipt_source_manifest_or_archive(self):
+        # Each file is removed from disk and from the outer manifest, as a build that simply
+        # stopped staging it would do. The outer inventory stays self-consistent every time.
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        for index, name in enumerate(['pkg/' + wasm_provenance.RECEIPT_NAME, 'licenses/solar-ephemeris/SOURCE-MANIFEST.json',
+                'licenses/solar-ephemeris/sol-source.tar.gz']):
+            out = self.source_bound_build('dropped-%d' % index)
+            manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+            self.drop_test_asset(out, manifest, manifest['namespace'] + name)
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, 'component release is missing ' + re.escape(name)):
+                validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_source_archive_is_bound_to_its_published_manifest_not_only_the_outer_hash(self):
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        out = self.source_bound_build()
+        manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+        portal = manifest['namespace'] + 'licenses/solar-ephemeris/'
+        archive, source_manifest = out / (portal + 'sol-source.tar.gz'), out / (portal + 'SOURCE-MANIFEST.json')
+        original, staged = archive.read_bytes(), json.loads(source_manifest.read_bytes())
+        # Replaced bytes, with the outer manifest rehashed to match them.
+        for replacement in [b'13 junk bytes', original + b'!', original[:-1]]:
+            archive.write_bytes(replacement)
+            self.refresh_test_asset(out, manifest, portal + 'sol-source.tar.gz')
+            with self.subTest(size=len(replacement)), self.assertRaisesRegex(ValueError, 'source archive differs'):
+                validator.validate_manifest(out / 'web-release-manifest.json')
+        archive.write_bytes(original)
+        self.refresh_test_asset(out, manifest, portal + 'sol-source.tar.gz')
+        validator.validate_manifest(out / 'web-release-manifest.json')
+        # A source manifest that stops naming, sizing or hashing its archive is not a binding.
+        for edit in [{'archive_sha256': None}, {'archive_sha256': '0' * 64}, {'archive_bytes': str(len(original))},
+                {'archive_bytes': len(original) + 1}, {'archive': 'other.tar.gz'}]:
+            source_manifest.write_text(json.dumps({**staged, **edit}), encoding='utf-8')
+            self.refresh_test_asset(out, manifest, portal + 'SOURCE-MANIFEST.json')
+            with self.subTest(edit=edit), self.assertRaisesRegex(ValueError, 'source archive differs'):
+                validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_current_ephemeris_contract_requires_the_component_portal(self):
+        # v2 and v3 shells predate the portal and stay valid without it.
+        validator.validate_manifest(self.build('historical-shell') / 'web-release-manifest.json')
+        with self.assertRaisesRegex(ValueError, 'component release is missing licenses/solar-ephemeris/index.html'):
+            self.build('current-shell', schemas=['solar-state-snapshot.v2', 'ephemeris-snapshot.v4'])
+        # With the portal, receipt and distribution staged, the same contract validates.
+        wasm_provenance.write_receipt(self.root, self.wasm)
+        out = self.source_bound_build('current-component', schemas=['solar-state-snapshot.v2', 'ephemeris-snapshot.v4'])
+        self.assertIn('ephemeris-snapshot.v4', validator.validate_manifest(out / 'web-release-manifest.json')['schemas'])
+
+    def test_a_historical_shell_cannot_stage_half_a_source_distribution(self):
+        out = self.build('half-distribution')
+        manifest = validator.validate_manifest(out / 'web-release-manifest.json')
+        relative = manifest['namespace'] + 'licenses/solar-ephemeris/sol-source.tar.gz'
+        (out / relative).parent.mkdir(parents=True)
+        (out / relative).write_bytes(b'archive without a manifest')
+        self.refresh_test_asset(out, manifest, relative)
+        with self.assertRaisesRegex(ValueError, 'staged together'):
+            validator.validate_manifest(out / 'web-release-manifest.json')
+
+    def test_failed_or_source_drifted_compiler_cannot_leave_a_success_receipt(self):
+        for cause in ['failure', 'source-drift']:
+            out = self.root / ('compiler-' + cause)
+            out.mkdir()
+            for name in wasm_provenance.WASM_FILES:
+                shutil.copyfile(self.wasm / name, out / name)
+            wasm_provenance.write_receipt(self.root, out)
+            original = (self.root / 'crates/solar-core/src/lib.rs').read_bytes()
+            def compiler(command, **kwargs):
+                if cause == 'failure':
+                    raise subprocess.CalledProcessError(101, command, output='')
+                (self.root / 'crates/solar-core/src/lib.rs').write_bytes(original + b'compiler-time drift')
+                crate = command[command.index('-p') + 1]
+                target = self.root / 'reported' / (crate.replace('-', '_') + '.wasm')
+                target.parent.mkdir(exist_ok=True)
+                target.write_bytes(b'\0asm\1\0\0\0')
+                return SimpleNamespace(stdout=self.wasm_artifact_messages(crate, target))
+            with patch.object(build_wasm, 'ROOT', self.root), patch.object(build_wasm.subprocess, 'run', compiler), \
+                    patch.object(sys, 'argv', ['build_wasm.py', '--out-root', str(out)]), \
+                    contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises((subprocess.CalledProcessError, SystemExit)):
+                    build_wasm.main()
+            self.assertFalse((out / wasm_provenance.RECEIPT_NAME).exists())
+            (self.root / 'crates/solar-core/src/lib.rs').write_bytes(original)
+
+    @staticmethod
+    def wasm_artifact_messages(crate, path):
+        return '\n'.join(json.dumps(message) for message in [
+            {'reason':'compiler-artifact', 'target':{'name':crate.replace('-', '_'),
+                'kind':['cdylib','rlib'], 'crate_types':['cdylib','rlib']},
+                'filenames':[str(path)], 'fresh':False},
+            {'reason':'build-finished', 'success':True},
+        ])
+
+    def test_wasm_wrapper_stages_reported_artifacts_instead_of_stale_default_target(self):
+        actual_target = self.root / 'configured target/wasm32-unknown-unknown/wasm-release'
+        stale_target = self.root / 'target/wasm32-unknown-unknown/release'
+        stale_target.mkdir(parents=True)
+        for crate in build_wasm.CRATES:
+            (stale_target / (crate.replace('-', '_')+'.wasm')).write_bytes(b'stale output')
+        def compiler(command, **kwargs):
+            crate = command[command.index('-p')+1]
+            path = actual_target / (crate.replace('-', '_')+'.wasm')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'\0asm\1\0\0\0'+crate.encode())
+            return SimpleNamespace(stdout=self.wasm_artifact_messages(crate, path))
+        out = self.root / 'staged configured outputs'
+        with patch.object(build_wasm, 'ROOT', self.root), patch.object(build_wasm.subprocess, 'run', compiler), \
+                patch.object(sys, 'argv', ['build_wasm.py','--out-root',str(out)]), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(build_wasm.main(), 0)
+        for crate in build_wasm.CRATES:
+            self.assertEqual((out/(crate.replace('-','_')+'.wasm')).read_bytes(), b'\0asm\1\0\0\0'+crate.encode())
+
+    def test_wasm_wrapper_accepts_reported_artifact_already_in_output_directory(self):
+        out = self.root / 'actual output'
+        def compiler(command, **kwargs):
+            crate = command[command.index('-p')+1]
+            path = out / (crate.replace('-','_')+'.wasm')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'\0asm\1\0\0\0')
+            return SimpleNamespace(stdout=self.wasm_artifact_messages(crate, path))
+        with patch.object(build_wasm, 'ROOT', self.root), patch.object(build_wasm.subprocess, 'run', compiler), \
+                patch.object(sys, 'argv', ['build_wasm.py','--out-root',str(out)]), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(build_wasm.main(), 0)
+        self.assertTrue(all((out/(crate.replace('-','_')+'.wasm')).is_file() for crate in build_wasm.CRATES))
+
+    def test_wasm_report_requires_one_matching_valid_artifact_and_successful_completion(self):
+        actual = self.root / 'configured target' / 'solar_wasm.wasm'
+        actual.parent.mkdir()
+        actual.write_bytes(b'\0asm\1\0\0\0')
+        good = [json.loads(line) for line in self.wasm_artifact_messages('solar-wasm', actual).splitlines()]
+        self.assertEqual(build_wasm.reported_wasm('\n'+self.wasm_artifact_messages('solar-wasm', actual)+'\n','solar-wasm'),actual.resolve())
+        bad = ['', 'not JSON', '[]', json.dumps(good[0]), json.dumps(good[1])]
+        mutations = [
+            (0, 'target', []), (0, 'filenames', str(actual)), (0, 'filenames', [None]),
+            (0, 'filenames', ['solar_wasm.wasm']), (0, 'filenames', [str(actual.parent/'missing'/'solar_wasm.wasm')]),
+            (0, 'target', {'name':'other','crate_types':['cdylib']}),
+            (0, 'target', {'name':'solar_wasm','crate_types':['rlib']}),
+            (1, 'success', False), (1, 'success', 1),
+        ]
+        for index, key, value in mutations:
+            changed = copy.deepcopy(good); changed[index][key] = value
+            bad.append('\n'.join(map(json.dumps,changed)))
+        bad.extend('\n'.join(map(json.dumps,records)) for records in [good+[good[1]],[good[0],*good]])
+        for messages in bad:
+            with self.subTest(messages=messages), self.assertRaises(ValueError):
+                build_wasm.reported_wasm(messages,'solar-wasm')
+        actual.write_bytes(b'not wasm')
+        with self.assertRaisesRegex(ValueError, 'WASM'):
+            build_wasm.reported_wasm(self.wasm_artifact_messages('solar-wasm',actual),'solar-wasm')
+
+    def test_wasm_wrapper_does_not_fall_back_when_cargo_messages_are_invalid(self):
+        stale = self.root/'target/wasm32-unknown-unknown/release'
+        stale.mkdir(parents=True)
+        (stale/'solar_wasm.wasm').write_bytes(b'\0asm\1\0\0\0')
+        out = self.root/'rejected output'
+        with patch.object(build_wasm,'ROOT',self.root), \
+                patch.object(build_wasm.subprocess,'run',return_value=SimpleNamespace(stdout='bad Cargo JSON')), \
+                patch.object(sys,'argv',['build_wasm.py','--out-root',str(out)]), \
+                contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()) as errors:
+            with self.assertRaises(SystemExit) as raised:
+                build_wasm.main()
+        self.assertEqual(raised.exception.code,1)
+        self.assertIn('Cargo',errors.getvalue())
+        self.assertFalse((out/'solar_wasm.wasm').exists())
+
+    def test_wasm_wrapper_preserves_compiler_diagnostics_on_success_and_failure(self):
+        for failed in (False, True):
+            with self.subTest(failed=failed):
+                diagnostic = 'error: retained compiler cause\n' if failed else 'warning: retained compiler warning\n'
+                def compiler(command, **kwargs):
+                    message = json.dumps({'reason':'compiler-message','message':{'rendered':diagnostic}})
+                    if failed:
+                        raise subprocess.CalledProcessError(101,command,output=message)
+                    crate = command[command.index('-p')+1]
+                    path = self.root/'configured diagnostics target'/(crate.replace('-','_')+'.wasm')
+                    path.parent.mkdir(exist_ok=True)
+                    path.write_bytes(b'\0asm\1\0\0\0')
+                    return SimpleNamespace(stdout=message+'\n'+self.wasm_artifact_messages(crate,path))
+                out = self.root/('failed diagnostics' if failed else 'successful diagnostics')
+                with patch.object(build_wasm,'ROOT',self.root),patch.object(build_wasm.subprocess,'run',compiler), \
+                        patch.object(sys,'argv',['build_wasm.py','--out-root',str(out)]), \
+                        contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()) as errors:
+                    if failed:
+                        with self.assertRaises(subprocess.CalledProcessError):
+                            build_wasm.main()
+                    else:
+                        self.assertEqual(build_wasm.main(),0)
+                self.assertIn(diagnostic,errors.getvalue())
 
     def test_semantic_manifest_negatives_remain_rejected_after_schema_validation(self):
         out = self.build()

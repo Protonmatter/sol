@@ -489,7 +489,8 @@ test("the renderer refreshes an open inspector after actual image failure, retry
   h.check("orreryTextures", false);
   assert.match(host.textContent, /Reference imagery is switched off/);
   h.check("orreryTextures", true);
-  assert.match(host.textContent, /Loading reference imagery/);
+  assert.equal(h.state.appearanceStatus[asset.id], "loading", "retry admits the focused map request");
+  assert.match(host.textContent, /Loading reference imagery/, "admitted loading state reaches the open inspector before decode completes");
   const image = requested(); [image.width, image.height] = asset.dimensions; image.onload();
   assert.match(host.textContent, /Surface reference ready/);
   assert.ok(host.textContent.includes(asset.observation_label));
@@ -498,4 +499,17 @@ test("the renderer refreshes an open inspector after actual image failure, retry
   h.event("orreryCanvas", "webglcontextlost");
   assert.match(host.textContent, /Image unavailable; showing a simplified surface/);
   assert.equal(h.errors.length, 0);
+});
+
+test('unchanged Earth inspector presentation performs no hidden-property assignments',async t=>{
+  const h=await orreryHarness(t,{controls:true,reducedMotion:true,manualFrames:true});
+  await h.enterOrrery();h.setAnimate(false);h.frame(100);h.input('orreryAnchor','Earth','change');h.frame(116);
+  const nodes=[],visit=node=>{nodes.push(node);for(const child of node.children||[])visit(child);};visit(h.nodes.orreryDetail);
+  let writes=0;
+  for(const node of nodes){
+    let value=node.hidden;
+    Object.defineProperty(node,'hidden',{configurable:true,get:()=>value,set:next=>{writes++;value=next;}});
+  }
+  h.check('orreryShowLabels',false);h.frame(132);
+  assert.equal(writes,0,'an unchanged camera redraw preserves live inspector boolean properties');
 });

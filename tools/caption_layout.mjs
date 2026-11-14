@@ -34,7 +34,10 @@ export async function measureCaptionLayout({ focus }) {
           selected: 'Earth', selectedStar: null, galaxy: false, animate: true });
         const canvasRect = rect(canvas), captionRect = rect(caption), sceneRect = rect(scene);
         const text = document.getElementById('destinationCaveat').textContent;
-        const record = { name: scenario.name, canvas: canvasRect, caption: captionRect, scene: sceneRect, text };
+        // Reference-layer provenance lives in the "About this view" disclosure,
+        // not in the stage caption whose layout is measured here.
+        const referenceNote = document.getElementById('destinationReferenceNote')?.textContent || '';
+        const record = { name: scenario.name, canvas: canvasRect, caption: captionRect, scene: sceneRect, text, referenceNote };
         records.push(record);
         baseline ??= canvasRect;
         if (JSON.stringify(canvasRect) !== JSON.stringify(baseline)) {
@@ -55,10 +58,11 @@ export async function measureCaptionLayout({ focus }) {
             || document.documentElement.scrollWidth > innerWidth) {
           throw new Error(`caption is clipped, overlaps, or overflows: ${JSON.stringify({ width: innerWidth, focus, within, complete, record })}`);
         }
-        if (scenario.name === 'full-warning' && ![
+        if (scenario.name === 'full-warning' && (![
           '21 inner moons hidden', 'The Moon’s drawn motion is under-sampled',
-          'Rotation display rate-limited', 'Reference layers:',
-        ].every(part => text.includes(part))) throw new Error('Caption regression omitted a requested warning');
+          'Rotation display rate-limited',
+        ].every(part => text.includes(part)) || !referenceNote.includes('Reference layers:')))
+          throw new Error(`Caption regression omitted a requested warning: ${JSON.stringify({ text, referenceNote })}`);
       } finally {
         renderDestinationOverview('orrery', store.sky, state);
         if (invariant() !== original) throw new Error('Caption presentation changed scientific engine state');

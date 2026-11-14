@@ -1,0 +1,21 @@
+from pathlib import Path
+import hashlib,json,subprocess,tarfile
+root=Path('/tmp/sol-moon-native-20261103-7wbwyp3s');archive=Path.home()/'python-canonical-20261103.tar'
+if archive.stat().st_size!=45438464 or hashlib.sha256(archive.read_bytes()).hexdigest()!='a6b7a59930e3ebb097ea3306907265c2563ed74ff68ed42ccb8888e916492b62':raise RuntimeError('Archive differs')
+digest='sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301'
+with tarfile.open(archive) as tar:
+    name='blobs/sha256/'+digest.split(':')[1];raw=tar.extractfile(name).read()
+    if 'sha256:'+hashlib.sha256(raw).hexdigest()!=digest:raise RuntimeError('Manifest differs')
+    manifest=json.loads(raw)
+    for item in [manifest['config'],*manifest['layers']]:
+        data=tar.extractfile('blobs/sha256/'+item['digest'].split(':')[1]).read(item['size']+1)
+        if len(data)!=item['size'] or 'sha256:'+hashlib.sha256(data).hexdigest()!=item['digest']:raise RuntimeError('Blob differs')
+print('SOL_UPLOADED_OCI_VERIFIED',digest,flush=True)
+(root/'upload-acquisition.json').write_text(json.dumps(dict(archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),manifest_digest=digest,verified_blobs=[manifest['config'],*manifest['layers']]),indent=2)+'\n')
+with (root/'upload-image-load.log').open('x') as output:subprocess.run(['docker','image','load','--platform','linux/amd64','--input',str(archive)],stdout=output,stderr=subprocess.STDOUT,check=True,timeout=120)
+print('SOL_UPLOADED_IMAGE_LOADED',flush=True)
+with (root/'upload-digest-registration.log').open('x') as output:subprocess.run(['docker','pull','--platform','linux/amd64','python@'+digest],stdout=output,stderr=subprocess.STDOUT,check=True,timeout=60)
+original=(Path.home()/'cloud_moon_driver_20261103.py').read_bytes()
+if hashlib.sha256(original).hexdigest()!='1e9674ac8cafa345ab76c6aeb3f81d75079541f3ea2e29c7fa83ca0ca2f22c2a':raise RuntimeError('Driver differs')
+text=original.decode();prefix=text.split('root=Path(tempfile.mkdtemp',1)[0];suffix='image=json.loads'+text.split('image=json.loads',1)[1]
+exec(prefix+"root=Path('/tmp/sol-moon-native-20261103-7wbwyp3s')\nsource=root/'inputs'\nfor name,value in EXPECTED.items():\n    if hashlib.sha256((source/name).read_bytes()).hexdigest()!=value:raise RuntimeError('Input differs')\n"+suffix)

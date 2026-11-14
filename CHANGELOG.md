@@ -6,7 +6,88 @@ crate follows [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Upgrade notes
+
+- **The ephemeris snapshot contract is now `ephemeris-snapshot.v4`.** v4 adds the root
+  `star_frame`, catalogue right ascension and declination on stars, the `future_nominal_utc`
+  and `modeled_future` time states, and a nullable DUT1 uncertainty. The published v3 schema
+  is unchanged and still validates archived snapshots
+  (`tools/validate_ephemeris_snapshot.py --historical-v3`). See
+  [the contract notes](docs/EPHEMERIS_V3.md).
+- **A self-hosted ephemeris server and the web app must be updated together.** The server now
+  answers `/v4/sky`; `/v1/sky`, `/v2/sky` and `/v3/sky` return HTTP 409 with an upgrade
+  message. A new web app pointed at an old server, or an old web app pointed at a new server,
+  receives no remote sky data. On-device computation is unaffected, and a deployment that sets
+  no `SOL_EPHEMERIS_SERVER` (including the public Pages site) needs no action. See
+  [the server notes](services/ephemeris-server/README.md).
+- **`solar-ephemeris` has a breaking public API change; its next crates.io version must be
+  0.3.0.** The public TOP2013 and VSOP2013 coefficient structs gained phase-index fields
+  (`TopTerm::phase`, the per-body `multipliers` table and the VSOP `phase` index), so external
+  code that builds these structs with literals no longer compiles. The workspace version stays
+  0.2.0 in this tree because both engines stamp it into snapshots, the committed research data
+  bundle and the hash-bound evidence fixtures. Change the version, and regenerate those files,
+  in the same change that publishes the crate. crates.io already holds 0.2.0, so that version
+  cannot be published again.
+- **Browser WASM is built with a dedicated Cargo profile.** `tools/build_wasm.py` builds with
+  `--profile wasm-release` (abort on panic, ephemeris optimized for speed) and records that
+  profile in the build receipt. Output from a plain `cargo build --release` is not accepted by
+  the release builder. Native `release` builds now unwind by default.
+
+### Changed
+
+- **The web app ships as bundled view and shared chunks.** A pinned esbuild step emits one
+  entry per view plus shared chunks, external source maps with embedded sources, and
+  original-source and output hashes in the release manifest. Full moon and star catalogues load
+  on selection, search or galaxy demand instead of at System startup.
+- **Raw planetary positions are about five times cheaper to compute.** TOP2013 and VSOP2013
+  reuse identical phase evaluations within one calculation while preserving argument and
+  summation order. The 4x CPU-throttled p95 fell from 45.3 ms to 8.8 ms under the unchanged
+  16 ms gate, and 324 position values at 12 epochs match the previous WASM output bit for bit.
+- **System labels stay attached to what they name.** A label needs a finite on-screen target
+  with adjacent clearance; crowded names are suppressed and remain reachable through search and
+  the catalogue. The selected body keeps its label near a canvas corner. A target hidden behind
+  the jump bar is not labelled.
+- **Body and satellite-system framing share one policy**, and focusing a planet's satellite
+  system is a separate, accessible action from inspecting its globe.
+- **One animation-frame scheduler owns drawing.** It coalesces input, owns cancellation and
+  first-frame recovery, and no longer redraws an idle scene while the pointer hovers.
+- **Automatic display resolution.** Auto starts at High and steps down under sustained frame
+  delay, with hysteresis, a cooldown and a growing wait after an upgrade the device cannot
+  hold. Slow frames in the first three seconds of drawing are treated as loading and cannot
+  lower resolution. A paused scene recovers from short drags separated by idle gaps. Low,
+  Balanced and High remain available as fixed choices.
+- **Reference textures are verified before decode** (PNG and JPEG source grids), decoded
+  asynchronously and uploaded within fixed memory budgets.
+- **Sky.** Stars, constellation lines and star hit targets fade together with daylight;
+  constellation figures use the engine's star reduction for the selected epoch; a failed
+  provider is not restarted implicitly by a redraw.
+- **Future dates state their assumptions.** Beyond observed Earth-orientation data, nominal UTC
+  holds the last leap-second offset as a stated assumption and UT1 follows a modeled Delta T
+  with unknown uncertainty. The server refuses unsupported future dates before doing cache or
+  upstream work.
+- **Touch targets** for planets, moons and small bodies have a 22 px minimum on touch input.
+- **WASM build receipts.** A receipt naming Cargo's plain `release` profile is readable only
+  for the root manifest that predates the browser profile, and `write_receipt` refuses any
+  profile other than the one `build_wasm.py` requested.
+- **The release manifest validator no longer passes a component release with missing parts.**
+  An artifact that carries the ephemeris component portal, or speaks an ephemeris contract
+  newer than v3, must include the WASM build receipt, the source manifest and the source
+  archive, and the archive must match the size and SHA-256 its source manifest publishes.
+- **Retry recovers from a failed download.** "Retry this view" and "Retry catalogue downloads"
+  reload the page when the browser still holds an earlier failed download and the file is
+  reachable again. While it is not reachable, the page and its error stay as they were.
+
 ### Added
+
+- **Independent accuracy evidence is published with the app.** The accuracy page and its JSON
+  registry record 160 comparisons of native geometric positions with retained JPL Horizons
+  DE441 vectors (16 epochs for each of ten target and origin pairs), including the failures:
+  141 pass the 10 arcsec budget and 19 fail, all at years 1, 5000, 7000 and 9999. All 60
+  samples from 1900 to 2100 pass. The records do not certify dates between the samples.
+- **WASM source and binary receipts** bind both engine binaries to the exact workspace sources
+  that produced them, and the release builder refuses binaries without a matching receipt.
+- **Corresponding source for the ephemeris component** (license texts, coefficient source
+  inventory and rebuild instructions) is distributed with the web app.
 
 - **Moons cast their real shadows.** When a catalogued moon transits its planet's sunlit face,
   the umbra/penumbra cross the disc — computed in the planet's body frame from PHYSICAL
@@ -100,6 +181,12 @@ crate follows [SemVer](https://semver.org/).
   Elysium and Arcadia backwards, so Mars and Mercury keep the procedural shader instead of a guess.
 
 ### Fixed
+
+- **Speed readouts** derive their unit conversion from the AU and Julian-year constants.
+- **Solar differential rotation** is attributed to the original Doppler-feature fit; the
+  coefficients are unchanged.
+- **Reference imagery in JPEG form loads again** after the verified loader initially accepted
+  PNG only.
 
 - **Earth's Moon now discloses when the clock outruns it.** The 21 catalogued moons are hidden
   with a notice past the Nyquist rate; Earth's Moon rides the ELP engine on a different path

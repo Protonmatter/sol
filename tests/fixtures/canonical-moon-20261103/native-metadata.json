@@ -1,0 +1,62 @@
+{
+  "schema_version": "sol-cloud-moon-native.v1",
+  "host_system": "Linux",
+  "host_machine": "x86_64",
+  "source_revision_base": "3a55a795767f3043112673ea561cdaf6dc7e2d0f",
+  "current_source_sha256": {
+    "tools/generate_moons.py": "0c070352991b48283a9ab9aa40425b50df9406a5d36dd1788f5c8d34290f86f9",
+    "tools/moon_model.py": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445",
+    "tools/validate_moons.py": "ec1c04c0921ec8ecc15bd3fba38e1e797f2392bd3cdb13d30f72cef611401826",
+    "tools/collect_moon_evidence.py": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf",
+    "tools/ephemeris-data/generation-manifest.json": "00848b3b835128c28b40dd7b5a05990bb0d22bdecb2796cb360cf71dbf0bb649",
+    "tools/ephemeris-data/moons/horizons_satellite_elements.csv": "cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f",
+    "tools/ephemeris-data/moons/horizons_satellite_vectors.csv": "ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918",
+    "tools/ephemeris-data/moons/jpl_satellite_physical.csv": "03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99",
+    "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+    "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+  },
+  "collector_sha256": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf",
+  "image_ref": "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+  "image_id": "sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+  "image_architecture": "amd64",
+  "image_os": "linux",
+  "repo_digests": [
+    "python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301"
+  ],
+  "started_at_utc": "2026-11-04T00:56:19.520430+00:00",
+  "runs": [
+    {
+      "index": 1,
+      "exit_code": 0,
+      "report_sha256": "52b6f06fd685f62a7df432aecc13522b22167a428fc28e59cb7b96a3f29611cd",
+      "comparison_passed": true,
+      "generated_sha256": {
+        "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+        "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+      },
+      "runtime": {
+        "system": "Linux",
+        "machine": "x86_64",
+        "implementation": "CPython",
+        "python_version": "3.12.12"
+      }
+    },
+    {
+      "index": 2,
+      "exit_code": 0,
+      "report_sha256": "127b885984893f3f011be9897ae87371c00629491638d8fb07bd4b77081c7d4f",
+      "comparison_passed": true,
+      "generated_sha256": {
+        "apps/web/js/moons.js": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51",
+        "apps/web/js/moonelements.js": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+      },
+      "runtime": {
+        "system": "Linux",
+        "machine": "x86_64",
+        "implementation": "CPython",
+        "python_version": "3.12.12"
+      }
+    }
+  ],
+  "completed_at_utc": "2026-11-04T00:56:26.524322+00:00"
+}

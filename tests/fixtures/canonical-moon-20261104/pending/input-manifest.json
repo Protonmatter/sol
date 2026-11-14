@@ -1,0 +1,57 @@
+{
+  "schema_version": "sol-canonical-refresh-inputs.v1",
+  "phase": "pending",
+  "files": [
+    {
+      "path": "apps/web/js/moonelements.js",
+      "bytes": 1042192,
+      "sha256": "e1dfc8d737bf92c96cc132756c7e13e0c6bb9a6c49b86654996bb472112be05f"
+    },
+    {
+      "path": "apps/web/js/moons.js",
+      "bytes": 8130,
+      "sha256": "0fe13220d6214d62a6b472f5cc8e2ccb2f8fbfaeb7eb1d5e611b40c272a90f51"
+    },
+    {
+      "path": "tools/collect_moon_evidence.py",
+      "bytes": 7027,
+      "sha256": "01516b7f9b2a8d709893f7462a9b3c9fc886c4c9256f3f9cc9c978b2304b5bcf"
+    },
+    {
+      "path": "tools/ephemeris-data/generation-manifest.json",
+      "bytes": 3367,
+      "sha256": "577459d803e9519f3d2ce696bdd2656b1d3831ac4f9b8986edec00bbe85467cf"
+    },
+    {
+      "path": "tools/ephemeris-data/moons/horizons_satellite_elements.csv",
+      "bytes": 1596316,
+      "sha256": "cb411a5566e75dc7c42ff48387d294653282f52e5e484d4ba9a43ff1a0716e4f"
+    },
+    {
+      "path": "tools/ephemeris-data/moons/horizons_satellite_vectors.csv",
+      "bytes": 817920,
+      "sha256": "ef5c679c7916196121b08712f7fe58b6a9d4fda0a5db40a7bcdaef5e6bfdb918"
+    },
+    {
+      "path": "tools/ephemeris-data/moons/jpl_satellite_physical.csv",
+      "bytes": 912,
+      "sha256": "03c688bca6064568665a396ec9c189dcdb2d169fe782e90b3660a72c99a00a99"
+    },
+    {
+      "path": "tools/generate_moons.py",
+      "bytes": 19165,
+      "sha256": "ee3712f01c49f79fa325e7c11898fab530476c1de91596426936a3a3b26dc028"
+    },
+    {
+      "path": "tools/moon_model.py",
+      "bytes": 6090,
+      "sha256": "db77e50ed990ca92ec047b32b4bfdd755b2583da02dd6743c22e53af6d123445"
+    },
+    {
+      "path": "tools/validate_moons.py",
+      "bytes": 9125,
+      "sha256": "4358258af1f855297b0575da21bd2d7d373030ac2614ddf6d0a47987a82ba3bb"
+    }
+  ],
+  "snapshot_receipt_sha256": "33f62e0de1a4a749710673c651b3d44ddce67417cfdeda0a05f9cfc79f500dd1"
+}

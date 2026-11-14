@@ -1,0 +1,30 @@
+# Independent geometric-vector acquisition plan
+
+Frozen before acquisition or comparison on 2026-11-04 UTC.
+
+Endpoint: https://ssd.jpl.nasa.gov/api/horizons.api
+Method: existing public HTTPS GET; ten serial requests, bounded response bytes and timeouts. No coordinates, credentials, production mutation or product network behavior.
+
+Cases (key, display body, target, centre):
+mercury, Mercury, 1, 10
+venus, Venus, 2, 10
+earth, Earth, 399, 10
+mars, Mars, 4, 10
+jupiter, Jupiter, 5, 10
+saturn, Saturn, 6, 10
+uranus, Uranus, 7, 10
+neptune, Neptune, 8, 10
+moon, Moon, 301, 10
+geocentric-moon, GeocentricMoon, 301, 399
+
+Epochs: proleptic Gregorian Jan 1 00:00 in years 1, 1000, 1600, 1800, 1900, 1950, 2050, 2100, 2200, 2400, 3000, 5000, 7000, 9999; Jan 1 2000 12:00; July 1 2026 00:00. Sort by increasing numeric JD. All requests and vector output use TDB, explicit TLIST_TYPE=JD and CAL_TYPE=GREGORIAN.
+
+Vector convention: origin 500@10 (Sun centre) or 500@399 (Earth centre), EPHEM_TYPE=VECTORS, REF_SYSTEM=ICRF, REF_PLANE=ECLIPTIC, VEC_CORR=NONE, OUT_UNITS=AU-D, VEC_TABLE=1, CSV_FORMAT=YES, VEC_LABELS=YES, OBJ_DATA=NO, MAKE_EPHEM=YES.
+
+Primary acceptance: norm(model-reference)/norm(reference) * 206264.80624709636 <= 10 arcsecond-equivalent at every recorded nonzero vector. This intended 10-arcsecond full-vector budget is declared before measurement; do not relax it after observing failures. Angular separation and signed radial ppm are separate diagnostics. No separate radial/range qualification follows from this metric.
+
+Model-time scope: direct theory argument at requested JD/TDB. Public System ABI inputs are chosen so its TT argument matches that date within 1 ms; TDB-TT is bounded by 2 ms. This does not qualify historical UTC/UT1 conversion or absolute epoch uncertainty.
+
+Identity: targets 1,2,4,5,6,7,8 are planetary system barycentres; 399 is Earth centre; 301 is Moon centre. The giant planets' body-centre offsets are outside this matrix. No apparent place, light time, annual aberration, observer visibility, event, continuous-span, navigation, UI-registry or full-release claim is authorized by these samples.
+
+Retention: preserve each original plain-text response byte for byte, exact query URL, source/version, acquisition timestamp, byte size and SHA-256. Bind all derived CSV entries and the crate copy to these raw files. Changed/malformed identity, frame, units, correction, epoch, cardinality or finite numeric data fails admission. Preserve failures; source/model/data changes require separate investigation and review.

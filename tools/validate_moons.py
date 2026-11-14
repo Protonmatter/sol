@@ -30,6 +30,7 @@ SRC = ROOT / "tools" / "ephemeris-data" / "moons"
 MAX_ANGLE_DEG = 0.15
 MAX_RADIUS_FRAC = 0.0025  # 0.25%
 MIN_CHECKS_PER_MOON = 100
+VECTOR_COLUMNS = ("Satellite", "Code", "jd_tdb", "x_km", "y_km", "z_km")
 
 EXPECTED_INC = {
     "Mars": (15, 40),
@@ -40,10 +41,10 @@ EXPECTED_INC = {
 }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--require-canonical", action="store_true", help="require reviewed pinned Linux x86_64 generation evidence")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     errors: list[str] = []
 
     regeneration = subprocess.run(
@@ -62,29 +63,46 @@ def main() -> int:
 
     groups = load_element_groups(SRC / "horizons_satellite_elements.csv")
     knots = {name: equinoctial_knots(rows) for name, rows in groups.items()}
-    physical = {
-        row["Satellite"]: row
-        for row in csv.DictReader(
-            (SRC / "jpl_satellite_physical.csv").open(encoding="utf-8", newline="")
-        )
-    }
+    with (SRC / "jpl_satellite_physical.csv").open(encoding="utf-8", newline="") as physical_stream:
+        physical = {row["Satellite"]: row for row in csv.DictReader(physical_stream)}
 
     checks_by_moon: dict[str, int] = {}
     dates_by_moon: dict[str, list[float]] = {}
+    seen_vectors: set[tuple[str, float]] = set()
     worst_angle = (0.0, "")
     worst_radius = (0.0, "")
     checked = 0
     with (SRC / "horizons_satellite_vectors.csv").open(
         encoding="utf-8", newline=""
     ) as fh:
-        for row in csv.DictReader(fh):
+        reader = csv.DictReader(fh)
+        if reader.fieldnames != list(VECTOR_COLUMNS):
+            errors.append("validation vector columns differ from the declared format")
+        for row in reader if reader.fieldnames == list(VECTOR_COLUMNS) else ():
+            if set(row) != set(VECTOR_COLUMNS) or any(row[key] is None for key in VECTOR_COLUMNS):
+                errors.append("validation vector row has missing or extra fields")
+                continue
             name = row["Satellite"]
             moon_knots = knots.get(name)
             if moon_knots is None:
                 errors.append(f"{name}: validation vector with no element knots")
                 continue
-            jd = float(row["jd_tdb"])
-            truth = tuple(float(row[key]) for key in ("x_km", "y_km", "z_km"))
+            if row["Code"] != str(groups[name][0]["code"]):
+                errors.append(f"{name}: validation vector target code differs from its elements")
+                continue
+            try:
+                jd = float(row["jd_tdb"])
+                truth = tuple(float(row[key]) for key in ("x_km", "y_km", "z_km"))
+            except (TypeError, ValueError):
+                errors.append(f"{name}: validation vector has a malformed epoch or coordinate")
+                continue
+            if not all(math.isfinite(value) for value in (jd, *truth)):
+                errors.append(f"{name}: validation vector has a non-finite epoch or coordinate")
+                continue
+            if (name, jd) in seen_vectors:
+                errors.append(f"{name} @ JD {jd:.6f}: duplicate validation vector")
+                continue
+            seen_vectors.add((name, jd))
 
             # A validation record may never coincide with a training knot.
             nearest_days = min(abs(jd - knot["jd"]) for knot in moon_knots)
@@ -96,15 +114,25 @@ def main() -> int:
                 continue
 
             got = position(interpolate(moon_knots, jd))
+            if len(got) != 3 or not all(math.isfinite(value) for value in got):
+                errors.append(f"{name} @ JD {jd:.6f}: model vector is non-finite or malformed")
+                continue
             truth_radius = math.dist((0, 0, 0), truth)
             got_radius = math.dist((0, 0, 0), got)
-            cosine = sum(a * b for a, b in zip(got, truth)) / (
-                got_radius * truth_radius
-            )
+            numerator = sum(a * b for a, b in zip(got, truth))
+            denominator = got_radius * truth_radius
+            if not all(math.isfinite(value) for value in (truth_radius, got_radius, numerator, denominator)) \
+                    or truth_radius <= 0 or got_radius <= 0 or denominator <= 0:
+                errors.append(f"{name} @ JD {jd:.6f}: invalid vector norm or comparison range")
+                continue
+            cosine = numerator / denominator
             angular = math.degrees(
                 math.acos(max(-1.0, min(1.0, cosine)))
             )
             radial = abs(got_radius - truth_radius) / truth_radius
+            if not all(math.isfinite(value) for value in (cosine, angular, radial)):
+                errors.append(f"{name} @ JD {jd:.6f}: non-finite vector comparison")
+                continue
             checked += 1
             checks_by_moon[name] = checks_by_moon.get(name, 0) + 1
             dates_by_moon.setdefault(name, []).append(jd)

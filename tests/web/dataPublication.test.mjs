@@ -4,12 +4,32 @@ import fs from "node:fs";
 import vm from "node:vm";
 import { resolvePresentation } from "../../apps/web/js/presentationState.js";
 
+test('a newer bundle load cancels the old transfer without losing ownership of the pending replacement',async()=>{
+  const source=fs.readFileSync(new URL('../../apps/web/js/data.js',import.meta.url),'utf8')
+    .replace(/^import .*;\r?\n/gm,'').replaceAll('export ','').replaceAll('import.meta.url','"https://example.invalid/js/data.js"');
+  const prior={id:'prior'},store={state:prior,liveState:prior},jobs=[];let renders=0;
+  const context=vm.createContext({store,URL,AbortController,Image:class{},BASE_IMAGES:{},FALLBACK_STATE:{fallback:true},
+    document:{getElementById:()=>null},window:{},prepareBundlePublication(){},renderAll(){renders++;},maybeAutoStartTour(){},
+    readDataBundle:options=>new Promise((resolve,reject)=>jobs.push({options,resolve,reject}))});
+  vm.runInContext(source,context);
+  const bundle=id=>({snapshot:{id},feedStatus:{},seriesFrames:[],seriesRecords:[],seriesManifest:{},identity:{bundle_id:id}});
+  const first=context.loadState(),second=context.loadState();
+  assert.equal(jobs[0].options.signal?.aborted,true);assert.equal(jobs[1].options.signal.aborted,false);
+  jobs[0].resolve(bundle('obsolete'));await first;assert.equal(store.state,prior);
+  const third=context.loadState();assert.equal(jobs[1].options.signal.aborted,true,'Old completion must not release the newer owner');
+  jobs[2].resolve(bundle('current'));await third;jobs[1].resolve(bundle('obsolete second'));await second;
+  assert.equal(store.state.id,'current');assert.equal(renders,1);
+  const fourth=context.loadState();assert.equal(jobs[2].options.signal.aborted,false,'Completed jobs have released their controller');
+  jobs[3].reject(Error('replacement failed'));await fourth;
+  assert.equal(store.state.id,'current');assert.match(store.dataError,/replacement failed/);
+});
+
 test("data loader publishes once only after complete bundle and preserves all prior data on error",async()=>{
   const source=fs.readFileSync(new URL("../../apps/web/js/data.js",import.meta.url),"utf8")
     .replace(/^import .*;\r?\n/gm,"").replaceAll("export ","").replaceAll("import.meta.url",'"https://example.invalid/js/data.js"');
   const sentinel={id:"last valid"},store={state:sentinel,liveState:sentinel,feedStatus:{id:"old status"},seriesFrames:[sentinel],seriesRecords:[{id:"old"}],seriesManifest:{id:"old manifest"},timelineIndex:3,selectedRegionId:7};
   let resolve,reject,renders=0;
-  const context=vm.createContext({store,URL,Image:class{},FALLBACK_STATE:{fallback:true},BASE_IMAGES:{},document:{getElementById:()=>null},window:{},
+  const context=vm.createContext({store,URL,AbortController,Image:class{},FALLBACK_STATE:{fallback:true},BASE_IMAGES:{},document:{getElementById:()=>null},window:{},
     fetch:async()=>{throw Error("Mutable alias fetch forbidden");},
     prepareBundlePublication:()=>{},readDataBundle:()=>new Promise((yes,no)=>{resolve=yes;reject=no;}),renderAll:()=>{renders++;},maybeAutoStartTour:()=>{}});
   vm.runInContext(source,context);
@@ -36,7 +56,7 @@ test("complete bundle resets cycle/gap/live intent and invalidates pending worke
     const store={state:prior,liveState:prior,timelineIndex:mode==="live"?-1:1,liveEngineRun:mode==="live",selectedRegionId:7,seriesFrames:[prior,null],seriesRecords:[],playTimer:99};
     let workerResolve,bundleResolve,bundleReject,cancelled=0,cleared=0;
     const status={textContent:""},scrubber={value:"1"};
-    const context=vm.createContext({store,URL,Image:class{},FALLBACK_STATE:{},BASE_IMAGES:{},performance:{now:()=>0},
+    const context=vm.createContext({store,URL,AbortController,Image:class{},FALLBACK_STATE:{},BASE_IMAGES:{},performance:{now:()=>0},
       document:{getElementById:id=>id==="liveStatus"?status:id==="timeScrubber"?scrubber:null,querySelector:()=>null},
       window:{clearInterval:id=>{assert.equal(id,99);cleared++;}},renderAll:()=>{},maybeAutoStartTour:()=>{},
       cancelSolarSimulation:()=>{cancelled++;},requestSolarSimulation:()=>new Promise(resolve=>{workerResolve=resolve;}),assertSolarSnapshot:value=>value,

@@ -6,8 +6,10 @@ import io
 import json
 import math
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -136,22 +138,17 @@ class EphemerisSemanticTests(unittest.TestCase):
         self.assertEqual(validator.semantic_checks([]), [])
 
     def test_main_accepts_valid_json_and_rejects_non_json_numbers(self):
-        good = ROOT / "apps" / "web" / "data" / "latest-state.json"
         # The CLI path is exercised with a deliberately small invalid contract; this
         # covers I/O and diagnostics without coupling this validator to solar-state.
-        bad = ROOT / "tests" / "fixtures" / "_ephemeris_bad_tmp.json"
-        try:
-            bad.write_text('{"value": NaN}', encoding="utf-8")
-            old_argv = sys.argv
-            sys.argv = ["validate_ephemeris_snapshot.py", str(bad)]
-            with contextlib.redirect_stderr(io.StringIO()):
-                self.assertEqual(validator.main(), 1)
-            bad.write_text("{}", encoding="utf-8")
-            with contextlib.redirect_stderr(io.StringIO()):
-                self.assertEqual(validator.main(), 1)
-        finally:
-            sys.argv = old_argv
-            bad.unlink(missing_ok=True)
+        with tempfile.TemporaryDirectory(prefix="sol-ephemeris-contract-") as directory:
+            bad = Path(directory) / "invalid-ephemeris.json"
+            with patch.object(sys, "argv", ["validate_ephemeris_snapshot.py", str(bad)]):
+                bad.write_text('{"value": NaN}', encoding="utf-8")
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(validator.main(), 1)
+                bad.write_text("{}", encoding="utf-8")
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(validator.main(), 1)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,170 @@
+API VERSION: 1.2
+API SOURCE: NASA/JPL Horizons API
+
+
+
+*******************************************************************************
+Ephemeris / API_USER Tue Nov  3 20:14:17 2026 Pasadena, USA      / Horizons    
+*******************************************************************************
+Target body name: Moon (301)                      {source: DE441}
+Center body name: Earth (399)                     {source: DE441}
+Center-site name: GEOCENTRIC
+*******************************************************************************
+Start time      : A.D. 1934-Nov-23 08:40:19.0000 TT      
+Stop  time      : A.D. 1960-Nov-25 08:38:45.0000 TT      
+Step-size       : 0 steps
+*******************************************************************************
+Target pole/equ : MOON_ME                         {East-longitude positive}
+Target radii    : 1737.4, 1737.4, 1737.4 km       {Equator_a, b, pole_c}       
+Center geodetic : 0.0, 0.0, -6378.137             {E-lon(deg),Lat(deg),Alt(km)}
+Center cylindric: 0.0, 0.0, 0.0                   {E-lon(deg),Dxy(km),Dz(km)}
+Center pole/equ : ITRF93                          {East-longitude positive}
+Center radii    : 6378.137, 6378.137, 6356.752 km {Equator_a, b, pole_c}       
+Target primary  : Earth
+Vis. interferer : MOON (R_eq= 1737.400) km        {source: DE441}
+Rel. light bend : Sun                             {source: DE441}
+Rel. lght bnd GM: 1.3271E+11 km^3/s^2                                          
+Atmos refraction: NO (AIRLESS)
+RA format       : DEG
+Time format     : JD  
+Calendar mode   : Gregorian
+EOP file        : eop.261103.p270130                                           
+EOP coverage    : DATA-BASED 1962-JAN-20 TO 2026-NOV-03. PREDICTS-> 2027-JAN-29
+Units conversion: 1 au= 149597870.700 km, c= 299792.458 km/s, 1 day= 86400.0 s 
+Table cut-offs 1: Elevation (-90.0deg=NO ),Airmass (>38.000=NO), Daylight (NO )
+Table cut-offs 2: Solar elongation (  0.0,180.0=NO ),Local Hour Angle( 0.0=NO )
+Table cut-offs 3: RA/DEC angular rate (     0.0=NO )                           
+Table format    : Comma Separated Values (spreadsheet)
+**************************************************************************************************************************************
+Date_________JDTT, , , R.A.__(a-app), DEC___(a-app),             delta,     deldot,        TDB-UT,  RA_(ICRF-a-app), DEC_(ICRF-a-app),
+**************************************************************************************************************************************
+$$SOE
+2427764.861331019, , ,  85.521203370,  26.441147167,  0.00264240967275,  0.0423837,     24.176362,     86.531216032,     26.464836977,
+2427958.670671296, , , 120.874197412,  19.827601464,  0.00266254012598,  0.0393349,     24.132924,    121.807008561,     19.640667093,
+2428756.962326389, , , 195.957901649, -11.231773205,  0.00264689967291,  0.0484444,     24.042540,    196.772108907,    -11.563439405,
+2429319.370196759, , ,  35.285756231,  14.324331674,  0.00259568702969, -0.0504642,     24.205451,     36.112434328,     14.599392485,
+2429519.033206019, , , 155.736690947,   5.593824097,  0.00239355202146, -0.0046445,     24.335714,    156.519790790,      5.288579930,
+2429520.428668981, , , 175.790823771,  -1.266144927,  0.00240213339768,  0.0257446,     24.336783,    176.560236816,     -1.599960902,
+2429554.491307870, , , 269.118631313, -18.863969482,  0.00260997186989,  0.0628768,     24.363583,    270.002190650,    -18.868683983,
+2429627.961574074, , , 152.105469000,   7.063663047,  0.00244861626328,  0.0124745,     24.426157,    152.890991752,      6.769250816,
+2430272.643946759, , ,   8.962825218,   2.252286185,  0.00266917148826,  0.0312462,     25.217320,      9.711845019,      2.573007957,
+2430309.683784722, , , 127.981583096,  15.192087162,  0.00263026019241, -0.0566683,     25.272447,    128.796461394,     14.992762948,
+2430368.567511574, , , 183.610146336,   0.184752174,  0.00253503682469, -0.0472485,     25.361503,    184.353693378,     -0.137829946,
+2430486.510509259, , , 311.170137769, -15.308195190,  0.00250232251813,  0.0559846,     25.544306,    311.976309525,    -15.096493715,
+2430608.055300926, , , 104.782191575,  18.662369093,  0.00269674764192, -0.0178825,     25.737294,    105.622518780,     18.580588735,
+2430721.628935185, , , 157.612665791,  10.290081353,  0.00267032398697, -0.0405481,     25.920136,    158.367006486,      9.995736327,
+2430732.220196759, , , 305.362642013, -17.481480108,  0.00239413391257,  0.0280023,     25.937252,    306.176037897,    -17.297351102,
+2431141.767453704, , , 293.535078841, -20.332630685,  0.00243079230022, -0.0541292,     26.590960,    294.359607503,    -20.207093229,
+2432325.124861111, , ,  42.933842905,  14.780566735,  0.00245368308660, -0.0469956,     28.026773,     43.666094409,     14.994365884,
+2433032.753229167, , ,  12.257200974,   3.979720522,  0.00270834163415, -0.0127646,     28.684522,     12.913202799,      4.255545951,
+2433956.790879630, , , 316.154895970, -18.923683802,  0.00248655528907,  0.0324708,     29.644271,    316.832529674,    -18.728049673,
+2434166.748564815, , , 187.017208823,  -6.912367634,  0.00261154369429, -0.0612302,     29.839092,    187.628876338,     -7.173922482,
+2434224.883368055, , , 230.299229025, -23.910314294,  0.00253725381461, -0.0708320,     29.887691,    230.994833803,    -24.075440680,
+2434866.409988426, , ,  54.761420338,  23.420869333,  0.00240765325488,  0.0354702,     30.265118,     55.432845303,     23.564741168,
+2434893.416828704, , ,  47.878996496,  22.165031736,  0.00241288314503,  0.0067868,     30.279307,     48.536183009,     22.332599928,
+2434926.197754629, , , 129.974055910,  16.211695693,  0.00254876975568,  0.0595270,     30.296994,    130.607884360,     16.048692407,
+2435188.923958333, , , 338.154556608,  -4.195415829,  0.00251239177737, -0.0581026,     30.469139,    338.730247707,     -3.965210148,
+2435533.900428241, , , 212.480959510, -16.322102567,  0.00259986487911,  0.0627977,     30.841409,    213.076579639,    -16.526020407,
+2436305.513414352, , , 304.484827800, -14.243314449,  0.00264142608448,  0.0542703,     32.218876,    305.065379830,    -14.113071156,
+2436661.394699074, , , 313.581844236, -12.633104849,  0.00258726788601,  0.0483863,     32.776684,    314.139605003,    -12.477901952,
+2436727.342824074, , ,  91.321359529,  18.460981064,  0.00268787644166, -0.0261276,     32.857503,     91.915752437,     18.457310578,
+2436754.605393519, , ,  91.316538622,  18.470720952,  0.00267945631439, -0.0288611,     32.888980,     91.909687432,     18.467100047,
+2436949.046377315, , , 133.286183306,  13.821492975,  0.00265765303737, -0.0333448,     33.085457,    133.837846787,     13.670160103,
+2437263.860243056, , , 331.046616763, -10.691330603,  0.00249135695736,  0.0428156,     33.332485,    331.569213639,    -10.500947411,
+$$EOE
+**************************************************************************************************************************************
+Column meaning:
+ 
+TIME
+
+  Terrestrial Time ("TT") output was requested. This continuous timescale
+is the relativistic proper time of a clock at rest on the Earth's geoid (at
+"mean sea level"), but defined for a specified gravitational time dilation,
+so a coordinate time. It is appropriate for observations and measurements
+from the surface of the Earth.
+
+  TT runs at a uniform rate of one SI second per second and is independent of
+irregularities in Earth's rotation. It is a theoretical ideal, approximated
+(with a constant offset of 32.184 seconds) by the measured International Atomic
+Time (TAI) after 1955.  TT is the relativistic successor to the now deprecated
+non-relativistic Ephemeris Time (ET).
+
+  The TT scale requested here is a time-scale conversion from internal
+Barycentric Dynamical Time (TDB) and differs periodically from TDB with an
+amplitude less than 2 ms for several thousand years centered on present.
+The time-scale conversion for Earth is used regardless of observer location
+within the solar system, although clock rates may differ due to the local
+gravity field.
+
+  Any 'b' symbol in the 1st-column denotes a B.C. date. First-column blank
+(" ") denotes an A.D. date.
+ 
+CALENDAR SYSTEM
+
+  Calendar dates are given in the modern Gregorian system, extended prior to
+its 1582-Oct-15 adoption. The Gregorian calendar more closely corresponds to
+physical Earth seasons and orbital motion, but can differ by up to 10 days with
+historical records made under the prior Julian calendar, more if the Julian
+calendar was extended prior to its 45-Jan-1 BC adoption to label the historical
+event. Select "mixed" calendar mode if correlation with historical dates prior
+to A.D. 1582 is important.
+
+  NOTE: "n.a." in output means quantity "not available" at the print-time.
+ 
+ 'R.A.__(a-app), DEC___(a-app),' =
+  Airless apparent right ascension and declination of the target center
+with respect to an instantaneous reference frame defined by the Earth equator
+of-date (z-axis) and meridian containing the Earth equinox of-date (x-axis,
+EOP-corrected IAU76/80). Compensated for down-leg light-time delay,
+gravitational deflection of light, stellar aberration, precession & nutation.
+Note: equinox (RA origin) is offset -53 mas from the of-date frame defined by
+the IAU06/00a P & N system.
+
+  Units: RA  in decimal degrees, ddd.fffff{ffff}
+         DEC in decimal degrees  sdd.fffff{ffff}
+
+ 
+ 'delta,     deldot,' =
+   Apparent range ("delta", light-time aberrated) and range-rate ("delta-dot")
+of the target center relative to the observer. A positive "deldot" means the
+target center is moving away from the observer, negative indicates movement
+toward the observer.  Units: AU and KM/S
+ 
+ 'TDB-UT,' =
+   Difference between the uniform Barycentric Dynamical time-scale and the
+Earth-rotation dependent Universal Time. Prior to 1962, the difference is with
+respect to UT1 (TDB-UT1) and the 0.002 second maximum amplitude distinction
+between TT and TDB is not maintained. For 1962 and later, the difference is
+with respect to UTC (TDB-UTC) and periodic terms less than 1.e-6 second are
+ignored. Values beyond the next July or January 1st may change if a leap-second
+is later required by the IERS. Values from the present date forward through
+the next ~78 days are predictions. Beyond that prediction interval, the last
+prediction is taken as a constant for all future dates. Units: SECONDS
+ 
+ 'RA_(ICRF-a-app), DEC_(ICRF-a-app),' =
+   Airless apparent right ascension and declination coordinates of the target
+in the ICRF reference frame, with down-leg light-time, gravitational deflection
+of light, and stellar aberration.
+
+   Units:
+          RA : ddd.ddddd{dddd}   (degrees)
+          DEC: sdd.ddddd{dddd}   (degrees)
+
+Computations by ...
+
+    Solar System Dynamics Group, Horizons On-Line Ephemeris System
+    4800 Oak Grove Drive, Jet Propulsion Laboratory
+    Pasadena, CA  91109   USA
+
+    General site: https://ssd.jpl.nasa.gov/
+    Mailing list: https://ssd.jpl.nasa.gov/email_list.html
+    System news : https://ssd.jpl.nasa.gov/horizons/news.html
+    User Guide  : https://ssd.jpl.nasa.gov/horizons/manual.html
+    Connect     : browser        https://ssd.jpl.nasa.gov/horizons/app.html#/x
+                  API            https://ssd-api.jpl.nasa.gov/doc/horizons.html
+                  command-line   telnet ssd.jpl.nasa.gov 6775
+                  e-mail/batch   https://ssd.jpl.nasa.gov/ftp/ssd/horizons_batch.txt
+                  scripts        https://ssd.jpl.nasa.gov/ftp/ssd/SCRIPTS
+    Inquiries   : Jon.D.Giorgini@jpl.nasa.gov
+
+**************************************************************************************************************************************

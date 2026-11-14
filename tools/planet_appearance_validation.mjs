@@ -38,6 +38,8 @@ function moduleFile(relative) {
 const shadersFile = moduleFile("js/orreryShaders.js"), mappingFile = moduleFile("js/surfaceMapping.js"), rendererFile = moduleFile("js/orrery.js");
 const { SPHERE_VS, SPHERE_FS, BASE_SPHERE_VS, BASE_SPHERE_FS } = await import(pathToFileURL(shadersFile.file).href);
 const { surfaceUv, srgbToLinear, linearToSrgb, nightLightWeight } = await import(pathToFileURL(mappingFile.file).href);
+const earthFile = moduleFile('js/earthLookShaders.js');
+const {EARTH_LOOK_VS,EARTH_LOOK_FS,EARTH_LOOK_EXTENT} = await import(pathToFileURL(earthFile.file).href);
 const upload = rendererFile.bytes.toString("utf8").match(/function makeTexture\(img, repeatS, nearest = false(?:, premultiplyAlpha = false)?(?:, linearFilter = false)?\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(upload, "actual image upload function could not be isolated");
 
@@ -51,9 +53,14 @@ const fixtures = new Map([
   ["/quadrants.png", fixture(64, 32, (x, y) => colors[(y >= 16 ? 2 : 0) + (x >= 32 ? 1 : 0)])],
   ["/grid.png", fixture(256, 128, (x, y) => [x, 2 * y, 80, 255])],
   ["/seam.png", fixture(64, 32, x => x < 4 || x >= 60 ? [40, 120, 220, 255] : [220, 40, 30, 255])],
+  ["/seam-constant.png", fixture(64, 32, () => [40,120,220,255])],
+  ["/cloud-seam.png", fixture(64, 32, x => [255,255,255,x<4||x>=60 ? 0 : 255])],
+  ["/gray.png", fixture(64, 32, () => [128,128,128,255])],
   // Matching dark edges and a bright interior: a false coarse mip at the
   // longitude wrap becomes a bright strip in the actual moon contrast mode.
   ["/spatial-seam.png", fixture(64, 32, x => x < 4 || x >= 60 ? [32,32,32,255] : [224,224,224,255])],
+  // Subpixel alternating texels must retain mip smoothing after the wrap fix.
+  ["/checker.png", fixture(1024, 512, (x,y) => [...Array(3).fill((x+y)%2 ? 255 : 0),255])],
   // A geographically bounded dark-red deposit against brighter terrain tests
   // valid dark RGB and the uncompressed part of the relative-contrast display.
   ["/color-deposits.png", fixture(64, 32, x => x < 8 ? [48,12,6,255] : [192,192,192,255])],
@@ -74,9 +81,9 @@ const fixtures = new Map([
 const evidence = {schema_version: "planet-appearance-validation.v1", web_root: webRoot,
   release_namespace: release?.namespace ?? null, started_at: new Date().toISOString(),
   scope: "Synthetic fiducials through actual SPHERE_VS/SPHERE_FS and makeTexture; not astronomical calibration or application qualification",
-  source_sha256: {shaders: digest(shadersFile.bytes), surface_mapping: digest(mappingFile.bytes), renderer: digest(rendererFile.bytes)},
+  source_sha256: {shaders: digest(shadersFile.bytes), earth_shaders:digest(earthFile.bytes), surface_mapping: digest(mappingFile.bytes), renderer: digest(rendererFile.bytes)},
   compiled_shader_sha256: {physical_vertex:digest(SPHERE_VS),physical_fragment:digest(SPHERE_FS),
-    base_vertex:digest(BASE_SPHERE_VS),base_fragment:digest(BASE_SPHERE_FS)},
+    base_vertex:digest(BASE_SPHERE_VS),base_fragment:digest(BASE_SPHERE_FS),earth_vertex:digest(EARTH_LOOK_VS),earth_fragment:digest(EARTH_LOOK_FS)},
   fixture_sha256: Object.fromEntries([...fixtures].map(([key, value]) => [key, digest(value)])), checks: [], disabled_material_parity: []};
 fs.mkdirSync(out, {recursive: true});
 let browser, server, launchPromise, deadlineTimer, expired = false;
@@ -116,7 +123,7 @@ async function run() {
   const cdp = await page.createCDPSession(); await cdp.send("Network.enable");
   await cdp.send("Network.setBlockedURLs", {urls: ["https://*", "http://localhost/*"]});
   await page.goto(`http://127.0.0.1:${server.address().port}/fixture.html`, {waitUntil: "domcontentloaded", timeout: 15000});
-  evidence.gpu = await page.evaluate(async ({vertex, fragment, baseVertex, baseFragment, upload, images}) => {
+  evidence.gpu = await page.evaluate(async ({vertex, fragment, baseVertex, baseFragment, earthVertex,earthFragment,earthExtent,upload, images}) => {
     const gl = document.querySelector("canvas").getContext("webgl2", {antialias: false, preserveDrawingBuffer: true});
     if (!gl) throw new Error("WebGL2 unavailable for actual shader gate");
     const compile = (type, source) => {
@@ -130,7 +137,7 @@ async function run() {
       if (!gl.getProgramParameter(result, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(result));
       return result;
     };
-    const programs = {physical:link(vertex, fragment), base:link(baseVertex, baseFragment)};
+    const programs = {physical:link(vertex, fragment), base:link(baseVertex, baseFragment),earth:link(earthVertex,earthFragment)};
     if (!gl.getExtension('EXT_color_buffer_float')) throw new Error('Linear material gate requires float readback');
     const linearTarget=gl.createFramebuffer(), linearTexture=gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D,linearTexture);
@@ -143,15 +150,18 @@ async function run() {
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);
     let program = programs.physical;
     gl.useProgram(program); gl.disable(gl.DITHER); gl.disable(gl.BLEND); gl.viewport(0, 0, 1, 1);
-    const textureFactory = new Function("gl", `${upload}; return makeTexture;`)(gl);
-    const flippedFactory = new Function("gl", `${upload.replace("UNPACK_FLIP_Y_WEBGL, false", "UNPACK_FLIP_Y_WEBGL, true")}; return makeTexture;`)(gl);
+    // makeTexture reads the renderer's per-context texture limit, which initGL
+    // records from MAX_TEXTURE_SIZE; supply the same value for this context.
+    const textureLimits = new WeakMap([[gl, gl.getParameter(gl.MAX_TEXTURE_SIZE)]]);
+    const textureFactory = new Function("gl", "textureLimits", `${upload}; return makeTexture;`)(gl, textureLimits);
+    const flippedFactory = new Function("gl", "textureLimits", `${upload.replace("UNPACK_FLIP_Y_WEBGL, false", "UNPACK_FLIP_Y_WEBGL, true")}; return makeTexture;`)(gl, textureLimits);
     const textures = {}, uploadPremultiplyStates = [];
     for (const name of images) {
       const image = new Image(); image.src = name; await image.decode();
       // Coordinate-gradient probes use nearest to make source texel identity explicit.
       // Quadrants and seam exercise the renderer's actual linear/mipmap upload path.
       const maskedPhoto = ["/transparent.png", "/half-white.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name);
-      textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/spatial-seam.png", "/color-deposits.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
+      textures[name] = textureFactory(image, true, !["/quadrants.png", "/seam.png", "/seam-constant.png", "/cloud-seam.png", "/gray.png", "/spatial-seam.png", "/checker.png", "/color-deposits.png", "/alpha-edge.png", "/color-alpha-edge.png"].includes(name), maskedPhoto);
       uploadPremultiplyStates.push({name, expected:maskedPhoto, actual:gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)});
       if (name === "/quadrants.png") textures.flipped = flippedFactory(image, true, false);
       if (['/opaque-edge.png','/saturated-edge.png'].includes(name)) {
@@ -177,6 +187,7 @@ async function run() {
       gl.bindFramebuffer(gl.FRAMEBUFFER,options.linearOutput ? linearTarget : null);
       i('u_linearOutput',options.linearOutput ? 1 : 0);
       i('u_textureLinear',options.textureLinear ? 1 : 0);
+      i('u_illustrativeLinear',options.illustrative ? 1 : 0);
       const p = options.position || [0, 1, 1], e = .0001;
       const vertices = [[-1,-1], [1,-1], [-1,1], [-1,1], [1,-1], [1,1]];
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices.flatMap(([x,y]) => [p[0]+e*x,p[1]+e*y,p[2]])), gl.STATIC_DRAW);
@@ -231,9 +242,45 @@ async function run() {
       canvas.width = 1; canvas.height = 1; gl.viewport(0,0,1,1);
       return {width,height,pixels:Array.from(pixels)};
     };
+    // Actual perspective Earth shader, including relief, night and cloud paths.
+    // A planar proxy supplies rays through a small sphere patch straddling the
+    // longitude join inside a derivative quad; constant textures are controls.
+    window.earthSeamProbe = ({layer,control=false,phase=0,latitude=0,oblique=false}) => {
+      const canvas=document.querySelector('canvas'),width=8,height=4,span=(latitude||oblique) ? .002 : .05,offset=span*.25;
+      canvas.width=width;canvas.height=height;gl.viewport(0,0,width,height);
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null);program=programs.earth;gl.useProgram(program);
+      const angle=2*Math.PI*(phase-.5),lat=latitude*Math.PI/180;
+      const center=[Math.cos(angle)*Math.cos(lat),Math.sin(angle)*Math.cos(lat),Math.sin(lat)],tangent=[-Math.sin(angle),Math.cos(angle),0];
+      const up=[-Math.cos(angle)*Math.sin(lat),-Math.sin(angle)*Math.sin(lat),Math.cos(lat)];
+      const vertices=[[-1,-1],[1,-1],[-1,1],[-1,1],[1,-1],[1,1]];
+      gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices.flatMap(([x,y])=>center.map((v,k)=>(v+tangent[k]*(offset+span*x)+up[k]*span*y)/earthExtent))),gl.STATIC_DRAW);
+      const mvp=[tangent[0]/span,up[0]/span,0,0,tangent[1]/span,up[1]/span,0,0,tangent[2]/span,up[2]/span,0,0,-offset/span,0,0,1];
+      gl.uniformMatrix4fv(location('u_mvp'),false,mvp);
+      v3('u_camObj',center.map((v,k)=>3*(oblique?v*.5+tangent[k]*Math.sqrt(.75):v)));v3('u_lightObj',center.map(v=>layer==='night'?-v:v));
+      f('u_oblate',1);f('u_pixelDiameter',160);f('u_earthLookExposure',1.6);f('uCloudPhase',phase);
+      i('u_linearOutput',0);i('u_earthLookPass',0);i('u_earthAtmosphere',0);
+      i('u_earthWeather',layer==='cloud'?1:0);i('u_earthNight',layer==='night'?1:0);
+      const day=layer==='surface'?(control?'/seam-constant.png':'/seam.png'):layer==='minified'?(control?'/gray.png':'/checker.png'):'/black.png';
+      bind(0,'u_tex',day);bind(1,'u_oceanMask','/black.png');
+      bind(2,'u_nightTex',layer==='night'?(control?'/seam-constant.png':'/seam.png'):'/black.png');
+      bind(3,'uCloudMap',layer==='cloud'&&!control?'/cloud-seam.png':'/transparent.png');
+      gl.clearColor(1,0,1,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,6);
+      const pixels=new Uint8Array(width*height*4);gl.readPixels(0,0,width,height,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+      const error=gl.getError();if(error!==gl.NO_ERROR)throw Error(`Earth seam GL error ${error}`);
+      canvas.width=1;canvas.height=1;gl.viewport(0,0,1,1);
+      return Array.from(pixels);
+    };
     const debug = gl.getExtension("WEBGL_debug_renderer_info");
     return {renderer: debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), version: gl.getParameter(gl.VERSION), uploadPremultiplyStates};
-  }, {vertex: SPHERE_VS, fragment: SPHERE_FS, baseVertex: BASE_SPHERE_VS, baseFragment: BASE_SPHERE_FS, upload, images: [...fixtures.keys()]});
+  }, {vertex: SPHERE_VS, fragment: SPHERE_FS, baseVertex: BASE_SPHERE_VS, baseFragment: BASE_SPHERE_FS,earthVertex:EARTH_LOOK_VS,earthFragment:EARTH_LOOK_FS,earthExtent:EARTH_LOOK_EXTENT,upload, images: [...fixtures.keys()]});
+  for(const layer of ['surface','night','cloud','minified'])for(const phase of layer==='cloud'?[0,.3]:[0]){
+    const result=await page.evaluate(options=>({actual:earthSeamProbe(options),control:earthSeamProbe({...options,control:true})}),{layer,phase});
+    check(`Earth ${layer} wrap at phase ${phase} matches continuous control`,result.actual,result.control,2);
+  }
+  for(const geometry of [{latitude:80},{latitude:-80},{oblique:true}])for(const layer of ['surface','night','cloud']){
+    const result=await page.evaluate(options=>({actual:earthSeamProbe(options),control:earthSeamProbe({...options,control:true})}),{layer,...geometry});
+    check(`Earth ${layer} wrap ${JSON.stringify(geometry)} matches continuous control`,result.actual,result.control,2);
+  }
   // Every existing material/registration assertion still receives the physical
   // shader result. Independently execute the shipped constant-disabled program
   // with identical inputs, including spatial derivative patches, and retain both.
@@ -311,13 +358,18 @@ async function run() {
   for (const side of [-1,1]) check(`continuous source seam side ${side}`,
     await probe({position:[-1,side*.001,0],texture:"/seam.png"}), [40,120,220,255]);
   const spatialCases = [
+    ['display map',0,'/seam.png',[40,120,220,255]],
+    ['illustrative planet',0,'/seam.png',[40,120,220,255],undefined,{illustrative:true}],
+    ['minified display map',0,'/checker.png',[128,128,128,255]],
+    ['legacy moon',2,'/spatial-seam.png',rgba([.2,.3,.4].map(c=>255*c*(32/200)**.6))],
+    ['Venus cloud shell',0,'/seam.png',[40,120,220,97],undefined,{mode:4,camera:[0,0,1e6]}],
     ['registered colour',3,'/seam.png',[40,120,220,255]],
     ['registered moon',4,'/spatial-seam.png',rgba([.2,.3,.4].map(c=>255*c*(32/200)**.6))],
     ['registered color moon',5,'/seam.png',rgba([40/220,120/220,1].map(c=>255*.6*c)),[.6,.6,.6]],
   ];
-  for (const [name,texMode,texture,expected,base] of spatialCases) {
+  for (const [name,texMode,texture,expected,base,extra] of spatialCases) {
     for (const crossing of [false,true]) {
-      const spatial = await pairedProbe('spatialSeamProbe',{texMode,texture,crossing,base});
+      const spatial = await pairedProbe('spatialSeamProbe',{texMode,texture,crossing,base,...extra});
       check(`${name} spatial ${crossing ? 'longitude-wrap' : 'non-wrapping'} patch retains edge texels`,
         spatial.pixels, Array.from({length:spatial.width*spatial.height},()=>expected).flat(), 2);
     }

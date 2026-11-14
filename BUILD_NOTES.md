@@ -2,6 +2,52 @@
 
 Generated: 2026-06-28
 
+## Current qualification compiler policy — 2026-11-04
+
+The root `rust-toolchain.toml` selects released Rust 1.96.0 with the minimal
+profile. Qualification/test/artifact/package workflows explicitly select that
+same version; pinning the installer action alone did not select a fixed
+compiler. Existing component and WASM target requests are preserved. Fuzzing
+intentionally selects nightly, including its `cargo-fuzz` installation.
+
+Install the existing build requirements using the official Rust toolchain manager:
+
+```text
+rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+rustup target add --toolchain 1.96.0 wasm32-unknown-unknown
+rustc -Vv
+cargo -V
+python tools/validate_sdlc.py
+cargo test --workspace --locked --offline
+```
+
+The first two commands download compiler components; subsequent locked offline
+builds require those components and the existing dependency cache. Release
+provenance captures the actual compiler/Cargo versions and rejects a different,
+partial or prerelease version at capture and admission. Numerical validation
+receipts also bind the root toolchain policy. The crate's declared minimum Rust
+version remains a separate compatibility claim. The later
+[minimum-compiler follow-up](docs/WASM_STAGING_MSRV_20261104.md) verifies Rust1.85.0
+on native Linux, including222 tests,109,900 retained model comparisons and actual
+minimum-compiler WASM browser execution. The existing required test job now checks
+that floor separately; Rust1.96.0 remains the qualification compiler.
+
+The same follow-up corrects WASM staging for `CARGO_TARGET_DIR` and Cargo
+configuration: the builder stages the exact artifact Cargo reports and fails on
+missing/ambiguous metadata. Its final default Rust1.96 build reproduces the prior
+local candidate's exact modules. Compiler errors/warnings remain visible.
+The [offline package inventory](docs/PACKAGE_NOTICE_AUDIT_20261104.md) records an
+explicitly dirty diagnostic package and an unresolved upstream-notice hold;
+project licensing and publication authority are unchanged.
+
+The [native Linux precision report](docs/NATIVE_PRECISION_20261104.md) records
+the tested Windows ARM64/Linux x86-64 compiler identities, independent numerical
+results and explained cross-host WASM byte differences. Each release receipt
+must identify its exact binary bytes. A compiler upgrade requires a reviewed
+policy/workflow update and fresh build/numerical/rendering qualification.
+
+The older sections below retain their historical environment limitations.
+
 ## What was validated in this environment
 
 - Python prototype executed successfully in the original v0.1.1 package.

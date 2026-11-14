@@ -1,0 +1,42 @@
+Sol geocentric apparent-coordinate characterization, declared before acquisition.
+
+Purpose: distinguish geometric-orbit agreement from apparent true-equator/
+equinox-of-date agreement over the full supported calendar. No production
+formula, acceptance budget, supported date bound or UI evidence status changes.
+
+Source: NASA/JPL Horizons API, https://ssd.jpl.nasa.gov/api/horizons.api
+Observer: Earth geocenter, 500@399. Refraction: AIRLESS.
+Quantities: 2 (apparent true-of-date RA/Dec), 30 (TDB-UT diagnostic),
+45 (apparent ICRF RA/Dec diagnostic). Decimal degrees, CSV, Gregorian, JD/TT.
+
+Target IDs: Sun10, Moon301, Mercury199, Venus299, Mars-system4,
+Jupiter-system5, Saturn-system6, Uranus-system7, Neptune-system8.
+Planetary system barycenters are explicit targets; planet centers are not
+silently substituted or claimed at dates without their satellite solutions.
+
+Sixteen fixed TT instants: AD1 Jan2 00:00; AD1000,1600,1800,1900,1950
+Jan1 00:00; AD2000 Jan1 12:00; AD2026 Jul1 00:00; AD2050,2100,2200,
+2400,3000,5000,7000,9999 Jan1 00:00. Year1 uses Jan2 so inversion to
+the existing UTC-input ABI stays inside its supported calendar.
+
+Primary comparison: great-circle separation between native snapshot explicit
+geocentric apparent RA/Dec and Q2, at the same TT model argument. Acceptance:
+10 arcseconds for Sun/planets, 12 arcseconds for Moon, unchanged from existing
+general apparent-pointing regression budgets. Report every one of144 samples;
+any failure makes the independent scientific CLI return1. No post-acquisition
+sample pruning, tolerance adjustment or continuous-span qualification.
+
+Native example inverts AstroTime's UTC->TT mapping with8 fixed iterations,
+checks actual TT argument within1 millisecond, and invokes sky_snapshot_json.
+Only unique epoch inputs are read from the reference CSV; coordinates do not
+enter that native calculation. This isolates apparent-place numerical error,
+not historical UTC/UT1 or future Earth-orientation accuracy. Q30 is reported
+as a reference diagnostic and does not redefine the native time conversion.
+Q45 may support a separate explicitly labeled frame-transformation diagnostic;
+it cannot replace the independent Q2 primary comparison.
+
+Validation: strict immutable raw admission, exact target/origin/quantity/frame/
+time identity and epoch order/cardinality, finite/domain checks, derived CSV
+correspondence, malformed/nonfinite/duplicate/metric negative controls, actual
+native offline replay, source-bound complete failure report, independent review.
+No runtime network calls, application dependencies or automatic qualification.

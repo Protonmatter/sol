@@ -49,6 +49,7 @@ async function renderHarness(){
   const [view]=await loadSourceModules(context,[
     new URL('../../apps/web/js/view.js',import.meta.url),
     new URL('../../apps/web/js/data.js',import.meta.url),
+    new URL('../../apps/web/js/researchView.js',import.meta.url),
   ],{resolveImport:(_specifier,url)=>{
     const name=url.pathname.split('/').at(-1);
     if(name==='store.js')return {store};

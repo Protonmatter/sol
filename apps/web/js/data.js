@@ -1,12 +1,12 @@
 // Snapshot / series / feed-status loaders and the observed-image cache.
 
-import { store } from "./store.js?v=dcca6290db";
-import { FALLBACK_STATE, BASE_IMAGES } from "./config.js?v=dcca6290db";
-import { renderAll } from "./view.js?v=dcca6290db";
-import { maybeAutoStartTour } from "./tour.js?v=dcca6290db";
-import { readDataBundle } from "./dataBundle.js?v=dcca6290db";
-import { prepareBundlePublication } from "./timeline.js?v=dcca6290db";
-import { dynamicSourceEligible } from "./visualAssets.js?v=dcca6290db";
+import { store } from "./store.js";
+import { FALLBACK_STATE, BASE_IMAGES } from "./config.js";
+import { renderAll } from "./view.js";
+import { maybeAutoStartTour } from "./tour.js";
+import { readDataBundle } from "./dataBundle.js";
+import { prepareBundlePublication } from "./timeline.js";
+import { dynamicSourceEligible } from "./visualAssets.js";
 
 const baseImageCache = {};
 
@@ -57,15 +57,19 @@ export function currentBaseImage() {
 }
 
 let loadGeneration = 0;
+let loadController = null;
 
 export async function loadState() {
   const generation = ++loadGeneration;
+  loadController?.abort();
+  const controller = new AbortController();
+  loadController = controller;
   try {
     const releaseId = "__SOL_RELEASE_ID__";
     const localPreview = releaseId.startsWith("__SOL_");
     const bundle = await readDataBundle(localPreview
-      ? { pointerUrl: new URL("../data/current.json", import.meta.url).href }
-      : { releaseUrl: new URL("../web-release-manifest.json", import.meta.url).href, expectedReleaseId: releaseId });
+      ? { pointerUrl: new URL("../data/current.json", import.meta.url).href, signal:controller.signal }
+      : { releaseUrl: new URL("../web-release-manifest.json", import.meta.url).href, expectedReleaseId: releaseId, signal:controller.signal });
     if (generation !== loadGeneration) return;
     // All required bytes and identities passed before one synchronous publication.
     prepareBundlePublication();
@@ -84,6 +88,8 @@ export async function loadState() {
     store.dataError = `Snapshot bundle unavailable or invalid: ${error.message}. Retaining the last valid view where available.`;
     store.seriesError = `Cycle series retained with its selected bundle: ${error.message}`;
     if (!store.state) { store.state = FALLBACK_STATE; store.liveState = FALLBACK_STATE; }
+  } finally {
+    if (loadController === controller) loadController = null;
   }
   renderAll();
   maybeAutoStartTour();

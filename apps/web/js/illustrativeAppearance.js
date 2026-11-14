@@ -38,7 +38,7 @@ export const VENUS_ATMOSPHERE_SHELL_GLSL = `
   if(u_mode==4){
     float uu=0.5+atan(p.y,p.x)*0.1591549431;
     float vv=acos(clamp(p.z,-1.0,1.0))*0.3183098862;
-    vec3 clouds=decodeSRGB(texture(u_tex,vec2(uu,vv)).rgb);
+    vec3 clouds=decodeSRGB(equirectangularSample(u_tex,p,vec2(uu,vv)).rgb);
     float sun=max(dot(N,normalize(u_light)),0.0);
     float cover=smoothstep(0.05,0.22,sun);
     float ndv=clamp(dot(N,V),0.0,1.0);
@@ -103,7 +103,7 @@ export function venusAtmosphereNote(state = {}) {
 
 /** Validate source bytes before decoding; close unwanted decoded images before returning.
  * @param {any} asset @param {AbortSignal} signal
- * @param {{fetch?:any,digest?:any,decode?:any}} services */
+ * @param {{fetch?:any,digest?:any,decode?:any,maxDimension?:number}} services */
 export async function decodeIllustrativeMap(asset, signal, services = {}) {
   const check = () => { if (signal.aborted) throw new Error('Illustrative request aborted'); };
   check();
@@ -114,10 +114,16 @@ export async function decodeIllustrativeMap(asset, signal, services = {}) {
   const digest = await (services.digest || (b => crypto.subtle.digest('SHA-256',b)))(bytes);check();
   const hash = Array.from(new Uint8Array(digest),b => b.toString(16).padStart(2,'0')).join('');
   if (hash !== asset.sha256) throw new Error('Illustrative hash mismatch');
-  const image = await (services.decode || (blob => createImageBitmap(blob)))(new Blob([bytes],{type:'image/jpeg'}));
+  const ratio=services.maxDimension?Math.min(1,services.maxDimension/Math.max(...asset.dimensions)):1;
+  const dimensions=asset.dimensions.map(n=>Math.max(1,Math.floor(n*ratio)));
+  /** @type {ImageBitmapOptions|undefined} */
+  const options=ratio<1?{resizeWidth:dimensions[0],resizeHeight:dimensions[1],resizeQuality:'high'}:undefined;
+  // The pinned hash identifies the original grid; verify the requested display
+  // grid after decode without retaining a native 5400px Earth bitmap.
+  const image = await (services.decode || ((blob,options) => createImageBitmap(blob,options)))(new Blob([bytes],{type:'image/jpeg'}),options);
   try {
     check();
-    if (image.width !== asset.dimensions[0] || image.height !== asset.dimensions[1]) throw new Error('Illustrative dimensions mismatch');
+    if (image.width !== dimensions[0] || image.height !== dimensions[1]) throw new Error('Illustrative dimensions mismatch');
     return image;
   } catch(error) {image.close();throw error;}
 }
