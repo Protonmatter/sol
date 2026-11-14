@@ -736,7 +736,7 @@ function requestReferenceTextures() {
     const previous=referenceTextures[asset.id];
     if(previous?.ready && (previous.plan.width>=plan.width || previous.failedWidth>=plan.width))continue;
     if(entries.reduce((sum,e)=>sum+(e.loading?(e.pendingPlan||e.plan).decodedBytes:0),0)+plan.decodedBytes>MAX_REFERENCE_PENDING_BYTES)continue;
-    const attempt={tex:previous?.tex||null,ready:!!previous?.ready,loading:true,used:++referenceUseSerial,abort:new AbortController(),bitmap:null,plan:previous?.plan||plan,pendingPlan:plan,previous};
+    const attempt={tex:previous?.tex||null,linearFilter:previous?.linearFilter,ready:!!previous?.ready,loading:true,used:++referenceUseSerial,abort:new AbortController(),bitmap:null,plan:previous?.plan||plan,pendingPlan:plan,previous};
     referenceTextures[asset.id]=attempt;state.appearanceStatus[asset.id]='loading';changed=true;
     const current=()=>generation===textureGeneration && referenceTextures[asset.id]===attempt && attempt.loading && !attempt.abort.signal.aborted;
     requestReferenceImage(asset,{plan,signal:attempt.abort.signal,onReady:bitmap=>{
