@@ -49,3 +49,13 @@ List exact commands and concise results.
 - [ ] Operations, readiness, status, roadmap, and handoff are updated when affected.
 - [ ] User-visible claims and help match implemented behavior.
 
+## Publication identity
+
+<!-- Keep credentials and private recovery-store references out of this public PR. -->
+
+- Source commit SHA:
+- Published commit SHA, when different:
+- Verified tree SHA:
+- PR head observation time:
+- CI run ID and attempt; pending is not passed:
+- Recovery operation ID and packet checksum; exact private storage reference retained separately:
